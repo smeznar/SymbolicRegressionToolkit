@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.optimize import minimize
 
-from utils import Node, tokens_to_tree, is_float
-from symbol_library import SymbolLibrary
+from .utils import Node, tokens_to_tree, is_float
+from .symbol_library import SymbolLibrary
 
 
 class ParameterEstimator:
@@ -12,7 +12,13 @@ class ParameterEstimator:
         self.y = y
 
         if estimation_settings is None:
-            self.estimation_settings = dict()
+            self.estimation_settings = {
+                "method": "L-BFGS-B",
+                "tol": 1e-6,
+                "maxiter": 100,
+                "bounds": [-5, 5],
+                "initialization": "random" # random, mean
+            }
         else:
             self.estimation_settings = estimation_settings
 
@@ -27,15 +33,16 @@ class ParameterEstimator:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
     def _optimize_parameters(self, executable_error_fn, num_constants: int):
-        # create initial vector
-
-        # optimize parameters
-        return 0, 0
+        x0 = np.random.rand(num_constants) * (self.estimation_settings["bounds"][1] - self.estimation_settings["bounds"][0]) + self.estimation_settings["bounds"][0]
+        res = minimize(lambda c: executable_error_fn(self.X, c, self.y), x0, method=self.estimation_settings["method"],
+                       tol=self.estimation_settings["tol"], options={"maxiter": self.estimation_settings["maxiter"]},
+                       bounds=[(self.estimation_settings["bounds"][0], self.estimation_settings["bounds"][1]) for _ in range(num_constants)])
+        return res.fun, res.x
 
 
 def expr_to_executable_function(expr: list[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()):
     tree = tokens_to_tree(expr, symbol_library)
-    code, symbol, var_counter, const_counter = tree_to_function_rec(tree)
+    code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
 
     fun_string = "def _executable_expression_(X, C):\n"
     for c in code:
@@ -48,7 +55,7 @@ def expr_to_executable_function(expr: list[str], symbol_library: SymbolLibrary=S
 
 def expr_to_error_function(expr: list[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()):
     tree = tokens_to_tree(expr, symbol_library)
-    code, symbol, var_counter, const_counter = tree_to_function_rec(tree)
+    code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
 
     fun_string = "def _executable_expression_(X, C, y):\n"
     for c in code:

@@ -1,5 +1,6 @@
-from symbol_library import SymbolLibrary
-from parameter_estimator import ParameterEstimator
+from .symbol_library import SymbolLibrary
+from .parameter_estimator import ParameterEstimator
+
 
 class SR_evaluator:
     def __init__(self, X, y, metadata=None, symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()):

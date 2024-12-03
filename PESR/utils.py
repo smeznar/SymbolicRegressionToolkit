@@ -1,4 +1,5 @@
-from symbol_library import SymbolLibrary
+from .symbol_library import SymbolLibrary
+
 
 class Node:
     def __init__(self, symbol=None, right=None, left=None):
