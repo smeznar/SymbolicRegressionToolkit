@@ -21,11 +21,12 @@ def read_expressions(filename):
     return expressions
 
 if __name__ == '__main__':
+    # An example of how to use the SR_evaluator class for equation discovery/symbolic regression
     data = read_eq_data("../data/aaai_spring_example.csv")
     X = data[:, :-1]
     y = data[:, -1]
 
-    expressions = read_expressions("../data/test_exprs.txt")
+    expressions = read_expressions("../data/test_exprs_100k.txt")
 
     evaluator = SR_evaluator(X, y)
 

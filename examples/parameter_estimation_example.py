@@ -4,6 +4,7 @@ from PESR.parameter_estimator import ParameterEstimator
 
 
 if __name__ == "__main__":
+    # A simple example of parameter estimation
     X = np.array([[1, 2],
                   [8, 4],
                   [5, 4],

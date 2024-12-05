@@ -2,16 +2,44 @@ from .symbol_library import SymbolLibrary
 
 
 class Node:
-    def __init__(self, symbol=None, right=None, left=None):
+    def __init__(self, symbol: str=None, right: "Node"=None, left: "Node"=None):
+        """
+        Initializes a Node object.
+
+        Parameters
+        ----------
+        symbol : str
+            The symbol string stored in this node.
+        right : Node
+            The right child of this node.
+        left : Node
+            The left child of this node.
+        """
         self.symbol = symbol
         self.right = right
         self.left = left
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Returns the number of nodes in the tree rooted at this node.
+        """
         return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
 
 
 def is_float(element: any) -> bool:
+    """
+    Checks if a given element is a float.
+
+    Parameters
+    ----------
+    element : any
+        The element to check.
+
+    Returns
+    -------
+    bool
+        True if the element is a float, False otherwise.
+    """
     if element is None:
         return False
     try:
@@ -23,8 +51,20 @@ def is_float(element: any) -> bool:
 
 def tokens_to_tree(tokens: list[str], sl: SymbolLibrary) -> Node:
     """
-    tokens : list of string tokens
-    symbols: dictionary of possible tokens -> attributes, each token must have attributes: nargs (0-2), order
+    Converts a list of tokens to a tree data structure. Throws an exception if the expression is invalid (check syntax
+    and that all symbols are in the symbol library correctly defined).
+
+    Parameters
+    ----------
+    tokens : list[str]
+        The list of tokens to convert.
+    sl : SymbolLibrary
+        The symbol library to use when parsing the tokens.
+
+    Returns
+    -------
+    Node
+        The root of the tree data structure.
     """
     num_tokens = len([t for t in tokens if t != "(" and t != ")"])
     expr_str = ''.join(tokens)
