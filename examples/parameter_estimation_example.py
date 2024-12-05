@@ -1,6 +1,6 @@
 import numpy as np
 
-from PESR.parameter_estimator import ParameterEstimator
+from SRToolkit.parameter_estimator import ParameterEstimator
 
 
 if __name__ == "__main__":

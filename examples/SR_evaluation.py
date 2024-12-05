@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from PESR.SR_evaluator import SR_evaluator
+from SRToolkit.SR_evaluator import SR_evaluator
 
 def read_eq_data(filename):
     train = []

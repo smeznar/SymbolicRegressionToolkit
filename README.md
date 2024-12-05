@@ -1,34 +1,14 @@
-**Equation Discovery and Symbolic Regression Toolkit**
+**Symbolic Regression/Equation Discovery Toolkit**
 --------------------------------------------------------
 
-This repository provides a Python-based toolkit for equation discovery and symbolic regression. The toolkit includes tools for parameter estimation and performance evaluation, enabling users to discover and analyze mathematical relationships in data.
+This repository provides a Python-based toolkit for equation discovery/symbolic regression. Currently, the toolkit contains
+code for transforming infix expressions into trees, parameter estimation, and performance evaluation for symbolic regression models.
 
-**Overview**
-------------
+Currently, we only support (vanilla) mathematical expressions, however, we provide a simple interface for adding custom symbols.
+In the future, we might extend our functionality to support more advanced expressions (differential equations, PDEs, ...).
 
-The toolkit is designed to facilitate the discovery of mathematical equations that describe complex relationships in data. It uses a combination of symbolic regression and parameter estimation techniques to identify the underlying equations.
+A simple example of how to use the toolkit can be found in the `examples` folder, mainly the `examples/SR_evaluation` script.
 
-**Features**
-------------
-
-* Parameter estimation for equation discovery
-* Performance evaluation for symbolic regression models
-* Support for various equation forms and libraries
-
-**Requirements**
----------------
-
-* Python 3.11
-* NumPy
-* SciPy
-
-**Usage**
----------
-
-To get started, clone the repository and install the required dependencies. The toolkit is organized into several modules, each with its own documentation and examples.
-
-* `PESR`: Parameter Estimator and Performance Evaluator for Symbolic Regression
-* `examples`: Example use cases and tutorials
 
 **Contributing**
 ------------
