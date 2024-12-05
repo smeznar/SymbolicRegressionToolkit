@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.optimize import minimize
 
+
 from .utils import Node, tokens_to_tree, is_float
 from .symbol_library import SymbolLibrary
 
@@ -10,33 +11,67 @@ class ParameterEstimator:
         self.symbol_library = symbol_library
         self.X = X
         self.y = y
+        # self.stats = {"success": 0, "failure": 0, "steps": dict(), "num_constants": dict(), "failed_constants": dict()}
 
-        if estimation_settings is None:
-            self.estimation_settings = {
+        self.estimation_settings = {
                 "method": "L-BFGS-B",
                 "tol": 1e-6,
+                "gtol": 1e-3,
                 "maxiter": 100,
                 "bounds": [-5, 5],
-                "initialization": "random" # random, mean
-            }
-        else:
-            self.estimation_settings = estimation_settings
+                "initialization": "random", # random, mean
+                "max_constants": 8
+        }
+
+        if estimation_settings is not None:
+            self.estimation_settings.update(estimation_settings)
 
     def estimate_parameters(self, expr: list[str]):
         num_constants = sum([1 for t in expr if t == "C"])
+        if 0 <= self.estimation_settings["max_constants"] < num_constants:
+            return np.nan, np.array([])
+
         executable_error_fn = expr_to_error_function(expr, self.symbol_library)
 
         if num_constants == 0:
-            rmse = executable_error_fn(self.X, self.y)
+            rmse = executable_error_fn(self.X, np.array([]), self.y)
             return rmse, np.array([])
         else:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
-    def _optimize_parameters(self, executable_error_fn, num_constants: int):
-        x0 = np.random.rand(num_constants) * (self.estimation_settings["bounds"][1] - self.estimation_settings["bounds"][0]) + self.estimation_settings["bounds"][0]
+    def _optimize_parameters(self, executable_error_fn: callable, num_constants: int):
+        if self.estimation_settings["initialization"] == "random":
+            x0 = np.random.rand(num_constants) * (self.estimation_settings["bounds"][1] - self.estimation_settings["bounds"][0]) + self.estimation_settings["bounds"][0]
+        else:
+            x0 = np.array([np.mean(self.estimation_settings["bounds"]) for _ in range(num_constants)])
+
         res = minimize(lambda c: executable_error_fn(self.X, c, self.y), x0, method=self.estimation_settings["method"],
-                       tol=self.estimation_settings["tol"], options={"maxiter": self.estimation_settings["maxiter"]},
+                       tol=self.estimation_settings["tol"],
+                       options={
+                           "maxiter": self.estimation_settings["maxiter"],
+                           "gtol": self.estimation_settings["gtol"]
+                                },
                        bounds=[(self.estimation_settings["bounds"][0], self.estimation_settings["bounds"][1]) for _ in range(num_constants)])
+
+        # if res.success:
+        #     self.stats["success"] += 1
+        # else:
+        #     self.stats["failure"] += 1
+        #     if num_constants in self.stats["failed_constants"]:
+        #         self.stats["failed_constants"][num_constants] += 1
+        #     else:
+        #         self.stats["failed_constants"][num_constants] = 1
+        #
+        # if res.nit in self.stats["steps"]:
+        #     self.stats["steps"][res.nit] += 1
+        # else:
+        #     self.stats["steps"][res.nit] = 1
+        #
+        # if num_constants in self.stats["num_constants"]:
+        #     self.stats["num_constants"][num_constants] += 1
+        # else:
+        #     self.stats["num_constants"][num_constants] = 1
+
         return res.fun, res.x
 
 

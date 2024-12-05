@@ -10,36 +10,6 @@ class Node:
     def __len__(self):
         return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
 
-    # def to_postfix(self) -> list[str]:
-    #     if self.left is None and self.right is None:
-    #         return [self.symbol]
-    #     elif self.right is None:
-    #         return self.left.to_postfix() + [self.symbol]
-    #     else:
-    #         return self.left.to_postfix() + self.right.to_postfix() + [self.symbol]
-    #
-    # def to_dict(self) -> dict:
-    #     d = {'s': self.symbol}
-    #     if self.left is not None:
-    #         d['l'] = self.left.to_dict()
-    #     if self.right is not None:
-    #         d['r'] = self.right.to_dict()
-    #     return d
-    #
-    # @staticmethod
-    # def from_dict(d):
-    #     left = None
-    #     right = None
-    #     if "l" in d:
-    #         left = Node.from_dict(d["l"])
-    #     if 'r' in d:
-    #         right = Node.from_dict(d["r"])
-    #     return Node(d["s"], right=right, left=left)
-    #
-    # def __len__(self):
-    #     return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
-
-
 
 def is_float(element: any) -> bool:
     if element is None:
