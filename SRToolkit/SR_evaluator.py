@@ -1,14 +1,21 @@
 from typing import Optional, List
+from multiprocessing import Pool, Manager, Lock
 
 import numpy as np
 
-from .symbol_library import SymbolLibrary
-from .parameter_estimator import ParameterEstimator
+from SRToolkit.symbol_library import SymbolLibrary
+from SRToolkit.parameter_estimator import ParameterEstimator
 
 
 class SR_evaluator:
-    def __init__(self, X: np.ndarray, y: np.ndarray, metadata: Optional[dict]=None,
-                 estimation_settings: Optional[dict]= None, symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()):
+    def __init__(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        metadata: Optional[dict] = None,
+        estimation_settings: Optional[dict] = None,
+        symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    ):
         """
         Initializes an instance of the SR_evaluator class. This class is used for evaluating symbolic regression approaches.
 
@@ -49,12 +56,14 @@ class SR_evaluator:
             properties to be used for parameter estimation. Default is
             SymbolLibrary.default_symbols().
         """
-        self.models = {}
+        self.models = Manager().dict(lock=Lock())
         self.metadata = metadata
         self.estimation_settings = estimation_settings
         self.symbol_library = symbol_library
         self.total_expressions = 0
-        self.parameter_estimator = ParameterEstimator(X, y, estimation_settings=estimation_settings, symbol_library=symbol_library)
+        self.parameter_estimator = ParameterEstimator(
+            X, y, estimation_settings=estimation_settings, symbol_library=symbol_library
+        )
 
     def evaluate_expr(self, expr: List[str]) -> float:
         """
@@ -78,19 +87,34 @@ class SR_evaluator:
         """
         self.total_expressions += 1
 
-        expr_str = ''.join(expr)
+        expr_str = "".join(expr)
         if expr_str in self.models:
             # print(f"Already evaluated {expr_str}")
             # print(self.models[expr_str])
             return self.models[expr_str]["rmse"]
         else:
             rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
-            self.models[expr_str] = {"rmse": rmse, "parameters": parameters, "expr": expr}
+            self.models[expr_str] = {
+                "rmse": rmse,
+                "parameters": parameters,
+                "expr": expr,
+            }
             return rmse
 
-    def get_results(self, top_k: int=20)-> dict:
-        # print(self.parameter_estimator.stats)
+    def evaluate_exprs(
+        self, exprs: List[List[str]], num_processes: int = 1
+    ) -> List[float]:
+        if num_processes > 1:
+            pool = Pool(num_processes)
+            results = pool.map(self.evaluate_expr, exprs)
+            pool.close()
+            for r in results:
+                self.models
+            return results
+        else:
+            return [self.evaluate_expr(expr) for expr in exprs]
 
+    def get_results(self, top_k: int = 20) -> dict:
         """
         Returns the results of the equation discovery/symbolic regression process.
 
@@ -126,12 +150,14 @@ class SR_evaluator:
         models = list(self.models.values())
         best_indices = np.argsort([v["rmse"] for v in models])
 
-        results = {"metadata": self.metadata,
-                   "min_rmse": models[best_indices[0]]["rmse"],
-                   "best_expr": "".join(models[best_indices[0]]["expr"]),
-                   "num_evaluated": len(models),
-                   "total_expressions": self.total_expressions,
-                   "results": list()}
+        results = {
+            "metadata": self.metadata,
+            "min_rmse": models[best_indices[0]]["rmse"],
+            "best_expr": "".join(models[best_indices[0]]["expr"]),
+            "num_evaluated": len(models),
+            "total_expressions": self.total_expressions,
+            "results": list(),
+        }
 
         for i in best_indices[:top_k]:
             results["results"].append(models[i])

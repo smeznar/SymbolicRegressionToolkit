@@ -1,10 +1,10 @@
 from typing import List
 
-from .symbol_library import SymbolLibrary
+from SRToolkit.symbol_library import SymbolLibrary
 
 
 class Node:
-    def __init__(self, symbol: str=None, right: "Node"=None, left: "Node"=None):
+    def __init__(self, symbol: str = None, right: "Node" = None, left: "Node" = None):
         """
         Initializes a Node object.
 
@@ -25,7 +25,11 @@ class Node:
         """
         Returns the number of nodes in the tree rooted at this node.
         """
-        return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
+        return (
+            1
+            + (len(self.left) if self.left is not None else 0)
+            + (len(self.right) if self.right is not None else 0)
+        )
 
 
 def is_float(element: any) -> bool:
@@ -69,7 +73,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         The root of the tree data structure.
     """
     num_tokens = len([t for t in tokens if t != "(" and t != ")"])
-    expr_str = ''.join(tokens)
+    expr_str = "".join(tokens)
     tokens = ["("] + tokens + [")"]
     operator_stack = []
     out_stack = []
@@ -84,19 +88,26 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
             else:
                 operator_stack.append(token)
         elif sl.get_type(token) == "op":
-            while len(operator_stack) > 0 and operator_stack[-1] != '(' \
-                    and sl.get_precedence(operator_stack[-1]) > sl.get_precedence(token):
+            while (
+                len(operator_stack) > 0
+                and operator_stack[-1] != "("
+                and sl.get_precedence(operator_stack[-1]) > sl.get_precedence(token)
+            ):
                 if sl.get_type(operator_stack[-1]) == "fn":
                     out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
                 else:
-                    out_stack.append(Node(operator_stack.pop(), out_stack.pop(), out_stack.pop()))
+                    out_stack.append(
+                        Node(operator_stack.pop(), out_stack.pop(), out_stack.pop())
+                    )
             operator_stack.append(token)
         else:
-            while len(operator_stack) > 0 and operator_stack[-1] != '(':
+            while len(operator_stack) > 0 and operator_stack[-1] != "(":
                 if sl.get_type(operator_stack[-1]) == "fn":
                     out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
                 else:
-                    out_stack.append(Node(operator_stack.pop(), out_stack.pop(), out_stack.pop()))
+                    out_stack.append(
+                        Node(operator_stack.pop(), out_stack.pop(), out_stack.pop())
+                    )
             operator_stack.pop()
             if len(operator_stack) > 0 and sl.get_type(operator_stack[-1]) == "fn":
                 out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))

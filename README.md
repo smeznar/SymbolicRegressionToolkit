@@ -7,7 +7,10 @@ code for transforming infix expressions into trees, parameter estimation, and pe
 Currently, we only support (vanilla) mathematical expressions, however, we provide a simple interface for adding custom symbols.
 In the future, we might extend our functionality to support more advanced expressions (differential equations, PDEs, ...).
 
-A simple example of how to use the toolkit can be found in the `examples` folder, mainly the `examples/SR_evaluation` script.
+A simple example of how to use the toolkit can be found in the `examples` folder. Script `examples/SR_evaluation_minimal_example.py`
+contains a minimal example of how to use the toolkit for evaluating Symbolic Regression models. Script `examples/parameter_estimation_minimal_example.py`
+contains a minimal example of how to use the toolkit for parameter estimation. Lastly, script `examples/customization.py` shows
+how we can customize various parts of the toolkit and create executable python functions from infix expressions.
 
 *Installation*
 --------------

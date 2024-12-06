@@ -4,6 +4,7 @@ import numpy as np
 
 from SRToolkit.SR_evaluator import SR_evaluator
 
+
 def read_eq_data(filename):
     train = []
     with open(filename, "r") as file:
@@ -11,6 +12,7 @@ def read_eq_data(filename):
             train.append([float(v) for v in line.strip().split(",")])
 
     return np.array(train)
+
 
 def read_expressions(filename):
     expressions = []
@@ -20,7 +22,8 @@ def read_expressions(filename):
 
     return expressions
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # An example of how to use the SR_evaluator class for equation discovery/symbolic regression
     data = read_eq_data("../data/aaai_spring_example.csv")
     X = data[:, :-1]
@@ -31,6 +34,8 @@ if __name__ == '__main__':
     evaluator = SR_evaluator(X, y)
 
     start_time = time.time()
+    # evaluator.evaluate_exprs(expressions, num_processes=1)
+
     for expr in expressions:
         evaluator.evaluate_expr(expr)
         # print(expr, evaluator.evaluate_expr(expr))

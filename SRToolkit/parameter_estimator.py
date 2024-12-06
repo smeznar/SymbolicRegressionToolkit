@@ -4,8 +4,8 @@ import numpy as np
 from scipy.optimize import minimize
 
 
-from .utils import Node, tokens_to_tree, is_float
-from .symbol_library import SymbolLibrary
+from SRToolkit.utils import Node, tokens_to_tree, is_float
+from SRToolkit.symbol_library import SymbolLibrary
 
 
 class ParameterEstimator:
