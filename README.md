@@ -9,6 +9,13 @@ In the future, we might extend our functionality to support more advanced expres
 
 A simple example of how to use the toolkit can be found in the `examples` folder, mainly the `examples/SR_evaluation` script.
 
+*Installation*
+--------------
+
+To install the package, run the following command in your terminal:
+```
+pip install symbolic-regression-toolkit
+```
 
 **Contributing**
 ------------

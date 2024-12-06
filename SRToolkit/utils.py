@@ -1,3 +1,5 @@
+from typing import List
+
 from .symbol_library import SymbolLibrary
 
 
@@ -49,7 +51,7 @@ def is_float(element: any) -> bool:
         return False
 
 
-def tokens_to_tree(tokens: list[str], sl: SymbolLibrary) -> Node:
+def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
     """
     Converts a list of tokens to a tree data structure. Throws an exception if the expression is invalid (check syntax
     and that all symbols are in the symbol library correctly defined).

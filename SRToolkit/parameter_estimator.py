@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Tuple
 
 import numpy as np
 from scipy.optimize import minimize
@@ -66,7 +66,7 @@ class ParameterEstimator:
         if estimation_settings is not None:
             self.estimation_settings.update(estimation_settings)
 
-    def estimate_parameters(self, expr: list[str]) -> tuple[float, np.ndarray]:
+    def estimate_parameters(self, expr: List[str]) -> Tuple[float, np.ndarray]:
         """
         Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
 
@@ -100,7 +100,7 @@ class ParameterEstimator:
         else:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
-    def _optimize_parameters(self, executable_error_fn: callable, num_constants: int) -> tuple[float, np.ndarray]:
+    def _optimize_parameters(self, executable_error_fn: callable, num_constants: int) -> Tuple[float, np.ndarray]:
         """
         Optimizes the parameters of a given expression by minimizing the root mean squared error between the predicted and actual values.
 
@@ -153,7 +153,7 @@ class ParameterEstimator:
         return res.fun, res.x
 
 
-def expr_to_executable_function(expr: list[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
+def expr_to_executable_function(expr: List[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
     """
     Converts an expression in infix notation to an executable function.
 
@@ -182,7 +182,7 @@ def expr_to_executable_function(expr: list[str], symbol_library: SymbolLibrary=S
     return locals()["_executable_expression_"]
 
 
-def expr_to_error_function(expr: list[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
+def expr_to_error_function(expr: List[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
     """
     Converts an expression in infix notation to an executable function that returns the root mean squared error between
     the output of the expression and the target values.
@@ -214,7 +214,7 @@ def expr_to_error_function(expr: list[str], symbol_library: SymbolLibrary=Symbol
     return locals()["_executable_expression_"]
 
 
-def tree_to_function_rec(tree: Node, symbol_library: SymbolLibrary, var_counter: int=0, const_counter: int=0) -> tuple[list[str], str, int, int]:
+def tree_to_function_rec(tree: Node, symbol_library: SymbolLibrary, var_counter: int=0, const_counter: int=0) -> Tuple[List[str], str, int, int]:
     """
     Recursively converts a parse tree into a string of Python code that can be executed to evaluate the expression
     represented by the tree.

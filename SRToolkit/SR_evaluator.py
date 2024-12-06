@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 
@@ -56,7 +56,7 @@ class SR_evaluator:
         self.total_expressions = 0
         self.parameter_estimator = ParameterEstimator(X, y, estimation_settings=estimation_settings, symbol_library=symbol_library)
 
-    def evaluate_expr(self, expr: list[str]) -> float:
+    def evaluate_expr(self, expr: List[str]) -> float:
         """
         Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.
