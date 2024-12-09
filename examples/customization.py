@@ -1,7 +1,7 @@
 import numpy as np
 
-from SRToolkit.symbol_library import SymbolLibrary
-from SRToolkit.parameter_estimator import expr_to_executable_function
+from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.evaluation.parameter_estimator import expr_to_executable_function
 
 if __name__ == '__main__':
     # ------------------------------------------ SymbolLibrary -------------------------------------------------

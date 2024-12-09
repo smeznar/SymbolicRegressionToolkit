@@ -1,8 +1,42 @@
+"""
+This module contains the SymbolLibrary class, which is used for managing symbols and their properties.
+"""
+
 class SymbolLibrary:
     def __init__(self):
         """
         Initializes an instance of the SymbolLibrary class. This class is used for managing symbols and their
         properties for other functionality in this package.
+
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> library.get_type("x")
+            'var'
+            >>> library.get_precedence("x")
+            0
+            >>> library.get_np_fn("x")
+            'x'
+            >>> library.remove_symbol("x")
+            >>> library = SymbolLibrary.default_symbols()
+
+        Attributes:
+            symbols : dict
+                A dictionary mapping symbols to their properties (type, precedence, numpy function).
+
+        Methods:
+            add_symbol(symbol, symbol_type, precedence, np_fn):
+                Adds a symbol to the library.
+            remove_symbol(symbol):
+                Removes a symbol from the library.
+            get_type(symbol):
+                Retrieves the type of a symbol from the library.
+            get_precedence(symbol):
+                Returns the precedence of the given symbol.
+            get_np_fn(symbol):
+                Returns the numpy function corresponding to the given symbol.
+            default_symbols():
+                Returns a SymbolLibrary with the default symbols.
         """
         self.symbols = dict()
 
@@ -15,17 +49,19 @@ class SymbolLibrary:
 
         For example, look at the default_symbols function for the SymbolLibrary class.
 
-        Parameters
-        ----------
-        symbol : str
-            The symbol to be added to the library.
-        symbol_type : str
-            The type of the symbol, one of "op" (operator), "fn" (function), "lit" (literal), "const" (constant), or
-            "var" (variable).
-        precedence : int
-            The precedence of the symbol, used to determine the order of operations.
-        np_fn : str
-            A string representing the numpy function associated with this symbol.
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> library.add_symbol("sin", "fn", 5, "np.sin({})")
+            >>> library.add_symbol("C", "const", 5, "C[{}]")
+            >>> library.add_symbol("X", "var", 5, "X[:, 0]")
+            >>> library.add_symbol("pi", "lit", 5, "np.pi")
+
+        Args:
+            symbol: The symbol to be added to the library.
+            symbol_type: The type of the symbol, one of "op" (operator), "fn" (function), "lit" (literal), "const" (constant), or "var" (variable).
+            precedence: The precedence of the symbol, used to determine the order of operations.
+            np_fn: A string representing the numpy function associated with this symbol.
         """
         self.symbols[symbol] = {
             "symbol": symbol,
@@ -38,15 +74,20 @@ class SymbolLibrary:
         """
         Removes a symbol from the library.
 
-        Parameters
-        ----------
-        symbol : str
-            The symbol to be removed from the library.
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> len(library.symbols)
+            1
+            >>> library.remove_symbol("x")
+            >>> len(library.symbols)
+            0
 
-        Raises
-        ------
-        KeyError
-            If the symbol does not exist in the library.
+        Args:
+            symbol: The symbol to be removed from the library.
+
+        Raises:
+            KeyError: If the symbol does not exist in the library.
         """
         del self.symbols[symbol]
 
@@ -54,14 +95,16 @@ class SymbolLibrary:
         """
         Retrieves the type of a symbol from the library.
 
-        Parameters
-        ----------
-        symbol : str
-            The symbol whose type is to be retrieved.
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> library.get_type("x")
+            'var'
 
-        Returns
-        -------
-        str
+        Args:
+            symbol: The symbol whose type is to be retrieved.
+
+        Returns:
             The type of the symbol if it exists in the library, otherwise an empty string.
         """
         if symbol in self.symbols:
@@ -71,16 +114,18 @@ class SymbolLibrary:
 
     def get_precedence(self, symbol: str) -> int:
         """
-        Returns the precedence of the given symbol.
+        Retrieves the precedence of the given symbol.
 
-        Parameters
-        ----------
-        symbol : str
-            The symbol whose precedence is to be retrieved.
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> library.get_precedence("x")
+            0
 
-        Returns
-        -------
-        int
+        Args:
+            symbol: The symbol whose precedence is to be retrieved.
+
+        Returns:
             The precedence of the symbol if it exists in the library, otherwise -1.
         """
         if symbol in self.symbols:
@@ -92,14 +137,16 @@ class SymbolLibrary:
         """
         Returns the numpy function corresponding to the given symbol.
 
-        Parameters
-        ----------
-        symbol : str
-            The symbol to look up.
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> library.get_np_fn("x")
+            'x'
 
-        Returns
-        -------
-        str
+        Args:
+            symbol: The symbol to look up.
+
+        Returns:
             The numpy function corresponding to the given symbol, or an empty string if the symbol was not found.
         """
         if symbol in self.symbols:
@@ -124,15 +171,19 @@ class SymbolLibrary:
         Note: The variables in the default_symbols function are added in the predefined order,
         which is the same order as the columns in the data array X.
 
+        Examples:
+            >>> library = SymbolLibrary.default_symbols()
+            >>> len(library.symbols)
+            47
+
         Args:
-            add_variables (bool): If True, adds variables labeled 'A' to 'Z', along
-                                  with 'Č', 'Š', 'Ž', each associated with a column
-                                  in a data array X. By default, this is set to True.
-                                  Character 'C' is excluded from this list, as it is
-                                  reserved for constants.
+            add_variables: If True, adds variables labeled 'A' to 'Z', along
+                           with 'Č', 'Š', 'Ž', each associated with a column
+                           in a data array X. Character 'C' is excluded from this list, as it is
+                           reserved for constants.
 
         Returns:
-            SymbolLibrary: An instance of SymbolLibrary with the default symbols.
+            A SymbolLibrary instance populated with default mathematical symbols.
         """
         sl = SymbolLibrary()
         sl.add_symbol("+", symbol_type="op", precedence=0, np_fn="{} = {} + {}")

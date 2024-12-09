@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from SRToolkit.SR_evaluator import SR_evaluator
+from SRToolkit.evaluation import SR_evaluator
 
 
 def read_eq_data(filename):

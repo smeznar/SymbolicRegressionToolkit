@@ -1,0 +1,87 @@
+# Project information
+site_name: Symbolic Regression Toolkit
+site_author: Sebastian Mežnar
+site_description: >-
+  Toolkit for equation discovery/symbolic regression that includes parameter estimation, performance evaluation, and expression compilation.
+
+# Repository
+repo_name: smeznar/SymbolicRegressionToolkit
+repo_url: https://github.com/smeznar/SymbolicRegressionToolkit
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+    - navigation.indexes
+    - navigation.tabs
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  palette:
+    # Palette toggle for light
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    # Palette toggle for dark
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  logo: assets/imgs/logo.png
+  favicon: assets/imgs/favicon.png
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: True
+            show_root_toc_entry: False
+            members_order: "source"
+            heading_level: 3
+
+# Markdown Extensions
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+
+nav:
+  - Home: index.md
+  - API Reference:
+    - references/index.md
+    - utils:
+      - references/utils/index.md
+      - symbol_library: references/utils/symbol_library.md
+      - expression_tree: references/utils/expression_tree.md
+      - expression_compiler: references/utils/expression_compiler.md
+    - evaluation:
+        - references/evaluation/index.md
+        - parameter_estimator: references/evaluation/parameter_estimator.md
+        - sr_evaluator: references/evaluation/sr_evaluator.md

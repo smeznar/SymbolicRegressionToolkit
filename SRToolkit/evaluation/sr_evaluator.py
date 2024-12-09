@@ -3,8 +3,8 @@ from multiprocessing import Pool, Manager, Lock
 
 import numpy as np
 
-from SRToolkit.symbol_library import SymbolLibrary
-from SRToolkit.parameter_estimator import ParameterEstimator
+from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
 
 class SR_evaluator:
