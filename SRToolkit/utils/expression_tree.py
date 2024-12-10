@@ -72,26 +72,26 @@ class Node:
         Transforms the tree rooted at this node into a list of tokens.
 
         Examples:
-            >>> node = Node("+", Node("A"), Node("1"))
+            >>> node = Node("+", Node("X_0"), Node("1"))
             >>> node.to_list(symbol_library=SymbolLibrary.default_symbols())
-            ['1', '+', 'A']
+            ['1', '+', 'X_0']
             >>> node.to_list(notation="postfix")
-            ['1', 'A', '+']
+            ['1', 'X_0', '+']
             >>> node.to_list(notation="prefix")
-            ['+', '1', 'A']
-            >>> node = Node("+", Node("*", Node("A"), Node("B")), Node("1"))
+            ['+', '1', 'X_0']
+            >>> node = Node("+", Node("*", Node("X_0"), Node("X_1")), Node("1"))
             >>> node.to_list(symbol_library=SymbolLibrary.default_symbols())
-            ['1', '+', 'B', '*', 'A']
+            ['1', '+', 'X_1', '*', 'X_0']
             >>> node.to_list(notation="infix")
-            ['1', '+', '(', 'B', '*', 'A', ')']
-            >>> node = Node("sin", None, Node("A"))
+            ['1', '+', '(', 'X_1', '*', 'X_0', ')']
+            >>> node = Node("sin", None, Node("X_0"))
             >>> node.to_list(symbol_library=SymbolLibrary.default_symbols())
-            ['sin', '(', 'A', ')']
-            >>> node = Node("^2", None, Node("A"))
+            ['sin', '(', 'X_0', ')']
+            >>> node = Node("^2", None, Node("X_0"))
             >>> node.to_list(symbol_library=SymbolLibrary.default_symbols())
-            ['A', '^2']
+            ['X_0', '^2']
             >>> node.to_list()
-            ['(', 'A', ')', '^2']
+            ['(', 'X_0', ')', '^2']
 
         Args:
             notation: The notation to use for the resulting list of tokens. One of "prefix", "postfix", or "infix".

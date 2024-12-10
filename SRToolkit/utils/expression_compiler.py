@@ -43,7 +43,7 @@ def expr_to_error_function(expr: List[str], symbol_library: SymbolLibrary=Symbol
     the output of the expression and the target values.
 
     Examples:
-        >>> executable_fun = expr_to_error_function(["A", "+", "1"])
+        >>> executable_fun = expr_to_error_function(["X_0", "+", "1"])
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
         0.0
 

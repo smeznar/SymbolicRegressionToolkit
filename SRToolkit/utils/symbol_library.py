@@ -155,7 +155,7 @@ class SymbolLibrary:
             return ""
 
     @staticmethod
-    def default_symbols(add_variables: bool = True) -> "SymbolLibrary":
+    def default_symbols(num_variables: int = 25) -> "SymbolLibrary":
         """
         Creates a SymbolLibrary instance populated with default mathematical symbols.
 
@@ -164,9 +164,8 @@ class SymbolLibrary:
         variables. The symbols include basic arithmetic operations, trigonometric and
         exponential functions, and mathematical constants like pi and e.
 
-        If add_variables is set to True, it adds variables labeled 'A' to 'Z' (excluding 'C'
-        which is reserved for constants), along with 'Č', 'Š', 'Ž', each associated with
-        a column in a data array X.
+        If num_variables is greater than 0, it adds variables labeled 'X_0' to 'X_{num_variables-1}', each
+         associated with a column in a data array X.
 
         Note: The variables in the default_symbols function are added in the predefined order,
         which is the same order as the columns in the data array X.
@@ -174,13 +173,10 @@ class SymbolLibrary:
         Examples:
             >>> library = SymbolLibrary.default_symbols()
             >>> len(library.symbols)
-            47
+            44
 
         Args:
-            add_variables: If True, adds variables labeled 'A' to 'Z', along
-                           with 'Č', 'Š', 'Ž', each associated with a column
-                           in a data array X. Character 'C' is excluded from this list, as it is
-                           reserved for constants.
+            num_variables: The number of variables to add to the library (default is 25).
 
         Returns:
             A SymbolLibrary instance populated with default mathematical symbols.
@@ -206,8 +202,8 @@ class SymbolLibrary:
         sl.add_symbol("e", symbol_type="lit", precedence=5, np_fn="np.e")
         sl.add_symbol("C", symbol_type="const", precedence=5, np_fn="C[{}]")
 
-        if add_variables:
-            for i, char in enumerate("ABDEFGHIJKLMNOPQRSTUVWXYZČŠŽ"):
-                sl.add_symbol(char, "var", 5, "X[:, {}]".format(i))
+        if num_variables > 0:
+            for i in range(num_variables):
+                sl.add_symbol(f"X_{i}", "var", 5, "X[:, {}]".format(i))
 
         return sl

@@ -26,7 +26,7 @@ class SR_evaluator:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> rmse = se.evaluate_expr(["C", "*", "B", "-", "A"])
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> print(rmse < 1e-6)
             True
 
@@ -69,6 +69,14 @@ class SR_evaluator:
         Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.
 
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> print(rmse < 1e-6)
+            True
+
         Args:
             expr: A list of strings representing the expression in infix notation.
 
@@ -110,6 +118,23 @@ class SR_evaluator:
     def get_results(self, top_k: int = 20) -> dict:
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
+            >>> print(results["num_evaluated"])
+            1
+            >>> print(results["total_expressions"])
+            1
+            >>> print(results["best_expr"])
+            C*X_1-X_0
+            >>> print(results["min_rmse"] < 1e-6)
+            True
+            >>> print(1.99 < results["results"][0]["parameters"][0] < 2.01)
+            True
 
         Args:
             top_k: The number of top results to include in the output. If `top_k`

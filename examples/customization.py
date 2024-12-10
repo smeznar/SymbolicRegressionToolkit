@@ -1,7 +1,7 @@
 import numpy as np
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.evaluation.parameter_estimator import expr_to_executable_function
+from SRToolkit.utils.expression_compiler import expr_to_executable_function
 
 if __name__ == '__main__':
     # ------------------------------------------ SymbolLibrary -------------------------------------------------
@@ -16,14 +16,14 @@ if __name__ == '__main__':
 
     # Additionally, one can create a custom symbol library by using the default_symbols function. For example,
     # we can create the default library with a different set of variable names.
-    custom_symbol_library = SymbolLibrary.default_symbols(add_variables=False)
+    custom_symbol_library = SymbolLibrary.default_symbols(num_variables=0)
     custom_symbol_library.add_symbol("X1", "var", 5, "X[:, 0]")
     custom_symbol_library.add_symbol("X2", "var", 5, "X[:, 1]")
 
     # ---------------------------- List of symbols (tokens) to callable python function --------------------------
     # First, lets select an expression that we want to evaluate.
     expr = "( X1 + X2 ) ^2".split(" ")
-    print(expr)
+    print("Tokenized expression: ",expr)
     # This creates a list of tokens ['(', 'X1', '+', 'X2', ')', '^2']
 
     # Next, we need to map each token to a callable python function.
@@ -32,14 +32,12 @@ if __name__ == '__main__':
     # Finally, we can evaluate the expression. An executable function created using expr_to_executable_function
     # accepts a 2D array of input values and a 1D array of constant values.
     X = np.array([[1, 2], [3, 4]])
-    print(executable_function(X, np.array([])))
+    print("".join(expr)+" evaluated at points x1=[1, 3], x2=[2, 4]: ", executable_function(X, np.array([])))
     # This should print [9, 49]
 
     # If we have an expression that contains constants, we need to pass them in as a 1D array with the values.
     # Even if the expression does not contain all the variables, we still need to pass in the whole 2D array.
     expr = "( X1 + C ) ^2 - C".split(" ")
     executable_function = expr_to_executable_function(expr, custom_symbol_library)
-    print(executable_function(X, np.array([3, 1])))
+    print("".join(expr)+" evaluated at points x1=[1, 3], x2=[2, 4], C=[3, 1]: ", executable_function(X, np.array([3, 1])))
     # This should print [15, 35]
-
-

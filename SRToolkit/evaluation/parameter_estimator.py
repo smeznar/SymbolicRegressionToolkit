@@ -19,7 +19,7 @@ class ParameterEstimator:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> pe = ParameterEstimator(X, y)
-            >>> rmse, constants = pe.estimate_parameters(["C", "*", "B", "-", "A"])
+            >>> rmse, constants = pe.estimate_parameters(["C", "*", "X_1", "-", "X_0"])
             >>> print(rmse < 1e-6)
             True
             >>> print(1.99 < constants[0] < 2.01)
@@ -64,6 +64,16 @@ class ParameterEstimator:
     def estimate_parameters(self, expr: List[str]) -> Tuple[float, np.ndarray]:
         """
         Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> pe = ParameterEstimator(X, y)
+            >>> rmse, constants = pe.estimate_parameters(["C", "*", "X_1", "-", "X_0"])
+            >>> print(rmse < 1e-6)
+            True
+            >>> print(1.99 < constants[0] < 2.01)
+            True
 
         Args:
             expr: A list of strings representing the expression to be evaluated. The expression should include the

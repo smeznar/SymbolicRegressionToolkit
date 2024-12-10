@@ -5,6 +5,8 @@ from SRToolkit.evaluation import ParameterEstimator
 
 if __name__ == "__main__":
     # A simple example of parameter estimation
+
+    # Define the input data and target values
     X = np.array(
         [
             [1, 2],
@@ -19,4 +21,4 @@ if __name__ == "__main__":
     pe = ParameterEstimator(X, y)
 
     # Estimate the parameters of the expression
-    print(pe.estimate_parameters(["C", "*", "B", "-", "A"]))
+    print(pe.estimate_parameters(["C", "*", "X_1", "-", "X_0"]))

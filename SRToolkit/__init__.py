@@ -8,7 +8,7 @@ Modules:
     evaluation: The module containing classes and functions for estimating parameters and evaluating Symbolic Regression models.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Sebastian Mežnar"
 __credits__ = "Jožef Stefan Institute"
 
