@@ -1,3 +1,6 @@
+"""
+This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
+"""
 from typing import Optional, List
 from multiprocessing import Pool, Manager, Lock
 
@@ -13,77 +16,67 @@ class SR_evaluator:
         X: np.ndarray,
         y: np.ndarray,
         metadata: Optional[dict] = None,
-        estimation_settings: Optional[dict] = None,
         symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+        **kwargs
     ):
         """
         Initializes an instance of the SR_evaluator class. This class is used for evaluating symbolic regression approaches.
 
-        Parameters
-        ----------
-        X : np.ndarray
-            The input data to be used in parameter estimation for variables. We assume that X is a 2D array
-            with shape (n_samples, n_features).
-        y : np.ndarray
-            The target values to be used in parameter estimation.
-        metadata : Optional[dict]
-            An optional dictionary containing metadata about the expressions to be evaluated.
-        estimation_settings : Optional[dict]
-            An optional dictionary of settings for the parameter estimation process. The
-            following settings are available:
-                - method : str
-                    The method to be used for minimization. Currently, only
-                    "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
-                - tol : float
-                    The tolerance for termination. Default is 1e-6.
-                - gtol : float
-                    The tolerance for the gradient norm. Default is 1e-3.
-                - maxiter : int
-                    The maximum number of iterations. Default is 100.
-                - bounds : list
-                    A list of two elements, specifying the lower and upper bounds
-                    for the constant values. Default is [-5, 5].
-                - initialization : str
-                    The method to use for initializing the constant values.
-                    Currently, only "random" and "mean" are supported. "random" creates a vector with random values
-                    sampled within the bounds. "mean" creates a vector where all values are calculated as
-                    (lower_bound + upper_bound)/2. Default is "random".
-                - max_constants : int
-                    The maximum number of constants allowed in an expression.
-                    Default is 8.
-        symbol_library : SymbolLibrary, optional
-            An instance of SymbolLibrary, specifying the symbols and their
-            properties to be used for parameter estimation. Default is
-            SymbolLibrary.default_symbols().
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "B", "-", "A"])
+            >>> print(rmse < 1e-6)
+            True
+
+
+        Attributes:
+            models: A dictionary containing the results of previously evaluated expressions.
+            metadata: An optional dictionary containing metadata about this evaluation. This could include information such as the dataset used, the model used, seed, etc.
+            symbol_library: The symbol library to use.
+            total_expressions: The total number of expressions considered.
+            parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
+
+        Args:
+            X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array with shape (n_samples, n_features).
+            y: The target values to be used in parameter estimation.
+            metadata: An optional dictionary containing metadata about this evaluation. This could include information such as the dataset used, the model used, seed, etc.
+            symbol_library: The symbol library to use.
+
+        Keyword Arguments:
+            method str: The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
+            tol float: The tolerance for termination. Default is 1e-6.
+            gtol float: The tolerance for the gradient norm. Default is 1e-3.
+            maxiter int: The maximum number of iterations. Default is 100.
+            bounds List[float]: A list of two elements, specifying the lower and upper bounds for the constant values. Default is [-5, 5].
+            initialization str: The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
+                                sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
+
+        Methods:
+            evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
+            get_results(top_k): Returns the results of the evaluation.
         """
-        self.models = Manager().dict(lock=Lock())
+        self.models = dict()
         self.metadata = metadata
-        self.estimation_settings = estimation_settings
         self.symbol_library = symbol_library
         self.total_expressions = 0
         self.parameter_estimator = ParameterEstimator(
-            X, y, estimation_settings=estimation_settings, symbol_library=symbol_library
-        )
+            X, y, symbol_library=symbol_library, **kwargs)
 
     def evaluate_expr(self, expr: List[str]) -> float:
         """
         Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.
 
-        Parameters
-        ----------
-        expr : list[str]
-            The expression in infix notation.
+        Args:
+            expr: A list of strings representing the expression in infix notation.
 
-        Returns
-        -------
-        float
+        Returns:
             The root mean square error of the expression.
 
-        Notes
-        -----
-        If the expression has already been evaluated, its stored value is
-        returned instead of re-evaluating the expression.
+        Notes:
+            If the expression has already been evaluated, its stored value is returned instead of re-evaluating the expression.
         """
         self.total_expressions += 1
 
@@ -101,36 +94,31 @@ class SR_evaluator:
             }
             return rmse
 
-    def evaluate_exprs(
-        self, exprs: List[List[str]], num_processes: int = 1
-    ) -> List[float]:
-        if num_processes > 1:
-            pool = Pool(num_processes)
-            results = pool.map(self.evaluate_expr, exprs)
-            pool.close()
-            for r in results:
-                self.models
-            return results
-        else:
-            return [self.evaluate_expr(expr) for expr in exprs]
+    # def evaluate_exprs(
+    #     self, exprs: List[List[str]], num_processes: int = 1
+    # ) -> List[float]:
+    #     if num_processes > 1:
+    #         pool = Pool(num_processes)
+    #         results = pool.map(self.evaluate_expr, exprs)
+    #         pool.close()
+    #         for r in results:
+    #             self.models
+    #         return results
+    #     else:
+    #         return [self.evaluate_expr(expr) for expr in exprs]
 
     def get_results(self, top_k: int = 20) -> dict:
         """
-        Returns the results of the equation discovery/symbolic regression process.
+        Returns the results of the equation discovery/symbolic regression process/evaluation.
 
-        Parameters
-        ----------
-        top_k : int
-            The number of top results to include in the output. If `top_k` is
-            greater than the number of evaluated expressions, all evaluated
-            expressions are included. If `top_k` is less than 0, all evaluated
-            expressions are included. Default is 20.
+        Args:
+            top_k: The number of top results to include in the output. If `top_k`
+                is greater than the number of evaluated expressions, all
+                evaluated expressions are included. If `top_k` is less than 0,
+                all evaluated expressions are included.
 
-        Returns
-        -------
-        dict
-            A dictionary containing the results of the symbolic regression
-            process. The keys are:
+        Returns:
+            A dictionary containing the results of the equation discovery/symbolic regression process. The keys are:
 
                 - "metadata" : The metadata provided in the constructor.
                 - "min_rmse" : The minimum root mean squared error.

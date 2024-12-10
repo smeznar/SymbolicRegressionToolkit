@@ -1,6 +1,8 @@
 **Symbolic Regression/Equation Discovery Toolkit**
 --------------------------------------------------------
 
+Documentation: [https://smeznar.github.io/SymbolicRegressionToolkit](https://smeznar.github.io/SymbolicRegressionToolkit/)
+
 This repository provides a Python-based toolkit for equation discovery/symbolic regression. Currently, the toolkit contains
 code for transforming infix expressions into trees, parameter estimation, and performance evaluation for symbolic regression models.
 

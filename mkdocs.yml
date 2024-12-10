@@ -39,8 +39,8 @@ theme:
       toggle:
         icon: material/weather-night
         name: Switch to light mode
-  logo: assets/imgs/logo.png
-  favicon: assets/imgs/favicon.png
+  logo: assets/imgs/logo.webp
+#  favicon: assets/imgs/favicon-32x32.png
 
 plugins:
   - search
