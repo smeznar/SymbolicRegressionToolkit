@@ -1,6 +1,7 @@
 """
 This module contains the SymbolLibrary class, which is used for managing symbols and their properties.
 """
+import copy
 
 class SymbolLibrary:
     def __init__(self):
@@ -60,6 +61,29 @@ class SymbolLibrary:
             A string containing all symbols in the library, separated by commas.
         """
         return ", ".join(self.symbols.keys())
+
+    def __copy__(self) -> "SymbolLibrary":
+        """
+        Creates a copy of the SymbolLibrary instance.
+
+        Examples:
+            >>> old_symbols = SymbolLibrary()
+            >>> old_symbols.add_symbol("x", "var", 0, "x")
+            >>> print(old_symbols)
+            x
+            >>> new_symbols = copy.copy(old_symbols)
+            >>> new_symbols.add_symbol("sin", "fn", 5, "{} = np.sin({})")
+            >>> print(old_symbols)
+            x
+            >>> print(new_symbols)
+            x, sin
+
+        Returns:
+            A copy of the SymbolLibrary instance.
+        """
+        sl = SymbolLibrary()
+        sl.symbols = copy.deepcopy(self.symbols)
+        return sl
 
     def add_symbol(self, symbol: str, symbol_type: str, precedence: int, np_fn: str):
         """

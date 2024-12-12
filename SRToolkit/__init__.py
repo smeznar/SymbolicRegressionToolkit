@@ -14,3 +14,4 @@ __credits__ = "Jožef Stefan Institute"
 
 from . import utils
 from . import evaluation
+from . import dataset

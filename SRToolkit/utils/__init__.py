@@ -12,3 +12,7 @@ Modules:
 from .expression_tree import Node, tokens_to_tree, is_float
 from .symbol_library import SymbolLibrary
 from .expression_compiler import tree_to_function_rec, expr_to_executable_function, expr_to_error_function
+
+
+__all__ = ["SymbolLibrary", "Node", "tokens_to_tree", "is_float", "tree_to_function_rec", "expr_to_executable_function",
+           "expr_to_error_function"]
