@@ -2,9 +2,10 @@
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
 """
 from typing import Optional, List
-from multiprocessing import Pool, Manager, Lock
+import warnings
 
 import numpy as np
+from yaml import warnings
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
@@ -15,6 +16,7 @@ class SR_evaluator:
         self,
         X: np.ndarray,
         y: np.ndarray,
+        max_evaluations: int = -1,
         metadata: Optional[dict] = None,
         symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
         **kwargs
@@ -33,6 +35,7 @@ class SR_evaluator:
 
         Attributes:
             models: A dictionary containing the results of previously evaluated expressions.
+            max_evaluations: The maximum number of expressions to evaluate.
             metadata: An optional dictionary containing metadata about this evaluation. This could include information such as the dataset used, the model used, seed, etc.
             symbol_library: The symbol library to use.
             total_expressions: The total number of expressions considered.
@@ -41,6 +44,7 @@ class SR_evaluator:
         Args:
             X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array with shape (n_samples, n_features).
             y: The target values to be used in parameter estimation.
+            max_evaluations: The maximum number of expressions to evaluate. Default is -1, which means no limit.
             metadata: An optional dictionary containing metadata about this evaluation. This could include information such as the dataset used, the model used, seed, etc.
             symbol_library: The symbol library to use.
 
@@ -48,10 +52,12 @@ class SR_evaluator:
             method str: The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
             tol float: The tolerance for termination. Default is 1e-6.
             gtol float: The tolerance for the gradient norm. Default is 1e-3.
-            maxiter int: The maximum number of iterations. Default is 100.
+            max_iter int: The maximum number of iterations. Default is 100.
             bounds List[float]: A list of two elements, specifying the lower and upper bounds for the constant values. Default is [-5, 5].
             initialization str: The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
                                 sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
+            max_constants int: The maximum number of constants allowed in the expression. Default is 8.
+            max_expr_length int: The maximum length of the expression. Default is -1 (no limit).
 
         Methods:
             evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
@@ -60,6 +66,7 @@ class SR_evaluator:
         self.models = dict()
         self.metadata = metadata
         self.symbol_library = symbol_library
+        self.max_evaluations = max_evaluations
         self.total_expressions = 0
         self.parameter_estimator = ParameterEstimator(
             X, y, symbol_library=symbol_library, **kwargs)
@@ -83,24 +90,33 @@ class SR_evaluator:
         Returns:
             The root mean square error of the expression.
 
+        Warnings:
+            Maximum number of evaluations reached: If the maximum number of evaluations has been reached, a warning is printed and np.nan is returned.
+
         Notes:
             If the expression has already been evaluated, its stored value is returned instead of re-evaluating the expression.
+            When the maximum number of evaluations has been reached, a warning is printed and np.nan is returned.
         """
         self.total_expressions += 1
 
-        expr_str = "".join(expr)
-        if expr_str in self.models:
-            # print(f"Already evaluated {expr_str}")
-            # print(self.models[expr_str])
-            return self.models[expr_str]["rmse"]
+        if 0 <= self.max_evaluations < self.total_expressions:
+            warnings.warn(
+                f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
+            return np.nan
         else:
-            rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
-            self.models[expr_str] = {
-                "rmse": rmse,
-                "parameters": parameters,
-                "expr": expr,
-            }
-            return rmse
+            expr_str = "".join(expr)
+            if expr_str in self.models:
+                # print(f"Already evaluated {expr_str}")
+                # print(self.models[expr_str])
+                return self.models[expr_str]["rmse"]
+            else:
+                rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
+                self.models[expr_str] = {
+                    "rmse": rmse,
+                    "parameters": parameters,
+                    "expr": expr,
+                }
+                return rmse
 
     # def evaluate_exprs(
     #     self, exprs: List[List[str]], num_processes: int = 1
@@ -115,7 +131,7 @@ class SR_evaluator:
     #     else:
     #         return [self.evaluate_expr(expr) for expr in exprs]
 
-    def get_results(self, top_k: int = 20) -> dict:
+    def get_results(self, top_k: int = 20, success_threshold: float = 1e-7) -> dict:
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -141,6 +157,8 @@ class SR_evaluator:
                 is greater than the number of evaluated expressions, all
                 evaluated expressions are included. If `top_k` is less than 0,
                 all evaluated expressions are included.
+            success_threshold: The threshold below which the evaluation is
+                considered successful. Default is 1e-7.
 
         Returns:
             A dictionary containing the results of the equation discovery/symbolic regression process. The keys are:
@@ -152,6 +170,7 @@ class SR_evaluator:
                 - "num_evaluated" : The number of evaluated expressions.
                 - "total_expressions" : The total number of expressions
                   considered.
+                - "success" : Whether the evaluation was successful.
                 - "results" : A list of dictionaries, where each dictionary
                   contains the root mean squared error, the expression, and the
                   estimated parameters of the expression. The list is sorted in
@@ -171,6 +190,12 @@ class SR_evaluator:
             "total_expressions": self.total_expressions,
             "results": list(),
         }
+
+        # Determine success based on the predefined success threshold
+        if success_threshold is not None and results["min_rmse"] < success_threshold:
+            results["success"] = True
+        else:
+            results["success"] = False
 
         for i in best_indices[:top_k]:
             results["results"].append(models[i])

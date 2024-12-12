@@ -35,10 +35,12 @@ class ParameterEstimator:
             method str: The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
             tol float: The tolerance for termination. Default is 1e-6.
             gtol float: The tolerance for the gradient norm. Default is 1e-3.
-            maxiter int: The maximum number of iterations. Default is 100.
+            max_iter int: The maximum number of iterations. Default is 100.
             bounds List[float]: A list of two elements, specifying the lower and upper bounds for the constant values. Default is [-5, 5].
             initialization str: The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
                                 sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
+            max_constants int: The maximum number of constants allowed in the expression. Default is 8.
+            max_expr_length int: The maximum length of the expression. Default is -1 (no limit).
 
         Methods:
             estimate_parameters(expr: List[str]): Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
@@ -52,10 +54,11 @@ class ParameterEstimator:
                 "method": "L-BFGS-B",
                 "tol": 1e-6,
                 "gtol": 1e-3,
-                "maxiter": 100,
+                "max_iter": 100,
                 "bounds": [-5, 5],
                 "initialization": "random", # random, mean
-                "max_constants": 8
+                "max_constants": 8,
+                "max_expr_length": -1
         }
 
         if kwargs:
@@ -84,11 +87,15 @@ class ParameterEstimator:
             An array containing the optimized constant values.
 
         Notes:
+            if the length of the expression exceeds the maximum allowed, NaN and an empty array are returned.
             If the number of constants in the expression exceeds the maximum allowed, NaN and an empty array are returned.
             If there are no constants in the expression, the RMSE is calculated directly without optimization.
         """
         num_constants = sum([1 for t in expr if t == "C"])
         if 0 <= self.estimation_settings["max_constants"] < num_constants:
+            return np.nan, np.array([])
+
+        if 0 <= self.estimation_settings["max_expr_length"] < len(expr):
             return np.nan, np.array([])
 
         executable_error_fn = expr_to_error_function(expr, self.symbol_library)
@@ -125,7 +132,7 @@ class ParameterEstimator:
         res = minimize(lambda c: executable_error_fn(self.X, c, self.y), x0, method=self.estimation_settings["method"],
                        tol=self.estimation_settings["tol"],
                        options={
-                           "maxiter": self.estimation_settings["maxiter"],
+                           "maxiter": self.estimation_settings["max_iter"],
                            "gtol": self.estimation_settings["gtol"]
                                 },
                        bounds=[(self.estimation_settings["bounds"][0], self.estimation_settings["bounds"][1]) for _ in range(num_constants)])

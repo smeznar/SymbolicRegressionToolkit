@@ -40,6 +40,27 @@ class SymbolLibrary:
         """
         self.symbols = dict()
 
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the SymbolLibrary instance.
+
+        This method provides a comma-separated string of all the symbol keys
+        currently stored in the SymbolLibrary.
+
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> str(library)
+            'x'
+            >>> library.add_symbol("sin", "fn", 5, "{} = np.sin({})")
+            >>> str(library)
+            'x, sin'
+
+        Returns:
+            A string containing all symbols in the library, separated by commas.
+        """
+        return ", ".join(self.symbols.keys())
+
     def add_symbol(self, symbol: str, symbol_type: str, precedence: int, np_fn: str):
         """
         Adds a symbol to the library. A symbol should have a type, precedence, and numpy function associated with it.

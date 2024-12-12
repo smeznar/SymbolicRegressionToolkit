@@ -82,6 +82,11 @@ nav:
       - expression_tree: references/utils/expression_tree.md
       - expression_compiler: references/utils/expression_compiler.md
     - evaluation:
-        - references/evaluation/index.md
-        - parameter_estimator: references/evaluation/parameter_estimator.md
-        - sr_evaluator: references/evaluation/sr_evaluator.md
+      - references/evaluation/index.md
+      - parameter_estimator: references/evaluation/parameter_estimator.md
+      - sr_evaluator: references/evaluation/sr_evaluator.md
+    - dataset:
+      - references/dataset/index.md
+      - dataset: references/dataset/srdataset.md
+
+  - Changelog: changelog.md
