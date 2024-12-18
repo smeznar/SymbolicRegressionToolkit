@@ -13,14 +13,11 @@ from SRToolkit.utils import SymbolLibrary
 
 
 class SRBenchmark:
-    def __init__(self, benchmark_name: str, base_dir: str, base_url: str = None, metadata: dict = None):
+    def __init__(self, benchmark_name: str, base_dir: str, metadata: dict = None):
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
-        self.base_url = base_url
         self.datasets = {}
-        self.metadata = metadata
-
-        self.download_benchmark_data(base_url)
+        self.metadata = {} if metadata is None else metadata
 
     def add_dataset(self, dataset_name: str, ground_truth: List[str],  symbol_library: SymbolLibrary,
                     original_equation: str = None, max_evaluations: int=-1, max_expression_length: int=-1,
@@ -29,16 +26,9 @@ class SRBenchmark:
 
         if original_equation is None:
             original_equation = "".join(ground_truth)
-        group = "other"
 
-        if num_variables > 0:
-            group = str(num_variables)
-
-        if group not in self.datasets:
-            self.datasets[group] = {}
-
-        self.datasets[group][dataset_name] = {
-            "path": os.path.join(self.base_dir, dataset_name),
+        self.datasets[dataset_name] = {
+            "path": self.base_dir + "/" + dataset_name + ".npy",
             "ground_truth": ground_truth,
             "original_equation": original_equation,
             "symbols": symbol_library,
@@ -47,20 +37,20 @@ class SRBenchmark:
             "max_constants": max_constants,
             "success_threshold": success_threshold,
             "constant_range": constant_range,
-            "dataset_metadata": dataset_metadata
+            "dataset_metadata": self.metadata.update(dataset_metadata),
+            "num_variables": num_variables
         }
 
     def create_dataset(self, dataset_name: str):
         if dataset_name in self.datasets:
             # Check if dataset exists otherwise download it from an url
             if os.path.exists(self.datasets[dataset_name]["path"]):
-                X = np.load(self.datasets[dataset_name]["path"] + "/X.npy")
-            elif self.base_url is not None:
-                # Download data from the url
-                X = np.load(self.base_url + self.datasets[dataset_name]["path"] + "/X.npy")
+                data = np.load(self.datasets[dataset_name]["path"] + ".npy")
             else:
-                raise ValueError(f"Could not find dataset {dataset_name} at {self.datasets[dataset_name]['path']}"
-                                 f"base_url is None")
+                raise ValueError(f"Could not find dataset {dataset_name} at {self.datasets[dataset_name]['path']}")
+
+            X = data[:, :-1]
+            y = data[:, -1]
 
             return SRDataset(X, y, ground_truth=self.datasets[dataset_name]["ground_truth"],
                              original_equation=self.datasets[dataset_name]["original_equation"],
@@ -88,13 +78,6 @@ class SRBenchmark:
             zipfile.extractall(path=directory_path)
 
 
-
-
-        else:
-            print("Directory", directory_path, "is not empty.")
-            return False
-
-
     @staticmethod
     def feynman(dataset_directory: str):
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
@@ -102,6 +85,7 @@ class SRBenchmark:
     @staticmethod
     def nguyen(dataset_directory: str):
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/nguyen.zip"
+        SRBenchmark.download_benchmark_data(url, dataset_directory)
         # we create a SymbolLibrary with 1 and with 2 variables
         # Each library contains +, -, *, /, sin, cos, exp, log, sqrt, ^2, ^3
         sl_1v = SymbolLibrary()
@@ -122,7 +106,7 @@ class SRBenchmark:
         sl_2v.add_symbol("X_1", "var", 5, "X[:, 1]")
 
         # Add datasets to the benchmark
-        benchmark = SRBenchmark("Nguyen", dataset_directory, base_url="" )
+        benchmark = SRBenchmark("Nguyen", dataset_directory)
         benchmark.add_dataset("NG-1", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
                               original_equation="x+x^2+x^3", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
@@ -164,11 +148,12 @@ class SRBenchmark:
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata)
 
-
-
+        return benchmark
 
 
 if __name__ == '__main__':
+    # benchmark = SRBenchmark.nguyen("../../data/nguyen")
+    # a = 0
     from SRToolkit.utils.expression_compiler import expr_to_executable_function
 
     equations = [["X_0", "+", "X_0", "^2", "+", "X_0", "^3"],
@@ -192,4 +177,4 @@ if __name__ == '__main__':
             x = np.random.random((10000, 2)) * (bounds[i][1] - bounds[i][0]) + bounds[i][0]
         y = exec_fun(x, None)
 
-        np.save(f"../../data/Nguyen/NG-{i}.npy", np.concatenate([x, y[:, np.newaxis]], axis=1))
+        np.save(f"../../data/Nguyen/NG-{i+1}.npy", np.concatenate([x, y[:, np.newaxis]], axis=1))
