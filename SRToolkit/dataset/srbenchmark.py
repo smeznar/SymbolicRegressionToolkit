@@ -1,10 +1,14 @@
 import copy
 import os
 from typing import List
+from urllib.request import urlopen
+from io import BytesIO
+from zipfile import ZipFile
 
 import numpy as np
 
 from SRToolkit.dataset import SRDataset
+
 from SRToolkit.utils import SymbolLibrary
 
 
@@ -16,6 +20,8 @@ class SRBenchmark:
         self.datasets = {}
         self.metadata = metadata
 
+        self.download_benchmark_data(base_url)
+
     def add_dataset(self, dataset_name: str, ground_truth: List[str],  symbol_library: SymbolLibrary,
                     original_equation: str = None, max_evaluations: int=-1, max_expression_length: int=-1,
                     max_constants: int=8, success_threshold: float=1e-7, constant_range: List[float]=None,
@@ -23,7 +29,6 @@ class SRBenchmark:
 
         if original_equation is None:
             original_equation = "".join(ground_truth)
-
         group = "other"
 
         if num_variables > 0:
@@ -50,11 +55,9 @@ class SRBenchmark:
             # Check if dataset exists otherwise download it from an url
             if os.path.exists(self.datasets[dataset_name]["path"]):
                 X = np.load(self.datasets[dataset_name]["path"] + "/X.npy")
-                y = np.load(self.datasets[dataset_name]["path"] + "/y.npy")
             elif self.base_url is not None:
                 # Download data from the url
                 X = np.load(self.base_url + self.datasets[dataset_name]["path"] + "/X.npy")
-                y = np.load(self.base_url + self.datasets[dataset_name]["path"] + "/y.npy")
             else:
                 raise ValueError(f"Could not find dataset {dataset_name} at {self.datasets[dataset_name]['path']}"
                                  f"base_url is None")
@@ -72,7 +75,33 @@ class SRBenchmark:
             raise ValueError(f"Dataset {dataset_name} not found")
 
     @staticmethod
+    def download_benchmark_data(url, directory_path):
+        # Check if directory_path exist
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)
+
+        # Check if directory_path is empty
+        if not os.listdir(directory_path):
+            # Download data from the url to the directory_path
+            http_response = urlopen(url)
+            zipfile = ZipFile(BytesIO(http_response.read()))
+            zipfile.extractall(path=directory_path)
+
+
+
+
+        else:
+            print("Directory", directory_path, "is not empty.")
+            return False
+
+
+    @staticmethod
+    def feynman(dataset_directory: str):
+        url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
+
+    @staticmethod
     def nguyen(dataset_directory: str):
+        url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/nguyen.zip"
         # we create a SymbolLibrary with 1 and with 2 variables
         # Each library contains +, -, *, /, sin, cos, exp, log, sqrt, ^2, ^3
         sl_1v = SymbolLibrary()
@@ -87,50 +116,80 @@ class SRBenchmark:
         sl_1v.add_symbol("sqrt", symbol_type="fn", precedence=5, np_fn="{} = np.sqrt({})")
         sl_1v.add_symbol("^2", symbol_type="fn", precedence=5, np_fn="{} = np.pow({}, 2)")
         sl_1v.add_symbol("^3", symbol_type="fn", precedence=5, np_fn="{} = np.pow({}, 3)")
-        sl_1v.add_symbol(f"X_0", "var", 5, "X[:, 0]")
+        sl_1v.add_symbol("X_0", "var", 5, "X[:, 0]")
 
         sl_2v = copy.copy(sl_1v)
-        sl_2v.add_symbol(f"X_1", "var", 5, "X[:, 1]")
+        sl_2v.add_symbol("X_1", "var", 5, "X[:, 1]")
 
-        benchmark = SRBenchmark("Nguyen", dataset_directory)
+        # Add datasets to the benchmark
+        benchmark = SRBenchmark("Nguyen", dataset_directory, base_url="" )
         benchmark.add_dataset("NG-1", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
                               original_equation="x+x^2+x^3", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-2", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
-                              original_equation="x+x^2+x^3", max_evaluations=100000,
+        benchmark.add_dataset("NG-2", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0","*", "X_0", "^3"], sl_1v,
+                              original_equation="x+x^2+x^3+x^4", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-3", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
-                              original_equation="x+x^2+x^3", max_evaluations=100000,
+        benchmark.add_dataset("NG-3", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0","*", "X_0", "^3", "+", "X_0","^2", "*", "X_0", "^3"], sl_1v,
+                              original_equation="x+x^2+x^3+x^4+x^5", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-4", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
-                              original_equation="x+x^2+x^3", max_evaluations=100000,
+        benchmark.add_dataset("NG-4", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0","*", "X_0", "^3", "+", "X_0","^2", "*", "X_0", "^3", "+", "X_0","^3", "*", "X_0", "^3"], sl_1v,
+                              original_equation="x+x^2+x^3+x^4+x^5+x^6", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-5", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
-                              original_equation="x+x^2+x^3", max_evaluations=100000,
+        benchmark.add_dataset("NG-5", ["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"], sl_1v,
+                              original_equation="sin(x^2)*cos(x)-1", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-6", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
-                              original_equation="x+x^2+x^3", max_evaluations=100000,
+        benchmark.add_dataset("NG-6", ["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"], sl_1v,
+                              original_equation="sin(x)+sin(x+x^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-7", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
-                              original_equation="ln()", max_evaluations=100000,
+        benchmark.add_dataset("NG-7", ["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"], sl_1v,
+                              original_equation="log(1+x)+log(1+x^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
         benchmark.add_dataset("NG-8", ["sqrt", "(", "X_0", ")"], sl_1v,
                               original_equation="sqrt(x)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=1,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-9", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
+        benchmark.add_dataset("NG-9", ["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"], sl_2v,
                               original_equation="sin(x)+sin(y^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata)
-        benchmark.add_dataset("NG-10", ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], sl_1v,
+        benchmark.add_dataset("NG-10", ["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"], sl_2v,
                               original_equation="2*sin(x)*cos(y)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata)
 
+
+
+
+
+if __name__ == '__main__':
+    from SRToolkit.utils.expression_compiler import expr_to_executable_function
+
+    equations = [["X_0", "+", "X_0", "^2", "+", "X_0", "^3"],
+                 ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"],
+                 ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3", "+", "X_0", "^2", "*", "X_0", "^3"],
+                 ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3", "+", "X_0", "^2", "*", "X_0", "^3", "+", "X_0", "^3", "*", "X_0", "^3"],
+                 ["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"],
+                 ["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"],
+                 ["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"],
+                 ["sqrt", "(", "X_0", ")"],
+                 ["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"],
+                 ["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"]]
+
+    bounds = [(-20, 20), (-20, 20), (-20, 20), (-20, 20), (-20, 20), (-20, 20), (1, 100), (0, 100), (-20, 20), (-20, 20)]
+
+    for i, eq in enumerate(equations):
+        exec_fun = expr_to_executable_function(eq)
+        if i < 8:
+            x = np.random.random((10000, 1)) * (bounds[i][1] - bounds[i][0]) + bounds[i][0]
+        else:
+            x = np.random.random((10000, 2)) * (bounds[i][1] - bounds[i][0]) + bounds[i][0]
+        y = exec_fun(x, None)
+
+        np.save(f"../../data/Nguyen/NG-{i}.npy", np.concatenate([x, y[:, np.newaxis]], axis=1))
