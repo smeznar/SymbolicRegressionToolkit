@@ -138,121 +138,121 @@ class SRBenchmark:
         sl_9v.add_symbol("X_8", "var", 5, "X[:, 8]")
 
         benchmark = SRBenchmark("feynman", dataset_directory)
-        benchmark.add_dataset("I.16.6", ["(", "X_0", "+", "X_1", ")", "/", "(", "1", "+", "X_0", "*", "X_1", "/", "X_2", "^2",")"], sl_3v, original_equation="(u+v)/(1+u*v/c**2)", max_evaluations=100000,
+        benchmark.add_dataset("I.16.6", ["(", "X_2", "+", "X_1", ")", "/", "(", "1", "+", "X_2", "*", "X_1", "/", "X_1", "^2",")"], sl_3v, original_equation="v1 = (u+v)/(1+u*v/c^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.15.4", [], sl_3v, original_equation="-mom*B*cos(theta)", max_evaluations=100000,
+        benchmark.add_dataset("II.15.4", ["(", "0", "-", "X_0", ")", "*", "X_1", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="E_n = -mom*B*cos(theta)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.27.16", [], sl_3v, original_equation="epsilon*c*Ef**2", max_evaluations=100000,
+        benchmark.add_dataset("II.27.16", ["X_0", "*", "X_1", "*", "X_2", "^2"], sl_3v, original_equation="flux = epsilon*c*Ef^2", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.11.19", [], sl_6v, original_equation="x1*y1+x2*y2+x3*y3", max_evaluations=100000,
+        benchmark.add_dataset("I.11.19", ["X_0", "*", "X_3", "+", "X_1", "*", "X_4", "+", "X_2", "*", "X_5"], sl_6v, original_equation="A = x1*y1+x2*y2+x3*y3", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=6,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.15.3x", [], sl_4v, original_equation="(x-u*t)/sqrt(1-u**2/c**2)", max_evaluations=100000,
+        benchmark.add_dataset("I.15.3x", ["(", "X_0", "-", "X_1", "*", "X_3", ")", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], sl_4v, original_equation="x1 = (x-u*t)/sqrt(1-u^2/c^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.10.7", [], sl_3v, original_equation="m_0/sqrt(1-v**2/c**2)", max_evaluations=100000,
+        benchmark.add_dataset("I.10.7", ["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], sl_3v, original_equation="m = m_0/sqrt(1-v^2/c^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.9.18", [], sl_9v, original_equation="G*m1*m2/((x2-x1)**2+(y2-y1)**2+(z2-z1)**2)", max_evaluations=100000,
+        benchmark.add_dataset("I.9.18", ["X_2", "*", "X_0", "*", "X_1", "/", "(", "(", "X_4", "-", "X_3", ")", "^2", "+", "(", "X_6", "-", "X_5", ")", "^2", "+", "(", "X_8", "-", "X_7", ")", "^2",")"], sl_9v, original_equation="F = G*m1*m2/((x2-x1)^2+(y2-y1)^2+(z2-z1)^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=9,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.15.3t", [], sl_4v, original_equation="(t-u*x/c**2)/sqrt(1-u**2/c**2)", max_evaluations=100000,
+        benchmark.add_dataset("I.15.3t", ["(", "X_3", "-", "X_2", "*", "X_0", "/", "X_1", "^2", ")", "/", "sqrt", "(", "1", "-", "X_2", "^2", "/", "X_1", "^2", ")"], sl_4v, original_equation="t1 = (t-u*x/c^2)/sqrt(1-u^2/c^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.36.38", [], sl_8v, original_equation="mom*H/(kb*T)+(mom*alpha)/(epsilon*c**2*kb*T)*M", max_evaluations=100000,
+        benchmark.add_dataset("II.36.38", ["X_0", "*", "X_1", "/", "(", "X_2", "*", "X_3",")", "+", "(", "X_0", "*", "X_4", ")", "/", "(", "X_5", "*", "X_6", "^2", "*", "X_2", "*", "X_3" ")", "*", "X_7"], sl_8v, original_equation="f = mom*H/(kb*T)+(mom*alpha)/(epsilon*c**2*kb*T)*M", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=8,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.43.43", [], sl_4v, original_equation="1/(gamma-1)*kb*v/A", max_evaluations=100000,
+        benchmark.add_dataset("I.43.43", ["1", "/", "(", "X_0", "-", "1", ")", "*", "X_1", "*", "X_3", "/", "X_2"], sl_4v, original_equation="kappa = 1/(gamma-1)*kb*v/A", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.15.5", [], sl_3v, original_equation="-p_d*Ef*cos(theta)", max_evaluations=100000,
+        benchmark.add_dataset("II.15.5", ["(", "0", "-", "X_0", ")", "*", "X_1", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="E_n = -p_d*Ef*cos(theta)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.37.4", [], sl_3v, original_equation="I1+I2+2*sqrt(I1*I2)*cos(delta)", max_evaluations=100000,
+        benchmark.add_dataset("I.37.4", ["X_0", "+", "X_1", "+", "2", "*", "sqrt", "(", "X_0", "*", "X_1", ")", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="Int = I1+I2+2*sqrt(I1*I2)*cos(delta)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.6.11", [], sl_4v, original_equation="1/(4*pi*epsilon)*p_d*cos(theta)/r**2", max_evaluations=100000,
+        benchmark.add_dataset("II.6.11", ["1", "/", "(", "4", "*", "pi", "*", "X_0", ")", "*", "X_1", "*", "cos", "(", "X_2", ")", "/", "X_3", "^2"], sl_4v, original_equation="Volt = 1/(4*pi*epsilon)*p_d*cos(theta)/r^2", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("III.7.38", [], sl_3v, original_equation="2*mom*B/(h/(2*pi))", max_evaluations=100000,
+        benchmark.add_dataset("III.7.38", ["2", "*", "X_0", "*", "X_1", "/", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")"], sl_3v, original_equation="omega = 2*mom*B/(h/(2*pi))", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.34.2a", [], sl_3v, original_equation="q*v/(2*pi*r)", max_evaluations=100000,
+        benchmark.add_dataset("II.34.2a", ["X_0", "*", "X_1", "/", "(", "2", "*", "pi", "*", "X_2", ")"], sl_3v, original_equation="l = q*v/(2*pi*r)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.13.23", [], sl_3v, original_equation="rho_c_0/sqrt(1-v**2/c**2)", max_evaluations=100000,
+        benchmark.add_dataset("II.13.23", ["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], sl_3v, original_equation="rho_c = rho_c_0/sqrt(1-v^2/c^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.29.4", [], sl_2v, original_equation="omega/c", max_evaluations=100000,
+        benchmark.add_dataset("I.29.4", ["X_0", "/", "X_1"], sl_2v, original_equation="k = omega/c", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.38.12", [], sl_4v, original_equation="4*pi*epsilon*(h/(2*pi))**2/(m*q**2)", max_evaluations=100000,
+        benchmark.add_dataset("I.38.12", ["4", "*", "pi", "*", "X_3", "*", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "^2", "/", "(", "X_0", "*", "X_1", "^2", ")"], sl_4v, original_equation="r = 4*pi*epsilon*(h/(2*pi))^2/(m*q^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("III.15.27", [], sl_3v, original_equation="2*pi*alpha/(n*d)", max_evaluations=100000,
+        benchmark.add_dataset("III.15.27", ["2", "*", "pi", "*", "X_0", "/", "(", "X_1", "*", "X_2", ")"], sl_3v, original_equation="k = 2*pi*alpha/(n*d)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.41.16", [], sl_5v, original_equation="h/(2*pi)*omega**3/(pi**2*c**2*(exp((h/(2*pi))*omega/(kb*T))-1))", max_evaluations=100000,
+        benchmark.add_dataset("I.41.16", ["X_2", "/", "(", "2", "*", "pi", ")", "*", "X_0", "^3", "/", "(", "pi", "^2", "*", "X_4", "^2", "*", "(", "exp", "(", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "*", "X_0", "/", "(", "X_3", "*", "X_1", ")", ")", "-", "1", ")", ")"], sl_5v, original_equation="L_rad = h/(2*pi)*omega^3/(pi^2*c^2*(exp((h/(2*pi))*omega/(kb*T))-1))", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=5,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.48.20", [], sl_3v, original_equation="m*c**2/sqrt(1-v**2/c**2)", max_evaluations=100000,
+        benchmark.add_dataset("I.48.20", ["X_0", "*", "X_2", "^2", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], sl_3v, original_equation="E_n = m*c^2/sqrt(1-v^2/c^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.11.20", [], sl_5v, original_equation="n_rho*p_d**2*Ef/(3*kb*T)", max_evaluations=100000,
+        benchmark.add_dataset("II.11.20", ["X_0", "*", "X_1", "^2", "*", "X_2", "/", "(", "3", "*", "X_3", "*", "X_4", ")"], sl_5v, original_equation="Pol = n_rho*p_d^2*Ef/(3*kb*T)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=5,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.25.13", [], sl_2v, original_equation="q/C", max_evaluations=100000,
+        benchmark.add_dataset("I.25.13", ["X_0", "/", "X_1"], sl_2v, original_equation="Volt = q/C", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("III.15.12", [], sl_3v, original_equation="2*U*(1-cos(k*d))", max_evaluations=100000,
+        benchmark.add_dataset("III.15.12", ["2", "*", "X_0", "*", "cos", "(", "X_1", "*", "X_2", ")"], sl_3v, original_equation="E_n = 2*U*(1-cos(k*d))", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.24.6", [], sl_4v, original_equation="1/2*m*(omega**2+omega_0**2)*1/2*x**2", max_evaluations=100000,
+        benchmark.add_dataset("I.24.6", ["0.25", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", ")", "*", "X_3", "^2"], sl_4v, original_equation="E_n = 1/2*m*(omega^2+omega_0^2)*1/2*x^2", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.34.27", [], sl_2v, original_equation="(h/(2*pi))*omega", max_evaluations=100000,
+        benchmark.add_dataset("I.34.27", ["(", "X_1", "/", "(", "2", "*", "pi", ")", ")", "*", "X_0"], sl_2v, original_equation="E_n =(h/(2*pi))*omega", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.43.31", [], sl_3v, original_equation="mob*kb*T", max_evaluations=100000,
+        benchmark.add_dataset("I.43.31", ["X_0", "*", "X_2", "*", "X_1"], sl_3v, original_equation="D = mob*kb*T", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.29.16", [], sl_4v, original_equation="sqrt(x1**2+x2**2-2*x1*x2*cos(theta1-theta2))", max_evaluations=100000,
+        benchmark.add_dataset("I.29.16", ["sqrt", "(", "X_0", "^2", "+", "X_1", "^2", "-", "2", "*", "X_0", "*", "X_1", "*", "cos", "(", "X_2", "-", "X_3", ")", ")"], sl_4v, original_equation="x = sqrt(x1^2+x2^2-2*x1*x2*cos(theta1-theta2))", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.18.4", [], sl_4v, original_equation="(m1*r1+m2*r2)/(m1+m2)", max_evaluations=100000,
+        benchmark.add_dataset("I.18.4", ["(","X_0", "*", "X_2", "+", "X_1", "*", "X_3", ")", "/", "(", "X_0", "+", "X_1", ")"], sl_4v, original_equation="r = (m1*r1+m2*r2)/(m1+m2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.6.15a", [], sl_6v, original_equation="p_d/(4*pi*epsilon)*3*z/r**5*sqrt(x**2+y**2)", max_evaluations=100000,
+        benchmark.add_dataset("II.6.15a", ["X_1", "*", "(", "4", "*", "pi", "*", "X_0", ")", "*", "3", "*", "X_5", "/", "(", "X_2", "^2", "*", "X_2", "^3", ")", "*", "sqrt", "(", "X_3", "^2", "+", "X_4", "^2", ")"], sl_6v, original_equation="Ef = p_d/(4*pi*epsilon)*3*z/r^5*sqrt(x^2+y^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=6,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.30.3", [], sl_3v, original_equation="Int_0*sin(n*theta/2)**2/sin(theta/2)**2", max_evaluations=100000,
+        benchmark.add_dataset("I.30.3", ["X_0", "*", "sin", "(", "X_2", "*", "X_1", "/", "2", ")", "^2", "/", "sin", "(", "X_1", "/", "2", ")", "^2"], sl_3v, original_equation="Int = Int_0*sin(n*theta/2)^2/sin(theta/2)^2", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("III.9.52", [], sl_6v, original_equation="(p_d*Ef*t/(h/(2*pi)))*sin((omega-omega_0)*t/2)**2/((omega-omega_0)*t/2)**2", max_evaluations=100000,
+        benchmark.add_dataset("III.9.52", ["(", "X_0", "*", "X_1", "*", "X_2", "/", "(", "X_3", "/", "(", "2", "*", "pi", ")", ")", ")", "*", "sin", "(", "(", "X_4", "-", "X_5", ")", "*", "X_2", "/", "2", ")", "^2", "/", "(", "(", "X_4", "-", "X_5", ")", "*", "X_2", "/", "2", ")","^2"], sl_6v, original_equation="prob = (p_d*Ef*t/(h/(2*pi)))*sin((omega-omega_0)*t/2)^2/((omega-omega_0)*t/2)^2", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=6,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.34.2", [], sl_3v, original_equation="q*v*r/2", max_evaluations=100000,
+        benchmark.add_dataset("II.34.2", ["X_0", "*", "X_1", "*", "X_2", "/", "2"], sl_3v, original_equation="mom = q*v*r/2", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.39.11", [], sl_3v, original_equation="1/(gamma-1)*pr*V", max_evaluations=100000,
+        benchmark.add_dataset("I.39.11", ["1", "/", "(", "X_0", "-", "1", ")", "*", "X_1", "*", "X_2"], sl_3v, original_equation="E_n = 1/(gamma-1)*pr*V", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.11.28", [], sl_2v, original_equation="1+n*alpha/(1-(n*alpha/3))", max_evaluations=100000,
+        benchmark.add_dataset("II.11.28", ["1", "+", "X_0", "*", "X_1", "/", "(", "1", "-", "(", "X_0", "*", "X_1", "/", "3", ")", ")"], sl_2v, original_equation="theta = 1+n*alpha/(1-(n*alpha/3))", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.3.24", [], sl_2v, original_equation="Pwr/(4*pi*r**2)", max_evaluations=100000,
+        benchmark.add_dataset("II.3.24", ["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "^2", ")"], sl_2v, original_equation="flux = Pwr/(4*pi*r^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.24.17", [], sl_3v, original_equation="sqrt(omega**2/c**2-pi**2/d**2)", max_evaluations=100000,
+        benchmark.add_dataset("II.24.17", ["sqrt", "(", "X_0", "^2", "/", "X_1", "^2", "-", "pi", "^2", "/", "X_2", "^2", ")"], sl_3v, original_equation="k = sqrt(omega^2/c^2-pi^2/d^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.13.17", [], sl_4v, original_equation="1/(4*pi*epsilon*c**2)*2*I/r", max_evaluations=100000,
+        benchmark.add_dataset("II.13.17", ["1", "/", "(", "4", "*", "pi", "*", "X_0", "*", "X_1", "^2", ")", "*", "2", "*", "X_2", "/", "X_3"], sl_4v, original_equation="B = 1/(4*pi*epsilon*c^2)*2*I/r", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("I.12.5", [], sl_2v, original_equation="q2*Ef", max_evaluations=100000,
+        benchmark.add_dataset("I.12.5", ["X_0", "*", "X_1"], sl_2v, original_equation="F = q2*Ef", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
         benchmark.add_dataset("II.35.18", [], sl_5v, original_equation="n_0/(exp(mom*B/(kb*T))+exp(-mom*B/(kb*T)))", max_evaluations=100000,
