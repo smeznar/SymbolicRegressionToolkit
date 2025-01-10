@@ -5,7 +5,6 @@ from typing import Optional, List
 import warnings
 
 import numpy as np
-from yaml import warnings
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
