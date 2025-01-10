@@ -14,9 +14,15 @@ def expr_to_executable_function(expr: List[str], symbol_library: SymbolLibrary=S
     Converts an expression in infix notation to an executable function.
 
     Examples:
-        >>> executable_fun = expr_to_executable_function(["A", "+", "1"])
+        >>> executable_fun = expr_to_executable_function(["X_0", "+", "1"])
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
         array([2, 3, 4, 5])
+        >>> executable_fun = expr_to_executable_function(["pi"])
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([1]))
+        array([3.14159265, 3.14159265, 3.14159265, 3.14159265])
+        >>> executable_fun = expr_to_executable_function(["C"])
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([1]))
+        array([1, 1, 1, 1])
 
     Args:
         expr : The expression in infix notation.

@@ -244,9 +244,9 @@ class SymbolLibrary:
         sl.add_symbol("^3", symbol_type="fn", precedence=-1, np_fn="{} = {}**3")
         sl.add_symbol("^4", symbol_type="fn", precedence=-1, np_fn="{} = {}**4")
         sl.add_symbol("^5", symbol_type="fn", precedence=-1, np_fn="{} = {}**5")
-        sl.add_symbol("pi", symbol_type="lit", precedence=5, np_fn="np.pi")
-        sl.add_symbol("e", symbol_type="lit", precedence=5, np_fn="np.e")
-        sl.add_symbol("C", symbol_type="const", precedence=5, np_fn="C[{}]")
+        sl.add_symbol("pi", symbol_type="lit", precedence=5, np_fn="np.full(X.shape[0], np.pi)")
+        sl.add_symbol("e", symbol_type="lit", precedence=5, np_fn="np.full(X.shape[0], np.e)")
+        sl.add_symbol("C", symbol_type="const", precedence=5, np_fn="np.full(X.shape[0], C[{}])")
 
         if num_variables > 0:
             for i in range(num_variables):

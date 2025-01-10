@@ -88,5 +88,6 @@ nav:
     - dataset:
       - references/dataset/index.md
       - dataset: references/dataset/srdataset.md
+      - benchmark: references/dataset/srbenchmark.md
 
   - Changelog: changelog.md

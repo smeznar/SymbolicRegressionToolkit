@@ -14,6 +14,14 @@ from SRToolkit.utils import SymbolLibrary
 
 class SRBenchmark:
     def __init__(self, benchmark_name: str, base_dir: str, metadata: dict = None):
+        """
+        Initializes an instance of the SRBenchmark class.
+
+        Args:
+            benchmark_name: The name of this benchmark.
+            base_dir: The directory where the datasets will be stored.
+            metadata: An optional dictionary containing metadata about this benchmark. This could include information such as the name of the benchmark, a citation for the benchmark, number of datasets, etc.
+        """
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
         self.datasets = {}
@@ -24,6 +32,25 @@ class SRBenchmark:
                     max_constants: int=8, success_threshold: float=1e-7, constant_range: List[float]=None,
                     num_variables: int=-1, dataset_metadata: dict=None):
 
+        """
+        Adds a dataset to the benchmark.
+
+        Args:
+            dataset_name: The name of the dataset.
+            ground_truth: The ground truth expression, represented as a list of tokens (strings) in the infix notation.
+            symbol_library: The symbol library to use.
+            original_equation: The original equation from which the ground truth expression was generated.
+            max_evaluations: The maximum number of expressions to evaluate. Less than 0 means no limit.
+            max_expression_length: The maximum length of the expression. Less than 0 means no limit.
+            max_constants: The maximum number of constants allowed in the expression. Less than 0 means no limit.
+            success_threshold: The RMSE threshold below which the experiment is considered successful.
+            constant_range: A list of two floats, specifying the lower and upper bounds for the constant values.
+                Default is [-5.0, 5.0]. If constant_range is None, we automatically set it to [-5.0, 5.0]
+                if the symbol library contains a symbol for constants.
+            num_variables: The number of variables in the expression. Default is -1, which means we don't know.
+            dataset_metadata: An optional dictionary containing metadata about this dataset. This could include
+                information such as the name of the dataset, a citation for the dataset, number of variables, etc.
+        """
         if original_equation is None:
             original_equation = "".join(ground_truth)
 
@@ -42,6 +69,18 @@ class SRBenchmark:
         }
 
     def create_dataset(self, dataset_name: str):
+        """
+        Creates an instance of a dataset from the given dataset name.
+
+        Args:
+            dataset_name: The name of the dataset to create.
+
+        Returns:
+            A SRDataset instance containing the data, ground truth expression, and metadata for the given dataset.
+
+        Raises:
+            ValueError: If the dataset name is not found in the available datasets.
+        """
         if dataset_name in self.datasets:
             # Check if dataset exists otherwise download it from an url
             if os.path.exists(self.datasets[dataset_name]["path"]):
@@ -65,6 +104,16 @@ class SRBenchmark:
             raise ValueError(f"Dataset {dataset_name} not found")
 
     def list_datasets(self, verbose=True, num_variables: int=-1):
+        """
+        Lists the available datasets.
+
+        Args:
+            verbose (bool): If True, also prints out a description of each dataset.
+            num_variables (int): If not -1, only show datasets with the given number of variables.
+
+        Returns:
+            A list of dataset names.
+        """
         datasets = [dataset_name for dataset_name in self.datasets if num_variables < 0 or self.datasets[dataset_name]["num_variables"] == num_variables]
         datasets = sorted(datasets, key= lambda dataset_name: (self.datasets[dataset_name]["num_variables"], dataset_name))
 
@@ -85,6 +134,18 @@ class SRBenchmark:
     @staticmethod
     def download_benchmark_data(url, directory_path):
         # Check if directory_path exist
+        """
+        Downloads a benchmark dataset from the given url to the given directory path.
+
+        This function will first check if the directory_path exists. If not, it will create it. Then it will check if the directory_path is empty. If it is not empty, it will not download the data. If it is empty, it will download the data from the given url and extract it to the directory_path.
+
+        Args:
+            url (str): The url of the benchmark dataset to download.
+            directory_path (str): The path of the directory where the dataset should be downloaded.
+
+        Returns:
+            None
+        """
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
 
@@ -98,6 +159,17 @@ class SRBenchmark:
 
     @staticmethod
     def feynman(dataset_directory: str):
+        """
+        Downloads the Feynman benchmark dataset, sets up symbol libraries, and adds predefined datasets to the benchmark.
+
+        This method downloads the Feynman benchmark dataset from a specified URL, initializes symbol libraries for symbolic regression with varying numbers of variables, and adds multiple predefined datasets to the benchmark with their respective equations and metadata.
+
+        Args:
+            dataset_directory (str): The directory path where the benchmark dataset will be downloaded and stored.
+
+        Returns:
+            SRBenchmark: An instance of the SRBenchmark class containing the predefined datasets.
+        """
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
         SRBenchmark.download_benchmark_data(url, dataset_directory)
 
@@ -443,6 +515,20 @@ class SRBenchmark:
 
     @staticmethod
     def nguyen(dataset_directory: str):
+        """
+        Downloads and initializes the Nguyen benchmark datasets for symbolic regression.
+
+        This method downloads the Nguyen symbolic regression benchmark datasets from a specified URL
+        and initializes a set of datasets using a provided dataset directory. It creates two symbol libraries
+        for equations with one variable and two variables, respectively, and populates the benchmark with various
+        Nguyen equations, each represented with its symbolic tokens and associated symbol library.
+
+        Args:
+            dataset_directory (str): The directory where the benchmark datasets will be stored and accessed.
+
+        Returns:
+            SRBenchmark: An initialized SRBenchmark instance containing the Nguyen datasets.
+        """
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/nguyen.zip"
         SRBenchmark.download_benchmark_data(url, dataset_directory)
         # we create a SymbolLibrary with 1 and with 2 variables
