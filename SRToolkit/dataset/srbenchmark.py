@@ -594,8 +594,3 @@ class SRBenchmark:
                               dataset_metadata=benchmark.metadata)
 
         return benchmark
-
-
-if __name__ == '__main__':
-    benchmark = SRBenchmark.feynman("../../data/feynman")
-    benchmark.list_datasets()

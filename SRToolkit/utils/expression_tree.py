@@ -236,6 +236,9 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
                     )
             operator_stack.append(token)
         else:
+            if token != ")":
+                raise Exception(f"Invalid symbol \"{token}\" in expression {expr_str}. Did you add token \"{token}\" to the symbol library?")
+
             while len(operator_stack) > 0 and operator_stack[-1] != "(":
                 if sl.get_type(operator_stack[-1]) == "fn":
                     out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
@@ -250,3 +253,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         return out_stack[-1]
     else:
         raise Exception(f"Error while parsing expression {expr_str}.")
+
+
+if __name__ == '__main__':
+    tree = tokens_to_tree(["(", "X_0", "+", "tan", "(", "X_1", "-", "5.2", ")", ")"], SymbolLibrary.default_symbols(num_variables=2))
