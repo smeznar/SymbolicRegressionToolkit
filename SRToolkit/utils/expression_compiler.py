@@ -29,8 +29,8 @@ def expr_to_executable_function(expr: Union[List[str], Node], symbol_library: Sy
         array([2, 3, 4, 5])
 
     Args:
-        expr : The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        symbol_library : The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+        expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
+        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
 
     Raises:
         Exception: If expression is not of the right type
@@ -72,8 +72,8 @@ def expr_to_error_function(expr: Union[List[str], Node], symbol_library: SymbolL
         0.0
 
     Args:
-        expr : The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        symbol_library : The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+        expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
+        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
 
     Raises:
         Exception: If expression is not of the right type
