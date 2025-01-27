@@ -85,7 +85,8 @@ class SR_evaluator:
             True
 
         Args:
-            expr: A list of strings representing the expression in infix notation.
+            expr: An expression. This should be an istance of the SRToolkit.utils.expression_tree.Node class or a list
+                  of tokens in the infix notation.
 
         Returns:
             The root mean square error of the expression.

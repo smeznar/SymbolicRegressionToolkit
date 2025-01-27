@@ -80,8 +80,8 @@ class ParameterEstimator:
             True
 
         Args:
-            expr: A list of strings representing the expression to be evaluated. The expression should include the
-                  symbol 'C' for constants whose values need to be estimated.
+            expr: An expression. This should either be an instance of SRToolkit.utils.expression_tree.Node or a list of
+                  tokens in the infix notation representing the expression to be evaluated.
 
         Returns:
             the root mean square error (RMSE) of the optimized expression.
