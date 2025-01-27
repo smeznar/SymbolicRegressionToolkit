@@ -1,7 +1,7 @@
 """
 This module contains functions that convert an expression in infix notation to an executable python function.
 """
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from SRToolkit.utils import Node, tokens_to_tree, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -9,7 +9,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 # Generated functions are defined (through exec) here, so numpy needs to be imported
 import numpy as np
 
-def expr_to_executable_function(expr: List[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
+def expr_to_executable_function(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
     """
     Converts an expression in infix notation to an executable function.
 
@@ -23,15 +23,29 @@ def expr_to_executable_function(expr: List[str], symbol_library: SymbolLibrary=S
         >>> executable_fun = expr_to_executable_function(["C"])
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([1]))
         array([1, 1, 1, 1])
+        >>> tree = tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1))
+        >>> executable_fun = expr_to_executable_function(tree)
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
+        array([2, 3, 4, 5])
 
     Args:
-        expr : The expression in infix notation.
+        expr : The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         symbol_library : The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+
+    Raises:
+        Exception: If expression is not of the right type
 
     Returns:
         An executable function that takes in a 2D array of input values and a 1D array of constant values and returns the output of the expression.
     """
-    tree = tokens_to_tree(expr, symbol_library)
+    if not (isinstance(expr, list) or isinstance(expr, Node)):
+        raise Exception("Expression must be given as either a list of tokens or a tree (an instance of the "
+                        "SRToolkit.utils.expression_tree.Node class)")
+
+    if isinstance(expr, list):
+        tree = tokens_to_tree(expr, symbol_library)
+    else:
+        tree = expr
     code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
 
     fun_string = "def _executable_expression_(X, C):\n"
@@ -43,7 +57,7 @@ def expr_to_executable_function(expr: List[str], symbol_library: SymbolLibrary=S
     return locals()["_executable_expression_"]
 
 
-def expr_to_error_function(expr: List[str], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
+def expr_to_error_function(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
     """
     Converts an expression in infix notation to an executable function that returns the root mean squared error between
     the output of the expression and the target values.
@@ -52,15 +66,29 @@ def expr_to_error_function(expr: List[str], symbol_library: SymbolLibrary=Symbol
         >>> executable_fun = expr_to_error_function(["X_0", "+", "1"])
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
         0.0
+        >>> tree = tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1))
+        >>> executable_fun = expr_to_error_function(tree)
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
+        0.0
 
     Args:
-        expr : The expression in infix notation.
+        expr : The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         symbol_library : The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+
+    Raises:
+        Exception: If expression is not of the right type
 
     Returns:
         An executable function that takes in a 2D array of input values `X`, a 1D array of constant values `C`, and a 1D array of target values `y`. It returns the root mean squared error between the output of the expression and the target values.
     """
-    tree = tokens_to_tree(expr, symbol_library)
+    if not (isinstance(expr, list) or isinstance(expr, Node)):
+        raise Exception("Expression must be given as either a list of tokens or a tree (an instance of the "
+                        "SRToolkit.utils.expression_tree.Node class)")
+
+    if isinstance(expr, list):
+        tree = tokens_to_tree(expr, symbol_library)
+    else:
+        tree = expr
     code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
 
     fun_string = "def _executable_expression_(X, C, y):\n"
