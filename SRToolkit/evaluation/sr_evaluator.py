@@ -1,11 +1,12 @@
 """
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
 """
-from typing import Optional, List
+from typing import Optional, List, Union
 import warnings
 
 import numpy as np
 
+from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
@@ -70,7 +71,7 @@ class SR_evaluator:
         self.parameter_estimator = ParameterEstimator(
             X, y, symbol_library=symbol_library, **kwargs)
 
-    def evaluate_expr(self, expr: List[str]) -> float:
+    def evaluate_expr(self, expr: Union[List[str], Node]) -> float:
         """
         Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.

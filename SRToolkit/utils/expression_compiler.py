@@ -3,7 +3,7 @@ This module contains functions that convert an expression in infix notation to a
 """
 from typing import List, Tuple, Union
 
-from SRToolkit.utils import Node, tokens_to_tree, is_float
+from SRToolkit.utils.expression_tree import Node, tokens_to_tree, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 # Generated functions are defined (through exec) here, so numpy needs to be imported

@@ -1,11 +1,12 @@
 """
 This module contains the ParameterEstimator class, which is used to estimate the parameters of an expression.
 """
-from typing import Optional, List, Tuple
+from typing import Union, List, Tuple
 
 import numpy as np
 from scipy.optimize import minimize
 
+from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.expression_compiler import expr_to_error_function
 
@@ -64,7 +65,7 @@ class ParameterEstimator:
         if kwargs:
             self.estimation_settings.update(kwargs)
 
-    def estimate_parameters(self, expr: List[str]) -> Tuple[float, np.ndarray]:
+    def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
         """
         Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
 
