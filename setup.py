@@ -15,7 +15,7 @@ def parse_requirements(file):
 
 
 setup(name='symbolic-regression-toolkit',
-      version='1.2.3',
+      version='1.2.4',
       url='https://github.com/smeznar/SymbolicRegressionToolkit',
       author='Sebastian Mežnar',
       author_email='smeznar@gmail.com',
