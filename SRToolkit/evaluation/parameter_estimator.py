@@ -91,7 +91,7 @@ class ParameterEstimator:
             If the number of constants in the expression exceeds the maximum allowed, NaN and an empty array are returned.
             If there are no constants in the expression, the RMSE is calculated directly without optimization.
         """
-        num_constants = sum([1 for t in expr if t == "C"])
+        num_constants = sum([1 for t in expr if self.symbol_library.get_type(t) == "const"])
         if 0 <= self.estimation_settings["max_constants"] < num_constants:
             return np.nan, np.array([])
 

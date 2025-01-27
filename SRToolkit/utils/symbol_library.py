@@ -92,6 +92,9 @@ class SymbolLibrary:
         "lit" for constants with a known value (such as pi or e), "const" for constants/parameters without a value that
         need to be optimized, and "var" for variables whose values are provided as input data.
 
+        We recommend you use a single token of "const" type as using multiple might lead to more work, errors, and less
+        readability.
+
         For example, look at the default_symbols function for the SymbolLibrary class.
 
         Examples:
