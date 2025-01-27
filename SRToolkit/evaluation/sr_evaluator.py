@@ -105,7 +105,11 @@ class SR_evaluator:
                 f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
             return np.nan
         else:
-            expr_str = "".join(expr)
+            if isinstance(expr, Node):
+                expr_list = expr.to_list(symbol_library=self.symbol_library)
+            else:
+                expr_list = expr
+            expr_str = "".join(expr_list)
             if expr_str in self.models:
                 # print(f"Already evaluated {expr_str}")
                 # print(self.models[expr_str])
@@ -115,7 +119,7 @@ class SR_evaluator:
                 self.models[expr_str] = {
                     "rmse": rmse,
                     "parameters": parameters,
-                    "expr": expr,
+                    "expr": expr_list,
                 }
                 return rmse
 
