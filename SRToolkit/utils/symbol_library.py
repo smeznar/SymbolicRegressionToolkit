@@ -234,7 +234,7 @@ class SymbolLibrary:
         sl.add_symbol("-", symbol_type="op", precedence=0, np_fn="{} = {} - {}")
         sl.add_symbol("*", symbol_type="op", precedence=1, np_fn="{} = {} * {}")
         sl.add_symbol("/", symbol_type="op", precedence=1, np_fn="{} = {} / {}")
-        sl.add_symbol("^", symbol_type="op", precedence=2, np_fn="{} = np.pow({},{})")
+        sl.add_symbol("^", symbol_type="op", precedence=2, np_fn="{} = np.power({},{})")
         sl.add_symbol("u-", symbol_type="fn", precedence=5, np_fn="{} = -{}")
         sl.add_symbol("sqrt", symbol_type="fn", precedence=5, np_fn="{} = np.sqrt({})")
         sl.add_symbol("sin", symbol_type="fn", precedence=5, np_fn="{} = np.sin({})")
