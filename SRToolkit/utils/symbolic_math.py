@@ -28,6 +28,10 @@ def simplify(list_of_tokens, constant, variables):
     ex = sympify(denumerate_constants(str(ex), constant), evaluate=False)
     return sympy_to_sr(ex)
 
+def sympy_to_number(expr):
+    evaluated = float(expr.evalf())
+    return int(evaluated) if evaluated.is_integer() else evaluated
+
 def sympy_to_sr(expr):
     """
     Converts a Sympy expression into an SRtoolkit tree node, explicitly handling left-associative division.
@@ -38,7 +42,10 @@ def sympy_to_sr(expr):
     Returns:
         Node: The root node of the SRtoolkit expression tree.
     """
-    if expr.is_Number or expr.is_Symbol:
+    if expr.is_Number:
+        return Node(str(sympy_to_number(expr)))
+    
+    if expr.is_Symbol:
         return Node(str(expr))
 
     if expr.is_Function:
@@ -75,7 +82,6 @@ def sympy_to_sr(expr):
         return Node('^', sympy_to_sr(exp), sympy_to_sr(base))
 
     if expr.is_Rational and expr.q != 1:
-        # Handle rational division (e.g., 2/3)
         return Node('/', sympy_to_sr(expr.q), sympy_to_sr(expr.p))
 
     raise ValueError(f"Unsupported Sympy expression: {expr}")
