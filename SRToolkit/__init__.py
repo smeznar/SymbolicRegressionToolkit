@@ -9,7 +9,7 @@ Modules:
 """
 
 __version__ = "1.2.4"
-__author__ = "Sebastian Mežnar"
+__author__ = "Sebastian Mežnar, Jure Brence"
 __credits__ = "Jožef Stefan Institute"
 
 from . import utils

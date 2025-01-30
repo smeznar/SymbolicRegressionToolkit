@@ -81,6 +81,7 @@ nav:
       - symbol_library: references/utils/symbol_library.md
       - expression_tree: references/utils/expression_tree.md
       - expression_compiler: references/utils/expression_compiler.md
+      - expression_simplifier: references/utils/expression_simplifier.md
     - evaluation:
       - references/evaluation/index.md
       - parameter_estimator: references/evaluation/parameter_estimator.md

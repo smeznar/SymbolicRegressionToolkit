@@ -1,92 +1,113 @@
+from typing import Union, List
+
 import numpy as np
-from sympy import sympify, expand
+from sympy import sympify, expand, Expr, Basic
 from sympy.core import Mul, Add, Pow
 from sympy import symbols as sp_symbols
 import re
-from SRToolkit.utils.expression_tree import Node
 
-def simplify(list_of_tokens, constant, variables):
+from SRToolkit.utils import SymbolLibrary, Node
+
+def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> Union[List[str], Node]:
     """
     Simplifies a mathematical expression by:
         1. making use of sympy's simplification functions
         2. simplifying constants, e.g. C*C + C -> C
 
     Examples:
-        >>> expr = ("C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0")
-        >>> print(simplify(expr, "C", ["X_0", "X_1"]))
+        >>> expr = ["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
+        >>> print("".join(simplify(expr)))
         C+X_1
     
     Args:
-        list_of_tokens (list): List of tokens representing the expression.
-        constant (str): The character representing numerical constants.
-        variables (list): List of characters representing variables.
+        expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
+        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
 
     Returns:
-        Node: simplified SRtoolkit expression tree.
+        The simplified expression
     """
-    ex = simplify_expression("".join(list_of_tokens), constant, variables)
-    ex = sympify(denumerate_constants(str(ex), constant), evaluate=False)
-    return sympy_to_sr(ex)
+    is_tree = False
+    if isinstance(expr, Node):
+        expr = expr.to_list(notation="infix", symbol_library=symbol_library)
+        is_tree = True
 
-def sympy_to_number(expr):
+    variables = symbol_library.get_symbols_of_type("var")
+    # We expect only one symbol for constants
+    constant = symbol_library.get_symbols_of_type("const")[0]
+
+    expr = _simplify_expression("".join(expr), constant, variables)
+    expr = sympify(_denumerate_constants(str(expr), constant), evaluate=False)
+    expr = _sympy_to_sr(expr)
+
+    if is_tree:
+        return expr
+    else:
+        return expr.to_list("infix", symbol_library=symbol_library)
+
+
+def _sympy_to_number(expr):
+    """
+    Extracts the number contained in the Sympy node 
+    """
     evaluated = float(expr.evalf())
     return int(evaluated) if evaluated.is_integer() else evaluated
 
-def sympy_to_sr(expr):
+
+def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
     """
-    Converts a Sympy expression into an SRtoolkit tree node, explicitly handling left-associative division.
+    Converts a Sympy expression into an instance of SRtoolkit.expression_tree.Node, explicitly handling left-associative division.
 
     Args:
-        expr (sympy.Expr): The Sympy expression.
+        expr: The Sympy expression.
 
     Returns:
-        Node: The root node of the SRtoolkit expression tree.
+        An instance of SRtoolkit.expression_tree.Node that corresponds to the expression given as the input.
     """
     if expr.is_Number:
-        return Node(str(sympy_to_number(expr)))
+        return Node(str(_sympy_to_number(expr)))
     
     if expr.is_Symbol:
         return Node(str(expr))
 
     if expr.is_Function:
         func_name = expr.func.__name__
-        arg = sympy_to_sr(expr.args[0])
+        arg = _sympy_to_sr(expr.args[0])
         return Node(func_name, left=arg)
 
     if isinstance(expr, Add):
         args = expr.as_ordered_terms()
         # Detect subtraction
         if len(args) == 2 and args[1].is_Mul and args[1].args[0] == -1:
-            return Node('-', sympy_to_sr(-args[1]), sympy_to_sr(args[0]))
+            return Node('-', _sympy_to_sr(-args[1]), _sympy_to_sr(args[0]))
         # Handle regular addition
-        root = Node('+', sympy_to_sr(args[1]), sympy_to_sr(args[0]))
+        root = Node('+', _sympy_to_sr(args[1]), _sympy_to_sr(args[0]))
         for term in args[2:]:
-            root = Node('+', sympy_to_sr(term), root)
+            root = Node('+', _sympy_to_sr(term), root)
         return root
 
     if isinstance(expr, Mul):
         # Process factors explicitly, ensuring left-to-right associativity
         factors = list(expr.args)
-        root = sympy_to_sr(factors[0])  # Start with the first factor
+        root = _sympy_to_sr(factors[0])  # Start with the first factor
         for factor in factors[1:]:
             if factor.is_Pow and factor.args[1] == -1:  # Division
-                divisor = sympy_to_sr(factor.args[0])
+                divisor = _sympy_to_sr(factor.args[0])
                 root = Node('/', divisor, root)  # Left-to-right division
             else:  # Multiplication
-                multiplicand = sympy_to_sr(factor)
+                multiplicand = _sympy_to_sr(factor)
                 root = Node('*', multiplicand, root)
         return root
 
     if isinstance(expr, Pow):
         base, exp = expr.args
-        return Node('^', sympy_to_sr(exp), sympy_to_sr(base))
+        return Node('^', _sympy_to_sr(exp), _sympy_to_sr(base))
 
     if expr.is_Rational and expr.q != 1:
-        return Node('/', sympy_to_sr(expr.q), sympy_to_sr(expr.p))
+        return Node('/', _sympy_to_sr(expr.q), _sympy_to_sr(expr.p))
 
     raise ValueError(f"Unsupported Sympy expression: {expr}")
 
-def simplify_constants(eq, c, var):
+def _simplify_constants(eq, c, var):
     """ Simplifies the constants in a Sympy expression. output[2][0][1] is the simplified expression.
 
     Args:
@@ -109,7 +130,7 @@ def simplify_constants(eq, c, var):
     else:
         has_var, has_c, subs = [], [], []
         for a in eq.args:
-            a_rec = simplify_constants (a, c, var)
+            a_rec = _simplify_constants (a, c, var)
             has_var += [a_rec[0]]; has_c += [a_rec[1]]; subs += [a_rec[2]]
         if sum(has_var) == 0 and True in has_c:
             return False, True, [(eq, c)]
@@ -137,7 +158,7 @@ def simplify_constants(eq, c, var):
                         args += [eq.args[i]]
             return True in has_var, True in has_c, [(eq, eq.func(*args))]
 
-def enumerate_constants(expr, constant):
+def _enumerate_constants(expr, constant):
     """ Enumerates the constants in a Sympy expression. 
 
     Example: C*x**2 + C*x + C -> C0*x**2 + C1*x + C2
@@ -157,7 +178,7 @@ def enumerate_constants(expr, constant):
     char_list[constind] = constants
     return sympify("".join(char_list)), tuple(constants)
 
-def denumerate_constants(expr, constant):
+def _denumerate_constants(expr, constant):
     """ Removes the enumeration of constants in a Sympy expression.
 
     Args:
@@ -169,7 +190,7 @@ def denumerate_constants(expr, constant):
     """
     return re.sub(f'{constant}\\d', constant, expr)
 
-def simplify_expression (expr_str, constant, variables):
+def _simplify_expression (expr_str, constant, variables):
     """Simplifies a mathematical expression.
 
     Args:
@@ -184,12 +205,12 @@ def simplify_expression (expr_str, constant, variables):
     x = [sp_symbols(s.strip("'")) for s in variables]
     c = sp_symbols(constant)
 
-    expr, _ = enumerate_constants(expr_str, constant)
-    expr = simplify_constants(expr, c, x)[2][0][1]
-    expr, _ = enumerate_constants(expr, constant)
+    expr, _ = _enumerate_constants(expr_str, constant)
+    expr = _simplify_constants(expr, c, x)[2][0][1]
+    expr, _ = _enumerate_constants(expr, constant)
     expr = expand(expr)
-    expr = simplify_constants(expr, c, x)[2][0][1]
-    expr, _ = enumerate_constants(expr, constant)
+    expr = _simplify_constants(expr, c, x)[2][0][1]
+    expr, _ = _enumerate_constants(expr, constant)
     return expr
 
 

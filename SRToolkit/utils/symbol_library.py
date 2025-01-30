@@ -2,6 +2,7 @@
 This module contains the SymbolLibrary class, which is used for managing symbols and their properties.
 """
 import copy
+from typing import List
 
 class SymbolLibrary:
     def __init__(self):
@@ -202,6 +203,60 @@ class SymbolLibrary:
         else:
             return ""
 
+    def get_symbols_of_type(self, symbol_type: str) -> List[str]:
+        """
+        Returns a list of symbols with the requested type ("op", "fn", "var", "const", "lit").
+
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> library.add_symbol("y", "var", 0, "y")
+            >>> library.get_symbols_of_type("var")
+            ['x', 'y']
+
+        Args:
+            symbol_type: Type of symbols you want to get.
+
+        Returns:
+            A list of symbols with the requested type
+        """
+        symbols = list()
+        for symbol in self.symbols.keys():
+            if self.get_type(symbol) == symbol_type:
+                symbols.append(symbol)
+
+        return symbols
+
+    @staticmethod
+    def from_symbol_list(symbols: List[str], num_variables=25):
+        """
+        Creates an instance of SymbolLibrary from a list of symbols and number of variables. The list of currently
+        supported symbols (by default) can be seen in the SymbolLibrary.default_symbols() function.
+
+        Examples:
+            >>> library = SymbolLibrary().from_symbol_list(["+", "*", "C"], num_variables=2)
+            >>> len(library.symbols)
+            5
+
+        Args:
+            symbols: List of symbols you want.
+            num_variables: Number of variables you want.
+
+        Returns:
+            An instance of SymbolLibrary
+        """
+        variables = [f"X_{i}" for i in range(num_variables)]
+        symbols = symbols + variables
+
+        sl = SymbolLibrary.default_symbols(num_variables)
+
+        all_symbols = list(sl.symbols.keys())
+        for symbol in all_symbols:
+            if symbol not in symbols:
+                sl.remove_symbol(symbol)
+
+        return sl
+
     @staticmethod
     def default_symbols(num_variables: int = 25) -> "SymbolLibrary":
         """
@@ -215,7 +270,11 @@ class SymbolLibrary:
         If num_variables is greater than 0, it adds variables labeled 'X_0' to 'X_{num_variables-1}', each
          associated with a column in a data array X.
 
-        Note: The variables in the default_symbols function are added in the predefined order,
+        By default, we currently support the following symbols: "+", "-", "*", "/", "^", "u-" (unary minus), "sqrt",
+        "sin", "cos", "exp", "tan", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "floor", "ceil", "ln", "log",
+        "^-1", "^2", "^3", "^4", "^5", "pi", "e", "C" (unknown constant).
+
+        Notes: The variables in the default_symbols function are added in the predefined order,
         which is the same order as the columns in the data array X.
 
         Examples:
