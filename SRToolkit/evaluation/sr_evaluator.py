@@ -63,6 +63,7 @@ class SR_evaluator:
             get_results(top_k): Returns the results of the evaluation.
         """
         self.models = dict()
+        self.invalid = list()
         self.metadata = metadata
         self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
@@ -116,7 +117,18 @@ class SR_evaluator:
             return np.nan
         else:
             if simplify_expr:
-                expr = simplify(expr, self.symbol_library)
+                try:
+                    expr = simplify(expr, self.symbol_library)
+                except Exception as e:
+                    if isinstance(expr, Node):
+                        expr_list = expr.to_list(symbol_library=self.symbol_library)
+                    else:
+                        expr_list = expr
+                    print(f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}")
+
+                    self.invalid.append(expr_list)
+                    return np.inf
+
 
             if isinstance(expr, Node):
                 expr_list = expr.to_list(symbol_library=self.symbol_library)

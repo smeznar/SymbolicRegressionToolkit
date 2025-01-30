@@ -2,7 +2,7 @@ from typing import Union, List
 
 import numpy as np
 from sympy import sympify, expand, Expr, Basic
-from sympy.core import Mul, Add, Pow
+from sympy.core import Mul, Add, Pow, Symbol
 from sympy import symbols as sp_symbols
 import re
 
@@ -106,7 +106,7 @@ def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
     if expr.is_Rational and expr.q != 1:
         return Node('/', _sympy_to_sr(expr.q), _sympy_to_sr(expr.p))
 
-    raise ValueError(f"Unsupported Sympy expression: {expr}")
+    raise ValueError(f"{expr}")
 
 
 def _simplify_constants(eq, c, var):
@@ -125,8 +125,8 @@ def _simplify_constants(eq, c, var):
     if len(eq.args) == 0:
         if eq in var:
             return True, False, [(eq, eq)]
-        elif str(eq)[0] == str(c):
-            return False, True, [(eq, eq)]
+        elif eq in eq.free_symbols:
+            return False, True, [(eq, c)]
         else:
             return False, False, [(eq, eq)]
     else:
@@ -215,7 +215,8 @@ def _simplify_expression (expr_str, constant, variables):
     expr, _ = _enumerate_constants(expr, constant)
     expr = expand(expr)
     expr = _simplify_constants(expr, c, x)[2][0][1]
-    expr, _ = _enumerate_constants(expr, constant)
+    # expr, _ = _enumerate_constants(expr, constant)
+    # expr = _simplify_constants(expr, c, x)[2][0][1]
     return expr
 
 

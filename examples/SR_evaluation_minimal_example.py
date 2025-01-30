@@ -39,10 +39,14 @@ if __name__ == "__main__":
     start_time = time.time()
 
     # Evaluate expressions one by one
-    for expr in expressions:
-        evaluator.evaluate_expr(expr)
+    for i, expr in enumerate(expressions):
+        # print(f"{i}: Expr: {''.join(expr)}")
+        evaluator.evaluate_expr(expr, simplify_expr=True)
 
     print(f"Total time: {time.time() - start_time}")
 
     # Get and print the results
     print(evaluator.get_results())
+
+# Simplified: 396.6958358287811
+# Non simplified: 156.62710046768188
