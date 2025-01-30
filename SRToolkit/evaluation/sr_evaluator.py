@@ -6,8 +6,7 @@ import warnings
 
 import numpy as np
 
-from SRToolkit.utils.expression_tree import Node
-from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils import Node, SymbolLibrary, simplify
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
 
@@ -71,7 +70,7 @@ class SR_evaluator:
         self.parameter_estimator = ParameterEstimator(
             X, y, symbol_library=symbol_library, **kwargs)
 
-    def evaluate_expr(self, expr: Union[List[str], Node]) -> float:
+    def evaluate_expr(self, expr: Union[List[str], Node], simplify_expr=False) -> float:
         """
         Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.
@@ -83,10 +82,21 @@ class SR_evaluator:
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> print(rmse < 1e-6)
             True
+            >>> X = np.array([[0, 1], [0, 2], [0, 3]])
+            >>> y = np.array([2, 3, 4])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
+            >>> print(rmse < 1e-6)
+            True
+            >>> list(se.models.keys())[0]
+            'C+X_1'
+            >>> print(0.99 < se.models["C+X_1"]["parameters"][0] < 1.01)
+            True
 
         Args:
             expr: An expression. This should be an istance of the SRToolkit.utils.expression_tree.Node class or a list
                   of tokens in the infix notation.
+            simplify_expr: If True, simplifies the expression using SymPy before evaluating it.
 
         Returns:
             The root-mean-square error of the expression.
@@ -105,10 +115,14 @@ class SR_evaluator:
                 f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
             return np.nan
         else:
+            if simplify_expr:
+                expr = simplify(expr, self.symbol_library)
+
             if isinstance(expr, Node):
                 expr_list = expr.to_list(symbol_library=self.symbol_library)
             else:
                 expr_list = expr
+
             expr_str = "".join(expr_list)
             if expr_str in self.models:
                 # print(f"Already evaluated {expr_str}")

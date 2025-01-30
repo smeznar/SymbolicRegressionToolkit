@@ -6,7 +6,8 @@ from sympy.core import Mul, Add, Pow
 from sympy import symbols as sp_symbols
 import re
 
-from SRToolkit.utils import SymbolLibrary, Node
+from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.expression_tree import Node
 
 def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> Union[List[str], Node]:
     """
@@ -107,6 +108,7 @@ def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
 
     raise ValueError(f"Unsupported Sympy expression: {expr}")
 
+
 def _simplify_constants(eq, c, var):
     """ Simplifies the constants in a Sympy expression. output[2][0][1] is the simplified expression.
 
@@ -158,6 +160,7 @@ def _simplify_constants(eq, c, var):
                         args += [eq.args[i]]
             return True in has_var, True in has_c, [(eq, eq.func(*args))]
 
+
 def _enumerate_constants(expr, constant):
     """ Enumerates the constants in a Sympy expression. 
 
@@ -178,6 +181,7 @@ def _enumerate_constants(expr, constant):
     char_list[constind] = constants
     return sympify("".join(char_list)), tuple(constants)
 
+
 def _denumerate_constants(expr, constant):
     """ Removes the enumeration of constants in a Sympy expression.
 
@@ -189,6 +193,7 @@ def _denumerate_constants(expr, constant):
         Sympy expression with denumerated constants
     """
     return re.sub(f'{constant}\\d', constant, expr)
+
 
 def _simplify_expression (expr_str, constant, variables):
     """Simplifies a mathematical expression.
@@ -215,5 +220,5 @@ def _simplify_expression (expr_str, constant, variables):
 
 
 if __name__ == "__main__":
-    expr = ("C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0")
-    print(simplify(expr, "C", ["X_0", "X_1"]))
+    expr = ["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
+    print(simplify(expr))

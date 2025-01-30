@@ -6,9 +6,7 @@ from typing import Union, List, Tuple
 import numpy as np
 from scipy.optimize import minimize
 
-from SRToolkit.utils.expression_tree import Node
-from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.expression_compiler import expr_to_error_function
+from SRToolkit.utils import Node, SymbolLibrary, expr_to_error_function
 
 
 class ParameterEstimator:
