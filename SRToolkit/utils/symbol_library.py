@@ -221,7 +221,7 @@ class SymbolLibrary:
         Examples:
             >>> library = SymbolLibrary.default_symbols()
             >>> len(library.symbols)
-            44
+            54
 
         Args:
             num_variables: The number of variables to add to the library (default is 25).
@@ -240,6 +240,15 @@ class SymbolLibrary:
         sl.add_symbol("sin", symbol_type="fn", precedence=5, np_fn="{} = np.sin({})")
         sl.add_symbol("cos", symbol_type="fn", precedence=5, np_fn="{} = np.cos({})")
         sl.add_symbol("exp", symbol_type="fn", precedence=5, np_fn="{} = np.exp({})")
+        sl.add_symbol("tan", symbol_type="fn", precedence=5, np_fn="{} = np.tan({})")
+        sl.add_symbol("arcsin", symbol_type="fn", precedence=5, np_fn="{} = np.arcsin({})")
+        sl.add_symbol("arccos", symbol_type="fn", precedence=5, np_fn="{} = np.arccos({})")
+        sl.add_symbol("arctan", symbol_type="fn", precedence=5, np_fn="{} = np.arctan({})")
+        sl.add_symbol("sinh", symbol_type="fn", precedence=5, np_fn="{} = np.sinh({})")
+        sl.add_symbol("cosh", symbol_type="fn", precedence=5, np_fn="{} = np.cosh({})")
+        sl.add_symbol("tanh", symbol_type="fn", precedence=5, np_fn="{} = np.tanh({})")
+        sl.add_symbol("floor", symbol_type="fn", precedence=5, np_fn="{} = np.floor({})")
+        sl.add_symbol("ceil", symbol_type="fn", precedence=5, np_fn="{} = np.ceil({})")
         sl.add_symbol("ln", symbol_type="fn", precedence=5, np_fn="{} = np.log({})")
         sl.add_symbol("log", symbol_type="fn", precedence=5, np_fn="{} = np.log10({})")
         sl.add_symbol("^-1", symbol_type="fn", precedence=-1, np_fn="{} = 1/{}")

@@ -92,6 +92,9 @@ class Node:
             ['X_0', '^2']
             >>> node.to_list()
             ['(', 'X_0', ')', '^2']
+            >>> node = Node("*", Node("*", Node("X_0"), Node("X_0")),  Node("X_0"))
+            >>> node.to_list(notation="infix", symbol_library=SymbolLibrary.default_symbols())
+            ['X_0', '*', '(', 'X_0', '*', 'X_0', ')']
 
         Args:
             notation: The notation to use for the resulting list of tokens. One of "prefix", "postfix", or "infix".

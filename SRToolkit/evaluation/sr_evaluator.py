@@ -89,7 +89,7 @@ class SR_evaluator:
                   of tokens in the infix notation.
 
         Returns:
-            The root mean square error of the expression.
+            The root-mean-square error of the expression.
 
         Warnings:
             Maximum number of evaluations reached: If the maximum number of evaluations has been reached, a warning is printed and np.nan is returned.
