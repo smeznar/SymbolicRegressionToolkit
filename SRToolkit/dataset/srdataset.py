@@ -31,7 +31,7 @@ class SRDataset:
         """
         self.X = X
         self.y = y
-        self.ground_truth = "".join(ground_truth)
+        self.ground_truth = ground_truth
         self.original_equation = original_equation
 
         self.max_evaluations = max_evaluations
@@ -68,7 +68,7 @@ class SRDataset:
         Returns:
             A string describing this dataset.
         """
-        description = f"Dataset for target expression {self.ground_truth}. "
+        description = f"Dataset for target expression {self.original_equation}. "
         description += (f" When evaluating your model on this dataset, you should limit your generative model to only"
                         f" produce expressions using the following symbols: {str(self.symbols)}. Expressions are deemed"
                         f" successful if the root mean squared error is less than {self.success_threshold}. However, we"
