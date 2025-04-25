@@ -3,6 +3,7 @@ The module containing the expression tree data structure and functions for trans
 """
 from typing import List
 import warnings
+from copy import copy
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -158,6 +159,87 @@ class Node:
         else:
             raise Exception("Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix').")
 
+    def to_latex(self, symbol_library: SymbolLibrary) -> str:
+        """
+        Transforms the tree rooted at this node into a LaTeX expression.
+        Examples:
+            >>> node = Node("+", Node("X_0"), Node("1"))
+            >>> node.to_latex(symbol_library=SymbolLibrary.default_symbols())
+            '$1 + X_{0}$'
+            >>> node = Node("+", Node("*", Node("X_0"), Node("X_1")), Node("1"))
+            >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
+            $1 + X_{1} \cdot X_{0}$
+            >>> node = Node("sin", None, Node("X_0"))
+            >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
+            $\sin (X_{0})$
+            >>> node = Node("+", Node("*", Node("X_0"), Node("C")), Node("C"))
+            >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
+            $C_{0} + C_{1} \cdot X_{0}$
+
+        Args:
+            symbol_library: The symbol library to use when converting the tree. This library defines the properties of the symbols in the tree.
+
+        Returns:
+            A latex string representing the tree rooted at this node.
+
+        Raises:
+             Exception: If the notation is not one of "prefix", "postfix", or "infix" or if a symbol is not in the symbol library.
+        """
+        assert symbol_library is not None, "[Node.to_latex] parameter symbol_library should be of type SymbolLibrary"
+        return f"${self.__to_latex_rec(symbol_library)[0]}$"
+
+
+    def __to_latex_rec(self, symbol_library, num_const=0) -> (str, int):
+        left, num_const = ("", num_const) if self.left is None else self.left.__to_latex_rec(symbol_library, num_const)
+        right, num_const = ("", num_const) if self.right is None else self.right.__to_latex_rec(symbol_library, num_const)
+
+        if is_float(self.symbol):
+            return str(self.symbol), num_const
+        elif symbol_library.get_type(self.symbol) == "const":
+            return symbol_library.get_latex_str(self.symbol).format(num_const), num_const + 1
+        elif symbol_library.get_type(self.symbol) in ["var", "lit"]:
+                return symbol_library.get_latex_str(self.symbol), num_const
+        elif symbol_library.get_type(self.symbol) == "fn":
+            if symbol_library.get_type(self.left.symbol) in ["fn", "op"]:
+                left = f"({left})"
+            return symbol_library.get_latex_str(self.symbol).format(f"({left})"), num_const
+        elif symbol_library.get_type(self.symbol) == "op":
+            if not is_float(self.left.symbol) and -1 < symbol_library.get_precedence(self.left.symbol) <= symbol_library.get_precedence(self.symbol):
+                left = f"({left})"
+            if not is_float(self.right.symbol) and -1 < symbol_library.get_precedence(self.right.symbol) <= symbol_library.get_precedence(self.symbol):
+                right = f"({right})"
+            return symbol_library.get_latex_str(self.symbol).format(left, right), num_const
+        else:
+            raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+
+    def __copy__(self):
+        """
+        Creates a copy of the expression (usefull for manipulating expressions).
+
+        Examples:
+            >>> node = Node("+", Node("X_0"), Node("1"))
+            >>> new_node = copy(node)
+            >>> node.to_list(symbol_library=SymbolLibrary.default_symbols())
+            ['1', '+', 'X_0']
+            >>> new_node.to_list(symbol_library=SymbolLibrary.default_symbols())
+            ['1', '+', 'X_0']
+            >>> node == node
+            True
+            >>> node == new_node
+            False
+
+        Returns:
+            A copy of the expression (tree).
+        """
+        if self.left is not None:
+            left = copy(self.left)
+        else:
+            left = None
+        if self.right is not None:
+            right = copy(self.right)
+        else:
+            right = None
+        return Node(copy(self.symbol), left=left, right=right)
 
 def is_float(element: any) -> bool:
     """

@@ -5,6 +5,7 @@
 
 **New Features:**
 
+- Expressions can now be transformed into latex code
 - Added Dataset and benchmark objects that create evaluators for Symbolic Regression models
 - Added modified versions of feynman and nguyen benchmarks
 
