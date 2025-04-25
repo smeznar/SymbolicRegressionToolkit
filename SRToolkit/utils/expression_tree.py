@@ -162,6 +162,7 @@ class Node:
     def to_latex(self, symbol_library: SymbolLibrary) -> str:
         """
         Transforms the tree rooted at this node into a LaTeX expression.
+
         Examples:
             >>> node = Node("+", Node("X_0"), Node("1"))
             >>> node.to_latex(symbol_library=SymbolLibrary.default_symbols())
