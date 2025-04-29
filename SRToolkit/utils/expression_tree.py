@@ -203,11 +203,11 @@ class Node:
         elif symbol_library.get_type(self.symbol) == "fn":
             if symbol_library.get_type(self.left.symbol) in ["fn", "op"]:
                 left = f"({left})"
-            return symbol_library.get_latex_str(self.symbol).format(f"({left})"), num_const
+            return symbol_library.get_latex_str(self.symbol).format(left), num_const
         elif symbol_library.get_type(self.symbol) == "op":
-            if not is_float(self.left.symbol) and -1 < symbol_library.get_precedence(self.left.symbol) <= symbol_library.get_precedence(self.symbol):
+            if not is_float(self.left.symbol) and -1 < symbol_library.get_precedence(self.left.symbol) < symbol_library.get_precedence(self.symbol):
                 left = f"({left})"
-            if not is_float(self.right.symbol) and -1 < symbol_library.get_precedence(self.right.symbol) <= symbol_library.get_precedence(self.symbol):
+            if not is_float(self.right.symbol) and -1 < symbol_library.get_precedence(self.right.symbol) < symbol_library.get_precedence(self.symbol):
                 right = f"({right})"
             return symbol_library.get_latex_str(self.symbol).format(left, right), num_const
         else:
