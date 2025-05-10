@@ -41,6 +41,7 @@ class SymbolLibrary:
                 Returns a SymbolLibrary with the default symbols.
         """
         self.symbols = dict()
+        self.num_variables = 0
 
     def __str__(self) -> str:
         """
@@ -123,6 +124,12 @@ class SymbolLibrary:
                 latex_str = f"\text{{{symbol}}} {{}}"
             else:
                 latex_str = f"\text{{{symbol}}}"
+
+        if symbol_type == "var" and (np_fn is None or np_fn == ""):
+            np_fn = "X[:, {}]".format(self.num_variables)
+
+        if symbol_type == "var":
+            self.num_variables += 1
 
         self.symbols[symbol] = {
             "symbol": symbol,
