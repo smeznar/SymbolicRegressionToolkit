@@ -173,7 +173,7 @@ class SRBenchmark:
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
         SRBenchmark.download_benchmark_data(url, dataset_directory)
 
-        sl_1v = SymbolLibrary.default_symbols()
+        sl_1v = SymbolLibrary()
         sl_1v.add_symbol("+", symbol_type="op", precedence=0, np_fn="{} = {} + {}", latex_str="{} + {}")
         sl_1v.add_symbol("-", symbol_type="op", precedence=0, np_fn="{} = {} - {}", latex_str="{} - {}")
         sl_1v.add_symbol("*", symbol_type="op", precedence=1, np_fn="{} = {} * {}", latex_str="{} \cdot {}")
@@ -219,7 +219,7 @@ class SRBenchmark:
                               sl_3v, original_equation="v1 = (u+v)/(1+u*v/c^2)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.15.4", ["(", "0", "-", "X_0", ")", "*", "X_1", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="E_n = -mom*B*cos(theta)", max_evaluations=100000,
+        benchmark.add_dataset("II.15.4", ["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="E_n = -mom*B*cos(theta)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
         benchmark.add_dataset("II.27.16", ["X_0", "*", "X_1", "*", "X_2", "^2"], sl_3v, original_equation="flux = epsilon*c*Ef^2", max_evaluations=100000,
@@ -246,7 +246,7 @@ class SRBenchmark:
         benchmark.add_dataset("I.43.43", ["(", "1", "/", "(", "X_0", "-", "1", ")", ")", "*", "X_1", "*", "X_3", "/", "X_2"], sl_4v, original_equation="kappa = 1/(gamma-1)*kb*v/A", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=4,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
-        benchmark.add_dataset("II.15.5", ["(", "0", "-", "X_0", ")", "*", "X_1", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="E_n = -p_d*Ef*cos(theta)", max_evaluations=100000,
+        benchmark.add_dataset("II.15.5", ["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="E_n = -p_d*Ef*cos(theta)", max_evaluations=100000,
                               max_expression_length=50, success_threshold=1e-7, num_variables=3,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
         benchmark.add_dataset("I.37.4", ["X_0", "+", "X_1", "+", "2", "*", "sqrt", "(", "X_0", "*", "X_1", ")", "*", "cos", "(", "X_2", ")"], sl_3v, original_equation="Int = I1+I2+2*sqrt(I1*I2)*cos(delta)", max_evaluations=100000,
