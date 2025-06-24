@@ -128,7 +128,7 @@ class ParameterEstimator:
             An array containing the optimized constant values.
         """
         if self.estimation_settings["initialization"] == "random":
-            x0 = np.random.rand(num_constants) * (self.estimation_settings["bounds"][1] - self.estimation_settings["bounds"][0]) + self.estimation_settings["bounds"][0]
+            x0 = np.random.rand(num_constants) * (self.estimation_settings["bounds"][1] - self.estimation_settings["bounds"][0] - 1e-8) + self.estimation_settings["bounds"][0]
         else:
             x0 = np.array([np.mean(self.estimation_settings["bounds"]) for _ in range(num_constants)])
 
