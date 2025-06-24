@@ -4,6 +4,7 @@ Symbolic Regression Toolkit
 This package provides a Python-based toolkit for equation discovery/symbolic regression.
 
 Modules:
+    dataset: The module containing classes for working with Datasets and Benchmarks.
     utils: The module containing utility classes and functions.
     evaluation: The module containing classes and functions for estimating parameters and evaluating Symbolic Regression models.
 """
