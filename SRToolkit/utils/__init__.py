@@ -7,6 +7,7 @@ Modules:
     expression_tree: The module containing the expression tree data structure and functions for transforming expressions into trees and back.
     expression_compiler: The module containing functions that transform expressions in the infix notation (represented as lists of tokens) to executable python functions.
     expression_simplifier: The module containing functions that simplify an expression using SymPy
+    expression_generation: The module containing helper functions for generating expressions
 
 """
 

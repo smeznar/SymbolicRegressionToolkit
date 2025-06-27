@@ -82,6 +82,7 @@ nav:
       - expression_tree: references/utils/expression_tree.md
       - expression_compiler: references/utils/expression_compiler.md
       - expression_simplifier: references/utils/expression_simplifier.md
+      - expression_generator: references/utils/expression_generator.md
     - evaluation:
       - references/evaluation/index.md
       - parameter_estimator: references/evaluation/parameter_estimator.md
