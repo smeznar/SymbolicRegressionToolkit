@@ -43,6 +43,23 @@ class SymbolLibrary:
         self.symbols = dict()
         self.num_variables = 0
 
+    def __len__(self) -> int:
+        """
+        Returns the number of symbols currently stored in the SymbolLibrary.
+
+        Examples:
+             >>> library = SymbolLibrary.default_symbols(5)
+             >>> len(library)
+             34
+             >>> library.add_symbol("a", "lit", 5, "a", "a")
+             >>> len(library)
+             35
+
+        Returns
+            Number of symbols currently stored in the SymbolLibrary.
+        """
+        return len(self.symbols)
+
     def __str__(self) -> str:
         """
         Returns a string representation of the SymbolLibrary instance.
