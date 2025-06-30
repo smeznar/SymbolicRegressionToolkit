@@ -61,7 +61,7 @@ class SymbolLibrary:
         return len(self.symbols)
 
     def __str__(self) -> str:
-        """
+        r"""
         Returns a string representation of the SymbolLibrary instance.
 
         This method provides a comma-separated string of all the symbol keys
@@ -82,7 +82,7 @@ class SymbolLibrary:
         return ", ".join(self.symbols.keys())
 
     def __copy__(self) -> "SymbolLibrary":
-        """
+        r"""
         Creates a copy of the SymbolLibrary instance.
 
         Examples:
@@ -105,7 +105,7 @@ class SymbolLibrary:
         return sl
 
     def add_symbol(self, symbol: str, symbol_type: str, precedence: int, np_fn: str, latex_str: str = None):
-        """
+        r"""
         Adds a symbol to the library. A symbol should have a type, precedence, a numpy function, and a LaTeX template associated with it.
         Type "op" should be used for symbols operating on two operands, "fn" for symbols operating on one operand,
         "lit" for constants with a known value (such as pi or e), "const" for constants/parameters without a value that
