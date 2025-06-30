@@ -1,8 +1,11 @@
 """
 This module contains helper functions for creating a PCFG with generic probabilities from the SymbolLibrary and to use it for generating random expressions.
 """
+from typing import Union, List
+
 import nltk
 import numpy as np
+from tqdm import tqdm
 
 from SRToolkit.utils import SymbolLibrary
 
@@ -117,7 +120,7 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
 
 
 def _expand(grammar, symbol, current_depth, max_depth=40):
-    if current_depth > max_depth:
+    if current_depth > max_depth > 0:
         return None
 
     if isinstance(symbol, nltk.grammar.Nonterminal):
@@ -139,7 +142,7 @@ def _expand(grammar, symbol, current_depth, max_depth=40):
         return [str(symbol)]
 
 
-def generate_from_pcfg(grammar_str: str, start_symbol="E", max_depth=40, limit=100):
+def generate_from_pcfg(grammar_str: str, start_symbol="E", max_depth=40, limit=100) -> List[str]:
     """
     Generates a random expression from a PCFG with monte-carlo sampling.
 
@@ -151,10 +154,16 @@ def generate_from_pcfg(grammar_str: str, start_symbol="E", max_depth=40, limit=1
         True
 
     Args:
-        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+        grammar_str: Grammar given as a string in the NLTK notation
+        start_symbol: Non-terminal symbol used as the starting point
+        max_depth: Maximum depth of the generated parse trees. If less than 0, expressions can have arbitrary depth
+        limit: Number of times the function tries to generate a valid expression before raising an Exception.
+
+    Raises:
+        Exception: If the maximum number of tries is reached without generating a valid expression
 
     Returns:
-        A PCFG with generic probabilities, written as a string.
+        An expression written as a list of string tokens in the infix notation.
     """
     start_symbol = nltk.grammar.Nonterminal(start_symbol)
     grammar = nltk.PCFG.fromstring(grammar_str)
@@ -169,7 +178,62 @@ def generate_from_pcfg(grammar_str: str, start_symbol="E", max_depth=40, limit=1
     return expr
 
 
+def generate_n_expressions(expression_description: Union[str, SymbolLibrary], num_expressions: int, unique=True,
+                            max_expression_length=50, verbose=False) -> List[List[str]]:
+    """
+    Generates a set of n expressions.
+
+    Examples:
+        >>> len(generate_n_expressions(SymbolLibrary.default_symbols(5), 100, verbose=False))
+        100
+        >>> generate_n_expressions(SymbolLibrary.from_symbol_list([], 1), 3, unique=False, verbose=False, max_expression_length=1)
+        [['X_0'], ['X_0'], ['X_0']]
+
+    Args:
+        expression_description: Decription of expressions, given as either a grammar in the NLTK notation or a SymbolLibrary instance
+        num_expressions: Number of generated expressions
+        unique: When True, each generated expression will be unique (not necesarily unequivalent to others)
+        max_expression_length: Generated expressions will have at most "max_expression_length" tokens. If less than 0, expressions can be of arbitrary size.
+        verbose: If True, adds a progress bar
+
+    Returns:
+        A list of expressions represented as lists of tokens
+    """
+    if isinstance(expression_description, SymbolLibrary):
+        grammar = create_generic_pcfg(expression_description)
+    elif isinstance(expression_description, str):
+        grammar = expression_description
+    else:
+        raise Exception("Description of expressions must be either a grammar written as a string or an instance of SymbolLibrary.")
+
+    expressions = []
+    expression_strings = set()
+    if verbose:
+        pbar = tqdm(total=num_expressions)
+    while len(expressions) < num_expressions:
+        try:
+            expr = generate_from_pcfg(grammar, max_depth=max_expression_length*10)
+        except:
+            print("Couldn't generate a valid expression in 100 tries")
+            continue
+        if len(expr) > max_expression_length > 0:
+            continue
+
+        expr_string = "".join(expr)
+        if expr_string not in expression_strings or not unique:
+            expressions.append(expr)
+            expression_strings.add(expr_string)
+            if verbose:
+                pbar.update(1)
+
+    if verbose:
+        pbar.close()
+    return expressions
+
+
 if __name__ == '__main__':
     sl = SymbolLibrary.default_symbols(5)
-    grammar = create_generic_pcfg(sl)
-    print(generate_from_pcfg(grammar))
+    a = generate_n_expressions(sl, 1000, unique=False, max_expression_length=1)
+    b = 0
+    # grammar = create_generic_pcfg(sl)
+    # print(generate_from_pcfg(grammar))
