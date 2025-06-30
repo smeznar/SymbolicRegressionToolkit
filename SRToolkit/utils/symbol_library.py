@@ -72,7 +72,7 @@ class SymbolLibrary:
             >>> library.add_symbol("x", "var", 0, "x", "x")
             >>> str(library)
             'x'
-            >>> library.add_symbol("sin", "fn", 5, "{} = np.sin({})", "\sin {}")
+            >>> library.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
             >>> str(library)
             'x, sin'
 
@@ -91,7 +91,7 @@ class SymbolLibrary:
             >>> print(old_symbols)
             x
             >>> new_symbols = copy.copy(old_symbols)
-            >>> new_symbols.add_symbol("sin", "fn", 5, "{} = np.sin({})", "\sin {}")
+            >>> new_symbols.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
             >>> print(old_symbols)
             x
             >>> print(new_symbols)
@@ -122,10 +122,10 @@ class SymbolLibrary:
         Examples:
             >>> library = SymbolLibrary()
             >>> library.add_symbol("x", "var", 0, "x")
-            >>> library.add_symbol("sin", "fn", 5, "np.sin({})", "\sin {}")
-            >>> library.add_symbol("C", "const", 5, "C[{}]", "c_{}")
-            >>> library.add_symbol("X_0", "var", 5, "X[:, 0]", "X_0")
-            >>> library.add_symbol("pi", "lit", 5, "np.pi", "\pi")
+            >>> library.add_symbol("sin", "fn", 5, "np.sin({})", r"\sin {}")
+            >>> library.add_symbol("C", "const", 5, "C[{}]", r"c_{}")
+            >>> library.add_symbol("X_0", "var", 5, "X[:, 0]", r"X_0")
+            >>> library.add_symbol("pi", "lit", 5, "np.pi", r"\pi")
 
         Args:
             symbol: The symbol to be added to the library.

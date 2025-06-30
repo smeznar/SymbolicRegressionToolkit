@@ -160,7 +160,7 @@ class Node:
             raise Exception("Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix').")
 
     def to_latex(self, symbol_library: SymbolLibrary) -> str:
-        """
+        r"""
         Transforms the tree rooted at this node into a LaTeX expression.
 
         Examples:
@@ -172,7 +172,7 @@ class Node:
             $1 + X_{1} \cdot X_{0}$
             >>> node = Node("sin", None, Node("X_0"))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
-            $\sin (X_{0})$
+            $\sin X_{0}$
             >>> node = Node("+", Node("*", Node("X_0"), Node("C")), Node("C"))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
             $C_{0} + C_{1} \cdot X_{0}$
