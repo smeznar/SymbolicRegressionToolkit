@@ -179,7 +179,7 @@ def generate_from_pcfg(grammar_str: str, start_symbol="E", max_depth=40, limit=1
 
 
 def generate_n_expressions(expression_description: Union[str, SymbolLibrary], num_expressions: int, unique=True,
-                            max_expression_length=50, verbose=False) -> List[List[str]]:
+                            max_expression_length=50, verbose=True) -> List[List[str]]:
     """
     Generates a set of n expressions.
 

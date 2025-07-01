@@ -2,7 +2,8 @@
 This module contains the SymbolLibrary class, which is used for managing symbols and their properties.
 """
 import copy
-from typing import List
+from typing import List, Dict
+
 
 class SymbolLibrary:
     def __init__(self):
@@ -284,6 +285,25 @@ class SymbolLibrary:
                 symbols.append(symbol)
 
         return symbols
+
+    def symbols2index(self) -> Dict[str, int]:
+        """
+        Generates a dictionary mapping symbols to their indices in the symbol list.
+
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x")
+            >>> library.add_symbol("y", "var", 0, "y")
+            >>> print(library.symbols2index())
+            {'x': 0, 'y': 1}
+            >>> library.remove_symbol("x")
+            >>> print(library.symbols2index())
+            {'y': 0}
+
+        Returns:
+            A dictionary mapping symbols to their indices in the symbol list.
+        """
+        return {s:i for i, s in enumerate(self.symbols.keys())}
 
     @staticmethod
     def from_symbol_list(symbols: List[str], num_variables=25):
