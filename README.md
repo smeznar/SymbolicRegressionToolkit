@@ -4,7 +4,8 @@
 Documentation: [https://smeznar.github.io/SymbolicRegressionToolkit](https://smeznar.github.io/SymbolicRegressionToolkit/)
 
 This repository provides a Python-based toolkit for equation discovery/symbolic regression. Currently, the toolkit contains
-code for transforming infix expressions into trees, parameter estimation, and performance evaluation for symbolic regression models.
+code for transforming infix expressions into trees, parameter estimation, performance evaluation for symbolic regression models,
+generating sets of expressions, benchmarking, ...
 
 Currently, we only support (vanilla) mathematical expressions, however, we provide a simple interface for adding custom symbols.
 In the future, we might extend our functionality to support more advanced expressions (differential equations, PDEs, ...).
@@ -17,9 +18,15 @@ how we can customize various parts of the toolkit and create executable python f
 *Installation*
 --------------
 
-To install the package, run the following command in your terminal:
+To install the lastest release of the package, run the following command in your terminal:
 ```
 pip install symbolic-regression-toolkit
+```
+
+Otherwise, you can install the latest build with the command:
+
+```
+pip install git+https://github.com/smeznar/SymbolicRegressionToolkit
 ```
 
 **Contributing**
