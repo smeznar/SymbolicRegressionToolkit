@@ -8,6 +8,7 @@ import re
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.expression_tree import is_float
 
 def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> Union[List[str], Node]:
     """
@@ -36,14 +37,20 @@ def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolL
         is_tree = True
 
     variables = symbol_library.get_symbols_of_type("var")
+
     # We expect only one symbol for constants
-    constant = symbol_library.get_symbols_of_type("const")[0]
+    if len(symbol_library.get_symbols_of_type("const")) > 0:
+        constant = symbol_library.get_symbols_of_type("const")[0]
+    else:
+        # In this case constants shouldn't be problematic as they are not in the SymbolLibrary
+        # Just in case and to not change other functions, I changed it to __C__.
+        constant = "__C__"
 
     expr = _simplify_expression("".join(expr), constant, variables)
     expr = sympify(_denumerate_constants(str(expr), constant), evaluate=False)
     expr = _sympy_to_sr(expr)
     if not _check_tree(expr, symbol_library):
-        raise Exception("Simplified expression contains invalid symbols. Please check the expression again and try again.")
+        raise Exception("Simplified expression contains invalid symbols. Possibly skip its simplification or add symbols to the SymbolLibrary.")
 
     if is_tree:
         return expr
@@ -62,7 +69,7 @@ def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
     Returns:
         True if the expression tree contains only valid symbols from the symbol library, False otherwise.
     """
-    if expr.symbol not in symbol_library.symbols:
+    if expr.symbol not in symbol_library.symbols and not is_float(expr.symbol):
         return False
     if isinstance(expr.left, Node) and not _check_tree(expr.left, symbol_library):
         return False
@@ -247,5 +254,11 @@ def _simplify_expression (expr_str, constant, variables):
 
 
 if __name__ == "__main__":
+    # Should simplify
     expr = ["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
     print(simplify(expr))
+
+    # Should raise an exception
+    expr = ["X_0", "*", "X_0", "^2"]
+    sl = SymbolLibrary.from_symbol_list(["+", "*", "-"], 1)
+    print(simplify(expr, symbol_library=sl))
