@@ -24,6 +24,9 @@ def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolL
         expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
 
+    Raises:
+        Exception: If problems occur during simplification or if the expression contains invalid symbols.
+
     Returns:
         The simplified expression
     """
@@ -39,11 +42,34 @@ def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolL
     expr = _simplify_expression("".join(expr), constant, variables)
     expr = sympify(_denumerate_constants(str(expr), constant), evaluate=False)
     expr = _sympy_to_sr(expr)
+    if not _check_tree(expr, symbol_library):
+        raise Exception("Simplified expression contains invalid symbols. Please check the expression again and try again.")
 
     if is_tree:
         return expr
     else:
         return expr.to_list("infix", symbol_library=symbol_library)
+
+
+def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
+    """
+    Checks if the expression tree contains only valid symbols from the symbol library.
+
+    Args:
+        expr: The expression tree to check.
+        symbol_library: The symbol library to use.
+
+    Returns:
+        True if the expression tree contains only valid symbols from the symbol library, False otherwise.
+    """
+    if expr.symbol not in symbol_library.symbols:
+        return False
+    if isinstance(expr.left, Node) and not _check_tree(expr.left, symbol_library):
+        return False
+    if isinstance(expr.right, Node) and not _check_tree(expr.right, symbol_library):
+        return False
+
+    return True
 
 
 def _sympy_to_number(expr):
