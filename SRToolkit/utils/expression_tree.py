@@ -68,7 +68,7 @@ class Node:
         """
         return "".join(self.to_list())
 
-    def to_list(self, notation: str = "infix", symbol_library: SymbolLibrary = None) -> List[str]:
+    def to_list(self, symbol_library: SymbolLibrary = None, notation: str = "infix") -> List[str]:
         """
         Transforms the tree rooted at this node into a list of tokens.
 

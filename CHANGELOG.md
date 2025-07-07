@@ -1,4 +1,17 @@
-### SymbolicRegressionToolkit-1.2.0 (TBA)
+### SymbolicRegressionToolkit-1.3.0 (2025-07-07)
+
+- Updated documentation
+
+**New Feature:**
+- Added a way to generate expressions
+- Expression simplification now more or less works
+
+**Bug Fixes:**
+- Feynman dataset and Nguyen datasets are now almost done
+- Small fixes to different functionalities
+
+
+### SymbolicRegressionToolkit-1.2.6 (2025-04-26)
 
 - Updated documentation
 - Added the change log
