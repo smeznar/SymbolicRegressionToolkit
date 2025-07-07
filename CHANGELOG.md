@@ -1,4 +1,4 @@
-### SymbolicRegressionToolkit-1.3.0 (2025-07-07)
+### SymbolicRegressionToolkit-1.3.2 (2025-07-07)
 
 - Updated documentation
 
