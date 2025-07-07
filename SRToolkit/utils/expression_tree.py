@@ -94,7 +94,7 @@ class Node:
             >>> node.to_list()
             ['(', 'X_0', ')', '^2']
             >>> node = Node("*", Node("*", Node("X_0"), Node("X_0")),  Node("X_0"))
-            >>> node.to_list(notation="infix", symbol_library=SymbolLibrary.default_symbols())
+            >>> node.to_list(symbol_library=SymbolLibrary.default_symbols(),notation="infix")
             ['X_0', '*', '(', 'X_0', '*', 'X_0', ')']
 
         Args:
@@ -110,8 +110,8 @@ class Node:
         Notes:
             If the notation is "infix" and the symbol library is not provided, then the resulting list of tokens may contain unnecessary parentheses or have other issues.
         """
-        left = [] if self.left is None else self.left.to_list(notation, symbol_library)
-        right = [] if self.right is None else self.right.to_list(notation, symbol_library)
+        left = [] if self.left is None else self.left.to_list(symbol_library, notation)
+        right = [] if self.right is None else self.right.to_list(symbol_library, notation)
 
         if notation == "prefix":
             return [self.symbol] + left + right

@@ -33,7 +33,7 @@ def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolL
     """
     is_tree = False
     if isinstance(expr, Node):
-        expr = expr.to_list(notation="infix", symbol_library=symbol_library)
+        expr = expr.to_list(symbol_library=symbol_library, notation="infix")
         is_tree = True
 
     variables = symbol_library.get_symbols_of_type("var")
@@ -55,7 +55,7 @@ def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolL
     if is_tree:
         return expr
     else:
-        return expr.to_list("infix", symbol_library=symbol_library)
+        return expr.to_list(symbol_library=symbol_library, notation="infix")
 
 
 def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
