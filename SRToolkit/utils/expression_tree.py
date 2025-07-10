@@ -61,7 +61,7 @@ class Node:
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
             >>> str(node)
-            'x+1'
+            '1+x'
 
         Returns:
             A string representation of the tree rooted at this node.
@@ -278,7 +278,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
     and that all symbols are in the symbol library correctly defined).
 
     Examples:
-        >>> tree = tokens_to_tree(["(", "x", "+", "y", ")"], SymbolLibrary.default_symbols())
+        >>> tree = tokens_to_tree(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())
         >>> len(tree)
         3
 
@@ -312,7 +312,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
             while (
                 len(operator_stack) > 0
                 and operator_stack[-1] != "("
-                and sl.get_precedence(operator_stack[-1]) > sl.get_precedence(token)
+                and sl.get_precedence(operator_stack[-1]) >= sl.get_precedence(token)
             ):
                 if sl.get_type(operator_stack[-1]) == "fn":
                     out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))

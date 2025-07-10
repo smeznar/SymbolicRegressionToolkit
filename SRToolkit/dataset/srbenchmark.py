@@ -517,9 +517,9 @@ class SRBenchmark:
                               max_expression_length=50, success_threshold=1e-7, num_variables=2,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
         benchmark.add_dataset("III.19.51",
-                              ['(', "u-", "X_0", "*", "(", "X_1", "^2", "*", "X_1", "^2", ")", "/", "(", "2", "*", "(", "4", "*", "pi", "*", "X_4",
+                              ['(', "u-", "X_0", "*", "(", "X_1", "^2", "*", "X_1", "^2", ")", "/", "(", "(", "2", "*", "(", "4", "*", "pi", "*", "X_4",
                                ")", "^2", ")", "*", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "^2", ")", "*", "(", "1",
-                               "/", "X_3", "^2", ")"], sl_5v,
+                               "/", "X_3", "^2", ")", ")"], sl_5v,
                               original_equation="-m*q**4/(2*(4*pi*epsilon)**2*(h/(2*pi))**2)*(1/n**2)",
                               max_evaluations=100000, max_expression_length=50, success_threshold=1e-7, num_variables=5,
                               dataset_metadata=benchmark.metadata, constant_range=[-5.0, 5.0])
@@ -706,3 +706,19 @@ class SRBenchmark:
                               dataset_metadata=benchmark.metadata)
 
         return benchmark
+
+
+if __name__ == '__main__':
+    bench = SRBenchmark.feynman("data/feynman")
+    for dataset in bench.list_datasets(verbose=False):
+        ds = bench.create_dataset(dataset)
+        rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
+        if rmse > ds.success_threshold:
+            print(f"Failed dataset: {dataset} with RMSE {rmse}")
+
+    bench = SRBenchmark.nguyen("data/nguyen")
+    for dataset in bench.list_datasets(verbose=False):
+        ds = bench.create_dataset(dataset)
+        rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
+        if rmse > ds.success_threshold:
+            print(f"Failed dataset: {dataset} with RMSE {rmse}")
