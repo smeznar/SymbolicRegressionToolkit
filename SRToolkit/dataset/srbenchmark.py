@@ -164,6 +164,14 @@ class SRBenchmark:
 
         This method downloads the Feynman benchmark dataset from a specified URL, initializes symbol libraries for symbolic regression with varying numbers of variables, and adds multiple predefined datasets to the benchmark with their respective equations and metadata.
 
+        Example:
+            >>> benchmark = SRBenchmark.feynman('data/feynman')
+            >>> for dataset in benchmark.list_datasets(verbose=False):
+            ...     ds = benchmark.create_dataset(dataset)
+            ...     rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
+            ...     if rmse > ds.success_threshold:
+            ...         print(f'Failed dataset: {dataset} with RMSE {rmse}')
+
         Args:
             dataset_directory (str): The directory path where the benchmark dataset will be downloaded and stored.
 
@@ -635,6 +643,14 @@ class SRBenchmark:
         for equations with one variable and two variables, respectively, and populates the benchmark with various
         Nguyen equations, each represented with its symbolic tokens and associated symbol library.
 
+        Example:
+            >>> benchmark = SRBenchmark.nguyen('data/nguyen')
+            >>> for dataset in benchmark.list_datasets(verbose=False):
+            ...     ds = benchmark.create_dataset(dataset)
+            ...     rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
+            ...     if rmse > ds.success_threshold:
+            ...         print(f'Failed dataset: {dataset} with RMSE {rmse}')
+
         Args:
             dataset_directory (str): The directory where the benchmark datasets will be stored and accessed.
 
@@ -706,19 +722,3 @@ class SRBenchmark:
                               dataset_metadata=benchmark.metadata)
 
         return benchmark
-
-
-if __name__ == '__main__':
-    bench = SRBenchmark.feynman("data/feynman")
-    for dataset in bench.list_datasets(verbose=False):
-        ds = bench.create_dataset(dataset)
-        rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
-        if rmse > ds.success_threshold:
-            print(f"Failed dataset: {dataset} with RMSE {rmse}")
-
-    bench = SRBenchmark.nguyen("data/nguyen")
-    for dataset in bench.list_datasets(verbose=False):
-        ds = bench.create_dataset(dataset)
-        rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
-        if rmse > ds.success_threshold:
-            print(f"Failed dataset: {dataset} with RMSE {rmse}")
