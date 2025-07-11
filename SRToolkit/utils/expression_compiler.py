@@ -53,8 +53,9 @@ def expr_to_executable_function(expr: Union[List[str], Node], symbol_library: Sy
         fun_string += "\t" + c + "\n"
     fun_string += "\treturn " + symbol
 
-    exec(fun_string)
-    return locals()["_executable_expression_"]
+    fun_assignment_dict = {}
+    exec(fun_string, globals(), fun_assignment_dict)
+    return fun_assignment_dict["_executable_expression_"]
 
 
 def expr_to_error_function(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
@@ -96,8 +97,9 @@ def expr_to_error_function(expr: Union[List[str], Node], symbol_library: SymbolL
         fun_string += "\t" + c + "\n"
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
 
-    exec(fun_string)
-    return locals()["_executable_expression_"]
+    fun_assignment_dict = {}
+    exec(fun_string, globals(), fun_assignment_dict)
+    return fun_assignment_dict["_executable_expression_"]
 
 
 def tree_to_function_rec(tree: Node, symbol_library: SymbolLibrary, var_counter: int=0, const_counter: int=0) -> Tuple[List[str], str, int, int]:
