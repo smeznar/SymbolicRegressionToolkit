@@ -85,6 +85,8 @@ class SRBenchmark:
             # Check if dataset exists otherwise download it from an url
             if os.path.exists(self.datasets[dataset_name]["path"]):
                 data = np.load(self.datasets[dataset_name]["path"])
+            elif os.path.exists(self.datasets[dataset_name]["path"][:-4]):
+                data = np.load(self.datasets[dataset_name]["path"][:-4])
             else:
                 raise ValueError(f"Could not find dataset {dataset_name} at {self.datasets[dataset_name]['path']}")
 
