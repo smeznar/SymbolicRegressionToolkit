@@ -143,7 +143,7 @@ class SR_evaluator:
                 # print(self.models[expr_str])
                 return self.models[expr_str]["rmse"]
             else:
-                if verbose == 2:
+                if verbose < 2:
                     with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
                         rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
                 else:
