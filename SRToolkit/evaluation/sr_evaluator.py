@@ -71,7 +71,7 @@ class SR_evaluator:
         self.parameter_estimator = ParameterEstimator(
             X, y, symbol_library=symbol_library, **kwargs)
 
-    def evaluate_expr(self, expr: Union[List[str], Node], simplify_expr=False) -> float:
+    def evaluate_expr(self, expr: Union[List[str], Node], simplify_expr: bool = False, verbose: int=0) -> float:
         """
         Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.
@@ -98,6 +98,8 @@ class SR_evaluator:
             expr: An expression. This should be an istance of the SRToolkit.utils.expression_tree.Node class or a list
                   of tokens in the infix notation.
             simplify_expr: If True, simplifies the expression using SymPy before evaluating it.
+            verbose: When 0, no additional output is printed, when 1, prints the expression being evaluated, RMSE, and
+                     estimated parameters, and when 2, also prints numpy errors produced during evaluation.
 
         Returns:
             The root-mean-square error of the expression.
@@ -141,7 +143,18 @@ class SR_evaluator:
                 # print(self.models[expr_str])
                 return self.models[expr_str]["rmse"]
             else:
-                rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
+                if verbose == 2:
+                    with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
+                        rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
+                else:
+                    rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
+
+                if verbose > 0:
+                    if parameters.size > 0:
+                        parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
+                    else:
+                        parameter_string = ""
+                    print(f"Evaluated expression {expr_str} with RMSE: {rmse}." + parameter_string)
                 self.models[expr_str] = {
                     "rmse": rmse,
                     "parameters": parameters,
