@@ -8,7 +8,7 @@ Modules:
     expression_compiler: The module containing functions that transform expressions in the infix notation (represented as lists of tokens) to executable python functions.
     expression_simplifier: The module containing functions that simplify an expression using SymPy
     expression_generator: The module containing helper functions for generating expressions
-
+    measures: The module containing functions for computing various performance measures on expressions
 """
 
 from .expression_tree import Node, tokens_to_tree, is_float
@@ -16,6 +16,8 @@ from .symbol_library import SymbolLibrary
 from .expression_compiler import tree_to_function_rec, expr_to_executable_function, expr_to_error_function
 from .expression_simplifier import simplify
 from .expression_generator import generate_from_pcfg, create_generic_pcfg, generate_n_expressions
+from .measures import bed, create_behavior_matrix, edit_distance, tree_edit_distance
 
 __all__ = ["SymbolLibrary", "Node", "tokens_to_tree", "is_float", "tree_to_function_rec", "expr_to_executable_function",
-           "expr_to_error_function", "simplify", "generate_from_pcfg", "create_generic_pcfg", "generate_n_expressions"]
+           "expr_to_error_function", "simplify", "generate_from_pcfg", "create_generic_pcfg", "generate_n_expressions",
+           "bed", "create_behavior_matrix", "edit_distance", "tree_edit_distance"]

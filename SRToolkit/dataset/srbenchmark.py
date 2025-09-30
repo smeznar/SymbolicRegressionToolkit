@@ -83,10 +83,11 @@ class SRBenchmark:
         """
         if dataset_name in self.datasets:
             # Check if dataset exists otherwise download it from an url
+            # TODO: Add and test allow_pickl=True
             if os.path.exists(self.datasets[dataset_name]["path"]):
-                data = np.load(self.datasets[dataset_name]["path"])
+                data = np.load(self.datasets[dataset_name]["path"], allow_pickle=True)
             elif os.path.exists(self.datasets[dataset_name]["path"][:-4]):
-                data = np.load(self.datasets[dataset_name]["path"][:-4])
+                data = np.load(self.datasets[dataset_name]["path"][:-4], allow_pickle=True)
             else:
                 raise ValueError(f"Could not find dataset {dataset_name} at {self.datasets[dataset_name]['path']}")
 

@@ -1,14 +1,35 @@
 """
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
 """
-from typing import Optional, List, Union
+# TODO: Fix documentation examples
+from typing import Optional, List, Union, Tuple, TypedDict
 import warnings
 
 import numpy as np
+from scipy.stats.qmc import LatinHypercube
 
-from SRToolkit.utils import Node, SymbolLibrary, simplify
+from SRToolkit.utils import Node, SymbolLibrary, simplify, create_behavior_matrix, bed
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
+# Maybe add an __all__ variable with public methods
+_MEASURE_DICT = {
+    "rmse": lambda expr1, expr2, y1, y2, params1, params2, X: np.sqrt(np.mean((y1 - expr1(X, params1)) ** 2)),
+    "bed": lambda expr1, expr2, y1, y2, params1, params2, X: 0 # TODO: popravi
+}
+
+class EvaluatorKwargs(TypedDict, total=False):
+    method: str
+    tol: float
+    gtol: float
+    max_iter: int
+    constant_bounds: Tuple[float, float]
+    initialization: str
+    max_constants: int
+    max_expr_length: int
+    num_points_sampled: int
+    bed_X: Optional[np.ndarray]
+    num_consts_sampled: int
+    domain_bounds: Optional[List[Tuple[float, float]]]
 
 class SR_evaluator:
     def __init__(
@@ -18,7 +39,11 @@ class SR_evaluator:
         max_evaluations: int = -1,
         metadata: Optional[dict] = None,
         symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
-        **kwargs
+        ranking_function: str = "rmse",
+        ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
+        evaluation_measures: Optional[List[Union[str, Tuple[str, callable]]]]=None,
+        seed: Optional[int] = None,
+        **kwargs: EvaluatorKwargs
     ):
         """
         Initializes an instance of the SR_evaluator class. This class is used for evaluating symbolic regression approaches.
@@ -46,30 +71,110 @@ class SR_evaluator:
             max_evaluations: The maximum number of expressions to evaluate. Default is -1, which means no limit.
             metadata: An optional dictionary containing metadata about this evaluation. This could include information such as the dataset used, the model used, seed, etc.
             symbol_library: The symbol library to use.
+            ranking_function: The function used for ranking the expressions and fitting parameters if needed.
+                Currently, "rmse" and "bed" are supported. Default is "rmse".
+            evaluation_measures: Optional list of additional metrics to compute for the top expressions reported by
+                get_results (as controlled by the "top_k" parameter). Each item may be either:
+                  - a string name of a built-in metric (e.g., "rmse"), or
+                  - a tuple (name, fn) where fn is a callable with signature
+                    fn(expr1: List[str], expr2: List[str], y1: np.ndarray, y2: np.ndarray,
+                       params1: np.ndarray, params2: np.ndarray, X: np.ndarray) -> float.
+                These metrics do not affect ranking (which is controlled by "ranking_function"); they are computed for
+                reporting. If None, it defaults to ["rmse"] (i.e., only RMSE is computed).
+            seed: The seed to use for random number generation.
 
         Keyword Arguments:
             method str: The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
             tol float: The tolerance for termination. Default is 1e-6.
             gtol float: The tolerance for the gradient norm. Default is 1e-3.
             max_iter int: The maximum number of iterations. Default is 100.
-            bounds List[float]: A list of two elements, specifying the lower and upper bounds for the constant values. Default is [-5, 5].
+            constant_bounds Tuple[float, float]: A tuple of two elements, specifying the lower and upper bounds for the constant values. Default is (-5, 5).
             initialization str: The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
                                 sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
             max_constants int: The maximum number of constants allowed in the expression. Default is 8.
             max_expr_length int: The maximum length of the expression. Default is -1 (no limit).
+            num_points_sampled int: The number of points to sample when estimating the behavior of an expression. Default is 64.
+            bed_X: Optional[np.ndarray]=None,
+            num_consts_sampled: int=32,
+            num_points_sampled: int=64,
+            domain_bounds: Optional[List[Tuple[float, float]]]=None,
 
         Methods:
             evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
             get_results(top_k): Returns the results of the evaluation.
         """
+
         self.models = dict()
         self.invalid = list()
         self.metadata = metadata
+        self.ground_truth = ground_truth
+        self.gt_behavior = None
+        self.bed_evaluation_parameters = {
+            "bed_X": None,
+            "num_consts_sampled": 32,
+            "num_points_sampled": 64,
+            "domain_bounds": None,
+            "constant_bounds": (-5, 5)
+        }
+        if kwargs:
+            for k in self.bed_evaluation_parameters.keys():
+                if k in kwargs:
+                    self.bed_evaluation_parameters[k] = kwargs[k]
+
         self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
         self.total_expressions = 0
+        self.seed = seed
+        if seed is not None:
+            np.random.seed(seed)
         self.parameter_estimator = ParameterEstimator(
-            X, y, symbol_library=symbol_library, **kwargs)
+            X, y, symbol_library=symbol_library, seed=seed, **kwargs)
+
+        if ranking_function not in ["rmse", "bed"]:
+            print(f"Warning: ranking_function {ranking_function} not supported. Using rmse instead.")
+            ranking_function = "rmse"
+        self.ranking_function = ranking_function
+
+        if evaluation_measures is None:
+            evaluation_measures = ["rmse"]
+        self.evaluation_metrics = []
+        for measure in evaluation_measures:
+            if isinstance(measure, str):
+                if measure not in ["rmse"]:
+                    print(f"Warning: evaluation measure {measure} not supported. Ignoring.")
+                else:
+                    self.evaluation_metrics.append((measure, _MEASURE_DICT[measure]))
+            elif isinstance(measure, tuple):
+                self.evaluation_metrics.append(measure)
+
+        if ranking_function == "bed":
+            if ground_truth is None:
+                raise ValueError("Ground truth must be provided for bed ranking function. The ground truth must be "
+                                 "provided as a list of tokens, a Node object, or a numpy array representing behavior. "
+                                 "The behavior matrix is a matrix representing the distribution of outputs of an "
+                                 "expression with free parameters at different points in the domain. This matrix "
+                                 "should be of size (num_points_sampled, num_consts_sampled). The behavior of an "
+                                 "expressions without free parameters can be expressed as a matrix of size "
+                                 "(num_points_sampled, 1) with values equal to the output of the expression at these points.")
+            else:
+                if self.bed_evaluation_parameters["bed_X"] is None:
+                    if self.bed_evaluation_parameters["domain_bounds"] is not None:
+                        db = self.bed_evaluation_parameters["domain_bounds"]
+                        interval_length = np.array([ub - lb for (lb, ub) in db])
+                        lower_bound = np.array([lb for (lb, ub) in db])
+                        lho = LatinHypercube(len(db), optimization="random-cd", seed=seed)
+                        self.bed_evaluation_parameters["bed_X"] = lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length + lower_bound
+                    else:
+                        self.bed_evaluation_parameters["bed_X"] = np.random.choice(X, size=self.bed_evaluation_parameters["num_points_sampled"])
+            if isinstance(ground_truth, (list, Node)):
+                self.gt_behavior = create_behavior_matrix(ground_truth, self.bed_evaluation_parameters["bed_X"],
+                                                          num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
+                                                          consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
+                                                          symbol_library=self.symbol_library, seed=self.seed)
+            elif isinstance(ground_truth, np.ndarray):
+                self.gt_behavior = ground_truth
+            else:
+                raise ValueError("Ground truth must be provided as a list of tokens, a Node object, or a numpy array representing behavior.")
 
     def evaluate_expr(self, expr: Union[List[str], Node], simplify_expr: bool = False, verbose: int=0) -> float:
         """
@@ -128,10 +233,6 @@ class SR_evaluator:
                         expr_list = expr
                     print(f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}")
 
-                    self.invalid.append(expr_list)
-                    return np.inf
-
-
             if isinstance(expr, Node):
                 expr_list = expr.to_list(symbol_library=self.symbol_library)
             else:
@@ -139,28 +240,53 @@ class SR_evaluator:
 
             expr_str = "".join(expr_list)
             if expr_str in self.models:
-                # print(f"Already evaluated {expr_str}")
-                # print(self.models[expr_str])
-                return self.models[expr_str]["rmse"]
-            else:
-                if verbose < 2:
-                    with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
-                        rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
-                else:
-                    rmse, parameters = self.parameter_estimator.estimate_parameters(expr)
-
                 if verbose > 0:
-                    if parameters.size > 0:
-                        parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
+                    print(f"Already evaluated {expr_str}")
+                return self.models[expr_str]["error"]
+            else:
+                if self.ranking_function == "rmse":
+                    if verbose < 2:
+                        with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
+                            error, parameters = self.parameter_estimator.estimate_parameters(expr)
                     else:
-                        parameter_string = ""
-                    print(f"Evaluated expression {expr_str} with RMSE: {rmse}." + parameter_string)
-                self.models[expr_str] = {
-                    "rmse": rmse,
-                    "parameters": parameters,
-                    "expr": expr_list,
-                }
-                return rmse
+                        error, parameters = self.parameter_estimator.estimate_parameters(expr)
+
+                    if verbose > 0:
+                        if parameters.size > 0:
+                            parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
+                        else:
+                            parameter_string = ""
+                        print(f"Evaluated expression {expr_str} with RMSE: {error}." + parameter_string)
+                    self.models[expr_str] = {
+                        "error": error,
+                        "parameters": parameters,
+                        "expr": expr_list,
+                    }
+                elif self.ranking_function == "bed":
+                    if verbose < 2:
+                        with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
+                            error = bed(expr, self.gt_behavior, self.bed_evaluation_parameters["bed_X"],
+                                        num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
+                                        num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
+                                        domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
+                                        consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
+                                        symbol_library=self.symbol_library, seed=self.seed)
+                    else:
+                        error = bed(expr, self.gt_behavior, self.bed_evaluation_parameters["bed_X"],
+                                    num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
+                                    num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
+                                    domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
+                                    consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
+                                    symbol_library=self.symbol_library, seed=self.seed)
+                    if verbose > 0:
+                        print(f"Evaluated expression {expr_str} with BED: {error}.")
+                    self.models[expr_str] = {
+                        "error": error,
+                        "expr": expr_list,
+                    }
+                else:
+                    raise ValueError(f"Ranking function {self.ranking_function} not supported.")
+                return error
 
     # def evaluate_exprs(
     #     self, exprs: List[List[str]], num_processes: int = 1
@@ -224,11 +350,11 @@ class SR_evaluator:
             top_k = len(self.models)
 
         models = list(self.models.values())
-        best_indices = np.argsort([v["rmse"] for v in models])
+        best_indices = np.argsort([v["error"] for v in models])
 
         results = {
             "metadata": self.metadata,
-            "min_rmse": models[best_indices[0]]["rmse"],
+            "min_rmse": models[best_indices[0]]["error"],
             "best_expr": "".join(models[best_indices[0]]["expr"]),
             "num_evaluated": len(models),
             "total_expressions": self.total_expressions,
