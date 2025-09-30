@@ -32,15 +32,15 @@ class ParameterEstimator:
             symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
 
         Keyword Arguments:
-            method str: The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
-            tol float: The tolerance for termination. Default is 1e-6.
-            gtol float: The tolerance for the gradient norm. Default is 1e-3.
-            max_iter int: The maximum number of iterations. Default is 100.
-            constant_bounds Tuple[float, float]: A list of two elements, specifying the lower and upper bounds for the constant values. Default is [-5, 5].
-            initialization str: The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
-                                sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
-            max_constants int: The maximum number of constants allowed in the expression. Default is 8.
-            max_expr_length int: The maximum length of the expression. Default is -1 (no limit).
+            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
+            tol (float): The tolerance for termination. Default is 1e-6.
+            gtol (float): The tolerance for the gradient norm. Default is 1e-3.
+            max_iter (int): The maximum number of iterations. Default is 100.
+            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for the constant values. Default is (-5, 5).
+            initialization (str): The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
+                sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
+            max_constants (int): The maximum number of constants allowed in the expression. Default is 8.
+            max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
 
         Methods:
             estimate_parameters(expr: List[str]): Estimates the parameters of an expression by minimizing the error between the predicted and actual values.

@@ -17,20 +17,6 @@ _MEASURE_DICT = {
     "bed": lambda expr1, expr2, y1, y2, params1, params2, X: 0 # TODO: popravi
 }
 
-class EvaluatorKwargs(TypedDict, total=False):
-    method: str
-    tol: float
-    gtol: float
-    max_iter: int
-    constant_bounds: Tuple[float, float]
-    initialization: str
-    max_constants: int
-    max_expr_length: int
-    num_points_sampled: int
-    bed_X: Optional[np.ndarray]
-    num_consts_sampled: int
-    domain_bounds: Optional[List[Tuple[float, float]]]
-
 class SR_evaluator:
     def __init__(
         self,
@@ -43,7 +29,7 @@ class SR_evaluator:
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
         evaluation_measures: Optional[List[Union[str, Tuple[str, callable]]]]=None,
         seed: Optional[int] = None,
-        **kwargs: EvaluatorKwargs
+        **kwargs
     ):
         """
         Initializes an instance of the SR_evaluator class. This class is used for evaluating symbolic regression approaches.
@@ -84,20 +70,21 @@ class SR_evaluator:
             seed: The seed to use for random number generation.
 
         Keyword Arguments:
-            method str: The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
-            tol float: The tolerance for termination. Default is 1e-6.
-            gtol float: The tolerance for the gradient norm. Default is 1e-3.
-            max_iter int: The maximum number of iterations. Default is 100.
-            constant_bounds Tuple[float, float]: A tuple of two elements, specifying the lower and upper bounds for the constant values. Default is (-5, 5).
-            initialization str: The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
-                                sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
-            max_constants int: The maximum number of constants allowed in the expression. Default is 8.
-            max_expr_length int: The maximum length of the expression. Default is -1 (no limit).
-            num_points_sampled int: The number of points to sample when estimating the behavior of an expression. Default is 64.
-            bed_X: Optional[np.ndarray]=None,
-            num_consts_sampled: int=32,
-            num_points_sampled: int=64,
-            domain_bounds: Optional[List[Tuple[float, float]]]=None,
+            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
+            tol (float): The tolerance for termination. Default is 1e-6.
+            gtol (float): The tolerance for the gradient norm. Default is 1e-3.
+            max_iter (int): The maximum number of iterations. Default is 100.
+            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for the constant values. Default is (-5, 5).
+            initialization (str): The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
+                sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
+            max_constants (int): The maximum number of constants allowed in the expression. Default is 8.
+            max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
+            num_points_sampled (int): The number of points to sample when estimating the behavior of an expression. Default is 64.
+                If num_points_sampled==-1, then the number of points sampled is equal to the number of points in the dataset.
+            bed_X: (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points are sampled from the domain.
+                If None and domain_bounds are not givem, points are randomly selected from X. Default is None.
+            num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
+            domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to sample random points. Default is None.
 
         Methods:
             evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
@@ -120,6 +107,8 @@ class SR_evaluator:
             for k in self.bed_evaluation_parameters.keys():
                 if k in kwargs:
                     self.bed_evaluation_parameters[k] = kwargs[k]
+        if self.bed_evaluation_parameters["num_points_sampled"]==-1:
+            self.bed_evaluation_parameters["num_points_sampled"] = X.shape[0]
 
         self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
