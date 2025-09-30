@@ -11,8 +11,8 @@ from scipy.stats.qmc import LatinHypercube
 
 from SRToolkit.utils import SymbolLibrary, Node, tokens_to_tree, expr_to_executable_function
 
-def edit_distance(expr1: Union[List[str], Node], expr2: Union[List[str], Node], notation="postfix",
-                  symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()):
+def edit_distance(expr1: Union[List[str], Node], expr2: Union[List[str], Node], notation: str="postfix",
+                  symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> float:
     """
     Calculates the edit distance between two expressions.
 
@@ -47,7 +47,8 @@ def _expr_to_zss(expr):
 
     return zexpr
 
-def tree_edit_distance(expr1: Union[Node, List[str]], expr2: Union[Node, List[str]], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()):
+def tree_edit_distance(expr1: Union[Node, List[str]], expr2: Union[Node, List[str]],
+                       symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> float:
     """
     Calculates the tree edit distance between two expressions.
 
@@ -74,7 +75,7 @@ def tree_edit_distance(expr1: Union[Node, List[str]], expr2: Union[Node, List[st
 
 def create_behavior_matrix(expr: Union[Node, List[str]], X: np.ndarray, num_consts_sampled: int=32,
                            consts_bounds: Tuple[float, float]=(-5, 5),
-                           symbol_library: SymbolLibrary=SymbolLibrary.default_symbols(), seed=None) -> np.ndarray:
+                           symbol_library: SymbolLibrary=SymbolLibrary.default_symbols(), seed: int=None) -> np.ndarray:
     """
     Creates a behavior matrix from an expression with fee parameters.
 

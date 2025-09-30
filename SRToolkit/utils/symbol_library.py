@@ -241,7 +241,7 @@ class SymbolLibrary:
         else:
             return ""
 
-    def get_latex_str(self, symbol):
+    def get_latex_str(self, symbol: STR) -> str:
         """
         Returns the LaTeX template for the corresponding symbol.
 
@@ -306,7 +306,7 @@ class SymbolLibrary:
         return {s:i for i, s in enumerate(self.symbols.keys())}
 
     @staticmethod
-    def from_symbol_list(symbols: List[str], num_variables=25):
+    def from_symbol_list(symbols: List[str], num_variables: int=25) -> "SymbolLibrary":
         """
         Creates an instance of SymbolLibrary from a list of symbols and number of variables. The list of currently
         supported symbols (by default) can be seen in the SymbolLibrary.default_symbols() function.

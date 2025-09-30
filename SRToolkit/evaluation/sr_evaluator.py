@@ -81,7 +81,7 @@ class SR_evaluator:
             max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
             num_points_sampled (int): The number of points to sample when estimating the behavior of an expression. Default is 64.
                 If num_points_sampled==-1, then the number of points sampled is equal to the number of points in the dataset.
-            bed_X: (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points are sampled from the domain.
+            bed_X (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points are sampled from the domain.
                 If None and domain_bounds are not givem, points are randomly selected from X. Default is None.
             num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
             domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to sample random points. Default is None.

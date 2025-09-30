@@ -68,7 +68,7 @@ class SRBenchmark:
             "num_variables": num_variables
         }
 
-    def create_dataset(self, dataset_name: str):
+    def create_dataset(self, dataset_name: str) -> SRDataset:
         """
         Creates an instance of a dataset from the given dataset name.
 
@@ -106,7 +106,7 @@ class SRBenchmark:
         else:
             raise ValueError(f"Dataset {dataset_name} not found")
 
-    def list_datasets(self, verbose=True, num_variables: int=-1):
+    def list_datasets(self, verbose=True, num_variables: int=-1) -> list[str]:
         """
         Lists the available datasets.
 
@@ -145,9 +145,6 @@ class SRBenchmark:
         Args:
             url (str): The url of the benchmark dataset to download.
             directory_path (str): The path of the directory where the dataset should be downloaded.
-
-        Returns:
-            None
         """
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
@@ -161,7 +158,7 @@ class SRBenchmark:
 
 
     @staticmethod
-    def feynman(dataset_directory: str):
+    def feynman(dataset_directory: str) -> 'SRBenchmark':
         """
         Downloads the Feynman benchmark dataset, sets up symbol libraries, and adds predefined datasets to the benchmark.
 
@@ -637,7 +634,7 @@ class SRBenchmark:
         return benchmark
 
     @staticmethod
-    def nguyen(dataset_directory: str):
+    def nguyen(dataset_directory: str) -> 'SRBenchmark':
         """
         Downloads and initializes the Nguyen benchmark datasets for symbolic regression.
 

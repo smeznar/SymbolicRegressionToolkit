@@ -213,7 +213,7 @@ class Node:
         else:
             raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
 
-    def __copy__(self):
+    def __copy__(self) -> "Node":
         """
         Creates a copy of the expression (usefull for manipulating expressions).
 

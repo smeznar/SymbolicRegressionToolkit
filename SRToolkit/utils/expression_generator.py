@@ -142,7 +142,7 @@ def _expand(grammar, symbol, current_depth, max_depth=40):
         return [str(symbol)]
 
 
-def generate_from_pcfg(grammar_str: str, start_symbol="E", max_depth=40, limit=100) -> List[str]:
+def generate_from_pcfg(grammar_str: str, start_symbol: str="E", max_depth: int=40, limit: int=100) -> List[str]:
     """
     Generates a random expression from a PCFG with monte-carlo sampling.
 
@@ -178,8 +178,8 @@ def generate_from_pcfg(grammar_str: str, start_symbol="E", max_depth=40, limit=1
     return expr
 
 
-def generate_n_expressions(expression_description: Union[str, SymbolLibrary], num_expressions: int, unique=True,
-                            max_expression_length=50, verbose=True) -> List[List[str]]:
+def generate_n_expressions(expression_description: Union[str, SymbolLibrary], num_expressions: int, unique: bool=True,
+                            max_expression_length: int=50, verbose: bool=True) -> List[List[str]]:
     """
     Generates a set of n expressions.
 
