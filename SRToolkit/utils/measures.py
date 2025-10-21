@@ -168,7 +168,7 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
             the expected dimensions.
     """
 
-    if X is None and isinstance(expr1, np.ndarray) and isinstance(expr2, np.ndarray):
+    if X is None and not isinstance(expr1, np.ndarray) and not isinstance(expr2, np.ndarray):
         if domain_bounds is None:
             raise Exception("If X is not given and both expressions are not given as a behavior matrix, "
                             "then domain_bounds parameter must be given")
