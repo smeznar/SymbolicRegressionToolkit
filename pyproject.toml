@@ -25,7 +25,9 @@ dependencies = [
   "numpy",
   "scipy",
   "sympy",
-  "nltk"
+  "nltk",
+  "zss",
+  "editdistance"
 ]
 classifiers = [
   "Intended Audience :: Information Technology",

@@ -241,7 +241,7 @@ class SymbolLibrary:
         else:
             return ""
 
-    def get_latex_str(self, symbol: STR) -> str:
+    def get_latex_str(self, symbol: str) -> str:
         """
         Returns the LaTeX template for the corresponding symbol.
 

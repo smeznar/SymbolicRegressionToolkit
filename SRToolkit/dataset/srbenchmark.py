@@ -106,7 +106,7 @@ class SRBenchmark:
         else:
             raise ValueError(f"Dataset {dataset_name} not found")
 
-    def list_datasets(self, verbose=True, num_variables: int=-1) -> list[str]:
+    def list_datasets(self, verbose=True, num_variables: int=-1) -> List[str]:
         """
         Lists the available datasets.
 
