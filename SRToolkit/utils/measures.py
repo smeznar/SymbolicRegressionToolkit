@@ -135,8 +135,7 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
     given dataset or domain, using Wasserstein distance as a metric.
 
     The BED is computed either by using precomputed behavior matrices or by sampling points from a
-    domain and evaluating the expressions over them. For behavior evaluation, constants can be sampled
-    based on the specified bounds and symbols used in the expressions.
+    domain and evaluating the expressions over them.
 
     Args:
         expr1: The first expression or behavior matrix. If it is
@@ -176,6 +175,9 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
         lower_bound = np.array([lb for (lb, ub) in domain_bounds])
         lho = LatinHypercube(len(domain_bounds), optimization="random-cd", seed=seed)
         X = lho.random(num_points_sampled) * interval_length + lower_bound
+    elif X is None and (isinstance(expr1, np.ndarray) != isinstance(expr2, np.ndarray)):
+        raise Exception("If X is not given, both expressions must be given as a behavior matrix or as a list of "
+                        "tokens/SRToolkit.utils.Node objects. Otherwise, behavior matrices are uncomparable.")
 
     if isinstance(expr1, list) or isinstance(expr1, Node):
         expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
@@ -183,8 +185,11 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
     if isinstance(expr2, list) or isinstance(expr2, Node):
         expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
-    assert expr1.shape[0] == expr2.shape[0] == X.shape[0], ("Behavior matrices must have the same number rows (points "
+    assert expr1.shape[0] == expr2.shape[0], ("Behavior matrices must have the same number rows (points "
                                                             "on which behavior is evaluated.)")
+    assert expr1.shape[0] > 0, ("Behavior matrices must have at least one row. if your expressions are given as behavior"
+                                "matrices, make sure they are not empty. Otherwise, if X is given, make sure it contains"
+                                "at least one point. If X is not given, make sure num_points_sampled is greater than 0.")
     wds = []
     for i in range(expr1.shape[0]):
         u = expr1[i][np.isfinite(expr1[i])]
