@@ -12,15 +12,23 @@ from scipy.stats.qmc import LatinHypercube
 from SRToolkit.utils import SymbolLibrary, Node, tokens_to_tree, expr_to_executable_function
 
 def edit_distance(expr1: Union[List[str], Node], expr2: Union[List[str], Node], notation: str="postfix",
-                  symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> float:
+                  symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> int:
     """
     Calculates the edit distance between two expressions.
+
+    Examples:
+        >>> edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
+        0
+        >>> edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
+        1
+        >>> edit_distance(tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1)), tokens_to_tree(["X_0", "-", "1"], SymbolLibrary.default_symbols(1)))
+        1
 
     Args:
         expr1: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         expr2: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         notation: The notation in which the distance between the two expressions is computed. Can be one of "infix", "postfix", or "prefix".
-            By default, "postfix" is used to avoid inconsistencies that occur because of parenthesis.
+        By default, "postfix" is used to avoid inconsistencies that occur because of parenthesis.
         symbol_library: The symbol library to use when converting the expressions to lists of tokens and vice versa. Defaults to SymbolLibrary.default_symbols().
 
     Returns:
@@ -48,9 +56,17 @@ def _expr_to_zss(expr):
     return zexpr
 
 def tree_edit_distance(expr1: Union[Node, List[str]], expr2: Union[Node, List[str]],
-                       symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> float:
+                       symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> int:
     """
     Calculates the tree edit distance between two expressions.
+
+    Examples:
+        >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
+        0
+        >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
+        1
+        >>> tree_edit_distance(tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1)), tokens_to_tree(["X_0", "-", "1"], SymbolLibrary.default_symbols(1)))
+        1
 
     Args:
         expr1: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
@@ -70,14 +86,29 @@ def tree_edit_distance(expr1: Union[Node, List[str]], expr2: Union[Node, List[st
     elif isinstance(expr2, list):
         expr2 = _expr_to_zss(tokens_to_tree(expr2, symbol_library))
 
-    return zss.simple_distance(expr1, expr2)
+    return int(zss.simple_distance(expr1, expr2))
 
 
 def create_behavior_matrix(expr: Union[Node, List[str]], X: np.ndarray, num_consts_sampled: int=32,
                            consts_bounds: Tuple[float, float]=(-5, 5),
                            symbol_library: SymbolLibrary=SymbolLibrary.default_symbols(), seed: int=None) -> np.ndarray:
     """
-    Creates a behavior matrix from an expression with fee parameters.
+    Creates a behavior matrix from an expression with free parameters.
+
+    Examples:
+        >>> X = np.random.rand(10, 2) - 0.5
+        >>> create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32).shape
+        (10, 32)
+        >>> mean_0_1 = np.mean(create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32, consts_bounds=(0, 1)))
+        >>> mean_1_5 = np.mean(create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32, consts_bounds=(1, 5)))
+        >>> mean_0_1 < mean_1_5
+        True
+        >>> # Deterministic expressions always produce the same behavior matrix
+        >>> bm1 = create_behavior_matrix(["X_0", "+", "X_1"], X)
+        >>> bm2 = create_behavior_matrix(["X_0", "+", "X_1"], X)
+        >>> np.array_equal(bm1, bm2)
+        True
+
 
     Args:
         expr: An expression given as a list of tokens in the infix notation.
@@ -111,7 +142,7 @@ def create_behavior_matrix(expr: Union[Node, List[str]], X: np.ndarray, num_cons
                 ys.append(expr(X, c))
             return np.array(ys).T
         else:
-            return expr(X, None)[:, None]
+            return np.repeat(expr(X, None)[:, None], num_consts_sampled, axis=1)
 
 
 def _custom_wasserstein(u, v):
@@ -123,7 +154,7 @@ def _custom_wasserstein(u, v):
     v_cdf_indices = v.searchsorted(all_values[:-1], 'right')
     u_cdf = u_cdf_indices / u.size
     v_cdf = v_cdf_indices / v.size
-    return np.vecdot(np.abs(u_cdf - v_cdf), deltas)
+    return np.sum(np.abs(u_cdf - v_cdf) * deltas)
 
 
 def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str], np.ndarray], X: Optional[np.ndarray]=None,
@@ -136,6 +167,30 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
 
     The BED is computed either by using precomputed behavior matrices or by sampling points from a
     domain and evaluating the expressions over them.
+
+    Examples:
+        >>> X = np.random.rand(10, 2) - 0.5
+        >>> expr1 = ["X_0", "+", "C"] # instances of SRToolkit.utils.expression_tree.Node work as well
+        >>> expr2 = ["X_1", "+", "C"]
+        >>> bed(expr1, expr2, X) < 1
+        True
+        >>> # Changing the number of sampled constants
+        >>> bed(expr1, expr2, X, num_consts_sampled=128, consts_bounds=(-2, 2)) < 1
+        True
+        >>> # Sampling X instead of giving it directly by defining a domain
+        >>> bed(expr1, expr2, domain_bounds=[(0, 1), (0, 1)]) < 1
+        True
+        >>> bed(expr1, expr2, domain_bounds=[(0, 1), (0, 1)], num_points_sampled=128) < 1
+        True
+        >>> # You can use behavior matrices instead of expressions (this has potential computational advantages if same expression is used multiple times)
+        >>> bm1 = create_behavior_matrix(expr1, X)
+        >>> bed(bm1, expr2, X) < 1
+        True
+        >>> bm2 = create_behavior_matrix(expr2, X)
+        >>> bed(bm1, bm2) < 1
+        True
+
+
 
     Args:
         expr1: The first expression or behavior matrix. If it is
