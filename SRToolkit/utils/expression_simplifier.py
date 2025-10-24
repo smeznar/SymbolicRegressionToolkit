@@ -13,8 +13,8 @@ from SRToolkit.utils.expression_tree import is_float
 def simplify(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> Union[List[str], Node]:
     """
     Simplifies a mathematical expression by:
-        1. making use of sympy's simplification functions
-        2. simplifying constants, e.g. C*C + C -> C
+        1. Making use of sympy's simplification functions
+        2. Simplifying constants, e.g. C*C + C -> C
 
     Examples:
         >>> expr = ["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
@@ -89,13 +89,13 @@ def _sympy_to_number(expr):
 
 def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
     """
-    Converts a Sympy expression into an instance of SRtoolkit.expression_tree.Node, explicitly handling left-associative division.
+    Converts a Sympy expression into an instance of SRToolkit.expression_tree.Node, explicitly handling left-associative division.
 
     Args:
         expr: The Sympy expression.
 
     Returns:
-        An instance of SRtoolkit.expression_tree.Node that corresponds to the expression given as the input.
+        An instance of SRToolkit.expression_tree.Node that corresponds to the expression given as the input.
     """
     if expr.is_Number:
         return Node(str(_sympy_to_number(expr)))

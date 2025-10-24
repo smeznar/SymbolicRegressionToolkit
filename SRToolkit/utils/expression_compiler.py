@@ -125,8 +125,6 @@ def tree_to_function_rec(tree: Node, symbol_library: SymbolLibrary, var_counter:
     Notes:
         This function is a helper function for `expr_to_executable_function` and similar and should not be called directly
         unless you want to customize the way the expression is defined. For examples, see the code of `expr_to_executable_function` and `expr_to_error_function` in this module.
-
-
     """
     if tree.left is None and tree.right is None:
         if symbol_library.get_type(tree.symbol) in ["var", "lit"]:

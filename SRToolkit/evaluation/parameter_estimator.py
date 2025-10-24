@@ -117,23 +117,6 @@ class ParameterEstimator:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
     def _optimize_parameters(self, executable_error_fn: callable, num_constants: int) -> Tuple[float, np.ndarray]:
-        """
-        Optimizes the parameters of a given expression by minimizing the root mean squared error between the predicted and actual values.
-
-        Parameters
-        ----------
-        executable_error_fn : callable
-            A function that takes in the input values, the constant values, and the target values and returns the root mean squared error.
-        num_constants : int
-            The number of constants in the expression.
-
-        Returns
-        -------
-        float
-            The root mean square error of the optimized expression.
-        np.ndarray
-            An array containing the optimized constant values.
-        """
         if self.estimation_settings["initialization"] == "random":
             x0 = np.random.rand(num_constants) * (self.estimation_settings["constant_bounds"][1] - self.estimation_settings["constant_bounds"][0] - 1e-8) + self.estimation_settings["constant_bounds"][0]
         else:
@@ -146,25 +129,6 @@ class ParameterEstimator:
                            "gtol": self.estimation_settings["gtol"]
                                 },
                        bounds=[(self.estimation_settings["constant_bounds"][0], self.estimation_settings["constant_bounds"][1]) for _ in range(num_constants)])
-
-        # if res.success:
-        #     self.stats["success"] += 1
-        # else:
-        #     self.stats["failure"] += 1
-        #     if num_constants in self.stats["failed_constants"]:
-        #         self.stats["failed_constants"][num_constants] += 1
-        #     else:
-        #         self.stats["failed_constants"][num_constants] = 1
-        #
-        # if res.nit in self.stats["steps"]:
-        #     self.stats["steps"][res.nit] += 1
-        # else:
-        #     self.stats["steps"][res.nit] = 1
-        #
-        # if num_constants in self.stats["num_constants"]:
-        #     self.stats["num_constants"][num_constants] += 1
-        # else:
-        #     self.stats["num_constants"][num_constants] = 1
 
         return res.fun, res.x
 

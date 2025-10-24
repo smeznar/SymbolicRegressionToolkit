@@ -93,7 +93,7 @@ def create_behavior_matrix(expr: Union[Node, List[str]], X: np.ndarray, num_cons
                            consts_bounds: Tuple[float, float]=(-5, 5),
                            symbol_library: SymbolLibrary=SymbolLibrary.default_symbols(), seed: int=None) -> np.ndarray:
     """
-    Creates a behavior matrix from an expression with free parameters.
+    Creates a behavior matrix from an expression with free parameters. The shape of the matrix is (X.shape[0], num_consts_sampled).
 
     Examples:
         >>> X = np.random.rand(10, 2) - 0.5
@@ -190,8 +190,6 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
         >>> bed(bm1, bm2) < 1
         True
 
-
-
     Args:
         expr1: The first expression or behavior matrix. If it is
             an expression, it must be provided as a Node or a list of string representations. If it is
@@ -256,7 +254,7 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
         else:
             wds.append(np.inf)
 
-    return np.mean(wds)
+    return float(np.mean(wds))
 
 if __name__ == '__main__':
     expr = ["X_0", "+", "C"]

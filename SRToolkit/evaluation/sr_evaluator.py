@@ -1,6 +1,7 @@
 """
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
 """
+from contextlib import nullcontext
 # TODO: Fix documentation examples
 from typing import Optional, List, Union, Tuple, TypedDict
 import warnings
@@ -18,18 +19,20 @@ _MEASURE_DICT = {
 }
 
 class SR_evaluator:
+
     def __init__(
         self,
         X: np.ndarray,
-        y: np.ndarray,
+        y: Optional[np.ndarray] = None,
         max_evaluations: int = -1,
-        metadata: Optional[dict] = None,
-        symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+        success_threshold: Optional[float] = None,
         ranking_function: str = "rmse",
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
-        evaluation_measures: Optional[List[Union[str, Tuple[str, callable]]]]=None,
+        evaluation_measures: Optional[List[Union[str, Tuple[str, callable]]]] = None,
+        symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
         seed: Optional[int] = None,
-        **kwargs
+        metadata: Optional[dict] = None,
+        **kwargs,
     ):
         """
         Initializes an instance of the SR_evaluator class. This class is used for evaluating symbolic regression approaches.
@@ -45,20 +48,39 @@ class SR_evaluator:
 
         Attributes:
             models: A dictionary containing the results of previously evaluated expressions.
+            invalid: A list containing the expressions that could not be evaluated.
+            ground_truth: The ground truth we are trying to find.
+            gt_behavior: The behavior matrix for the ground truth that is used when BED is chosen as the ranking function.
             max_evaluations: The maximum number of expressions to evaluate.
-            metadata: An optional dictionary containing metadata about this evaluation. This could include information such as the dataset used, the model used, seed, etc.
+            bed_evaluation_parameters: A dictionary containing parameters used for BED evaluation.
+            metadata: An optional dictionary containing metadata about this evaluation. This could include information
+                such as the dataset used, the model used, seed, etc.
             symbol_library: The symbol library to use.
-            total_expressions: The total number of expressions considered.
+            total_expressions: The total number of expressions considered up to this point in the evaluation.
+            seed: The seed to use for random number generation.
             parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
+            ranking_function: The function used for ranking the expressions and fitting parameters if needed.
+            success_threshold: The threshold used for determining whether an expression is considered successful.
+            evaluation_metrics: A list of additional metrics to compute for the top expressions reported by
+                get_results (as controlled by the "top_k" parameter).
 
         Args:
-            X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array with shape (n_samples, n_features).
+            X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array with
+                shape (n_samples, n_features).
             y: The target values to be used in parameter estimation.
             max_evaluations: The maximum number of expressions to evaluate. Default is -1, which means no limit.
-            metadata: An optional dictionary containing metadata about this evaluation. This could include information such as the dataset used, the model used, seed, etc.
+            success_threshold: The threshold used for determining whether an expression is considered successful. If
+                None, the threshold is set to 1e-7 for RMSE and calculated automatically for BED. For BED we calculate
+                this value by evaluating the distance of ground truth to itself 100 times and setting the threshold to
+                np.max(distances)*1.1. For this calculation to be helpful, ground_truth must be provided as a list of
+                tokens or SRToolkit.utils.Node object.
+            metadata: An optional dictionary containing metadata about this evaluation. This could include information
+                such as the dataset used, the model used, seed, etc.
             symbol_library: The symbol library to use.
             ranking_function: The function used for ranking the expressions and fitting parameters if needed.
                 Currently, "rmse" and "bed" are supported. Default is "rmse".
+            ground_truth: The ground truth for the BED evaluation. This should be a list of tokens, a Node object, or a
+                numpy array representing behavior (see SRToolkit.utils.create_behavior_matrix for more details).
             evaluation_measures: Optional list of additional metrics to compute for the top expressions reported by
                 get_results (as controlled by the "top_k" parameter). Each item may be either:
                   - a string name of a built-in metric (e.g., "rmse"), or
@@ -70,29 +92,42 @@ class SR_evaluator:
             seed: The seed to use for random number generation.
 
         Keyword Arguments:
-            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
+            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested.
+                Default is "L-BFGS-B".
             tol (float): The tolerance for termination. Default is 1e-6.
             gtol (float): The tolerance for the gradient norm. Default is 1e-3.
             max_iter (int): The maximum number of iterations. Default is 100.
-            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for the constant values. Default is (-5, 5).
-            initialization (str): The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
-                sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
+            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for
+                the constant values. Default is (-5, 5).
+            initialization (str): The method to use for initializing the constant values. Currently, only "random" and
+                "mean" are supported. "random" creates a vector with random values sampled within the bounds. "mean"
+                creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
             max_constants (int): The maximum number of constants allowed in the expression. Default is 8.
             max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
-            num_points_sampled (int): The number of points to sample when estimating the behavior of an expression. Default is 64.
-                If num_points_sampled==-1, then the number of points sampled is equal to the number of points in the dataset.
-            bed_X (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points are sampled from the domain.
-                If None and domain_bounds are not givem, points are randomly selected from X. Default is None.
+            num_points_sampled (int): The number of points to sample when estimating the behavior of an expression.
+                Default is 64. If num_points_sampled==-1, then the number of points sampled is equal to the number of
+                points in the dataset.
+            bed_X (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points
+                are sampled from the domain. If None and domain_bounds are not givem, points are randomly selected
+                from X. Default is None.
             num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
-            domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to sample random points. Default is None.
+            domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to
+                sample random points. Default is None.
 
         Methods:
             evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
             get_results(top_k): Returns the results of the evaluation.
+
+        Notes:
+            Determining if two expressions are equivalent is undecidable. Furthermore, random sampling, parameter
+            fitting, and numerical errors all make it hard to determine whether we found the correct expression.
+            Because of this, the success threshold is only a proxy for determining the success of an expression.
+            We reccomend checking the best performing expression manually for a better indication of success.
         """
 
         self.models = dict()
         self.invalid = list()
+        self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
         self.gt_behavior = None
@@ -116,8 +151,6 @@ class SR_evaluator:
         self.seed = seed
         if seed is not None:
             np.random.seed(seed)
-        self.parameter_estimator = ParameterEstimator(
-            X, y, symbol_library=symbol_library, seed=seed, **kwargs)
 
         if ranking_function not in ["rmse", "bed"]:
             print(f"Warning: ranking_function {ranking_function} not supported. Using rmse instead.")
@@ -136,15 +169,22 @@ class SR_evaluator:
             elif isinstance(measure, tuple):
                 self.evaluation_metrics.append(measure)
 
-        if ranking_function == "bed":
+        if ranking_function == "rmse":
+            if y is None:
+                raise ValueError("Target values must be provided for RMSE ranking function.")
+            self.parameter_estimator = ParameterEstimator(X, y, symbol_library=symbol_library, seed=seed, **kwargs)
+
+            if self.success_threshold is None:
+                self.success_threshold = 1e-7
+
+        elif ranking_function == "bed":
             if ground_truth is None:
                 raise ValueError("Ground truth must be provided for bed ranking function. The ground truth must be "
                                  "provided as a list of tokens, a Node object, or a numpy array representing behavior. "
                                  "The behavior matrix is a matrix representing the distribution of outputs of an "
                                  "expression with free parameters at different points in the domain. This matrix "
-                                 "should be of size (num_points_sampled, num_consts_sampled). The behavior of an "
-                                 "expressions without free parameters can be expressed as a matrix of size "
-                                 "(num_points_sampled, 1) with values equal to the output of the expression at these points.")
+                                 "should be of size (num_points_sampled, num_consts_sampled). See "
+                                 "SRToolkit.utils.create_behavior_matrix for more details.")
             else:
                 if self.bed_evaluation_parameters["bed_X"] is None:
                     if self.bed_evaluation_parameters["domain_bounds"] is not None:
@@ -154,7 +194,9 @@ class SR_evaluator:
                         lho = LatinHypercube(len(db), optimization="random-cd", seed=seed)
                         self.bed_evaluation_parameters["bed_X"] = lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length + lower_bound
                     else:
-                        self.bed_evaluation_parameters["bed_X"] = np.random.choice(X, size=self.bed_evaluation_parameters["num_points_sampled"])
+                        indices = np.random.choice(X.shape[0], size=self.bed_evaluation_parameters["num_points_sampled"])
+                        self.bed_evaluation_parameters["bed_X"] = X[indices, :]
+
             if isinstance(ground_truth, (list, Node)):
                 self.gt_behavior = create_behavior_matrix(ground_truth, self.bed_evaluation_parameters["bed_X"],
                                                           num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
@@ -164,6 +206,15 @@ class SR_evaluator:
                 self.gt_behavior = ground_truth
             else:
                 raise ValueError("Ground truth must be provided as a list of tokens, a Node object, or a numpy array representing behavior.")
+
+            if self.success_threshold is None:
+                distances = [bed(self.ground_truth, self.gt_behavior, self.bed_evaluation_parameters["bed_X"],
+                                 num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
+                                 num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
+                                 domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
+                                 consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
+                                 symbol_library=self.symbol_library) for i in range(100)]
+                self.success_threshold = np.max(distances)*1.1
 
     def evaluate_expr(self, expr: Union[List[str], Node], simplify_expr: bool = False, verbose: int=0) -> float:
         """
@@ -187,11 +238,31 @@ class SR_evaluator:
             'C+X_1'
             >>> print(0.99 < se.models["C+X_1"]["parameters"][0] < 1.01)
             True
+            >>> # Evaluating invalid expression returns nan and adds it to invalid list
+            >>> se.evaluate_expr(["C", "*", "X_1", "X_0"])
+            nan
+            >>> se.invalid
+            ['C*X_1X_0']
+            >>> X = np.random.rand(10, 2) - 0.5
+            >>> gt = ["X_0", "+", "C"]
+            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed")
+            >>> se.evaluate_expr(["C", "+", "X_1"]) < 1
+            True
+            >>> # When evaluating using BED as the ranking function, the error depends on the scale of output of the
+            >>> # ground truth. Because of stochasticity of BED, error might be high even when expressions match exactly.
+            >>> se.evaluate_expr(["C", "+", "X_0"]) < 0.2
+            True
+            >>> # X can also be sampled from a domain by providing domain_bounds
+            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", domain_bounds=[(-1, 1), (-1, 1)])
+            >>> se.evaluate_expr(["C", "+", "X_0"]) < 0.2
+            True
 
         Args:
             expr: An expression. This should be an istance of the SRToolkit.utils.expression_tree.Node class or a list
                   of tokens in the infix notation.
-            simplify_expr: If True, simplifies the expression using SymPy before evaluating it.
+            simplify_expr: If True, simplifies the expression using SymPy before evaluating it. This typically slows down
+                           evaluation. We recommend simplifying only the best expressions when getting results using
+                           the get_results method.
             verbose: When 0, no additional output is printed, when 1, prints the expression being evaluated, RMSE, and
                      estimated parameters, and when 2, also prints numpy errors produced during evaluation.
 
@@ -232,63 +303,64 @@ class SR_evaluator:
                 if verbose > 0:
                     print(f"Already evaluated {expr_str}")
                 return self.models[expr_str]["error"]
+
             else:
                 if self.ranking_function == "rmse":
-                    if verbose < 2:
-                        with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
+                    try:
+                        with (np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore") if verbose < 2
+                              else nullcontext()):
                             error, parameters = self.parameter_estimator.estimate_parameters(expr)
-                    else:
-                        error, parameters = self.parameter_estimator.estimate_parameters(expr)
 
-                    if verbose > 0:
-                        if parameters.size > 0:
-                            parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
-                        else:
-                            parameter_string = ""
-                        print(f"Evaluated expression {expr_str} with RMSE: {error}." + parameter_string)
+                        if verbose > 0:
+                            if parameters.size > 0:
+                                parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
+                            else:
+                                parameter_string = ""
+                            print(f"Evaluated expression {expr_str} with RMSE: {error}."+ parameter_string)
+
+                    except Exception as e:
+                        if verbose > 0:
+                            print(f"Error evaluating expression {expr_str}: {e}")
+
+                        self.invalid.append(expr_str)
+                        error, parameters = np.nan, np.array([])
+
                     self.models[expr_str] = {
                         "error": error,
                         "parameters": parameters,
                         "expr": expr_list,
                     }
+
                 elif self.ranking_function == "bed":
-                    if verbose < 2:
-                        with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
+                    try:
+                        with (np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore") if verbose < 2
+                              else nullcontext()):
                             error = bed(expr, self.gt_behavior, self.bed_evaluation_parameters["bed_X"],
                                         num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
                                         num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
                                         domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
                                         consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
                                         symbol_library=self.symbol_library, seed=self.seed)
-                    else:
-                        error = bed(expr, self.gt_behavior, self.bed_evaluation_parameters["bed_X"],
-                                    num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
-                                    num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
-                                    domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
-                                    consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
-                                    symbol_library=self.symbol_library, seed=self.seed)
-                    if verbose > 0:
-                        print(f"Evaluated expression {expr_str} with BED: {error}.")
+
+                            if verbose > 0:
+                                print(f"Evaluated expression {expr_str} with BED: {error}.")
+
+                    except Exception as e:
+                        if verbose > 0:
+                            print(f"Error evaluating expression {expr_str}: {e}")
+
+                        self.invalid.append(expr_str)
+                        error = np.nan
+
                     self.models[expr_str] = {
                         "error": error,
                         "expr": expr_list,
                     }
+
                 else:
                     raise ValueError(f"Ranking function {self.ranking_function} not supported.")
-                return error
 
-    # def evaluate_exprs(
-    #     self, exprs: List[List[str]], num_processes: int = 1
-    # ) -> List[float]:
-    #     if num_processes > 1:
-    #         pool = Pool(num_processes)
-    #         results = pool.map(self.evaluate_expr, exprs)
-    #         pool.close()
-    #         for r in results:
-    #             self.models
-    #         return results
-    #     else:
-    #         return [self.evaluate_expr(expr) for expr in exprs]
+                return error
 
     def get_results(self, top_k: int = 20, success_threshold: float = 1e-7) -> dict:
         """
