@@ -88,6 +88,7 @@ nav:
       - references/evaluation/index.md
       - parameter_estimator: references/evaluation/parameter_estimator.md
       - sr_evaluator: references/evaluation/sr_evaluator.md
+      - result_augmentation: references/evaluation/result_augmentation.md
     - dataset:
       - references/dataset/index.md
       - dataset: references/dataset/srdataset.md

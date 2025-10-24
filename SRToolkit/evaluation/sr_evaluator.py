@@ -2,28 +2,17 @@
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
 """
 from contextlib import nullcontext
-# TODO: Fix documentation examples
 from typing import Optional, List, Union, Tuple, TypedDict
 import warnings
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
 
-from SRToolkit.utils import (
-    Node,
-    SymbolLibrary,
-    simplify,
-    create_behavior_matrix,
-    bed,
-    tokens_to_tree,
-)
+from SRToolkit.evaluation.result_augmentation import ResultAugmenter
+
+from SRToolkit.utils import Node, SymbolLibrary, simplify, create_behavior_matrix, bed
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
-# Maybe add an __all__ variable with public methods
-_MEASURE_DICT = {
-    "rmse": lambda expr1, expr2, y1, y2, params1, params2, X: np.sqrt(np.mean((y1 - expr1(X, params1)) ** 2)),
-    "bed": lambda expr1, expr2, y1, y2, params1, params2, X: 0 # TODO: popravi
-}
 
 class SR_evaluator:
 
@@ -35,7 +24,7 @@ class SR_evaluator:
         success_threshold: Optional[float] = None,
         ranking_function: str = "rmse",
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
-        evaluation_measures: Optional[List[Union[str, Tuple[str, callable]]]] = None,
+        result_augmenters: Optional[List[Union[str, ResultAugmenter]]] = None,
         symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
         seed: Optional[int] = None,
         metadata: Optional[dict] = None,
@@ -68,8 +57,8 @@ class SR_evaluator:
             parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
             ranking_function: The function used for ranking the expressions and fitting parameters if needed.
             success_threshold: The threshold used for determining whether an expression is considered successful.
-            evaluation_metrics: A list of additional metrics to compute for the top expressions reported by
-                get_results (as controlled by the "top_k" parameter).
+            result_augmenters: A list of SRToolkit.evaluation.result_augmentation.ResultAugmenter objects that augment
+                the results returned by the get_results.
 
         Args:
             X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array with
@@ -88,14 +77,10 @@ class SR_evaluator:
                 Currently, "rmse" and "bed" are supported. Default is "rmse".
             ground_truth: The ground truth for the BED evaluation. This should be a list of tokens, a Node object, or a
                 numpy array representing behavior (see SRToolkit.utils.create_behavior_matrix for more details).
-            evaluation_measures: Optional list of additional metrics to compute for the top expressions reported by
-                get_results (as controlled by the "top_k" parameter). Each item may be either:
-                  - a string name of a built-in metric (e.g., "rmse"), or
-                  - a tuple (name, fn) where fn is a callable with signature
-                    fn(expr1: List[str], expr2: List[str], y1: np.ndarray, y2: np.ndarray,
-                       params1: np.ndarray, params2: np.ndarray, X: np.ndarray) -> float.
-                These metrics do not affect ranking (which is controlled by "ranking_function"); they are computed for
-                reporting. If None, it defaults to ["rmse"] (i.e., only RMSE is computed).
+            result_augmenters: Optional list of objects that augment the results returned by the "get_results" function.
+                For example, SRToolkit.evaluation.result_augmentation.ExpressionSimplifier simplifies the evaluated
+                expressions. Possible augmenters can be found in SRToolkit.evaluation.result_augmentation.py or customly
+                defined by inheriting from SRToolkit.evaluation.result_augmentation.ResultAugmenter class.
             seed: The seed to use for random number generation.
 
         Keyword Arguments:
@@ -129,7 +114,7 @@ class SR_evaluator:
             Determining if two expressions are equivalent is undecidable. Furthermore, random sampling, parameter
             fitting, and numerical errors all make it hard to determine whether we found the correct expression.
             Because of this, the success threshold is only a proxy for determining the success of an expression.
-            We reccomend checking the best performing expression manually for a better indication of success.
+            We recommend checking the best performing expression manually for a better indication of success.
         """
 
         self.models = dict()
@@ -164,17 +149,13 @@ class SR_evaluator:
             ranking_function = "rmse"
         self.ranking_function = ranking_function
 
-        if evaluation_measures is None:
-            evaluation_measures = ["rmse"]
-        self.evaluation_metrics = []
-        for measure in evaluation_measures:
-            if isinstance(measure, str):
-                if measure not in ["rmse"]:
-                    print(f"Warning: evaluation measure {measure} not supported. Ignoring.")
+        self.result_augmenters = []
+        if result_augmenters is not None:
+            for ra in result_augmenters:
+                if not isinstance(ra, ResultAugmenter):
+                    print(f"Warning: result_augmenter {ra} is not an instance of ResultAugmenter. Skipping.")
                 else:
-                    self.evaluation_metrics.append((measure, _MEASURE_DICT[measure]))
-            elif isinstance(measure, tuple):
-                self.evaluation_metrics.append(measure)
+                    self.result_augmenters.append(ra)
 
         if ranking_function == "rmse":
             if y is None:
@@ -369,7 +350,7 @@ class SR_evaluator:
 
                 return error
 
-    def get_results(self, top_k: int = 20, simplify_expressions: bool=False, verbose: bool=True) -> dict:
+    def get_results(self, top_k: int = 20, verbose: bool=True) -> dict:
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -420,23 +401,16 @@ class SR_evaluator:
 
         models = list(self.models.values())
         best_indices = np.argsort([v["error"] for v in models])
+        models = [models[i] for i in best_indices]
 
         results = {
-            "min_error": models[best_indices[0]]["error"],
-            "best_expr": "".join(models[best_indices[0]]["expr"]),
+            "min_error": models[0]["error"],
+            "best_expr": "".join(models[0]["expr"]),
             "num_evaluated": len(models),
             "evaluation_calls": self.total_evaluations,
             "top_models": list(),
             "metadata": self.metadata
         }
-
-        if simplify_expressions:
-            try:
-                simplified_expr = simplify(models[best_indices[0]]["expr"], self.symbol_library)
-                results["simplified_best_expr"] = "".join(simplified_expr)
-            except Exception as e:
-                print(f"Unable to simplify {results['best_expr']}: {e}")
-
 
         # Determine success based on the predefined success threshold
         if self.success_threshold is not None and results["min_error"] < self.success_threshold:
@@ -444,18 +418,20 @@ class SR_evaluator:
         else:
             results["success"] = False
 
-        for i in best_indices[:top_k]:
-            m = {"expr": models[i]["expr"], "error": models[i]["error"]}
-            if "parameters" in models[i]:
-                m["parameters"] = models[i]["parameters"]
+        for augmenter in self.result_augmenters:
+            if augmenter.on_all_expressions:
+                results = augmenter.augment_results(results, models, self)
 
-            if simplify_expressions:
-                try:
-                    simplified_expr = simplify(models[i]["expr"], self.symbol_library)
-                    m["simplified_expr"] = "".join(simplified_expr)
-                except Exception as e:
-                    pass
+        for model in models[:top_k]:
+            m = {"expr": model["expr"], "error": model["error"]}
+            if "parameters" in model:
+                m["parameters"] = model["parameters"]
+
             results["top_models"].append(m)
+
+        for augmente in self.result_augmenters:
+            if not augmente.on_all_expressions:
+                results = augmente.augment_results(results, models, self)
 
         if verbose:
             print(f"Best expression found: {results['best_expr']}")
@@ -466,4 +442,4 @@ class SR_evaluator:
 
         return results
 
-
+# TODO: Function that takes in the results output and creates a pareto front
