@@ -9,7 +9,14 @@ import warnings
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
 
-from SRToolkit.utils import Node, SymbolLibrary, simplify, create_behavior_matrix, bed
+from SRToolkit.utils import (
+    Node,
+    SymbolLibrary,
+    simplify,
+    create_behavior_matrix,
+    bed,
+    tokens_to_tree,
+)
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
 # Maybe add an __all__ variable with public methods
@@ -56,7 +63,7 @@ class SR_evaluator:
             metadata: An optional dictionary containing metadata about this evaluation. This could include information
                 such as the dataset used, the model used, seed, etc.
             symbol_library: The symbol library to use.
-            total_expressions: The total number of expressions considered up to this point in the evaluation.
+            total_evaluations: The number of times the "evaluate_expr" function was called.
             seed: The seed to use for random number generation.
             parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
             ranking_function: The function used for ranking the expressions and fitting parameters if needed.
@@ -147,7 +154,7 @@ class SR_evaluator:
 
         self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
-        self.total_expressions = 0
+        self.total_evaluations = 0
         self.seed = seed
         if seed is not None:
             np.random.seed(seed)
@@ -276,9 +283,9 @@ class SR_evaluator:
             If the expression has already been evaluated, its stored value is returned instead of re-evaluating the expression.
             When the maximum number of evaluations has been reached, a warning is printed and np.nan is returned.
         """
-        self.total_expressions += 1
+        self.total_evaluations += 1
 
-        if 0 <= self.max_evaluations < self.total_expressions:
+        if 0 <= self.max_evaluations < self.total_evaluations:
             warnings.warn(
                 f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
             return np.nan
@@ -362,7 +369,7 @@ class SR_evaluator:
 
                 return error
 
-    def get_results(self, top_k: int = 20, success_threshold: float = 1e-7) -> dict:
+    def get_results(self, top_k: int = 20, simplify_expressions: bool=False, verbose: bool=True) -> dict:
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -371,16 +378,16 @@ class SR_evaluator:
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
-            >>> results = se.get_results(top_k=1)
+            >>> results = se.get_results(top_k=1, verbose=False)
             >>> print(results["num_evaluated"])
             1
-            >>> print(results["total_expressions"])
+            >>> print(results["evaluation_calls"])
             1
             >>> print(results["best_expr"])
             C*X_1-X_0
-            >>> print(results["min_rmse"] < 1e-6)
+            >>> print(results["min_error"] < 1e-6)
             True
-            >>> print(1.99 < results["results"][0]["parameters"][0] < 2.01)
+            >>> print(1.99 < results["top_models"][0]["parameters"][0] < 2.01)
             True
 
         Args:
@@ -388,8 +395,9 @@ class SR_evaluator:
                 is greater than the number of evaluated expressions, all
                 evaluated expressions are included. If `top_k` is less than 0,
                 all evaluated expressions are included.
-            success_threshold: The threshold below which the evaluation is
-                considered successful. Default is 1e-7.
+            simplify_expressions: If true simplifies the best expressions and the top expressions. Will probably be removed
+                soon and replaced with a more permanent solution
+            verbose: If True, prints the results of the evaluation.
 
         Returns:
             A dictionary containing the results of the equation discovery/symbolic regression process. The keys are:
@@ -399,10 +407,10 @@ class SR_evaluator:
                 - "best_expr" : The expression with the minimum root mean
                   squared error.
                 - "num_evaluated" : The number of evaluated expressions.
-                - "total_expressions" : The total number of expressions
+                - "evaluation_calls" : The number of times the "evaluate_expr" function was called.
                   considered.
                 - "success" : Whether the evaluation was successful.
-                - "results" : A list of dictionaries, where each dictionary
+                - "top_models" : A list of dictionaries, where each dictionary
                   contains the root mean squared error, the expression, and the
                   estimated parameters of the expression. The list is sorted in
                   ascending order of the root mean squared error.
@@ -414,21 +422,48 @@ class SR_evaluator:
         best_indices = np.argsort([v["error"] for v in models])
 
         results = {
-            "metadata": self.metadata,
-            "min_rmse": models[best_indices[0]]["error"],
+            "min_error": models[best_indices[0]]["error"],
             "best_expr": "".join(models[best_indices[0]]["expr"]),
             "num_evaluated": len(models),
-            "total_expressions": self.total_expressions,
-            "results": list(),
+            "evaluation_calls": self.total_evaluations,
+            "top_models": list(),
+            "metadata": self.metadata
         }
 
+        if simplify_expressions:
+            try:
+                simplified_expr = simplify(models[best_indices[0]]["expr"], self.symbol_library)
+                results["simplified_best_expr"] = "".join(simplified_expr)
+            except Exception as e:
+                print(f"Unable to simplify {results['best_expr']}: {e}")
+
+
         # Determine success based on the predefined success threshold
-        if success_threshold is not None and results["min_rmse"] < success_threshold:
+        if self.success_threshold is not None and results["min_error"] < self.success_threshold:
             results["success"] = True
         else:
             results["success"] = False
 
         for i in best_indices[:top_k]:
-            results["results"].append(models[i])
+            m = {"expr": models[i]["expr"], "error": models[i]["error"]}
+            if "parameters" in models[i]:
+                m["parameters"] = models[i]["parameters"]
+
+            if simplify_expressions:
+                try:
+                    simplified_expr = simplify(models[i]["expr"], self.symbol_library)
+                    m["simplified_expr"] = "".join(simplified_expr)
+                except Exception as e:
+                    pass
+            results["top_models"].append(m)
+
+        if verbose:
+            print(f"Best expression found: {results['best_expr']}")
+            print(f"Error: {results['min_error']}")
+            print(f"Number of evaluated expressions: {results['num_evaluated']}")
+            print(f"Number of times evaluate_expr was called: {results['evaluation_calls']}")
+            print(f"Success: {results['success']}")
 
         return results
+
+
