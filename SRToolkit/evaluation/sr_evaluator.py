@@ -418,10 +418,6 @@ class SR_evaluator:
         else:
             results["success"] = False
 
-        for augmenter in self.result_augmenters:
-            if augmenter.on_all_expressions:
-                results = augmenter.augment_results(results, models, self)
-
         for model in models[:top_k]:
             m = {"expr": model["expr"], "error": model["error"]}
             if "parameters" in model:
@@ -430,8 +426,10 @@ class SR_evaluator:
             results["top_models"].append(m)
 
         for augmente in self.result_augmenters:
-            if not augmente.on_all_expressions:
+            try:
                 results = augmente.augment_results(results, models, self)
+            except Exception as e:
+                print(f"Error augmenting results, skipping current augmentor because of the following error: {e}")
 
         if verbose:
             print(f"Best expression found: {results['best_expr']}")

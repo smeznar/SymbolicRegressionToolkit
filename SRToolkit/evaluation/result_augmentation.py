@@ -5,7 +5,7 @@ from typing import List
 
 import numpy as np
 
-from SRToolkit.utils import simplify
+from SRToolkit.utils import simplify, tokens_to_tree
 
 
 class ResultAugmenter:
@@ -30,6 +30,39 @@ class ResultAugmenter:
             The augmented results dictionary.
         """
         pass
+
+
+class ExpressionToLatex(ResultAugmenter):
+    def __init__(self, only_best_expression: bool=False):
+        """
+        Transforms the expressions inside the results dictionary into LaTeX strings.
+
+        Args:
+            only_best_expression: If True, only the best expression is transformed. If False, all top expressions are
+        """
+        super().__init__()
+        self.only_best_expression = only_best_expression
+
+    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+        """
+        Transforms the expressions inside the results dictionary into LaTeX strings.
+
+        Args:
+            results: The dictionary containing the results to augment.
+            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            evaluator: The evaluator used to evaluate the models.
+
+        Returns:
+            The augmented results dictionary. The results dictionary contains an additional key "best_expr_latex" with
+                the LaTeX representation of the best expression, and similarly keys "expr_latex" for expressions inside
+                the top_models list if only_best_expression is False.
+        """
+        results["best_expr_latex"] = tokens_to_tree(models[0]["expr"], evaluator.symbol_library).to_latex(evaluator.symbol_library)
+        if not self.only_best_expression:
+            for model in results["top_models"]:
+                model["expr_latex"] = tokens_to_tree(model["expr"], evaluator.symbol_library).to_latex(evaluator.symbol_library)
+
+        return results
 
 
 class ExpressionSimplifier(ResultAugmenter):
@@ -84,10 +117,18 @@ class RMSE(ResultAugmenter):
         Computes the RMSE for the top models in the results dictionary.
 
         Args:
-             evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data)
+             evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
+                evaluator must be initialized with ranking_function = "rmse"
+
+        Raises:
+            Exception: If the evaluator is not initialized with ranking_function = "rmse" or if y in the evaluator is None.
         """
         super().__init__()
         self.evaluator = evaluator
+        if self.evaluator.ranking_function != "rmse":
+            raise Exception("[RMSE augmenter] Ranking function of the evaluator must be set to 'rmse' to compute RMSE.")
+        if self.evaluator.y is None:
+            raise Exception("[RMSE augmenter] y in the evaluator must not be None to compute RMSE.")
 
     def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
         """
@@ -105,9 +146,93 @@ class RMSE(ResultAugmenter):
         """
         expr = models[0]["expr"]
         error = self.evaluator.evaluate_expr(expr)
-        results["min_rmse"] = error
+        results["best_expr_rmse"] = error
         for model in results["top_models"]:
             error = self.evaluator.evaluate_expr(model["expr"])
             model["rmse"] = error
             model["parameters_rmse"] = self.evaluator.models["".join(model["expr"])]["parameters"]
         return results
+
+
+class BED(ResultAugmenter):
+    def __init__(self, evaluator: "SR_evaluator"):
+        """
+        Computes BED for the top models in the results dictionary.
+
+        Args:
+             evaluator: The evaluator used to evaluate the models. This evaluator must be initialized with
+             ranking_function = "bed"
+
+        Raises:
+            Exception: If the evaluator is not initialized with ranking_function = "bed".
+        """
+        super().__init__()
+        self.evaluator = evaluator
+        if self.evaluator.ranking_function != "bed":
+            raise Exception("[BED augmenter] Ranking function of the evaluator must be set to 'bed' to compute BED.")
+
+    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+        """
+        Computes BED for the top models in the results dictionary.
+
+        Args:
+            results: The dictionary containing the results to augment.
+            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            evaluator: The evaluator used to evaluate the models.
+
+        Returns:
+            The augmented results dictionary. The results dictionary contains an additional key "best_expr_bed" with
+            BED of the best expression, and key "bed" for each of the top_models inside the results["top_models"] list.
+        """
+        expr = models[0]["expr"]
+        error = self.evaluator.evaluate_expr(expr)
+        results["best_expr_bed"] = error
+        for model in results["top_models"]:
+            model["bed"] = self.evaluator.evaluate_expr(model["expr"])
+        return results
+
+
+class R2(ResultAugmenter):
+    def __init__(self, evaluator: "SR_evaluator"):
+        """
+        Computes the R^2 for the top models in the results dictionary. NOT IMPLEMENTED YET, CURRENTLY YOU GET RMSE.
+
+        Args:
+             evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
+                evaluator must be initialized with ranking_function = "rmse". If you're also using the RMSE augmenter,
+                they the same one can be used for both.
+
+        Raises:
+            Exception: If the evaluator is not initialized with ranking_function = "rmse" or if y in the evaluator is None.
+        """
+        super().__init__()
+        self.evaluator = evaluator
+        if self.evaluator.ranking_function != "rmse":
+            raise Exception("[R2 augmenter] Ranking function of the evaluator must be set to 'rmse' to compute R^2.")
+        if self.evaluator.y is None:
+            raise Exception("[R2 augmenter] y in the evaluator must not be None to compute R^2.")
+        self.average_y = np.mean(self.evaluator.y)
+
+    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+        """
+        Computes the R^2 for the top models in the results dictionary.
+
+        Args:
+            results: The dictionary containing the results to augment.
+            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            evaluator: The evaluator used to evaluate the models.
+
+        Returns:
+            The augmented results dictionary. The results dictionary contains an additional key "best_expr_r^2" with the
+            R^2 of the best expression, and keys "r^2" and "parameters_r^2" for each of the top_models inside the
+            results["top_models"] list.
+        """
+        expr = models[0]["expr"]
+        error = self.evaluator.evaluate_expr(expr)
+        results["best_expr_r^2"] = error # TODO: Popravi
+        for model in results["top_models"]:
+            error = self.evaluator.evaluate_expr(model["expr"])
+            model["r^2"] = error
+            model["parameters_r^2"] = self.evaluator.models["".join(model["expr"])]["parameters"]
+        return results
+
