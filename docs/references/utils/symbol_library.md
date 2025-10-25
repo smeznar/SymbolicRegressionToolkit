@@ -1,8 +1,8 @@
 ---
-title: Symbol Library Module
+title: Symbol Library
 ---
 
-# Symbol Library Module
+# Symbol Library
 
 ::: SRToolkit.utils.symbol_library
     options:

@@ -1,8 +1,8 @@
 ---
-title: SRDataset Module
+title: SR Benchmark
 ---
 
-# SRDataset Module
+# SR Benchmark
 
 ::: SRToolkit.dataset.srbenchmark
     options:

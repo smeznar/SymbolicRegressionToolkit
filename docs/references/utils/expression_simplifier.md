@@ -1,8 +1,8 @@
 ---
-title: Expression Simplifier Module
+title: Expression Simplifier
 ---
 
-# Expression Simplifier Module
+# Expression Simplifier
 
 ::: SRToolkit.utils.expression_simplifier
     options:

@@ -5,6 +5,8 @@ import numpy as np
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import SymbolLibrary
 
+# TODO: Rewrite this class a bit adapt to changes from SR_evaluator
+
 class SRDataset:
     def __init__(self, X: np.ndarray, y: np.ndarray, ground_truth: List[str], original_equation: str,
                  symbols: SymbolLibrary, max_evaluations: int=-1, max_expression_length: int=-1, max_constants: int=8,
@@ -51,6 +53,24 @@ class SRDataset:
 
         self.dataset_metadata = dataset_metadata
 
+    def create_evaluator(self, metadata: dict=None) -> SR_evaluator:
+        """
+        Creates an instance of the SR_evaluator class from this dataset.
+
+        Args:
+            metadata: An optional dictionary containing metadata about this evaluation. This could include
+                information such as the dataset used, the model used, seed, etc.
+
+        Returns:
+            An instance of the SR_evaluator class.
+        """
+        if metadata is None:
+            metadata = dict()
+        metadata["dataset_metadata"] = self.dataset_metadata
+        return SR_evaluator(self.X, self.y, max_evaluations=self.max_evaluations, metadata=metadata,
+                            symbol_library=self.symbols, max_constants=self.max_constants,
+                            max_expression_length=self.max_expression_length)
+
     def __str__(self) -> str:
         """
         Returns a string describing this dataset.
@@ -96,21 +116,3 @@ class SRDataset:
         description += "For other metadata, please refer to the attribute self.dataset_metadata."
 
         return description
-
-    def create_evaluator(self, metadata: dict=None) -> SR_evaluator:
-        """
-        Creates an instance of the SR_evaluator class from this dataset.
-
-        Args:
-            metadata: An optional dictionary containing metadata about this evaluation. This could include
-                information such as the dataset used, the model used, seed, etc.
-
-        Returns:
-            An instance of the SR_evaluator class.
-        """
-        if metadata is None:
-            metadata = dict()
-        metadata["dataset_metadata"] = self.dataset_metadata
-        return SR_evaluator(self.X, self.y, max_evaluations=self.max_evaluations, metadata=metadata,
-                            symbol_library=self.symbols, max_constants=self.max_constants,
-                            max_expression_length=self.max_expression_length,)

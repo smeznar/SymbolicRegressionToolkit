@@ -24,7 +24,7 @@ class SR_evaluator:
         success_threshold: Optional[float] = None,
         ranking_function: str = "rmse",
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
-        result_augmenters: Optional[List[Union[str, ResultAugmenter]]] = None,
+        result_augmenters: Optional[List[ResultAugmenter]] = None,
         symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
         seed: Optional[int] = None,
         metadata: Optional[dict] = None,
@@ -40,25 +40,6 @@ class SR_evaluator:
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> print(rmse < 1e-6)
             True
-
-
-        Attributes:
-            models: A dictionary containing the results of previously evaluated expressions.
-            invalid: A list containing the expressions that could not be evaluated.
-            ground_truth: The ground truth we are trying to find.
-            gt_behavior: The behavior matrix for the ground truth that is used when BED is chosen as the ranking function.
-            max_evaluations: The maximum number of expressions to evaluate.
-            bed_evaluation_parameters: A dictionary containing parameters used for BED evaluation.
-            metadata: An optional dictionary containing metadata about this evaluation. This could include information
-                such as the dataset used, the model used, seed, etc.
-            symbol_library: The symbol library to use.
-            total_evaluations: The number of times the "evaluate_expr" function was called.
-            seed: The seed to use for random number generation.
-            parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
-            ranking_function: The function used for ranking the expressions and fitting parameters if needed.
-            success_threshold: The threshold used for determining whether an expression is considered successful.
-            result_augmenters: A list of SRToolkit.evaluation.result_augmentation.ResultAugmenter objects that augment
-                the results returned by the get_results.
 
         Args:
             X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array with
@@ -105,6 +86,24 @@ class SR_evaluator:
             num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
             domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to
                 sample random points. Default is None.
+
+        Attributes:
+            models: A dictionary containing the results of previously evaluated expressions.
+            invalid: A list containing the expressions that could not be evaluated.
+            ground_truth: The ground truth we are trying to find.
+            gt_behavior: The behavior matrix for the ground truth that is used when BED is chosen as the ranking function.
+            max_evaluations: The maximum number of expressions to evaluate.
+            bed_evaluation_parameters: A dictionary containing parameters used for BED evaluation.
+            metadata: An optional dictionary containing metadata about this evaluation. This could include information
+                such as the dataset used, the model used, seed, etc.
+            symbol_library: The symbol library to use.
+            total_evaluations: The number of times the "evaluate_expr" function was called.
+            seed: The seed to use for random number generation.
+            parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
+            ranking_function: The function used for ranking the expressions and fitting parameters if needed.
+            success_threshold: The threshold used for determining whether an expression is considered successful.
+            result_augmenters: A list of SRToolkit.evaluation.result_augmentation.ResultAugmenter objects that augment
+                the results returned by the get_results.
 
         Methods:
             evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
@@ -376,22 +375,20 @@ class SR_evaluator:
                 is greater than the number of evaluated expressions, all
                 evaluated expressions are included. If `top_k` is less than 0,
                 all evaluated expressions are included.
-            simplify_expressions: If true simplifies the best expressions and the top expressions. Will probably be removed
-                soon and replaced with a more permanent solution
             verbose: If True, prints the results of the evaluation.
 
         Returns:
             A dictionary containing the results of the equation discovery/symbolic regression process. The keys are:
 
-                - "metadata" : The metadata provided in the constructor.
-                - "min_rmse" : The minimum root mean squared error.
-                - "best_expr" : The expression with the minimum root mean
+                - "metadata": The metadata provided in the constructor.
+                - "min_rmse": The minimum root mean squared error.
+                - "best_expr": The expression with the minimum root mean
                   squared error.
-                - "num_evaluated" : The number of evaluated expressions.
-                - "evaluation_calls" : The number of times the "evaluate_expr" function was called.
+                - "num_evaluated": The number of evaluated expressions.
+                - "evaluation_calls": The number of times the "evaluate_expr" function was called.
                   considered.
-                - "success" : Whether the evaluation was successful.
-                - "top_models" : A list of dictionaries, where each dictionary
+                - "success": Whether the evaluation was successful.
+                - "top_models": A list of dictionaries, where each dictionary
                   contains the root mean squared error, the expression, and the
                   estimated parameters of the expression. The list is sorted in
                   ascending order of the root mean squared error.

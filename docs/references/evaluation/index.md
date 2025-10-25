@@ -1,10 +1,8 @@
 ---
-title: Evaluation Module
-hide:
-    - toc
+title: Evaluation Submodule
 ---
 
-# Evaluation Module
+# Evaluation Submodule
 
 ::: SRToolkit.evaluation
     options:

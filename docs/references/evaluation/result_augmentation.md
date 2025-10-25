@@ -1,8 +1,8 @@
 ---
-title: Parameter Estimator Module
+title: Parameter Estimator
 ---
 
-# Result Augmentation Module
+# Result Augmentation
 
 ::: SRToolkit.evaluation.result_augmentation
     options:

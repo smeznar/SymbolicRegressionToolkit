@@ -42,53 +42,6 @@ class Node:
         self.right = right
         self.left = left
 
-    def __len__(self) -> int:
-        """
-        Returns the number of nodes in the tree rooted at this node.
-
-        Examples:
-            >>> node = Node("+", Node("x"), Node("1"))
-            >>> len(node)
-            3
-
-        Returns:
-            The number of nodes in the tree rooted at this node.
-        """
-        return (
-            1
-            + (len(self.left) if self.left is not None else 0)
-            + (len(self.right) if self.right is not None else 0)
-        )
-
-    def height(self) -> int:
-        """
-        Returns the height of the tree rooted at this node.
-
-        Examples:
-            >>> node = Node("+", Node("x"), Node("1"))
-            >>> node.height()
-            2
-
-        Returns:
-            The height of the tree rooted at this node.
-        """
-        return 1 + max((self.left.height() if self.left is not None else 0),
-                       (self.right.height() if self.right is not None else 0))
-
-    def __str__(self) -> str:
-        """
-        Returns a string representation of the tree rooted at this node.
-
-        Examples:
-            >>> node = Node("+", Node("x"), Node("1"))
-            >>> str(node)
-            '1+x'
-
-        Returns:
-            A string representation of the tree rooted at this node.
-        """
-        return "".join(self.to_list())
-
     def to_list(self, symbol_library: SymbolLibrary = None, notation: str = "infix") -> List[str]:
         """
         Transforms the tree rooted at this node into a list of tokens.
@@ -233,6 +186,53 @@ class Node:
             return symbol_library.get_latex_str(self.symbol).format(left, right), num_const
         else:
             raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+
+    def height(self) -> int:
+        """
+        Returns the height of the tree rooted at this node.
+
+        Examples:
+            >>> node = Node("+", Node("x"), Node("1"))
+            >>> node.height()
+            2
+
+        Returns:
+            The height of the tree rooted at this node.
+        """
+        return 1 + max((self.left.height() if self.left is not None else 0),
+                       (self.right.height() if self.right is not None else 0))
+
+    def __len__(self) -> int:
+        """
+        Returns the number of nodes in the tree rooted at this node.
+
+        Examples:
+            >>> node = Node("+", Node("x"), Node("1"))
+            >>> len(node)
+            3
+
+        Returns:
+            The number of nodes in the tree rooted at this node.
+        """
+        return (
+            1
+            + (len(self.left) if self.left is not None else 0)
+            + (len(self.right) if self.right is not None else 0)
+        )
+
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the tree rooted at this node.
+
+        Examples:
+            >>> node = Node("+", Node("x"), Node("1"))
+            >>> str(node)
+            '1+x'
+
+        Returns:
+            A string representation of the tree rooted at this node.
+        """
+        return "".join(self.to_list())
 
     def __copy__(self) -> "Node":
         """

@@ -1,8 +1,8 @@
 ---
-title: Expression Tree Module
+title: Expression Tree
 ---
 
-# Expression Tree Module
+# Expression Tree
 
 ::: SRToolkit.utils.expression_tree
     options:

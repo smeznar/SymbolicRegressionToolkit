@@ -11,36 +11,43 @@ repo_url: https://github.com/smeznar/SymbolicRegressionToolkit
 theme:
   name: material
   features:
-    - content.code.copy
+    - navigation.sections # Helps collapse sections in the sidebar
+    - toc.follow # Keeps the table of contents visible as you scroll
+    - content.code.copy # Adds a handy "copy" button to code blocks
+    - content.code.select # Allows selection of different code snippets (if applicable)
     - content.code.annotate
     - content.tooltips
     - navigation.indexes
     - navigation.tabs
     - navigation.top
-    - navigation.footer
+#    - navigation.footer
     - search.highlight
     - search.share
     - search.suggest
-    - toc.follow
   palette:
     # Palette toggle for light
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: black
-      accent: blue
+      primary: red
+      accent: red
       toggle:
         icon: material/weather-sunny
         name: Switch to dark mode
     # Palette toggle for dark
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: black
-      accent: blue
+      primary: blue grey
+      accent: light blue
       toggle:
         icon: material/weather-night
         name: Switch to light mode
   logo: assets/imgs/logo.webp
-#  favicon: assets/imgs/favicon-32x32.png
+  font:
+    text: Roboto # A clean, modern font
+    code: Roboto Mono # A clear monospace font
+
+extra_css:
+  - stylesheets/extra.css
 
 plugins:
   - search
@@ -48,10 +55,34 @@ plugins:
       handlers:
         python:
           options:
-            show_root_heading: True
-            show_root_toc_entry: False
-            members_order: "source"
-            heading_level: 3
+            # Headings
+            show_root_heading: true
+            show_root_toc_entry: false
+            show_object_full_path: false
+            show_category_heading: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+
+            # Members
+            members_order: source
+            group_by_category: true
+            show_submodules: false
+
+            # Docstrings
+            docstring_style: google
+            docstring_section_style: table
+            merge_init_into_class: true
+            show_if_no_docstring: false
+
+            # Signatures
+            show_signature: true
+            show_signature_annotations: true
+            separate_signature: true
+            line_length: 80
+
+            extra:
+              allow_inspections: true
+
 
 # Markdown Extensions
 markdown_extensions:

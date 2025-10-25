@@ -1,8 +1,8 @@
 ---
-title: Expression Compiler Module
+title: Expression Compiler
 ---
 
-# Expression Compiler Module
+# Expression Compiler
 
 ::: SRToolkit.utils.expression_compiler
     options:

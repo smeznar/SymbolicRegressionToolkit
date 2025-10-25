@@ -28,7 +28,7 @@ def edit_distance(expr1: Union[List[str], Node], expr2: Union[List[str], Node], 
         expr1: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         expr2: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         notation: The notation in which the distance between the two expressions is computed. Can be one of "infix", "postfix", or "prefix".
-        By default, "postfix" is used to avoid inconsistencies that occur because of parenthesis.
+            By default, "postfix" is used to avoid inconsistencies that occur because of parenthesis.
         symbol_library: The symbol library to use when converting the expressions to lists of tokens and vice versa. Defaults to SymbolLibrary.default_symbols().
 
     Returns:

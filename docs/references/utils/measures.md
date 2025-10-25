@@ -2,7 +2,7 @@
 title: Measures
 ---
 
-# Measures Module
+# Measures
 
 ::: SRToolkit.utils.measures
     options:

@@ -1,10 +1,8 @@
 ---
-title: Utils Module
-hide:
-    - toc
+title: Utils Submodule
 ---
 
-# Utils Module
+# Utils Submodule
 
 ::: SRToolkit.utils
     options:

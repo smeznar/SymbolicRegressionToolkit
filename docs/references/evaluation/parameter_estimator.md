@@ -1,8 +1,8 @@
 ---
-title: Parameter Estimator Module
+title: Parameter Estimator
 ---
 
-# Parameter Estimator Module
+# Parameter Estimator
 
 ::: SRToolkit.evaluation.parameter_estimator
     options:

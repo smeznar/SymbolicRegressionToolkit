@@ -1,10 +1,8 @@
 ---
-title: Dataset Module
-hide:
-    - toc
+title: Dataset Submodule
 ---
 
-# Dataset Module
+# Dataset Submodule
 
 ::: SRToolkit.dataset
     options:

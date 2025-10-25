@@ -1,8 +1,8 @@
 ---
-title: SRDataset Module
+title: SR Dataset
 ---
 
-# SRDataset Module
+# SR Dataset
 
 ::: SRToolkit.dataset.srdataset
     options:

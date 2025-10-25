@@ -1,8 +1,8 @@
 ---
-title: SR Evaluator Module
+title: SR Evaluator
 ---
 
-# SR Evaluator Module
+# SR Evaluator
 
 ::: SRToolkit.evaluation.sr_evaluator
     options:

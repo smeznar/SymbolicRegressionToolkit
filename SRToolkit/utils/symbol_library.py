@@ -44,67 +44,6 @@ class SymbolLibrary:
         self.symbols = dict()
         self.num_variables = 0
 
-    def __len__(self) -> int:
-        """
-        Returns the number of symbols currently stored in the SymbolLibrary.
-
-        Examples:
-             >>> library = SymbolLibrary.default_symbols(5)
-             >>> len(library)
-             34
-             >>> library.add_symbol("a", "lit", 5, "a", "a")
-             >>> len(library)
-             35
-
-        Returns
-            Number of symbols currently stored in the SymbolLibrary.
-        """
-        return len(self.symbols)
-
-    def __str__(self) -> str:
-        r"""
-        Returns a string representation of the SymbolLibrary instance.
-
-        This method provides a comma-separated string of all the symbol keys
-        currently stored in the SymbolLibrary.
-
-        Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x", "x")
-            >>> str(library)
-            'x'
-            >>> library.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
-            >>> str(library)
-            'x, sin'
-
-        Returns:
-            A string containing all symbols in the library, separated by commas.
-        """
-        return ", ".join(self.symbols.keys())
-
-    def __copy__(self) -> "SymbolLibrary":
-        r"""
-        Creates a copy of the SymbolLibrary instance.
-
-        Examples:
-            >>> old_symbols = SymbolLibrary()
-            >>> old_symbols.add_symbol("x", "var", 0, "x", "x")
-            >>> print(old_symbols)
-            x
-            >>> new_symbols = copy.copy(old_symbols)
-            >>> new_symbols.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
-            >>> print(old_symbols)
-            x
-            >>> print(new_symbols)
-            x, sin
-
-        Returns:
-            A copy of the SymbolLibrary instance.
-        """
-        sl = SymbolLibrary()
-        sl.symbols = copy.deepcopy(self.symbols)
-        return sl
-
     def add_symbol(self, symbol: str, symbol_type: str, precedence: int, np_fn: str, latex_str: str = None):
         r"""
         Adds a symbol to the library. A symbol should have a type, precedence, a numpy function, and a LaTeX template associated with it.
@@ -401,4 +340,65 @@ class SymbolLibrary:
             for i in range(num_variables):
                 sl.add_symbol(f"X_{i}", "var", 5, "X[:, {}]".format(i), "X_{{{}}}".format(i))
 
+        return sl
+
+    def __len__(self) -> int:
+        """
+        Returns the number of symbols currently stored in the SymbolLibrary.
+
+        Examples:
+             >>> library = SymbolLibrary.default_symbols(5)
+             >>> len(library)
+             34
+             >>> library.add_symbol("a", "lit", 5, "a", "a")
+             >>> len(library)
+             35
+
+        Returns
+            Number of symbols currently stored in the SymbolLibrary.
+        """
+        return len(self.symbols)
+
+    def __str__(self) -> str:
+        r"""
+        Returns a string representation of the SymbolLibrary instance.
+
+        This method provides a comma-separated string of all the symbol keys
+        currently stored in the SymbolLibrary.
+
+        Examples:
+            >>> library = SymbolLibrary()
+            >>> library.add_symbol("x", "var", 0, "x", "x")
+            >>> str(library)
+            'x'
+            >>> library.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
+            >>> str(library)
+            'x, sin'
+
+        Returns:
+            A string containing all symbols in the library, separated by commas.
+        """
+        return ", ".join(self.symbols.keys())
+
+    def __copy__(self) -> "SymbolLibrary":
+        r"""
+        Creates a copy of the SymbolLibrary instance.
+
+        Examples:
+            >>> old_symbols = SymbolLibrary()
+            >>> old_symbols.add_symbol("x", "var", 0, "x", "x")
+            >>> print(old_symbols)
+            x
+            >>> new_symbols = copy.copy(old_symbols)
+            >>> new_symbols.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
+            >>> print(old_symbols)
+            x
+            >>> print(new_symbols)
+            x, sin
+
+        Returns:
+            A copy of the SymbolLibrary instance.
+        """
+        sl = SymbolLibrary()
+        sl.symbols = copy.deepcopy(self.symbols)
         return sl

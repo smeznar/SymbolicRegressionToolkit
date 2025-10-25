@@ -1,8 +1,8 @@
 ---
-title: Expression Generator Module
+title: Expression Generator
 ---
 
-# Expression Generator Module
+# Expression Generator
 
 ::: SRToolkit.utils.expression_generator
     options:

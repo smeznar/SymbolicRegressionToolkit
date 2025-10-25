@@ -22,8 +22,9 @@ class ResultAugmenter:
 
         Args:
             results: The dictionary containing the results to augment.
-            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i,
-                models[i]["error"] contains the error for model i, ...
+            models: A list of dictionaries describing the performance of expressions using the base ranking function.
+                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
+                by error.
             evaluator: The evaluator used to evaluate the models.
 
         Returns:
@@ -49,7 +50,9 @@ class ExpressionToLatex(ResultAugmenter):
 
         Args:
             results: The dictionary containing the results to augment.
-            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            models: A list of dictionaries describing the performance of expressions using the base ranking function.
+                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
+                by error.
             evaluator: The evaluator used to evaluate the models.
 
         Returns:
@@ -85,7 +88,9 @@ class ExpressionSimplifier(ResultAugmenter):
 
         Args:
             results: The dictionary containing the results to augment.
-            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            models: A list of dictionaries describing the performance of expressions using the base ranking function.
+                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
+                by error.
             evaluator: The evaluator used to evaluate the models.
 
         Returns:
@@ -117,7 +122,7 @@ class RMSE(ResultAugmenter):
         Computes the RMSE for the top models in the results dictionary.
 
         Args:
-             evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
+            evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
                 evaluator must be initialized with ranking_function = "rmse"
 
         Raises:
@@ -136,7 +141,9 @@ class RMSE(ResultAugmenter):
 
         Args:
             results: The dictionary containing the results to augment.
-            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            models: A list of dictionaries describing the performance of expressions using the base ranking function.
+                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
+                by error.
             evaluator: The evaluator used to evaluate the models.
 
         Returns:
@@ -160,8 +167,8 @@ class BED(ResultAugmenter):
         Computes BED for the top models in the results dictionary.
 
         Args:
-             evaluator: The evaluator used to evaluate the models. This evaluator must be initialized with
-             ranking_function = "bed"
+            evaluator: The evaluator used to evaluate the models. This evaluator must be initialized with
+                ranking_function = "bed"
 
         Raises:
             Exception: If the evaluator is not initialized with ranking_function = "bed".
@@ -177,7 +184,9 @@ class BED(ResultAugmenter):
 
         Args:
             results: The dictionary containing the results to augment.
-            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            models: A list of dictionaries describing the performance of expressions using the base ranking function.
+                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
+                by error.
             evaluator: The evaluator used to evaluate the models.
 
         Returns:
@@ -198,7 +207,7 @@ class R2(ResultAugmenter):
         Computes the R^2 for the top models in the results dictionary. NOT IMPLEMENTED YET, CURRENTLY YOU GET RMSE.
 
         Args:
-             evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
+            evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
                 evaluator must be initialized with ranking_function = "rmse". If you're also using the RMSE augmenter,
                 they the same one can be used for both.
 
@@ -219,7 +228,9 @@ class R2(ResultAugmenter):
 
         Args:
             results: The dictionary containing the results to augment.
-            models: The list of models that were evaluated. Variable models[i]["expr"] contains the expression model i, ...
+            models: A list of dictionaries describing the performance of expressions using the base ranking function.
+                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
+                by error.
             evaluator: The evaluator used to evaluate the models.
 
         Returns:
