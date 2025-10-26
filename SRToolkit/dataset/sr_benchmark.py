@@ -7,15 +7,15 @@ from zipfile import ZipFile
 
 import numpy as np
 
-from SRToolkit.dataset import SRDataset
+from SRToolkit.dataset import SR_dataset
 
 from SRToolkit.utils import SymbolLibrary
 
 
-class SRBenchmark:
+class SR_benchmark:
     def __init__(self, benchmark_name: str, base_dir: str, metadata: dict = None):
         """
-        Initializes an instance of the SRBenchmark class.
+        Initializes an instance of the SR_benchmark class.
 
         Args:
             benchmark_name: The name of this benchmark.
@@ -77,7 +77,7 @@ class SRBenchmark:
             "num_variables": num_variables,
         }
 
-    def create_dataset(self, dataset_name: str) -> SRDataset:
+    def create_dataset(self, dataset_name: str) -> SR_dataset:
         """
         Creates an instance of a dataset from the given dataset name.
 
@@ -85,7 +85,7 @@ class SRBenchmark:
             dataset_name: The name of the dataset to create.
 
         Returns:
-            A SRDataset instance containing the data, ground truth expression, and metadata for the given dataset.
+            A SR_dataset instance containing the data, ground truth expression, and metadata for the given dataset.
 
         Raises:
             ValueError: If the dataset name is not found in the available datasets.
@@ -107,12 +107,12 @@ class SRBenchmark:
             X = data[:, :-1]
             y = data[:, -1]
 
-            return SRDataset(
+            return SR_dataset(
                 X,
-                y,
+                y=y,
                 ground_truth=self.datasets[dataset_name]["ground_truth"],
                 original_equation=self.datasets[dataset_name]["original_equation"],
-                symbols=self.datasets[dataset_name]["symbols"],
+                symbol_library=self.datasets[dataset_name]["symbols"],
                 max_evaluations=self.datasets[dataset_name]["max_evaluations"],
                 max_expression_length=self.datasets[dataset_name][
                     "max_expression_length"
@@ -188,14 +188,14 @@ class SRBenchmark:
             zipfile.extractall(path=directory_path)
 
     @staticmethod
-    def feynman(dataset_directory: str) -> "SRBenchmark":
+    def feynman(dataset_directory: str) -> "SR_benchmark":
         """
         Downloads the Feynman benchmark dataset, sets up symbol libraries, and adds predefined datasets to the benchmark.
 
         This method downloads the Feynman benchmark dataset from a specified URL, initializes symbol libraries for symbolic regression with varying numbers of variables, and adds multiple predefined datasets to the benchmark with their respective equations and metadata.
 
         Examples:
-            >>> benchmark = SRBenchmark.feynman('data/feynman')
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
             >>> for dataset in benchmark.list_datasets(verbose=False):
             ...     ds = benchmark.create_dataset(dataset)
             ...     rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
@@ -206,10 +206,10 @@ class SRBenchmark:
             dataset_directory (str): The directory path where the benchmark dataset will be downloaded and stored.
 
         Returns:
-            SRBenchmark: An instance of the SRBenchmark class containing the predefined datasets.
+            SR_benchmark: An instance of the SR_benchmark class containing the predefined datasets.
         """
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
-        SRBenchmark.download_benchmark_data(url, dataset_directory)
+        SR_benchmark.download_benchmark_data(url, dataset_directory)
 
         sl_1v = SymbolLibrary()
         sl_1v.add_symbol(
@@ -332,7 +332,7 @@ class SRBenchmark:
         sl_9v = copy.copy(sl_8v)
         sl_9v.add_symbol("X_8", "var", 5, "X[:, 8]", r"X_{8}")
 
-        benchmark = SRBenchmark("feynman", dataset_directory)
+        benchmark = SR_benchmark("feynman", dataset_directory)
         benchmark.add_dataset(
             "I.16.6",
             [
@@ -2763,7 +2763,7 @@ class SRBenchmark:
         return benchmark
 
     @staticmethod
-    def nguyen(dataset_directory: str) -> "SRBenchmark":
+    def nguyen(dataset_directory: str) -> "SR_benchmark":
         """
         Downloads and initializes the Nguyen benchmark datasets for symbolic regression.
 
@@ -2773,7 +2773,7 @@ class SRBenchmark:
         Nguyen equations, each represented with its symbolic tokens and associated symbol library.
 
         Examples:
-            >>> benchmark = SRBenchmark.nguyen('data/nguyen')
+            >>> benchmark = SR_benchmark.nguyen('data/nguyen')
             >>> for dataset in benchmark.list_datasets(verbose=False):
             ...     ds = benchmark.create_dataset(dataset)
             ...     rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
@@ -2784,10 +2784,10 @@ class SRBenchmark:
             dataset_directory (str): The directory where the benchmark datasets will be stored and accessed.
 
         Returns:
-            SRBenchmark: An initialized SRBenchmark instance containing the Nguyen datasets.
+            SR_benchmark: An initialized SR_benchmark instance containing the Nguyen datasets.
         """
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/nguyen.zip"
-        SRBenchmark.download_benchmark_data(url, dataset_directory)
+        SR_benchmark.download_benchmark_data(url, dataset_directory)
         # we create a SymbolLibrary with 1 and with 2 variables
         # Each library contains +, -, *, /, sin, cos, exp, log, sqrt, ^2, ^3
         sl_1v = SymbolLibrary()
@@ -2816,7 +2816,7 @@ class SRBenchmark:
         sl_2v.add_symbol("X_1", "var", 5, "X[:, 1]")
 
         # Add datasets to the benchmark
-        benchmark = SRBenchmark("Nguyen", dataset_directory)
+        benchmark = SR_benchmark("Nguyen", dataset_directory)
         benchmark.add_dataset(
             "NG-1",
             ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"],

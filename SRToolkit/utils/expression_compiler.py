@@ -8,7 +8,7 @@ from SRToolkit.utils.expression_tree import Node, tokens_to_tree, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 # Generated functions are defined (through exec) here, so numpy needs to be imported
-import numpy as np # noqa: F401
+import numpy as np  # noqa: F401
 
 
 def expr_to_executable_function(

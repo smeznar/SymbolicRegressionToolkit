@@ -4,6 +4,6 @@ title: SR Benchmark
 
 # SR Benchmark
 
-::: SRToolkit.dataset.srbenchmark
+::: SRToolkit.dataset.sr_benchmark
     options:
         heading_level: 2

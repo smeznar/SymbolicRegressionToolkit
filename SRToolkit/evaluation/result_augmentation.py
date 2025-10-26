@@ -17,7 +17,10 @@ class ResultAugmenter:
         pass
 
     def augment_results(
-        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+        self,
+        results: dict,
+        models: List[dict],
+        evaluator: "SR_evaluator",  # noqa: F821
     ) -> dict:
         """
         Augments the results dictionary with additional information. The model variable contains all models, for only
@@ -51,7 +54,10 @@ class ExpressionToLatex(ResultAugmenter):
         self.verbose = verbose
 
     def augment_results(
-        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+        self,
+        results: dict,
+        models: List[dict],
+        evaluator: "SR_evaluator",  # noqa: F821
     ) -> dict:
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
@@ -105,7 +111,10 @@ class ExpressionSimplifier(ResultAugmenter):
         self.verbose = verbose
 
     def augment_results(
-        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+        self,
+        results: dict,
+        models: List[dict],
+        evaluator: "SR_evaluator",  # noqa: F821
     ) -> dict:
         """
         Simplifies the expressions inside the results dictionary if possible.
@@ -141,7 +150,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
 
 class RMSE(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"): # noqa: F821
+    def __init__(self, evaluator: "SR_evaluator"):  # noqa: F821
         """
         Computes the RMSE for the top models in the results dictionary.
 
@@ -164,7 +173,10 @@ class RMSE(ResultAugmenter):
             )
 
     def augment_results(
-        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+        self,
+        results: dict,
+        models: List[dict],
+        evaluator: "SR_evaluator",  # noqa: F821
     ) -> dict:
         """
         Computes the RMSE for the top models in the results dictionary.
@@ -194,7 +206,7 @@ class RMSE(ResultAugmenter):
 
 
 class BED(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"): # noqa: F821
+    def __init__(self, evaluator: "SR_evaluator"):  # noqa: F821
         """
         Computes BED for the top models in the results dictionary.
 
@@ -213,7 +225,10 @@ class BED(ResultAugmenter):
             )
 
     def augment_results(
-        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+        self,
+        results: dict,
+        models: List[dict],
+        evaluator: "SR_evaluator",  # noqa: F821
     ) -> dict:
         """
         Computes BED for the top models in the results dictionary.
@@ -238,7 +253,7 @@ class BED(ResultAugmenter):
 
 
 class R2(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"): # noqa: F821
+    def __init__(self, evaluator: "SR_evaluator"):  # noqa: F821
         """
         Computes the R^2 for the top models in the results dictionary.
 
@@ -263,7 +278,10 @@ class R2(ResultAugmenter):
         self.ss_tot = np.sum((self.evaluator.y - np.mean(self.evaluator.y)) ** 2)
 
     def augment_results(
-        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+        self,
+        results: dict,
+        models: List[dict],
+        evaluator: "SR_evaluator",  # noqa: F821
     ) -> dict:
         """
         Computes the R^2 for the top models in the results dictionary.
