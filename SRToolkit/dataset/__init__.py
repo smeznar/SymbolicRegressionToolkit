@@ -7,7 +7,7 @@ Modules:
     sr_benchmark: The module containing the SRBenchmark class, which can be used to create a benchmark i.e. a collection of datasets.
 """
 
-from .srdataset import SRDataset
-from .srbenchmark import SRBenchmark
+from .sr_dataset import SRDataset
+from .sr_benchmark import SRBenchmark
 
 __all__ = ["SRDataset", "SRBenchmark"]
