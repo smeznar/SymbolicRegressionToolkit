@@ -1,7 +1,7 @@
 """
 The module containing the expression tree data structure and functions for transforming expressions into trees and back.
 """
-from typing import List
+from typing import List, Union
 import warnings
 from copy import copy
 
@@ -360,6 +360,36 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         return out_stack[-1]
     else:
         raise Exception(f"Error while parsing expression {expr_str}.")
+
+
+def expr_to_latex(expr: Union[Node, List[str]], symbol_library: SymbolLibrary) -> str:
+    """
+    Transforms an expression into a LaTeX string.
+
+    Examples:
+        >>> expr_to_latex(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())
+        '$X_{0} + X_{1}$'
+        >>> expr = Node("+", Node("X_0"), Node("1"))
+        >>> expr_to_latex(expr, SymbolLibrary.default_symbols())
+        '$1 + X_{0}$'
+
+    Args:
+        expr: An expression
+        symbol_library: The symbol library.
+
+    Returns:
+        A LaTeX string representing the expression.
+    """
+    try:
+        if isinstance(expr, Node):
+            return expr.to_latex(symbol_library)
+        elif isinstance(expr, list):
+            return tokens_to_tree(expr, symbol_library).to_latex(symbol_library)
+        else:
+            raise Exception(f"Invalid type for expression {str(expr)}. Should be SRToolkit.utils.Node or a list of tokens.")
+    except Exception as e:
+        print(f"Error while converting expression {str(expr)} to LaTeX: {str(e)}")
+        return ""
 
 
 if __name__ == '__main__':

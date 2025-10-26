@@ -5,7 +5,7 @@ from typing import List
 
 import numpy as np
 
-from SRToolkit.utils import simplify, tokens_to_tree
+from SRToolkit.utils import simplify, tokens_to_tree, expr_to_executable_function
 
 
 class ResultAugmenter:
@@ -34,15 +34,18 @@ class ResultAugmenter:
 
 
 class ExpressionToLatex(ResultAugmenter):
-    def __init__(self, only_best_expression: bool=False):
+    def __init__(self, only_best_expression: bool=False, verbose: bool=False):
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
 
         Args:
             only_best_expression: If True, only the best expression is transformed. If False, all top expressions are
+                transformed.
+            verbose: If True, warns the user if LaTeX conversion fails for a given expression.
         """
         super().__init__()
         self.only_best_expression = only_best_expression
+        self.verbose = verbose
 
     def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
         """
@@ -60,10 +63,19 @@ class ExpressionToLatex(ResultAugmenter):
                 the LaTeX representation of the best expression, and similarly keys "expr_latex" for expressions inside
                 the top_models list if only_best_expression is False.
         """
-        results["best_expr_latex"] = tokens_to_tree(models[0]["expr"], evaluator.symbol_library).to_latex(evaluator.symbol_library)
+        try:
+            results["best_expr_latex"] = tokens_to_tree(models[0]["expr"], evaluator.symbol_library).to_latex(evaluator.symbol_library)
+        except Exception as e:
+            if self.verbose:
+                print(f"Unable to convert best expression to LaTeX: {e}")
         if not self.only_best_expression:
             for model in results["top_models"]:
-                model["expr_latex"] = tokens_to_tree(model["expr"], evaluator.symbol_library).to_latex(evaluator.symbol_library)
+                try:
+                    model["expr_latex"] = (tokens_to_tree(model["expr"], evaluator.symbol_library)
+                                           .to_latex(evaluator.symbol_library))
+                except Exception as e:
+                    if self.verbose:
+                        print(f"Unable to convert expression {''.join(model['expr'])} to LaTeX: {e}")
 
         return results
 
@@ -204,7 +216,7 @@ class BED(ResultAugmenter):
 class R2(ResultAugmenter):
     def __init__(self, evaluator: "SR_evaluator"):
         """
-        Computes the R^2 for the top models in the results dictionary. NOT IMPLEMENTED YET, CURRENTLY YOU GET RMSE.
+        Computes the R^2 for the top models in the results dictionary.
 
         Args:
             evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
@@ -220,7 +232,7 @@ class R2(ResultAugmenter):
             raise Exception("[R2 augmenter] Ranking function of the evaluator must be set to 'rmse' to compute R^2.")
         if self.evaluator.y is None:
             raise Exception("[R2 augmenter] y in the evaluator must not be None to compute R^2.")
-        self.average_y = np.mean(self.evaluator.y)
+        self.ss_tot = np.sum((self.evaluator.y - np.mean(self.evaluator.y))**2)
 
     def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
         """
@@ -238,12 +250,15 @@ class R2(ResultAugmenter):
             R^2 of the best expression, and keys "r^2" and "parameters_r^2" for each of the top_models inside the
             results["top_models"] list.
         """
-        expr = models[0]["expr"]
-        error = self.evaluator.evaluate_expr(expr)
-        results["best_expr_r^2"] = error # TODO: Popravi
+        results["best_expr_r^2"] = self._compute_r2(models[0])
         for model in results["top_models"]:
-            error = self.evaluator.evaluate_expr(model["expr"])
-            model["r^2"] = error
-            model["parameters_r^2"] = self.evaluator.models["".join(model["expr"])]["parameters"]
+            r2 = self._compute_r2(model)
+            model["r^2"] = r2
+            model["parameters_r^2"] = self.evaluator.models["".join(model["expr"])]["parameters"] \
+                if "parameters" in self.evaluator.models["".join(model["expr"])] else ""
         return results
+
+    def _compute_r2(self, model: dict):
+        ss_res = self.evaluator.y.shape[0]*self.evaluator.evaluate_expr(model["expr"])**2
+        return max(0, 1 - ss_res / self.ss_tot)
 

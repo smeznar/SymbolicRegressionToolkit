@@ -18,7 +18,7 @@ theme:
     - content.code.annotate
     - content.tooltips
     - navigation.indexes
-    - navigation.tabs
+#    - navigation.tabs
     - navigation.top
 #    - navigation.footer
     - search.highlight
@@ -105,7 +105,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - API Reference:
+  - API References:
     - references/index.md
     - utils:
       - references/utils/index.md
@@ -124,5 +124,4 @@ nav:
       - references/dataset/index.md
       - dataset: references/dataset/srdataset.md
       - benchmark: references/dataset/srbenchmark.md
-
   - Changelog: changelog.md
