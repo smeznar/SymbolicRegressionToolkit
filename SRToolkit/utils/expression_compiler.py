@@ -1,15 +1,20 @@
 """
 This module contains functions that convert an expression in infix notation to an executable python function.
 """
+
 from typing import List, Tuple, Union
 
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 # Generated functions are defined (through exec) here, so numpy needs to be imported
-import numpy as np
+import numpy as np # noqa: F401
 
-def expr_to_executable_function(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
+
+def expr_to_executable_function(
+    expr: Union[List[str], Node],
+    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+) -> callable:
     """
     Converts an expression in infix notation to an executable function.
 
@@ -39,14 +44,18 @@ def expr_to_executable_function(expr: Union[List[str], Node], symbol_library: Sy
         An executable function that takes in a 2D array of input values and a 1D array of constant values and returns the output of the expression.
     """
     if not (isinstance(expr, list) or isinstance(expr, Node)):
-        raise Exception("Expression must be given as either a list of tokens or a tree (an instance of the "
-                        "SRToolkit.utils.expression_tree.Node class)")
+        raise Exception(
+            "Expression must be given as either a list of tokens or a tree (an instance of the "
+            "SRToolkit.utils.expression_tree.Node class)"
+        )
 
     if isinstance(expr, list):
         tree = tokens_to_tree(expr, symbol_library)
     else:
         tree = expr
-    code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
+    code, symbol, var_counter, const_counter = tree_to_function_rec(
+        tree, symbol_library
+    )
 
     fun_string = "def _executable_expression_(X, C):\n"
     for c in code:
@@ -58,7 +67,10 @@ def expr_to_executable_function(expr: Union[List[str], Node], symbol_library: Sy
     return fun_assignment_dict["_executable_expression_"]
 
 
-def expr_to_error_function(expr: Union[List[str], Node], symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> callable:
+def expr_to_error_function(
+    expr: Union[List[str], Node],
+    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+) -> callable:
     """
     Converts an expression in infix notation to an executable function that returns the root mean squared error between
     the output of the expression and the target values.
@@ -83,14 +95,18 @@ def expr_to_error_function(expr: Union[List[str], Node], symbol_library: SymbolL
         An executable function that takes in a 2D array of input values `X`, a 1D array of constant values `C`, and a 1D array of target values `y`. It returns the root mean squared error between the output of the expression and the target values.
     """
     if not (isinstance(expr, list) or isinstance(expr, Node)):
-        raise Exception("Expression must be given as either a list of tokens or a tree (an instance of the "
-                        "SRToolkit.utils.expression_tree.Node class)")
+        raise Exception(
+            "Expression must be given as either a list of tokens or a tree (an instance of the "
+            "SRToolkit.utils.expression_tree.Node class)"
+        )
 
     if isinstance(expr, list):
         tree = tokens_to_tree(expr, symbol_library)
     else:
         tree = expr
-    code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
+    code, symbol, var_counter, const_counter = tree_to_function_rec(
+        tree, symbol_library
+    )
 
     fun_string = "def _executable_expression_(X, C, y):\n"
     for c in code:
@@ -102,7 +118,12 @@ def expr_to_error_function(expr: Union[List[str], Node], symbol_library: SymbolL
     return fun_assignment_dict["_executable_expression_"]
 
 
-def tree_to_function_rec(tree: Node, symbol_library: SymbolLibrary, var_counter: int=0, const_counter: int=0) -> Tuple[List[str], str, int, int]:
+def tree_to_function_rec(
+    tree: Node,
+    symbol_library: SymbolLibrary,
+    var_counter: int = 0,
+    const_counter: int = 0,
+) -> Tuple[List[str], str, int, int]:
     """
     Recursively converts a parse tree into a string of Python code that can be executed to evaluate the expression
     represented by the tree.
@@ -130,23 +151,40 @@ def tree_to_function_rec(tree: Node, symbol_library: SymbolLibrary, var_counter:
         if symbol_library.get_type(tree.symbol) in ["var", "lit"]:
             return [], symbol_library.get_np_fn(tree.symbol), var_counter, const_counter
         elif symbol_library.get_type(tree.symbol) == "const":
-            return [], symbol_library.get_np_fn(tree.symbol).format(const_counter), var_counter, const_counter + 1
+            return (
+                [],
+                symbol_library.get_np_fn(tree.symbol).format(const_counter),
+                var_counter,
+                const_counter + 1,
+            )
         else:
             if is_float(tree.symbol):
                 return [], tree.symbol, var_counter, const_counter
             else:
-                raise Exception(f"Encountered invalid symbol {tree.symbol} while converting to function.")
+                raise Exception(
+                    f"Encountered invalid symbol {tree.symbol} while converting to function."
+                )
 
     elif tree.left is not None and tree.right is None:
-        code, symbol, var_counter, const_counter = tree_to_function_rec(tree.left, symbol_library, var_counter, const_counter)
+        code, symbol, var_counter, const_counter = tree_to_function_rec(
+            tree.left, symbol_library, var_counter, const_counter
+        )
         output_symbol = "y_{}".format(var_counter)
         code.append(symbol_library.get_np_fn(tree.symbol).format(output_symbol, symbol))
         return code, output_symbol, var_counter + 1, const_counter
 
     else:
-        left_code, left_symbol, var_counter, const_counter = tree_to_function_rec(tree.left, symbol_library, var_counter, const_counter)
-        right_code, right_symbol, var_counter, const_counter = tree_to_function_rec(tree.right, symbol_library, var_counter, const_counter)
+        left_code, left_symbol, var_counter, const_counter = tree_to_function_rec(
+            tree.left, symbol_library, var_counter, const_counter
+        )
+        right_code, right_symbol, var_counter, const_counter = tree_to_function_rec(
+            tree.right, symbol_library, var_counter, const_counter
+        )
         output_symbol = "y_{}".format(var_counter)
         code = left_code + right_code
-        code.append(symbol_library.get_np_fn(tree.symbol).format(output_symbol, left_symbol, right_symbol))
+        code.append(
+            symbol_library.get_np_fn(tree.symbol).format(
+                output_symbol, left_symbol, right_symbol
+            )
+        )
         return code, output_symbol, var_counter + 1, const_counter

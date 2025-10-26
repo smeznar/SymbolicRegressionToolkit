@@ -1,11 +1,12 @@
 """
 This module contains the ResultAugmenter class and the result augmentation implementations that inherit from it.
 """
+
 from typing import List
 
 import numpy as np
 
-from SRToolkit.utils import simplify, tokens_to_tree, expr_to_executable_function
+from SRToolkit.utils import simplify, tokens_to_tree
 
 
 class ResultAugmenter:
@@ -15,7 +16,9 @@ class ResultAugmenter:
         """
         pass
 
-    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+    def augment_results(
+        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+    ) -> dict:
         """
         Augments the results dictionary with additional information. The model variable contains all models, for only
         top models, results["top_models"] should be used.
@@ -34,7 +37,7 @@ class ResultAugmenter:
 
 
 class ExpressionToLatex(ResultAugmenter):
-    def __init__(self, only_best_expression: bool=False, verbose: bool=False):
+    def __init__(self, only_best_expression: bool = False, verbose: bool = False):
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
 
@@ -47,7 +50,9 @@ class ExpressionToLatex(ResultAugmenter):
         self.only_best_expression = only_best_expression
         self.verbose = verbose
 
-    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+    def augment_results(
+        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+    ) -> dict:
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
 
@@ -64,24 +69,29 @@ class ExpressionToLatex(ResultAugmenter):
                 the top_models list if only_best_expression is False.
         """
         try:
-            results["best_expr_latex"] = tokens_to_tree(models[0]["expr"], evaluator.symbol_library).to_latex(evaluator.symbol_library)
+            results["best_expr_latex"] = tokens_to_tree(
+                models[0]["expr"], evaluator.symbol_library
+            ).to_latex(evaluator.symbol_library)
         except Exception as e:
             if self.verbose:
                 print(f"Unable to convert best expression to LaTeX: {e}")
         if not self.only_best_expression:
             for model in results["top_models"]:
                 try:
-                    model["expr_latex"] = (tokens_to_tree(model["expr"], evaluator.symbol_library)
-                                           .to_latex(evaluator.symbol_library))
+                    model["expr_latex"] = tokens_to_tree(
+                        model["expr"], evaluator.symbol_library
+                    ).to_latex(evaluator.symbol_library)
                 except Exception as e:
                     if self.verbose:
-                        print(f"Unable to convert expression {''.join(model['expr'])} to LaTeX: {e}")
+                        print(
+                            f"Unable to convert expression {''.join(model['expr'])} to LaTeX: {e}"
+                        )
 
         return results
 
 
 class ExpressionSimplifier(ResultAugmenter):
-    def __init__(self, only_best_expression: bool=False, verbose: bool=False):
+    def __init__(self, only_best_expression: bool = False, verbose: bool = False):
         """
         Simplifies the expressions inside the results dictionary if possible.
 
@@ -94,7 +104,9 @@ class ExpressionSimplifier(ResultAugmenter):
         self.only_best_expression = only_best_expression
         self.verbose = verbose
 
-    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+    def augment_results(
+        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+    ) -> dict:
         """
         Simplifies the expressions inside the results dictionary if possible.
 
@@ -129,7 +141,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
 
 class RMSE(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"):
+    def __init__(self, evaluator: "SR_evaluator"): # noqa: F821
         """
         Computes the RMSE for the top models in the results dictionary.
 
@@ -143,11 +155,17 @@ class RMSE(ResultAugmenter):
         super().__init__()
         self.evaluator = evaluator
         if self.evaluator.ranking_function != "rmse":
-            raise Exception("[RMSE augmenter] Ranking function of the evaluator must be set to 'rmse' to compute RMSE.")
+            raise Exception(
+                "[RMSE augmenter] Ranking function of the evaluator must be set to 'rmse' to compute RMSE."
+            )
         if self.evaluator.y is None:
-            raise Exception("[RMSE augmenter] y in the evaluator must not be None to compute RMSE.")
+            raise Exception(
+                "[RMSE augmenter] y in the evaluator must not be None to compute RMSE."
+            )
 
-    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+    def augment_results(
+        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+    ) -> dict:
         """
         Computes the RMSE for the top models in the results dictionary.
 
@@ -169,12 +187,14 @@ class RMSE(ResultAugmenter):
         for model in results["top_models"]:
             error = self.evaluator.evaluate_expr(model["expr"])
             model["rmse"] = error
-            model["parameters_rmse"] = self.evaluator.models["".join(model["expr"])]["parameters"]
+            model["parameters_rmse"] = self.evaluator.models["".join(model["expr"])][
+                "parameters"
+            ]
         return results
 
 
 class BED(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"):
+    def __init__(self, evaluator: "SR_evaluator"): # noqa: F821
         """
         Computes BED for the top models in the results dictionary.
 
@@ -188,9 +208,13 @@ class BED(ResultAugmenter):
         super().__init__()
         self.evaluator = evaluator
         if self.evaluator.ranking_function != "bed":
-            raise Exception("[BED augmenter] Ranking function of the evaluator must be set to 'bed' to compute BED.")
+            raise Exception(
+                "[BED augmenter] Ranking function of the evaluator must be set to 'bed' to compute BED."
+            )
 
-    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+    def augment_results(
+        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+    ) -> dict:
         """
         Computes BED for the top models in the results dictionary.
 
@@ -214,7 +238,7 @@ class BED(ResultAugmenter):
 
 
 class R2(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"):
+    def __init__(self, evaluator: "SR_evaluator"): # noqa: F821
         """
         Computes the R^2 for the top models in the results dictionary.
 
@@ -229,12 +253,18 @@ class R2(ResultAugmenter):
         super().__init__()
         self.evaluator = evaluator
         if self.evaluator.ranking_function != "rmse":
-            raise Exception("[R2 augmenter] Ranking function of the evaluator must be set to 'rmse' to compute R^2.")
+            raise Exception(
+                "[R2 augmenter] Ranking function of the evaluator must be set to 'rmse' to compute R^2."
+            )
         if self.evaluator.y is None:
-            raise Exception("[R2 augmenter] y in the evaluator must not be None to compute R^2.")
-        self.ss_tot = np.sum((self.evaluator.y - np.mean(self.evaluator.y))**2)
+            raise Exception(
+                "[R2 augmenter] y in the evaluator must not be None to compute R^2."
+            )
+        self.ss_tot = np.sum((self.evaluator.y - np.mean(self.evaluator.y)) ** 2)
 
-    def augment_results(self, results: dict, models: List[dict], evaluator: "SR_evaluator") -> dict:
+    def augment_results(
+        self, results: dict, models: List[dict], evaluator: "SR_evaluator" # noqa: F821
+    ) -> dict:
         """
         Computes the R^2 for the top models in the results dictionary.
 
@@ -254,11 +284,15 @@ class R2(ResultAugmenter):
         for model in results["top_models"]:
             r2 = self._compute_r2(model)
             model["r^2"] = r2
-            model["parameters_r^2"] = self.evaluator.models["".join(model["expr"])]["parameters"] \
-                if "parameters" in self.evaluator.models["".join(model["expr"])] else ""
+            model["parameters_r^2"] = (
+                self.evaluator.models["".join(model["expr"])]["parameters"]
+                if "parameters" in self.evaluator.models["".join(model["expr"])]
+                else ""
+            )
         return results
 
     def _compute_r2(self, model: dict):
-        ss_res = self.evaluator.y.shape[0]*self.evaluator.evaluate_expr(model["expr"])**2
+        ss_res = (
+            self.evaluator.y.shape[0] * self.evaluator.evaluate_expr(model["expr"]) ** 2
+        )
         return max(0, 1 - ss_res / self.ss_tot)
-

@@ -10,7 +10,22 @@ Modules:
 
 from .parameter_estimator import ParameterEstimator
 from .sr_evaluator import SR_evaluator
-from .result_augmentation import ResultAugmenter, ExpressionSimplifier, RMSE, R2, BED, ExpressionToLatex
+from .result_augmentation import (
+    ResultAugmenter,
+    ExpressionSimplifier,
+    RMSE,
+    R2,
+    BED,
+    ExpressionToLatex,
+)
 
-__all__ = ["ParameterEstimator", "SR_evaluator", "ResultAugmenter", "ExpressionSimplifier", "RMSE", "R2", "BED",
-           "ExpressionToLatex"]
+__all__ = [
+    "ParameterEstimator",
+    "SR_evaluator",
+    "ResultAugmenter",
+    "ExpressionSimplifier",
+    "RMSE",
+    "R2",
+    "BED",
+    "ExpressionToLatex",
+]

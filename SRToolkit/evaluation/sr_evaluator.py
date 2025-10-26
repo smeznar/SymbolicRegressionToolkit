@@ -1,8 +1,9 @@
 """
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
 """
+
 from contextlib import nullcontext
-from typing import Optional, List, Union, Tuple, TypedDict
+from typing import Optional, List, Union
 import warnings
 
 import numpy as np
@@ -15,7 +16,6 @@ from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
 
 class SR_evaluator:
-
     def __init__(
         self,
         X: np.ndarray,
@@ -127,13 +127,13 @@ class SR_evaluator:
             "num_consts_sampled": 32,
             "num_points_sampled": 64,
             "domain_bounds": None,
-            "constant_bounds": (-5, 5)
+            "constant_bounds": (-5, 5),
         }
         if kwargs:
             for k in self.bed_evaluation_parameters.keys():
                 if k in kwargs:
                     self.bed_evaluation_parameters[k] = kwargs[k]
-        if self.bed_evaluation_parameters["num_points_sampled"]==-1:
+        if self.bed_evaluation_parameters["num_points_sampled"] == -1:
             self.bed_evaluation_parameters["num_points_sampled"] = X.shape[0]
 
         self.symbol_library = symbol_library
@@ -144,7 +144,9 @@ class SR_evaluator:
             np.random.seed(seed)
 
         if ranking_function not in ["rmse", "bed"]:
-            print(f"Warning: ranking_function {ranking_function} not supported. Using rmse instead.")
+            print(
+                f"Warning: ranking_function {ranking_function} not supported. Using rmse instead."
+            )
             ranking_function = "rmse"
         self.ranking_function = ranking_function
 
@@ -152,58 +154,101 @@ class SR_evaluator:
         if result_augmenters is not None:
             for ra in result_augmenters:
                 if not isinstance(ra, ResultAugmenter):
-                    print(f"Warning: result_augmenter {ra} is not an instance of ResultAugmenter. Skipping.")
+                    print(
+                        f"Warning: result_augmenter {ra} is not an instance of ResultAugmenter. Skipping."
+                    )
                 else:
                     self.result_augmenters.append(ra)
 
         if ranking_function == "rmse":
             if y is None:
-                raise ValueError("Target values must be provided for RMSE ranking function.")
-            self.parameter_estimator = ParameterEstimator(X, y, symbol_library=symbol_library, seed=seed, **kwargs)
+                raise ValueError(
+                    "Target values must be provided for RMSE ranking function."
+                )
+            self.parameter_estimator = ParameterEstimator(
+                X, y, symbol_library=symbol_library, seed=seed, **kwargs
+            )
 
             if self.success_threshold is None:
                 self.success_threshold = 1e-7
 
         elif ranking_function == "bed":
             if ground_truth is None:
-                raise ValueError("Ground truth must be provided for bed ranking function. The ground truth must be "
-                                 "provided as a list of tokens, a Node object, or a numpy array representing behavior. "
-                                 "The behavior matrix is a matrix representing the distribution of outputs of an "
-                                 "expression with free parameters at different points in the domain. This matrix "
-                                 "should be of size (num_points_sampled, num_consts_sampled). See "
-                                 "SRToolkit.utils.create_behavior_matrix for more details.")
+                raise ValueError(
+                    "Ground truth must be provided for bed ranking function. The ground truth must be "
+                    "provided as a list of tokens, a Node object, or a numpy array representing behavior. "
+                    "The behavior matrix is a matrix representing the distribution of outputs of an "
+                    "expression with free parameters at different points in the domain. This matrix "
+                    "should be of size (num_points_sampled, num_consts_sampled). See "
+                    "SRToolkit.utils.create_behavior_matrix for more details."
+                )
             else:
                 if self.bed_evaluation_parameters["bed_X"] is None:
                     if self.bed_evaluation_parameters["domain_bounds"] is not None:
                         db = self.bed_evaluation_parameters["domain_bounds"]
                         interval_length = np.array([ub - lb for (lb, ub) in db])
                         lower_bound = np.array([lb for (lb, ub) in db])
-                        lho = LatinHypercube(len(db), optimization="random-cd", seed=seed)
-                        self.bed_evaluation_parameters["bed_X"] = lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length + lower_bound
+                        lho = LatinHypercube(
+                            len(db), optimization="random-cd", seed=seed
+                        )
+                        self.bed_evaluation_parameters["bed_X"] = (
+                            lho.random(
+                                self.bed_evaluation_parameters["num_points_sampled"]
+                            )
+                            * interval_length
+                            + lower_bound
+                        )
                     else:
-                        indices = np.random.choice(X.shape[0], size=self.bed_evaluation_parameters["num_points_sampled"])
+                        indices = np.random.choice(
+                            X.shape[0],
+                            size=self.bed_evaluation_parameters["num_points_sampled"],
+                        )
                         self.bed_evaluation_parameters["bed_X"] = X[indices, :]
 
             if isinstance(ground_truth, (list, Node)):
-                self.gt_behavior = create_behavior_matrix(ground_truth, self.bed_evaluation_parameters["bed_X"],
-                                                          num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
-                                                          consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
-                                                          symbol_library=self.symbol_library, seed=self.seed)
+                self.gt_behavior = create_behavior_matrix(
+                    ground_truth,
+                    self.bed_evaluation_parameters["bed_X"],
+                    num_consts_sampled=self.bed_evaluation_parameters[
+                        "num_consts_sampled"
+                    ],
+                    consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
+                    symbol_library=self.symbol_library,
+                    seed=self.seed,
+                )
             elif isinstance(ground_truth, np.ndarray):
                 self.gt_behavior = ground_truth
             else:
-                raise ValueError("Ground truth must be provided as a list of tokens, a Node object, or a numpy array representing behavior.")
+                raise ValueError(
+                    "Ground truth must be provided as a list of tokens, a Node object, or a numpy array representing behavior."
+                )
 
             if self.success_threshold is None:
-                distances = [bed(self.ground_truth, self.gt_behavior, self.bed_evaluation_parameters["bed_X"],
-                                 num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
-                                 num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
-                                 domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
-                                 consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
-                                 symbol_library=self.symbol_library) for i in range(100)]
-                self.success_threshold = np.max(distances)*1.1
+                distances = [
+                    bed(
+                        self.ground_truth,
+                        self.gt_behavior,
+                        self.bed_evaluation_parameters["bed_X"],
+                        num_consts_sampled=self.bed_evaluation_parameters[
+                            "num_consts_sampled"
+                        ],
+                        num_points_sampled=self.bed_evaluation_parameters[
+                            "num_points_sampled"
+                        ],
+                        domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
+                        consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
+                        symbol_library=self.symbol_library,
+                    )
+                    for i in range(100)
+                ]
+                self.success_threshold = np.max(distances) * 1.1
 
-    def evaluate_expr(self, expr: Union[List[str], Node], simplify_expr: bool = False, verbose: int=0) -> float:
+    def evaluate_expr(
+        self,
+        expr: Union[List[str], Node],
+        simplify_expr: bool = False,
+        verbose: int = 0,
+    ) -> float:
         """
         Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.
@@ -267,7 +312,8 @@ class SR_evaluator:
 
         if 0 <= self.max_evaluations < self.total_evaluations:
             warnings.warn(
-                f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
+                f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation."
+            )
             return np.nan
         else:
             if simplify_expr:
@@ -278,7 +324,9 @@ class SR_evaluator:
                         expr_list = expr.to_list(symbol_library=self.symbol_library)
                     else:
                         expr_list = expr
-                    print(f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}")
+                    print(
+                        f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}"
+                    )
 
             if isinstance(expr, Node):
                 expr_list = expr.to_list(symbol_library=self.symbol_library)
@@ -294,16 +342,29 @@ class SR_evaluator:
             else:
                 if self.ranking_function == "rmse":
                     try:
-                        with (np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore") if verbose < 2
-                              else nullcontext()):
-                            error, parameters = self.parameter_estimator.estimate_parameters(expr)
+                        with (
+                            np.errstate(
+                                divide="ignore",
+                                invalid="ignore",
+                                over="ignore",
+                                under="ignore",
+                            )
+                            if verbose < 2
+                            else nullcontext()
+                        ):
+                            error, parameters = (
+                                self.parameter_estimator.estimate_parameters(expr)
+                            )
 
                         if verbose > 0:
                             if parameters.size > 0:
                                 parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
                             else:
                                 parameter_string = ""
-                            print(f"Evaluated expression {expr_str} with RMSE: {error}."+ parameter_string)
+                            print(
+                                f"Evaluated expression {expr_str} with RMSE: {error}."
+                                + parameter_string
+                            )
 
                     except Exception as e:
                         if verbose > 0:
@@ -320,17 +381,40 @@ class SR_evaluator:
 
                 elif self.ranking_function == "bed":
                     try:
-                        with (np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore") if verbose < 2
-                              else nullcontext()):
-                            error = bed(expr, self.gt_behavior, self.bed_evaluation_parameters["bed_X"],
-                                        num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
-                                        num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
-                                        domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
-                                        consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
-                                        symbol_library=self.symbol_library, seed=self.seed)
+                        with (
+                            np.errstate(
+                                divide="ignore",
+                                invalid="ignore",
+                                over="ignore",
+                                under="ignore",
+                            )
+                            if verbose < 2
+                            else nullcontext()
+                        ):
+                            error = bed(
+                                expr,
+                                self.gt_behavior,
+                                self.bed_evaluation_parameters["bed_X"],
+                                num_consts_sampled=self.bed_evaluation_parameters[
+                                    "num_consts_sampled"
+                                ],
+                                num_points_sampled=self.bed_evaluation_parameters[
+                                    "num_points_sampled"
+                                ],
+                                domain_bounds=self.bed_evaluation_parameters[
+                                    "domain_bounds"
+                                ],
+                                consts_bounds=self.bed_evaluation_parameters[
+                                    "constant_bounds"
+                                ],
+                                symbol_library=self.symbol_library,
+                                seed=self.seed,
+                            )
 
                             if verbose > 0:
-                                print(f"Evaluated expression {expr_str} with BED: {error}.")
+                                print(
+                                    f"Evaluated expression {expr_str} with BED: {error}."
+                                )
 
                     except Exception as e:
                         if verbose > 0:
@@ -345,11 +429,13 @@ class SR_evaluator:
                     }
 
                 else:
-                    raise ValueError(f"Ranking function {self.ranking_function} not supported.")
+                    raise ValueError(
+                        f"Ranking function {self.ranking_function} not supported."
+                    )
 
                 return error
 
-    def get_results(self, top_k: int = 20, verbose: bool=True) -> dict:
+    def get_results(self, top_k: int = 20, verbose: bool = True) -> dict:
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -406,11 +492,14 @@ class SR_evaluator:
             "num_evaluated": len(models),
             "evaluation_calls": self.total_evaluations,
             "top_models": list(),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
         # Determine success based on the predefined success threshold
-        if self.success_threshold is not None and results["min_error"] < self.success_threshold:
+        if (
+            self.success_threshold is not None
+            and results["min_error"] < self.success_threshold
+        ):
             results["success"] = True
         else:
             results["success"] = False
@@ -426,15 +515,20 @@ class SR_evaluator:
             try:
                 results = augmente.augment_results(results, models, self)
             except Exception as e:
-                print(f"Error augmenting results, skipping current augmentor because of the following error: {e}")
+                print(
+                    f"Error augmenting results, skipping current augmentor because of the following error: {e}"
+                )
 
         if verbose:
             print(f"Best expression found: {results['best_expr']}")
             print(f"Error: {results['min_error']}")
             print(f"Number of evaluated expressions: {results['num_evaluated']}")
-            print(f"Number of times evaluate_expr was called: {results['evaluation_calls']}")
+            print(
+                f"Number of times evaluate_expr was called: {results['evaluation_calls']}"
+            )
             print(f"Success: {results['success']}")
 
         return results
+
 
 # TODO: Function that takes in the results output and creates a pareto front

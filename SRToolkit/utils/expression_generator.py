@@ -1,6 +1,7 @@
 """
 This module contains helper functions for creating a PCFG with generic probabilities from the SymbolLibrary and to use it for generating random expressions.
 """
+
 from typing import Union, List
 
 import nltk
@@ -42,33 +43,33 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
         A PCFG with generic probabilities, written as a string.
     """
     symbols = symbol_library.symbols.values()
-    E = [s["symbol"] for s in symbols if s["type"]=="op" and s["precedence"]==0]
-    F = [s["symbol"] for s in symbols if s["type"]=="op" and s["precedence"]==1]
-    BP = [s["symbol"] for s in symbols if s["type"]=="op" and s["precedence"]==2]
-    R = [s["symbol"] for s in symbols if s["type"]=="fn" and s["precedence"]==5]
-    P = [s["symbol"] for s in symbols if s["type"]=="fn" and s["precedence"]==-1]
-    V = [s["symbol"] for s in symbols if s["type"]=="var"]
-    Cc = [s["symbol"] for s in symbols if s["type"]=="const"]
-    Cl = [s["symbol"] for s in symbols if s["type"]=="lit"]
+    E = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 0]
+    F = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 1]
+    BP = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 2]
+    R = [s["symbol"] for s in symbols if s["type"] == "fn" and s["precedence"] == 5]
+    P = [s["symbol"] for s in symbols if s["type"] == "fn" and s["precedence"] == -1]
+    V = [s["symbol"] for s in symbols if s["type"] == "var"]
+    Cc = [s["symbol"] for s in symbols if s["type"] == "const"]
+    Cl = [s["symbol"] for s in symbols if s["type"] == "lit"]
 
     grammar = ""
     if len(E) > 0:
         for s in E:
-            grammar += f"E -> E '{s}' F [{0.4/len(E)}]\n"
+            grammar += f"E -> E '{s}' F [{0.4 / len(E)}]\n"
         grammar += "E -> F [0.6]\n"
     else:
         grammar += "E -> F [1.0]\n"
 
     if len(F) > 0:
         for s in F:
-            grammar += f"F -> F '{s}' B [{0.4/len(F)}]\n"
+            grammar += f"F -> F '{s}' B [{0.4 / len(F)}]\n"
         grammar += "F -> B [0.6]\n"
     else:
         grammar += "F -> B [1.0]\n"
 
     if len(BP) > 0:
         for s in BP:
-            grammar += f"B -> B '{s}' T [{0.05/len(BP)}]\n"
+            grammar += f"B -> B '{s}' T [{0.05 / len(BP)}]\n"
         grammar += "B -> T [0.95]\n"
     else:
         grammar += "B -> T [1.0]\n"
@@ -79,22 +80,22 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
         grammar += "T -> V [0.6]\n"
         if len(Cl) > 0 and len(Cc) > 0:
             for s in Cl:
-                grammar += f"C -> '{s}' [{0.2/len(Cl)}]\n"
+                grammar += f"C -> '{s}' [{0.2 / len(Cl)}]\n"
             for s in Cc:
-                grammar += f"C -> '{s}' [{0.8/len(Cc)}]\n"
+                grammar += f"C -> '{s}' [{0.8 / len(Cc)}]\n"
         elif len(Cl) > 0:
             for s in Cl:
-                grammar += f"C -> '{s}' [{1/len(Cl)}]\n"
+                grammar += f"C -> '{s}' [{1 / len(Cl)}]\n"
         elif len(Cc) > 0:
             for s in Cc:
-                grammar += f"C -> '{s}' [{1/len(Cc)}]\n"
+                grammar += f"C -> '{s}' [{1 / len(Cc)}]\n"
     else:
         grammar += "T -> R [0.3]\n"
         grammar += "T -> V [0.7]\n"
 
     if len(R) > 0:
         for s in R:
-            grammar += f"R -> '{s}' '(' E ')' [{0.4/len(R)}]\n"
+            grammar += f"R -> '{s}' '(' E ')' [{0.4 / len(R)}]\n"
         if len(P) > 0:
             grammar += "R -> P [0.15]\n"
             grammar += "R -> '(' E ')' [0.45]\n"
@@ -108,13 +109,13 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
             grammar += "R -> '(' E ')' [1.0]\n"
 
     if len(P) > 0:
-        total = sum([1/abs(float(s[1:])) for s in P])
+        total = sum([1 / abs(float(s[1:])) for s in P])
         for s in P:
-            grammar += f"P -> '(' E ')' '{s}' [{(1/abs(float(s[1:])))/total}]\n"
+            grammar += f"P -> '(' E ')' '{s}' [{(1 / abs(float(s[1:]))) / total}]\n"
 
     if len(V) > 0:
         for s in V:
-            grammar += f"V -> '{s}' [{1/len(V)}]\n"
+            grammar += f"V -> '{s}' [{1 / len(V)}]\n"
 
     return grammar
 
@@ -142,7 +143,9 @@ def _expand(grammar, symbol, current_depth, max_depth=40):
         return [str(symbol)]
 
 
-def generate_from_pcfg(grammar_str: str, start_symbol: str="E", max_depth: int=40, limit: int=100) -> List[str]:
+def generate_from_pcfg(
+    grammar_str: str, start_symbol: str = "E", max_depth: int = 40, limit: int = 100
+) -> List[str]:
     """
     Generates a random expression from a PCFG with monte-carlo sampling.
 
@@ -173,13 +176,20 @@ def generate_from_pcfg(grammar_str: str, start_symbol: str="E", max_depth: int=4
         expr = _expand(grammar, start_symbol, 0, max_depth)
 
     if expr is None:
-        raise Exception(f"[Expression generation] Couldn't find an expression with max_depth {max_depth} from this grammar in {limit} tries.")
+        raise Exception(
+            f"[Expression generation] Couldn't find an expression with max_depth {max_depth} from this grammar in {limit} tries."
+        )
 
     return expr
 
 
-def generate_n_expressions(expression_description: Union[str, SymbolLibrary], num_expressions: int, unique: bool=True,
-                            max_expression_length: int=50, verbose: bool=True) -> List[List[str]]:
+def generate_n_expressions(
+    expression_description: Union[str, SymbolLibrary],
+    num_expressions: int,
+    unique: bool = True,
+    max_expression_length: int = 50,
+    verbose: bool = True,
+) -> List[List[str]]:
     """
     Generates a set of n expressions.
 
@@ -204,7 +214,9 @@ def generate_n_expressions(expression_description: Union[str, SymbolLibrary], nu
     elif isinstance(expression_description, str):
         grammar = expression_description
     else:
-        raise Exception("Description of expressions must be either a grammar written as a string or an instance of SymbolLibrary.")
+        raise Exception(
+            "Description of expressions must be either a grammar written as a string or an instance of SymbolLibrary."
+        )
 
     expressions = []
     expression_strings = set()
@@ -212,8 +224,8 @@ def generate_n_expressions(expression_description: Union[str, SymbolLibrary], nu
         pbar = tqdm(total=num_expressions)
     while len(expressions) < num_expressions:
         try:
-            expr = generate_from_pcfg(grammar, max_depth=max_expression_length*10)
-        except:
+            expr = generate_from_pcfg(grammar, max_depth=max_expression_length * 10)
+        except Exception:
             print("Couldn't generate a valid expression in 100 tries")
             continue
         if len(expr) > max_expression_length > 0:
@@ -231,7 +243,7 @@ def generate_n_expressions(expression_description: Union[str, SymbolLibrary], nu
     return expressions
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sl = SymbolLibrary.default_symbols(5)
     a = generate_n_expressions(sl, 1000, unique=False, max_expression_length=1)
     b = 0

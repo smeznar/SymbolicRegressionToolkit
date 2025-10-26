@@ -1,6 +1,7 @@
 """
 This module contains the ParameterEstimator class, which is used to estimate the parameters of an expression.
 """
+
 from typing import Union, List, Tuple, Optional
 
 import numpy as np
@@ -10,8 +11,14 @@ from SRToolkit.utils import Node, SymbolLibrary, expr_to_error_function
 
 
 class ParameterEstimator:
-    def __init__(self, X: np.ndarray, y: np.ndarray, symbol_library: SymbolLibrary=SymbolLibrary.default_symbols(),
-                 seed: Optional[int]=None, **kwargs):
+    def __init__(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+        seed: Optional[int] = None,
+        **kwargs,
+    ):
         """
         Initializes an instance of the ParameterEstimator class.
 
@@ -52,14 +59,14 @@ class ParameterEstimator:
         # self.stats = {"success": 0, "failure": 0, "steps": dict(), "num_constants": dict(), "failed_constants": dict()}
 
         self.estimation_settings = {
-                "method": "L-BFGS-B",
-                "tol": 1e-6,
-                "gtol": 1e-3,
-                "max_iter": 100,
-                "constant_bounds": (-5, 5),
-                "initialization": "random", # random, mean
-                "max_constants": 8,
-                "max_expr_length": -1
+            "method": "L-BFGS-B",
+            "tol": 1e-6,
+            "gtol": 1e-3,
+            "max_iter": 100,
+            "constant_bounds": (-5, 5),
+            "initialization": "random",  # random, mean
+            "max_constants": 8,
+            "max_expr_length": -1,
         }
 
         if kwargs:
@@ -70,7 +77,9 @@ class ParameterEstimator:
         if self.seed is not None:
             np.random.seed(self.seed)
 
-    def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
+    def estimate_parameters(
+        self, expr: Union[List[str], Node]
+    ) -> Tuple[float, np.ndarray]:
         """
         Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
 
@@ -99,9 +108,13 @@ class ParameterEstimator:
         """
         if isinstance(expr, Node):
             expr_str = expr.to_list(notation="prefix")
-            num_constants = sum([1 for t in expr_str if self.symbol_library.get_type(t) == "const"])
+            num_constants = sum(
+                [1 for t in expr_str if self.symbol_library.get_type(t) == "const"]
+            )
         else:
-            num_constants = sum([1 for t in expr if self.symbol_library.get_type(t) == "const"])
+            num_constants = sum(
+                [1 for t in expr if self.symbol_library.get_type(t) == "const"]
+            )
         if 0 <= self.estimation_settings["max_constants"] < num_constants:
             return np.nan, np.array([])
 
@@ -116,20 +129,43 @@ class ParameterEstimator:
         else:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
-    def _optimize_parameters(self, executable_error_fn: callable, num_constants: int) -> Tuple[float, np.ndarray]:
+    def _optimize_parameters(
+        self, executable_error_fn: callable, num_constants: int
+    ) -> Tuple[float, np.ndarray]:
         if self.estimation_settings["initialization"] == "random":
-            x0 = np.random.rand(num_constants) * (self.estimation_settings["constant_bounds"][1] - self.estimation_settings["constant_bounds"][0] - 1e-8) + self.estimation_settings["constant_bounds"][0]
+            x0 = (
+                np.random.rand(num_constants)
+                * (
+                    self.estimation_settings["constant_bounds"][1]
+                    - self.estimation_settings["constant_bounds"][0]
+                    - 1e-8
+                )
+                + self.estimation_settings["constant_bounds"][0]
+            )
         else:
-            x0 = np.array([np.mean(self.estimation_settings["constant_bounds"]) for _ in range(num_constants)])
+            x0 = np.array(
+                [
+                    np.mean(self.estimation_settings["constant_bounds"])
+                    for _ in range(num_constants)
+                ]
+            )
 
-        res = minimize(lambda c: executable_error_fn(self.X, c, self.y), x0, method=self.estimation_settings["method"],
-                       tol=self.estimation_settings["tol"],
-                       options={
-                           "maxiter": self.estimation_settings["max_iter"],
-                           "gtol": self.estimation_settings["gtol"]
-                                },
-                       bounds=[(self.estimation_settings["constant_bounds"][0], self.estimation_settings["constant_bounds"][1]) for _ in range(num_constants)])
+        res = minimize(
+            lambda c: executable_error_fn(self.X, c, self.y),
+            x0,
+            method=self.estimation_settings["method"],
+            tol=self.estimation_settings["tol"],
+            options={
+                "maxiter": self.estimation_settings["max_iter"],
+                "gtol": self.estimation_settings["gtol"],
+            },
+            bounds=[
+                (
+                    self.estimation_settings["constant_bounds"][0],
+                    self.estimation_settings["constant_bounds"][1],
+                )
+                for _ in range(num_constants)
+            ],
+        )
 
         return res.fun, res.x
-
-

@@ -13,11 +13,33 @@ Modules:
 
 from .expression_tree import Node, tokens_to_tree, is_float
 from .symbol_library import SymbolLibrary
-from .expression_compiler import tree_to_function_rec, expr_to_executable_function, expr_to_error_function
+from .expression_compiler import (
+    tree_to_function_rec,
+    expr_to_executable_function,
+    expr_to_error_function,
+)
 from .expression_simplifier import simplify
-from .expression_generator import generate_from_pcfg, create_generic_pcfg, generate_n_expressions
+from .expression_generator import (
+    generate_from_pcfg,
+    create_generic_pcfg,
+    generate_n_expressions,
+)
 from .measures import bed, create_behavior_matrix, edit_distance, tree_edit_distance
 
-__all__ = ["SymbolLibrary", "Node", "tokens_to_tree", "is_float", "tree_to_function_rec", "expr_to_executable_function",
-           "expr_to_error_function", "simplify", "generate_from_pcfg", "create_generic_pcfg", "generate_n_expressions",
-           "bed", "create_behavior_matrix", "edit_distance", "tree_edit_distance"]
+__all__ = [
+    "SymbolLibrary",
+    "Node",
+    "tokens_to_tree",
+    "is_float",
+    "tree_to_function_rec",
+    "expr_to_executable_function",
+    "expr_to_error_function",
+    "simplify",
+    "generate_from_pcfg",
+    "create_generic_pcfg",
+    "generate_n_expressions",
+    "bed",
+    "create_behavior_matrix",
+    "edit_distance",
+    "tree_edit_distance",
+]

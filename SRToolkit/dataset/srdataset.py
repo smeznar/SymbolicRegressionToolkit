@@ -7,10 +7,22 @@ from SRToolkit.utils import SymbolLibrary
 
 # TODO: Rewrite this class a bit adapt to changes from SR_evaluator
 
+
 class SRDataset:
-    def __init__(self, X: np.ndarray, y: np.ndarray, ground_truth: List[str], original_equation: str,
-                 symbols: SymbolLibrary, max_evaluations: int=-1, max_expression_length: int=-1, max_constants: int=8,
-                 success_threshold: float=1e-7, constant_range: List[float]=None, dataset_metadata: dict=None):
+    def __init__(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        ground_truth: List[str],
+        original_equation: str,
+        symbols: SymbolLibrary,
+        max_evaluations: int = -1,
+        max_expression_length: int = -1,
+        max_constants: int = 8,
+        success_threshold: float = 1e-7,
+        constant_range: List[float] = None,
+        dataset_metadata: dict = None,
+    ):
         """
         Initializes an instance of the SRDataset class.
 
@@ -46,14 +58,16 @@ class SRDataset:
 
         # See if symbols contain a symbol for constants
         symbols_metadata = self.symbols.symbols.values()
-        self.contains_constants = any([symbol["type"] == "const" for symbol in symbols_metadata])
+        self.contains_constants = any(
+            [symbol["type"] == "const" for symbol in symbols_metadata]
+        )
         if constant_range is None and self.contains_constants:
             constant_range = [-5.0, 5.0]
         self.constant_range = constant_range
 
         self.dataset_metadata = dataset_metadata
 
-    def create_evaluator(self, metadata: dict=None) -> SR_evaluator:
+    def create_evaluator(self, metadata: dict = None) -> SR_evaluator:
         """
         Creates an instance of the SR_evaluator class from this dataset.
 
@@ -67,9 +81,15 @@ class SRDataset:
         if metadata is None:
             metadata = dict()
         metadata["dataset_metadata"] = self.dataset_metadata
-        return SR_evaluator(self.X, self.y, max_evaluations=self.max_evaluations, metadata=metadata,
-                            symbol_library=self.symbols, max_constants=self.max_constants,
-                            max_expression_length=self.max_expression_length)
+        return SR_evaluator(
+            self.X,
+            self.y,
+            max_evaluations=self.max_evaluations,
+            metadata=metadata,
+            symbol_library=self.symbols,
+            max_constants=self.max_constants,
+            max_expression_length=self.max_expression_length,
+        )
 
     def __str__(self) -> str:
         """
@@ -89,10 +109,12 @@ class SRDataset:
             A string describing this dataset.
         """
         description = f"Dataset for target expression {self.original_equation}. "
-        description += (f" When evaluating your model on this dataset, you should limit your generative model to only"
-                        f" produce expressions using the following symbols: {str(self.symbols)}. Expressions are deemed"
-                        f" successful if the root mean squared error is less than {self.success_threshold}. However, we"
-                        f" advise that you check the best performing expressions manually to ensure they are correct.")
+        description += (
+            f" When evaluating your model on this dataset, you should limit your generative model to only"
+            f" produce expressions using the following symbols: {str(self.symbols)}. Expressions are deemed"
+            f" successful if the root mean squared error is less than {self.success_threshold}. However, we"
+            f" advise that you check the best performing expressions manually to ensure they are correct."
+        )
 
         has_limitations = False
         limitations = "Constraints for this dataset are:"
@@ -113,6 +135,8 @@ class SRDataset:
         if self.contains_constants:
             description += f" The dataset contains constants. The range of constants is {self.constant_range}."
 
-        description += "For other metadata, please refer to the attribute self.dataset_metadata."
+        description += (
+            "For other metadata, please refer to the attribute self.dataset_metadata."
+        )
 
         return description

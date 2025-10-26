@@ -1,6 +1,7 @@
 """
 This module contains measures for evaluating the similarity between two expressions.
 """
+
 from typing import List, Union, Tuple, Optional
 
 import numpy as np
@@ -9,10 +10,20 @@ import zss
 from scipy.stats.qmc import LatinHypercube
 
 
-from SRToolkit.utils import SymbolLibrary, Node, tokens_to_tree, expr_to_executable_function
+from SRToolkit.utils import (
+    SymbolLibrary,
+    Node,
+    tokens_to_tree,
+    expr_to_executable_function,
+)
 
-def edit_distance(expr1: Union[List[str], Node], expr2: Union[List[str], Node], notation: str="postfix",
-                  symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> int:
+
+def edit_distance(
+    expr1: Union[List[str], Node],
+    expr2: Union[List[str], Node],
+    notation: str = "postfix",
+    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+) -> int:
     """
     Calculates the edit distance between two expressions.
 
@@ -37,14 +48,19 @@ def edit_distance(expr1: Union[List[str], Node], expr2: Union[List[str], Node], 
     if isinstance(expr1, Node):
         expr1 = expr1.to_list(symbol_library=symbol_library, notation=notation)
     elif isinstance(expr1, list):
-        expr1 = tokens_to_tree(expr1, symbol_library).to_list(symbol_library=symbol_library, notation=notation)
+        expr1 = tokens_to_tree(expr1, symbol_library).to_list(
+            symbol_library=symbol_library, notation=notation
+        )
 
     if isinstance(expr2, Node):
         expr2 = expr2.to_list(symbol_library=symbol_library, notation=notation)
     elif isinstance(expr2, list):
-        expr2 = tokens_to_tree(expr2, symbol_library).to_list(symbol_library=symbol_library, notation=notation)
+        expr2 = tokens_to_tree(expr2, symbol_library).to_list(
+            symbol_library=symbol_library, notation=notation
+        )
 
     return editdistance.eval(expr1, expr2)
+
 
 def _expr_to_zss(expr):
     zexpr = zss.Node(expr.symbol)
@@ -55,8 +71,12 @@ def _expr_to_zss(expr):
 
     return zexpr
 
-def tree_edit_distance(expr1: Union[Node, List[str]], expr2: Union[Node, List[str]],
-                       symbol_library: SymbolLibrary=SymbolLibrary.default_symbols()) -> int:
+
+def tree_edit_distance(
+    expr1: Union[Node, List[str]],
+    expr2: Union[Node, List[str]],
+    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+) -> int:
     """
     Calculates the tree edit distance between two expressions.
 
@@ -89,9 +109,14 @@ def tree_edit_distance(expr1: Union[Node, List[str]], expr2: Union[Node, List[st
     return int(zss.simple_distance(expr1, expr2))
 
 
-def create_behavior_matrix(expr: Union[Node, List[str]], X: np.ndarray, num_consts_sampled: int=32,
-                           consts_bounds: Tuple[float, float]=(-5, 5),
-                           symbol_library: SymbolLibrary=SymbolLibrary.default_symbols(), seed: int=None) -> np.ndarray:
+def create_behavior_matrix(
+    expr: Union[Node, List[str]],
+    X: np.ndarray,
+    num_consts_sampled: int = 32,
+    consts_bounds: Tuple[float, float] = (-5, 5),
+    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    seed: int = None,
+) -> np.ndarray:
     """
     Creates a behavior matrix from an expression with free parameters. The shape of the matrix is (X.shape[0], num_consts_sampled).
 
@@ -133,10 +158,13 @@ def create_behavior_matrix(expr: Union[Node, List[str]], X: np.ndarray, num_cons
 
     expr = expr_to_executable_function(expr, symbol_library)
 
-    with np.errstate(divide='ignore', invalid='ignore', over='ignore', under='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
         if num_constants > 0:
             lho = LatinHypercube(num_constants, seed=seed)
-            constants = lho.random(num_consts_sampled) * (consts_bounds[1]-consts_bounds[0]) + consts_bounds[0]
+            constants = (
+                lho.random(num_consts_sampled) * (consts_bounds[1] - consts_bounds[0])
+                + consts_bounds[0]
+            )
             ys = []
             for c in constants:
                 ys.append(expr(X, c))
@@ -150,17 +178,24 @@ def _custom_wasserstein(u, v):
     v = np.sort(v)
     all_values = np.sort(np.concatenate((u, v)))
     deltas = np.diff(all_values)
-    u_cdf_indices = u.searchsorted(all_values[:-1], 'right')
-    v_cdf_indices = v.searchsorted(all_values[:-1], 'right')
+    u_cdf_indices = u.searchsorted(all_values[:-1], "right")
+    v_cdf_indices = v.searchsorted(all_values[:-1], "right")
     u_cdf = u_cdf_indices / u.size
     v_cdf = v_cdf_indices / v.size
     return np.sum(np.abs(u_cdf - v_cdf) * deltas)
 
 
-def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str], np.ndarray], X: Optional[np.ndarray]=None,
-        num_consts_sampled: int=32, num_points_sampled: int=64, domain_bounds: Optional[List[Tuple[float, float]]]=None,
-        consts_bounds: Tuple[float, float]=(-5, 5), symbol_library: SymbolLibrary=SymbolLibrary.default_symbols(),
-        seed: int=None) -> float:
+def bed(
+    expr1: Union[Node, List[str], np.ndarray],
+    expr2: Union[Node, List[str], np.ndarray],
+    X: Optional[np.ndarray] = None,
+    num_consts_sampled: int = 32,
+    num_points_sampled: int = 64,
+    domain_bounds: Optional[List[Tuple[float, float]]] = None,
+    consts_bounds: Tuple[float, float] = (-5, 5),
+    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    seed: int = None,
+) -> float:
     """
     Computes the Behavioral Embedding Distance (BED) between two expressions or behavior matrices over a
     given dataset or domain, using Wasserstein distance as a metric.
@@ -220,29 +255,45 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
             the expected dimensions.
     """
 
-    if X is None and not isinstance(expr1, np.ndarray) and not isinstance(expr2, np.ndarray):
+    if (
+        X is None
+        and not isinstance(expr1, np.ndarray)
+        and not isinstance(expr2, np.ndarray)
+    ):
         if domain_bounds is None:
-            raise Exception("If X is not given and both expressions are not given as a behavior matrix, "
-                            "then domain_bounds parameter must be given")
+            raise Exception(
+                "If X is not given and both expressions are not given as a behavior matrix, "
+                "then domain_bounds parameter must be given"
+            )
         interval_length = np.array([ub - lb for (lb, ub) in domain_bounds])
         lower_bound = np.array([lb for (lb, ub) in domain_bounds])
         lho = LatinHypercube(len(domain_bounds), optimization="random-cd", seed=seed)
         X = lho.random(num_points_sampled) * interval_length + lower_bound
     elif X is None and (isinstance(expr1, np.ndarray) != isinstance(expr2, np.ndarray)):
-        raise Exception("If X is not given, both expressions must be given as a behavior matrix or as a list of "
-                        "tokens/SRToolkit.utils.Node objects. Otherwise, behavior matrices are uncomparable.")
+        raise Exception(
+            "If X is not given, both expressions must be given as a behavior matrix or as a list of "
+            "tokens/SRToolkit.utils.Node objects. Otherwise, behavior matrices are uncomparable."
+        )
 
     if isinstance(expr1, list) or isinstance(expr1, Node):
-        expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
+        expr1 = create_behavior_matrix(
+            expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed
+        )
 
     if isinstance(expr2, list) or isinstance(expr2, Node):
-        expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
+        expr2 = create_behavior_matrix(
+            expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed
+        )
 
-    assert expr1.shape[0] == expr2.shape[0], ("Behavior matrices must have the same number rows (points "
-                                                            "on which behavior is evaluated.)")
-    assert expr1.shape[0] > 0, ("Behavior matrices must have at least one row. if your expressions are given as behavior"
-                                "matrices, make sure they are not empty. Otherwise, if X is given, make sure it contains"
-                                "at least one point. If X is not given, make sure num_points_sampled is greater than 0.")
+    assert expr1.shape[0] == expr2.shape[0], (
+        "Behavior matrices must have the same number rows (points "
+        "on which behavior is evaluated.)"
+    )
+    assert expr1.shape[0] > 0, (
+        "Behavior matrices must have at least one row. if your expressions are given as behavior"
+        "matrices, make sure they are not empty. Otherwise, if X is given, make sure it contains"
+        "at least one point. If X is not given, make sure num_points_sampled is greater than 0."
+    )
     wds = []
     for i in range(expr1.shape[0]):
         u = expr1[i][np.isfinite(expr1[i])]
@@ -256,7 +307,8 @@ def bed(expr1: Union[Node, List[str], np.ndarray], expr2: Union[Node, List[str],
 
     return float(np.mean(wds))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     expr = ["X_0", "+", "C"]
     expr2 = ["sqrt", "(", "C", ")", "+", "X_0"]
     X = np.random.rand(10, 2) - 0.5
