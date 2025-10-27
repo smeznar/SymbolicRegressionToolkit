@@ -511,9 +511,9 @@ class SR_evaluator:
 
             results["top_models"].append(m)
 
-        for augmente in self.result_augmenters:
+        for augmenter in self.result_augmenters:
             try:
-                results = augmente.augment_results(results, models, self)
+                results = augmenter.augment_results(results, models, self)
             except Exception as e:
                 print(
                     f"Error augmenting results, skipping current augmentor because of the following error: {e}"
