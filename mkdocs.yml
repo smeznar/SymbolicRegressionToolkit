@@ -41,7 +41,7 @@ theme:
       toggle:
         icon: material/weather-night
         name: Switch to light mode
-  logo: assets/imgs/logo.webp
+  logo: assets/imgs/logo.png
   font:
     text: Roboto # A clean, modern font
     code: Roboto Mono # A clear monospace font
