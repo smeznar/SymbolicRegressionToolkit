@@ -1,7 +1,7 @@
 **Symbolic Regression/Equation Discovery Toolkit**
 --------------------------------------------------------
 
-![edhie logo](https://github.com/smeznar/SymbolicRegressionToolkit/blob/master/docs/assets/imgs/logo.png)
+![SRToolkit logo](https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/refs/heads/master/docs/assets/imgs/logo.png)
 
 Documentation: [https://smeznar.github.io/SymbolicRegressionToolkit](https://smeznar.github.io/SymbolicRegressionToolkit/)
 
@@ -25,6 +25,7 @@ interface for:
 [//]: # (how we can customize various parts of the toolkit and create executable python functions from infix expressions.)
 
 [//]: # ()
+
 *Installation*
 --------------
 
