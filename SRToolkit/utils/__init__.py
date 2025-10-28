@@ -11,7 +11,7 @@ Modules:
     measures: The module containing functions for computing various performance measures on expressions
 """
 
-from .expression_tree import Node, tokens_to_tree, is_float
+from .expression_tree import Node, tokens_to_tree, is_float, expr_to_latex
 from .symbol_library import SymbolLibrary
 from .expression_compiler import (
     tree_to_function_rec,
@@ -42,4 +42,5 @@ __all__ = [
     "create_behavior_matrix",
     "edit_distance",
     "tree_edit_distance",
+    "expr_to_latex"
 ]

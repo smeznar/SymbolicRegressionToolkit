@@ -104,7 +104,7 @@ class SR_dataset:
             An instance of the SR_evaluator class.
 
         Raises:
-            An exception if there is an error creating the evaluator.
+            Exception: if an error occurs when creating the evaluator.
         """
         if metadata is None:
             metadata = dict()
