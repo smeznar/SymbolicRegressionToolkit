@@ -2,17 +2,19 @@
 This module contains the ResultAugmenter class and the result augmentation implementations that inherit from it.
 """
 
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
+from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import simplify, tokens_to_tree
 
 
 class ResultAugmenter:
     def __init__(self):
         """
-        Generic class that defines the interface for result augmentation.
+        Generic class that defines the interface for result augmentation. For examples, see the implementations of
+        this class.
         """
         pass
 
@@ -35,6 +37,32 @@ class ResultAugmenter:
 
         Returns:
             The augmented results dictionary.
+        """
+        pass
+
+    def to_dict(self, base_path, name) -> dict:
+        """
+        Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
+
+        Args:
+            base_path: The base path used for saving the data inside the augmenter, if needed.
+            name: The name/identifier used by the augmenter for saving.
+
+        Returns:
+            A dictionary containing the necessary information to recreate the augmenter.
+        """
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ResultAugmenter":
+        """
+        Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
+
+        Args:
+            data: the dictionary containing the data needed to recreate the augmenter.
+            augmenter_map: A dictionary mapping augmenter names to their classes.
+
+        Returns:
+            An instance of the ResultAugmenter class with the same configuration as in the data dictionary.
         """
         pass
 
@@ -95,6 +123,33 @@ class ExpressionToLatex(ResultAugmenter):
 
         return results
 
+    def to_dict(self, base_path, name) -> dict:
+        """
+        Creates a dictionary representation of the ExpressionToLatex augmenter.
+
+        Args:
+            base_path: Unused and ignored
+            name: Unused and ignored
+
+        Returns:
+            A dictionary containing the necessary information to recreate the augmenter.
+        """
+        return {"type": "ExpressionToLatex", "only_best_expression": self.only_best_expression, "verbose": self.verbose}
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ExpressionToLatex":
+        """
+        Creates an instance of the ExpressionToLatex augmenter from a dictionary.
+
+        Args:
+            data: A dictionary containing the necessary information to recreate the augmenter.
+            augmenter_map: Unused and ignored
+
+        Returns:
+            An instance of the ExpressionToLatex augmenter.
+        """
+        return ExpressionToLatex(only_best_expression=data["only_best_expression"], verbose=data["verbose"])
+
 
 class ExpressionSimplifier(ResultAugmenter):
     def __init__(self, only_best_expression: bool = False, verbose: bool = False):
@@ -147,6 +202,32 @@ class ExpressionSimplifier(ResultAugmenter):
                     print(f"Unable to simplify {model['expr']}: {e}")
 
         return results
+
+    def to_dict(self, base_path, name) -> dict:
+        """
+        Creates a dictionary representation of the ExpressionSimplifier augmenter.
+
+        Args:
+            base_path: Unused and ignored
+            name: Unused and ignored
+
+        Returns:
+            A dictionary containing the necessary information to recreate the augmenter.
+        """
+        return {"type": "ExpressionSimplifier", "only_best_expression": self.only_best_expression, "verbose": self.verbose}
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ExpressionSimplifier":
+        """
+        Creates an instance of the ExpressionSimplifier augmenter from a dictionary.
+
+        Args:
+            data: A dictionary containing the necessary information to recreate the augmenter.
+            augmenter_map: Unused and ignored
+        Returns:
+            An instance of the ExpressionSimplifier augmenter.
+        """
+        return ExpressionSimplifier(only_best_expression=data["only_best_expression"], verbose=data["verbose"])
 
 
 class RMSE(ResultAugmenter):
@@ -204,6 +285,35 @@ class RMSE(ResultAugmenter):
             ]
         return results
 
+    def to_dict(self, base_path, name) -> dict:
+        """
+        Creates a dictionary representation of the RMSE augmenter.
+
+        Args:
+            base_path: Used to save the data of the evaluator to disk.
+            name: Used to save the data of the evaluator to disk.
+
+        Returns:
+            A dictionary containing the necessary information to recreate the augmenter.
+        """
+        # Save SR_evaluator
+        return {"type": "RMSE", "evaluator": self.evaluator.to_dict(base_path, name)}
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "RMSE":
+        """
+        Creates an instance of the RMSE augmenter from a dictionary.
+
+        Args:
+            data: A dictionary containing the necessary information to recreate the augmenter.
+            augmenter_map: A dictionary mapping augmenter names to their classes.
+
+        Returns:
+            An instance of the RMSE augmenter.
+        """
+        evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
+        return RMSE(evaluator)
+
 
 class BED(ResultAugmenter):
     def __init__(self, evaluator: "SR_evaluator"):  # noqa: F821
@@ -250,6 +360,35 @@ class BED(ResultAugmenter):
         for model in results["top_models"]:
             model["bed"] = self.evaluator.evaluate_expr(model["expr"])
         return results
+
+    def to_dict(self, base_path, name) -> dict:
+        """
+        Creates a dictionary representation of the BED augmenter.
+
+        Args:
+            base_path: Used to save the data of the evaluator to disk.
+            name: Used to save the data of the evaluator to disk.
+
+        Returns:
+            A dictionary containing the necessary information to recreate the augmenter.
+        """
+        # Save SR_evaluator
+        return {"type": "BED", "evaluator": self.evaluator.to_dict(base_path, name)}
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "BED":
+        """
+        Creates an instance of the BED augmenter from a dictionary.
+
+        Args:
+            data: A dictionary containing the necessary information to recreate the augmenter.
+            augmenter_map: A dictionary mapping augmenter names to their classes.
+
+        Returns:
+            An instance of the BED augmenter.
+        """
+        evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
+        return BED(evaluator)
 
 
 class R2(ResultAugmenter):
@@ -314,3 +453,32 @@ class R2(ResultAugmenter):
             self.evaluator.y.shape[0] * self.evaluator.evaluate_expr(model["expr"]) ** 2
         )
         return max(0, 1 - ss_res / self.ss_tot)
+
+    def to_dict(self, base_path, name) -> dict:
+        """
+        Creates a dictionary representation of the R2 augmenter.
+
+        Args:
+            base_path: Used to save the data of the evaluator to disk.
+            name: Used to save the data of the evaluator to disk.
+
+        Returns:
+            A dictionary containing the necessary information to recreate the augmenter.
+        """
+        # Save SR_evaluator
+        return {"type": "R2", "evaluator": self.evaluator.to_dict(base_path, name)}
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "R2":
+        """
+        Creates an instance of the R2 augmenter from a dictionary.
+
+        Args:
+            data: A dictionary containing the necessary information to recreate the augmenter.
+            augmenter_map: A dictionary mapping augmenter names to their classes.
+
+        Returns:
+            An instance of the R2 augmenter.
+        """
+        evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
+        return R2(evaluator)

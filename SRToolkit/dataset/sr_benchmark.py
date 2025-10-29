@@ -29,8 +29,8 @@ class SR_benchmark:
                 such as the name of the benchmark, a citation for the benchmark, number of datasets, etc.
 
         Raises:
-            Exception: If elements in datasets argument are not instances of SR_dataset or tuples containing the name
-                of the dataset and an instance of SR_dataset.
+            Exception: If elements in the "datasets" argument are not instances of SR_dataset or tuples containing
+                the name of the dataset and an instance of SR_dataset.
         """
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
@@ -97,6 +97,8 @@ class SR_benchmark:
             original_equation: The original equation from which the ground truth expression was generated.
             success_threshold: The threshold below which the experiment is considered successful. If None, the
                 threshold will be calculated automatically. See SRToolkit.evaluation.SR_evaluator for more details.
+            result_augmenters: The list of result augmenters to use.
+            seed: The seed to use for random number generation. If None, number generation will be random.
             dataset_metadata: An optional dictionary containing metadata about this dataset. This could include
                 information such as the name of the dataset, a citation for the dataset, number of variables, etc.
 

@@ -1,7 +1,7 @@
 """
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches.
 """
-
+import os
 from contextlib import nullcontext
 from typing import Optional, List, Union
 import warnings
@@ -115,7 +115,7 @@ class SR_evaluator:
             Because of this, the success threshold is only a proxy for determining the success of an expression.
             We recommend checking the best performing expression manually for a better indication of success.
         """
-
+        self.kwargs = kwargs
         self.models = dict()
         self.invalid = list()
         self.success_threshold = success_threshold
@@ -242,6 +242,9 @@ class SR_evaluator:
                     for i in range(100)
                 ]
                 self.success_threshold = np.max(distances) * 1.1
+
+        self.X = X
+        self.y = y
 
     def evaluate_expr(
         self,
@@ -529,6 +532,106 @@ class SR_evaluator:
             print(f"Success: {results['success']}")
 
         return results
+
+    def to_dict(self, base_path, name) -> dict:
+        """
+        Creates a dictionary representation of the SR_evaluator.
+
+        Args:
+            base_path: Used to save the data of the evaluator to disk.
+            name: Used to save the data of the evaluator to disk.
+
+        Returns:
+            A dictionary containing the necessary information to recreate the evaluator from disk.
+        """
+        output = {"type": "SR_evaluator",
+                  "metadata": self.metadata,
+                  "symbol_library": self.symbol_library.to_dict(),
+                  "max_evaluations": self.max_evaluations,
+                  "success_threshold": self.success_threshold,
+                  "ranking_function": self.ranking_function,
+                  "result_augmenters": [ra.to_dict(base_path, name) for ra in self.result_augmenters],
+                  "seed": self.seed,
+                  "kwargs": self.kwargs}
+
+        if not os.path.isdir(base_path):
+            os.makedirs(base_path)
+
+        X_path = f"{base_path}/{name}_X.npy"
+        np.save(X_path, self.X)
+        output["X"] = X_path
+
+        if self.y is not None:
+            y_path = f"{base_path}/{name}_y.npy"
+            np.save(y_path, self.y)
+            output["y"] = y_path
+        else:
+            output["y"] = None
+
+        if self.ground_truth is None:
+            output["ground_truth"] = None
+        else:
+            if isinstance(self.ground_truth, list):
+                output["ground_truth"] = self.ground_truth
+            elif isinstance(self.ground_truth, Node):
+                output["ground_truth"] = self.ground_truth.to_list(self.symbol_library)
+            else:
+                gt_path = f"{base_path}/{name}_gt.npy"
+                np.save(gt_path, self.ground_truth)
+                output["ground_truth"] = gt_path
+
+        return output
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "SR_evaluator":
+        """
+        Creates an instance of the SR_evaluator from a dictionary.
+
+        Args:
+            data: A dictionary containing the necessary information to recreate the evaluator.
+            augmenter_map: A dictionary mapping the names of the augmenters to the augmenter classes.
+
+        Returns:
+            An instance of the SR_evaluator.
+
+        Raises:
+            Exception: if unable to load data for X/y/ground truth data, if result augmenters provided but not the
+            augmenter map or if the result augmentor does not occur in the augmenter map.
+        """
+        try:
+            X = np.load(data["X"])
+
+            if data["y"] is not None:
+                y = np.load(data["y"])
+            else:
+                y = None
+
+            if data["ground_truth"] is None:
+                gt = None
+            else:
+                if isinstance(data["ground_truth"], list):
+                    gt = data["ground_truth"]
+                else:
+                    gt = np.load(data["ground_truth"])
+        except Exception as e:
+            raise ValueError(f"[SR_evaluator.from_dict] Unable to load data for X/y/ground truth due to {e}")
+
+
+        result_augmenters = []
+        for ra_data in data["result_augmenters"]:
+            if augmenter_map is None:
+                raise ValueError("[SR_evaluator.from_dict] Argument augmenter_map must be provided when loading "
+                                 "the dictionary contains result augmenters.")
+            if ra_data["type"] not in augmenter_map:
+                raise ValueError(f"[SR_evaluator.from_dict] Result augmenter {ra_data['type']} not found in the "
+                                 f"augmenter map.")
+            result_augmenters.append(augmenter_map[ra_data["type"]].from_dict(ra_data, augmenter_map))
+
+        symbol_library = SymbolLibrary.from_dict(data["symbol_library"])
+        return SR_evaluator(X, y=y, ground_truth=gt, symbol_library=symbol_library,
+                            max_evaluations=data["max_evaluations"], success_threshold=data["success_threshold"],
+                            ranking_function=data["ranking_function"], result_augmenters=result_augmenters,
+                            seed=data["seed"], metadata=data["metadata"], **data["kwargs"])
 
 
 # TODO: Function that takes in the results output and creates a pareto front

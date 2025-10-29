@@ -508,6 +508,33 @@ class SymbolLibrary:
 
         return sl
 
+    def to_dict(self) -> dict:
+        """
+        Creates a dictionary representation of the SymbolLibrary instance.
+
+        Returns:
+            A dictionary containing the symbol library's data.
+        """
+        return {"type": "SymbolLibrary",
+                "symbols": self.symbols,
+                "num_variables": self.num_variables}
+
+    @staticmethod
+    def from_dict(d: dict) -> "SymbolLibrary":
+        """
+        Creates a SymbolLibrary instance from its dictionary representation.
+
+        Args:
+            d: the dictionary containing data about the symbol library.
+
+        Returns:
+            The SymbolLibrary instance created from the dictionary.
+        """
+        sl = SymbolLibrary()
+        sl.symbols = d["symbols"]
+        sl.num_variables = d["num_variables"]
+        return sl
+
     def __len__(self) -> int:
         """
         Returns the number of symbols currently stored in the SymbolLibrary.

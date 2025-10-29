@@ -2,7 +2,7 @@
 This module contains functions that convert an expression in infix notation to an executable python function.
 """
 
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Callable
 
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -14,7 +14,7 @@ import numpy as np  # noqa: F401
 def expr_to_executable_function(
     expr: Union[List[str], Node],
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
-) -> callable:
+) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
     """
     Converts an expression in infix notation to an executable function.
 
@@ -70,7 +70,7 @@ def expr_to_executable_function(
 def expr_to_error_function(
     expr: Union[List[str], Node],
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
-) -> callable:
+) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
     """
     Converts an expression in infix notation to an executable function that returns the root mean squared error between
     the output of the expression and the target values.
@@ -126,7 +126,7 @@ def tree_to_function_rec(
 ) -> Tuple[List[str], str, int, int]:
     """
     Recursively converts a parse tree into a string of Python code that can be executed to evaluate the expression
-    represented by the tree.
+    represented by the tree. For usage examples, see code for expr_to_executable_function and expr_to_error_function.
 
     Args:
         tree: The root of the parse tree to convert.
