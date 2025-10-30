@@ -7,7 +7,7 @@ include = ["SRToolkit*"]
 
 [project]
 name = "symbolic-regression-toolkit"
-version = "1.3.3"
+version = "1.4.0"
 description = "Symbolic Regression/Equation Discovery Toolkit"
 readme = "README.md"
 requires-python = ">=3.7"

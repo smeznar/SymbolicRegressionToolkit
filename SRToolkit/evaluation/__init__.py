@@ -17,6 +17,7 @@ from .result_augmentation import (
     R2,
     BED,
     ExpressionToLatex,
+    RESULT_AUGMENTERS
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "R2",
     "BED",
     "ExpressionToLatex",
+    "RESULT_AUGMENTERS"
 ]

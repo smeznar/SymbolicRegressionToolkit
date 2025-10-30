@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 from typing import List, Union, Tuple, Optional
 from urllib.request import urlopen
@@ -362,6 +363,35 @@ class SR_benchmark:
             http_response = urlopen(url)
             zipfile = ZipFile(BytesIO(http_response.read()))
             zipfile.extractall(path=directory_path)
+
+    def save_benchmark(self):
+        datasets = []
+        for dataset_name, dataset_info in self.datasets.items():
+            if "sr_dataset" in dataset_info:
+                datasets.append({"name": dataset_name,
+                                 "info": dataset_info["sr_dataset"].to_dict(self.base_dir, dataset_name)})
+            else:
+                datasets.append({"name": dataset_name,
+                                 "info": dataset_info})
+
+        output = {"datasets": datasets,
+                  "metadata": self.metadata,
+                  "name": self.benchmark_name}
+
+        with open(f"{self.base_dir}/dataset_info.json", "w") as f:
+            json.dump(output, f)
+
+
+    @staticmethod
+    def load_benchmark(base_dir: str, augmenter_map: dict):
+        with open(f"{base_dir}/dataset_info.json", "r") as f:
+            data = json.load(f)
+
+        datasets = []
+        for dataset_info in data["datasets"]:
+            datasets.append((dataset_info["name"], SR_dataset.from_dict(dataset_info["info"], augmenter_map)))
+
+        return SR_benchmark(data["name"], base_dir, datasets, data["metadata"])
 
     @staticmethod
     def feynman(dataset_directory: str, seed: Optional[int] = None) -> "SR_benchmark":

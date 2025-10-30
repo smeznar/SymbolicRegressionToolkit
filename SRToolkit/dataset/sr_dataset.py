@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional, Union
 
 import numpy as np
@@ -176,3 +177,88 @@ class SR_dataset:
 
     # Once SR_approach base class is implemented, we can add a function to run experiments
     # def run_experiments(self, approach: SR_approach, num_runs: int=10):
+
+    def to_dict(self, base_path: str, name: str):
+        output = {
+            "symbol_library": self.symbol_library.to_dict(),
+            "ranking_function": self.ranking_function,
+            "max_evaluations": self.max_evaluations,
+            "success_threshold": self.success_threshold,
+            "original_equation": self.original_equation,
+            "seed": self.seed,
+            "dataset_metadata": self.dataset_metadata,
+            "kwargs": self.kwargs
+        }
+
+        if self.result_augmenters is None:
+            output["result_augmenters"] = None
+        else:
+            output["result_augmenters"] = [ag.to_dict(base_path, name) for ag in self.result_augmenters]
+
+        if not os.path.isdir(base_path):
+            os.makedirs(base_path)
+
+        if self.ground_truth is None:
+            output["ground_truth"] = None
+        else:
+            if isinstance(self.ground_truth, list):
+                output["ground_truth"] = self.ground_truth
+            elif isinstance(self.ground_truth, Node):
+                output["ground_truth"] = self.ground_truth.to_list()
+            elif isinstance(self.ground_truth, np.ndarray) and not os.path.exists(f"{base_path}/{name}_gt.npy"):
+                np.save(f"{base_path}/{name}_gt.npy", self.ground_truth)
+                output["ground_truth"] = f"{base_path}/{name}_gt.npy"
+
+        if not os.path.exists(f"{base_path}/{name}.npz"):
+            if self.y is None:
+                np.savez(f"{base_path}/{name}.npz", X=self.X)
+            else:
+                np.savez(f"{base_path}/{name}.npz", X=self.X, y=self.y)
+            output["dataset_path"] = f"{base_path}/{name}.npz"
+
+        return output
+
+    @staticmethod
+    def from_dict(d: dict, augmentation_map: dict):
+        try:
+            data = np.load(d["dataset_path"])
+            X = data["X"]
+            if "y" in data:
+                y = data["y"]
+            else:
+                y = None
+        except:
+            raise Exception(f"[SR_dataset.from_dict] Could not load dataset from {d['dataset_path']}")
+
+        if "ground_truth" in d and isinstance(d["ground_truth"], list) or d["ground_truth"] is None:
+            ground_truth = d["ground_truth"]
+        else:
+            try:
+                ground_truth = np.load(d["ground_truth"])
+            except:
+                raise Exception(f"[SR_dataset.from_dict] Could not load ground truth from {d['ground_truth']}")
+
+        if not "result_augmenters" in d:
+            raise Exception("[SR_dataset.from_dict] Could not find result_augmenters keyword in the provided dictionary.")
+
+        if d["result_augmenters"] is None:
+            result_augmenters = None
+        else:
+            result_augmenters = [augmentation_map[ag_data["type"]].from_dict(ag_data, augmentation_map)
+                                 for ag_data in d["result_augmenters"]]
+
+        try:
+            return SR_dataset(X,
+                              SymbolLibrary.from_dict(d["symbol_library"]),
+                              ranking_function=d["ranking_function"],
+                              y=y,
+                              max_evaluations=d["max_evaluations"],
+                              ground_truth=ground_truth,
+                              original_equation=d["original_equation"],
+                              success_threshold=d["success_threshold"],
+                              result_augmenters=result_augmenters,
+                              seed=d["seed"],
+                              dataset_metadata=d["dataset_metadata"],
+                              **d["kwargs"])
+        except Exception as e:
+            raise Exception(f"[SR_dataset.from_dict] Error creating dataset: {e}")

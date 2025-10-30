@@ -1,12 +1,27 @@
+### SymbolicRegressionToolkit-1.4.0 (2025-10-28)
+
+- Updated documentation
+- Rewrote the SR_dataset and SR_benchmark classes
+- New readme and logo
+
+**New Features:**
+
+- Added ResultAugmenter to augment result of evaluation with additional measures, simplification of best expressions, etc.
+- Added distance measures
+- Added BED as a possible ranking measure for evaluation
+
+
 ### SymbolicRegressionToolkit-1.3.2 (2025-07-07)
 
 - Updated documentation
 
 **New Feature:**
+
 - Added a way to generate expressions
 - Expression simplification now more or less works
 
 **Bug Fixes:**
+
 - Feynman dataset and Nguyen datasets are now almost done
 - Small fixes to different functionalities
 

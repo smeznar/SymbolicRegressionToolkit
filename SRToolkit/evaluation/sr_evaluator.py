@@ -533,7 +533,7 @@ class SR_evaluator:
 
         return results
 
-    def to_dict(self, base_path, name) -> dict:
+    def to_dict(self, base_path: str, name: str) -> dict:
         """
         Creates a dictionary representation of the SR_evaluator.
 
@@ -596,7 +596,7 @@ class SR_evaluator:
 
         Raises:
             Exception: if unable to load data for X/y/ground truth data, if result augmenters provided but not the
-            augmenter map or if the result augmentor does not occur in the augmenter map.
+                augmenter map or if the result augmentor does not occur in the augmenter map.
         """
         try:
             X = np.load(data["X"])

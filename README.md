@@ -1,4 +1,4 @@
-# SRToolkit: Symbolic Regression & Equation Discovery Benchmark Toolkit
+# SRToolkit: Symbolic Regression / Equation Discovery Benchmark Toolkit
 
 ![SRToolkit logo](https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/refs/heads/master/docs/assets/imgs/logo.png)
 
@@ -16,7 +16,7 @@ SRToolkit provides a straightforward interface for:
 
 * **Benchmarking** Symbolic Regression algorithms using built-in datasets (currently **Feynman** and **Nguyen**) or **custom data**.
 
-* **Converting expressions** into **Abstract Syntax Trees (ASTs)** or **fast, callable NumPy functions**.
+* **Converting expressions** into **expression trees** or **fast, callable NumPy functions**.
 
 * **Generating random expressions** by defining the symbol space or a grammar.
 

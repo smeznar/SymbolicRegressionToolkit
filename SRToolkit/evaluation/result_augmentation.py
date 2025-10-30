@@ -1,14 +1,15 @@
 """
 This module contains the ResultAugmenter class and the result augmentation implementations that inherit from it.
+
+
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Type
 
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import simplify, tokens_to_tree
-
 
 class ResultAugmenter:
     def __init__(self):
@@ -40,7 +41,7 @@ class ResultAugmenter:
         """
         pass
 
-    def to_dict(self, base_path, name) -> dict:
+    def to_dict(self, base_path: str, name: str) -> dict:
         """
         Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
 
@@ -123,7 +124,7 @@ class ExpressionToLatex(ResultAugmenter):
 
         return results
 
-    def to_dict(self, base_path, name) -> dict:
+    def to_dict(self, base_path: str, name: str) -> dict:
         """
         Creates a dictionary representation of the ExpressionToLatex augmenter.
 
@@ -203,7 +204,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
         return results
 
-    def to_dict(self, base_path, name) -> dict:
+    def to_dict(self, base_path: str, name: str) -> dict:
         """
         Creates a dictionary representation of the ExpressionSimplifier augmenter.
 
@@ -285,7 +286,7 @@ class RMSE(ResultAugmenter):
             ]
         return results
 
-    def to_dict(self, base_path, name) -> dict:
+    def to_dict(self, base_path: str, name: str) -> dict:
         """
         Creates a dictionary representation of the RMSE augmenter.
 
@@ -297,7 +298,7 @@ class RMSE(ResultAugmenter):
             A dictionary containing the necessary information to recreate the augmenter.
         """
         # Save SR_evaluator
-        return {"type": "RMSE", "evaluator": self.evaluator.to_dict(base_path, name)}
+        return {"type": "RMSE", "evaluator": self.evaluator.to_dict(base_path, name+"_RMSE_augmenter")}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "RMSE":
@@ -361,7 +362,7 @@ class BED(ResultAugmenter):
             model["bed"] = self.evaluator.evaluate_expr(model["expr"])
         return results
 
-    def to_dict(self, base_path, name) -> dict:
+    def to_dict(self, base_path: str, name: str) -> dict:
         """
         Creates a dictionary representation of the BED augmenter.
 
@@ -373,7 +374,7 @@ class BED(ResultAugmenter):
             A dictionary containing the necessary information to recreate the augmenter.
         """
         # Save SR_evaluator
-        return {"type": "BED", "evaluator": self.evaluator.to_dict(base_path, name)}
+        return {"type": "BED", "evaluator": self.evaluator.to_dict(base_path, name+"_BED_augmenter")}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "BED":
@@ -454,7 +455,7 @@ class R2(ResultAugmenter):
         )
         return max(0, 1 - ss_res / self.ss_tot)
 
-    def to_dict(self, base_path, name) -> dict:
+    def to_dict(self, base_path: str, name: str) -> dict:
         """
         Creates a dictionary representation of the R2 augmenter.
 
@@ -466,7 +467,7 @@ class R2(ResultAugmenter):
             A dictionary containing the necessary information to recreate the augmenter.
         """
         # Save SR_evaluator
-        return {"type": "R2", "evaluator": self.evaluator.to_dict(base_path, name)}
+        return {"type": "R2", "evaluator": self.evaluator.to_dict(base_path, name+"_R2_augmenter")}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "R2":
@@ -482,3 +483,20 @@ class R2(ResultAugmenter):
         """
         evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
         return R2(evaluator)
+
+
+
+RESULT_AUGMENTERS: Dict[str, Type[ResultAugmenter]] = {
+    "ExpressionToLatex": ExpressionToLatex,
+    "RMSE": RMSE,
+    "BED": BED,
+    "R2": R2,
+    "ExpressionSimplifier": ExpressionSimplifier
+}
+"""A mapping of augmentation names to their corresponding ResultAugmenter classes.
+
+This constant defines the library of available result augmentation classes used across the benchmarking framework.
+
+The dictionary keys are the unique string identifiers for the augmentor found under the 'type' value in the to_dict 
+function. The values are the uninstantiated class objects, all of which inherit from ResultAugmenter.
+"""
