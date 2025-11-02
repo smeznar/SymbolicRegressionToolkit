@@ -9,9 +9,8 @@ Modules:
 """
 
 from .parameter_estimator import ParameterEstimator
-from .sr_evaluator import SR_evaluator
+from .sr_evaluator import SR_evaluator, ResultAugmenter
 from .result_augmentation import (
-    ResultAugmenter,
     ExpressionSimplifier,
     RMSE,
     R2,
