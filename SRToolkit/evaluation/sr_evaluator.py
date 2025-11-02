@@ -14,6 +14,63 @@ from SRToolkit.utils import Node, SymbolLibrary, simplify, create_behavior_matri
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 
 
+class ResultAugmenter:
+    def __init__(self):
+        """
+        Generic class that defines the interface for result augmentation. For examples, see the implementations of
+        this class.
+        """
+        pass
+
+    def augment_results(
+        self,
+        results: dict,
+        models: List[dict],
+        evaluator: "SR_evaluator",  # noqa: F821
+    ) -> dict:
+        """
+        Augments the results dictionary with additional information. The model variable contains all models, for only
+        top models, results["top_models"] should be used.
+
+        Args:
+            results: The dictionary containing the results to augment.
+            models: A list of dictionaries describing the performance of expressions using the base ranking function.
+                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
+                by error.
+            evaluator: The evaluator used to evaluate the models.
+
+        Returns:
+            The augmented results dictionary.
+        """
+        pass
+
+    def to_dict(self, base_path: str, name: str) -> dict:
+        """
+        Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
+
+        Args:
+            base_path: The base path used for saving the data inside the augmenter, if needed.
+            name: The name/identifier used by the augmenter for saving.
+
+        Returns:
+            A dictionary containing the necessary information to recreate the augmenter.
+        """
+
+    @staticmethod
+    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ResultAugmenter":
+        """
+        Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
+
+        Args:
+            data: the dictionary containing the data needed to recreate the augmenter.
+            augmenter_map: A dictionary mapping augmenter names to their classes.
+
+        Returns:
+            An instance of the ResultAugmenter class with the same configuration as in the data dictionary.
+        """
+        pass
+
+
 class SR_evaluator:
     def __init__(
         self,
@@ -634,59 +691,3 @@ class SR_evaluator:
 
 
 # TODO: Function that takes in the results output and creates a pareto front
-
-class ResultAugmenter:
-    def __init__(self):
-        """
-        Generic class that defines the interface for result augmentation. For examples, see the implementations of
-        this class.
-        """
-        pass
-
-    def augment_results(
-        self,
-        results: dict,
-        models: List[dict],
-        evaluator: SR_evaluator,  # noqa: F821
-    ) -> dict:
-        """
-        Augments the results dictionary with additional information. The model variable contains all models, for only
-        top models, results["top_models"] should be used.
-
-        Args:
-            results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
-            evaluator: The evaluator used to evaluate the models.
-
-        Returns:
-            The augmented results dictionary.
-        """
-        pass
-
-    def to_dict(self, base_path: str, name: str) -> dict:
-        """
-        Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
-
-        Args:
-            base_path: The base path used for saving the data inside the augmenter, if needed.
-            name: The name/identifier used by the augmenter for saving.
-
-        Returns:
-            A dictionary containing the necessary information to recreate the augmenter.
-        """
-
-    @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ResultAugmenter":
-        """
-        Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
-
-        Args:
-            data: the dictionary containing the data needed to recreate the augmenter.
-            augmenter_map: A dictionary mapping augmenter names to their classes.
-
-        Returns:
-            An instance of the ResultAugmenter class with the same configuration as in the data dictionary.
-        """
-        pass
