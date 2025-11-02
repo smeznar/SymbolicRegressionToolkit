@@ -1,72 +1,15 @@
 """
-This module contains the ResultAugmenter class and the result augmentation implementations that inherit from it.
-
-
+This module contains the implementations of the ResultAugmenter class. These implementations augment the results
+dictionary returned by the SRToolkit.evaluate function with additional information, such as the LaTeX representation
+of the best expression, or RMSE on the test set, ...
 """
 
 from typing import List, Optional, Dict, Type
 
 import numpy as np
 
-from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
 from SRToolkit.utils import simplify, tokens_to_tree
-
-class ResultAugmenter:
-    def __init__(self):
-        """
-        Generic class that defines the interface for result augmentation. For examples, see the implementations of
-        this class.
-        """
-        pass
-
-    def augment_results(
-        self,
-        results: dict,
-        models: List[dict],
-        evaluator: "SR_evaluator",  # noqa: F821
-    ) -> dict:
-        """
-        Augments the results dictionary with additional information. The model variable contains all models, for only
-        top models, results["top_models"] should be used.
-
-        Args:
-            results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
-            evaluator: The evaluator used to evaluate the models.
-
-        Returns:
-            The augmented results dictionary.
-        """
-        pass
-
-    def to_dict(self, base_path: str, name: str) -> dict:
-        """
-        Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
-
-        Args:
-            base_path: The base path used for saving the data inside the augmenter, if needed.
-            name: The name/identifier used by the augmenter for saving.
-
-        Returns:
-            A dictionary containing the necessary information to recreate the augmenter.
-        """
-
-    @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ResultAugmenter":
-        """
-        Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
-
-        Args:
-            data: the dictionary containing the data needed to recreate the augmenter.
-            augmenter_map: A dictionary mapping augmenter names to their classes.
-
-        Returns:
-            An instance of the ResultAugmenter class with the same configuration as in the data dictionary.
-        """
-        pass
-
 
 class ExpressionToLatex(ResultAugmenter):
     def __init__(self, only_best_expression: bool = False, verbose: bool = False):
@@ -86,7 +29,7 @@ class ExpressionToLatex(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: "SR_evaluator",  # noqa: F821
+        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
@@ -170,7 +113,7 @@ class ExpressionSimplifier(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: "SR_evaluator",  # noqa: F821
+        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Simplifies the expressions inside the results dictionary if possible.
@@ -232,7 +175,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
 
 class RMSE(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator):  # noqa: F821
         """
         Computes the RMSE for the top models in the results dictionary.
 
@@ -258,7 +201,7 @@ class RMSE(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: "SR_evaluator",  # noqa: F821
+        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Computes the RMSE for the top models in the results dictionary.
@@ -317,7 +260,7 @@ class RMSE(ResultAugmenter):
 
 
 class BED(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator):  # noqa: F821
         """
         Computes BED for the top models in the results dictionary.
 
@@ -339,7 +282,7 @@ class BED(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: "SR_evaluator",  # noqa: F821
+        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Computes BED for the top models in the results dictionary.
@@ -393,7 +336,7 @@ class BED(ResultAugmenter):
 
 
 class R2(ResultAugmenter):
-    def __init__(self, evaluator: "SR_evaluator"):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator):  # noqa: F821
         """
         Computes the R^2 for the top models in the results dictionary.
 
@@ -421,7 +364,7 @@ class R2(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: "SR_evaluator",  # noqa: F821
+        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Computes the R^2 for the top models in the results dictionary.

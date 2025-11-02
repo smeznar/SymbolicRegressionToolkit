@@ -9,14 +9,14 @@ from zipfile import ZipFile
 import numpy as np
 
 from SRToolkit.dataset import SR_dataset
-from SRToolkit.evaluation import ResultAugmenter
+from SRToolkit.evaluation import ResultAugmenter, RESULT_AUGMENTERS
 from SRToolkit.utils import SymbolLibrary, Node, expr_to_executable_function
 
 
 class SR_benchmark:
     def __init__(self, benchmark_name: str, base_dir: str,
                  datasets: List[Union[SR_dataset, Tuple[str, SR_dataset]]] = None,
-                 metadata: dict = None):
+                 augmentation_map: dict = None, metadata: dict = None):
         """
         Initializes an instance of the SR_benchmark class.
 
@@ -26,6 +26,7 @@ class SR_benchmark:
             datasets: A list of SR_dataset instances or tuples containing the name of the dataset and an instance of
                 SR_dataset. When name of the dataset is not provided, the dataset will be named
                 'benchmark_name'_'index of dataset in the list + 1'
+            augmentation_map: A dictionary mapping augmenter names to their respective classes.
             metadata: An optional dictionary containing metadata about this benchmark. This could include information
                 such as the name of the benchmark, a citation for the benchmark, number of datasets, etc.
 
@@ -35,6 +36,8 @@ class SR_benchmark:
         """
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
+        if augmentation_map is None:
+            self.augmentation_map = RESULT_AUGMENTERS
         self.datasets = {}
         self.metadata = {} if metadata is None else metadata
         if datasets is not None:
@@ -267,37 +270,11 @@ class SR_benchmark:
             if "sr_dataset" in self.datasets[dataset_name]:
                 return self.datasets[dataset_name]["sr_dataset"]
             else:
-                if os.path.exists(self.datasets[dataset_name]["dataset_path"]):
-                    data = np.load(self.datasets[dataset_name]["dataset_path"], allow_pickle=True)
-                elif os.path.exists(self.datasets[dataset_name]["dataset_path"][:-4]):
-                    data = np.load(self.datasets[dataset_name]["path"][:-4], allow_pickle=True)
-                else:
-                    raise ValueError(f"[SR_benchmark.create_dataset] Could not find dataset {dataset_name} at "
-                                     f"{self.datasets[dataset_name]['dataset_path']}")
-
-                if self.datasets[dataset_name]["ranking_function"] == "rmse":
-                    X = data["X"]
-                    y = data["y"]
-
-                elif self.datasets[dataset_name]["ranking_function"] == "bed":
-                    X = data["X"]
-                    y = None
-                else:
-                    raise ValueError(f"The ranking function '{self.datasets[dataset_name]['ranking_function']}' "
-                                 f"must be either 'rmse' or 'bed'.")
-
-                return SR_dataset(X,
-                                  symbol_library=self.datasets[dataset_name]["symbol_library"],
-                                  ranking_function=self.datasets[dataset_name]["ranking_function"],
-                                  y=y,
-                                  max_evaluations= self.datasets[dataset_name]["max_evaluations"],
-                                  ground_truth = self.datasets[dataset_name]["ground_truth"],
-                                  original_equation = self.datasets[dataset_name]["original_equation"],
-                                  success_threshold = self.datasets[dataset_name]["success_threshold"],
-                                  result_augmenter = self.datasets[dataset_name]["result_augmenters"],
-                                  seed = self.datasets[dataset_name]["seed"],
-                                  dataset_metadata = self.datasets[dataset_name]["dataset_metadata"],
-                                  **self.datasets[dataset_name]["kwargs"])
+                try:
+                    return SR_dataset.from_dict(self.datasets[dataset_name], self.augmentation_map)
+                except Exception as e:
+                    raise ValueError(f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
+                                     f"given dictionary. Original error: {e}")
 
         else:
             raise ValueError(f"Dataset {dataset_name} not found")
@@ -387,11 +364,13 @@ class SR_benchmark:
         with open(f"{base_dir}/dataset_info.json", "r") as f:
             data = json.load(f)
 
-        datasets = []
+        datasets = {}
         for dataset_info in data["datasets"]:
-            datasets.append((dataset_info["name"], SR_dataset.from_dict(dataset_info["info"], augmenter_map)))
+            datasets[dataset_info["name"]] = dataset_info["info"]
 
-        return SR_benchmark(data["name"], base_dir, datasets, data["metadata"])
+        benchmark = SR_benchmark(data["name"], base_dir, metadata=data["metadata"])
+        benchmark.datasets = datasets
+        return benchmark
 
     @staticmethod
     def feynman(dataset_directory: str, seed: Optional[int] = None) -> "SR_benchmark":
