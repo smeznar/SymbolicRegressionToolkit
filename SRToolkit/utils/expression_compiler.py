@@ -14,6 +14,7 @@ import numpy as np  # noqa: F401
 def expr_to_executable_function(
     expr: Union[List[str], Node],
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    preamble: List[str] = None,
 ) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
     """
     Converts an expression in infix notation to an executable function.
@@ -32,10 +33,18 @@ def expr_to_executable_function(
         >>> executable_fun = expr_to_executable_function(tree)
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
         array([2, 3, 4, 5])
+        >>> # In case you need libraries other than numpy for the evaluation of your expressions,
+        >>> # you can add them to the preamble. Here is how a preamble for numpy would look like:
+        >>> preamble = ["import numpy as np"]
+        >>> executable_fun = expr_to_executable_function(tree, preamble=preamble)
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
+        array([2, 3, 4, 5])
 
     Args:
         expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+        preamble: A list of strings containing Python code that will be executed before the expression is defined.
+            This can be used to import additional libraries or define constants.
 
     Raises:
         Exception: If expression is not of the right type
@@ -43,6 +52,9 @@ def expr_to_executable_function(
     Returns:
         An executable function that takes in a 2D array of input values and a 1D array of constant values and returns the output of the expression.
     """
+    if preamble is None:
+        preamble = ["import numpy as np"]
+
     if not (isinstance(expr, list) or isinstance(expr, Node)):
         raise Exception(
             "Expression must be given as either a list of tokens or a tree (an instance of the "
@@ -57,7 +69,7 @@ def expr_to_executable_function(
         tree, symbol_library
     )
 
-    fun_string = "def _executable_expression_(X, C):\n"
+    fun_string = "\n".join(preamble) + "\ndef _executable_expression_(X, C):\n"
     for c in code:
         fun_string += "\t" + c + "\n"
     fun_string += "\treturn " + symbol
@@ -70,6 +82,7 @@ def expr_to_executable_function(
 def expr_to_error_function(
     expr: Union[List[str], Node],
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    preamble: List[str] = None,
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
     """
     Converts an expression in infix notation to an executable function that returns the root mean squared error between
@@ -83,10 +96,18 @@ def expr_to_error_function(
         >>> executable_fun = expr_to_error_function(tree)
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
         0.0
+        >>> # In case you need libraries other than numpy for the evaluation of your expressions,
+        >>> # you can add them to the preamble. Here is how a preamble for numpy would look like:
+        >>> preamble = ["import numpy as np"]
+        >>> executable_fun = expr_to_error_function(tree, preamble=preamble)
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
+        0.0
 
     Args:
         expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
         symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+        preamble: A list of strings containing Python code that will be executed before the expression is defined. This
+            can be used to import additional libraries or define constants.
 
     Raises:
         Exception: If expression is not of the right type
@@ -94,6 +115,9 @@ def expr_to_error_function(
     Returns:
         An executable function that takes in a 2D array of input values `X`, a 1D array of constant values `C`, and a 1D array of target values `y`. It returns the root mean squared error between the output of the expression and the target values.
     """
+    if preamble is None:
+        preamble = ["import numpy as np"]
+
     if not (isinstance(expr, list) or isinstance(expr, Node)):
         raise Exception(
             "Expression must be given as either a list of tokens or a tree (an instance of the "
@@ -108,7 +132,7 @@ def expr_to_error_function(
         tree, symbol_library
     )
 
-    fun_string = "def _executable_expression_(X, C, y):\n"
+    fun_string = "\n".join(preamble) + "\ndef _executable_expression_(X, C, y):\n"
     for c in code:
         fun_string += "\t" + c + "\n"
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
