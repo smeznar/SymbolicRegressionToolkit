@@ -7,7 +7,7 @@ from typing import List, Dict
 
 
 class SymbolLibrary:
-    def __init__(self):
+    def __init__(self, preamble: List[str] = None):
         """
         Initializes an instance of the SymbolLibrary class. This class is used for managing symbols and their
         properties for other functionality in this package.
@@ -42,6 +42,10 @@ class SymbolLibrary:
             default_symbols():
                 Returns a SymbolLibrary with the default symbols.
         """
+        if preamble is None:
+            self.preamble = ["import numpy as np"]
+        else:
+            self.preamble = preamble
         self.symbols = dict()
         self.num_variables = 0
 
@@ -517,6 +521,7 @@ class SymbolLibrary:
         """
         return {"type": "SymbolLibrary",
                 "symbols": self.symbols,
+                "preamble": self.preamble,
                 "num_variables": self.num_variables}
 
     @staticmethod
@@ -532,6 +537,7 @@ class SymbolLibrary:
         """
         sl = SymbolLibrary()
         sl.symbols = d["symbols"]
+        sl.preamble = d["preamble"]
         sl.num_variables = d["num_variables"]
         return sl
 

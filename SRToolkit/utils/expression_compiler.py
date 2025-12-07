@@ -57,7 +57,7 @@ def expr_to_executable_function(
         tree, symbol_library
     )
 
-    fun_string = "def _executable_expression_(X, C):\n"
+    fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C):\n"
     for c in code:
         fun_string += "\t" + c + "\n"
     fun_string += "\treturn " + symbol
@@ -108,7 +108,7 @@ def expr_to_error_function(
         tree, symbol_library
     )
 
-    fun_string = "def _executable_expression_(X, C, y):\n"
+    fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C, y):\n"
     for c in code:
         fun_string += "\t" + c + "\n"
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
