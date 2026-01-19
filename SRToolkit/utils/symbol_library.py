@@ -546,6 +546,7 @@ class SymbolLibrary:
         """
         return {"type": "SymbolLibrary",
                 "symbols": self.symbols,
+                "preamble": self.preamble,
                 "num_variables": self.num_variables}
 
     @staticmethod
@@ -561,6 +562,7 @@ class SymbolLibrary:
         """
         sl = SymbolLibrary()
         sl.symbols = d["symbols"]
+        sl.preamble = d["preamble"]
         sl.num_variables = d["num_variables"]
         return sl
 

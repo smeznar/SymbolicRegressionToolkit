@@ -133,12 +133,12 @@ class SR_benchmark:
             dataset_name = f"{self.benchmark_name}_{len(self.datasets)}+1"
 
         self.datasets[dataset_name] = {}
-        self.datasets[dataset_name]["symbol_library"] = symbol_library
+        self.datasets[dataset_name]["symbol_library"] = symbol_library.to_dict()
         self.datasets[dataset_name]["ranking_function"] = ranking_function
         self.datasets[dataset_name]["max_evaluations"] = max_evaluations
 
         self.datasets[dataset_name]["success_threshold"] = success_threshold
-        self.datasets[dataset_name]["result_augmenters"] = result_augmenters
+        self.datasets[dataset_name]["result_augmenters"] = [re.to_dict(self.base_dir, dataset_name) for re in result_augmenters]
         self.datasets[dataset_name]["seed"] = seed
         self.datasets[dataset_name]["dataset_metadata"] = copy.deepcopy(self.metadata).update(dataset_metadata)
 
@@ -1950,7 +1950,7 @@ class SR_benchmark:
         Nguyen equations, each represented with its symbolic tokens and associated symbol library.
 
         Examples:
-            >>> benchmark = SR_benchmark.nguyen('data/nguyen')
+            >>> benchmark = SR_benchmark.nguyen('data/nguyen/')
             >>> for dataset in benchmark.list_datasets(verbose=False):
             ...     ds = benchmark.create_dataset(dataset)
             ...     rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
@@ -2142,3 +2142,12 @@ class SR_benchmark:
 		)
 
         return benchmark
+
+
+if __name__ == '__main__':
+    benchmark = SR_benchmark.feynman('../../data/feynman/')
+    for dataset in benchmark.list_datasets(verbose=False):
+        ds = benchmark.create_dataset(dataset)
+        rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
+        if rmse > ds.success_threshold:
+            print(f'Failed dataset: {dataset} with RMSE {rmse}')
