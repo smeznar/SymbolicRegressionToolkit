@@ -3,14 +3,18 @@ This module contains the SymbolLibrary class, which is used for managing symbols
 """
 
 import copy
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 class SymbolLibrary:
-    def __init__(self):
+    def __init__(self, symbols: List[str]=None, num_variables: int = 0, preamble: List[str]=None):
         """
         Initializes an instance of the SymbolLibrary class. This class is used for managing symbols and their
         properties for other functionality in this package.
+
+        By default, the library uses the numpy package for inference of operators, functions, and numpy arrays as the
+        data structure for data and constants. If you want to define these symbols using other libraries, you should
+        populate the preamble argument with the import statements for those libraries.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -23,6 +27,19 @@ class SymbolLibrary:
             'x'
             >>> library.remove_symbol("x")
             >>> library = SymbolLibrary.default_symbols()
+            >>> # You can also initialize the library with a list of symbols (listed in SymbolLibrary.default_symbols)
+            >>> # and the number of variables.
+            >>> library2 = SymbolLibrary(["+", "*", "sin"], num_variables=2)
+            >>> len(library2)
+            5
+
+        Args:
+            symbols: A list of symbols to be added to the library. If None, the library is initialized with no symbols.
+                Check the SymbolLibrary.default_symbols() function for a list of supported symbols.
+            num_variables: The number of variables to add to the library. If None, the library is initialized with ]
+                no variables. Variables added this way will be labeled 'X_0', 'X_1', ..., 'X_{num_variables-1}'.
+            preamble: A list of import statements for libraries used in the preamble of the generated function. If
+                None, the preamble is set to ["import numpy as np"].
 
         Attributes:
             symbols : dict
@@ -42,8 +59,20 @@ class SymbolLibrary:
             default_symbols():
                 Returns a SymbolLibrary with the default symbols.
         """
-        self.symbols = dict()
-        self.num_variables = 0
+        if preamble is None:
+            self.preamble = ["import numpy as np"]
+        else:
+            self.preamble = preamble
+
+        if symbols is None and num_variables == 0:
+            self.symbols = dict()
+            self.num_variables = 0
+        else:
+            if symbols is None:
+                symbols = []
+
+            self.symbols = SymbolLibrary.from_symbol_list(symbols, num_variables).symbols
+            self.num_variables = num_variables
 
     def add_symbol(
         self,
