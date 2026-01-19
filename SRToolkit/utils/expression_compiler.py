@@ -7,9 +7,7 @@ from typing import List, Tuple, Union, Callable
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
-# Generated functions are defined (through exec) here, so numpy needs to be imported
-import numpy as np  # noqa: F401
-
+import numpy as np
 
 def expr_to_executable_function(
     expr: Union[List[str], Node],
@@ -30,6 +28,14 @@ def expr_to_executable_function(
         array([1, 1, 1, 1])
         >>> tree = tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1))
         >>> executable_fun = expr_to_executable_function(tree)
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
+        array([2, 3, 4, 5])
+        >>> # In case you need libraries other than numpy for the evaluation of your expressions,
+        >>> # you can add them to the preamble in the SymbolLibrary. Here is how a preamble would look like:
+        >>> symbol_library = SymbolLibrary.default_symbols(1)
+        >>> symbol_library.preamble = ["import numpy as np"]
+        >>> # Usually this is done when initializing the SymbolLibrary as SymbolLibrary(preamble=preamble)
+        >>> executable_fun = expr_to_executable_function(tree, symbol_library)
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
         array([2, 3, 4, 5])
 
@@ -81,6 +87,14 @@ def expr_to_error_function(
         0.0
         >>> tree = tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1))
         >>> executable_fun = expr_to_error_function(tree)
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
+        0.0
+        >>> # In case you need libraries other than numpy for the evaluation of your expressions,
+        >>> # you can add them to the preamble in the SymbolLibrary. Here is how a preamble would look like:
+        >>> symbol_library = SymbolLibrary.default_symbols(1)
+        >>> symbol_library.preamble = ["import numpy as np"]
+        >>> # Usually this is done when initializing the SymbolLibrary as SymbolLibrary(preamble=preamble)
+        >>> executable_fun = expr_to_error_function(tree, symbol_library)
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
         0.0
 
