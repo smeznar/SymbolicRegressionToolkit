@@ -625,4 +625,6 @@ class SymbolLibrary:
         """
         sl = SymbolLibrary()
         sl.symbols = copy.deepcopy(self.symbols)
+        sl.preamble = self.preamble
+        sl.num_variables = self.num_variables
         return sl

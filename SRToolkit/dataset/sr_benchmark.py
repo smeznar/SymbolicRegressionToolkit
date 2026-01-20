@@ -15,10 +15,16 @@ from SRToolkit.utils import SymbolLibrary, Node, expr_to_executable_function
 
 class SR_benchmark:
     def __init__(self, benchmark_name: str, base_dir: str,
-                 datasets: List[Union[SR_dataset, Tuple[str, SR_dataset]]] = None,
+                 datasets: Optional[List[Union[SR_dataset, Tuple[str, SR_dataset]]]] = None,
                  augmentation_map: dict = None, metadata: dict = None):
         """
-        Initializes an instance of the SR_benchmark class.
+        Initializes an instance of the SR_benchmark class. You can find examples of how to use this class in the
+        feynman and nguyen methods below.
+
+        Examples:
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
+            >>> len(benchmark.list_datasets(verbose=False))
+            100
 
         Args:
             benchmark_name: The name of this benchmark.
@@ -54,10 +60,25 @@ class SR_benchmark:
         """
         Adds an instance of the SR_dataset class to the benchmark.
 
+        Examples:
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
+            >>> dataset = benchmark.create_dataset('I.16.6')
+            >>> isinstance(dataset, SR_dataset)
+            True
+            >>> bm = SR_benchmark("BM", "data/bm")
+            >>> bm.add_dataset_instance("I.16.6", dataset)
+
         Args:
              dataset_name: The name of the dataset.
              dataset: An instance of the SR_dataset class.
+
+        Raises:
+            Exception: If the dataset name already exists in the benchmark.
         """
+        if dataset_name in self.datasets:
+            raise ValueError(f"Dataset {dataset_name} already exists in the benchmark.")
+        else:
+            self.datasets[dataset_name] = {}
         self.datasets[dataset_name]["sr_dataset"] = dataset
         self.datasets[dataset_name]["num_variables"] = dataset.X.shape[1]
 
@@ -78,6 +99,17 @@ class SR_benchmark:
     ):
         """
         Adds a dataset to the benchmark.
+
+        Examples:
+            >>> fey_benchmark = SR_benchmark.feynman('data/feynman')
+            >>> benchmark = SR_benchmark("BM", "data/bm")
+            >>> benchmark.add_dataset("data/feynman/I.14.3.npz", SymbolLibrary.default_symbols(3),
+            ...       dataset_name="I.14.3", ranking_function="rmse", ground_truth = ["X_0", "*", "X_1", "*", "X_2"],
+            ...       original_equation="U = m*g*z", max_evaluations=100000, max_expression_length=50,
+            ...       success_threshold=1e-7, dataset_metadata={}, constant_range=[-5.0, 5.0], result_augmenters=[],
+            ...       seed = 42)
+            >>> len(benchmark.list_datasets(verbose=False))
+            1
 
         Args:
             dataset: Data used in the dataset. Can be:
@@ -128,9 +160,16 @@ class SR_benchmark:
             num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
             domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to
                 sample random points. Default is None.
+
+        Raises:
+            ValueError: When BED ranking function is used but ground truth is not provided. When dataset is given as
+                a string (directory) that doesn't exist, is not a valid .npz file, or is a .npz file that doesn't
+                contain one array for the BED ranking function (X) or two array for the RMSE ranking function (X, y).
+                When the argument dataset is an array, ranking function RMSE and there is no ground truth or the
+                expression given as the ground truth cannot be evaluated...
         """
         if dataset_name is None:
-            dataset_name = f"{self.benchmark_name}_{len(self.datasets)}+1"
+            dataset_name = f"{self.benchmark_name}_{len(self.datasets)+1}"
 
         self.datasets[dataset_name] = {}
         self.datasets[dataset_name]["symbol_library"] = symbol_library.to_dict()
@@ -141,6 +180,9 @@ class SR_benchmark:
         self.datasets[dataset_name]["result_augmenters"] = [re.to_dict(self.base_dir, dataset_name) for re in result_augmenters]
         self.datasets[dataset_name]["seed"] = seed
         self.datasets[dataset_name]["dataset_metadata"] = copy.deepcopy(self.metadata).update(dataset_metadata)
+
+        if "bed_X" in kwargs and kwargs["bed_X"] is not None:
+            kwargs["bed_X"] = kwargs["bed_X"].tolist()
 
         self.datasets[dataset_name]["kwargs"] = kwargs
         self.datasets[dataset_name]["original_equation"] = original_equation
@@ -185,7 +227,7 @@ class SR_benchmark:
             except IOError as e:
                 error_msg = (
                     f"[SR_benchmark.add_dataset] Could not load dataset from path '{self.datasets[dataset_name]}' "
-                    f"using np.load. The file may be corrupt or not a valid NumPy archive (.npz, .npy). "
+                    f"using np.load. The file may be corrupt or not a valid NumPy archive (.npz). "
                     f"Original error: {e}"
                 )
                 raise IOError(error_msg) from e
@@ -257,6 +299,12 @@ class SR_benchmark:
         """
         Creates an instance of a dataset from the given dataset name.
 
+        Examples:
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
+            >>> dataset = benchmark.create_dataset('I.16.6')
+            >>> dataset.X.shape
+            (10000, 3)
+
         Args:
             dataset_name: The name of the dataset to create.
 
@@ -283,6 +331,14 @@ class SR_benchmark:
         """
         Lists the available datasets.
 
+        Examples:
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
+            >>> len(benchmark.list_datasets(num_variables=2, verbose=False))
+            15
+            >>> datasets_with_8_vars = benchmark.list_datasets(num_variables=8, verbose=False)
+            >>> datasets_with_8_vars[0]
+            'II.36.38'
+
         Args:
             verbose (bool): If True, also prints out a description of each dataset.
             num_variables (int): If not -1, only show datasets with the given number of variables.
@@ -305,7 +361,11 @@ class SR_benchmark:
         )
 
         if verbose:
-            # TODO: Make all names be of equal length for nicer output
+            part1 = []
+            part2 = []
+            part3 = []
+            max_length_1 = 0
+            max_length_2 = 0
             for d in datasets:
                 if self.datasets[d]["num_variables"] == 1:
                     variable_str = "1 variable"
@@ -313,19 +373,29 @@ class SR_benchmark:
                     variable_str = "Amount of variables unknown"
                 else:
                     variable_str = f"{self.datasets[d]['num_variables']} variables"
+                part1.append(d+":")
+                part2.append(variable_str)
+                part3.append(self.datasets[d]["original_equation"])
+                if len(d)+1 > max_length_1:
+                    max_length_1 = len(d)+1
+                if len(variable_str) > max_length_2:
+                    max_length_2 = len(variable_str)
 
-                print(
-                    f"{d}:\t{variable_str}, \tExpression: {self.datasets[d]['original_equation']}"
-                )
+            for p1, p2, p3 in zip(part1, part2, part3):
+                print(f"{p1:<{max_length_1}} {p2:<{max_length_2}}, Expression: {p3}")
         return datasets
 
     @staticmethod
     def download_benchmark_data(url, directory_path):
-        # Check if directory_path exist
         """
         Downloads a benchmark dataset from the given url to the given directory path.
 
         This function will first check if the directory_path exists. If not, it will create it. Then it will check if the directory_path is empty. If it is not empty, it will not download the data. If it is empty, it will download the data from the given url and extract it to the directory_path.
+
+        Examples:
+            >>> url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
+            >>> dataset_directory = 'data/feynman'
+            >>> SR_benchmark.download_benchmark_data(url, dataset_directory)
 
         Args:
             url (str): The url of the benchmark dataset to download.
@@ -336,12 +406,21 @@ class SR_benchmark:
 
         # Check if directory_path is empty
         if not os.listdir(directory_path):
-            # Download data from the url to the directory_path
             http_response = urlopen(url)
             zipfile = ZipFile(BytesIO(http_response.read()))
             zipfile.extractall(path=directory_path)
 
     def save_benchmark(self):
+        """
+        Saves the benchmark to a json file. The json file will contain the metadata about datasets
+        and metadata of the benchmark. Data is not directly saved to the json file, but contains paths to the datasets.
+
+        Saved data can be loaded using SR_benchmark.load_benchmark method.
+
+        Examples:
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
+            >>> benchmark.save_benchmark()
+        """
         datasets = []
         for dataset_name, dataset_info in self.datasets.items():
             if "sr_dataset" in dataset_info:
@@ -360,7 +439,24 @@ class SR_benchmark:
 
 
     @staticmethod
-    def load_benchmark(base_dir: str, augmenter_map: dict):
+    def load_benchmark(base_dir: str) -> "SR_benchmark":
+        """
+        Loads a benchmark stored at the base directory, returning an instance of SR_benchmark.
+
+        Examples:
+            >>> b1 = SR_benchmark.feynman('data/feynman')
+            >>> b2 = SR_benchmark.load_benchmark('data/feynman')
+            >>> len(b1.list_datasets(verbose=False))
+            100
+            >>> len(b2.list_datasets(verbose=False))
+            100
+            >>> dataset_name = b2.list_datasets(verbose=False)[0]
+            >>> dataset = b2.create_dataset(dataset_name)
+            >>> rmse = dataset.create_evaluator().evaluate_expr(dataset.ground_truth)
+            >>> rmse < dataset.success_threshold
+            True
+
+        """
         with open(f"{base_dir}/dataset_info.json", "r") as f:
             data = json.load(f)
 
@@ -1027,7 +1123,7 @@ class SR_benchmark:
             dataset_name="II.35.18",
             ranking_function="rmse",
             ground_truth = ["X_0", "/", "(", "exp", "(", "X_3", "*", "X_4", "/", "(", "X_1", "*", "X_2", ")", ")", "+", "exp", "(", "u-", "X_3", "*", "X_4", "/", "(", "X_1", "*", "X_2", ")", ")", ")"], # noqa: F401
-            original_equation="n_0/(exp(mom*B/(kb*T))+exp(-mom*B/(kb*T)))",
+            original_equation="n = n_0/(exp(mom*B/(kb*T))+exp(-mom*B/(kb*T)))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1042,7 +1138,7 @@ class SR_benchmark:
             dataset_name="II.34.11",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_2", "/", "(", "2", "*", "X_3", ")"], # noqa: F401
-            original_equation="g_*q*B/(2*m)",
+            original_equation="omega = g_*q*B/(2*m)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1057,7 +1153,7 @@ class SR_benchmark:
             dataset_name="II.34.29a",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "/", "(", "4", "*", "pi", "*", "X_2", ")"], # noqa: F401
-            original_equation="q*h/(4*pi*m)",
+            original_equation="E_n = q*h/(4*pi*m)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1072,7 +1168,7 @@ class SR_benchmark:
             dataset_name="I.32.17",
             ranking_function="rmse",
             ground_truth = ["(", "0.5", "*", "X_0", "*", "X_1", "*", "X_2", "^2", ")", "*", "(", "8", "*", "pi", "*", "X_3", "^2", "/", "3", ")", "*", "(", "(", "X_4", "^2", "*", "X_4", "^2", ")", "/", "(", "X_4", "^2", "-", "X_5", "^2", ")", "^2", ")"], # noqa: F401
-            original_equation="(1/2*epsilon*c*Ef**2)*(8*pi*r**2/3)*(omega**4/(omega**2-omega_0**2)**2)",
+            original_equation="Pwr = (1/2*epsilon*c*Ef**2)*(8*pi*r**2/3)*(omega**4/(omega**2-omega_0**2)**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1087,7 +1183,7 @@ class SR_benchmark:
             dataset_name="II.35.21",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "tanh", "(", "X_1", "*", "X_2", "/", "(", "X_3", "*", "X_4", ")", ")"], # noqa: F401
-            original_equation="n_rho*mom*tanh(mom*B/(kb*T))",
+            original_equation="M = n_rho*mom*tanh(mom*B/(kb*T))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1102,7 +1198,7 @@ class SR_benchmark:
             dataset_name="I.44.4",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_2", "*", "ln", "(", "X_4", "/", "X_3", ")"], # noqa: F401
-            original_equation="n*kb*T*ln(V2/V1)",
+            original_equation="E_n = n*kb*T*ln(V2/V1)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1117,7 +1213,7 @@ class SR_benchmark:
             dataset_name="III.4.32",
             ranking_function="rmse",
             ground_truth = ["1", "/", "(", "exp", "(", "(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "*", "X_1", "/", "(", "X_2", "*", "X_3", ")", ")", "-", "1", ")"], # noqa: F401
-            original_equation="1/(exp((h/(2*pi))*omega/(kb*T))-1)",
+            original_equation="n = 1/(exp((h/(2*pi))*omega/(kb*T))-1)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1132,7 +1228,7 @@ class SR_benchmark:
             dataset_name="II.10.9",
             ranking_function="rmse",
             ground_truth = ["(", "X_0", "/", "X_1", ")", "*", "1", "/", "(", "1", "+", "X_2", ")"], # noqa: F401
-            original_equation="sigma_den/epsilon*1/(1+chi)",
+            original_equation="Ef = sigma_den/epsilon*1/(1+chi)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1147,7 +1243,7 @@ class SR_benchmark:
             dataset_name="II.38.3",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_3", "/", "X_2"], # noqa: F401
-            original_equation="Y*A*x/d",
+            original_equation="F = Y*A*x/d",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1162,7 +1258,7 @@ class SR_benchmark:
             dataset_name="I.6.2b",
             ranking_function="rmse",
             ground_truth = ["exp", "(", "u-", "(", "(", "(", "X_1", "-", "X_2", ")", "/", "X_0", ")", "^2", ")", "/", "2", ")", "/", "(", "sqrt", "(", "2", "*", "pi", ")", "*", "X_0", ")"], # noqa: F401
-            original_equation="exp(-((theta-theta1)/sigma)**2/2)/(sqrt(2*pi)*sigma)",
+            original_equation="f = exp(-((theta-theta1)/sigma)**2/2)/(sqrt(2*pi)*sigma)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1177,7 +1273,7 @@ class SR_benchmark:
             dataset_name="II.8.31",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "^2", "/", "2"], # noqa: F401
-            original_equation="epsilon*Ef**2/2",
+            original_equation="E_den = epsilon*Ef**2/2",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1192,7 +1288,7 @@ class SR_benchmark:
             dataset_name="I.6.2a",
             ranking_function="rmse",
             ground_truth = ["exp", "(", "u-", "X_0", "^2", "/", "2", ")", "/", "sqrt", "(", "2", "*", "pi", ")"], # noqa: F401
-            original_equation="exp(-theta**2/2)/sqrt(2*pi)",
+            original_equation="f = exp(-theta**2/2)/sqrt(2*pi)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1207,7 +1303,7 @@ class SR_benchmark:
             dataset_name="III.12.43",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "X_1", "/", "(", "2", "*", "pi", ")", ")"], # noqa: F401
-            original_equation="n*(h/(2*pi))",
+            original_equation="L = n*(h/(2*pi))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1222,7 +1318,7 @@ class SR_benchmark:
             dataset_name="III.17.37",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "1", "+", "X_1", "*", "cos", "(", "X_2", ")", ")"], # noqa: F401
-            original_equation="beta*(1+alpha*cos(theta))",
+            original_equation="f = beta*(1+alpha*cos(theta))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1237,7 +1333,7 @@ class SR_benchmark:
             dataset_name="III.10.19",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "sqrt", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"], # noqa: F401
-            original_equation="mom*sqrt(Bx**2+By**2+Bz**2)",
+            original_equation="E_n = mom*sqrt(Bx**2+By**2+Bz**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1252,7 +1348,7 @@ class SR_benchmark:
             dataset_name="II.11.7",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "1", "+", "X_4", "*", "X_5", "*", "cos", "(", "X_3", ")", "/", "(", "X_1", "*", "X_2", ")", ")"], # noqa: F401
-            original_equation="n_0*(1+p_d*Ef*cos(theta)/(kb*T))",
+            original_equation="n = n_0*(1+p_d*Ef*cos(theta)/(kb*T))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1267,7 +1363,7 @@ class SR_benchmark:
             dataset_name="I.39.1",
             ranking_function="rmse",
             ground_truth = ["1.5", "*", "X_0", "*", "X_1"], # noqa: F401
-            original_equation="3/2*pr*V",
+            original_equation="E_n = 3/2*pr*V",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1282,7 +1378,7 @@ class SR_benchmark:
             dataset_name="II.37.1",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "1", "+", "X_2", ")", "*", "X_1"], # noqa: F401
-            original_equation="mom*(1+chi)*B",
+            original_equation="E_n = mom*(1+chi)*B",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1297,7 +1393,7 @@ class SR_benchmark:
             dataset_name="I.12.4",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", "^3", ")"], # noqa: F401
-            original_equation="q1*r/(4*pi*epsilon*r**3)",
+            original_equation="Ef = q1*r/(4*pi*epsilon*r**3)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1312,7 +1408,7 @@ class SR_benchmark:
             dataset_name="II.27.18",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "^2"], # noqa: F401
-            original_equation="epsilon*Ef**2",
+            original_equation="E_den = epsilon*Ef**2",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1327,7 +1423,7 @@ class SR_benchmark:
             dataset_name="I.12.2",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_3", "/", "(", "4", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"], # noqa: F401
-            original_equation="q1*q2*r/(4*pi*epsilon*r**3)",
+            original_equation="F = q1*q2*r/(4*pi*epsilon*r**3)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1342,7 +1438,7 @@ class SR_benchmark:
             dataset_name="III.13.18",
             ranking_function="rmse",
             ground_truth = ["2", "*", "X_0", "*", "X_1", "^2", "*", "X_2", "/", "(", "X_3", "/", "(", "2", "*", "pi", ")", ")"], # noqa: F401
-            original_equation="2*E_n*d**2*k/(h/(2*pi))",
+            original_equation="v = 2*E_n*d**2*k/(h/(2*pi))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1357,7 +1453,7 @@ class SR_benchmark:
             dataset_name="II.11.3",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "/", "(", "X_2", "*", "(", "X_3", "^2", "-", "X_4", "^2", ")", ")"], # noqa: F401
-            original_equation="q*Ef/(m*(omega_0**2-omega**2))",
+            original_equation="x = q*Ef/(m*(omega_0**2-omega**2))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1372,7 +1468,7 @@ class SR_benchmark:
             dataset_name="I.40.1",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "exp", "(", "u-", "X_1", "*", "X_4", "*", "X_2", "/", "(", "X_5", "*", "X_3", ")", ")"], # noqa: F401
-            original_equation="n_0*exp(-m*g*x/(kb*T))",
+            original_equation="n = n_0*exp(-m*g*x/(kb*T))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1387,7 +1483,7 @@ class SR_benchmark:
             dataset_name="III.21.20",
             ranking_function="rmse",
             ground_truth = ["u-", "X_0", "*", "X_1", "*", "X_2", "/", "X_3"], # noqa: F401
-            original_equation="-rho_c_0*q*A_vec/m",
+            original_equation="j = -rho_c_0*q*A_vec/m",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1402,7 +1498,7 @@ class SR_benchmark:
             dataset_name="I.43.16",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_2", "/", "X_3"], # noqa: F401
-            original_equation="mu_drift*q*Volt/d",
+            original_equation="v = mu_drift*q*Volt/d",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1417,7 +1513,7 @@ class SR_benchmark:
             dataset_name="I.15.10",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
-            original_equation="m_0*v/sqrt(1-v**2/c**2)",
+            original_equation="p = m_0*v/sqrt(1-v**2/c**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1432,7 +1528,7 @@ class SR_benchmark:
             dataset_name="I.30.5",
             ranking_function="rmse",
             ground_truth = ["arcsin", "(", "X_0", "/", "(", "X_2", "*", "X_1", ")", ")"], # noqa: F401
-            original_equation="arcsin(lambd/(n*d))",
+            original_equation="theta = arcsin(lambd/(n*d))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1447,7 +1543,7 @@ class SR_benchmark:
             dataset_name="I.50.26",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "cos", "(", "X_1", "*", "X_2", ")", "+", "X_3", "*", "cos", "(", "X_1", "*", "X_2", ")", "^2", ")"], # noqa: F401
-            original_equation="x1*(cos(omega*t)+alpha*cos(omega*t)**2)",
+            original_equation="x = x1*(cos(omega*t)+alpha*cos(omega*t)**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1462,7 +1558,7 @@ class SR_benchmark:
             dataset_name="I.12.11",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "X_1", "+", "X_2", "*", "X_3", "*", "sin", "(", "X_4", ")", ")"], # noqa: F401
-            original_equation="q*(Ef+B*v*sin(theta))",
+            original_equation="F = q*(Ef+B*v*sin(theta))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1477,7 +1573,7 @@ class SR_benchmark:
             dataset_name="I.6.2",
             ranking_function="rmse",
             ground_truth = ["exp", "(", "u-", "(", "(", "X_1", "/", "X_0", ")", "^2", ")", "/", "2", ")", "/", "(", "sqrt", "(", "2", "*", "pi", ")", "*", "X_0", ")"], # noqa: F401
-            original_equation="exp(-(theta/sigma)**2/2)/(sqrt(2*pi)*sigma)",
+            original_equation="f = exp(-(theta/sigma)**2/2)/(sqrt(2*pi)*sigma)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1492,7 +1588,7 @@ class SR_benchmark:
             dataset_name="I.14.4",
             ranking_function="rmse",
             ground_truth = ["0.5", "*", "X_0", "*", "X_1", "^2"], # noqa: F401
-            original_equation="1/2*k_spring*x**2",
+            original_equation="U = 1/2*k_spring*x**2",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1507,7 +1603,7 @@ class SR_benchmark:
             dataset_name="I.47.23",
             ranking_function="rmse",
             ground_truth = ["sqrt", "(", "X_0", "*", "X_1", "/", "X_2", ")"], # noqa: F401
-            original_equation="sqrt(gamma*pr/rho)",
+            original_equation="c = sqrt(gamma*pr/rho)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1522,7 +1618,7 @@ class SR_benchmark:
             dataset_name="II.8.7",
             ranking_function="rmse",
             ground_truth = ["0.6", "*", "X_0", "^2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"], # noqa: F401
-            original_equation="3/5*q**2/(4*pi*epsilon*d)",
+            original_equation="E_n = 3/5*q**2/(4*pi*epsilon*d)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1537,7 +1633,7 @@ class SR_benchmark:
             dataset_name="III.15.14",
             ranking_function="rmse",
             ground_truth = ["(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "^2", "/", "(", "2", "*", "X_1", "*", "X_2", "^2", ")"], # noqa: F401
-            original_equation="(h/(2*pi))**2/(2*E_n*d**2)",
+            original_equation="m = (h/(2*pi))**2/(2*E_n*d**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1552,7 +1648,7 @@ class SR_benchmark:
             dataset_name="I.34.14",
             ranking_function="rmse",
             ground_truth = ["(", "(", "1", "+", "(", "X_1", "/", "X_0", ")", ")", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_0", "^2", ")", ")", "*", "X_2"], # noqa: F401
-            original_equation="((1+v/c)/sqrt(1-v**2/c**2))*omega_0",
+            original_equation="omega = ((1+v/c)/sqrt(1-v**2/c**2))*omega_0",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1567,7 +1663,7 @@ class SR_benchmark:
             dataset_name="III.8.54",
             ranking_function="rmse",
             ground_truth = ["sin", "(", "X_0", "*", "X_1", "/", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", ")", "^2"], # noqa: F401
-            original_equation="sin(E_n*t/(h/(2*pi)))**2",
+            original_equation="prob = sin(E_n*t/(h/(2*pi)))**2",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1582,7 +1678,7 @@ class SR_benchmark:
             dataset_name="I.26.2",
             ranking_function="rmse",
             ground_truth = ["arcsin", "(", "X_0", "*", "sin", "(", "X_1", ")", ")"], # noqa: F401
-            original_equation="arcsin(n*sin(theta2))",
+            original_equation="theta1 = arcsin(n*sin(theta2))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1597,7 +1693,7 @@ class SR_benchmark:
             dataset_name="III.19.51",
             ranking_function="rmse",
             ground_truth = ["(", "u-", "X_0", "*", "(", "X_1", "^2", "*", "X_1", "^2", ")", "/", "(", "(", "2", "*", "(", "4", "*", "pi", "*", "X_4", ")", "^2", ")", "*", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "^2", ")", "*", "(", "1", "/", "X_3", "^2", ")", ")"], # noqa: F401
-            original_equation="-m*q**4/(2*(4*pi*epsilon)**2*(h/(2*pi))**2)*(1/n**2)",
+            original_equation="E_n = -m*q**4/(2*(4*pi*epsilon)**2*(h/(2*pi))**2)*(1/n**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1612,7 +1708,7 @@ class SR_benchmark:
             dataset_name="III.4.33",
             ranking_function="rmse",
             ground_truth = ["(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "*", "X_1", "/", "(", "exp", "(", "(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "*", "X_1", "/", "(", "X_2", "*", "X_3", ")", ")", "-", "1", ")"], # noqa: F401
-            original_equation="(h/(2*pi))*omega/(exp((h/(2*pi))*omega/(kb*T))-1)",
+            original_equation="E_n = (h/(2*pi))*omega/(exp((h/(2*pi))*omega/(kb*T))-1)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1627,7 +1723,7 @@ class SR_benchmark:
             dataset_name="I.34.1",
             ranking_function="rmse",
             ground_truth = ["X_2", "/", "(", "1", "-", "X_1", "/", "X_0", ")"], # noqa: F401
-            original_equation="omega_0/(1-v/c)",
+            original_equation="omega = omega_0/(1-v/c)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1642,7 +1738,7 @@ class SR_benchmark:
             dataset_name="II.11.27",
             ranking_function="rmse",
             ground_truth = ["(", "X_0", "*", "X_1", "/", "(", "1", "-", "(", "X_0", "*", "X_1", "/", "3", ")", ")", ")", "*", "X_2", "*", "X_3"], # noqa: F401
-            original_equation="n*alpha/(1-(n*alpha/3))*epsilon*Ef",
+            original_equation="Pol = n*alpha/(1-(n*alpha/3))*epsilon*Ef",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1657,7 +1753,7 @@ class SR_benchmark:
             dataset_name="II.13.34",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
-            original_equation="rho_c_0*v/sqrt(1-v**2/c**2)",
+            original_equation="j = rho_c_0*v/sqrt(1-v**2/c**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1672,7 +1768,7 @@ class SR_benchmark:
             dataset_name="II.4.23",
             ranking_function="rmse",
             ground_truth = ["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"], # noqa: F401
-            original_equation="q/(4*pi*epsilon*r)",
+            original_equation="Volt = q/(4*pi*epsilon*r)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1687,7 +1783,7 @@ class SR_benchmark:
             dataset_name="I.32.5",
             ranking_function="rmse",
             ground_truth = ["X_0", "^2", "*", "X_1", "^2", "/", "(", "6", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"], # noqa: F401
-            original_equation="q**2*a**2/(6*pi*epsilon*c**3)",
+            original_equation="Pwr = q**2*a**2/(6*pi*epsilon*c**3)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1702,7 +1798,7 @@ class SR_benchmark:
             dataset_name="I.13.12",
             ranking_function="rmse",
             ground_truth = ["X_4", "*", "X_0", "*", "X_1", "*", "(", "1", "/", "X_3", "-", "1", "/", "X_2", ")"], # noqa: F401
-            original_equation="G*m1*m2*(1/r2-1/r1)",
+            original_equation="U = G*m1*m2*(1/r2-1/r1)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1717,7 +1813,7 @@ class SR_benchmark:
             dataset_name="II.2.42",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "X_2", "-", "X_1", ")", "*", "X_3", "/", "X_4"], # noqa: F401
-            original_equation="kappa*(T2-T1)*A/d",
+            original_equation="Pwr = kappa*(T2-T1)*A/d",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1732,7 +1828,7 @@ class SR_benchmark:
             dataset_name="I.27.6",
             ranking_function="rmse",
             ground_truth = ["1", "/", "(", "1", "/", "X_0", "+", "X_2", "/", "X_1", ")"], # noqa: F401
-            original_equation="1/(1/d1+n/d2)",
+            original_equation="foc = 1/(1/d1+n/d2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1747,7 +1843,7 @@ class SR_benchmark:
             dataset_name="III.14.14",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "(", "exp", "(", "X_1", "*", "X_2", "/", "(", "X_3", "*", "X_4", ")", ")", "-", "1", ")"], # noqa: F401
-            original_equation="I_0*(exp(q*Volt/(kb*T))-1)",
+            original_equation="I = I_0*(exp(q*Volt/(kb*T))-1)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1762,7 +1858,7 @@ class SR_benchmark:
             dataset_name="I.18.12",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "sin", "(", "X_2", ")"], # noqa: F401
-            original_equation="r*F*sin(theta)",
+            original_equation="tau = r*F*sin(theta)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1777,7 +1873,7 @@ class SR_benchmark:
             dataset_name="I.18.14",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_2", "*", "sin", "(", "X_3", ")"], # noqa: F401
-            original_equation="m*r*v*sin(theta)",
+            original_equation="L = m*r*v*sin(theta)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1792,7 +1888,7 @@ class SR_benchmark:
             dataset_name="II.21.32",
             ranking_function="rmse",
             ground_truth = ["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", "*", "(", "1", "-", "X_3", "/", "X_4", ")", ")"], # noqa: F401
-            original_equation="q/(4*pi*epsilon*r*(1-v/c))",
+            original_equation="Volt = q/(4*pi*epsilon*r*(1-v/c))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1807,7 +1903,7 @@ class SR_benchmark:
             dataset_name="II.38.14",
             ranking_function="rmse",
             ground_truth = ["X_0", "/", "(", "2", "*", "(", "1", "+", "X_1", ")", ")"], # noqa: F401
-            original_equation="Y/(2*(1+sigma))",
+            original_equation="mu_S = Y/(2*(1+sigma))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1822,7 +1918,7 @@ class SR_benchmark:
             dataset_name="I.34.8",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_2", "/", "X_3"], # noqa: F401
-            original_equation="q*v*B/p",
+            original_equation="omega = q*v*B/p",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1837,7 +1933,7 @@ class SR_benchmark:
             dataset_name="I.8.14",
             ranking_function="rmse",
             ground_truth = ["sqrt", "(", "(", "X_1", "-", "X_0", ")", "^2", "+", "(", "X_3", "-", "X_2", ")", "^2", ")"], # noqa: F401
-            original_equation="sqrt((x2-x1)**2+(y2-y1)**2)",
+            original_equation="d = sqrt((x2-x1)**2+(y2-y1)**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1852,7 +1948,7 @@ class SR_benchmark:
             dataset_name="II.6.15b",
             ranking_function="rmse",
             ground_truth = ["(", "X_1", "/", "(", "4", "*", "pi", "*", "X_0", ")", ")", "*", "3", "*", "cos", "(", "X_2", ")", "*", "sin", "(", "X_2", ")", "/", "X_3", "^3"], # noqa: F401
-            original_equation="p_d/(4*pi*epsilon)*3*cos(theta)*sin(theta)/r**3",
+            original_equation="E_f = p_d/(4*pi*epsilon)*3*cos(theta)*sin(theta)/r**3",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1867,7 +1963,7 @@ class SR_benchmark:
             dataset_name="I.12.1",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1"], # noqa: F401
-            original_equation="mu*Nn",
+            original_equation="F = mu*Nn",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1882,7 +1978,7 @@ class SR_benchmark:
             dataset_name="II.34.29b",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_3", "*", "X_4", "*", "X_2", "/", "(", "X_1", "/", "(", "2", "*", "pi", ")", ")"], # noqa: F401
-            original_equation="g_*mom*B*Jz/(h/(2*pi))",
+            original_equation="E_n = g_*mom*B*Jz/(h/(2*pi))",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1897,7 +1993,7 @@ class SR_benchmark:
             dataset_name="I.13.4",
             ranking_function="rmse",
             ground_truth = ["0.5", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"], # noqa: F401
-            original_equation="1/2*m*(v**2+u**2+w**2)",
+            original_equation="K = 1/2*m*(v**2+u**2+w**2)",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1912,7 +2008,7 @@ class SR_benchmark:
             dataset_name="I.39.22",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_3", "*", "X_1", "/", "X_2"], # noqa: F401
-            original_equation="n*kb*T/V",
+            original_equation="pr = n*kb*T/V",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1927,7 +2023,7 @@ class SR_benchmark:
             dataset_name="I.14.3",
             ranking_function="rmse",
             ground_truth = ["X_0", "*", "X_1", "*", "X_2"], # noqa: F401
-            original_equation="m*g*z",
+            original_equation="U = m*g*z",
             max_evaluations=100000,
             max_expression_length=50,
             success_threshold=1e-7,
@@ -1997,7 +2093,7 @@ class SR_benchmark:
 			dataset_name="NG-1",
 			ranking_function="rmse",
 			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], # noqa: F401
-			original_equation="x+x^2+x^3",
+			original_equation="y = x+x^2+x^3",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2012,7 +2108,7 @@ class SR_benchmark:
 			dataset_name="NG-2",
 			ranking_function="rmse",
 			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"], # noqa: F401
-			original_equation="x+x^2+x^3+x^4",
+			original_equation="y = x+x^2+x^3+x^4",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2027,7 +2123,7 @@ class SR_benchmark:
 			dataset_name="NG-3",
 			ranking_function="rmse",
 			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3", "+", "X_0", "^2", "*", "X_0", "^3"], # noqa: F401
-			original_equation="x+x^2+x^3+x^4+x^5",
+			original_equation="y = x+x^2+x^3+x^4+x^5",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2042,7 +2138,7 @@ class SR_benchmark:
 			dataset_name="NG-4",
 			ranking_function="rmse",
 			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3", "+", "X_0", "^2", "*", "X_0", "^3", "+", "X_0", "^3", "*", "X_0", "^3"], # noqa: F401
-			original_equation="x+x^2+x^3+x^4+x^5+x^6",
+			original_equation="y = x+x^2+x^3+x^4+x^5+x^6",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2057,7 +2153,7 @@ class SR_benchmark:
 			dataset_name="NG-5",
 			ranking_function="rmse",
 			ground_truth = ["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"], # noqa: F401
-			original_equation="sin(x^2)*cos(x)-1",
+			original_equation="y = sin(x^2)*cos(x)-1",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2072,7 +2168,7 @@ class SR_benchmark:
 			dataset_name="NG-6",
 			ranking_function="rmse",
 			ground_truth = ["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"], # noqa: F401
-			original_equation="sin(x)+sin(x+x^2)",
+			original_equation="y = sin(x)+sin(x+x^2)",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2087,7 +2183,7 @@ class SR_benchmark:
 			dataset_name="NG-7",
 			ranking_function="rmse",
 			ground_truth = ["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"], # noqa: F401
-			original_equation="log(1+x)+log(1+x^2)",
+			original_equation="y = log(1+x)+log(1+x^2)",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2102,7 +2198,7 @@ class SR_benchmark:
 			dataset_name="NG-8",
 			ranking_function="rmse",
 			ground_truth = ["sqrt", "(", "X_0", ")"], # noqa: F401
-			original_equation="sqrt(x)",
+			original_equation="y = sqrt(x)",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2117,7 +2213,7 @@ class SR_benchmark:
 			dataset_name="NG-9",
 			ranking_function="rmse",
 			ground_truth = ["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"], # noqa: F401
-			original_equation="sin(x)+sin(y^2)",
+			original_equation="y = sin(x)+sin(y^2)",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
@@ -2132,7 +2228,7 @@ class SR_benchmark:
 			dataset_name="NG-10",
 			ranking_function="rmse",
 			ground_truth = ["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"], # noqa: F401
-			original_equation="2*sin(x)*cos(y)",
+			original_equation="y = 2*sin(x)*cos(y)",
 			max_evaluations=100000,
 			max_expression_length=50,
 			success_threshold=1e-7,
