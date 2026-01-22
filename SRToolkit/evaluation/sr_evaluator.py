@@ -18,7 +18,7 @@ class ResultAugmenter:
     def __init__(self):
         """
         Generic class that defines the interface for result augmentation. For examples, see the implementations of
-        this class.
+        this class at SRToolkit.evaluation.result_augmentation.py.
         """
         pass
 
