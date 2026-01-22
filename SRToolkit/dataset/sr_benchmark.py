@@ -475,7 +475,10 @@ class SR_benchmark:
 
         This method downloads the Feynman benchmark dataset from a specified URL, initializes symbol libraries for
         symbolic regression with varying numbers of variables, and adds multiple predefined datasets to the benchmark
-        with their respective equations and metadata.
+        with their respective equations and metadata. For each data set, we randomly sampled 10,000 examples instead
+        of 1,000,000 as in the original paper.
+
+        For more information about the Feynman benchmark, see the following paper: <https://doi.org/10.1126/sciadv.aay2631>
 
         Examples:
             >>> benchmark = SR_benchmark.feynman('data/feynman')
@@ -2044,6 +2047,8 @@ class SR_benchmark:
         and initializes a set of datasets using a provided dataset directory. It creates two symbol libraries
         for equations with one variable and two variables, respectively, and populates the benchmark with various
         Nguyen equations, each represented with its symbolic tokens and associated symbol library.
+
+        For more information about the Nguyen benchmark, see the following paper: <https://doi.org/10.1007/s10710-010-9121-2>
 
         Examples:
             >>> benchmark = SR_benchmark.nguyen('data/nguyen/')

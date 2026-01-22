@@ -7,9 +7,6 @@ from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
 from SRToolkit.utils import SymbolLibrary, Node, create_behavior_matrix
 
 
-# TODO: Rewrite this class a bit adapt to changes from SR_evaluator
-
-
 class SR_dataset:
     def __init__(
         self,
@@ -281,8 +278,7 @@ class SR_dataset:
         Args:
             d: The dictionary representation of the dataset.
             augmentation_map: A dictionary mapping the names of the result augmentation classes to their respective
-                classes. When default value (None) is used, the
-                SRToolit.evaluation.result_augmentation.RESULT_AUGMENTERS dictionary is used.
+                classes. When default value (None) is used, the SRToolit.evaluation.result_augmentation.RESULT_AUGMENTERS dictionary is used.
         """
         if augmentation_map is None:
             from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
