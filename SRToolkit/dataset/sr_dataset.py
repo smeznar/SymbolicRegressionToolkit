@@ -5,6 +5,7 @@ import numpy as np
 
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
+from SRToolkit.evaluation.sr_evaluator import SR_results
 from SRToolkit.utils import SymbolLibrary, Node, create_behavior_matrix
 
 
@@ -102,7 +103,8 @@ class SR_dataset:
         self.seed = seed
         self.dataset_metadata = dataset_metadata
 
-    def evaluate_approach(self, sr_approach: SR_approach, top_k: int = 20, seed: int = None, verbose: bool = False):
+    def evaluate_approach(self, sr_approach: SR_approach, top_k: int = 20, seed: int = None,
+                          results: Optional[SR_results] = None) -> SR_results:
         """
         Evaluates an SR_approach on this dataset.
 
@@ -110,7 +112,8 @@ class SR_dataset:
             sr_approach: An instance of SR_approach that will be evaluated on this dataset.
             top_k: Number of the best expressions presented in the results
             seed: The seed used for random number generation. If None, the seed from the dataset is used.
-            verbose: If True, prints the results of the evaluation.
+            results: An optional SR_results object to which the results of the evaluation will be added. If None,
+                a new SR_results object will be created.
 
         Returns:
             The results of the evaluation.
@@ -120,7 +123,7 @@ class SR_dataset:
 
         evaluator = self.create_evaluator(seed)
         sr_approach.search(evaluator)
-        return evaluator.get_results(top_k, verbose)
+        return evaluator.get_results(sr_approach.name, top_k, results)
 
     def create_evaluator(self, metadata: dict = None, seed: int = None) -> SR_evaluator:
         """

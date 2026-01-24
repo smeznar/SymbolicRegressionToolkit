@@ -9,28 +9,30 @@ from typing import List, Optional, Dict, Type
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
-from SRToolkit.utils import simplify, tokens_to_tree
+from SRToolkit.utils import simplify, tokens_to_tree, SymbolLibrary
+
 
 class ExpressionToLatex(ResultAugmenter):
-    def __init__(self, only_best_expression: bool = False, verbose: bool = False):
+    def __init__(self, symbol_library: SymbolLibrary, only_best_expression: bool = False, verbose: bool = False):
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
 
         Args:
+            symbol_library: The symbol library used to convert tokens into LaTeX symbols.
             only_best_expression: If True, only the best expression is transformed. If False, all top expressions are
                 transformed.
             verbose: If True, warns the user if LaTeX conversion fails for a given expression.
         """
         super().__init__()
+        self.symbol_library = symbol_library
         self.only_best_expression = only_best_expression
         self.verbose = verbose
 
     def augment_results(
         self,
         results: dict,
-        models: List[dict],
-        evaluator: SR_evaluator,  # noqa: F821
-    ) -> dict:
+        models: List[dict]
+        ) -> dict:
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
 
@@ -39,8 +41,6 @@ class ExpressionToLatex(ResultAugmenter):
             models: A list of dictionaries describing the performance of expressions using the base ranking function.
                 Keyword expr contains the expression, error contains the error of the expression. The list is sorted
                 by error.
-            evaluator: The evaluator used to evaluate the models.
-
         Returns:
             The augmented results dictionary. The results dictionary contains an additional key "best_expr_latex" with
                 the LaTeX representation of the best expression, and similarly keys "expr_latex" for expressions inside
@@ -48,8 +48,8 @@ class ExpressionToLatex(ResultAugmenter):
         """
         try:
             results["best_expr_latex"] = tokens_to_tree(
-                models[0]["expr"], evaluator.symbol_library
-            ).to_latex(evaluator.symbol_library)
+                models[0]["expr"], self.symbol_library
+            ).to_latex(self.symbol_library)
         except Exception as e:
             if self.verbose:
                 print(f"Unable to convert best expression to LaTeX: {e}")
@@ -57,8 +57,8 @@ class ExpressionToLatex(ResultAugmenter):
             for model in results["top_models"]:
                 try:
                     model["expr_latex"] = tokens_to_tree(
-                        model["expr"], evaluator.symbol_library
-                    ).to_latex(evaluator.symbol_library)
+                        model["expr"], self.symbol_library
+                    ).to_latex(self.symbol_library)
                 except Exception as e:
                     if self.verbose:
                         print(
@@ -78,7 +78,8 @@ class ExpressionToLatex(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        return {"type": "ExpressionToLatex", "only_best_expression": self.only_best_expression, "verbose": self.verbose}
+        return {"type": "ExpressionToLatex", "symbol_library": self.symbol_library.to_dict(),
+                "only_best_expression": self.only_best_expression, "verbose": self.verbose}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ExpressionToLatex":
@@ -92,20 +93,23 @@ class ExpressionToLatex(ResultAugmenter):
         Returns:
             An instance of the ExpressionToLatex augmenter.
         """
-        return ExpressionToLatex(only_best_expression=data["only_best_expression"], verbose=data["verbose"])
+        return ExpressionToLatex(symbol_library=data["symbol_library"],
+                                 only_best_expression=data["only_best_expression"], verbose=data["verbose"])
 
 
 class ExpressionSimplifier(ResultAugmenter):
-    def __init__(self, only_best_expression: bool = False, verbose: bool = False):
+    def __init__(self, symbol_library: SymbolLibrary, only_best_expression: bool = False, verbose: bool = False):
         """
         Simplifies the expressions inside the results dictionary if possible.
 
         Args:
+            symbol_library: The symbol library used to simplify the expressions.
             only_best_expression: If True, only the best expression is simplified. If False, all top expressions are
                 simplified.
             verbose: If True, warns the user if simplification fails for a given expression.
         """
         super().__init__()
+        self.symbol_library = symbol_library
         self.only_best_expression = only_best_expression
         self.verbose = verbose
 
@@ -113,7 +117,6 @@ class ExpressionSimplifier(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Simplifies the expressions inside the results dictionary if possible.
@@ -123,7 +126,6 @@ class ExpressionSimplifier(ResultAugmenter):
             models: A list of dictionaries describing the performance of expressions using the base ranking function.
                 Keyword expr contains the expression, error contains the error of the expression. The list is sorted
                 by error.
-            evaluator: The evaluator used to evaluate the models.
 
         Returns:
             The augmented results dictionary. The results dictionary contains an additional key "simplified_best_expr"
@@ -131,7 +133,7 @@ class ExpressionSimplifier(ResultAugmenter):
             top_models list if only_best_expression is False.
         """
         try:
-            simplified_expr = simplify(models[0]["expr"], evaluator.symbol_library)
+            simplified_expr = simplify(models[0]["expr"], self.symbol_library)
             results["simplified_best_expr"] = "".join(simplified_expr)
         except Exception as e:
             if self.verbose:
@@ -139,7 +141,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
         for model in results["top_models"]:
             try:
-                simplified_expr = simplify(model["expr"], evaluator.symbol_library)
+                simplified_expr = simplify(model["expr"], self.symbol_library)
                 model["simplified_expr"] = "".join(simplified_expr)
             except Exception as e:
                 if self.verbose:
@@ -158,7 +160,8 @@ class ExpressionSimplifier(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        return {"type": "ExpressionSimplifier", "only_best_expression": self.only_best_expression, "verbose": self.verbose}
+        return {"type": "ExpressionSimplifier", "symbol_library": self.symbol_library,
+                "only_best_expression": self.only_best_expression, "verbose": self.verbose}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ExpressionSimplifier":
@@ -171,7 +174,8 @@ class ExpressionSimplifier(ResultAugmenter):
         Returns:
             An instance of the ExpressionSimplifier augmenter.
         """
-        return ExpressionSimplifier(only_best_expression=data["only_best_expression"], verbose=data["verbose"])
+        return ExpressionSimplifier(symbol_library=data["symbol_library"],
+                                    only_best_expression=data["only_best_expression"], verbose=data["verbose"])
 
 
 class RMSE(ResultAugmenter):
@@ -201,7 +205,6 @@ class RMSE(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Computes the RMSE for the top models in the results dictionary.
@@ -211,7 +214,6 @@ class RMSE(ResultAugmenter):
             models: A list of dictionaries describing the performance of expressions using the base ranking function.
                 Keyword expr contains the expression, error contains the error of the expression. The list is sorted
                 by error.
-            evaluator: The evaluator used to evaluate the models.
 
         Returns:
             The augmented results dictionary. The results dictionary contains an additional key "best_expr_rmse" with the
@@ -240,7 +242,6 @@ class RMSE(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        # Save SR_evaluator
         return {"type": "RMSE", "evaluator": self.evaluator.to_dict(base_path, name+"_RMSE_augmenter")}
 
     @staticmethod
@@ -282,7 +283,6 @@ class BED(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Computes BED for the top models in the results dictionary.
@@ -292,7 +292,6 @@ class BED(ResultAugmenter):
             models: A list of dictionaries describing the performance of expressions using the base ranking function.
                 Keyword expr contains the expression, error contains the error of the expression. The list is sorted
                 by error.
-            evaluator: The evaluator used to evaluate the models.
 
         Returns:
             The augmented results dictionary. The results dictionary contains an additional key "best_expr_bed" with
@@ -316,7 +315,6 @@ class BED(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        # Save SR_evaluator
         return {"type": "BED", "evaluator": self.evaluator.to_dict(base_path, name+"_BED_augmenter")}
 
     @staticmethod
@@ -364,7 +362,6 @@ class R2(ResultAugmenter):
         self,
         results: dict,
         models: List[dict],
-        evaluator: SR_evaluator,  # noqa: F821
     ) -> dict:
         """
         Computes the R^2 for the top models in the results dictionary.
@@ -374,7 +371,6 @@ class R2(ResultAugmenter):
             models: A list of dictionaries describing the performance of expressions using the base ranking function.
                 Keyword expr contains the expression, error contains the error of the expression. The list is sorted
                 by error.
-            evaluator: The evaluator used to evaluate the models.
 
         Returns:
             The augmented results dictionary. The results dictionary contains an additional key "best_expr_r^2" with the
@@ -409,7 +405,6 @@ class R2(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        # Save SR_evaluator
         return {"type": "R2", "evaluator": self.evaluator.to_dict(base_path, name+"_R2_augmenter")}
 
     @staticmethod

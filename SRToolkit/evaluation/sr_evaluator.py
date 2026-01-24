@@ -4,7 +4,7 @@ the generic ResultAugmenter class is defined here to avoid circular imports.
 """
 import os
 from contextlib import nullcontext
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict
 import warnings
 
 import numpy as np
@@ -26,7 +26,6 @@ class ResultAugmenter:
         self,
         results: dict,
         models: List[dict],
-        evaluator: "SR_evaluator",  # noqa: F821
     ) -> dict:
         """
         Augments the results dictionary with additional information. The model variable contains all models, for only
@@ -37,7 +36,6 @@ class ResultAugmenter:
             models: A list of dictionaries describing the performance of expressions using the base ranking function.
                 Keyword expr contains the expression, error contains the error of the expression. The list is sorted
                 by error.
-            evaluator: The evaluator used to evaluate the models.
 
         Returns:
             The augmented results dictionary.
@@ -494,7 +492,7 @@ class SR_evaluator:
 
                 return error
 
-    def get_results(self, top_k: int = 20, verbose: bool = True) -> dict:
+    def get_results(self, approach_name: str = "", top_k: int = 20, results: "SR_results" = None) -> "SR_results":
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -503,89 +501,38 @@ class SR_evaluator:
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
-            >>> results = se.get_results(top_k=1, verbose=False)
-            >>> print(results["num_evaluated"])
+            >>> results = se.get_results(top_k=1)
+            >>> print(results[0]["num_evaluated"])
             1
-            >>> print(results["evaluation_calls"])
+            >>> print(results[0]["evaluation_calls"])
             1
-            >>> print(results["best_expr"])
+            >>> print(results[0]["best_expr"])
             C*X_1-X_0
-            >>> print(results["min_error"] < 1e-6)
+            >>> print(results[0]["min_error"] < 1e-6)
             True
-            >>> print(1.99 < results["top_models"][0]["parameters"][0] < 2.01)
+            >>> print(1.99 < results[0]["top_models"][0]["parameters"][0] < 2.01)
             True
 
         Args:
+            approach_name: The name of the approach used to discover the equations.
             top_k: The number of top results to include in the output. If `top_k`
                 is greater than the number of evaluated expressions, all
                 evaluated expressions are included. If `top_k` is less than 0,
                 all evaluated expressions are included.
-            verbose: If True, prints the results of the evaluation.
+            results: An SR_results object containing the results of the previous evaluation. If provided,
+                the results of the current evaluation are appended to the existing results. Otherwise, a new SR_results
+                object is created.
 
         Returns:
-            A dictionary containing the results of the equation discovery/symbolic regression process. The keys are:
-
-                - "metadata": The metadata provided in the constructor.
-                - "min_rmse": The minimum root mean squared error.
-                - "best_expr": The expression with the minimum root mean
-                  squared error.
-                - "num_evaluated": The number of evaluated expressions.
-                - "evaluation_calls": The number of times the "evaluate_expr" function was called.
-                  considered.
-                - "success": Whether the evaluation was successful.
-                - "top_models": A list of dictionaries, where each dictionary
-                  contains the root mean squared error, the expression, and the
-                  estimated parameters of the expression. The list is sorted in
-                  ascending order of the root mean squared error.
+            An instance of the SR_results object with the results of the evaluation.
         """
         if top_k > len(self.models) or top_k < 0:
             top_k = len(self.models)
 
-        models = list(self.models.values())
-        best_indices = np.argsort([v["error"] for v in models])
-        models = [models[i] for i in best_indices]
-
-        results = {
-            "min_error": models[0]["error"],
-            "best_expr": "".join(models[0]["expr"]),
-            "num_evaluated": len(models),
-            "evaluation_calls": self.total_evaluations,
-            "top_models": list(),
-            "metadata": self.metadata,
-        }
-
-        # Determine success based on the predefined success threshold
-        if (
-            self.success_threshold is not None
-            and results["min_error"] < self.success_threshold
-        ):
-            results["success"] = True
-        else:
-            results["success"] = False
-
-        for model in models[:top_k]:
-            m = {"expr": model["expr"], "error": model["error"]}
-            if "parameters" in model:
-                m["parameters"] = model["parameters"]
-
-            results["top_models"].append(m)
-
-        for augmenter in self.result_augmenters:
-            try:
-                results = augmenter.augment_results(results, models, self)
-            except Exception as e:
-                print(
-                    f"Error augmenting results, skipping current augmentor because of the following error: {e}"
-                )
-
-        if verbose:
-            print(f"Best expression found: {results['best_expr']}")
-            print(f"Error: {results['min_error']}")
-            print(f"Number of evaluated expressions: {results['num_evaluated']}")
-            print(
-                f"Number of times evaluate_expr was called: {results['evaluation_calls']}"
-            )
-            print(f"Success: {results['success']}")
+        if results is None:
+            results = SR_results()
+        results.add_results(self.models, top_k, self.result_augmenters, self.total_evaluations, self.success_threshold,
+                            approach_name, self.metadata)
 
         return results
 
@@ -690,4 +637,207 @@ class SR_evaluator:
                             seed=data["seed"], metadata=data["metadata"], **data["kwargs"])
 
 
-# TODO: Function that takes in the results output and creates a pareto front
+class SR_results:
+    def __init__(self):
+        """
+        Initializes an SR_results object. This object stores the results of an equation discovery/symbolic regression experiments.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1) # Obtain an instance of SR_results
+            >>> print(results[0]["num_evaluated"])
+            1
+            >>> print(results[0]["evaluation_calls"])
+            1
+            >>> print(results[0]["best_expr"])
+            C*X_1-X_0
+            >>> print(results[0]["min_error"] < 1e-6)
+            True
+            >>> print(1.99 < results[0]["top_models"][0]["parameters"][0] < 2.01)
+            True
+
+        Attributes:
+            results: A list of dictionaries containing the results of each evaluation.
+
+        Methods:
+            add_results: Adds the results of an evaluation to the results object. If needed, the results are
+                additionally augmented using the provided result augmenters.
+            print_results: Prints the results of the evaluation.
+            __len__: Returns the number of results stored in the results object.
+        """
+        self.results = list()
+
+    def add_results(self, models: Dict[str, dict], top_k: int, result_augmenters: List[ResultAugmenter],
+                    total_evaluations: int, success_threshold: Optional[float], approach_name: str,
+                    metadata: Optional[dict] = None):
+        """
+        Adds the results of an evaluation to the results object. If needed, the results are additionally augmented
+        using the provided result augmenters. For an example of how to use this function, look at the SR_evaluator.get_results method.
+
+        Args:
+            models: A dictionary mapping expressions to their evaluation results.
+            top_k: The number of top results to include in the output.
+            result_augmenters: A list of result augmenters to use for augmenting the results.
+            total_evaluations: The total number of evaluations performed during the evaluation.
+            success_threshold: The success threshold used to determine whether the evaluation was successful.
+            approach_name: The name of the approach used to discover the equations.
+            metadata: A dictionary containing additional metadata about the evaluation.
+        """
+        models = list(models.values())
+        best_indices = np.argsort([v["error"] for v in models])
+        models = [models[i] for i in best_indices]
+
+        results_dict = {
+            "min_error": models[0]["error"],
+            "best_expr": "".join(models[0]["expr"]),
+            "num_evaluated": len(models),
+            "evaluation_calls": total_evaluations,
+            "top_models": list(),
+            "metadata": metadata,
+            "all_models": models,
+            "approach_name": approach_name
+        }
+
+        # Determine success based on the predefined success threshold
+        if (
+                success_threshold is not None
+                and results_dict["min_error"] < success_threshold
+        ):
+            results_dict["success"] = True
+        else:
+            results_dict["success"] = False
+
+        for model in models[:top_k]:
+            m = {"expr": model["expr"], "error": model["error"]}
+            if "parameters" in model:
+                m["parameters"] = model["parameters"]
+
+            results_dict["top_models"].append(m)
+
+        for augmenter in result_augmenters:
+            try:
+                results_dict = augmenter.augment_results(results_dict, models)
+            except Exception as e:
+                print(
+                    f"Error augmenting results, skipping current augmentor because of the following error: {e}"
+                )
+
+        self.results.append(results_dict)
+
+    def print_results(self, experiment_number: Optional[int] = None, detailed: bool = False):
+        r"""
+        Prints the results of the SR_evaluator. Specifically, prints the minimum error, the best expression,
+        the number of evaluated expressions, the number of times the "evaluate_expr" function was called, whether
+        the evaluation was successful, and the metadata and the approach name, if present. If detailed is True, prints
+        all the information about the top models.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
+            >>> results.print_results()
+            Experiment 0:
+            Best expression found: C*X_1-X_0
+            Error: 6.8864915460553005e-09
+            Number of evaluated expressions: 1
+            Number of times evaluate_expr was called: 1
+            Success: True
+            <BLANKLINE>
+            -----------------------------------------
+            >>> results.print_results(detailed=True, experiment_number=0)
+            Best expression found: C*X_1-X_0
+            Error: 6.8864915460553005e-09
+            Number of evaluated expressions: 1
+            Number of times evaluate_expr was called: 1
+            Success: True
+            <BLANKLINE>
+            Top models:
+            Model 1 - expr: ['C', '*', 'X_1', '-', 'X_0'], error: 6.8864915460553005e-09, parameters: [2.]
+            <BLANKLINE>
+
+        Args:
+            experiment_number: Number of the experiment you want to print the results for. If None, prints the results for all experiments.
+            detailed: If True, prints all the information about the top models.
+
+        """
+        if experiment_number is None:
+            for i, result in enumerate(self.results):
+                print(f"Experiment {i}:")
+                SR_results._print_result_(result, detailed)
+                print("-----------------------------------------")
+
+        else:
+            assert experiment_number < len(self.results), "[SR_Results.print_results] experiment number out of bounds"
+            SR_results._print_result_(self.results[experiment_number], detailed)
+
+
+    @staticmethod
+    def _print_result_(result, detailed: bool = False):
+        if result["approach_name"] != "":
+            print(f"Approach: {result['approach_name']}")
+        print(f"Best expression found: {result['best_expr']}")
+        print(f"Error: {result['min_error']}")
+        print(f"Number of evaluated expressions: {result['num_evaluated']}")
+        print(f"Number of times evaluate_expr was called: {result['evaluation_calls']}")
+        print(f"Success: {result['success']}")
+        print()
+        if result["metadata"] is not None and len(result["metadata"]) > 0:
+            print("Metadata:")
+            for key, value in result["metadata"].items():
+                print(f"{key}: {value}")
+            print()
+        if detailed:
+            print("Top models:")
+            for j, model in enumerate(result["top_models"]):
+                print(f"Model {j+1} - " + ", ".join(["{}: {}".format(key, value) for key, value in model.items()]))
+            print()
+
+    # TODO: Function that creates a pareto front
+    # TODO: Function that creates a table with results
+    # TODO: Function that returns the best expression
+
+    def __getitem__(self, item):
+        """
+        Returns the results of the experiment with the given index.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
+            >>> result_of_first_experiment = results[0]
+
+        Args:
+            item: the index of the experiment.
+
+        Returns:
+            The results of the experiment with the given index.
+
+        """
+        assert isinstance(item, int), "[SR_Results.__getitem__] Item must be an integer."
+        assert 0 <= item < len(self.results), "[SR_Results.__getitem__] Item out of bounds."
+        return self.results[item]
+
+    def __len__(self):
+        """
+        Returns the number of results stored in the results object. Usually, each result corresponds to a single experiment.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
+            >>> len(results)
+            1
+
+        Returns:
+            The number of results stored in the results object.
+        """
+        return len(self.results)
