@@ -3,6 +3,7 @@ from typing import List, Optional, Union, Dict, Type
 
 import numpy as np
 
+from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
 from SRToolkit.utils import SymbolLibrary, Node, create_behavior_matrix
 
@@ -52,6 +53,7 @@ class SR_dataset:
                 a SRToolkit.utils.Node object, or a numpy array representing behavior
                 (see SRToolkit.utils.create_behavior_matrix for more details).
             original_equation: The original equation from which the ground truth expression was generated).
+            success_threshold: The threshold for determining whether an expression is successful or not. If None,
             result_augmenters: Optional list of objects that augment the results returned by the "get_results" function.
             seed: The seed to use for random number generation/reproducibility. Default is None, which means no seed is used.
             dataset_metadata: An optional dictionary containing metadata about this evaluation. This could include
@@ -100,7 +102,27 @@ class SR_dataset:
         self.seed = seed
         self.dataset_metadata = dataset_metadata
 
-    def create_evaluator(self, metadata: dict = None) -> SR_evaluator:
+    def evaluate_approach(self, sr_approach: SR_approach, top_k: int = 20, seed: int = None, verbose: bool = False):
+        """
+        Evaluates an SR_approach on this dataset.
+
+        Args:
+            sr_approach: An instance of SR_approach that will be evaluated on this dataset.
+            top_k: Number of the best expressions presented in the results
+            seed: The seed used for random number generation. If None, the seed from the dataset is used.
+            verbose: If True, prints the results of the evaluation.
+
+        Returns:
+            The results of the evaluation.
+        """
+        if seed is None:
+            seed = self.seed
+
+        evaluator = self.create_evaluator(seed)
+        sr_approach.search(evaluator)
+        return evaluator.get_results(top_k, verbose)
+
+    def create_evaluator(self, metadata: dict = None, seed: int = None) -> SR_evaluator:
         """
         Creates an instance of the SR_evaluator class from this dataset.
 
@@ -117,6 +139,7 @@ class SR_dataset:
         Args:
             metadata: An optional dictionary containing metadata about this evaluation. This could include
                 information such as the dataset used, the model used, seed, etc.
+            seed: An optional seed to be used for the random number generator. If None, the seed from the dataset is used.
 
         Returns:
             An instance of the SR_evaluator class.
@@ -128,6 +151,9 @@ class SR_dataset:
             metadata = dict()
         metadata["dataset_metadata"] = self.dataset_metadata
 
+        if seed is None:
+            seed = self.seed
+
         try:
             return SR_evaluator(
                 X=self.X,
@@ -138,7 +164,7 @@ class SR_dataset:
                 ground_truth=self.ground_truth,
                 result_augmenters=self.result_augmenters,
                 symbol_library=self.symbol_library,
-                seed=self.seed,
+                seed=seed,
                 metadata=metadata,
                 **self.kwargs,
             )
