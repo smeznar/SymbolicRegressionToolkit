@@ -124,4 +124,7 @@ nav:
       - references/dataset/index.md
       - dataset: references/dataset/srdataset.md
       - benchmark: references/dataset/srbenchmark.md
+    - approaches:
+      - references/approaches/index.md
+      - sr_approach: references/approaches/sr_approach.md
   - Changelog: changelog.md
