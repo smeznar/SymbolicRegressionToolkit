@@ -127,4 +127,5 @@ nav:
     - approaches:
       - references/approaches/index.md
       - sr_approach: references/approaches/sr_approach.md
+      - ProGED: references/approaches/ProGED.md
   - Changelog: changelog.md

@@ -492,6 +492,8 @@ class SR_evaluator:
 
                 return error
 
+    # TODO: Add a way to add custom information to a given expression (e.g. probability of expression in ProGED)
+
     def get_results(self, approach_name: str = "", top_k: int = 20, results: "SR_results" = None) -> "SR_results":
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
@@ -767,7 +769,7 @@ class SR_results:
         """
         if experiment_number is None:
             for i, result in enumerate(self.results):
-                print(f"Experiment {i}:")
+                print(f"Experiment {i+1}/{len(self.results)}:")
                 SR_results._print_result_(result, detailed)
                 print("-----------------------------------------")
 
@@ -800,6 +802,19 @@ class SR_results:
     # TODO: Function that creates a pareto front
     # TODO: Function that creates a table with results
     # TODO: Function that returns the best expression
+
+    def __add__(self, other):
+        """
+        Returns a new SR_results object that is the concatenation of the current SR_results object with the other SR_results object.
+
+        Args:
+            other: SR_results object to concatenate with the current SR_results object.
+
+        Returns:
+            The concatenated SR_results objects.
+        """
+        self.results += other.results
+        return self
 
     def __getitem__(self, item):
         """

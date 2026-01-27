@@ -103,13 +103,14 @@ class SR_dataset:
         self.seed = seed
         self.dataset_metadata = dataset_metadata
 
-    def evaluate_approach(self, sr_approach: SR_approach, top_k: int = 20, seed: int = None,
-                          results: Optional[SR_results] = None) -> SR_results:
+    def evaluate_approach(self, sr_approach: SR_approach, num_experiments: int = 1, top_k: int = 20,
+                          initial_seed: int = None, results: Optional[SR_results] = None) -> SR_results:
         """
         Evaluates an SR_approach on this dataset.
 
         Args:
             sr_approach: An instance of SR_approach that will be evaluated on this dataset.
+            num_experiments: The number of times the approach should be evaluated on this dataset.
             top_k: Number of the best expressions presented in the results
             seed: The seed used for random number generation. If None, the seed from the dataset is used.
             results: An optional SR_results object to which the results of the evaluation will be added. If None,
@@ -118,12 +119,24 @@ class SR_dataset:
         Returns:
             The results of the evaluation.
         """
-        if seed is None:
+        if initial_seed is None:
             seed = self.seed
+        else:
+            seed = initial_seed
 
-        evaluator = self.create_evaluator(seed)
-        sr_approach.search(evaluator)
-        return evaluator.get_results(sr_approach.name, top_k, results)
+        if results is None:
+            results = SR_results()
+
+        for experiment in range(num_experiments):
+            print(f"Running experiment {experiment+1}/{num_experiments}")
+            if seed is not None:
+                seed += 1
+
+            evaluator = self.create_evaluator(seed)
+            approach = sr_approach.clone()
+            approach.search(evaluator, seed)
+            results += evaluator.get_results(approach.name, top_k)
+        return results
 
     def create_evaluator(self, metadata: dict = None, seed: int = None) -> SR_evaluator:
         """
