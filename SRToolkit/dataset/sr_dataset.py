@@ -6,7 +6,7 @@ import numpy as np
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
 from SRToolkit.evaluation.sr_evaluator import SR_results
-from SRToolkit.utils import SymbolLibrary, Node, create_behavior_matrix
+from SRToolkit.utils import SymbolLibrary, Node
 
 
 class SR_dataset:
@@ -23,6 +23,7 @@ class SR_dataset:
         result_augmenters: Optional[List[ResultAugmenter]] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
+        dataset_name: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -59,6 +60,7 @@ class SR_dataset:
             seed: The seed to use for random number generation/reproducibility. Default is None, which means no seed is used.
             dataset_metadata: An optional dictionary containing metadata about this evaluation. This could include
                 information such as the name of the dataset, a citation for the dataset, number of variables, etc.
+            dataset_name: An optional string containing the name of the dataset.
 
         Keyword Arguments:
             method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested.
@@ -93,6 +95,7 @@ class SR_dataset:
         self.original_equation = original_equation
         self.result_augmenters = result_augmenters
         self.kwargs = kwargs
+        self.dataset_name = dataset_name
 
         # See if symbols contain a symbol for constants
         symbols_metadata = self.symbol_library.symbols.values()
@@ -104,7 +107,7 @@ class SR_dataset:
         self.dataset_metadata = dataset_metadata
 
     def evaluate_approach(self, sr_approach: SR_approach, num_experiments: int = 1, top_k: int = 20,
-                          initial_seed: int = None, results: Optional[SR_results] = None) -> SR_results:
+                          initial_seed: int = None, results: Optional[SR_results] = None, verbose = True) -> SR_results:
         """
         Evaluates an SR_approach on this dataset.
 
@@ -128,11 +131,12 @@ class SR_dataset:
             results = SR_results()
 
         for experiment in range(num_experiments):
-            print(f"Running experiment {experiment+1}/{num_experiments}")
+            if verbose:
+                print(f"Running experiment {experiment+1}/{num_experiments}")
             if seed is not None:
                 seed += 1
 
-            evaluator = self.create_evaluator(seed)
+            evaluator = self.create_evaluator(seed=seed)
             approach = sr_approach.clone()
             approach.search(evaluator, seed)
             results += evaluator.get_results(approach.name, top_k)
@@ -165,7 +169,10 @@ class SR_dataset:
         """
         if metadata is None:
             metadata = dict()
-        metadata["dataset_metadata"] = self.dataset_metadata
+        if self.dataset_metadata is not None:
+            metadata["dataset_metadata"] = self.dataset_metadata
+        if self.dataset_name is not None:
+            metadata["dataset_name"] = self.dataset_name
 
         if seed is None:
             seed = self.seed
@@ -269,6 +276,7 @@ class SR_dataset:
             "original_equation": self.original_equation,
             "seed": self.seed,
             "dataset_metadata": self.dataset_metadata,
+            "dataset_name": self.dataset_name if self.dataset_name is not None else name,
         }
 
         if self.kwargs is not None and "bed_X" in self.kwargs and isinstance(self.kwargs["bed_X"], np.ndarray):
@@ -367,6 +375,7 @@ class SR_dataset:
                               result_augmenters=result_augmenters,
                               seed=d["seed"],
                               dataset_metadata=d["dataset_metadata"],
+                              dataset_name=d["dataset_name"],
                               **d["kwargs"])
         except Exception as e:
             raise Exception(f"[SR_dataset.from_dict] Error creating dataset: {e}")

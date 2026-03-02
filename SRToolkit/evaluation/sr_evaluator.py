@@ -698,10 +698,17 @@ class SR_results:
             "num_evaluated": len(models),
             "evaluation_calls": total_evaluations,
             "top_models": list(),
-            "metadata": metadata,
             "all_models": models,
             "approach_name": approach_name
         }
+
+        if metadata is not None and "dataset_name" in metadata:
+            results_dict["dataset_name"] = metadata["dataset_name"]
+            metadata.pop("dataset_name")
+            if len(metadata) > 0:
+                results_dict["metadata"] = metadata
+        elif metadata is not None:
+            results_dict["metadata"] = metadata
 
         # Determine success based on the predefined success threshold
         if (
@@ -780,6 +787,8 @@ class SR_results:
 
     @staticmethod
     def _print_result_(result, detailed: bool = False):
+        if "dataset_name" in result:
+            print(f"Dataset: {result['dataset_name']}")
         if result["approach_name"] != "":
             print(f"Approach: {result['approach_name']}")
         print(f"Best expression found: {result['best_expr']}")
@@ -788,7 +797,7 @@ class SR_results:
         print(f"Number of times evaluate_expr was called: {result['evaluation_calls']}")
         print(f"Success: {result['success']}")
         print()
-        if result["metadata"] is not None and len(result["metadata"]) > 0:
+        if "metadata" in result and result["metadata"] is not None and len(result["metadata"]) > 0:
             print("Metadata:")
             for key, value in result["metadata"].items():
                 print(f"{key}: {value}")

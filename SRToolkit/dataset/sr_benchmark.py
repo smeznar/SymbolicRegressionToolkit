@@ -172,6 +172,7 @@ class SR_benchmark:
             dataset_name = f"{self.benchmark_name}_{len(self.datasets)+1}"
 
         self.datasets[dataset_name] = {}
+        self.datasets[dataset_name]["dataset_name"] = dataset_name
         self.datasets[dataset_name]["symbol_library"] = symbol_library.to_dict()
         self.datasets[dataset_name]["ranking_function"] = ranking_function
         self.datasets[dataset_name]["max_evaluations"] = max_evaluations
