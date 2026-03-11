@@ -1,5 +1,5 @@
 """
-This module contains the ProGED approach - Probabilistic grammar-based equation discovery.
+This module contains the ProGED approach - Probabilistic grammar-based equation discovery by Brence et. al.
 """
 from typing import Optional, Union
 

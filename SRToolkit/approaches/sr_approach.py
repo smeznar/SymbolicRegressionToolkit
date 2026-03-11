@@ -1,10 +1,19 @@
 """
 This module contains the SR_approach class, which is the base class for all symbolic regression approaches.
 """
-from typing import Optional
+from typing import Optional, List
 
 from SRToolkit.evaluation import SR_evaluator
 
+
+def check_dependencies(packages: List[str]):
+    if "pytorch" in packages:
+        try:
+            import torch
+        except ImportError:
+            raise ImportError(
+                "This approach requires PyTorch. Install dependencies either manually or with"
+                "the command: pip install 'symbolic-regression-toolkit[approaches]'")
 
 class SR_approach:
     def __init__(self, name: str):

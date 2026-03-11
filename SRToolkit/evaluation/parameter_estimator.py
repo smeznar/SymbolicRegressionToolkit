@@ -59,7 +59,7 @@ class ParameterEstimator:
         # self.stats = {"success": 0, "failure": 0, "steps": dict(), "num_constants": dict(), "failed_constants": dict()}
 
         self.estimation_settings = {
-            "method": "L-BFGS-B",
+            "method": "SLSQP",
             "tol": 1e-6,
             "gtol": 1e-3,
             "max_iter": 100,

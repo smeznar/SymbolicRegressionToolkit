@@ -40,6 +40,9 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Mathematics"
 ]
 
+[project.optional-dependencies]
+approaches = ["torch>=2.0"]
+
 [project.urls]
 Homepage = "https://github.com/smeznar/SymbolicRegressionToolkit"
 Documentation = "https://smeznar.github.io/SymbolicRegressionToolkit/"
