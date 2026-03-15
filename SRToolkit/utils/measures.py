@@ -126,12 +126,12 @@ def create_behavior_matrix(
         (10, 32)
         >>> mean_0_1 = np.mean(create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32, consts_bounds=(0, 1)))
         >>> mean_1_5 = np.mean(create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32, consts_bounds=(1, 5)))
-        >>> mean_0_1 < mean_1_5
+        >>> print(bool(mean_0_1 < mean_1_5))
         True
         >>> # Deterministic expressions always produce the same behavior matrix
         >>> bm1 = create_behavior_matrix(["X_0", "+", "X_1"], X)
         >>> bm2 = create_behavior_matrix(["X_0", "+", "X_1"], X)
-        >>> np.array_equal(bm1, bm2)
+        >>> print(bool(np.array_equal(bm1, bm2)))
         True
 
 

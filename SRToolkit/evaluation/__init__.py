@@ -9,7 +9,7 @@ Modules:
 """
 
 from .parameter_estimator import ParameterEstimator
-from .sr_evaluator import SR_evaluator, ResultAugmenter, SR_results
+from .sr_evaluator import SR_evaluator, ResultAugmenter, SR_results, EvalResult, ModelResult
 from .result_augmentation import (
     ExpressionSimplifier,
     RMSE,
@@ -23,6 +23,8 @@ __all__ = [
     "ParameterEstimator",
     "SR_evaluator",
     "SR_results",
+    "EvalResult",
+    "ModelResult",
     "ResultAugmenter",
     "ExpressionSimplifier",
     "RMSE",

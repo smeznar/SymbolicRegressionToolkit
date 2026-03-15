@@ -42,7 +42,15 @@ classifiers = [
 
 [project.optional-dependencies]
 approaches = ["torch>=2.0"]
+dev = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/smeznar/SymbolicRegressionToolkit"
 Documentation = "https://smeznar.github.io/SymbolicRegressionToolkit/"
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+testpaths = ["SRToolkit"]
+markers = [
+    "benchmark: tests requiring downloaded benchmark data (run with: pytest tests/)",
+]

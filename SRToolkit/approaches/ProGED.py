@@ -1,7 +1,7 @@
 """
 This module contains the ProGED approach - Probabilistic grammar-based equation discovery by Brence et. al.
 """
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 
@@ -12,20 +12,20 @@ from SRToolkit.utils import generate_n_expressions, SymbolLibrary
 
 class ProGED(SR_approach):
     r"""
-    A slimmed down version of the ProGED approach. You can find the full version of the approach at
+    A slimmed-down version of the ProGED approach. You can find the full version of the approach at
     <https://github.com/brencej/ProGED> and the paper presenting the approach at
     <https://www.sciencedirect.com/science/article/pii/S0950705121003403>.
 
     The approach randomly samples expressions from a probabilistic grammar and evaluates them on the dataset.
 
     Examples:
-        >>> from SRToolkit.dataset import SR_benchmark
-        >>> benchmark = SR_benchmark.feynman('../../data/feynman/')
-        >>> dataset = benchmark.create_dataset('I.16.6')
-        >>> dataset.max_evaluations = 100
-        >>> model = ProGED(dataset.symbol_library, verbose=False)
-        >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
-        >>> results.print_results(0)
+        >>> from SRToolkit.dataset import SR_benchmark  # doctest: +SKIP
+        >>> benchmark = SR_benchmark.feynman('../../data/feynman/')  # doctest: +SKIP
+        >>> dataset = benchmark.create_dataset('I.16.6')  # doctest: +SKIP
+        >>> dataset.max_evaluations = 100  # doctest: +SKIP
+        >>> model = ProGED(dataset.symbol_library, verbose=False)  # doctest: +SKIP
+        >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)  # doctest: +SKIP
+        >>> results.print_results(0)  # doctest: +SKIP
         Dataset: I.16.6
         Approach: ProGED
         Best expression found: X_0/C/C
@@ -45,6 +45,12 @@ class ProGED(SR_approach):
         self.grammar = grammar
         self.verbose = verbose
 
+    def prepare(self) -> None:
+        """
+        ProGED is stateless, so this method does nothing.
+        """
+        pass
+
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None):
         """
         Samples expressions from the grammar using the Monte Carlo approach and evaluates them on the dataset.
@@ -55,20 +61,16 @@ class ProGED(SR_approach):
         """
         np.random.seed(seed)
         min_error = float("inf")
-        while sr_evaluator.total_evaluations < sr_evaluator.max_evaluations and min_error > sr_evaluator.success_threshold:
+        success = sr_evaluator.success_threshold is not None and min_error <= sr_evaluator.success_threshold
+        budget_exhausted = 0 < sr_evaluator.max_evaluations <= sr_evaluator.total_evaluations
+        while not success and not budget_exhausted:
             expr = generate_n_expressions(self.grammar, 1, verbose=False)[0]
             error = sr_evaluator.evaluate_expr(expr)
             if error < min_error:
                 min_error = error
                 if self.verbose:
-                    print(f"New best expression {''.join(expr)} with error {min_error} after {sr_evaluator.total_evaluations} evaluations.")
-            min_error = min(min_error, error)
+                    print(f"New best expression {''.join(expr)} with error {min_error} "
+                          f"after {sr_evaluator.total_evaluations} evaluations.")
+            success = sr_evaluator.success_threshold is not None and min_error <= sr_evaluator.success_threshold
+            budget_exhausted = 0 < sr_evaluator.max_evaluations <= sr_evaluator.total_evaluations
 
-    def clone(self):
-        """
-        Clones the ProGED approach.
-
-        Returns:
-            The approach is stateless, so this method only returns the object itself.
-        """
-        return self

@@ -83,11 +83,11 @@ def expr_to_error_function(
 
     Examples:
         >>> executable_fun = expr_to_error_function(["X_0", "+", "1"])
-        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
+        >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
         0.0
         >>> tree = tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1))
         >>> executable_fun = expr_to_error_function(tree)
-        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
+        >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
         0.0
         >>> # In case you need libraries other than numpy for the evaluation of your expressions,
         >>> # you can add them to the preamble in the SymbolLibrary. Here is how a preamble would look like:
@@ -95,7 +95,7 @@ def expr_to_error_function(
         >>> symbol_library.preamble = ["import numpy as np"]
         >>> # Usually this is done when initializing the SymbolLibrary as SymbolLibrary(preamble=preamble)
         >>> executable_fun = expr_to_error_function(tree, symbol_library)
-        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))
+        >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
         0.0
 
     Args:

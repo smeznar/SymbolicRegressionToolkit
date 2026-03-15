@@ -544,7 +544,8 @@ class SymbolLibrary:
         Returns:
             A dictionary containing the symbol library's data.
         """
-        return {"type": "SymbolLibrary",
+        return {"format_version": 1,
+                "type": "SymbolLibrary",
                 "symbols": self.symbols,
                 "preamble": self.preamble,
                 "num_variables": self.num_variables}
@@ -560,6 +561,10 @@ class SymbolLibrary:
         Returns:
             The SymbolLibrary instance created from the dictionary.
         """
+        if d.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[SymbolLibrary.from_dict] Unsupported format_version: {d.get('format_version')!r}. Expected 1."
+            )
         sl = SymbolLibrary()
         sl.symbols = d["symbols"]
         sl.preamble = d["preamble"]

@@ -1,13 +1,11 @@
 """
 This module contains the EDHiE (Equation Discovery with Hierarchical variational autoEncoders) approach by Mežnar et. al.
 """
-from typing import Optional, Union, Dict, List
-
-import numpy as np
+from typing import Optional, Union, Dict, List, Tuple
 
 from SRToolkit.approaches.sr_approach import SR_approach, check_dependencies
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import generate_n_expressions, SymbolLibrary, Node
+from SRToolkit.utils import SymbolLibrary, Node
 
 try:
     import torch
@@ -15,18 +13,16 @@ try:
     from torch.autograd import Variable
     import torch.nn.functional as F
 except ImportError:
-    print("PyTorch is not installed. Please install it to use approaches from this module.")
     raise ImportError("PyTorch is not installed.")
 
 
 class EDHiE(SR_approach):
     r"""
     """
-    def __init__(self, grammar: Union[str, SymbolLibrary], verbose: bool = False):
+    def __init__(self):
         super().__init__("EDHiE")
         check_dependencies(["pytorch"])
-        self.grammar = grammar
-        self.verbose = verbose
+        raise NotImplementedError
 
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None):
         """
@@ -36,16 +32,7 @@ class EDHiE(SR_approach):
             sr_evaluator: The evaluator used for scoring expressions.
             seed: The seed used for random number generation.
         """
-        np.random.seed(seed)
-        min_error = float("inf")
-        while sr_evaluator.total_evaluations < sr_evaluator.max_evaluations and min_error > sr_evaluator.success_threshold:
-            expr = generate_n_expressions(self.grammar, 1, verbose=False)[0]
-            error = sr_evaluator.evaluate_expr(expr)
-            if error < min_error:
-                min_error = error
-                if self.verbose:
-                    print(f"New best expression {''.join(expr)} with error {min_error} after {sr_evaluator.total_evaluations} evaluations.")
-            min_error = min(min_error, error)
+        raise NotImplementedError
 
     def clone(self):
         """
@@ -54,7 +41,7 @@ class EDHiE(SR_approach):
         Returns:
             The approach is stateless, so this method only returns the object itself.
         """
-        return self
+        raise NotImplementedError
 
 
 class BatchedNode:
@@ -72,15 +59,17 @@ class BatchedNode:
                 self.add_tree(tree)
 
     def add_tree(self, tree=None):
-        # Add an empty subtree to the batch
+        # Add an empty subtree to the batch. This is used to pad the batch so that it
+        # has the same number of symbols in each node.
         if tree is None:
             self.symbols.append("")
 
+            # Recursively fill subtrees if they exist
             if self.left is not None:
                 self.left.add_tree()
             if self.right is not None:
                 self.right.add_tree()
-        # Add the given subtree
+        # Add the given subtree to the batch
         else:
             self.symbols.append(tree.symbol)
 
@@ -106,7 +95,7 @@ class BatchedNode:
                 self.right = BatchedNode(self.symbol2index, size=len(self.symbols) - 1)
                 self.right.add_tree(tree.right)
 
-    def loss(self, mu: torch.Tensor, logvar: torch.Tensor, lmbda: float, criterion) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    def loss(self, mu: torch.Tensor, logvar: torch.Tensor, lmbda: float, criterion) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         pred = self.get_prediction()
         target = self.get_target()
         BCE = criterion(pred, target)
@@ -137,7 +126,7 @@ class BatchedNode:
             expressions.append(self.get_expr_at_idx(i))
         return expressions
 
-    def get_expr_at_idx(self, idx: int) -> Union[Node, None]:
+    def get_expr_at_idx(self, idx: int) -> Node | None:
         symbol = self.symbols[idx]
         if symbol == "":
             return None
@@ -196,7 +185,7 @@ class HVAE(nn.Module):
         self.encoder = Encoder(input_size, hidden_size, output_size)
         self.decoder = Decoder(output_size, hidden_size, input_size, symbol_library, max_height)
 
-    def forward(self, tree: BatchedNode) -> (torch.Tensor, torch.Tensor, BatchedNode):
+    def forward(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor, BatchedNode]:
         mu, logvar = self.encoder(tree)
         z = self.sample(mu, logvar)
         out = self.decoder(z, tree)
@@ -207,7 +196,7 @@ class HVAE(nn.Module):
         std = torch.exp(logvar / 2.0)
         return mu + eps * std
 
-    def encode(self, tree: BatchedNode) -> (torch.Tensor, torch.Tensor):
+    def encode(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor]:
         mu, logvar = self.encoder(tree)
         return mu, logvar
 
@@ -226,7 +215,7 @@ class Encoder(nn.Module):
         torch.nn.init.xavier_uniform_(self.mu.weight)
         torch.nn.init.xavier_uniform_(self.logvar.weight)
 
-    def forward(self, tree: BatchedNode) -> (torch.Tensor, torch.Tensor):
+    def forward(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor]:
         tree_encoding = self.recursive_forward(tree)
         mu = self.mu(tree_encoding)
         logvar = self.logvar(tree_encoding)

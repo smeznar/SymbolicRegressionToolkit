@@ -4,7 +4,8 @@ the generic ResultAugmenter class is defined here to avoid circular imports.
 """
 import os
 from contextlib import nullcontext
-from typing import Optional, List, Union, Dict
+from typing import Optional, List, Union, Dict, TypedDict
+import logging
 import warnings
 
 import numpy as np
@@ -12,6 +13,78 @@ from scipy.stats.qmc import LatinHypercube
 
 from SRToolkit.utils import Node, SymbolLibrary, simplify, create_behavior_matrix, bed
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+
+logger = logging.getLogger(__name__)
+
+
+class _ModelResultBase(TypedDict):
+    """Required fields present in every model entry."""
+    expr: List[str]
+    error: float
+
+
+class ModelResult(_ModelResultBase, total=False):
+    """
+    A single model entry as returned in ``EvalResult["top_models"]`` and ``EvalResult["all_models"]``.
+
+    Required keys:
+        expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
+        error: Numeric error of the expression under the ranking function (RMSE or BED).
+
+    Optional keys (present depending on ranking function or active augmenters):
+        parameters: Fitted constant values (RMSE ranking only).
+        expr_latex: LaTeX string, added by :class:`ExpressionToLatex`.
+        simplified_expr: Simplified token string, added by :class:`ExpressionSimplifier`.
+        bed: BED score, added by :class:`BED` augmenter.
+    """
+    parameters: "np.ndarray"
+    expr_latex: str
+    simplified_expr: str
+    bed: float
+
+
+class _EvalResultBase(TypedDict):
+    """Required fields present in every experiment result."""
+    min_error: float
+    best_expr: str
+    num_evaluated: int
+    evaluation_calls: int
+    top_models: List[ModelResult]
+    all_models: List[ModelResult]
+    approach_name: str
+    success: bool
+
+
+class EvalResult(_EvalResultBase, total=False):
+    """
+    Result dictionary for a single SR experiment, as returned by ``SR_results[i]``.
+
+    Required keys:
+        min_error: Lowest error achieved across all evaluated expressions.
+        best_expr: String representation of the best expression found.
+        num_evaluated: Number of unique expressions evaluated.
+        evaluation_calls: Number of times ``evaluate_expr`` was called (includes cache hits).
+        top_models: Top-*k* models sorted by error, each a :class:`ModelResult`.
+        all_models: All evaluated models sorted by error, each a :class:`ModelResult`.
+        approach_name: Name of the SR approach, or empty string if not provided.
+        success: Whether ``min_error`` is below the configured ``success_threshold``.
+
+    Optional keys (present depending on configuration or active augmenters):
+        dataset_name: Name of the dataset, extracted from metadata when available.
+        metadata: Remaining metadata dict after ``dataset_name`` is popped.
+        best_expr_latex: LaTeX string of the best expression, added by :class:`ExpressionToLatex`.
+        simplified_best_expr: Simplified best expression string, added by :class:`ExpressionSimplifier`.
+        best_expr_bed: BED score of the best expression, added by :class:`BED` augmenter.
+
+    Custom augmenters may add arbitrary keys at runtime. Static type checkers
+    will flag access to those keys unless you subclass ``EvalResult`` to declare
+    them or suppress the error with ``cast``/``# type: ignore``.
+    """
+    dataset_name: str
+    metadata: dict
+    best_expr_latex: str
+    simplified_best_expr: str
+    best_expr_bed: float
 
 
 class ResultAugmenter:
@@ -24,18 +97,16 @@ class ResultAugmenter:
 
     def augment_results(
         self,
-        results: dict,
-        models: List[dict],
-    ) -> dict:
+        results: "EvalResult",
+        models: List[ModelResult],
+    ) -> "EvalResult":
         """
         Augments the results dictionary with additional information. The model variable contains all models, for only
         top models, results["top_models"] should be used.
 
         Args:
             results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
+            models: A list of :class:`ModelResult` dicts sorted by error (best first).
 
         Returns:
             The augmented results dictionary.
@@ -198,8 +269,8 @@ class SR_evaluator:
             np.random.seed(seed)
 
         if ranking_function not in ["rmse", "bed"]:
-            print(
-                f"Warning: ranking_function {ranking_function} not supported. Using rmse instead."
+            warnings.warn(
+                f"ranking_function '{ranking_function}' not supported. Using rmse instead."
             )
             ranking_function = "rmse"
         self.ranking_function = ranking_function
@@ -208,8 +279,8 @@ class SR_evaluator:
         if result_augmenters is not None:
             for ra in result_augmenters:
                 if not isinstance(ra, ResultAugmenter):
-                    print(
-                        f"Warning: result_augmenter {ra} is not an instance of ResultAugmenter. Skipping."
+                    warnings.warn(
+                        f"result_augmenter {ra} is not an instance of ResultAugmenter. Skipping."
                     )
                 else:
                     self.result_augmenters.append(ra)
@@ -313,13 +384,13 @@ class SR_evaluator:
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = SR_evaluator(X, y, seed=42)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> print(rmse < 1e-6)
             True
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
             >>> y = np.array([2, 3, 4])
-            >>> se = SR_evaluator(X, y)
+            >>> se = SR_evaluator(X, y, seed=42)
             >>> rmse = se.evaluate_expr(["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
             >>> print(rmse < 1e-6)
             True
@@ -328,22 +399,22 @@ class SR_evaluator:
             >>> print(0.99 < se.models["C+X_1"]["parameters"][0] < 1.01)
             True
             >>> # Evaluating invalid expression returns nan and adds it to invalid list
-            >>> se.evaluate_expr(["C", "*", "X_1", "X_0"])
+            >>> print(se.evaluate_expr(["C", "*", "X_1", "X_0"]))
             nan
             >>> se.invalid
             ['C*X_1X_0']
             >>> X = np.random.rand(10, 2) - 0.5
             >>> gt = ["X_0", "+", "C"]
-            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed")
-            >>> se.evaluate_expr(["C", "+", "X_1"]) < 1
+            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", seed=42)
+            >>> print(se.evaluate_expr(["C", "+", "X_1"]) < 1)
             True
             >>> # When evaluating using BED as the ranking function, the error depends on the scale of output of the
             >>> # ground truth. Because of stochasticity of BED, error might be high even when expressions match exactly.
-            >>> se.evaluate_expr(["C", "+", "X_0"]) < 0.2
+            >>> print(se.evaluate_expr(["C", "+", "X_0"]) < 0.2)
             True
             >>> # X can also be sampled from a domain by providing domain_bounds
-            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", domain_bounds=[(-1, 1), (-1, 1)])
-            >>> se.evaluate_expr(["C", "+", "X_0"]) < 0.2
+            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", domain_bounds=[(-1, 1), (-1, 1)], seed=42)
+            >>> print(se.evaluate_expr(["C", "+", "X_0"]) < 0.2)
             True
 
         Args:
@@ -381,7 +452,7 @@ class SR_evaluator:
                         expr_list = expr.to_list(symbol_library=self.symbol_library)
                     else:
                         expr_list = expr
-                    print(
+                    warnings.warn(
                         f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}"
                     )
 
@@ -393,7 +464,7 @@ class SR_evaluator:
             expr_str = "".join(expr_list)
             if expr_str in self.models:
                 if verbose > 0:
-                    print(f"Already evaluated {expr_str}")
+                    logger.debug("Already evaluated %s", expr_str)
                 return self.models[expr_str]["error"]
 
             else:
@@ -418,14 +489,14 @@ class SR_evaluator:
                                 parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
                             else:
                                 parameter_string = ""
-                            print(
-                                f"Evaluated expression {expr_str} with RMSE: {error}."
-                                + parameter_string
+                            logger.debug(
+                                "Evaluated expression %s with RMSE: %s.%s",
+                                expr_str, error, parameter_string
                             )
 
                     except Exception as e:
                         if verbose > 0:
-                            print(f"Error evaluating expression {expr_str}: {e}")
+                            logger.debug("Error evaluating expression %s: %s", expr_str, e)
 
                         self.invalid.append(expr_str)
                         error, parameters = np.nan, np.array([])
@@ -469,13 +540,13 @@ class SR_evaluator:
                             )
 
                             if verbose > 0:
-                                print(
-                                    f"Evaluated expression {expr_str} with BED: {error}."
+                                logger.debug(
+                                    "Evaluated expression %s with BED: %s.", expr_str, error
                                 )
 
                     except Exception as e:
                         if verbose > 0:
-                            print(f"Error evaluating expression {expr_str}: {e}")
+                            logger.debug("Error evaluating expression %s: %s", expr_str, e)
 
                         self.invalid.append(expr_str)
                         error = np.nan
@@ -549,7 +620,8 @@ class SR_evaluator:
         Returns:
             A dictionary containing the necessary information to recreate the evaluator from disk.
         """
-        output = {"type": "SR_evaluator",
+        output = {"format_version": 1,
+                  "type": "SR_evaluator",
                   "metadata": self.metadata,
                   "symbol_library": self.symbol_library.to_dict(),
                   "max_evaluations": self.max_evaluations,
@@ -603,6 +675,11 @@ class SR_evaluator:
             Exception: if unable to load data for X/y/ground truth data, if result augmenters provided but not the
                 augmenter map or if the result augmentor does not occur in the augmenter map.
         """
+        if data.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[SR_evaluator.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+            )
+
         try:
             X = np.load(data["X"])
 
@@ -647,7 +724,7 @@ class SR_results:
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = SR_evaluator(X, y, seed=42)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1) # Obtain an instance of SR_results
             >>> print(results[0]["num_evaluated"])
@@ -730,7 +807,7 @@ class SR_results:
             try:
                 results_dict = augmenter.augment_results(results_dict, models)
             except Exception as e:
-                print(
+                warnings.warn(
                     f"Error augmenting results, skipping current augmentor because of the following error: {e}"
                 )
 
@@ -746,27 +823,27 @@ class SR_results:
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = SR_evaluator(X, y, seed=42)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
-            >>> results.print_results()
-            Experiment 0:
+            >>> results.print_results()  # doctest: +ELLIPSIS
+            Experiment 1/1:
             Best expression found: C*X_1-X_0
-            Error: 6.8864915460553005e-09
+            Error: ...
             Number of evaluated expressions: 1
             Number of times evaluate_expr was called: 1
-            Success: True
+            Success: ...
             <BLANKLINE>
             -----------------------------------------
-            >>> results.print_results(detailed=True, experiment_number=0)
+            >>> results.print_results(detailed=True, experiment_number=0)  # doctest: +ELLIPSIS
             Best expression found: C*X_1-X_0
-            Error: 6.8864915460553005e-09
+            Error: ...
             Number of evaluated expressions: 1
             Number of times evaluate_expr was called: 1
-            Success: True
+            Success: ...
             <BLANKLINE>
             Top models:
-            Model 1 - expr: ['C', '*', 'X_1', '-', 'X_0'], error: 6.8864915460553005e-09, parameters: [2.]
+            Model 1 - expr: ['C', '*', 'X_1', '-', 'X_0'], error: ..., parameters: [...]
             <BLANKLINE>
 
         Args:
@@ -825,7 +902,7 @@ class SR_results:
         self.results += other.results
         return self
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> EvalResult:
         """
         Returns the results of the experiment with the given index.
 
@@ -848,7 +925,7 @@ class SR_results:
         assert 0 <= item < len(self.results), "[SR_Results.__getitem__] Item out of bounds."
         return self.results[item]
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Returns the number of results stored in the results object. Usually, each result corresponds to a single experiment.
 

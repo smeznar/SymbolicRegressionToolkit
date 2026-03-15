@@ -34,9 +34,9 @@ class SR_dataset:
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
             >>> evaluator = dataset.create_evaluator()
-            >>> evaluator.evaluate_expr(["sin", "(", "X_0", ")"]) < dataset.success_threshold
+            >>> print(evaluator.evaluate_expr(["sin", "(", "X_0", ")"]) < dataset.success_threshold)
             False
-            >>> evaluator.evaluate_expr(["u-", "C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold
+            >>> print(evaluator.evaluate_expr(["u-", "C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold)
             True
 
         Args:
@@ -115,9 +115,10 @@ class SR_dataset:
             sr_approach: An instance of SR_approach that will be evaluated on this dataset.
             num_experiments: The number of times the approach should be evaluated on this dataset.
             top_k: Number of the best expressions presented in the results
-            seed: The seed used for random number generation. If None, the seed from the dataset is used.
+            initial_seed: The seed used for random number generation. If None, the seed from the dataset is used.
             results: An optional SR_results object to which the results of the evaluation will be added. If None,
                 a new SR_results object will be created.
+            verbose: If true, prints the progress of the evaluation.
 
         Returns:
             The results of the evaluation.
@@ -130,16 +131,33 @@ class SR_dataset:
         if results is None:
             results = SR_results()
 
+        adaptation_cache = None
+
         for experiment in range(num_experiments):
             if verbose:
                 print(f"Running experiment {experiment+1}/{num_experiments}")
             if seed is not None:
                 seed += 1
 
+            sr_approach.prepare()
+
+            if sr_approach.adaptation_scope == "never":
+                pass
+            elif sr_approach.adaptation_scope == "once":
+                key = sr_approach.name
+                if adaptation_cache is not None:
+                    sr_approach.load_adapted_state(adaptation_cache[key])
+                else:
+                    sr_approach.adapt(self.X, self.symbol_library)
+                    adaptation_cache = sr_approach.save_adapted_state()
+            else:  # "experiment"
+                sr_approach.adapt(self.X, self.symbol_library)
+                if sr_approach.save_adapted_model:
+                    sr_approach.save_adapted_state()
+
             evaluator = self.create_evaluator(seed=seed)
-            approach = sr_approach.clone()
-            approach.search(evaluator, seed)
-            results += evaluator.get_results(approach.name, top_k)
+            sr_approach.search(evaluator, seed)
+            results += evaluator.get_results(sr_approach.name, top_k)
         return results
 
     def create_evaluator(self, metadata: dict = None, seed: int = None) -> SR_evaluator:
@@ -151,9 +169,9 @@ class SR_dataset:
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
             >>> evaluator = dataset.create_evaluator()
-            >>> evaluator.evaluate_expr(["sin", "(", "X_0", ")"])
+            >>> print(float(evaluator.evaluate_expr(["sin", "(", "X_0", ")"])))
             8.056453977203414
-            >>> evaluator.evaluate_expr(["X_1", "+", "X_0"])
+            >>> print(float(evaluator.evaluate_expr(["X_1", "+", "X_0"])))
             0.0
 
         Args:
@@ -192,7 +210,6 @@ class SR_dataset:
                 **self.kwargs,
             )
         except Exception as e:
-            print(f"Error creating evaluator: {e}")
             raise e
 
     def __str__(self) -> str:
@@ -255,11 +272,16 @@ class SR_dataset:
         Creates a dictionary representation of this dataset. This is mainly used for saving the dataset to disk.
 
         Examples:
+            >>> import tempfile
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> dataset.to_dict("data/example_ds", "test_dataset")
-            {'symbol_library': {'type': 'SymbolLibrary', 'symbols': {'+': {'symbol': '+', 'type': 'op', 'precedence': 0, 'np_fn': '{} = {} + {}', 'latex_str': '{} + {}'}, '-': {'symbol': '-', 'type': 'op', 'precedence': 0, 'np_fn': '{} = {} - {}', 'latex_str': '{} - {}'}, '*': {'symbol': '*', 'type': 'op', 'precedence': 1, 'np_fn': '{} = {} * {}', 'latex_str': '{} \\cdot {}'}, '/': {'symbol': '/', 'type': 'op', 'precedence': 1, 'np_fn': '{} = {} / {}', 'latex_str': '\\frac{{{}}}{{{}}}'}, '^': {'symbol': '^', 'type': 'op', 'precedence': 2, 'np_fn': '{} = np.power({},{})', 'latex_str': '{}^{{{}}}'}, 'u-': {'symbol': 'u-', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = -{}', 'latex_str': '- {}'}, 'sqrt': {'symbol': 'sqrt', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.sqrt({})', 'latex_str': '\\sqrt {{{}}}'}, 'sin': {'symbol': 'sin', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.sin({})', 'latex_str': '\\sin {}'}, 'cos': {'symbol': 'cos', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.cos({})', 'latex_str': '\\cos {}'}, 'exp': {'symbol': 'exp', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.exp({})', 'latex_str': 'e^{{{}}}'}, 'tan': {'symbol': 'tan', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.tan({})', 'latex_str': '\\tan {}'}, 'arcsin': {'symbol': 'arcsin', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.arcsin({})', 'latex_str': '\\arcsin {}'}, 'arccos': {'symbol': 'arccos', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.arccos({})', 'latex_str': '\\arccos {}'}, 'arctan': {'symbol': 'arctan', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.arctan({})', 'latex_str': '\\arctan {}'}, 'sinh': {'symbol': 'sinh', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.sinh({})', 'latex_str': '\\sinh {}'}, 'cosh': {'symbol': 'cosh', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.cosh({})', 'latex_str': '\\cosh {}'}, 'tanh': {'symbol': 'tanh', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.tanh({})', 'latex_str': '\\tanh {}'}, 'floor': {'symbol': 'floor', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.floor({})', 'latex_str': '\\lfloor {} \\rfloor'}, 'ceil': {'symbol': 'ceil', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.ceil({})', 'latex_str': '\\lceil {} \\rceil'}, 'ln': {'symbol': 'ln', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.log({})', 'latex_str': '\\ln {}'}, 'log': {'symbol': 'log', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.log10({})', 'latex_str': '\\log_{{10}} {}'}, '^-1': {'symbol': '^-1', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = 1/{}', 'latex_str': '{}^{{-1}}'}, '^2': {'symbol': '^2', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**2', 'latex_str': '{}^2'}, '^3': {'symbol': '^3', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**3', 'latex_str': '{}^3'}, '^4': {'symbol': '^4', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**4', 'latex_str': '{}^4'}, '^5': {'symbol': '^5', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**5', 'latex_str': '{}^5'}, 'pi': {'symbol': 'pi', 'type': 'lit', 'precedence': 5, 'np_fn': 'np.full(X.shape[0], np.pi)', 'latex_str': '\\pi'}, 'e': {'symbol': 'e', 'type': 'lit', 'precedence': 5, 'np_fn': 'np.full(X.shape[0], np.e)', 'latex_str': 'e'}, 'C': {'symbol': 'C', 'type': 'const', 'precedence': 5, 'np_fn': 'np.full(X.shape[0], C[{}])', 'latex_str': 'C_{{{}}}'}, 'X_0': {'symbol': 'X_0', 'type': 'var', 'precedence': 5, 'np_fn': 'X[:, 0]', 'latex_str': 'X_{0}'}, 'X_1': {'symbol': 'X_1', 'type': 'var', 'precedence': 5, 'np_fn': 'X[:, 1]', 'latex_str': 'X_{1}'}}, 'preamble': ['import numpy as np'], 'num_variables': 2}, 'ranking_function': 'rmse', 'max_evaluations': 10000, 'success_threshold': 1e-06, 'original_equation': 'z = x + y', 'seed': None, 'dataset_metadata': None, 'kwargs': {}, 'result_augmenters': None, 'ground_truth': ['X_0', '+', 'X_1'], 'dataset_path': 'data/example_ds/test_dataset.npz'}
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     d = dataset.to_dict(tmpdir, "test_dataset")
+            ...     print(d['ranking_function'])
+            ...     print(d['ground_truth'])
+            rmse
+            ['X_0', '+', 'X_1']
 
         Args:
             base_path: The path to the directory where the data in the dataset should be saved.
@@ -269,6 +291,7 @@ class SR_dataset:
             A dictionary representation of this dataset.
         """
         output = {
+            "format_version": 1,
             "symbol_library": self.symbol_library.to_dict(),
             "ranking_function": self.ranking_function,
             "max_evaluations": self.max_evaluations,
@@ -319,17 +342,27 @@ class SR_dataset:
         loading the dataset from disk.
 
         Examples:
-            >>> from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
-            >>> dataset_dict = {'symbol_library': {'type': 'SymbolLibrary', 'symbols': {'+': {'symbol': '+', 'type': 'op', 'precedence': 0, 'np_fn': '{} = {} + {}', 'latex_str': '{} + {}'}, '-': {'symbol': '-', 'type': 'op', 'precedence': 0, 'np_fn': '{} = {} - {}', 'latex_str': '{} - {}'}, '*': {'symbol': '*', 'type': 'op', 'precedence': 1, 'np_fn': '{} = {} * {}', 'latex_str': '{} \\cdot {}'}, '/': {'symbol': '/', 'type': 'op', 'precedence': 1, 'np_fn': '{} = {} / {}', 'latex_str': '\\frac{{{}}}{{{}}}'}, '^': {'symbol': '^', 'type': 'op', 'precedence': 2, 'np_fn': '{} = np.power({},{})', 'latex_str': '{}^{{{}}}'}, 'u-': {'symbol': 'u-', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = -{}', 'latex_str': '- {}'}, 'sqrt': {'symbol': 'sqrt', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.sqrt({})', 'latex_str': '\\sqrt {{{}}}'}, 'sin': {'symbol': 'sin', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.sin({})', 'latex_str': '\\sin {}'}, 'cos': {'symbol': 'cos', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.cos({})', 'latex_str': '\\cos {}'}, 'exp': {'symbol': 'exp', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.exp({})', 'latex_str': 'e^{{{}}}'}, 'tan': {'symbol': 'tan', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.tan({})', 'latex_str': '\\tan {}'}, 'arcsin': {'symbol': 'arcsin', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.arcsin({})', 'latex_str': '\\arcsin {}'}, 'arccos': {'symbol': 'arccos', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.arccos({})', 'latex_str': '\\arccos {}'}, 'arctan': {'symbol': 'arctan', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.arctan({})', 'latex_str': '\\arctan {}'}, 'sinh': {'symbol': 'sinh', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.sinh({})', 'latex_str': '\\sinh {}'}, 'cosh': {'symbol': 'cosh', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.cosh({})', 'latex_str': '\\cosh {}'}, 'tanh': {'symbol': 'tanh', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.tanh({})', 'latex_str': '\\tanh {}'}, 'floor': {'symbol': 'floor', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.floor({})', 'latex_str': '\\lfloor {} \\rfloor'}, 'ceil': {'symbol': 'ceil', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.ceil({})', 'latex_str': '\\lceil {} \\rceil'}, 'ln': {'symbol': 'ln', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.log({})', 'latex_str': '\\ln {}'}, 'log': {'symbol': 'log', 'type': 'fn', 'precedence': 5, 'np_fn': '{} = np.log10({})', 'latex_str': '\\log_{{10}} {}'}, '^-1': {'symbol': '^-1', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = 1/{}', 'latex_str': '{}^{{-1}}'}, '^2': {'symbol': '^2', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**2', 'latex_str': '{}^2'}, '^3': {'symbol': '^3', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**3', 'latex_str': '{}^3'}, '^4': {'symbol': '^4', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**4', 'latex_str': '{}^4'}, '^5': {'symbol': '^5', 'type': 'fn', 'precedence': -1, 'np_fn': '{} = {}**5', 'latex_str': '{}^5'}, 'pi': {'symbol': 'pi', 'type': 'lit', 'precedence': 5, 'np_fn': 'np.full(X.shape[0], np.pi)', 'latex_str': '\\pi'}, 'e': {'symbol': 'e', 'type': 'lit', 'precedence': 5, 'np_fn': 'np.full(X.shape[0], np.e)', 'latex_str': 'e'}, 'C': {'symbol': 'C', 'type': 'const', 'precedence': 5, 'np_fn': 'np.full(X.shape[0], C[{}])', 'latex_str': 'C_{{{}}}'}, 'X_0': {'symbol': 'X_0', 'type': 'var', 'precedence': 5, 'np_fn': 'X[:, 0]', 'latex_str': 'X_{0}'}, 'X_1': {'symbol': 'X_1', 'type': 'var', 'precedence': 5, 'np_fn': 'X[:, 1]', 'latex_str': 'X_{1}'}}, 'preamble': ['import numpy as np'], 'num_variables': 2}, 'ranking_function': 'rmse', 'max_evaluations': 10000, 'success_threshold': 1e-06, 'original_equation': 'z = x + y', 'seed': None, 'dataset_metadata': None, 'kwargs': {}, 'result_augmenters': None, 'ground_truth': ['X_0', '+', 'X_1'], 'dataset_path': 'data/example_ds/test_dataset.npz'}
-            >>> dataset = SR_dataset.from_dict(dataset_dict)
-            >>> dataset.X.shape
+            >>> import tempfile
+            >>> X = np.array([[1, 2], [3, 4], [5, 6]])
+            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
+            ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     d = dataset.to_dict(tmpdir, "test_dataset")
+            ...     dataset2 = SR_dataset.from_dict(d)
+            ...     print(dataset2.X.shape)
+            ...     print(dataset2.ground_truth)
             (3, 2)
+            ['X_0', '+', 'X_1']
 
         Args:
             d: The dictionary representation of the dataset.
             augmentation_map: A dictionary mapping the names of the result augmentation classes to their respective
                 classes. When default value (None) is used, the SRToolit.evaluation.result_augmentation.RESULT_AUGMENTERS dictionary is used.
         """
+        if d.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[SR_dataset.from_dict] Unsupported format_version: {d.get('format_version')!r}. Expected 1."
+            )
         if augmentation_map is None:
             from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
             augmentation_map = RESULT_AUGMENTERS

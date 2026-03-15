@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import warnings
 from typing import List, Union, Tuple, Optional
 from urllib.request import urlopen
 from io import BytesIO
@@ -22,8 +23,8 @@ class SR_benchmark:
         feynman and nguyen methods below.
 
         Examples:
-            >>> benchmark = SR_benchmark.feynman('data/feynman')
-            >>> len(benchmark.list_datasets(verbose=False))
+            >>> benchmark = SR_benchmark.feynman('data/feynman')  # doctest: +SKIP
+            >>> len(benchmark.list_datasets(verbose=False))  # doctest: +SKIP
             100
 
         Args:
@@ -61,12 +62,12 @@ class SR_benchmark:
         Adds an instance of the SR_dataset class to the benchmark.
 
         Examples:
-            >>> benchmark = SR_benchmark.feynman('data/feynman')
-            >>> dataset = benchmark.create_dataset('I.16.6')
-            >>> isinstance(dataset, SR_dataset)
+            >>> benchmark = SR_benchmark.feynman('data/feynman')  # doctest: +SKIP
+            >>> dataset = benchmark.create_dataset('I.16.6')  # doctest: +SKIP
+            >>> isinstance(dataset, SR_dataset)  # doctest: +SKIP
             True
             >>> bm = SR_benchmark("BM", "data/bm")
-            >>> bm.add_dataset_instance("I.16.6", dataset)
+            >>> bm.add_dataset_instance("I.16.6", dataset)  # doctest: +SKIP
 
         Args:
              dataset_name: The name of the dataset.
@@ -101,14 +102,14 @@ class SR_benchmark:
         Adds a dataset to the benchmark.
 
         Examples:
-            >>> fey_benchmark = SR_benchmark.feynman('data/feynman')
-            >>> benchmark = SR_benchmark("BM", "data/bm")
+            >>> fey_benchmark = SR_benchmark.feynman('data/feynman') # doctest: +SKIP
+            >>> benchmark = SR_benchmark("BM", "data/bm") # doctest: +SKIP
             >>> benchmark.add_dataset("data/feynman/I.14.3.npz", SymbolLibrary.default_symbols(3),
             ...       dataset_name="I.14.3", ranking_function="rmse", ground_truth = ["X_0", "*", "X_1", "*", "X_2"],
             ...       original_equation="U = m*g*z", max_evaluations=100000, max_expression_length=50,
             ...       success_threshold=1e-7, dataset_metadata={}, constant_range=[-5.0, 5.0], result_augmenters=[],
-            ...       seed = 42)
-            >>> len(benchmark.list_datasets(verbose=False))
+            ...       seed = 42) # doctest: +SKIP
+            >>> len(benchmark.list_datasets(verbose=False)) # doctest: +SKIP
             1
 
         Args:
@@ -172,6 +173,7 @@ class SR_benchmark:
             dataset_name = f"{self.benchmark_name}_{len(self.datasets)+1}"
 
         self.datasets[dataset_name] = {}
+        self.datasets[dataset_name]["format_version"] = 1
         self.datasets[dataset_name]["dataset_name"] = dataset_name
         self.datasets[dataset_name]["symbol_library"] = symbol_library.to_dict()
         self.datasets[dataset_name]["ranking_function"] = ranking_function
@@ -193,8 +195,8 @@ class SR_benchmark:
             if ranking_function == "bed":
                 raise ValueError("[SR_benchmark.add_dataset] For 'bed' ranking, the ground truth must be provided. ")
             else:
-                print(f"[SR_benchmark.add_dataset] 'ground_truth' argument not provided. We recommend providing it "
-                      f"for more transparent evaluation.")
+                warnings.warn("[SR_benchmark.add_dataset] 'ground_truth' argument not provided. We recommend providing it "
+                              "for more transparent evaluation.")
         else:
             if original_equation is None:
                 if isinstance(ground_truth, str):
@@ -282,8 +284,8 @@ class SR_benchmark:
                                  "values must be a numpy array. The first array represents the features ('X'), "
                                  "the second array represents the targets ('y').")
             if ranking_function == "bed":
-                print(f"[SR_benchmark.add_dataset] 'bed' ranking only utilizes the array with feature. Array with "
-                      f"targets will be ignored.")
+                warnings.warn("[SR_benchmark.add_dataset] 'bed' ranking only utilizes the array with features. "
+                              "Array with targets will be ignored.")
             if not os.path.isdir(self.base_dir):
                 os.makedirs(self.base_dir)
             np.savez(f"{self.base_dir}/{dataset_name}.npz", X=dataset[0], y=dataset[1], allow_pickle=False)
@@ -445,16 +447,16 @@ class SR_benchmark:
         Loads a benchmark stored at the base directory, returning an instance of SR_benchmark.
 
         Examples:
-            >>> b1 = SR_benchmark.feynman('data/feynman')
-            >>> b2 = SR_benchmark.load_benchmark('data/feynman')
-            >>> len(b1.list_datasets(verbose=False))
+            >>> b1 = SR_benchmark.feynman('data/feynman')  # doctest: +SKIP
+            >>> b2 = SR_benchmark.load_benchmark('data/feynman')  # doctest: +SKIP
+            >>> len(b1.list_datasets(verbose=False))  # doctest: +SKIP
             100
-            >>> len(b2.list_datasets(verbose=False))
+            >>> len(b2.list_datasets(verbose=False))  # doctest: +SKIP
             100
-            >>> dataset_name = b2.list_datasets(verbose=False)[0]
-            >>> dataset = b2.create_dataset(dataset_name)
-            >>> rmse = dataset.create_evaluator().evaluate_expr(dataset.ground_truth)
-            >>> rmse < dataset.success_threshold
+            >>> dataset_name = b2.list_datasets(verbose=False)[0]  # doctest: +SKIP
+            >>> dataset = b2.create_dataset(dataset_name)  # doctest: +SKIP
+            >>> rmse = dataset.create_evaluator().evaluate_expr(dataset.ground_truth)  # doctest: +SKIP
+            >>> rmse < dataset.success_threshold  # doctest: +SKIP
             True
 
         """

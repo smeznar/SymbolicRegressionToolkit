@@ -4,11 +4,13 @@ dictionary returned by the SRToolkit.evaluate function with additional informati
 of the best expression, or RMSE on the test set, ...
 """
 
+import warnings
 from typing import List, Optional, Dict, Type
 
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
+from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult
 from SRToolkit.utils import simplify, tokens_to_tree, SymbolLibrary
 
 
@@ -30,9 +32,9 @@ class ExpressionToLatex(ResultAugmenter):
 
     def augment_results(
         self,
-        results: dict,
-        models: List[dict]
-        ) -> dict:
+        results: EvalResult,
+        models: List[ModelResult],
+    ) -> EvalResult:
         """
         Transforms the expressions inside the results dictionary into LaTeX strings.
 
@@ -52,7 +54,7 @@ class ExpressionToLatex(ResultAugmenter):
             ).to_latex(self.symbol_library)
         except Exception as e:
             if self.verbose:
-                print(f"Unable to convert best expression to LaTeX: {e}")
+                warnings.warn(f"Unable to convert best expression to LaTeX: {e}")
         if not self.only_best_expression:
             for model in results["top_models"]:
                 try:
@@ -61,7 +63,7 @@ class ExpressionToLatex(ResultAugmenter):
                     ).to_latex(self.symbol_library)
                 except Exception as e:
                     if self.verbose:
-                        print(
+                        warnings.warn(
                             f"Unable to convert expression {''.join(model['expr'])} to LaTeX: {e}"
                         )
 
@@ -78,7 +80,8 @@ class ExpressionToLatex(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        return {"type": "ExpressionToLatex", "symbol_library": self.symbol_library.to_dict(),
+        return {"format_version": 1, "type": "ExpressionToLatex",
+                "symbol_library": self.symbol_library.to_dict(),
                 "only_best_expression": self.only_best_expression, "verbose": self.verbose}
 
     @staticmethod
@@ -93,6 +96,10 @@ class ExpressionToLatex(ResultAugmenter):
         Returns:
             An instance of the ExpressionToLatex augmenter.
         """
+        if data.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[ExpressionToLatex.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+            )
         return ExpressionToLatex(symbol_library=data["symbol_library"],
                                  only_best_expression=data["only_best_expression"], verbose=data["verbose"])
 
@@ -115,9 +122,9 @@ class ExpressionSimplifier(ResultAugmenter):
 
     def augment_results(
         self,
-        results: dict,
-        models: List[dict],
-    ) -> dict:
+        results: EvalResult,
+        models: List[ModelResult],
+    ) -> EvalResult:
         """
         Simplifies the expressions inside the results dictionary if possible.
 
@@ -137,7 +144,7 @@ class ExpressionSimplifier(ResultAugmenter):
             results["simplified_best_expr"] = "".join(simplified_expr)
         except Exception as e:
             if self.verbose:
-                print(f"Unable to simplify {results['best_expr']}: {e}")
+                warnings.warn(f"Unable to simplify {results['best_expr']}: {e}")
 
         for model in results["top_models"]:
             try:
@@ -145,7 +152,7 @@ class ExpressionSimplifier(ResultAugmenter):
                 model["simplified_expr"] = "".join(simplified_expr)
             except Exception as e:
                 if self.verbose:
-                    print(f"Unable to simplify {model['expr']}: {e}")
+                    warnings.warn(f"Unable to simplify {model['expr']}: {e}")
 
         return results
 
@@ -160,7 +167,8 @@ class ExpressionSimplifier(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        return {"type": "ExpressionSimplifier", "symbol_library": self.symbol_library,
+        return {"format_version": 1, "type": "ExpressionSimplifier",
+                "symbol_library": self.symbol_library,
                 "only_best_expression": self.only_best_expression, "verbose": self.verbose}
 
     @staticmethod
@@ -174,6 +182,10 @@ class ExpressionSimplifier(ResultAugmenter):
         Returns:
             An instance of the ExpressionSimplifier augmenter.
         """
+        if data.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[ExpressionSimplifier.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+            )
         return ExpressionSimplifier(symbol_library=data["symbol_library"],
                                     only_best_expression=data["only_best_expression"], verbose=data["verbose"])
 
@@ -203,9 +215,9 @@ class RMSE(ResultAugmenter):
 
     def augment_results(
         self,
-        results: dict,
-        models: List[dict],
-    ) -> dict:
+        results: EvalResult,
+        models: List[ModelResult],
+    ) -> EvalResult:
         """
         Computes the RMSE for the top models in the results dictionary.
 
@@ -242,7 +254,8 @@ class RMSE(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        return {"type": "RMSE", "evaluator": self.evaluator.to_dict(base_path, name+"_RMSE_augmenter")}
+        return {"format_version": 1, "type": "RMSE",
+                "evaluator": self.evaluator.to_dict(base_path, name+"_RMSE_augmenter")}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "RMSE":
@@ -256,6 +269,10 @@ class RMSE(ResultAugmenter):
         Returns:
             An instance of the RMSE augmenter.
         """
+        if data.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[RMSE.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+            )
         evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
         return RMSE(evaluator)
 
@@ -281,9 +298,9 @@ class BED(ResultAugmenter):
 
     def augment_results(
         self,
-        results: dict,
-        models: List[dict],
-    ) -> dict:
+        results: EvalResult,
+        models: List[ModelResult],
+    ) -> EvalResult:
         """
         Computes BED for the top models in the results dictionary.
 
@@ -315,7 +332,8 @@ class BED(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        return {"type": "BED", "evaluator": self.evaluator.to_dict(base_path, name+"_BED_augmenter")}
+        return {"format_version": 1, "type": "BED",
+                "evaluator": self.evaluator.to_dict(base_path, name+"_BED_augmenter")}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "BED":
@@ -329,6 +347,10 @@ class BED(ResultAugmenter):
         Returns:
             An instance of the BED augmenter.
         """
+        if data.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[BED.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+            )
         evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
         return BED(evaluator)
 
@@ -360,9 +382,9 @@ class R2(ResultAugmenter):
 
     def augment_results(
         self,
-        results: dict,
-        models: List[dict],
-    ) -> dict:
+        results: EvalResult,
+        models: List[ModelResult],
+    ) -> EvalResult:
         """
         Computes the R^2 for the top models in the results dictionary.
 
@@ -405,7 +427,8 @@ class R2(ResultAugmenter):
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        return {"type": "R2", "evaluator": self.evaluator.to_dict(base_path, name+"_R2_augmenter")}
+        return {"format_version": 1, "type": "R2",
+                "evaluator": self.evaluator.to_dict(base_path, name+"_R2_augmenter")}
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "R2":
@@ -419,6 +442,10 @@ class R2(ResultAugmenter):
         Returns:
             An instance of the R2 augmenter.
         """
+        if data.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[R2.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+            )
         evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
         return R2(evaluator)
 
