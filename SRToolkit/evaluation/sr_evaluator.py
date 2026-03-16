@@ -25,17 +25,15 @@ class _ModelResultBase(TypedDict):
 
 class ModelResult(_ModelResultBase, total=False):
     """
-    A single model entry as returned in ``EvalResult["top_models"]`` and ``EvalResult["all_models"]``.
+    A single model entry in ``EvalResult["top_models"]`` and ``EvalResult["all_models"]``.
 
-    Required keys:
+    Attributes:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
-        error: Numeric error of the expression under the ranking function (RMSE or BED).
-
-    Optional keys (present depending on ranking function or active augmenters):
-        parameters: Fitted constant values (RMSE ranking only).
-        expr_latex: LaTeX string, added by :class:`ExpressionToLatex`.
-        simplified_expr: Simplified token string, added by :class:`ExpressionSimplifier`.
-        bed: BED score, added by :class:`BED` augmenter.
+        error: Numeric error under the ranking function (RMSE or BED).
+        parameters: (Optional) Fitted constant values. Present for RMSE ranking only.
+        expr_latex: (Optional) LaTeX string. Added by :class:`ExpressionToLatex`.
+        simplified_expr: (Optional) Simplified token string. Added by :class:`ExpressionSimplifier`.
+        bed: (Optional) BED score. Added by :class:`BED` augmenter.
     """
     parameters: "np.ndarray"
     expr_latex: str
@@ -59,7 +57,7 @@ class EvalResult(_EvalResultBase, total=False):
     """
     Result dictionary for a single SR experiment, as returned by ``SR_results[i]``.
 
-    Required keys:
+    Attributes:
         min_error: Lowest error achieved across all evaluated expressions.
         best_expr: String representation of the best expression found.
         num_evaluated: Number of unique expressions evaluated.
@@ -68,13 +66,11 @@ class EvalResult(_EvalResultBase, total=False):
         all_models: All evaluated models sorted by error, each a :class:`ModelResult`.
         approach_name: Name of the SR approach, or empty string if not provided.
         success: Whether ``min_error`` is below the configured ``success_threshold``.
-
-    Optional keys (present depending on configuration or active augmenters):
-        dataset_name: Name of the dataset, extracted from metadata when available.
-        metadata: Remaining metadata dict after ``dataset_name`` is popped.
-        best_expr_latex: LaTeX string of the best expression, added by :class:`ExpressionToLatex`.
-        simplified_best_expr: Simplified best expression string, added by :class:`ExpressionSimplifier`.
-        best_expr_bed: BED score of the best expression, added by :class:`BED` augmenter.
+        dataset_name: (Optional) Name of the dataset, extracted from metadata.
+        metadata: (Optional) Remaining metadata dict after ``dataset_name`` is popped.
+        best_expr_latex: (Optional) LaTeX string of the best expression. Added by :class:`ExpressionToLatex`.
+        simplified_best_expr: (Optional) Simplified best expression string. Added by :class:`ExpressionSimplifier`.
+        best_expr_bed: (Optional) BED score of the best expression. Added by :class:`BED` augmenter.
 
     Custom augmenters may add arbitrary keys at runtime. Static type checkers
     will flag access to those keys unless you subclass ``EvalResult`` to declare

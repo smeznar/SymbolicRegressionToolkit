@@ -5,13 +5,19 @@ from typing import Optional, Union, Dict, List, Tuple
 
 from SRToolkit.approaches.sr_approach import SR_approach, check_dependencies
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import SymbolLibrary, Node
+from SRToolkit.utils import SymbolLibrary, Node, tokens_to_tree, generate_n_expressions
+from SRToolkit.dataset import SR_benchmark
 
 try:
     import torch
     import torch.nn as nn
     from torch.autograd import Variable
     import torch.nn.functional as F
+    from torch.optim import Adam
+    from torch.nn import CrossEntropyLoss
+    from torch.utils.data import Sampler, Dataset
+    from tqdm import tqdm
+    import numpy as np
 except ImportError:
     raise ImportError("PyTorch is not installed.")
 
@@ -375,3 +381,105 @@ class GRU122(nn.Module):
         dh = h.repeat(1, 2)
         out = (1 - z) * n + z * dh
         return torch.split(out, self.hidden_size, dim=1)
+
+def create_batch(trees, symbol2index):
+    t = BatchedNode(symbol2index, trees=trees)
+    t.create_target()
+    return t
+
+class TreeBatchSampler(Sampler):
+    def __init__(self, batch_size, num_eq):
+        self.batch_size = batch_size
+        self.num_eq = num_eq
+        self.permute = np.random.permutation(self.num_eq)
+
+    def __iter__(self):
+        for i in range(len(self)):
+            batch = self.permute[(i*self.batch_size):((i+1)*self.batch_size)]
+            yield batch
+
+    def __len__(self):
+        return self.num_eq // self.batch_size
+
+
+class TreeDataset(Dataset):
+    def __init__(self, train):
+        self.train = train
+
+    def __getitem__(self, idx):
+        return self.train[idx]
+
+    def __len__(self):
+        return len(self.train)
+
+
+def logistic_function(it, total_iters, supremum=0.04):
+    x = it/total_iters
+    return x*supremum
+
+
+def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_beta=0.04, verbose=True):
+    symbol2index = symbol_library.symbols2index()
+    optimizer = Adam(model.parameters())
+    criterion = CrossEntropyLoss(ignore_index=-1, reduction="mean")
+
+    iter_counter = 0
+    total_iters = epochs*(len(trainset)//batch_size)
+    lmbda = logistic_function(iter_counter, total_iters, max_beta)
+
+    midpoint = len(trainset) // (2 * batch_size)
+
+    for epoch in range(epochs):
+        sampler = TreeBatchSampler(batch_size, len(trainset))
+        bce, kl, los, total, num_iters = 0, 0, 0, 0, 0
+
+        with tqdm(total=len(trainset), desc=f'Training HVAE - Epoch: {epoch + 1}/{epochs}', unit='chunks') as prog_bar:
+            for i, tree_ids in enumerate(sampler):
+                batch = create_batch([trainset[j] for j in tree_ids], symbol2index)
+
+                mu, logvar, outputs = model(batch)
+                loss, bcel, kll = outputs.loss(mu, logvar, lmbda, criterion)
+                bce += bcel.detach().item()
+                kl += kll.detach().item()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                num_iters += 1
+                los += (bcel.detach().item() + lmbda*kll.detach().item())
+                prog_bar.set_postfix(**{'run:': "HVAE",
+                                        'loss': los / num_iters,
+                                        'BCE': bce / num_iters,
+                                        'KLD': kl / num_iters})
+                prog_bar.update(batch_size)
+
+                lmbda = logistic_function(iter_counter, total_iters, max_beta)
+                iter_counter += 1
+
+                if verbose and i == midpoint:
+                    original_trees = batch.to_expr_list()
+                    z = model.encode(batch)[0]
+                    decoded_trees = model.decode(z)
+                    for i in range(1):
+                        print()
+                        print(f"O: {''.join(original_trees[i].to_list(symbol_library=symbol_library))}")
+                        print(f"P: {''.join(decoded_trees[i].to_list(symbol_library=symbol_library))}")
+
+
+if __name__ == '__main__':
+    dataset = SR_benchmark.feynman("../data/fey_data").create_dataset("I.12.4")
+    latent_size = 24
+    num_expressions = 20000
+    max_beta = 0.035
+    max_expression_length = 30
+    model_name = "24random"
+
+    # Possibly create a training set or load expressions
+    expressions = generate_n_expressions(dataset.symbol_library, num_expressions, max_expression_length=max_expression_length)
+    expr_tree = [tokens_to_tree(expr, dataset.symbol_library) for expr in expressions]
+    # Create a training set
+    trainset = TreeDataset(expr_tree)
+
+    # Train the model
+    model = HVAE(len(dataset.symbol_library), latent_size, dataset.symbol_library)
+    train_hvae(model, trainset, dataset.symbol_library, epochs=20, max_beta=max_beta)
+    # torch.save(model.state_dict(), f"../params/{model_name}.pt")

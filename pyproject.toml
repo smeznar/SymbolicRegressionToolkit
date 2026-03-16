@@ -41,7 +41,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-approaches = ["torch>=2.0"]
+approaches = ["torch>=2.0", "tqdm"]
 dev = ["pytest"]
 
 [project.urls]
