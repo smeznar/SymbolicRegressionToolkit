@@ -43,14 +43,14 @@ classifiers = [
 
 [project.optional-dependencies]
 approaches = ["torch>=2.0", "tqdm"]
-dev = ["pytest", "pytest-cov", "ruff", "mypy"]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "pre-commit"]
 
 [project.urls]
 Homepage = "https://github.com/smeznar/SymbolicRegressionToolkit"
 Documentation = "https://smeznar.github.io/SymbolicRegressionToolkit/"
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules --ignore=SRToolkit/approaches/EDHiE.py"
+addopts = "--doctest-modules --ignore=SRToolkit/approaches/EDHiE.py --cov-report=term-missing"
 doctest_optionflags = ["NORMALIZE_WHITESPACE"]
 testpaths = ["SRToolkit"]
 markers = [
@@ -67,3 +67,6 @@ ignore = ["E501"]
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["SRToolkit"]
