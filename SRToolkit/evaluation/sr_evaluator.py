@@ -312,7 +312,10 @@ class SR_evaluator:
                         interval_length = np.array([ub - lb for (lb, ub) in db])
                         lower_bound = np.array([lb for (lb, ub) in db])
                         lho = LatinHypercube(len(db), optimization="random-cd", seed=seed)
-                        self.bed_evaluation_parameters["bed_X"] = lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length + lower_bound
+                        self.bed_evaluation_parameters["bed_X"] = (
+                            lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length
+                            + lower_bound
+                        )
                     else:
                         indices = np.random.choice(
                             X.shape[0],
@@ -497,7 +500,9 @@ class SR_evaluator:
                             if verbose < 2
                             else nullcontext()
                         ):
-                            assert self.gt_behavior is not None, "Ground truth must be provided for BED ranking function."
+                            assert self.gt_behavior is not None, (
+                                "Ground truth must be provided for BED ranking function."
+                            )
                             error = bed(
                                 expr,
                                 self.gt_behavior,
@@ -532,7 +537,9 @@ class SR_evaluator:
 
     # TODO: Add a way to add custom information to a given expression (e.g. probability of expression in ProGED)
 
-    def get_results(self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None) -> "SR_results":
+    def get_results(
+        self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None
+    ) -> "SR_results":
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -763,15 +770,21 @@ class SR_results:
         best_indices = np.argsort([v["error"] for v in models_list])
         best_models = [models_list[i] for i in best_indices]
 
-        results_dict = cast(EvalResult, cast(object, {
-            "min_error": best_models[0]["error"],
-            "best_expr": "".join(best_models[0]["expr"]),
-            "num_evaluated": len(models_list),
-            "evaluation_calls": total_evaluations,
-            "top_models": list(),
-            "all_models": models_list,
-            "approach_name": approach_name,
-        }))
+        results_dict = cast(
+            EvalResult,
+            cast(
+                object,
+                {
+                    "min_error": best_models[0]["error"],
+                    "best_expr": "".join(best_models[0]["expr"]),
+                    "num_evaluated": len(models_list),
+                    "evaluation_calls": total_evaluations,
+                    "top_models": list(),
+                    "all_models": models_list,
+                    "approach_name": approach_name,
+                },
+            ),
+        )
 
         if metadata is not None and "dataset_name" in metadata:
             results_dict["dataset_name"] = metadata["dataset_name"]

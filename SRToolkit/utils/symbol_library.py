@@ -7,7 +7,9 @@ from typing import Any, Dict, List, Optional
 
 
 class SymbolLibrary:
-    def __init__(self, symbols: Optional[List[str]] = None, num_variables: int = 0, preamble: Optional[List[str]] = None):
+    def __init__(
+        self, symbols: Optional[List[str]] = None, num_variables: int = 0, preamble: Optional[List[str]] = None
+    ):
         """
         Initializes an instance of the SymbolLibrary class. This class is used for managing symbols and their
         properties for other functionality in this package.

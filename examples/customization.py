@@ -8,18 +8,10 @@ if __name__ == "__main__":
     # One can create a custom symbol library by adding symbols manually. Such instance of SymbolLibrary can be used
     # in the same way as the default one by providing it as function argument.
     custom_symbol_library = SymbolLibrary()
-    custom_symbol_library.add_symbol(
-        "sin", symbol_type="fn", precedence=5, np_fn="{} = np.sin({})"
-    )
-    custom_symbol_library.add_symbol(
-        "cos", symbol_type="fn", precedence=5, np_fn="{} = np.cos({})"
-    )
-    custom_symbol_library.add_symbol(
-        "+", symbol_type="op", precedence=0, np_fn="{} = {} + {}"
-    )
-    custom_symbol_library.add_symbol(
-        "C", symbol_type="const", precedence=5, np_fn="C[{}]"
-    )
+    custom_symbol_library.add_symbol("sin", symbol_type="fn", precedence=5, np_fn="{} = np.sin({})")
+    custom_symbol_library.add_symbol("cos", symbol_type="fn", precedence=5, np_fn="{} = np.cos({})")
+    custom_symbol_library.add_symbol("+", symbol_type="op", precedence=0, np_fn="{} = {} + {}")
+    custom_symbol_library.add_symbol("C", symbol_type="const", precedence=5, np_fn="C[{}]")
     custom_symbol_library.add_symbol("X", "var", 5, "X")
 
     # Additionally, one can create a custom symbol library by using the default_symbols function. For example,

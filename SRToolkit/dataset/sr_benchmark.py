@@ -280,7 +280,9 @@ class SR_benchmark:
         elif isinstance(dataset, np.ndarray):
             if ranking_function == "rmse" and ground_truth is not None:
                 if isinstance(ground_truth, np.ndarray):
-                    raise ValueError("[SR_benchmark.add_dataset] For 'rmse' ranking, the ground truth must be a string or a SRToolkit.utils.Node object. ")
+                    raise ValueError(
+                        "[SR_benchmark.add_dataset] For 'rmse' ranking, the ground truth must be a string or a SRToolkit.utils.Node object. "
+                    )
                 try:
                     expr = expr_to_executable_function(ground_truth, symbol_library)
                     y = expr(dataset, None)

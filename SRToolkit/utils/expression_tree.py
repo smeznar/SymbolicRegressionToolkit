@@ -85,8 +85,8 @@ class Node:
         Notes:
             If the notation is "infix" and the symbol library is not provided, then the resulting list of tokens may contain unnecessary parentheses or have other issues.
         """
-        if symbol_library is None:
-            symbol_library = SymbolLibrary.default_symbols()
+        # if symbol_library is None:
+        #     symbol_library = SymbolLibrary.default_symbols()
 
         left = [] if self.left is None else self.left.to_list(symbol_library, notation)
         right = [] if self.right is None else self.right.to_list(symbol_library, notation)
@@ -117,6 +117,7 @@ class Node:
                 return left + [self.symbol] + right
 
         elif notation == "infix":
+            assert symbol_library is not None, "[Node.to_list] parameter symbol_library should be of type SymbolLibrary"
             if is_float(self.symbol):
                 return [self.symbol]
             if symbol_library.get_type(self.symbol) in ["var", "const", "lit"]:
@@ -129,13 +130,21 @@ class Node:
                         left = ["("] + left + [")"]
                     return left + [self.symbol]
             elif symbol_library.get_type(self.symbol) == "op":
-                if self.left is not None and not is_float(self.left.symbol) and -1 < symbol_library.get_precedence(
-                    self.left.symbol
-                ) <= symbol_library.get_precedence(self.symbol):
+                if (
+                    self.left is not None
+                    and not is_float(self.left.symbol)
+                    and -1
+                    < symbol_library.get_precedence(self.left.symbol)
+                    <= symbol_library.get_precedence(self.symbol)
+                ):
                     left = ["("] + left + [")"]
-                if self.right is not None and not is_float(self.right.symbol) and -1 < symbol_library.get_precedence(
-                    self.right.symbol
-                ) <= symbol_library.get_precedence(self.symbol):
+                if (
+                    self.right is not None
+                    and not is_float(self.right.symbol)
+                    and -1
+                    < symbol_library.get_precedence(self.right.symbol)
+                    <= symbol_library.get_precedence(self.symbol)
+                ):
                     right = ["("] + right + [")"]
                 return left + [self.symbol] + right
             else:
@@ -192,13 +201,17 @@ class Node:
                 left = f"({left})"
             return symbol_library.get_latex_str(self.symbol).format(left), num_const
         elif symbol_library.get_type(self.symbol) == "op":
-            if self.left is not None and not is_float(self.left.symbol) and -1 < symbol_library.get_precedence(
-                self.left.symbol
-            ) < symbol_library.get_precedence(self.symbol):
+            if (
+                self.left is not None
+                and not is_float(self.left.symbol)
+                and -1 < symbol_library.get_precedence(self.left.symbol) < symbol_library.get_precedence(self.symbol)
+            ):
                 left = f"({left})"
-            if self.right is not None and not is_float(self.right.symbol) and -1 < symbol_library.get_precedence(
-                self.right.symbol
-            ) < symbol_library.get_precedence(self.symbol):
+            if (
+                self.right is not None
+                and not is_float(self.right.symbol)
+                and -1 < symbol_library.get_precedence(self.right.symbol) < symbol_library.get_precedence(self.symbol)
+            ):
                 right = f"({right})"
             return symbol_library.get_latex_str(self.symbol).format(left, right), num_const
         else:

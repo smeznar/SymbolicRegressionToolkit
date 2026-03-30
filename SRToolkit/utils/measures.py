@@ -261,11 +261,15 @@ def bed(
         )
 
     if isinstance(expr1, list) or isinstance(expr1, Node):
-        assert X is not None, "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
+        assert X is not None, (
+            "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
+        )
         expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     if isinstance(expr2, list) or isinstance(expr2, Node):
-        assert X is not None, "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
+        assert X is not None, (
+            "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
+        )
         expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     assert expr1.shape[0] == expr2.shape[0], (

@@ -111,10 +111,15 @@ class ParameterEstimator:
             num_constants = sum([1 for t in expr_str if self.symbol_library.get_type(t) == "const"])
         else:
             num_constants = sum([1 for t in expr if self.symbol_library.get_type(t) == "const"])
-        if isinstance(self.estimation_settings["max_constants"], int) and 0 <= self.estimation_settings["max_constants"] < num_constants:
+        if (
+            isinstance(self.estimation_settings["max_constants"], int)
+            and 0 <= self.estimation_settings["max_constants"] < num_constants
+        ):
             return np.nan, np.array([])
 
-        if isinstance(self.estimation_settings["max_expr_length"], int) and 0 <= self.estimation_settings["max_expr_length"] < len(expr):
+        if isinstance(self.estimation_settings["max_expr_length"], int) and 0 <= self.estimation_settings[
+            "max_expr_length"
+        ] < len(expr):
             return np.nan, np.array([])
 
         executable_error_fn = expr_to_error_function(expr, self.symbol_library)
@@ -126,7 +131,10 @@ class ParameterEstimator:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
     def _optimize_parameters(self, executable_error_fn: Callable, num_constants: int) -> Tuple[float, np.ndarray]:
-        assert isinstance(self.estimation_settings["constant_bounds"], tuple) and len(self.estimation_settings["constant_bounds"]) == 2, "constant_bounds must be a tuple of two elements"
+        assert (
+            isinstance(self.estimation_settings["constant_bounds"], tuple)
+            and len(self.estimation_settings["constant_bounds"]) == 2
+        ), "constant_bounds must be a tuple of two elements"
         if self.estimation_settings["initialization"] == "random":
             x0 = (
                 np.random.rand(num_constants)
