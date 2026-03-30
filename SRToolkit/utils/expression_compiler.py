@@ -2,7 +2,7 @@
 This module contains functions that convert an expression in infix notation to an executable python function.
 """
 
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -13,7 +13,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 def expr_to_executable_function(
     expr: Union[List[str], Node],
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
-) -> Callable[[np.ndarray, np.ndarray], np.ndarray]:
+) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
     """
     Converts an expression in infix notation to an executable function.
 
@@ -67,7 +67,7 @@ def expr_to_executable_function(
         fun_string += "\t" + c + "\n"
     fun_string += "\treturn " + symbol
 
-    fun_assignment_dict = {}
+    fun_assignment_dict: Dict[str, Callable] = {}
     exec(fun_string, {"np": np}, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
@@ -124,7 +124,7 @@ def expr_to_error_function(
         fun_string += "\t" + c + "\n"
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
 
-    fun_assignment_dict = {}
+    fun_assignment_dict: Dict[str, Callable] = {}
     exec(fun_string, {"np": np}, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
@@ -183,6 +183,8 @@ def tree_to_function_rec(
         return code, output_symbol, var_counter + 1, const_counter
 
     else:
+        assert tree.right is not None, "Right child should be present in this branch."
+        assert tree.left is not None, "Left child should be present if right child is present."
         left_code, left_symbol, var_counter, const_counter = tree_to_function_rec(
             tree.left, symbol_library, var_counter, const_counter
         )

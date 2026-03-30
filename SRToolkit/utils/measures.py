@@ -107,7 +107,7 @@ def create_behavior_matrix(
     num_consts_sampled: int = 32,
     consts_bounds: Tuple[float, float] = (-5, 5),
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
-    seed: int = None,
+    seed: Optional[int] = None,
 ) -> np.ndarray:
     """
     Creates a behavior matrix from an expression with free parameters. The shape of the matrix is (X.shape[0], num_consts_sampled).
@@ -148,7 +148,7 @@ def create_behavior_matrix(
     else:
         raise Exception("Expression should be a list of strings (tokens) or a Node")
 
-    expr = expr_to_executable_function(expr, symbol_library)
+    callable_expr = expr_to_executable_function(expr, symbol_library)
 
     with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
         if num_constants > 0:
@@ -156,10 +156,10 @@ def create_behavior_matrix(
             constants = lho.random(num_consts_sampled) * (consts_bounds[1] - consts_bounds[0]) + consts_bounds[0]
             ys = []
             for c in constants:
-                ys.append(expr(X, c))
+                ys.append(callable_expr(X, c))
             return np.array(ys).T
         else:
-            return np.repeat(expr(X, None)[:, None], num_consts_sampled, axis=1)
+            return np.repeat(callable_expr(X, None)[:, None], num_consts_sampled, axis=1)
 
 
 def _custom_wasserstein(u, v):
@@ -183,7 +183,7 @@ def bed(
     domain_bounds: Optional[List[Tuple[float, float]]] = None,
     consts_bounds: Tuple[float, float] = (-5, 5),
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
-    seed: int = None,
+    seed: Optional[int] = None,
 ) -> float:
     """
     Computes the Behavioral Embedding Distance (BED) between two expressions or behavior matrices over a
@@ -261,9 +261,11 @@ def bed(
         )
 
     if isinstance(expr1, list) or isinstance(expr1, Node):
+        assert X is not None, "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
         expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     if isinstance(expr2, list) or isinstance(expr2, Node):
+        assert X is not None, "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
         expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     assert expr1.shape[0] == expr2.shape[0], (

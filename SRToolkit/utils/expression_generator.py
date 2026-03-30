@@ -216,7 +216,7 @@ def generate_n_expressions(
             "Description of expressions must be either a grammar written as a string or an instance of SymbolLibrary."
         )
 
-    expressions = []
+    expressions: List[List[str]] = []
     expression_strings = set()
     if verbose:
         pbar = tqdm(total=num_expressions)

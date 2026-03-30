@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import numpy as np
 
@@ -164,7 +164,7 @@ class SR_dataset:
             results += evaluator.get_results(sr_approach.name, top_k)
         return results
 
-    def create_evaluator(self, metadata: dict = None, seed: int = None) -> SR_evaluator:
+    def create_evaluator(self, metadata: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> SR_evaluator:
         """
         Creates an instance of the SR_evaluator class from this dataset.
 
@@ -337,7 +337,7 @@ class SR_dataset:
         return output
 
     @staticmethod
-    def from_dict(d: dict, augmentation_map: Dict[str, Type[ResultAugmenter]] = None) -> "SR_dataset":
+    def from_dict(d: dict, augmentation_map: Optional[Dict[str, Type[ResultAugmenter]]] = None) -> "SR_dataset":
         """
         Creates an instance of the SR_dataset class from its dictionary representation. This is mainly used for
         loading the dataset from disk.

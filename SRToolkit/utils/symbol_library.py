@@ -3,11 +3,11 @@ This module contains the SymbolLibrary class, which is used for managing symbols
 """
 
 import copy
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class SymbolLibrary:
-    def __init__(self, symbols: List[str] = None, num_variables: int = 0, preamble: List[str] = None):
+    def __init__(self, symbols: Optional[List[str]] = None, num_variables: int = 0, preamble: Optional[List[str]] = None):
         """
         Initializes an instance of the SymbolLibrary class. This class is used for managing symbols and their
         properties for other functionality in this package.
@@ -65,7 +65,7 @@ class SymbolLibrary:
             self.preamble = preamble
 
         if symbols is None and num_variables == 0:
-            self.symbols = dict()
+            self.symbols: Dict[str, Any] = dict()
             self.num_variables = 0
         else:
             if symbols is None:

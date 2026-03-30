@@ -7,7 +7,7 @@ import logging
 import os
 import warnings
 from contextlib import nullcontext
-from typing import Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, TypedDict, Union, cast
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
@@ -97,7 +97,7 @@ class ResultAugmenter:
         Generic class that defines the interface for result augmentation. For examples, see the implementations of
         this class at SRToolkit.evaluation.result_augmentation.py.
         """
-        pass
+        raise NotImplementedError("ResultAugmenter is an abstract class and cannot be instantiated.")
 
     def augment_results(
         self,
@@ -115,7 +115,7 @@ class ResultAugmenter:
         Returns:
             The augmented results dictionary.
         """
-        pass
+        raise NotImplementedError("augment_results is not implemented as ResultAugmenter is an abstract class.")
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -128,6 +128,7 @@ class ResultAugmenter:
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
+        raise NotImplementedError("to_dict is not implemented as ResultAugmenter is an abstract class.")
 
     @staticmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ResultAugmenter":
@@ -141,7 +142,7 @@ class ResultAugmenter:
         Returns:
             An instance of the ResultAugmenter class with the same configuration as in the data dictionary.
         """
-        pass
+        raise NotImplementedError("from_dict is not implemented as ResultAugmenter is an abstract class.")
 
 
 class SR_evaluator:
@@ -245,13 +246,13 @@ class SR_evaluator:
             We recommend checking the best performing expression manually for a better indication of success.
         """
         self.kwargs = kwargs
-        self.models = dict()
-        self.invalid = list()
+        self.models: Dict[str, ModelResult] = dict()
+        self.invalid: List[str] = list()
         self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
         self.gt_behavior = None
-        self.bed_evaluation_parameters = {
+        self.bed_evaluation_parameters: Dict[str, Any] = {
             "bed_X": None,
             "num_consts_sampled": 32,
             "num_points_sampled": 64,
@@ -307,13 +308,11 @@ class SR_evaluator:
                 if self.bed_evaluation_parameters["bed_X"] is None:
                     if self.bed_evaluation_parameters["domain_bounds"] is not None:
                         db = self.bed_evaluation_parameters["domain_bounds"]
+                        assert isinstance(db, List), "Domain bounds should be a list of tuples."
                         interval_length = np.array([ub - lb for (lb, ub) in db])
                         lower_bound = np.array([lb for (lb, ub) in db])
                         lho = LatinHypercube(len(db), optimization="random-cd", seed=seed)
-                        self.bed_evaluation_parameters["bed_X"] = (
-                            lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length
-                            + lower_bound
-                        )
+                        self.bed_evaluation_parameters["bed_X"] = lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length + lower_bound
                     else:
                         indices = np.random.choice(
                             X.shape[0],
@@ -338,6 +337,7 @@ class SR_evaluator:
                 )
 
             if self.success_threshold is None:
+                assert self.ground_truth is not None, "Ground truth must be provided for BED ranking function."
                 distances = [
                     bed(
                         self.ground_truth,
@@ -497,6 +497,7 @@ class SR_evaluator:
                             if verbose < 2
                             else nullcontext()
                         ):
+                            assert self.gt_behavior is not None, "Ground truth must be provided for BED ranking function."
                             error = bed(
                                 expr,
                                 self.gt_behavior,
@@ -531,7 +532,7 @@ class SR_evaluator:
 
     # TODO: Add a way to add custom information to a given expression (e.g. probability of expression in ProGED)
 
-    def get_results(self, approach_name: str = "", top_k: int = 20, results: "SR_results" = None) -> "SR_results":
+    def get_results(self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None) -> "SR_results":
         """
         Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -737,14 +738,14 @@ class SR_results:
 
     def add_results(
         self,
-        models: Dict[str, dict],
+        models: Dict[str, ModelResult],
         top_k: int,
-        result_augmenters: List[ResultAugmenter],
+        result_augmenters: Optional[List[ResultAugmenter]],
         total_evaluations: int,
         success_threshold: Optional[float],
         approach_name: str,
         metadata: Optional[dict] = None,
-    ):
+    ) -> None:
         """
         Adds the results of an evaluation to the results object. If needed, the results are additionally augmented
         using the provided result augmenters. For an example of how to use this function, look at the SR_evaluator.get_results method.
@@ -758,19 +759,19 @@ class SR_results:
             approach_name: The name of the approach used to discover the equations.
             metadata: A dictionary containing additional metadata about the evaluation.
         """
-        models = list(models.values())
-        best_indices = np.argsort([v["error"] for v in models])
-        models = [models[i] for i in best_indices]
+        models_list = list(models.values())
+        best_indices = np.argsort([v["error"] for v in models_list])
+        best_models = [models_list[i] for i in best_indices]
 
-        results_dict = {
-            "min_error": models[0]["error"],
-            "best_expr": "".join(models[0]["expr"]),
-            "num_evaluated": len(models),
+        results_dict = cast(EvalResult, cast(object, {
+            "min_error": best_models[0]["error"],
+            "best_expr": "".join(best_models[0]["expr"]),
+            "num_evaluated": len(models_list),
             "evaluation_calls": total_evaluations,
             "top_models": list(),
-            "all_models": models,
+            "all_models": models_list,
             "approach_name": approach_name,
-        }
+        }))
 
         if metadata is not None and "dataset_name" in metadata:
             results_dict["dataset_name"] = metadata["dataset_name"]
@@ -786,20 +787,21 @@ class SR_results:
         else:
             results_dict["success"] = False
 
-        for model in models[:top_k]:
-            m = {"expr": model["expr"], "error": model["error"]}
+        for model in best_models[:top_k]:
+            m: ModelResult = {"expr": model["expr"], "error": model["error"]}
             if "parameters" in model:
                 m["parameters"] = model["parameters"]
 
             results_dict["top_models"].append(m)
 
-        for augmenter in result_augmenters:
-            try:
-                results_dict = augmenter.augment_results(results_dict, models)
-            except Exception as e:
-                warnings.warn(
-                    f"Error augmenting results, skipping current augmentor because of the following error: {e}"
-                )
+        if result_augmenters is not None:
+            for augmenter in result_augmenters:
+                try:
+                    results_dict = augmenter.augment_results(results_dict, models_list)
+                except Exception as e:
+                    warnings.warn(
+                        f"Error augmenting results, skipping current augmentor because of the following error: {e}"
+                    )
 
         self.results.append(results_dict)
 

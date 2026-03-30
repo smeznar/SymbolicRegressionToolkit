@@ -3,7 +3,7 @@ import json
 import os
 import warnings
 from io import BytesIO
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from urllib.request import urlopen
 from zipfile import ZipFile
 
@@ -24,8 +24,8 @@ class SR_benchmark:
         benchmark_name: str,
         base_dir: str,
         datasets: Optional[List[Union[SR_dataset, Tuple[str, SR_dataset]]]] = None,
-        augmentation_map: dict = None,
-        metadata: dict = None,
+        augmentation_map: Optional[Dict[str, Type[ResultAugmenter]]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         Initializes an instance of the SR_benchmark class. You can find examples of how to use this class in the
@@ -54,7 +54,7 @@ class SR_benchmark:
         self.base_dir = base_dir
         if augmentation_map is None:
             self.augmentation_map = RESULT_AUGMENTERS
-        self.datasets = {}
+        self.datasets: Dict[str, Dict[str, Any]] = {}
         self.metadata = {} if metadata is None else metadata
         if datasets is not None:
             for i, dataset in enumerate(datasets):
@@ -96,7 +96,7 @@ class SR_benchmark:
 
     def add_dataset(
         self,
-        dataset: Union[str, np.array, Tuple[np.array, np.array]],
+        dataset: Union[str, np.ndarray, Tuple[np.ndarray, np.ndarray]],
         symbol_library: SymbolLibrary,
         dataset_name: Optional[str] = None,
         ranking_function: str = "rmse",
@@ -191,9 +191,13 @@ class SR_benchmark:
         self.datasets[dataset_name]["max_evaluations"] = max_evaluations
 
         self.datasets[dataset_name]["success_threshold"] = success_threshold
-        self.datasets[dataset_name]["result_augmenters"] = [
-            re.to_dict(self.base_dir, dataset_name) for re in result_augmenters
-        ]
+        if result_augmenters is not None:
+            self.datasets[dataset_name]["result_augmenters"] = [
+                re.to_dict(self.base_dir, dataset_name) for re in result_augmenters
+            ]
+        else:
+            self.datasets[dataset_name]["result_augmenters"] = []
+
         self.datasets[dataset_name]["seed"] = seed
         merged_metadata = copy.deepcopy(self.metadata)
         if dataset_metadata:
@@ -275,6 +279,8 @@ class SR_benchmark:
 
         elif isinstance(dataset, np.ndarray):
             if ranking_function == "rmse" and ground_truth is not None:
+                if isinstance(ground_truth, np.ndarray):
+                    raise ValueError("[SR_benchmark.add_dataset] For 'rmse' ranking, the ground truth must be a string or a SRToolkit.utils.Node object. ")
                 try:
                     expr = expr_to_executable_function(ground_truth, symbol_library)
                     y = expr(dataset, None)
@@ -3209,10 +3215,10 @@ class SR_benchmark:
         return benchmark
 
 
-if __name__ == "__main__":
-    benchmark = SR_benchmark.feynman("../../data/feynman/")
-    for dataset in benchmark.list_datasets(verbose=False):
-        ds = benchmark.create_dataset(dataset)
-        rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
-        if rmse > ds.success_threshold:
-            print(f"Failed dataset: {dataset} with RMSE {rmse}")
+# if __name__ == "__main__":
+#     benchmark = SR_benchmark.feynman("../../data/feynman/")
+#     for dataset in benchmark.list_datasets(verbose=False):
+#         ds = benchmark.create_dataset(dataset)
+#         rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
+#         if rmse > ds.success_threshold:
+#             print(f"Failed dataset: {dataset} with RMSE {rmse}")

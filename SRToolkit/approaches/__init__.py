@@ -16,7 +16,7 @@ try:
     from .EDHiE import EDHiE
 except ImportError:
 
-    class EDHiE:
+    class EDHiE:  # type: ignore[no-redef]
         def __init__(self, *args, **kwargs):
             raise ImportError(
                 "EDHiE requires PyTorch. Please install the required dependencies either"

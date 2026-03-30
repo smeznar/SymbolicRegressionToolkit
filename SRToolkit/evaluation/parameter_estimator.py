@@ -2,7 +2,7 @@
 This module contains the ParameterEstimator class, which is used to estimate the parameters of an expression.
 """
 
-from typing import List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.optimize import minimize
@@ -111,10 +111,10 @@ class ParameterEstimator:
             num_constants = sum([1 for t in expr_str if self.symbol_library.get_type(t) == "const"])
         else:
             num_constants = sum([1 for t in expr if self.symbol_library.get_type(t) == "const"])
-        if 0 <= self.estimation_settings["max_constants"] < num_constants:
+        if isinstance(self.estimation_settings["max_constants"], int) and 0 <= self.estimation_settings["max_constants"] < num_constants:
             return np.nan, np.array([])
 
-        if 0 <= self.estimation_settings["max_expr_length"] < len(expr):
+        if isinstance(self.estimation_settings["max_expr_length"], int) and 0 <= self.estimation_settings["max_expr_length"] < len(expr):
             return np.nan, np.array([])
 
         executable_error_fn = expr_to_error_function(expr, self.symbol_library)
@@ -125,7 +125,8 @@ class ParameterEstimator:
         else:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
-    def _optimize_parameters(self, executable_error_fn: callable, num_constants: int) -> Tuple[float, np.ndarray]:
+    def _optimize_parameters(self, executable_error_fn: Callable, num_constants: int) -> Tuple[float, np.ndarray]:
+        assert isinstance(self.estimation_settings["constant_bounds"], tuple) and len(self.estimation_settings["constant_bounds"]) == 2, "constant_bounds must be a tuple of two elements"
         if self.estimation_settings["initialization"] == "random":
             x0 = (
                 np.random.rand(num_constants)

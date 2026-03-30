@@ -2,7 +2,6 @@ import numpy as np
 
 from SRToolkit.evaluation import ParameterEstimator
 
-
 if __name__ == "__main__":
     # A simple example of parameter estimation
 

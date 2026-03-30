@@ -129,7 +129,7 @@ class BatchedNode:
         if self.right is not None:
             self.right.create_target()
 
-    def to_expr_list(self) -> List[Node]:
+    def to_expr_list(self) -> List[Node | None]:
         expressions = []
         for i in range(len(self.symbols)):
             expressions.append(self.get_expr_at_idx(i))
@@ -447,7 +447,7 @@ def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_be
 
     for epoch in range(epochs):
         sampler = TreeBatchSampler(batch_size, len(trainset))
-        bce, kl, los, total, num_iters = 0, 0, 0, 0, 0
+        bce, kl, los, num_iters = 0, 0, 0, 0
 
         with tqdm(total=len(trainset), desc=f"Training HVAE - Epoch: {epoch + 1}/{epochs}", unit="chunks") as prog_bar:
             for i, tree_ids in enumerate(sampler):

@@ -11,7 +11,6 @@ import pytest
 
 from SRToolkit.dataset import SR_benchmark, SR_dataset
 
-
 FEYNMAN_DIR = "data/feynman"
 NGUYEN_DIR = "data/nguyen"
 

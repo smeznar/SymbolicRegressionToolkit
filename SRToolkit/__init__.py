@@ -5,8 +5,8 @@ This package provides a Python-based toolkit for equation discovery/symbolic reg
 
 Modules:
     dataset: The module containing classes for working with Datasets and Benchmarks.
-    utils: The module containing utility classes and functions.
-    evaluation: The module containing classes and functions for estimating parameters and evaluating Symbolic Regression models.
+    utils: The module contains utility classes and functions.
+    evaluation: The module contains classes and functions for estimating parameters and evaluating Symbolic Regression models.
 """
 
 __version__ = "1.4.0"

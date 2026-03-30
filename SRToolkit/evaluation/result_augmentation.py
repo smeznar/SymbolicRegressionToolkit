@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Type
 import numpy as np
 
 from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult, ResultAugmenter, SR_evaluator
-from SRToolkit.utils import SymbolLibrary, simplify, tokens_to_tree
+from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
 
 
 class ExpressionToLatex(ResultAugmenter):
@@ -145,7 +145,14 @@ class ExpressionSimplifier(ResultAugmenter):
         """
         try:
             simplified_expr = simplify(models[0]["expr"], self.symbol_library)
-            results["simplified_best_expr"] = "".join(simplified_expr)
+            if isinstance(simplified_expr, list):
+                results["simplified_best_expr"] = "".join(simplified_expr)
+            elif isinstance(simplified_expr, Node):
+                token_list = simplified_expr.to_list(self.symbol_library)
+                results["simplified_best_expr"] = "".join(token_list)
+            else:
+                raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
+
         except Exception as e:
             if self.verbose:
                 warnings.warn(f"Unable to simplify {results['best_expr']}: {e}")
@@ -153,7 +160,13 @@ class ExpressionSimplifier(ResultAugmenter):
         for model in results["top_models"]:
             try:
                 simplified_expr = simplify(model["expr"], self.symbol_library)
-                model["simplified_expr"] = "".join(simplified_expr)
+                if isinstance(simplified_expr, list):
+                    model["simplified_expr"] = "".join(simplified_expr)
+                elif isinstance(simplified_expr, Node):
+                    token_list = simplified_expr.to_list(self.symbol_library)
+                    model["simplified_expr"] = "".join(token_list)
+                else:
+                    raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
             except Exception as e:
                 if self.verbose:
                     warnings.warn(f"Unable to simplify {model['expr']}: {e}")
@@ -241,11 +254,11 @@ class RMSE(ResultAugmenter):
         """
         expr = models[0]["expr"]
         error = self.evaluator.evaluate_expr(expr)
-        results["best_expr_rmse"] = error
+        results["min_error"] = error
         for model in results["top_models"]:
             error = self.evaluator.evaluate_expr(model["expr"])
-            model["rmse"] = error
-            model["parameters_rmse"] = self.evaluator.models["".join(model["expr"])]["parameters"]
+            model["error"] = error
+            model["parameters"] = self.evaluator.models["".join(model["expr"])]["parameters"]
         return results
 
     def to_dict(self, base_path: str, name: str) -> dict:
