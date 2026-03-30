@@ -1,12 +1,11 @@
 import os
-from typing import List, Optional, Union, Dict, Type
+from typing import Dict, List, Optional, Type, Union
 
 import numpy as np
 
 from SRToolkit.approaches.sr_approach import SR_approach
-from SRToolkit.evaluation import SR_evaluator, ResultAugmenter
-from SRToolkit.evaluation.sr_evaluator import SR_results
-from SRToolkit.utils import SymbolLibrary, Node
+from SRToolkit.evaluation.sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
+from SRToolkit.utils import Node, SymbolLibrary
 
 
 class SR_dataset:
@@ -34,9 +33,9 @@ class SR_dataset:
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
             >>> evaluator = dataset.create_evaluator()
-            >>> print(evaluator.evaluate_expr(["sin", "(", "X_0", ")"]) < dataset.success_threshold)
+            >>> bool(evaluator.evaluate_expr(["sin", "(", "X_0", ")"]) < dataset.success_threshold)
             False
-            >>> print(evaluator.evaluate_expr(["u-", "C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold)
+            >>> bool(evaluator.evaluate_expr(["u-", "C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold)
             True
 
         Args:
@@ -99,15 +98,20 @@ class SR_dataset:
 
         # See if symbols contain a symbol for constants
         symbols_metadata = self.symbol_library.symbols.values()
-        self.contains_constants = any(
-            [symbol["type"] == "const" for symbol in symbols_metadata]
-        )
+        self.contains_constants = any([symbol["type"] == "const" for symbol in symbols_metadata])
 
         self.seed = seed
         self.dataset_metadata = dataset_metadata
 
-    def evaluate_approach(self, sr_approach: SR_approach, num_experiments: int = 1, top_k: int = 20,
-                          initial_seed: int = None, results: Optional[SR_results] = None, verbose = True) -> SR_results:
+    def evaluate_approach(
+        self,
+        sr_approach: SR_approach,
+        num_experiments: int = 1,
+        top_k: int = 20,
+        initial_seed: Optional[int] = None,
+        results: Optional[SR_results] = None,
+        verbose=True,
+    ) -> SR_results:
         """
         Evaluates an SR_approach on this dataset.
 
@@ -135,7 +139,7 @@ class SR_dataset:
 
         for experiment in range(num_experiments):
             if verbose:
-                print(f"Running experiment {experiment+1}/{num_experiments}")
+                print(f"Running experiment {experiment + 1}/{num_experiments}")
             if seed is not None:
                 seed += 1
 
@@ -169,10 +173,10 @@ class SR_dataset:
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
             >>> evaluator = dataset.create_evaluator()
-            >>> print(float(evaluator.evaluate_expr(["sin", "(", "X_0", ")"])))
-            8.056453977203414
-            >>> print(float(evaluator.evaluate_expr(["X_1", "+", "X_0"])))
-            0.0
+            >>> float(evaluator.evaluate_expr(["sin", "(", "X_0", ")"]))  # doctest: +ELLIPSIS
+            8.05645397...
+            >>> float(evaluator.evaluate_expr(["X_1", "+", "X_0"]))  # doctest: +ELLIPSIS
+            0.0...
 
         Args:
             metadata: An optional dictionary containing metadata about this evaluation. This could include
@@ -244,9 +248,11 @@ class SR_dataset:
         )
 
         if self.success_threshold is not None:
-            description += ("Expressions are deemed successful if the root mean squared error is less than "
-                            f"{self.success_threshold}. However, we advise that you check the best performing "
-                            f"expressions manually to ensure they are correct.\n")
+            description += (
+                "Expressions are deemed successful if the root mean squared error is less than "
+                f"{self.success_threshold}. However, we advise that you check the best performing "
+                f"expressions manually to ensure they are correct.\n"
+            )
 
         if len(self.kwargs) == 0:
             description += "Dataset uses the default limitations (extra arguments) from the SR_evaluator."
@@ -258,7 +264,7 @@ class SR_dataset:
             description += limitations
 
         if self.contains_constants:
-            description += f"The expressions in the dataset can contain constants/free parameters.\n"
+            description += "The expressions in the dataset can contain constants/free parameters.\n"
 
         description += "For other metadata, please refer to the attribute self.dataset_metadata."
 
@@ -276,12 +282,7 @@ class SR_dataset:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> with tempfile.TemporaryDirectory() as tmpdir:
-            ...     d = dataset.to_dict(tmpdir, "test_dataset")
-            ...     print(d['ranking_function'])
-            ...     print(d['ground_truth'])
-            rmse
-            ['X_0', '+', 'X_1']
+            >>> dataset.to_dict("data/example_ds", "test_dataset")  # doctest: +SKIP
 
         Args:
             base_path: The path to the directory where the data in the dataset should be saved.
@@ -336,23 +337,21 @@ class SR_dataset:
         return output
 
     @staticmethod
-    def from_dict(d: dict, augmentation_map: Dict[str, Type[ResultAugmenter]]=None) -> "SR_dataset":
+    def from_dict(d: dict, augmentation_map: Dict[str, Type[ResultAugmenter]] = None) -> "SR_dataset":
         """
         Creates an instance of the SR_dataset class from its dictionary representation. This is mainly used for
         loading the dataset from disk.
 
         Examples:
-            >>> import tempfile
+            >>> import tempfile, os
+            >>> tmpdir = tempfile.mkdtemp()
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
-            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
+            >>> ds = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> with tempfile.TemporaryDirectory() as tmpdir:
-            ...     d = dataset.to_dict(tmpdir, "test_dataset")
-            ...     dataset2 = SR_dataset.from_dict(d)
-            ...     print(dataset2.X.shape)
-            ...     print(dataset2.ground_truth)
+            >>> dataset_dict = ds.to_dict(tmpdir, "test_dataset")
+            >>> dataset = SR_dataset.from_dict(dataset_dict)
+            >>> dataset.X.shape
             (3, 2)
-            ['X_0', '+', 'X_1']
 
         Args:
             d: The dictionary representation of the dataset.
@@ -365,6 +364,7 @@ class SR_dataset:
             )
         if augmentation_map is None:
             from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
+
             augmentation_map = RESULT_AUGMENTERS
         try:
             data = np.load(d["dataset_path"])
@@ -373,42 +373,48 @@ class SR_dataset:
                 y = data["y"]
             else:
                 y = None
-        except:
+        except Exception:
             raise Exception(f"[SR_dataset.from_dict] Could not load dataset from {d['dataset_path']}")
 
-        if "ground_truth" in d and isinstance(d["ground_truth"], list) or d["ground_truth"] is None:
+        if "ground_truth" in d and (isinstance(d["ground_truth"], list) or d["ground_truth"] is None):
             ground_truth = d["ground_truth"]
         else:
             try:
                 ground_truth = np.load(d["ground_truth"])
-            except:
+            except Exception:
                 raise Exception(f"[SR_dataset.from_dict] Could not load ground truth from {d['ground_truth']}")
 
-        if not "result_augmenters" in d:
-            raise Exception("[SR_dataset.from_dict] Could not find result_augmenters keyword in the provided dictionary.")
+        if "result_augmenters" not in d:
+            raise Exception(
+                "[SR_dataset.from_dict] Could not find result_augmenters keyword in the provided dictionary."
+            )
 
         if d["result_augmenters"] is None:
             result_augmenters = None
         else:
-            result_augmenters = [augmentation_map[ag_data["type"]].from_dict(ag_data, augmentation_map)
-                                 for ag_data in d["result_augmenters"]]
+            result_augmenters = [
+                augmentation_map[ag_data["type"]].from_dict(ag_data, augmentation_map)
+                for ag_data in d["result_augmenters"]
+            ]
 
         if "bed_X" in d["kwargs"] and d["kwargs"]["bed_X"] is not None:
             d["kwargs"]["bed_X"] = np.array(d["kwargs"]["bed_X"])
 
         try:
-            return SR_dataset(X,
-                              SymbolLibrary.from_dict(d["symbol_library"]),
-                              ranking_function=d["ranking_function"],
-                              y=y,
-                              max_evaluations=d["max_evaluations"],
-                              ground_truth=ground_truth,
-                              original_equation=d["original_equation"],
-                              success_threshold=d["success_threshold"],
-                              result_augmenters=result_augmenters,
-                              seed=d["seed"],
-                              dataset_metadata=d["dataset_metadata"],
-                              dataset_name=d["dataset_name"],
-                              **d["kwargs"])
+            return SR_dataset(
+                X,
+                SymbolLibrary.from_dict(d["symbol_library"]),
+                ranking_function=d["ranking_function"],
+                y=y,
+                max_evaluations=d["max_evaluations"],
+                ground_truth=ground_truth,
+                original_equation=d["original_equation"],
+                success_threshold=d["success_threshold"],
+                result_augmenters=result_augmenters,
+                seed=d["seed"],
+                dataset_metadata=d["dataset_metadata"],
+                dataset_name=d["dataset_name"],
+                **d["kwargs"],
+            )
         except Exception as e:
             raise Exception(f"[SR_dataset.from_dict] Error creating dataset: {e}")

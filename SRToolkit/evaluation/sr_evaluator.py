@@ -2,23 +2,28 @@
 This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches. Additionally,
 the generic ResultAugmenter class is defined here to avoid circular imports.
 """
-import os
-from contextlib import nullcontext
-from typing import Optional, List, Union, Dict, TypedDict
+
 import logging
+import os
 import warnings
+from contextlib import nullcontext
+from typing import Dict, List, Optional, TypedDict, Union
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
 
-from SRToolkit.utils import Node, SymbolLibrary, simplify, create_behavior_matrix, bed
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.utils.expression_simplifier import simplify
+from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.measures import bed, create_behavior_matrix
+from SRToolkit.utils.symbol_library import SymbolLibrary
 
 logger = logging.getLogger(__name__)
 
 
 class _ModelResultBase(TypedDict):
     """Required fields present in every model entry."""
+
     expr: List[str]
     error: float
 
@@ -35,6 +40,7 @@ class ModelResult(_ModelResultBase, total=False):
         simplified_expr: (Optional) Simplified token string. Added by :class:`ExpressionSimplifier`.
         bed: (Optional) BED score. Added by :class:`BED` augmenter.
     """
+
     parameters: "np.ndarray"
     expr_latex: str
     simplified_expr: str
@@ -43,6 +49,7 @@ class ModelResult(_ModelResultBase, total=False):
 
 class _EvalResultBase(TypedDict):
     """Required fields present in every experiment result."""
+
     min_error: float
     best_expr: str
     num_evaluated: int
@@ -76,6 +83,7 @@ class EvalResult(_EvalResultBase, total=False):
     will flag access to those keys unless you subclass ``EvalResult`` to declare
     them or suppress the error with ``cast``/``# type: ignore``.
     """
+
     dataset_name: str
     metadata: dict
     best_expr_latex: str
@@ -202,7 +210,7 @@ class SR_evaluator:
                 Default is 64. If num_points_sampled==-1, then the number of points sampled is equal to the number of
                 points in the dataset.
             bed_X (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points
-                are sampled from the domain. If None and domain_bounds are not givem, points are randomly selected
+                are sampled from the domain. If None and domain_bounds are not given, points are randomly selected
                 from X. Default is None.
             num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
             domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to
@@ -265,9 +273,7 @@ class SR_evaluator:
             np.random.seed(seed)
 
         if ranking_function not in ["rmse", "bed"]:
-            warnings.warn(
-                f"ranking_function '{ranking_function}' not supported. Using rmse instead."
-            )
+            warnings.warn(f"ranking_function '{ranking_function}' not supported. Using rmse instead.")
             ranking_function = "rmse"
         self.ranking_function = ranking_function
 
@@ -275,20 +281,14 @@ class SR_evaluator:
         if result_augmenters is not None:
             for ra in result_augmenters:
                 if not isinstance(ra, ResultAugmenter):
-                    warnings.warn(
-                        f"result_augmenter {ra} is not an instance of ResultAugmenter. Skipping."
-                    )
+                    warnings.warn(f"result_augmenter {ra} is not an instance of ResultAugmenter. Skipping.")
                 else:
                     self.result_augmenters.append(ra)
 
         if ranking_function == "rmse":
             if y is None:
-                raise ValueError(
-                    "Target values must be provided for RMSE ranking function."
-                )
-            self.parameter_estimator = ParameterEstimator(
-                X, y, symbol_library=symbol_library, seed=seed, **kwargs
-            )
+                raise ValueError("Target values must be provided for RMSE ranking function.")
+            self.parameter_estimator = ParameterEstimator(X, y, symbol_library=symbol_library, seed=seed, **kwargs)
 
             if self.success_threshold is None:
                 self.success_threshold = 1e-7
@@ -309,14 +309,9 @@ class SR_evaluator:
                         db = self.bed_evaluation_parameters["domain_bounds"]
                         interval_length = np.array([ub - lb for (lb, ub) in db])
                         lower_bound = np.array([lb for (lb, ub) in db])
-                        lho = LatinHypercube(
-                            len(db), optimization="random-cd", seed=seed
-                        )
+                        lho = LatinHypercube(len(db), optimization="random-cd", seed=seed)
                         self.bed_evaluation_parameters["bed_X"] = (
-                            lho.random(
-                                self.bed_evaluation_parameters["num_points_sampled"]
-                            )
-                            * interval_length
+                            lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length
                             + lower_bound
                         )
                     else:
@@ -330,9 +325,7 @@ class SR_evaluator:
                 self.gt_behavior = create_behavior_matrix(
                     ground_truth,
                     self.bed_evaluation_parameters["bed_X"],
-                    num_consts_sampled=self.bed_evaluation_parameters[
-                        "num_consts_sampled"
-                    ],
+                    num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
                     consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
                     symbol_library=self.symbol_library,
                     seed=self.seed,
@@ -350,12 +343,8 @@ class SR_evaluator:
                         self.ground_truth,
                         self.gt_behavior,
                         self.bed_evaluation_parameters["bed_X"],
-                        num_consts_sampled=self.bed_evaluation_parameters[
-                            "num_consts_sampled"
-                        ],
-                        num_points_sampled=self.bed_evaluation_parameters[
-                            "num_points_sampled"
-                        ],
+                        num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
+                        num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
                         domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
                         consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
                         symbol_library=self.symbol_library,
@@ -387,7 +376,7 @@ class SR_evaluator:
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
             >>> y = np.array([2, 3, 4])
             >>> se = SR_evaluator(X, y, seed=42)
-            >>> rmse = se.evaluate_expr(["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
+            >>> rmse = se.evaluate_expr(["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
             >>> print(rmse < 1e-6)
             True
             >>> list(se.models.keys())[0]
@@ -414,7 +403,7 @@ class SR_evaluator:
             True
 
         Args:
-            expr: An expression. This should be an istance of the SRToolkit.utils.expression_tree.Node class or a list
+            expr: An expression. This should be an instance of the SRToolkit.utils.expression_tree.Node class or a list
                   of tokens in the infix notation.
             simplify_expr: If True, simplifies the expression using SymPy before evaluating it. This typically slows down
                            evaluation. We recommend simplifying only the best expressions when getting results using
@@ -435,9 +424,7 @@ class SR_evaluator:
         self.total_evaluations += 1
 
         if 0 <= self.max_evaluations < self.total_evaluations:
-            warnings.warn(
-                f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation."
-            )
+            warnings.warn(f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
             return np.nan
         else:
             if simplify_expr:
@@ -448,9 +435,7 @@ class SR_evaluator:
                         expr_list = expr.to_list(symbol_library=self.symbol_library)
                     else:
                         expr_list = expr
-                    warnings.warn(
-                        f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}"
-                    )
+                    warnings.warn(f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}")
 
             if isinstance(expr, Node):
                 expr_list = expr.to_list(symbol_library=self.symbol_library)
@@ -476,19 +461,16 @@ class SR_evaluator:
                             if verbose < 2
                             else nullcontext()
                         ):
-                            error, parameters = (
-                                self.parameter_estimator.estimate_parameters(expr)
-                            )
+                            error, parameters = self.parameter_estimator.estimate_parameters(expr)
 
                         if verbose > 0:
                             if parameters.size > 0:
-                                parameter_string = f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
+                                parameter_string = (
+                                    f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
+                                )
                             else:
                                 parameter_string = ""
-                            logger.debug(
-                                "Evaluated expression %s with RMSE: %s.%s",
-                                expr_str, error, parameter_string
-                            )
+                            logger.debug("Evaluated expression %s with RMSE: %s.%s", expr_str, error, parameter_string)
 
                     except Exception as e:
                         if verbose > 0:
@@ -519,26 +501,16 @@ class SR_evaluator:
                                 expr,
                                 self.gt_behavior,
                                 self.bed_evaluation_parameters["bed_X"],
-                                num_consts_sampled=self.bed_evaluation_parameters[
-                                    "num_consts_sampled"
-                                ],
-                                num_points_sampled=self.bed_evaluation_parameters[
-                                    "num_points_sampled"
-                                ],
-                                domain_bounds=self.bed_evaluation_parameters[
-                                    "domain_bounds"
-                                ],
-                                consts_bounds=self.bed_evaluation_parameters[
-                                    "constant_bounds"
-                                ],
+                                num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
+                                num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
+                                domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
+                                consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
                                 symbol_library=self.symbol_library,
                                 seed=self.seed,
                             )
 
                             if verbose > 0:
-                                logger.debug(
-                                    "Evaluated expression %s with BED: %s.", expr_str, error
-                                )
+                                logger.debug("Evaluated expression %s with BED: %s.", expr_str, error)
 
                     except Exception as e:
                         if verbose > 0:
@@ -553,9 +525,7 @@ class SR_evaluator:
                     }
 
                 else:
-                    raise ValueError(
-                        f"Ranking function {self.ranking_function} not supported."
-                    )
+                    raise ValueError(f"Ranking function {self.ranking_function} not supported.")
 
                 return error
 
@@ -600,8 +570,15 @@ class SR_evaluator:
 
         if results is None:
             results = SR_results()
-        results.add_results(self.models, top_k, self.result_augmenters, self.total_evaluations, self.success_threshold,
-                            approach_name, self.metadata)
+        results.add_results(
+            self.models,
+            top_k,
+            self.result_augmenters,
+            self.total_evaluations,
+            self.success_threshold,
+            approach_name,
+            self.metadata,
+        )
 
         return results
 
@@ -616,16 +593,18 @@ class SR_evaluator:
         Returns:
             A dictionary containing the necessary information to recreate the evaluator from disk.
         """
-        output = {"format_version": 1,
-                  "type": "SR_evaluator",
-                  "metadata": self.metadata,
-                  "symbol_library": self.symbol_library.to_dict(),
-                  "max_evaluations": self.max_evaluations,
-                  "success_threshold": self.success_threshold,
-                  "ranking_function": self.ranking_function,
-                  "result_augmenters": [ra.to_dict(base_path, name) for ra in self.result_augmenters],
-                  "seed": self.seed,
-                  "kwargs": self.kwargs}
+        output = {
+            "format_version": 1,
+            "type": "SR_evaluator",
+            "metadata": self.metadata,
+            "symbol_library": self.symbol_library.to_dict(),
+            "max_evaluations": self.max_evaluations,
+            "success_threshold": self.success_threshold,
+            "ranking_function": self.ranking_function,
+            "result_augmenters": [ra.to_dict(base_path, name) for ra in self.result_augmenters],
+            "seed": self.seed,
+            "kwargs": self.kwargs,
+        }
 
         if not os.path.isdir(base_path):
             os.makedirs(base_path)
@@ -694,22 +673,33 @@ class SR_evaluator:
         except Exception as e:
             raise ValueError(f"[SR_evaluator.from_dict] Unable to load data for X/y/ground truth due to {e}")
 
-
         result_augmenters = []
         for ra_data in data["result_augmenters"]:
             if augmenter_map is None:
-                raise ValueError("[SR_evaluator.from_dict] Argument augmenter_map must be provided when loading "
-                                 "the dictionary contains result augmenters.")
+                raise ValueError(
+                    "[SR_evaluator.from_dict] Argument augmenter_map must be provided when loading "
+                    "the dictionary contains result augmenters."
+                )
             if ra_data["type"] not in augmenter_map:
-                raise ValueError(f"[SR_evaluator.from_dict] Result augmenter {ra_data['type']} not found in the "
-                                 f"augmenter map.")
+                raise ValueError(
+                    f"[SR_evaluator.from_dict] Result augmenter {ra_data['type']} not found in the augmenter map."
+                )
             result_augmenters.append(augmenter_map[ra_data["type"]].from_dict(ra_data, augmenter_map))
 
         symbol_library = SymbolLibrary.from_dict(data["symbol_library"])
-        return SR_evaluator(X, y=y, ground_truth=gt, symbol_library=symbol_library,
-                            max_evaluations=data["max_evaluations"], success_threshold=data["success_threshold"],
-                            ranking_function=data["ranking_function"], result_augmenters=result_augmenters,
-                            seed=data["seed"], metadata=data["metadata"], **data["kwargs"])
+        return SR_evaluator(
+            X,
+            y=y,
+            ground_truth=gt,
+            symbol_library=symbol_library,
+            max_evaluations=data["max_evaluations"],
+            success_threshold=data["success_threshold"],
+            ranking_function=data["ranking_function"],
+            result_augmenters=result_augmenters,
+            seed=data["seed"],
+            metadata=data["metadata"],
+            **data["kwargs"],
+        )
 
 
 class SR_results:
@@ -745,9 +735,16 @@ class SR_results:
         """
         self.results = list()
 
-    def add_results(self, models: Dict[str, dict], top_k: int, result_augmenters: List[ResultAugmenter],
-                    total_evaluations: int, success_threshold: Optional[float], approach_name: str,
-                    metadata: Optional[dict] = None):
+    def add_results(
+        self,
+        models: Dict[str, dict],
+        top_k: int,
+        result_augmenters: List[ResultAugmenter],
+        total_evaluations: int,
+        success_threshold: Optional[float],
+        approach_name: str,
+        metadata: Optional[dict] = None,
+    ):
         """
         Adds the results of an evaluation to the results object. If needed, the results are additionally augmented
         using the provided result augmenters. For an example of how to use this function, look at the SR_evaluator.get_results method.
@@ -772,7 +769,7 @@ class SR_results:
             "evaluation_calls": total_evaluations,
             "top_models": list(),
             "all_models": models,
-            "approach_name": approach_name
+            "approach_name": approach_name,
         }
 
         if metadata is not None and "dataset_name" in metadata:
@@ -784,10 +781,7 @@ class SR_results:
             results_dict["metadata"] = metadata
 
         # Determine success based on the predefined success threshold
-        if (
-                success_threshold is not None
-                and results_dict["min_error"] < success_threshold
-        ):
+        if success_threshold is not None and results_dict["min_error"] < success_threshold:
             results_dict["success"] = True
         else:
             results_dict["success"] = False
@@ -849,14 +843,13 @@ class SR_results:
         """
         if experiment_number is None:
             for i, result in enumerate(self.results):
-                print(f"Experiment {i+1}/{len(self.results)}:")
+                print(f"Experiment {i + 1}/{len(self.results)}:")
                 SR_results._print_result_(result, detailed)
                 print("-----------------------------------------")
 
         else:
             assert experiment_number < len(self.results), "[SR_Results.print_results] experiment number out of bounds"
             SR_results._print_result_(self.results[experiment_number], detailed)
-
 
     @staticmethod
     def _print_result_(result, detailed: bool = False):
@@ -878,7 +871,7 @@ class SR_results:
         if detailed:
             print("Top models:")
             for j, model in enumerate(result["top_models"]):
-                print(f"Model {j+1} - " + ", ".join(["{}: {}".format(key, value) for key, value in model.items()]))
+                print(f"Model {j + 1} - " + ", ".join(["{}: {}".format(key, value) for key, value in model.items()]))
             print()
 
     # TODO: Function that creates a pareto front
@@ -893,7 +886,21 @@ class SR_results:
             other: SR_results object to concatenate with the current SR_results object.
 
         Returns:
-            The concatenated SR_results objects.
+            A new SR_results object containing the concatenated results.
+        """
+        new = SR_results()
+        new.results = self.results + other.results
+        return new
+
+    def __iadd__(self, other):
+        """
+        In-place concatenation of SR_results objects.
+
+        Args:
+            other: SR_results object to concatenate with the current SR_results object.
+
+        Returns:
+            self
         """
         self.results += other.results
         return self

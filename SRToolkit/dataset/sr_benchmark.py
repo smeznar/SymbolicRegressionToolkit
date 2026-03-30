@@ -2,29 +2,38 @@ import copy
 import json
 import os
 import warnings
-from typing import List, Union, Tuple, Optional
-from urllib.request import urlopen
 from io import BytesIO
+from typing import List, Optional, Tuple, Union
+from urllib.request import urlopen
 from zipfile import ZipFile
 
 import numpy as np
 
-from SRToolkit.dataset import SR_dataset
-from SRToolkit.evaluation import ResultAugmenter, RESULT_AUGMENTERS
-from SRToolkit.utils import SymbolLibrary, Node, expr_to_executable_function
+from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
+from SRToolkit.evaluation.sr_evaluator import ResultAugmenter
+from SRToolkit.utils.expression_compiler import expr_to_executable_function
+from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.symbol_library import SymbolLibrary
+
+from .sr_dataset import SR_dataset
 
 
 class SR_benchmark:
-    def __init__(self, benchmark_name: str, base_dir: str,
-                 datasets: Optional[List[Union[SR_dataset, Tuple[str, SR_dataset]]]] = None,
-                 augmentation_map: dict = None, metadata: dict = None):
+    def __init__(
+        self,
+        benchmark_name: str,
+        base_dir: str,
+        datasets: Optional[List[Union[SR_dataset, Tuple[str, SR_dataset]]]] = None,
+        augmentation_map: dict = None,
+        metadata: dict = None,
+    ):
         """
         Initializes an instance of the SR_benchmark class. You can find examples of how to use this class in the
         feynman and nguyen methods below.
 
         Examples:
-            >>> benchmark = SR_benchmark.feynman('data/feynman')  # doctest: +SKIP
-            >>> len(benchmark.list_datasets(verbose=False))  # doctest: +SKIP
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
+            >>> len(benchmark.list_datasets(verbose=False))
             100
 
         Args:
@@ -50,24 +59,26 @@ class SR_benchmark:
         if datasets is not None:
             for i, dataset in enumerate(datasets):
                 if isinstance(dataset, SR_dataset):
-                    self.add_dataset_instance(benchmark_name + "_" + str(i+1), dataset)
+                    self.add_dataset_instance(benchmark_name + "_" + str(i + 1), dataset)
                 elif isinstance(dataset, tuple) and isinstance(dataset[0], str) and isinstance(dataset[1], SR_dataset):
                     self.add_dataset_instance(dataset[0], dataset[1])
                 else:
-                    raise ValueError("[SR_benchmark] Dataset inside the datasets argument must be either a tuple "
-                                     "(name, SR_dataset) or a SR_dataset instance.")
+                    raise ValueError(
+                        "[SR_benchmark] Dataset inside the datasets argument must be either a tuple "
+                        "(name, SR_dataset) or a SR_dataset instance."
+                    )
 
     def add_dataset_instance(self, dataset_name: str, dataset: SR_dataset):
         """
         Adds an instance of the SR_dataset class to the benchmark.
 
         Examples:
-            >>> benchmark = SR_benchmark.feynman('data/feynman')  # doctest: +SKIP
-            >>> dataset = benchmark.create_dataset('I.16.6')  # doctest: +SKIP
-            >>> isinstance(dataset, SR_dataset)  # doctest: +SKIP
+            >>> benchmark = SR_benchmark.feynman('data/feynman')
+            >>> dataset = benchmark.create_dataset('I.16.6')
+            >>> isinstance(dataset, SR_dataset)
             True
             >>> bm = SR_benchmark("BM", "data/bm")
-            >>> bm.add_dataset_instance("I.16.6", dataset)  # doctest: +SKIP
+            >>> bm.add_dataset_instance("I.16.6", dataset)
 
         Args:
              dataset_name: The name of the dataset.
@@ -96,20 +107,20 @@ class SR_benchmark:
         result_augmenters: Optional[List[ResultAugmenter]] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Adds a dataset to the benchmark.
 
         Examples:
-            >>> fey_benchmark = SR_benchmark.feynman('data/feynman') # doctest: +SKIP
-            >>> benchmark = SR_benchmark("BM", "data/bm") # doctest: +SKIP
+            >>> fey_benchmark = SR_benchmark.feynman('data/feynman')
+            >>> benchmark = SR_benchmark("BM", "data/bm")
             >>> benchmark.add_dataset("data/feynman/I.14.3.npz", SymbolLibrary.default_symbols(3),
             ...       dataset_name="I.14.3", ranking_function="rmse", ground_truth = ["X_0", "*", "X_1", "*", "X_2"],
             ...       original_equation="U = m*g*z", max_evaluations=100000, max_expression_length=50,
             ...       success_threshold=1e-7, dataset_metadata={}, constant_range=[-5.0, 5.0], result_augmenters=[],
-            ...       seed = 42) # doctest: +SKIP
-            >>> len(benchmark.list_datasets(verbose=False)) # doctest: +SKIP
+            ...       seed = 42)
+            >>> len(benchmark.list_datasets(verbose=False))
             1
 
         Args:
@@ -170,7 +181,7 @@ class SR_benchmark:
                 expression given as the ground truth cannot be evaluated...
         """
         if dataset_name is None:
-            dataset_name = f"{self.benchmark_name}_{len(self.datasets)+1}"
+            dataset_name = f"{self.benchmark_name}_{len(self.datasets) + 1}"
 
         self.datasets[dataset_name] = {}
         self.datasets[dataset_name]["format_version"] = 1
@@ -180,9 +191,14 @@ class SR_benchmark:
         self.datasets[dataset_name]["max_evaluations"] = max_evaluations
 
         self.datasets[dataset_name]["success_threshold"] = success_threshold
-        self.datasets[dataset_name]["result_augmenters"] = [re.to_dict(self.base_dir, dataset_name) for re in result_augmenters]
+        self.datasets[dataset_name]["result_augmenters"] = [
+            re.to_dict(self.base_dir, dataset_name) for re in result_augmenters
+        ]
         self.datasets[dataset_name]["seed"] = seed
-        self.datasets[dataset_name]["dataset_metadata"] = copy.deepcopy(self.metadata).update(dataset_metadata)
+        merged_metadata = copy.deepcopy(self.metadata)
+        if dataset_metadata:
+            merged_metadata.update(dataset_metadata)
+        self.datasets[dataset_name]["dataset_metadata"] = merged_metadata
 
         if "bed_X" in kwargs and kwargs["bed_X"] is not None:
             kwargs["bed_X"] = kwargs["bed_X"].tolist()
@@ -195,8 +211,10 @@ class SR_benchmark:
             if ranking_function == "bed":
                 raise ValueError("[SR_benchmark.add_dataset] For 'bed' ranking, the ground truth must be provided. ")
             else:
-                warnings.warn("[SR_benchmark.add_dataset] 'ground_truth' argument not provided. We recommend providing it "
-                              "for more transparent evaluation.")
+                warnings.warn(
+                    "[SR_benchmark.add_dataset] 'ground_truth' argument not provided. We recommend providing it "
+                    "for more transparent evaluation."
+                )
         else:
             if original_equation is None:
                 if isinstance(ground_truth, str):
@@ -253,7 +271,7 @@ class SR_benchmark:
                     )
                     raise ValueError(error_msg)
 
-            num_variables = data['X'].shape[1]
+            num_variables = data["X"].shape[1]
 
         elif isinstance(dataset, np.ndarray):
             if ranking_function == "rmse" and ground_truth is not None:
@@ -261,15 +279,18 @@ class SR_benchmark:
                     expr = expr_to_executable_function(ground_truth, symbol_library)
                     y = expr(dataset, None)
                 except Exception as e:
-                    raise Exception(f"[SR_benchmark.add_dataset] Could not evaluate the ground truth. "
-                                    f"Original error: {e}")
+                    raise Exception(
+                        f"[SR_benchmark.add_dataset] Could not evaluate the ground truth. Original error: {e}"
+                    )
                 if not os.path.isdir(self.base_dir):
                     os.makedirs(self.base_dir)
                 np.savez(f"{self.base_dir}/{dataset_name}.npz", X=dataset, y=y, allow_pickle=False)
             elif ranking_function == "rmse" and ground_truth is None:
-                raise ValueError("[SR_benchmark.add_dataset] For 'rmse' ranking, if the dataset argument is a numpy "
-                                 "array, the ground truth must be provided in order for the target values to be "
-                                 "calculated.")
+                raise ValueError(
+                    "[SR_benchmark.add_dataset] For 'rmse' ranking, if the dataset argument is a numpy "
+                    "array, the ground truth must be provided in order for the target values to be "
+                    "calculated."
+                )
             elif ranking_function == "bed":
                 if not os.path.isdir(self.base_dir):
                     os.makedirs(self.base_dir)
@@ -280,12 +301,16 @@ class SR_benchmark:
 
         elif isinstance(dataset, tuple):
             if not isinstance(dataset[0], np.ndarray) or not isinstance(dataset[1], np.ndarray):
-                raise ValueError("[SR_benchmark.add_dataset] When dataset argument is provided as a tuple, both "
-                                 "values must be a numpy array. The first array represents the features ('X'), "
-                                 "the second array represents the targets ('y').")
+                raise ValueError(
+                    "[SR_benchmark.add_dataset] When dataset argument is provided as a tuple, both "
+                    "values must be a numpy array. The first array represents the features ('X'), "
+                    "the second array represents the targets ('y')."
+                )
             if ranking_function == "bed":
-                warnings.warn("[SR_benchmark.add_dataset] 'bed' ranking only utilizes the array with features. "
-                              "Array with targets will be ignored.")
+                warnings.warn(
+                    "[SR_benchmark.add_dataset] 'bed' ranking only utilizes the array with features. "
+                    "Array with targets will be ignored."
+                )
             if not os.path.isdir(self.base_dir):
                 os.makedirs(self.base_dir)
             np.savez(f"{self.base_dir}/{dataset_name}.npz", X=dataset[0], y=dataset[1], allow_pickle=False)
@@ -293,8 +318,10 @@ class SR_benchmark:
             num_variables = dataset[0].shape[1]
 
         else:
-            raise ValueError("[SR_benchmark.add_dataset] The dataset argument must be a string, a numpy array, "
-                             "or a tuple containing two numpy arrays.")
+            raise ValueError(
+                "[SR_benchmark.add_dataset] The dataset argument must be a string, a numpy array, "
+                "or a tuple containing two numpy arrays."
+            )
 
         self.datasets[dataset_name]["num_variables"] = num_variables
 
@@ -324,8 +351,10 @@ class SR_benchmark:
                 try:
                     return SR_dataset.from_dict(self.datasets[dataset_name], self.augmentation_map)
                 except Exception as e:
-                    raise ValueError(f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
-                                     f"given dictionary. Original error: {e}")
+                    raise ValueError(
+                        f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
+                        f"given dictionary. Original error: {e}"
+                    )
 
         else:
             raise ValueError(f"Dataset {dataset_name} not found")
@@ -352,8 +381,7 @@ class SR_benchmark:
         datasets = [
             dataset_name
             for dataset_name in self.datasets
-            if num_variables < 0
-            or self.datasets[dataset_name]["num_variables"] == num_variables
+            if num_variables < 0 or self.datasets[dataset_name]["num_variables"] == num_variables
         ]
         datasets = sorted(
             datasets,
@@ -376,11 +404,11 @@ class SR_benchmark:
                     variable_str = "Amount of variables unknown"
                 else:
                     variable_str = f"{self.datasets[d]['num_variables']} variables"
-                part1.append(d+":")
+                part1.append(d + ":")
                 part2.append(variable_str)
                 part3.append(self.datasets[d]["original_equation"])
-                if len(d)+1 > max_length_1:
-                    max_length_1 = len(d)+1
+                if len(d) + 1 > max_length_1:
+                    max_length_1 = len(d) + 1
                 if len(variable_str) > max_length_2:
                     max_length_2 = len(variable_str)
 
@@ -427,19 +455,16 @@ class SR_benchmark:
         datasets = []
         for dataset_name, dataset_info in self.datasets.items():
             if "sr_dataset" in dataset_info:
-                datasets.append({"name": dataset_name,
-                                 "info": dataset_info["sr_dataset"].to_dict(self.base_dir, dataset_name)})
+                datasets.append(
+                    {"name": dataset_name, "info": dataset_info["sr_dataset"].to_dict(self.base_dir, dataset_name)}
+                )
             else:
-                datasets.append({"name": dataset_name,
-                                 "info": dataset_info})
+                datasets.append({"name": dataset_name, "info": dataset_info})
 
-        output = {"datasets": datasets,
-                  "metadata": self.metadata,
-                  "name": self.benchmark_name}
+        output = {"datasets": datasets, "metadata": self.metadata, "name": self.benchmark_name}
 
         with open(f"{self.base_dir}/dataset_info.json", "w") as f:
             json.dump(output, f)
-
 
     @staticmethod
     def load_benchmark(base_dir: str) -> "SR_benchmark":
@@ -447,16 +472,17 @@ class SR_benchmark:
         Loads a benchmark stored at the base directory, returning an instance of SR_benchmark.
 
         Examples:
-            >>> b1 = SR_benchmark.feynman('data/feynman')  # doctest: +SKIP
-            >>> b2 = SR_benchmark.load_benchmark('data/feynman')  # doctest: +SKIP
-            >>> len(b1.list_datasets(verbose=False))  # doctest: +SKIP
+            >>> b1 = SR_benchmark.feynman('data/feynman')
+            >>> b1.save_benchmark()
+            >>> b2 = SR_benchmark.load_benchmark('data/feynman')
+            >>> len(b1.list_datasets(verbose=False))
             100
-            >>> len(b2.list_datasets(verbose=False))  # doctest: +SKIP
+            >>> len(b2.list_datasets(verbose=False))
             100
-            >>> dataset_name = b2.list_datasets(verbose=False)[0]  # doctest: +SKIP
-            >>> dataset = b2.create_dataset(dataset_name)  # doctest: +SKIP
-            >>> rmse = dataset.create_evaluator().evaluate_expr(dataset.ground_truth)  # doctest: +SKIP
-            >>> rmse < dataset.success_threshold  # doctest: +SKIP
+            >>> dataset_name = b2.list_datasets(verbose=False)[0]
+            >>> dataset = b2.create_dataset(dataset_name)
+            >>> rmse = dataset.create_evaluator().evaluate_expr(dataset.ground_truth)
+            >>> bool(rmse < dataset.success_threshold)
             True
 
         """
@@ -502,9 +528,10 @@ class SR_benchmark:
         """
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
 
-        metadata = {"description": "Feynman benchmark containing 100 equations from the domain of physics. "
-                                   "Expressions can contain up to 9 variables.",
-                    "citation": """@article{Tegmark2020Feynman,
+        metadata = {
+            "description": "Feynman benchmark containing 100 equations from the domain of physics. "
+            "Expressions can contain up to 9 variables.",
+            "citation": """@article{Tegmark2020Feynman,
   title={{AI Feynman: A physics-inspired method for symbolic regression}},
   author={Udrescu, Silviu-Marian and Tegmark, Max},
   journal={Science Advances},
@@ -514,27 +541,35 @@ class SR_benchmark:
   year={2020},
   publisher={American Association for the Advancement of Science}
 }
-"""
-                    }
+""",
+        }
 
         SR_benchmark.download_benchmark_data(url, dataset_directory)
 
-        sl_1v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 1)
-        sl_2v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 2)
-        sl_3v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 3)
-        sl_4v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 4)
-        sl_5v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 5)
-        sl_6v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 6)
-        sl_8v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 8)
-        sl_9v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp",
-                                                "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 9)
+        sl_1v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 1
+        )
+        sl_2v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 2
+        )
+        sl_3v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 3
+        )
+        sl_4v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 4
+        )
+        sl_5v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 5
+        )
+        sl_6v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 6
+        )
+        sl_8v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 8
+        )
+        sl_9v = SymbolLibrary.from_symbol_list(
+            ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 9
+        )
 
         benchmark = SR_benchmark("feynman", dataset_directory)
         benchmark.metadata = metadata
@@ -544,11 +579,32 @@ class SR_benchmark:
             dataset_name="I.16.6",
             ranking_function="rmse",
             max_evaluations=100000,
-            ground_truth = ["(", "X_2", "+","X_1",")","/","(","1","+","(","X_2","*","X_1",")","/","(","X_0","^2",")",")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_2",
+                "+",
+                "X_1",
+                ")",
+                "/",
+                "(",
+                "1",
+                "+",
+                "(",
+                "X_2",
+                "*",
+                "X_1",
+                ")",
+                "/",
+                "(",
+                "X_0",
+                "^2",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="v1 = (u+v)/(1+u*v/c^2)",
             success_threshold=1e-7,
             result_augmenters=[],
-            seed = seed,
+            seed=seed,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             max_expression_length=50,
@@ -558,7 +614,7 @@ class SR_benchmark:
             sl_3v,
             dataset_name="II.15.4",
             ranking_function="rmse",
-            ground_truth = ["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"], # noqa: F401
+            ground_truth=["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"],  # noqa: F401
             original_equation="E_n = -mom*B*cos(theta)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -566,14 +622,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.27.16",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2", "^2"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2", "^2"],  # noqa: F401
             original_equation="flux = epsilon*c*Ef^2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -581,14 +637,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_6v,
             dataset_name="I.11.19",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_3", "+", "X_1", "*", "X_4", "+", "X_2", "*", "X_5"], # noqa: F401
+            ground_truth=["X_0", "*", "X_3", "+", "X_1", "*", "X_4", "+", "X_2", "*", "X_5"],  # noqa: F401
             original_equation="A = x1*y1+x2*y2+x3*y3",
             max_evaluations=100000,
             max_expression_length=50,
@@ -596,14 +652,33 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.15.3x",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "-", "X_1", "*", "X_3", ")", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_0",
+                "-",
+                "X_1",
+                "*",
+                "X_3",
+                ")",
+                "/",
+                "sqrt",
+                "(",
+                "1",
+                "-",
+                "X_1",
+                "^2",
+                "/",
+                "X_2",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="x1 = (x-u*t)/sqrt(1-u^2/c^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -611,14 +686,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.10.7",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="m = m_0/sqrt(1-v^2/c^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -626,14 +701,43 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_9v,
             dataset_name="I.9.18",
             ranking_function="rmse",
-            ground_truth = ["X_2", "*", "X_0", "*", "X_1", "/", "(", "(", "X_4", "-", "X_3", ")", "^2", "+", "(", "X_6", "-", "X_5", ")", "^2", "+", "(", "X_8", "-", "X_7", ")", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "X_2",
+                "*",
+                "X_0",
+                "*",
+                "X_1",
+                "/",
+                "(",
+                "(",
+                "X_4",
+                "-",
+                "X_3",
+                ")",
+                "^2",
+                "+",
+                "(",
+                "X_6",
+                "-",
+                "X_5",
+                ")",
+                "^2",
+                "+",
+                "(",
+                "X_8",
+                "-",
+                "X_7",
+                ")",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="F = G*m1*m2/((x2-x1)^2+(y2-y1)^2+(z2-z1)^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -641,14 +745,36 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.15.3t",
             ranking_function="rmse",
-            ground_truth = ["(", "X_3", "-", "X_2", "*", "X_0", "/", "X_1", "^2", ")", "/", "sqrt", "(", "1", "-", "X_2", "^2", "/", "X_1", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_3",
+                "-",
+                "X_2",
+                "*",
+                "X_0",
+                "/",
+                "X_1",
+                "^2",
+                ")",
+                "/",
+                "sqrt",
+                "(",
+                "1",
+                "-",
+                "X_2",
+                "^2",
+                "/",
+                "X_1",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="t1 = (t-u*x/c^2)/sqrt(1-u^2/c^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -656,14 +782,47 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_8v,
             dataset_name="II.36.38",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "*", "X_1", ")", "/", "(", "X_2", "*", "X_3", ")", "+", "(", "(", "X_0", "*", "X_4", ")", "/", "(", "X_5", "*", "X_6", "^2", "*", "X_2", "*", "X_3", ")", ")", "*", "X_7"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_0",
+                "*",
+                "X_1",
+                ")",
+                "/",
+                "(",
+                "X_2",
+                "*",
+                "X_3",
+                ")",
+                "+",
+                "(",
+                "(",
+                "X_0",
+                "*",
+                "X_4",
+                ")",
+                "/",
+                "(",
+                "X_5",
+                "*",
+                "X_6",
+                "^2",
+                "*",
+                "X_2",
+                "*",
+                "X_3",
+                ")",
+                ")",
+                "*",
+                "X_7",
+            ],  # noqa: F401
             original_equation="f = mom*H/(kb*T)+(mom*alpha)/(epsilon*c**2*kb*T)*M",
             max_evaluations=100000,
             max_expression_length=50,
@@ -671,14 +830,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.43.43",
             ranking_function="rmse",
-            ground_truth = ["(", "1", "/", "(", "X_0", "-", "1", ")", ")", "*", "X_1", "*", "X_3", "/", "X_2"], # noqa: F401
+            ground_truth=["(", "1", "/", "(", "X_0", "-", "1", ")", ")", "*", "X_1", "*", "X_3", "/", "X_2"],  # noqa: F401
             original_equation="kappa = 1/(gamma-1)*kb*v/A",
             max_evaluations=100000,
             max_expression_length=50,
@@ -686,14 +845,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.15.5",
             ranking_function="rmse",
-            ground_truth = ["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"], # noqa: F401
+            ground_truth=["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"],  # noqa: F401
             original_equation="E_n = -p_d*Ef*cos(theta)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -701,14 +860,32 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.37.4",
             ranking_function="rmse",
-            ground_truth = ["X_0", "+", "X_1", "+", "2", "*", "sqrt", "(", "X_0", "*", "X_1", ")", "*", "cos", "(", "X_2", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "+",
+                "X_1",
+                "+",
+                "2",
+                "*",
+                "sqrt",
+                "(",
+                "X_0",
+                "*",
+                "X_1",
+                ")",
+                "*",
+                "cos",
+                "(",
+                "X_2",
+                ")",
+            ],  # noqa: F401
             original_equation="Int = I1+I2+2*sqrt(I1*I2)*cos(delta)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -716,14 +893,36 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="II.6.11",
             ranking_function="rmse",
-            ground_truth = ["(", "1", "/", "(", "4", "*", "pi", "*", "X_0", ")", ")", "*", "X_1", "*", "cos", "(", "X_2", ")", "/", "X_3", "^2"], # noqa: F401
+            ground_truth=[
+                "(",
+                "1",
+                "/",
+                "(",
+                "4",
+                "*",
+                "pi",
+                "*",
+                "X_0",
+                ")",
+                ")",
+                "*",
+                "X_1",
+                "*",
+                "cos",
+                "(",
+                "X_2",
+                ")",
+                "/",
+                "X_3",
+                "^2",
+            ],  # noqa: F401
             original_equation="Volt = 1/(4*pi*epsilon)*p_d*cos(theta)/r^2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -731,14 +930,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="III.7.38",
             ranking_function="rmse",
-            ground_truth = ["2", "*", "X_0", "*", "X_1", "/", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")"], # noqa: F401
+            ground_truth=["2", "*", "X_0", "*", "X_1", "/", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")"],  # noqa: F401
             original_equation="omega = 2*mom*B/(h/(2*pi))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -746,14 +945,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.34.2a",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "/", "(", "2", "*", "pi", "*", "X_2", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "/", "(", "2", "*", "pi", "*", "X_2", ")"],  # noqa: F401
             original_equation="l = q*v/(2*pi*r)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -761,14 +960,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.13.23",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="rho_c = rho_c_0/sqrt(1-v^2/c^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -776,14 +975,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.29.4",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "X_1"], # noqa: F401
+            ground_truth=["X_0", "/", "X_1"],  # noqa: F401
             original_equation="k = omega/c",
             max_evaluations=100000,
             max_expression_length=50,
@@ -791,14 +990,38 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.38.12",
             ranking_function="rmse",
-            ground_truth = ["4", "*", "pi", "*", "X_3", "*", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "^2", "/", "(", "X_0", "*", "X_1", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "4",
+                "*",
+                "pi",
+                "*",
+                "X_3",
+                "*",
+                "(",
+                "X_2",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "^2",
+                "/",
+                "(",
+                "X_0",
+                "*",
+                "X_1",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="r = 4*pi*epsilon*(h/(2*pi))^2/(m*q^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -806,14 +1029,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="III.15.27",
             ranking_function="rmse",
-            ground_truth = ["2", "*", "pi", "*", "X_0", "/", "(", "X_1", "*", "X_2", ")"], # noqa: F401
+            ground_truth=["2", "*", "pi", "*", "X_0", "/", "(", "X_1", "*", "X_2", ")"],  # noqa: F401
             original_equation="k = 2*pi*alpha/(n*d)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -821,14 +1044,60 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="I.41.16",
             ranking_function="rmse",
-            ground_truth = ["(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "*", "X_0", "^3", "/", "(", "pi", "^2", "*", "X_4", "^2", "*", "(", "exp", "(", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "*", "X_0", "/", "(", "X_3", "*", "X_1", ")", ")", "-", "1", ")", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_2",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "*",
+                "X_0",
+                "^3",
+                "/",
+                "(",
+                "pi",
+                "^2",
+                "*",
+                "X_4",
+                "^2",
+                "*",
+                "(",
+                "exp",
+                "(",
+                "(",
+                "X_2",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "*",
+                "X_0",
+                "/",
+                "(",
+                "X_3",
+                "*",
+                "X_1",
+                ")",
+                ")",
+                "-",
+                "1",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="L_rad = h/(2*pi)*omega^3/(pi^2*c^2*(exp((h/(2*pi))*omega/(kb*T))-1))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -836,14 +1105,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.48.20",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_2", "^2", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_2", "^2", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="E_n = m*c^2/sqrt(1-v^2/c^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -851,14 +1120,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="II.11.20",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "^2", "*", "X_2", "/", "(", "3", "*", "X_3", "*", "X_4", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "^2", "*", "X_2", "/", "(", "3", "*", "X_3", "*", "X_4", ")"],  # noqa: F401
             original_equation="Pol = n_rho*p_d^2*Ef/(3*kb*T)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -866,14 +1135,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.25.13",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "X_1"], # noqa: F401
+            ground_truth=["X_0", "/", "X_1"],  # noqa: F401
             original_equation="Volt = q/C",
             max_evaluations=100000,
             max_expression_length=50,
@@ -881,14 +1150,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="III.15.12",
             ranking_function="rmse",
-            ground_truth = ["2", "*", "X_0", "*", "(", "1", "-", "cos", "(", "X_1", "*", "X_2", ")", ")"], # noqa: F401
+            ground_truth=["2", "*", "X_0", "*", "(", "1", "-", "cos", "(", "X_1", "*", "X_2", ")", ")"],  # noqa: F401
             original_equation="E_n = 2*U*(1-cos(k*d))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -896,14 +1165,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.24.6",
             ranking_function="rmse",
-            ground_truth = ["0.25", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", ")", "*", "X_3", "^2"], # noqa: F401
+            ground_truth=["0.25", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", ")", "*", "X_3", "^2"],  # noqa: F401
             original_equation="E_n = 1/2*m*(omega^2+omega_0^2)*1/2*x^2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -911,14 +1180,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.34.27",
             ranking_function="rmse",
-            ground_truth = ["(", "X_1", "/", "(", "2", "*", "pi", ")", ")", "*", "X_0"], # noqa: F401
+            ground_truth=["(", "X_1", "/", "(", "2", "*", "pi", ")", ")", "*", "X_0"],  # noqa: F401
             original_equation="E_n =(h/(2*pi))*omega",
             max_evaluations=100000,
             max_expression_length=50,
@@ -926,14 +1195,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.43.31",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_2", "*", "X_1"], # noqa: F401
+            ground_truth=["X_0", "*", "X_2", "*", "X_1"],  # noqa: F401
             original_equation="D = mob*kb*T",
             max_evaluations=100000,
             max_expression_length=50,
@@ -941,14 +1210,36 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.29.16",
             ranking_function="rmse",
-            ground_truth = ["sqrt", "(", "X_0", "^2", "+", "X_1", "^2", "-", "2", "*", "X_0", "*", "X_1", "*", "cos", "(", "X_2", "-", "X_3", ")", ")"], # noqa: F401
+            ground_truth=[
+                "sqrt",
+                "(",
+                "X_0",
+                "^2",
+                "+",
+                "X_1",
+                "^2",
+                "-",
+                "2",
+                "*",
+                "X_0",
+                "*",
+                "X_1",
+                "*",
+                "cos",
+                "(",
+                "X_2",
+                "-",
+                "X_3",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="x = sqrt(x1^2+x2^2-2*x1*x2*cos(theta1-theta2))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -956,14 +1247,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.18.4",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "*", "X_2", "+", "X_1", "*", "X_3", ")", "/", "(", "X_0", "+", "X_1", ")"], # noqa: F401
+            ground_truth=["(", "X_0", "*", "X_2", "+", "X_1", "*", "X_3", ")", "/", "(", "X_0", "+", "X_1", ")"],  # noqa: F401
             original_equation="r = (m1*r1+m2*r2)/(m1+m2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -971,14 +1262,49 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_6v,
             dataset_name="II.6.15a",
             ranking_function="rmse",
-            ground_truth = ["(", "X_1", "/", "(", "4", "*", "pi", "*", "X_0", ")", ")", "*", "(", "3", "*", "X_5", "/", "(", "X_2", "^2", "*", "X_2", "^3", ")", ")", "*", "sqrt", "(", "X_3", "^2", "+", "X_4", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_1",
+                "/",
+                "(",
+                "4",
+                "*",
+                "pi",
+                "*",
+                "X_0",
+                ")",
+                ")",
+                "*",
+                "(",
+                "3",
+                "*",
+                "X_5",
+                "/",
+                "(",
+                "X_2",
+                "^2",
+                "*",
+                "X_2",
+                "^3",
+                ")",
+                ")",
+                "*",
+                "sqrt",
+                "(",
+                "X_3",
+                "^2",
+                "+",
+                "X_4",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="Ef = p_d/(4*pi*epsilon)*3*z/r^5*sqrt(x^2+y^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -986,14 +1312,34 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.30.3",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "sin", "(", "X_2", "*", "X_1", "/", "2", ")", "^2", "/", "sin", "(", "X_1", "/", "2", ")", "^2"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "*",
+                "sin",
+                "(",
+                "X_2",
+                "*",
+                "X_1",
+                "/",
+                "2",
+                ")",
+                "^2",
+                "/",
+                "sin",
+                "(",
+                "X_1",
+                "/",
+                "2",
+                ")",
+                "^2",
+            ],  # noqa: F401
             original_equation="Int = Int_0*sin(n*theta/2)^2/sin(theta/2)^2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1001,14 +1347,59 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_6v,
             dataset_name="III.9.52",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "*", "X_1", "*", "X_2", "/", "(", "X_3", "/", "(", "2", "*", "pi", ")", ")", ")", "*", "sin", "(", "(", "X_4", "-", "X_5", ")", "*", "X_2", "/", "2", ")", "^2", "/", "(", "(", "X_4", "-", "X_5", ")", "*", "X_2", "/", "2", ")", "^2"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_0",
+                "*",
+                "X_1",
+                "*",
+                "X_2",
+                "/",
+                "(",
+                "X_3",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                ")",
+                "*",
+                "sin",
+                "(",
+                "(",
+                "X_4",
+                "-",
+                "X_5",
+                ")",
+                "*",
+                "X_2",
+                "/",
+                "2",
+                ")",
+                "^2",
+                "/",
+                "(",
+                "(",
+                "X_4",
+                "-",
+                "X_5",
+                ")",
+                "*",
+                "X_2",
+                "/",
+                "2",
+                ")",
+                "^2",
+            ],  # noqa: F401
             original_equation="prob = (p_d*Ef*t/(h/(2*pi)))*sin((omega-omega_0)*t/2)^2/((omega-omega_0)*t/2)^2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1016,14 +1407,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.34.2",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2", "/", "2"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "2"],  # noqa: F401
             original_equation="mom = q*v*r/2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1031,14 +1422,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.39.11",
             ranking_function="rmse",
-            ground_truth = ["(", "1", "/", "(", "X_0", "-", "1", ")", ")", "*", "X_1", "*", "X_2"], # noqa: F401
+            ground_truth=["(", "1", "/", "(", "X_0", "-", "1", ")", ")", "*", "X_1", "*", "X_2"],  # noqa: F401
             original_equation="E_n = (1/(gamma-1))*pr*V",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1046,14 +1437,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="II.11.28",
             ranking_function="rmse",
-            ground_truth = ["1", "+", "X_0", "*", "X_1", "/", "(", "1", "-", "(", "X_0", "*", "X_1", "/", "3", ")", ")"], # noqa: F401
+            ground_truth=["1", "+", "X_0", "*", "X_1", "/", "(", "1", "-", "(", "X_0", "*", "X_1", "/", "3", ")", ")"],  # noqa: F401
             original_equation="theta = 1+n*alpha/(1-(n*alpha/3))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1061,14 +1452,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="II.3.24",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "^2", ")"], # noqa: F401
+            ground_truth=["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "^2", ")"],  # noqa: F401
             original_equation="flux = Pwr/(4*pi*r^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1076,14 +1467,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.24.17",
             ranking_function="rmse",
-            ground_truth = ["sqrt", "(", "X_0", "^2", "/", "X_1", "^2", "-", "pi", "^2", "/", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=["sqrt", "(", "X_0", "^2", "/", "X_1", "^2", "-", "pi", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="k = sqrt(omega^2/c^2-pi^2/d^2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1091,14 +1482,35 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="II.13.17",
             ranking_function="rmse",
-            ground_truth = ["(", "1", "/", "(", "4", "*", "pi", "*", "X_0", "*", "X_1", "^2", ")", ")", "*", "2", "*", "X_2", "/", "X_3"], # noqa: F401
+            ground_truth=[
+                "(",
+                "1",
+                "/",
+                "(",
+                "4",
+                "*",
+                "pi",
+                "*",
+                "X_0",
+                "*",
+                "X_1",
+                "^2",
+                ")",
+                ")",
+                "*",
+                "2",
+                "*",
+                "X_2",
+                "/",
+                "X_3",
+            ],  # noqa: F401
             original_equation="B = 1/(4*pi*epsilon*c^2)*2*I/r",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1106,14 +1518,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.12.5",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1"],  # noqa: F401
             original_equation="F = q2*Ef",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1121,14 +1533,45 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="II.35.18",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "(", "exp", "(", "X_3", "*", "X_4", "/", "(", "X_1", "*", "X_2", ")", ")", "+", "exp", "(", "u-", "X_3", "*", "X_4", "/", "(", "X_1", "*", "X_2", ")", ")", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "/",
+                "(",
+                "exp",
+                "(",
+                "X_3",
+                "*",
+                "X_4",
+                "/",
+                "(",
+                "X_1",
+                "*",
+                "X_2",
+                ")",
+                ")",
+                "+",
+                "exp",
+                "(",
+                "u-",
+                "X_3",
+                "*",
+                "X_4",
+                "/",
+                "(",
+                "X_1",
+                "*",
+                "X_2",
+                ")",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="n = n_0/(exp(mom*B/(kb*T))+exp(-mom*B/(kb*T)))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1136,14 +1579,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="II.34.11",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2", "/", "(", "2", "*", "X_3", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "(", "2", "*", "X_3", ")"],  # noqa: F401
             original_equation="omega = g_*q*B/(2*m)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1151,14 +1594,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.34.29a",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "/", "(", "4", "*", "pi", "*", "X_2", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "/", "(", "4", "*", "pi", "*", "X_2", ")"],  # noqa: F401
             original_equation="E_n = q*h/(4*pi*m)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1166,14 +1609,55 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_6v,
             dataset_name="I.32.17",
             ranking_function="rmse",
-            ground_truth = ["(", "0.5", "*", "X_0", "*", "X_1", "*", "X_2", "^2", ")", "*", "(", "8", "*", "pi", "*", "X_3", "^2", "/", "3", ")", "*", "(", "(", "X_4", "^2", "*", "X_4", "^2", ")", "/", "(", "X_4", "^2", "-", "X_5", "^2", ")", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "0.5",
+                "*",
+                "X_0",
+                "*",
+                "X_1",
+                "*",
+                "X_2",
+                "^2",
+                ")",
+                "*",
+                "(",
+                "8",
+                "*",
+                "pi",
+                "*",
+                "X_3",
+                "^2",
+                "/",
+                "3",
+                ")",
+                "*",
+                "(",
+                "(",
+                "X_4",
+                "^2",
+                "*",
+                "X_4",
+                "^2",
+                ")",
+                "/",
+                "(",
+                "X_4",
+                "^2",
+                "-",
+                "X_5",
+                "^2",
+                ")",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="Pwr = (1/2*epsilon*c*Ef**2)*(8*pi*r**2/3)*(omega**4/(omega**2-omega_0**2)**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1181,14 +1665,31 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="II.35.21",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "tanh", "(", "X_1", "*", "X_2", "/", "(", "X_3", "*", "X_4", ")", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "*",
+                "X_1",
+                "*",
+                "tanh",
+                "(",
+                "X_1",
+                "*",
+                "X_2",
+                "/",
+                "(",
+                "X_3",
+                "*",
+                "X_4",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="M = n_rho*mom*tanh(mom*B/(kb*T))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1196,14 +1697,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="I.44.4",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2", "*", "ln", "(", "X_4", "/", "X_3", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2", "*", "ln", "(", "X_4", "/", "X_3", ")"],  # noqa: F401
             original_equation="E_n = n*kb*T*ln(V2/V1)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1211,14 +1712,41 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="III.4.32",
             ranking_function="rmse",
-            ground_truth = ["1", "/", "(", "exp", "(", "(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "*", "X_1", "/", "(", "X_2", "*", "X_3", ")", ")", "-", "1", ")"], # noqa: F401
+            ground_truth=[
+                "1",
+                "/",
+                "(",
+                "exp",
+                "(",
+                "(",
+                "X_0",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "*",
+                "X_1",
+                "/",
+                "(",
+                "X_2",
+                "*",
+                "X_3",
+                ")",
+                ")",
+                "-",
+                "1",
+                ")",
+            ],  # noqa: F401
             original_equation="n = 1/(exp((h/(2*pi))*omega/(kb*T))-1)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1226,14 +1754,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.10.9",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "/", "X_1", ")", "*", "1", "/", "(", "1", "+", "X_2", ")"], # noqa: F401
+            ground_truth=["(", "X_0", "/", "X_1", ")", "*", "1", "/", "(", "1", "+", "X_2", ")"],  # noqa: F401
             original_equation="Ef = sigma_den/epsilon*1/(1+chi)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1241,14 +1769,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="II.38.3",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_3", "/", "X_2"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_3", "/", "X_2"],  # noqa: F401
             original_equation="F = Y*A*x/d",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1256,14 +1784,44 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.6.2b",
             ranking_function="rmse",
-            ground_truth = ["exp", "(", "u-", "(", "(", "(", "X_1", "-", "X_2", ")", "/", "X_0", ")", "^2", ")", "/", "2", ")", "/", "(", "sqrt", "(", "2", "*", "pi", ")", "*", "X_0", ")"], # noqa: F401
+            ground_truth=[
+                "exp",
+                "(",
+                "u-",
+                "(",
+                "(",
+                "(",
+                "X_1",
+                "-",
+                "X_2",
+                ")",
+                "/",
+                "X_0",
+                ")",
+                "^2",
+                ")",
+                "/",
+                "2",
+                ")",
+                "/",
+                "(",
+                "sqrt",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                "*",
+                "X_0",
+                ")",
+            ],  # noqa: F401
             original_equation="f = exp(-((theta-theta1)/sigma)**2/2)/(sqrt(2*pi)*sigma)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1271,14 +1829,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="II.8.31",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "^2", "/", "2"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "^2", "/", "2"],  # noqa: F401
             original_equation="E_den = epsilon*Ef**2/2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1286,14 +1844,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_1v,
             dataset_name="I.6.2a",
             ranking_function="rmse",
-            ground_truth = ["exp", "(", "u-", "X_0", "^2", "/", "2", ")", "/", "sqrt", "(", "2", "*", "pi", ")"], # noqa: F401
+            ground_truth=["exp", "(", "u-", "X_0", "^2", "/", "2", ")", "/", "sqrt", "(", "2", "*", "pi", ")"],  # noqa: F401
             original_equation="f = exp(-theta**2/2)/sqrt(2*pi)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1301,14 +1859,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="III.12.43",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "X_1", "/", "(", "2", "*", "pi", ")", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "(", "X_1", "/", "(", "2", "*", "pi", ")", ")"],  # noqa: F401
             original_equation="L = n*(h/(2*pi))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1316,14 +1874,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="III.17.37",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "1", "+", "X_1", "*", "cos", "(", "X_2", ")", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "(", "1", "+", "X_1", "*", "cos", "(", "X_2", ")", ")"],  # noqa: F401
             original_equation="f = beta*(1+alpha*cos(theta))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1331,14 +1889,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="III.10.19",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "sqrt", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "sqrt", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"],  # noqa: F401
             original_equation="E_n = mom*sqrt(Bx**2+By**2+Bz**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1346,14 +1904,35 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_6v,
             dataset_name="II.11.7",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "1", "+", "X_4", "*", "X_5", "*", "cos", "(", "X_3", ")", "/", "(", "X_1", "*", "X_2", ")", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "*",
+                "(",
+                "1",
+                "+",
+                "X_4",
+                "*",
+                "X_5",
+                "*",
+                "cos",
+                "(",
+                "X_3",
+                ")",
+                "/",
+                "(",
+                "X_1",
+                "*",
+                "X_2",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="n = n_0*(1+p_d*Ef*cos(theta)/(kb*T))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1361,14 +1940,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.39.1",
             ranking_function="rmse",
-            ground_truth = ["1.5", "*", "X_0", "*", "X_1"], # noqa: F401
+            ground_truth=["1.5", "*", "X_0", "*", "X_1"],  # noqa: F401
             original_equation="E_n = 3/2*pr*V",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1376,14 +1955,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.37.1",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "1", "+", "X_2", ")", "*", "X_1"], # noqa: F401
+            ground_truth=["X_0", "*", "(", "1", "+", "X_2", ")", "*", "X_1"],  # noqa: F401
             original_equation="E_n = mom*(1+chi)*B",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1391,14 +1970,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.12.4",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", "^3", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", "^3", ")"],  # noqa: F401
             original_equation="Ef = q1*r/(4*pi*epsilon*r**3)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1406,14 +1985,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="II.27.18",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "^2"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "^2"],  # noqa: F401
             original_equation="E_den = epsilon*Ef**2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1421,14 +2000,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.12.2",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_3", "/", "(", "4", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_3", "/", "(", "4", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"],  # noqa: F401
             original_equation="F = q1*q2*r/(4*pi*epsilon*r**3)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1436,14 +2015,33 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="III.13.18",
             ranking_function="rmse",
-            ground_truth = ["2", "*", "X_0", "*", "X_1", "^2", "*", "X_2", "/", "(", "X_3", "/", "(", "2", "*", "pi", ")", ")"], # noqa: F401
+            ground_truth=[
+                "2",
+                "*",
+                "X_0",
+                "*",
+                "X_1",
+                "^2",
+                "*",
+                "X_2",
+                "/",
+                "(",
+                "X_3",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="v = 2*E_n*d**2*k/(h/(2*pi))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1451,14 +2049,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="II.11.3",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "/", "(", "X_2", "*", "(", "X_3", "^2", "-", "X_4", "^2", ")", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "/", "(", "X_2", "*", "(", "X_3", "^2", "-", "X_4", "^2", ")", ")"],  # noqa: F401
             original_equation="x = q*Ef/(m*(omega_0**2-omega**2))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1466,14 +2064,32 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_6v,
             dataset_name="I.40.1",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "exp", "(", "u-", "X_1", "*", "X_4", "*", "X_2", "/", "(", "X_5", "*", "X_3", ")", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "*",
+                "exp",
+                "(",
+                "u-",
+                "X_1",
+                "*",
+                "X_4",
+                "*",
+                "X_2",
+                "/",
+                "(",
+                "X_5",
+                "*",
+                "X_3",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="n = n_0*exp(-m*g*x/(kb*T))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1481,14 +2097,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="III.21.20",
             ranking_function="rmse",
-            ground_truth = ["u-", "X_0", "*", "X_1", "*", "X_2", "/", "X_3"], # noqa: F401
+            ground_truth=["u-", "X_0", "*", "X_1", "*", "X_2", "/", "X_3"],  # noqa: F401
             original_equation="j = -rho_c_0*q*A_vec/m",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1496,14 +2112,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.43.16",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2", "/", "X_3"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "X_3"],  # noqa: F401
             original_equation="v = mu_drift*q*Volt/d",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1511,14 +2127,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.15.10",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="p = m_0*v/sqrt(1-v**2/c**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1526,14 +2142,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.30.5",
             ranking_function="rmse",
-            ground_truth = ["arcsin", "(", "X_0", "/", "(", "X_2", "*", "X_1", ")", ")"], # noqa: F401
+            ground_truth=["arcsin", "(", "X_0", "/", "(", "X_2", "*", "X_1", ")", ")"],  # noqa: F401
             original_equation="theta = arcsin(lambd/(n*d))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1541,14 +2157,35 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.50.26",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "cos", "(", "X_1", "*", "X_2", ")", "+", "X_3", "*", "cos", "(", "X_1", "*", "X_2", ")", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "*",
+                "(",
+                "cos",
+                "(",
+                "X_1",
+                "*",
+                "X_2",
+                ")",
+                "+",
+                "X_3",
+                "*",
+                "cos",
+                "(",
+                "X_1",
+                "*",
+                "X_2",
+                ")",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="x = x1*(cos(omega*t)+alpha*cos(omega*t)**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1556,14 +2193,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="I.12.11",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "X_1", "+", "X_2", "*", "X_3", "*", "sin", "(", "X_4", ")", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "(", "X_1", "+", "X_2", "*", "X_3", "*", "sin", "(", "X_4", ")", ")"],  # noqa: F401
             original_equation="F = q*(Ef+B*v*sin(theta))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1571,14 +2208,40 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.6.2",
             ranking_function="rmse",
-            ground_truth = ["exp", "(", "u-", "(", "(", "X_1", "/", "X_0", ")", "^2", ")", "/", "2", ")", "/", "(", "sqrt", "(", "2", "*", "pi", ")", "*", "X_0", ")"], # noqa: F401
+            ground_truth=[
+                "exp",
+                "(",
+                "u-",
+                "(",
+                "(",
+                "X_1",
+                "/",
+                "X_0",
+                ")",
+                "^2",
+                ")",
+                "/",
+                "2",
+                ")",
+                "/",
+                "(",
+                "sqrt",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                "*",
+                "X_0",
+                ")",
+            ],  # noqa: F401
             original_equation="f = exp(-(theta/sigma)**2/2)/(sqrt(2*pi)*sigma)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1586,14 +2249,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.14.4",
             ranking_function="rmse",
-            ground_truth = ["0.5", "*", "X_0", "*", "X_1", "^2"], # noqa: F401
+            ground_truth=["0.5", "*", "X_0", "*", "X_1", "^2"],  # noqa: F401
             original_equation="U = 1/2*k_spring*x**2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1601,14 +2264,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.47.23",
             ranking_function="rmse",
-            ground_truth = ["sqrt", "(", "X_0", "*", "X_1", "/", "X_2", ")"], # noqa: F401
+            ground_truth=["sqrt", "(", "X_0", "*", "X_1", "/", "X_2", ")"],  # noqa: F401
             original_equation="c = sqrt(gamma*pr/rho)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1616,14 +2279,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.8.7",
             ranking_function="rmse",
-            ground_truth = ["0.6", "*", "X_0", "^2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"], # noqa: F401
+            ground_truth=["0.6", "*", "X_0", "^2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"],  # noqa: F401
             original_equation="E_n = 3/5*q**2/(4*pi*epsilon*d)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1631,14 +2294,34 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="III.15.14",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "^2", "/", "(", "2", "*", "X_1", "*", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_0",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "^2",
+                "/",
+                "(",
+                "2",
+                "*",
+                "X_1",
+                "*",
+                "X_2",
+                "^2",
+                ")",
+            ],  # noqa: F401
             original_equation="m = (h/(2*pi))**2/(2*E_n*d**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1646,14 +2329,39 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.34.14",
             ranking_function="rmse",
-            ground_truth = ["(", "(", "1", "+", "(", "X_1", "/", "X_0", ")", ")", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_0", "^2", ")", ")", "*", "X_2"], # noqa: F401
+            ground_truth=[
+                "(",
+                "(",
+                "1",
+                "+",
+                "(",
+                "X_1",
+                "/",
+                "X_0",
+                ")",
+                ")",
+                "/",
+                "sqrt",
+                "(",
+                "1",
+                "-",
+                "X_1",
+                "^2",
+                "/",
+                "X_0",
+                "^2",
+                ")",
+                ")",
+                "*",
+                "X_2",
+            ],  # noqa: F401
             original_equation="omega = ((1+v/c)/sqrt(1-v**2/c**2))*omega_0",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1661,14 +2369,32 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="III.8.54",
             ranking_function="rmse",
-            ground_truth = ["sin", "(", "X_0", "*", "X_1", "/", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", ")", "^2"], # noqa: F401
+            ground_truth=[
+                "sin",
+                "(",
+                "X_0",
+                "*",
+                "X_1",
+                "/",
+                "(",
+                "X_2",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                ")",
+                "^2",
+            ],  # noqa: F401
             original_equation="prob = sin(E_n*t/(h/(2*pi)))**2",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1676,14 +2402,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.26.2",
             ranking_function="rmse",
-            ground_truth = ["arcsin", "(", "X_0", "*", "sin", "(", "X_1", ")", ")"], # noqa: F401
+            ground_truth=["arcsin", "(", "X_0", "*", "sin", "(", "X_1", ")", ")"],  # noqa: F401
             original_equation="theta1 = arcsin(n*sin(theta2))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1691,14 +2417,60 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="III.19.51",
             ranking_function="rmse",
-            ground_truth = ["(", "u-", "X_0", "*", "(", "X_1", "^2", "*", "X_1", "^2", ")", "/", "(", "(", "2", "*", "(", "4", "*", "pi", "*", "X_4", ")", "^2", ")", "*", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")", "^2", ")", "*", "(", "1", "/", "X_3", "^2", ")", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "u-",
+                "X_0",
+                "*",
+                "(",
+                "X_1",
+                "^2",
+                "*",
+                "X_1",
+                "^2",
+                ")",
+                "/",
+                "(",
+                "(",
+                "2",
+                "*",
+                "(",
+                "4",
+                "*",
+                "pi",
+                "*",
+                "X_4",
+                ")",
+                "^2",
+                ")",
+                "*",
+                "(",
+                "X_2",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "^2",
+                ")",
+                "*",
+                "(",
+                "1",
+                "/",
+                "X_3",
+                "^2",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="E_n = -m*q**4/(2*(4*pi*epsilon)**2*(h/(2*pi))**2)*(1/n**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1706,14 +2478,51 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="III.4.33",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "*", "X_1", "/", "(", "exp", "(", "(", "X_0", "/", "(", "2", "*", "pi", ")", ")", "*", "X_1", "/", "(", "X_2", "*", "X_3", ")", ")", "-", "1", ")"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_0",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "*",
+                "X_1",
+                "/",
+                "(",
+                "exp",
+                "(",
+                "(",
+                "X_0",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+                "*",
+                "X_1",
+                "/",
+                "(",
+                "X_2",
+                "*",
+                "X_3",
+                ")",
+                ")",
+                "-",
+                "1",
+                ")",
+            ],  # noqa: F401
             original_equation="E_n = (h/(2*pi))*omega/(exp((h/(2*pi))*omega/(kb*T))-1)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1721,14 +2530,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.34.1",
             ranking_function="rmse",
-            ground_truth = ["X_2", "/", "(", "1", "-", "X_1", "/", "X_0", ")"], # noqa: F401
+            ground_truth=["X_2", "/", "(", "1", "-", "X_1", "/", "X_0", ")"],  # noqa: F401
             original_equation="omega = omega_0/(1-v/c)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1736,14 +2545,36 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="II.11.27",
             ranking_function="rmse",
-            ground_truth = ["(", "X_0", "*", "X_1", "/", "(", "1", "-", "(", "X_0", "*", "X_1", "/", "3", ")", ")", ")", "*", "X_2", "*", "X_3"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_0",
+                "*",
+                "X_1",
+                "/",
+                "(",
+                "1",
+                "-",
+                "(",
+                "X_0",
+                "*",
+                "X_1",
+                "/",
+                "3",
+                ")",
+                ")",
+                ")",
+                "*",
+                "X_2",
+                "*",
+                "X_3",
+            ],  # noqa: F401
             original_equation="Pol = n*alpha/(1-(n*alpha/3))*epsilon*Ef",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1751,14 +2582,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.13.34",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="j = rho_c_0*v/sqrt(1-v**2/c**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1766,14 +2597,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="II.4.23",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"], # noqa: F401
+            ground_truth=["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"],  # noqa: F401
             original_equation="Volt = q/(4*pi*epsilon*r)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1781,14 +2612,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.32.5",
             ranking_function="rmse",
-            ground_truth = ["X_0", "^2", "*", "X_1", "^2", "/", "(", "6", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"], # noqa: F401
+            ground_truth=["X_0", "^2", "*", "X_1", "^2", "/", "(", "6", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"],  # noqa: F401
             original_equation="Pwr = q**2*a**2/(6*pi*epsilon*c**3)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1796,14 +2627,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="I.13.12",
             ranking_function="rmse",
-            ground_truth = ["X_4", "*", "X_0", "*", "X_1", "*", "(", "1", "/", "X_3", "-", "1", "/", "X_2", ")"], # noqa: F401
+            ground_truth=["X_4", "*", "X_0", "*", "X_1", "*", "(", "1", "/", "X_3", "-", "1", "/", "X_2", ")"],  # noqa: F401
             original_equation="U = G*m1*m2*(1/r2-1/r1)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1811,14 +2642,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="II.2.42",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "X_2", "-", "X_1", ")", "*", "X_3", "/", "X_4"], # noqa: F401
+            ground_truth=["X_0", "*", "(", "X_2", "-", "X_1", ")", "*", "X_3", "/", "X_4"],  # noqa: F401
             original_equation="Pwr = kappa*(T2-T1)*A/d",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1826,14 +2657,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.27.6",
             ranking_function="rmse",
-            ground_truth = ["1", "/", "(", "1", "/", "X_0", "+", "X_2", "/", "X_1", ")"], # noqa: F401
+            ground_truth=["1", "/", "(", "1", "/", "X_0", "+", "X_2", "/", "X_1", ")"],  # noqa: F401
             original_equation="foc = 1/(1/d1+n/d2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1841,14 +2672,33 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="III.14.14",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "(", "exp", "(", "X_1", "*", "X_2", "/", "(", "X_3", "*", "X_4", ")", ")", "-", "1", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "*",
+                "(",
+                "exp",
+                "(",
+                "X_1",
+                "*",
+                "X_2",
+                "/",
+                "(",
+                "X_3",
+                "*",
+                "X_4",
+                ")",
+                ")",
+                "-",
+                "1",
+                ")",
+            ],  # noqa: F401
             original_equation="I = I_0*(exp(q*Volt/(kb*T))-1)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1856,14 +2706,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.18.12",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "sin", "(", "X_2", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "sin", "(", "X_2", ")"],  # noqa: F401
             original_equation="tau = r*F*sin(theta)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1871,14 +2721,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.18.14",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2", "*", "sin", "(", "X_3", ")"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2", "*", "sin", "(", "X_3", ")"],  # noqa: F401
             original_equation="L = m*r*v*sin(theta)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1886,14 +2736,34 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="II.21.32",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", "*", "(", "1", "-", "X_3", "/", "X_4", ")", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "/",
+                "(",
+                "4",
+                "*",
+                "pi",
+                "*",
+                "X_1",
+                "*",
+                "X_2",
+                "*",
+                "(",
+                "1",
+                "-",
+                "X_3",
+                "/",
+                "X_4",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="Volt = q/(4*pi*epsilon*r*(1-v/c))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1901,14 +2771,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="II.38.14",
             ranking_function="rmse",
-            ground_truth = ["X_0", "/", "(", "2", "*", "(", "1", "+", "X_1", ")", ")"], # noqa: F401
+            ground_truth=["X_0", "/", "(", "2", "*", "(", "1", "+", "X_1", ")", ")"],  # noqa: F401
             original_equation="mu_S = Y/(2*(1+sigma))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1916,14 +2786,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.34.8",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2", "/", "X_3"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "X_3"],  # noqa: F401
             original_equation="omega = q*v*B/p",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1931,14 +2801,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.8.14",
             ranking_function="rmse",
-            ground_truth = ["sqrt", "(", "(", "X_1", "-", "X_0", ")", "^2", "+", "(", "X_3", "-", "X_2", ")", "^2", ")"], # noqa: F401
+            ground_truth=["sqrt", "(", "(", "X_1", "-", "X_0", ")", "^2", "+", "(", "X_3", "-", "X_2", ")", "^2", ")"],  # noqa: F401
             original_equation="d = sqrt((x2-x1)**2+(y2-y1)**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1946,14 +2816,41 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="II.6.15b",
             ranking_function="rmse",
-            ground_truth = ["(", "X_1", "/", "(", "4", "*", "pi", "*", "X_0", ")", ")", "*", "3", "*", "cos", "(", "X_2", ")", "*", "sin", "(", "X_2", ")", "/", "X_3", "^3"], # noqa: F401
+            ground_truth=[
+                "(",
+                "X_1",
+                "/",
+                "(",
+                "4",
+                "*",
+                "pi",
+                "*",
+                "X_0",
+                ")",
+                ")",
+                "*",
+                "3",
+                "*",
+                "cos",
+                "(",
+                "X_2",
+                ")",
+                "*",
+                "sin",
+                "(",
+                "X_2",
+                ")",
+                "/",
+                "X_3",
+                "^3",
+            ],  # noqa: F401
             original_equation="E_f = p_d/(4*pi*epsilon)*3*cos(theta)*sin(theta)/r**3",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1961,14 +2858,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_2v,
             dataset_name="I.12.1",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1"],  # noqa: F401
             original_equation="F = mu*Nn",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1976,14 +2873,32 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_5v,
             dataset_name="II.34.29b",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_3", "*", "X_4", "*", "X_2", "/", "(", "X_1", "/", "(", "2", "*", "pi", ")", ")"], # noqa: F401
+            ground_truth=[
+                "X_0",
+                "*",
+                "X_3",
+                "*",
+                "X_4",
+                "*",
+                "X_2",
+                "/",
+                "(",
+                "X_1",
+                "/",
+                "(",
+                "2",
+                "*",
+                "pi",
+                ")",
+                ")",
+            ],  # noqa: F401
             original_equation="E_n = g_*mom*B*Jz/(h/(2*pi))",
             max_evaluations=100000,
             max_expression_length=50,
@@ -1991,14 +2906,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.13.4",
             ranking_function="rmse",
-            ground_truth = ["0.5", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"], # noqa: F401
+            ground_truth=["0.5", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"],  # noqa: F401
             original_equation="K = 1/2*m*(v**2+u**2+w**2)",
             max_evaluations=100000,
             max_expression_length=50,
@@ -2006,14 +2921,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_4v,
             dataset_name="I.39.22",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_3", "*", "X_1", "/", "X_2"], # noqa: F401
+            ground_truth=["X_0", "*", "X_3", "*", "X_1", "/", "X_2"],  # noqa: F401
             original_equation="pr = n*kb*T/V",
             max_evaluations=100000,
             max_expression_length=50,
@@ -2021,14 +2936,14 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
         benchmark.add_dataset(
             "",
             sl_3v,
             dataset_name="I.14.3",
             ranking_function="rmse",
-            ground_truth = ["X_0", "*", "X_1", "*", "X_2"], # noqa: F401
+            ground_truth=["X_0", "*", "X_1", "*", "X_2"],  # noqa: F401
             original_equation="U = m*g*z",
             max_evaluations=100000,
             max_expression_length=50,
@@ -2036,7 +2951,7 @@ class SR_benchmark:
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
             result_augmenters=[],
-            seed = seed
+            seed=seed,
         )
 
         return benchmark
@@ -2077,11 +2992,12 @@ class SR_benchmark:
         sl_1v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt", "^2", "^3"], 1)
         sl_2v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt", "^2", "^3"], 2)
 
-        metadata = {"description": "Symbolic regression benchmark with 10 expressions that don't contain constant "
-                                   "parameters. First 4 are polynomials of different degrees. First eight expressions "
-                                   "contain 1 variable, last two expressions contain two variables. This benchmark "
-                                   "doesn't contain the original data, only expressions",
-                    "citation": """@article{Uy2011,
+        metadata = {
+            "description": "Symbolic regression benchmark with 10 expressions that don't contain constant "
+            "parameters. First 4 are polynomials of different degrees. First eight expressions "
+            "contain 1 variable, last two expressions contain two variables. This benchmark "
+            "doesn't contain the original data, only expressions",
+            "citation": """@article{Uy2011,
     author={Uy, Nguyen Quang and Hoai, Nguyen Xuan and O'Neill, Michael and McKay, R. I. and Galv{\'a}n-L{\'o}pez, Edgar},
     title={Semantically-based crossover in genetic programming: application to real-valued symbolic regression},
     journal={Genetic Programming and Evolvable Machines},
@@ -2091,167 +3007,212 @@ class SR_benchmark:
     volume={12},
     number={2},
     pages={91-119},
-}"""}
+}""",
+        }
 
         # Add datasets to the benchmark
         benchmark = SR_benchmark("Nguyen", dataset_directory, metadata=metadata)
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-1",
-			ranking_function="rmse",
-			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], # noqa: F401
-			original_equation="y = x+x^2+x^3",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-1",
+            ranking_function="rmse",
+            ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3"],  # noqa: F401
+            original_equation="y = x+x^2+x^3",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-2",
-			ranking_function="rmse",
-			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"], # noqa: F401
-			original_equation="y = x+x^2+x^3+x^4",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-2",
+            ranking_function="rmse",
+            ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"],  # noqa: F401
+            original_equation="y = x+x^2+x^3+x^4",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-3",
-			ranking_function="rmse",
-			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3", "+", "X_0", "^2", "*", "X_0", "^3"], # noqa: F401
-			original_equation="y = x+x^2+x^3+x^4+x^5",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-3",
+            ranking_function="rmse",
+            ground_truth=[
+                "X_0",
+                "+",
+                "X_0",
+                "^2",
+                "+",
+                "X_0",
+                "^3",
+                "+",
+                "X_0",
+                "*",
+                "X_0",
+                "^3",
+                "+",
+                "X_0",
+                "^2",
+                "*",
+                "X_0",
+                "^3",
+            ],  # noqa: F401
+            original_equation="y = x+x^2+x^3+x^4+x^5",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-4",
-			ranking_function="rmse",
-			ground_truth = ["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3", "+", "X_0", "^2", "*", "X_0", "^3", "+", "X_0", "^3", "*", "X_0", "^3"], # noqa: F401
-			original_equation="y = x+x^2+x^3+x^4+x^5+x^6",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-4",
+            ranking_function="rmse",
+            ground_truth=[
+                "X_0",
+                "+",
+                "X_0",
+                "^2",
+                "+",
+                "X_0",
+                "^3",
+                "+",
+                "X_0",
+                "*",
+                "X_0",
+                "^3",
+                "+",
+                "X_0",
+                "^2",
+                "*",
+                "X_0",
+                "^3",
+                "+",
+                "X_0",
+                "^3",
+                "*",
+                "X_0",
+                "^3",
+            ],  # noqa: F401
+            original_equation="y = x+x^2+x^3+x^4+x^5+x^6",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-5",
-			ranking_function="rmse",
-			ground_truth = ["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"], # noqa: F401
-			original_equation="y = sin(x^2)*cos(x)-1",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-5",
+            ranking_function="rmse",
+            ground_truth=["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"],  # noqa: F401
+            original_equation="y = sin(x^2)*cos(x)-1",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-6",
-			ranking_function="rmse",
-			ground_truth = ["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"], # noqa: F401
-			original_equation="y = sin(x)+sin(x+x^2)",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-6",
+            ranking_function="rmse",
+            ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"],  # noqa: F401
+            original_equation="y = sin(x)+sin(x+x^2)",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-7",
-			ranking_function="rmse",
-			ground_truth = ["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"], # noqa: F401
-			original_equation="y = log(1+x)+log(1+x^2)",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-7",
+            ranking_function="rmse",
+            ground_truth=["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"],  # noqa: F401
+            original_equation="y = log(1+x)+log(1+x^2)",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_1v,
-			dataset_name="NG-8",
-			ranking_function="rmse",
-			ground_truth = ["sqrt", "(", "X_0", ")"], # noqa: F401
-			original_equation="y = sqrt(x)",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_1v,
+            dataset_name="NG-8",
+            ranking_function="rmse",
+            ground_truth=["sqrt", "(", "X_0", ")"],  # noqa: F401
+            original_equation="y = sqrt(x)",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_2v,
-			dataset_name="NG-9",
-			ranking_function="rmse",
-			ground_truth = ["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"], # noqa: F401
-			original_equation="y = sin(x)+sin(y^2)",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_2v,
+            dataset_name="NG-9",
+            ranking_function="rmse",
+            ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"],  # noqa: F401
+            original_equation="y = sin(x)+sin(y^2)",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         benchmark.add_dataset(
-			"",
-			sl_2v,
-			dataset_name="NG-10",
-			ranking_function="rmse",
-			ground_truth = ["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"], # noqa: F401
-			original_equation="y = 2*sin(x)*cos(y)",
-			max_evaluations=100000,
-			max_expression_length=50,
-			success_threshold=1e-7,
-			dataset_metadata=benchmark.metadata,
-			result_augmenters=[],
-			seed = seed
-		)
+            "",
+            sl_2v,
+            dataset_name="NG-10",
+            ranking_function="rmse",
+            ground_truth=["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"],  # noqa: F401
+            original_equation="y = 2*sin(x)*cos(y)",
+            max_evaluations=100000,
+            max_expression_length=50,
+            success_threshold=1e-7,
+            dataset_metadata=benchmark.metadata,
+            result_augmenters=[],
+            seed=seed,
+        )
 
         return benchmark
 
 
-if __name__ == '__main__':
-    benchmark = SR_benchmark.feynman('../../data/feynman/')
+if __name__ == "__main__":
+    benchmark = SR_benchmark.feynman("../../data/feynman/")
     for dataset in benchmark.list_datasets(verbose=False):
         ds = benchmark.create_dataset(dataset)
         rmse = ds.create_evaluator().evaluate_expr(ds.ground_truth)
         if rmse > ds.success_threshold:
-            print(f'Failed dataset: {dataset} with RMSE {rmse}')
+            print(f"Failed dataset: {dataset} with RMSE {rmse}")

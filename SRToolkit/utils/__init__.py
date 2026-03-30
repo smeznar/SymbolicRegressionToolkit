@@ -11,20 +11,20 @@ Modules:
     measures: The module containing functions for computing various performance measures on expressions
 """
 
-from .expression_tree import Node, tokens_to_tree, is_float, expr_to_latex
-from .symbol_library import SymbolLibrary
 from .expression_compiler import (
-    tree_to_function_rec,
-    expr_to_executable_function,
     expr_to_error_function,
+    expr_to_executable_function,
+    tree_to_function_rec,
 )
-from .expression_simplifier import simplify
 from .expression_generator import (
-    generate_from_pcfg,
     create_generic_pcfg,
+    generate_from_pcfg,
     generate_n_expressions,
 )
+from .expression_simplifier import simplify
+from .expression_tree import Node, expr_to_latex, is_float, tokens_to_tree
 from .measures import bed, create_behavior_matrix, edit_distance, tree_edit_distance
+from .symbol_library import SymbolLibrary
 
 __all__ = [
     "SymbolLibrary",
@@ -42,5 +42,5 @@ __all__ = [
     "create_behavior_matrix",
     "edit_distance",
     "tree_edit_distance",
-    "expr_to_latex"
+    "expr_to_latex",
 ]

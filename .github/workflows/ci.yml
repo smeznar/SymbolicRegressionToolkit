@@ -1,30 +1,50 @@
-name: ci 
+name: ci
 on:
   push:
     branches:
-      - master 
+      - master
       - main
-permissions:
-  contents: write
+  pull_request:
+    branches:
+      - master
+      - main
+
 jobs:
-  deploy:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure Git Credentials
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
-      - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV 
-      - uses: actions/cache@v4
+          python-version: "3.10"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Check linting
+        run: ruff check SRToolkit/
+      - name: Check formatting
+        run: ruff format --check SRToolkit/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          key: mkdocs-material-${{ env.cache_id }}
-          path: .cache
-          restore-keys: |
-            mkdocs-material-
-      - run: pip install mkdocs-material
-      - run: pip install mkdocstrings-python
-      - run: mkdocs gh-deploy --force
+          python-version: "3.10"
+      - name: Install dependencies
+        run: pip install ".[dev]"
+      - name: Run tests
+        run: pytest --doctest-modules --cov=SRToolkit --cov-report=term-missing SRToolkit/ tests/
+
+  typecheck:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: pip install ".[dev]"
+      - name: Run mypy
+        run: mypy SRToolkit/ --ignore-missing-imports

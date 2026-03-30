@@ -2,9 +2,9 @@
 The module containing the expression tree data structure and functions for transforming expressions into trees and back.
 """
 
-from typing import List, Union
 import warnings
 from copy import copy
+from typing import List, Union
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -43,9 +43,7 @@ class Node:
         self.right = right
         self.left = left
 
-    def to_list(
-        self, symbol_library: SymbolLibrary = None, notation: str = "infix"
-    ) -> List[str]:
+    def to_list(self, symbol_library: SymbolLibrary = None, notation: str = "infix") -> List[str]:
         """
         Transforms the tree rooted at this node into a list of tokens.
 
@@ -88,9 +86,7 @@ class Node:
             If the notation is "infix" and the symbol library is not provided, then the resulting list of tokens may contain unnecessary parentheses or have other issues.
         """
         left = [] if self.left is None else self.left.to_list(symbol_library, notation)
-        right = (
-            [] if self.right is None else self.right.to_list(symbol_library, notation)
-        )
+        right = [] if self.right is None else self.right.to_list(symbol_library, notation)
 
         if notation == "prefix":
             return [self.symbol] + left + right
@@ -130,15 +126,11 @@ class Node:
                         left = ["("] + left + [")"]
                     return left + [self.symbol]
             elif symbol_library.get_type(self.symbol) == "op":
-                if not is_float(
-                    self.left.symbol
-                ) and -1 < symbol_library.get_precedence(
+                if not is_float(self.left.symbol) and -1 < symbol_library.get_precedence(
                     self.left.symbol
                 ) <= symbol_library.get_precedence(self.symbol):
                     left = ["("] + left + [")"]
-                if not is_float(
-                    self.right.symbol
-                ) and -1 < symbol_library.get_precedence(
+                if not is_float(self.right.symbol) and -1 < symbol_library.get_precedence(
                     self.right.symbol
                 ) <= symbol_library.get_precedence(self.symbol):
                     right = ["("] + right + [")"]
@@ -177,29 +169,19 @@ class Node:
         Raises:
              Exception: If the notation is not one of "prefix", "postfix", or "infix" or if a symbol is not in the symbol library.
         """
-        assert symbol_library is not None, (
-            "[Node.to_latex] parameter symbol_library should be of type SymbolLibrary"
-        )
+        assert symbol_library is not None, "[Node.to_latex] parameter symbol_library should be of type SymbolLibrary"
         return f"${self.__to_latex_rec(symbol_library)[0]}$"
 
     def __to_latex_rec(self, symbol_library, num_const=0) -> (str, int):
-        left, num_const = (
-            ("", num_const)
-            if self.left is None
-            else self.left.__to_latex_rec(symbol_library, num_const)
-        )
+        left, num_const = ("", num_const) if self.left is None else self.left.__to_latex_rec(symbol_library, num_const)
         right, num_const = (
-            ("", num_const)
-            if self.right is None
-            else self.right.__to_latex_rec(symbol_library, num_const)
+            ("", num_const) if self.right is None else self.right.__to_latex_rec(symbol_library, num_const)
         )
 
         if is_float(self.symbol):
             return str(self.symbol), num_const
         elif symbol_library.get_type(self.symbol) == "const":
-            return symbol_library.get_latex_str(self.symbol).format(
-                num_const
-            ), num_const + 1
+            return symbol_library.get_latex_str(self.symbol).format(num_const), num_const + 1
         elif symbol_library.get_type(self.symbol) in ["var", "lit"]:
             return symbol_library.get_latex_str(self.symbol), num_const
         elif symbol_library.get_type(self.symbol) == "fn":
@@ -215,9 +197,7 @@ class Node:
                 self.right.symbol
             ) < symbol_library.get_precedence(self.symbol):
                 right = f"({right})"
-            return symbol_library.get_latex_str(self.symbol).format(
-                left, right
-            ), num_const
+            return symbol_library.get_latex_str(self.symbol).format(left, right), num_const
         else:
             raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
 
@@ -250,11 +230,7 @@ class Node:
         Returns:
             The number of nodes in the tree rooted at this node.
         """
-        return (
-            1
-            + (len(self.left) if self.left is not None else 0)
-            + (len(self.right) if self.right is not None else 0)
-        )
+        return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
 
     def __str__(self) -> str:
         """
@@ -375,9 +351,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
                 if sl.get_type(operator_stack[-1]) == "fn":
                     out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
                 else:
-                    out_stack.append(
-                        Node(operator_stack.pop(), out_stack.pop(), out_stack.pop())
-                    )
+                    out_stack.append(Node(operator_stack.pop(), out_stack.pop(), out_stack.pop()))
             operator_stack.append(token)
         else:
             if token != ")":
@@ -389,9 +363,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
                 if sl.get_type(operator_stack[-1]) == "fn":
                     out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
                 else:
-                    out_stack.append(
-                        Node(operator_stack.pop(), out_stack.pop(), out_stack.pop())
-                    )
+                    out_stack.append(Node(operator_stack.pop(), out_stack.pop(), out_stack.pop()))
             operator_stack.pop()
             if len(operator_stack) > 0 and sl.get_type(operator_stack[-1]) == "fn":
                 out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))

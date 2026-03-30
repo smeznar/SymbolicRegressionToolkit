@@ -14,8 +14,6 @@ __license__ = "GPL-3.0 License"
 __author__ = "Sebastian Mežnar, Jure Brence"
 __credits__ = "Jožef Stefan Institute"
 
-from . import utils
-from . import evaluation
-from . import dataset
+from . import dataset, evaluation, utils
 
 __all__ = utils.__all__ + evaluation.__all__ + dataset.__all__

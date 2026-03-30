@@ -1,7 +1,8 @@
 """
 This module contains the SR_approach class, which is the base class for all symbolic regression approaches.
 """
-from typing import Any, Optional, List
+
+from typing import Any, List, Optional
 
 import numpy as np
 
@@ -12,11 +13,13 @@ from SRToolkit.utils import SymbolLibrary
 def check_dependencies(packages: List[str]):
     if "pytorch" in packages:
         try:
-            import torch
+            import torch  # noqa: F401
         except ImportError:
             raise ImportError(
                 "This approach requires PyTorch. Install dependencies either manually or with"
-                "the command: pip install 'symbolic-regression-toolkit[approaches]'")
+                "the command: pip install 'symbolic-regression-toolkit[approaches]'"
+            )
+
 
 class SR_approach:
     def __init__(self, name: str):

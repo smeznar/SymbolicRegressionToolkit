@@ -1,14 +1,13 @@
-from typing import Union, List
+import re
+from typing import List, Union
 
 import numpy as np
-from sympy import sympify, expand, Expr, Basic
-from sympy.core import Mul, Add, Pow
+from sympy import Basic, Expr, expand, sympify
 from sympy import symbols as sp_symbols
-import re
+from sympy.core import Add, Mul, Pow
 
+from SRToolkit.utils.expression_tree import Node, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.expression_tree import Node
-from SRToolkit.utils.expression_tree import is_float
 
 
 def simplify(
@@ -21,7 +20,7 @@ def simplify(
         2. Simplifying constants, e.g. C*C + C -> C
 
     Examples:
-        >>> expr = ["C", "+", "C" "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
+        >>> expr = ["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
         >>> print("".join(simplify(expr)))
         C+X_1
 

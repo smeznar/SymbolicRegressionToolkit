@@ -3,11 +3,11 @@ This module contains the SymbolLibrary class, which is used for managing symbols
 """
 
 import copy
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 
 class SymbolLibrary:
-    def __init__(self, symbols: List[str]=None, num_variables: int = 0, preamble: List[str]=None):
+    def __init__(self, symbols: List[str] = None, num_variables: int = 0, preamble: List[str] = None):
         """
         Initializes an instance of the SymbolLibrary class. This class is used for managing symbols and their
         properties for other functionality in this package.
@@ -80,7 +80,7 @@ class SymbolLibrary:
         symbol_type: str,
         precedence: int,
         np_fn: str,
-        latex_str: str = None,
+        latex_str: Optional[str] = None,
     ):
         r"""
         Adds a symbol to the library. A symbol should have a type, precedence, a numpy function, and a LaTeX template associated with it.
@@ -282,9 +282,7 @@ class SymbolLibrary:
         return {s: i for i, s in enumerate(self.symbols.keys())}
 
     @staticmethod
-    def from_symbol_list(
-        symbols: List[str], num_variables: int = 25
-    ) -> "SymbolLibrary":
+    def from_symbol_list(symbols: List[str], num_variables: int = 25) -> "SymbolLibrary":
         """
         Creates an instance of SymbolLibrary from a list of symbols and number of variables. The list of currently
         supported symbols (by default) can be seen in the SymbolLibrary.default_symbols() function.
@@ -380,9 +378,7 @@ class SymbolLibrary:
             np_fn="{} = np.power({},{})",
             latex_str=r"{}^{{{}}}",
         )
-        sl.add_symbol(
-            "u-", symbol_type="fn", precedence=5, np_fn="{} = -{}", latex_str=r"- {}"
-        )
+        sl.add_symbol("u-", symbol_type="fn", precedence=5, np_fn="{} = -{}", latex_str=r"- {}")
         sl.add_symbol(
             "sqrt",
             symbol_type="fn",
@@ -495,18 +491,10 @@ class SymbolLibrary:
             np_fn="{} = 1/{}",
             latex_str=r"{}^{{-1}}",
         )
-        sl.add_symbol(
-            "^2", symbol_type="fn", precedence=-1, np_fn="{} = {}**2", latex_str=r"{}^2"
-        )
-        sl.add_symbol(
-            "^3", symbol_type="fn", precedence=-1, np_fn="{} = {}**3", latex_str=r"{}^3"
-        )
-        sl.add_symbol(
-            "^4", symbol_type="fn", precedence=-1, np_fn="{} = {}**4", latex_str=r"{}^4"
-        )
-        sl.add_symbol(
-            "^5", symbol_type="fn", precedence=-1, np_fn="{} = {}**5", latex_str=r"{}^5"
-        )
+        sl.add_symbol("^2", symbol_type="fn", precedence=-1, np_fn="{} = {}**2", latex_str=r"{}^2")
+        sl.add_symbol("^3", symbol_type="fn", precedence=-1, np_fn="{} = {}**3", latex_str=r"{}^3")
+        sl.add_symbol("^4", symbol_type="fn", precedence=-1, np_fn="{} = {}**4", latex_str=r"{}^4")
+        sl.add_symbol("^5", symbol_type="fn", precedence=-1, np_fn="{} = {}**5", latex_str=r"{}^5")
         sl.add_symbol(
             "pi",
             symbol_type="lit",
@@ -531,9 +519,7 @@ class SymbolLibrary:
 
         if num_variables > 0:
             for i in range(num_variables):
-                sl.add_symbol(
-                    f"X_{i}", "var", 5, "X[:, {}]".format(i), "X_{{{}}}".format(i)
-                )
+                sl.add_symbol(f"X_{i}", "var", 5, "X[:, {}]".format(i), "X_{{{}}}".format(i))
 
         return sl
 
@@ -544,11 +530,13 @@ class SymbolLibrary:
         Returns:
             A dictionary containing the symbol library's data.
         """
-        return {"format_version": 1,
-                "type": "SymbolLibrary",
-                "symbols": self.symbols,
-                "preamble": self.preamble,
-                "num_variables": self.num_variables}
+        return {
+            "format_version": 1,
+            "type": "SymbolLibrary",
+            "symbols": self.symbols,
+            "preamble": self.preamble,
+            "num_variables": self.num_variables,
+        }
 
     @staticmethod
     def from_dict(d: dict) -> "SymbolLibrary":
@@ -630,6 +618,6 @@ class SymbolLibrary:
         """
         sl = SymbolLibrary()
         sl.symbols = copy.deepcopy(self.symbols)
-        sl.preamble = self.preamble
+        sl.preamble = copy.deepcopy(self.preamble)
         sl.num_variables = self.num_variables
         return sl

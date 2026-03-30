@@ -2,12 +2,13 @@
 This module contains functions that convert an expression in infix notation to an executable python function.
 """
 
-from typing import List, Tuple, Union, Callable
-
-from SRToolkit.utils.expression_tree import Node, tokens_to_tree, is_float
-from SRToolkit.utils.symbol_library import SymbolLibrary
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
+
+from SRToolkit.utils.expression_tree import Node, is_float, tokens_to_tree
+from SRToolkit.utils.symbol_library import SymbolLibrary
+
 
 def expr_to_executable_function(
     expr: Union[List[str], Node],
@@ -59,9 +60,7 @@ def expr_to_executable_function(
         tree = tokens_to_tree(expr, symbol_library)
     else:
         tree = expr
-    code, symbol, var_counter, const_counter = tree_to_function_rec(
-        tree, symbol_library
-    )
+    code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C):\n"
     for c in code:
@@ -69,7 +68,7 @@ def expr_to_executable_function(
     fun_string += "\treturn " + symbol
 
     fun_assignment_dict = {}
-    exec(fun_string, globals(), fun_assignment_dict)
+    exec(fun_string, {"np": np}, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
 
@@ -118,9 +117,7 @@ def expr_to_error_function(
         tree = tokens_to_tree(expr, symbol_library)
     else:
         tree = expr
-    code, symbol, var_counter, const_counter = tree_to_function_rec(
-        tree, symbol_library
-    )
+    code, symbol, var_counter, const_counter = tree_to_function_rec(tree, symbol_library)
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C, y):\n"
     for c in code:
@@ -128,7 +125,7 @@ def expr_to_error_function(
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
 
     fun_assignment_dict = {}
-    exec(fun_string, globals(), fun_assignment_dict)
+    exec(fun_string, {"np": np}, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
 
@@ -175,9 +172,7 @@ def tree_to_function_rec(
             if is_float(tree.symbol):
                 return [], tree.symbol, var_counter, const_counter
             else:
-                raise Exception(
-                    f"Encountered invalid symbol {tree.symbol} while converting to function."
-                )
+                raise Exception(f"Encountered invalid symbol {tree.symbol} while converting to function.")
 
     elif tree.left is not None and tree.right is None:
         code, symbol, var_counter, const_counter = tree_to_function_rec(
@@ -196,9 +191,5 @@ def tree_to_function_rec(
         )
         output_symbol = "y_{}".format(var_counter)
         code = left_code + right_code
-        code.append(
-            symbol_library.get_np_fn(tree.symbol).format(
-                output_symbol, left_symbol, right_symbol
-            )
-        )
+        code.append(symbol_library.get_np_fn(tree.symbol).format(output_symbol, left_symbol, right_symbol))
         return code, output_symbol, var_counter + 1, const_counter

@@ -7,19 +7,20 @@ Modules:
     ProGED: The ProGED approach - Probabilistic grammar-based equation discovery.
 """
 
-from .sr_approach import SR_approach
 from .ProGED import ProGED
+from .sr_approach import SR_approach
 
 __all__ = ["SR_approach", "ProGED"]
 
 try:
     from .EDHiE import EDHiE
 except ImportError:
+
     class EDHiE:
         def __init__(self, *args, **kwargs):
             raise ImportError(
                 "EDHiE requires PyTorch. Please install the required dependencies either"
-                "manually or using the command: pip install 'symbolic-regression-toolkit[approaches]'")
+                "manually or using the command: pip install 'symbolic-regression-toolkit[approaches]'"
+            )
 finally:
     __all__.append("EDHiE")
-

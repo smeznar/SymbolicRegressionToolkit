@@ -1,13 +1,15 @@
 """
 This module contains the ProGED approach - Probabilistic grammar-based equation discovery by Brence et. al.
 """
-from typing import Any, Dict, Optional, Union
+
+from typing import Optional, Union
 
 import numpy as np
 
-from SRToolkit.approaches import SR_approach
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import generate_n_expressions, SymbolLibrary
+from SRToolkit.utils import SymbolLibrary, generate_n_expressions
+
+from .sr_approach import SR_approach
 
 
 class ProGED(SR_approach):
@@ -19,27 +21,30 @@ class ProGED(SR_approach):
     The approach randomly samples expressions from a probabilistic grammar and evaluates them on the dataset.
 
     Examples:
-        >>> from SRToolkit.dataset import SR_benchmark  # doctest: +SKIP
-        >>> benchmark = SR_benchmark.feynman('../../data/feynman/')  # doctest: +SKIP
-        >>> dataset = benchmark.create_dataset('I.16.6')  # doctest: +SKIP
-        >>> dataset.max_evaluations = 100  # doctest: +SKIP
-        >>> model = ProGED(dataset.symbol_library, verbose=False)  # doctest: +SKIP
-        >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)  # doctest: +SKIP
-        >>> results.print_results(0)  # doctest: +SKIP
-        Dataset: I.16.6
-        Approach: ProGED
-        Best expression found: X_0/C/C
-        Error: 0.39676872335771524
-        Number of evaluated expressions: 77
-        Number of times evaluate_expr was called: 100
-        Success: False
-        <BLANKLINE>
+        >>> from SRToolkit.dataset import SR_benchmark
+        >>> benchmark = SR_benchmark.feynman('../../data/feynman/')
+        >>> dataset = benchmark.create_dataset('I.16.6')
+        >>> dataset.max_evaluations = 100
+        >>> model = ProGED(dataset.symbol_library, verbose=False)
+        >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
+        >>> r = results[0]
+        >>> r["dataset_name"]
+        'I.16.6'
+        >>> r["approach_name"]
+        'ProGED'
+        >>> r["best_expr"]
+        'X_0/C/C'
+        >>> r["num_evaluated"]
+        77
+        >>> r["success"]
+        False
 
     Args:
         grammar: The grammar to use for sampling expressions. Can be either a string or a SymbolLibrary object. Using
             a string let's you define a custom grammar.
         verbose: If True, prints the expression and its error if the expression is better than the current best.
     """
+
     def __init__(self, grammar: Union[str, SymbolLibrary], verbose: bool = False):
         super().__init__("ProGED")
         self.grammar = grammar
@@ -69,8 +74,9 @@ class ProGED(SR_approach):
             if error < min_error:
                 min_error = error
                 if self.verbose:
-                    print(f"New best expression {''.join(expr)} with error {min_error} "
-                          f"after {sr_evaluator.total_evaluations} evaluations.")
+                    print(
+                        f"New best expression {''.join(expr)} with error {min_error} "
+                        f"after {sr_evaluator.total_evaluations} evaluations."
+                    )
             success = sr_evaluator.success_threshold is not None and min_error <= sr_evaluator.success_threshold
             budget_exhausted = 0 < sr_evaluator.max_evaluations <= sr_evaluator.total_evaluations
-

@@ -2,12 +2,14 @@
 This module contains the ParameterEstimator class, which is used to estimate the parameters of an expression.
 """
 
-from typing import Union, List, Tuple, Optional
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.optimize import minimize
 
-from SRToolkit.utils import Node, SymbolLibrary, expr_to_error_function
+from SRToolkit.utils.expression_compiler import expr_to_error_function
+from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
 class ParameterEstimator:
@@ -77,9 +79,7 @@ class ParameterEstimator:
         if self.seed is not None:
             np.random.seed(self.seed)
 
-    def estimate_parameters(
-        self, expr: Union[List[str], Node]
-    ) -> Tuple[float, np.ndarray]:
+    def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
         """
         Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
 
@@ -108,13 +108,9 @@ class ParameterEstimator:
         """
         if isinstance(expr, Node):
             expr_str = expr.to_list(notation="prefix")
-            num_constants = sum(
-                [1 for t in expr_str if self.symbol_library.get_type(t) == "const"]
-            )
+            num_constants = sum([1 for t in expr_str if self.symbol_library.get_type(t) == "const"])
         else:
-            num_constants = sum(
-                [1 for t in expr if self.symbol_library.get_type(t) == "const"]
-            )
+            num_constants = sum([1 for t in expr if self.symbol_library.get_type(t) == "const"])
         if 0 <= self.estimation_settings["max_constants"] < num_constants:
             return np.nan, np.array([])
 
@@ -129,9 +125,7 @@ class ParameterEstimator:
         else:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
-    def _optimize_parameters(
-        self, executable_error_fn: callable, num_constants: int
-    ) -> Tuple[float, np.ndarray]:
+    def _optimize_parameters(self, executable_error_fn: callable, num_constants: int) -> Tuple[float, np.ndarray]:
         if self.estimation_settings["initialization"] == "random":
             x0 = (
                 np.random.rand(num_constants)
@@ -143,12 +137,7 @@ class ParameterEstimator:
                 + self.estimation_settings["constant_bounds"][0]
             )
         else:
-            x0 = np.array(
-                [
-                    np.mean(self.estimation_settings["constant_bounds"])
-                    for _ in range(num_constants)
-                ]
-            )
+            x0 = np.array([np.mean(self.estimation_settings["constant_bounds"]) for _ in range(num_constants)])
 
         res = minimize(
             lambda c: executable_error_fn(self.X, c, self.y),

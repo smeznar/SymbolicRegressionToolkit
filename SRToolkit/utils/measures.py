@@ -2,20 +2,16 @@
 This module contains measures for evaluating the similarity between two expressions.
 """
 
-from typing import List, Union, Tuple, Optional
+from typing import List, Optional, Tuple, Union
 
-import numpy as np
 import editdistance
+import numpy as np
 import zss
 from scipy.stats.qmc import LatinHypercube
 
-
-from SRToolkit.utils import (
-    SymbolLibrary,
-    Node,
-    tokens_to_tree,
-    expr_to_executable_function,
-)
+from .expression_compiler import expr_to_executable_function
+from .expression_tree import Node, tokens_to_tree
+from .symbol_library import SymbolLibrary
 
 
 def edit_distance(
@@ -48,16 +44,12 @@ def edit_distance(
     if isinstance(expr1, Node):
         expr1 = expr1.to_list(symbol_library=symbol_library, notation=notation)
     elif isinstance(expr1, list):
-        expr1 = tokens_to_tree(expr1, symbol_library).to_list(
-            symbol_library=symbol_library, notation=notation
-        )
+        expr1 = tokens_to_tree(expr1, symbol_library).to_list(symbol_library=symbol_library, notation=notation)
 
     if isinstance(expr2, Node):
         expr2 = expr2.to_list(symbol_library=symbol_library, notation=notation)
     elif isinstance(expr2, list):
-        expr2 = tokens_to_tree(expr2, symbol_library).to_list(
-            symbol_library=symbol_library, notation=notation
-        )
+        expr2 = tokens_to_tree(expr2, symbol_library).to_list(symbol_library=symbol_library, notation=notation)
 
     return editdistance.eval(expr1, expr2)
 
@@ -161,10 +153,7 @@ def create_behavior_matrix(
     with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
         if num_constants > 0:
             lho = LatinHypercube(num_constants, seed=seed)
-            constants = (
-                lho.random(num_consts_sampled) * (consts_bounds[1] - consts_bounds[0])
-                + consts_bounds[0]
-            )
+            constants = lho.random(num_consts_sampled) * (consts_bounds[1] - consts_bounds[0]) + consts_bounds[0]
             ys = []
             for c in constants:
                 ys.append(expr(X, c))
@@ -255,11 +244,7 @@ def bed(
             the expected dimensions.
     """
 
-    if (
-        X is None
-        and not isinstance(expr1, np.ndarray)
-        and not isinstance(expr2, np.ndarray)
-    ):
+    if X is None and not isinstance(expr1, np.ndarray) and not isinstance(expr2, np.ndarray):
         if domain_bounds is None:
             raise Exception(
                 "If X is not given and both expressions are not given as a behavior matrix, "
@@ -276,18 +261,13 @@ def bed(
         )
 
     if isinstance(expr1, list) or isinstance(expr1, Node):
-        expr1 = create_behavior_matrix(
-            expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed
-        )
+        expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     if isinstance(expr2, list) or isinstance(expr2, Node):
-        expr2 = create_behavior_matrix(
-            expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed
-        )
+        expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     assert expr1.shape[0] == expr2.shape[0], (
-        "Behavior matrices must have the same number rows (points "
-        "on which behavior is evaluated.)"
+        "Behavior matrices must have the same number rows (points on which behavior is evaluated.)"
     )
     assert expr1.shape[0] > 0, (
         "Behavior matrices must have at least one row. if your expressions are given as behavior"

@@ -1,30 +1,31 @@
 """
 This module contains the EDHiE (Equation Discovery with Hierarchical variational autoEncoders) approach by Mežnar et. al.
 """
-from typing import Optional, Union, Dict, List, Tuple
+
+from typing import Dict, List, Optional, Tuple, Union
 
 from SRToolkit.approaches.sr_approach import SR_approach, check_dependencies
-from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import SymbolLibrary, Node, tokens_to_tree, generate_n_expressions
 from SRToolkit.dataset import SR_benchmark
+from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.utils import Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
 
 try:
+    import numpy as np
     import torch
     import torch.nn as nn
-    from torch.autograd import Variable
     import torch.nn.functional as F
-    from torch.optim import Adam
+    from torch.autograd import Variable
     from torch.nn import CrossEntropyLoss
-    from torch.utils.data import Sampler, Dataset
+    from torch.optim import Adam
+    from torch.utils.data import Dataset, Sampler
     from tqdm import tqdm
-    import numpy as np
 except ImportError:
     raise ImportError("PyTorch is not installed.")
 
 
 class EDHiE(SR_approach):
-    r"""
-    """
+    r""" """
+
     def __init__(self):
         super().__init__("EDHiE")
         check_dependencies(["pytorch"])
@@ -42,16 +43,16 @@ class EDHiE(SR_approach):
 
     def clone(self):
         """
-        Clones the ProGED approach.
+        Clones the EDHiE approach.
 
         Returns:
             The approach is stateless, so this method only returns the object itself.
         """
-        raise NotImplementedError
+        return self
 
 
 class BatchedNode:
-    def __init__(self, symbol2index: Dict[str, int], size: int=0, trees:Union[None, List[Node]]=None):
+    def __init__(self, symbol2index: Dict[str, int], size: int = 0, trees: Union[None, List[Node]] = None):
         self.symbols: List[str] = ["" for _ in range(size)]
         self.left: Union[BatchedNode, None] = None
         self.right: Union[BatchedNode, None] = None
@@ -101,12 +102,14 @@ class BatchedNode:
                 self.right = BatchedNode(self.symbol2index, size=len(self.symbols) - 1)
                 self.right.add_tree(tree.right)
 
-    def loss(self, mu: torch.Tensor, logvar: torch.Tensor, lmbda: float, criterion) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def loss(
+        self, mu: torch.Tensor, logvar: torch.Tensor, lmbda: float, criterion
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         pred = self.get_prediction()
         target = self.get_target()
         BCE = criterion(pred, target)
-        KLD = (-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()))/mu.size(0)
-        return BCE + lmbda*KLD, BCE, KLD
+        KLD = (-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())) / mu.size(0)
+        return BCE + lmbda * KLD, BCE, KLD
 
     def create_target(self):
         target = torch.zeros((len(self.symbols), len(self.symbol2index)))
@@ -182,7 +185,14 @@ class BatchedNode:
 
 
 class HVAE(nn.Module):
-    def __init__(self, input_size: int, output_size: int, symbol_library: SymbolLibrary, hidden_size: Union[None, int]=None, max_height: int=20):
+    def __init__(
+        self,
+        input_size: int,
+        output_size: int,
+        symbol_library: SymbolLibrary,
+        hidden_size: Union[None, int] = None,
+        max_height: int = 20,
+    ):
         super(HVAE, self).__init__()
 
         if hidden_size is None:
@@ -244,7 +254,9 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int, symbol_library: SymbolLibrary, max_height: int=20):
+    def __init__(
+        self, input_size: int, hidden_size: int, output_size: int, symbol_library: SymbolLibrary, max_height: int = 20
+    ):
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
         self.z2h = nn.Linear(input_size, hidden_size)
@@ -288,7 +300,7 @@ class Decoder(nn.Module):
             batch = self.recursive_decode(hidden, mask)
             return batch.to_expr_list()
 
-    def recursive_decode(self, hidden: torch.Tensor, mask: torch.Tensor, height: int=0) -> BatchedNode:
+    def recursive_decode(self, hidden: torch.Tensor, mask: torch.Tensor, height: int = 0) -> BatchedNode:
         # print(height)
         prediction = F.softmax(self.h2o(hidden), dim=1)
         # Sample symbol in a given node
@@ -310,7 +322,9 @@ class Decoder(nn.Module):
         node.right = r_tree
         return node
 
-    def sample_symbol(self, prediction: torch.Tensor, mask: torch.Tensor, height: int) -> (List[str], torch.Tensor, torch.Tensor):
+    def sample_symbol(
+        self, prediction: torch.Tensor, mask: torch.Tensor, height: int
+    ) -> (List[str], torch.Tensor, torch.Tensor):
         # Select the symbol with the highest value ("probability")
         symbols = []
         left_mask = torch.clone(mask)
@@ -337,7 +351,7 @@ class GRU221(nn.Module):
     def __init__(self, input_size: int, hidden_size: int):
         super(GRU221, self).__init__()
         self.wir = nn.Linear(in_features=input_size, out_features=hidden_size)
-        self.whr = nn.Linear(in_features=2*hidden_size, out_features=hidden_size)
+        self.whr = nn.Linear(in_features=2 * hidden_size, out_features=hidden_size)
         self.wiz = nn.Linear(in_features=input_size, out_features=hidden_size)
         self.whz = nn.Linear(in_features=2 * hidden_size, out_features=hidden_size)
         self.win = nn.Linear(in_features=input_size, out_features=hidden_size)
@@ -361,12 +375,12 @@ class GRU122(nn.Module):
     def __init__(self, input_size: int, hidden_size: int):
         super(GRU122, self).__init__()
         self.hidden_size = hidden_size
-        self.wir = nn.Linear(in_features=input_size, out_features=2*hidden_size)
-        self.whr = nn.Linear(in_features=hidden_size, out_features=2*hidden_size)
-        self.wiz = nn.Linear(in_features=input_size, out_features=2*hidden_size)
-        self.whz = nn.Linear(in_features=hidden_size, out_features=2*hidden_size)
-        self.win = nn.Linear(in_features=input_size, out_features=2*hidden_size)
-        self.whn = nn.Linear(in_features=hidden_size, out_features=2*hidden_size)
+        self.wir = nn.Linear(in_features=input_size, out_features=2 * hidden_size)
+        self.whr = nn.Linear(in_features=hidden_size, out_features=2 * hidden_size)
+        self.wiz = nn.Linear(in_features=input_size, out_features=2 * hidden_size)
+        self.whz = nn.Linear(in_features=hidden_size, out_features=2 * hidden_size)
+        self.win = nn.Linear(in_features=input_size, out_features=2 * hidden_size)
+        self.whn = nn.Linear(in_features=hidden_size, out_features=2 * hidden_size)
         torch.nn.init.xavier_uniform_(self.wir.weight)
         torch.nn.init.xavier_uniform_(self.whr.weight)
         torch.nn.init.xavier_uniform_(self.wiz.weight)
@@ -382,10 +396,12 @@ class GRU122(nn.Module):
         out = (1 - z) * n + z * dh
         return torch.split(out, self.hidden_size, dim=1)
 
+
 def create_batch(trees, symbol2index):
     t = BatchedNode(symbol2index, trees=trees)
     t.create_target()
     return t
+
 
 class TreeBatchSampler(Sampler):
     def __init__(self, batch_size, num_eq):
@@ -395,7 +411,7 @@ class TreeBatchSampler(Sampler):
 
     def __iter__(self):
         for i in range(len(self)):
-            batch = self.permute[(i*self.batch_size):((i+1)*self.batch_size)]
+            batch = self.permute[(i * self.batch_size) : ((i + 1) * self.batch_size)]
             yield batch
 
     def __len__(self):
@@ -414,8 +430,8 @@ class TreeDataset(Dataset):
 
 
 def logistic_function(it, total_iters, supremum=0.04):
-    x = it/total_iters
-    return x*supremum
+    x = it / total_iters
+    return x * supremum
 
 
 def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_beta=0.04, verbose=True):
@@ -424,7 +440,7 @@ def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_be
     criterion = CrossEntropyLoss(ignore_index=-1, reduction="mean")
 
     iter_counter = 0
-    total_iters = epochs*(len(trainset)//batch_size)
+    total_iters = epochs * (len(trainset) // batch_size)
     lmbda = logistic_function(iter_counter, total_iters, max_beta)
 
     midpoint = len(trainset) // (2 * batch_size)
@@ -433,7 +449,7 @@ def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_be
         sampler = TreeBatchSampler(batch_size, len(trainset))
         bce, kl, los, total, num_iters = 0, 0, 0, 0, 0
 
-        with tqdm(total=len(trainset), desc=f'Training HVAE - Epoch: {epoch + 1}/{epochs}', unit='chunks') as prog_bar:
+        with tqdm(total=len(trainset), desc=f"Training HVAE - Epoch: {epoch + 1}/{epochs}", unit="chunks") as prog_bar:
             for i, tree_ids in enumerate(sampler):
                 batch = create_batch([trainset[j] for j in tree_ids], symbol2index)
 
@@ -445,11 +461,10 @@ def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_be
                 loss.backward()
                 optimizer.step()
                 num_iters += 1
-                los += (bcel.detach().item() + lmbda*kll.detach().item())
-                prog_bar.set_postfix(**{'run:': "HVAE",
-                                        'loss': los / num_iters,
-                                        'BCE': bce / num_iters,
-                                        'KLD': kl / num_iters})
+                los += bcel.detach().item() + lmbda * kll.detach().item()
+                prog_bar.set_postfix(
+                    **{"run:": "HVAE", "loss": los / num_iters, "BCE": bce / num_iters, "KLD": kl / num_iters}
+                )
                 prog_bar.update(batch_size)
 
                 lmbda = logistic_function(iter_counter, total_iters, max_beta)
@@ -465,7 +480,7 @@ def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_be
                         print(f"P: {''.join(decoded_trees[i].to_list(symbol_library=symbol_library))}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dataset = SR_benchmark.feynman("../data/fey_data").create_dataset("I.12.4")
     latent_size = 24
     num_expressions = 20000
@@ -474,7 +489,9 @@ if __name__ == '__main__':
     model_name = "24random"
 
     # Possibly create a training set or load expressions
-    expressions = generate_n_expressions(dataset.symbol_library, num_expressions, max_expression_length=max_expression_length)
+    expressions = generate_n_expressions(
+        dataset.symbol_library, num_expressions, max_expression_length=max_expression_length
+    )
     expr_tree = [tokens_to_tree(expr, dataset.symbol_library) for expr in expressions]
     # Create a training set
     trainset = TreeDataset(expr_tree)

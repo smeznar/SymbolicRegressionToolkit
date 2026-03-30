@@ -2,13 +2,13 @@
 This module contains helper functions for creating a PCFG with generic probabilities from the SymbolLibrary and to use it for generating random expressions.
 """
 
-from typing import Union, List
+from typing import List, Union
 
 import nltk
 import numpy as np
 from tqdm import tqdm
 
-from SRToolkit.utils import SymbolLibrary
+from .symbol_library import SymbolLibrary
 
 
 def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
@@ -143,9 +143,7 @@ def _expand(grammar, symbol, current_depth, max_depth=40):
         return [str(symbol)]
 
 
-def generate_from_pcfg(
-    grammar_str: str, start_symbol: str = "E", max_depth: int = 40, limit: int = 100
-) -> List[str]:
+def generate_from_pcfg(grammar_str: str, start_symbol: str = "E", max_depth: int = 40, limit: int = 100) -> List[str]:
     """
     Generates a random expression from a PCFG with monte-carlo sampling.
 

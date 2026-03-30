@@ -10,7 +10,7 @@ name = "symbolic-regression-toolkit"
 version = "1.4.0"
 description = "Symbolic Regression/Equation Discovery Toolkit"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 license = {text = "GPL-3.0-only"}
 authors = [
   { name = "Sebastian Mežnar", email = "smeznar@gmail.com" }
@@ -27,7 +27,8 @@ dependencies = [
   "sympy",
   "nltk",
   "zss",
-  "editdistance"
+  "editdistance",
+  "tqdm"
 ]
 classifiers = [
   "Intended Audience :: Information Technology",
@@ -42,15 +43,27 @@ classifiers = [
 
 [project.optional-dependencies]
 approaches = ["torch>=2.0", "tqdm"]
-dev = ["pytest"]
+dev = ["pytest", "pytest-cov", "ruff", "mypy"]
 
 [project.urls]
 Homepage = "https://github.com/smeznar/SymbolicRegressionToolkit"
 Documentation = "https://smeznar.github.io/SymbolicRegressionToolkit/"
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules"
+addopts = "--doctest-modules --ignore=SRToolkit/approaches/EDHiE.py"
+doctest_optionflags = ["NORMALIZE_WHITESPACE"]
 testpaths = ["SRToolkit"]
 markers = [
     "benchmark: tests requiring downloaded benchmark data (run with: pytest tests/)",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.mypy]
+ignore_missing_imports = true

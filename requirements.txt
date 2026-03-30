@@ -4,3 +4,4 @@ sympy
 nltk
 editdistance
 zss
+tqdm

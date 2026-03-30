@@ -9,15 +9,17 @@ Modules:
 """
 
 from .parameter_estimator import ParameterEstimator
-from .sr_evaluator import SR_evaluator, ResultAugmenter, SR_results, EvalResult, ModelResult
 from .result_augmentation import (
-    ExpressionSimplifier,
-    RMSE,
-    R2,
     BED,
+    R2,
+    RESULT_AUGMENTERS,
+    RMSE,
+    EvalResult,
+    ExpressionSimplifier,
     ExpressionToLatex,
-    RESULT_AUGMENTERS
+    ModelResult,
 )
+from .sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
 
 __all__ = [
     "ParameterEstimator",
@@ -31,5 +33,5 @@ __all__ = [
     "R2",
     "BED",
     "ExpressionToLatex",
-    "RESULT_AUGMENTERS"
+    "RESULT_AUGMENTERS",
 ]
