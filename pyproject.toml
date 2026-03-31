@@ -22,7 +22,7 @@ keywords = [
   "machine learning"
 ]
 dependencies = [
-  "numpy>2.0",
+  "numpy>=2.0",
   "scipy",
   "sympy",
   "nltk",
@@ -52,7 +52,7 @@ Documentation = "https://smeznar.github.io/SymbolicRegressionToolkit/"
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --ignore=SRToolkit/approaches/EDHiE.py --cov-report=term-missing"
 doctest_optionflags = ["NORMALIZE_WHITESPACE"]
-testpaths = ["SRToolkit"]
+testpaths = ["SRToolkit", "tests"]
 markers = [
     "benchmark: tests requiring downloaded benchmark data (run with: pytest tests/)",
 ]

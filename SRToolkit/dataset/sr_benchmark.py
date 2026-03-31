@@ -3,14 +3,12 @@ import json
 import os
 import warnings
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.request import urlopen
 from zipfile import ZipFile
 
 import numpy as np
 
-from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
-from SRToolkit.evaluation.sr_evaluator import ResultAugmenter
 from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -24,7 +22,6 @@ class SR_benchmark:
         benchmark_name: str,
         base_dir: str,
         datasets: Optional[List[Union[SR_dataset, Tuple[str, SR_dataset]]]] = None,
-        augmentation_map: Optional[Dict[str, Type[ResultAugmenter]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """
@@ -42,7 +39,6 @@ class SR_benchmark:
             datasets: A list of SR_dataset instances or tuples containing the name of the dataset and an instance of
                 SR_dataset. When name of the dataset is not provided, the dataset will be named
                 'benchmark_name'_'index of dataset in the list + 1'
-            augmentation_map: A dictionary mapping augmenter names to their respective classes.
             metadata: An optional dictionary containing metadata about this benchmark. This could include information
                 such as the name of the benchmark, a citation for the benchmark, number of datasets, etc.
 
@@ -52,8 +48,6 @@ class SR_benchmark:
         """
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
-        if augmentation_map is None:
-            self.augmentation_map = RESULT_AUGMENTERS
         self.datasets: Dict[str, Dict[str, Any]] = {}
         self.metadata = {} if metadata is None else metadata
         if datasets is not None:
@@ -104,7 +98,6 @@ class SR_benchmark:
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
         original_equation: Optional[str] = None,
         success_threshold: Optional[float] = None,
-        result_augmenters: Optional[List[ResultAugmenter]] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
         **kwargs,
@@ -118,7 +111,7 @@ class SR_benchmark:
             >>> benchmark.add_dataset("data/feynman/I.14.3.npz", SymbolLibrary.default_symbols(3),
             ...       dataset_name="I.14.3", ranking_function="rmse", ground_truth = ["X_0", "*", "X_1", "*", "X_2"],
             ...       original_equation="U = m*g*z", max_evaluations=100000, max_expression_length=50,
-            ...       success_threshold=1e-7, dataset_metadata={}, constant_range=[-5.0, 5.0], result_augmenters=[],
+            ...       success_threshold=1e-7, dataset_metadata={}, constant_range=[-5.0, 5.0],
             ...       seed = 42)
             >>> len(benchmark.list_datasets(verbose=False))
             1
@@ -145,7 +138,6 @@ class SR_benchmark:
             original_equation: The original equation from which the ground truth expression was generated.
             success_threshold: The threshold below which the experiment is considered successful. If None, the
                 threshold will be calculated automatically. See SRToolkit.evaluation.SR_evaluator for more details.
-            result_augmenters: The list of result augmenters to use.
             seed: The seed to use for random number generation. If None, number generation will be random.
             dataset_metadata: An optional dictionary containing metadata about this dataset. This could include
                 information such as the name of the dataset, a citation for the dataset, number of variables, etc.
@@ -191,12 +183,6 @@ class SR_benchmark:
         self.datasets[dataset_name]["max_evaluations"] = max_evaluations
 
         self.datasets[dataset_name]["success_threshold"] = success_threshold
-        if result_augmenters is not None:
-            self.datasets[dataset_name]["result_augmenters"] = [
-                re.to_dict(self.base_dir, dataset_name) for re in result_augmenters
-            ]
-        else:
-            self.datasets[dataset_name]["result_augmenters"] = []
 
         self.datasets[dataset_name]["seed"] = seed
         merged_metadata = copy.deepcopy(self.metadata)
@@ -357,7 +343,7 @@ class SR_benchmark:
                 return self.datasets[dataset_name]["sr_dataset"]
             else:
                 try:
-                    return SR_dataset.from_dict(self.datasets[dataset_name], self.augmentation_map)
+                    return SR_dataset.from_dict(self.datasets[dataset_name])
                 except Exception as e:
                     raise ValueError(
                         f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
@@ -611,7 +597,6 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="v1 = (u+v)/(1+u*v/c^2)",
             success_threshold=1e-7,
-            result_augmenters=[],
             seed=seed,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
@@ -629,7 +614,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -644,7 +628,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -659,7 +642,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -693,7 +675,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -708,7 +689,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -752,7 +732,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -789,7 +768,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -837,7 +815,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -852,7 +829,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -867,7 +843,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -900,7 +875,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -937,7 +911,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -952,7 +925,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -967,7 +939,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -982,7 +953,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -997,7 +967,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1036,7 +1005,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1051,7 +1019,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1112,7 +1079,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1127,7 +1093,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1142,7 +1107,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1157,7 +1121,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1172,7 +1135,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1187,7 +1149,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1202,7 +1163,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1217,7 +1177,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1254,7 +1213,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1269,7 +1227,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1319,7 +1276,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1354,7 +1310,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1414,7 +1369,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1429,7 +1383,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1444,7 +1397,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1459,7 +1411,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1474,7 +1425,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1489,7 +1439,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1525,7 +1474,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1540,7 +1488,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1586,7 +1533,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1601,7 +1547,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1616,7 +1561,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1672,7 +1616,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1704,7 +1647,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1719,7 +1661,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1761,7 +1702,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1776,7 +1716,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1791,7 +1730,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1836,7 +1774,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1851,7 +1788,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1866,7 +1802,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1881,7 +1816,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1896,7 +1830,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1911,7 +1844,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1947,7 +1879,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1962,7 +1893,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1977,7 +1907,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1992,7 +1921,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2007,7 +1935,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2022,7 +1949,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2056,7 +1982,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2071,7 +1996,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2104,7 +2028,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2119,7 +2042,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2134,7 +2056,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2149,7 +2070,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2164,7 +2084,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2200,7 +2119,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2215,7 +2133,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2256,7 +2173,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2271,7 +2187,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2286,7 +2201,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2301,7 +2215,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2336,7 +2249,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2376,7 +2288,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2409,7 +2320,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2424,7 +2334,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2485,7 +2394,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2537,7 +2445,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2552,7 +2459,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2589,7 +2495,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2604,7 +2509,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2619,7 +2523,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2634,7 +2537,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2649,7 +2551,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2664,7 +2565,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2679,7 +2579,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2713,7 +2612,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2728,7 +2626,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2743,7 +2640,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2778,7 +2674,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2793,7 +2688,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2808,7 +2702,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2823,7 +2716,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2865,7 +2757,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2880,7 +2771,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2913,7 +2803,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2928,7 +2817,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2943,7 +2831,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2958,7 +2845,6 @@ class SR_benchmark:
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             constant_range=[-5.0, 5.0],
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3031,7 +2917,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3046,7 +2931,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3080,7 +2964,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3120,7 +3003,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3135,7 +3017,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3150,7 +3031,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3165,7 +3045,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3180,7 +3059,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3195,7 +3073,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 
@@ -3210,7 +3087,6 @@ class SR_benchmark:
             max_expression_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            result_augmenters=[],
             seed=seed,
         )
 

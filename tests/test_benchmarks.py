@@ -75,11 +75,12 @@ def test_proged_on_feynman():
 
     benchmark = SR_benchmark.feynman(FEYNMAN_DIR)
     dataset = benchmark.create_dataset("I.16.6")
+    # Change max_evaluations to 100 to speed up the test as results here don't matter.
     dataset.max_evaluations = 100
 
     model = ProGED(dataset.symbol_library, verbose=False)
     results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
 
     assert len(results) == 1
-    assert results[0]["num_evaluated"] > 0
-    assert results[0]["evaluation_calls"] <= 100
+    assert results[0].num_evaluated > 0
+    assert results[0].evaluation_calls <= 100

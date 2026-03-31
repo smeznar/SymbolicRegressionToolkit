@@ -55,7 +55,7 @@ class ExpressionToLatex(ResultAugmenter):
         """
         eval_data: Dict[str, Any] = {}
         try:
-            eval_data["best_expr_latex"] = tokens_to_tree(EvalResult.top_models[0].expr, self.symbol_library).to_latex(
+            eval_data["best_expr_latex"] = tokens_to_tree(results.top_models[0].expr, self.symbol_library).to_latex(
                 self.symbol_library
             )
         except Exception as e:
@@ -230,7 +230,7 @@ class ExpressionSimplifier(ResultAugmenter):
             "format_version": 1,
             "type": "ExpressionSimplifier",
             "name": self.name,
-            "symbol_library": self.symbol_library,
+            "symbol_library": self.symbol_library.to_dict(),
             "scope": self.scope,
             "verbose": self.verbose,
         }
@@ -353,7 +353,7 @@ class RMSE(ResultAugmenter):
             raise ValueError(
                 f"[RMSE.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
             )
-        evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
+        evaluator = SR_evaluator.from_dict(data["evaluator"])
         return RMSE(evaluator, scope=data["scope"], name=data["name"])
 
 
@@ -443,7 +443,7 @@ class BED(ResultAugmenter):
         """
         if data.get("format_version", 1) != 1:
             raise ValueError(f"[BED.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1.")
-        evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
+        evaluator = SR_evaluator.from_dict(data["evaluator"])
         return BED(evaluator, scope=data["scope"], name=data["name"])
 
 
@@ -501,7 +501,7 @@ class R2(ResultAugmenter):
                 model.add_augmentation(self.name, top_model_data)
 
         if self.scope == "all":
-            for model in results.top_models:
+            for model in results.all_models:
                 key = "".join(model.expr)
                 all_model_data: Dict[str, Any] = {
                     "r^2": self._compute_r2(model),
@@ -547,7 +547,7 @@ class R2(ResultAugmenter):
         """
         if data.get("format_version", 1) != 1:
             raise ValueError(f"[R2.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1.")
-        evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
+        evaluator = SR_evaluator.from_dict(data["evaluator"])
         return R2(evaluator, scope=data["scope"], name=data["name"])
 
 

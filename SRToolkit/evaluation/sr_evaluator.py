@@ -166,7 +166,6 @@ class SR_evaluator:
         success_threshold: Optional[float] = None,
         ranking_function: str = "rmse",
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
-        result_augmenters: Optional[List[ResultAugmenter]] = None,
         seed: Optional[int] = None,
         metadata: Optional[dict] = None,
         **kwargs,
@@ -199,10 +198,6 @@ class SR_evaluator:
                 Currently, "rmse" and "bed" are supported. Default is "rmse".
             ground_truth: The ground truth for the BED evaluation. This should be a list of tokens, a Node object, or a
                 numpy array representing behavior (see SRToolkit.utils.create_behavior_matrix for more details).
-            result_augmenters: Optional list of objects that augment the results returned by the "get_results" function.
-                For example, SRToolkit.evaluation.result_augmentation.ExpressionSimplifier simplifies the evaluated
-                expressions. Possible augmenters can be found in SRToolkit.evaluation.result_augmentation.py or customly
-                defined by inheriting from SRToolkit.evaluation.result_augmentation.ResultAugmenter class.
             seed: The seed to use for random number generation.
 
         Keyword Arguments:
@@ -243,8 +238,6 @@ class SR_evaluator:
             parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
             ranking_function: The function used for ranking the expressions and fitting parameters if needed.
             success_threshold: The threshold used for determining whether an expression is considered successful.
-            result_augmenters: A list of SRToolkit.evaluation.result_augmentation.ResultAugmenter objects that augment
-                the results returned by the get_results.
 
         Methods:
             evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
@@ -288,14 +281,6 @@ class SR_evaluator:
             warnings.warn(f"ranking_function '{ranking_function}' not supported. Using rmse instead.")
             ranking_function = "rmse"
         self.ranking_function = ranking_function
-
-        self.result_augmenters = []
-        if result_augmenters is not None:
-            for ra in result_augmenters:
-                if not isinstance(ra, ResultAugmenter):
-                    warnings.warn(f"result_augmenter {ra} is not an instance of ResultAugmenter. Skipping.")
-                else:
-                    self.result_augmenters.append(ra)
 
         if ranking_function == "rmse":
             if y is None:
@@ -546,7 +531,6 @@ class SR_evaluator:
 
                 return error
 
-    # TODO: Add a way to add custom information to a given expression (e.g. probability of expression in ProGED)
 
     def get_results(
         self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None
@@ -593,7 +577,6 @@ class SR_evaluator:
         results.add_results(
             self.models,
             top_k,
-            self.result_augmenters,
             self.total_evaluations,
             self.success_threshold,
             approach_name,
@@ -621,7 +604,6 @@ class SR_evaluator:
             "max_evaluations": self.max_evaluations,
             "success_threshold": self.success_threshold,
             "ranking_function": self.ranking_function,
-            "result_augmenters": [ra.to_dict(base_path, name) for ra in self.result_augmenters],
             "seed": self.seed,
             "kwargs": self.kwargs,
         }
@@ -655,20 +637,15 @@ class SR_evaluator:
         return output
 
     @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "SR_evaluator":
+    def from_dict(data: dict) -> "SR_evaluator":
         """
         Creates an instance of the SR_evaluator from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the evaluator.
-            augmenter_map: A dictionary mapping the names of the augmenters to the augmenter classes.
 
         Returns:
             An instance of the SR_evaluator.
-
-        Raises:
-            Exception: if unable to load data for X/y/ground truth data, if result augmenters provided but not the
-                augmenter map or if the result augmentor does not occur in the augmenter map.
         """
         if data.get("format_version", 1) != 1:
             raise ValueError(
@@ -693,19 +670,6 @@ class SR_evaluator:
         except Exception as e:
             raise ValueError(f"[SR_evaluator.from_dict] Unable to load data for X/y/ground truth due to {e}")
 
-        result_augmenters = []
-        for ra_data in data["result_augmenters"]:
-            if augmenter_map is None:
-                raise ValueError(
-                    "[SR_evaluator.from_dict] Argument augmenter_map must be provided when loading "
-                    "the dictionary contains result augmenters."
-                )
-            if ra_data["type"] not in augmenter_map:
-                raise ValueError(
-                    f"[SR_evaluator.from_dict] Result augmenter {ra_data['type']} not found in the augmenter map."
-                )
-            result_augmenters.append(augmenter_map[ra_data["type"]].from_dict(ra_data, augmenter_map))
-
         symbol_library = SymbolLibrary.from_dict(data["symbol_library"])
         return SR_evaluator(
             X,
@@ -715,7 +679,6 @@ class SR_evaluator:
             max_evaluations=data["max_evaluations"],
             success_threshold=data["success_threshold"],
             ranking_function=data["ranking_function"],
-            result_augmenters=result_augmenters,
             seed=data["seed"],
             metadata=data["metadata"],
             **data["kwargs"],
@@ -759,20 +722,17 @@ class SR_results:
         self,
         models: Dict[str, ModelResult],
         top_k: int,
-        result_augmenters: Optional[List[ResultAugmenter]],
         total_evaluations: int,
         success_threshold: Optional[float],
         approach_name: str,
         metadata: Optional[dict] = None,
     ) -> None:
         """
-        Adds the results of an evaluation to the results object. If needed, the results are additionally augmented
-        using the provided result augmenters. For an example of how to use this function, look at the SR_evaluator.get_results method.
+        Adds the results of an evaluation to the results object.
 
         Args:
             models: A dictionary mapping expressions to their evaluation results.
             top_k: The number of top results to include in the output.
-            result_augmenters: A list of result augmenters to use for augmenting the results.
             total_evaluations: The total number of evaluations performed during the evaluation.
             success_threshold: The success threshold used to determine whether the evaluation was successful.
             approach_name: The name of the approach used to discover the equations.
@@ -806,15 +766,6 @@ class SR_results:
             dataset_name=dataset_name,
             metadata=remaining_metadata,
         )
-
-        if result_augmenters is not None:
-            for augmenter in result_augmenters:
-                try:
-                    augmenter.write_results(results_obj)
-                except Exception as e:
-                    warnings.warn(
-                        f"Error augmenting results, skipping current augmentor because of the following error: {e}"
-                    )
 
         self.results.append(results_obj)
 
@@ -897,10 +848,45 @@ class SR_results:
             print()
         # TODO: Add augmentation information to the results
 
-    # TODO: Function that creates a pareto front
-    # TODO: Function that creates a table with results
-    # TODO: Function that returns the best expression
-    # TODO: Function that augments existing results with new information
+        # TODO: Function that creates a pareto front
+        # TODO: Function that creates a table with results
+        # TODO: Function that returns the best expression
+
+    def augment(self, augmenters: List[ResultAugmenter], experiment_number: Optional[int] = None) -> None:
+        r"""
+        Applies the given augmenters to the results. Augmenters add additional information to the results,
+        such as LaTeX representations, simplified expressions, or R2 scores.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y, seed=42)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
+            >>> from SRToolkit.evaluation.result_augmentation import ExpressionToLatex
+            >>> results.augment([ExpressionToLatex(SymbolLibrary.default_symbols(2))])
+            >>> results[0].augmentations["ExpressionToLatex"]["best_expr_latex"]  # doctest: +ELLIPSIS
+            '$C_{0} \\cdot X_{1} - X_{0}$'
+
+        Args:
+            augmenters: A list of ResultAugmenter objects to apply to the results.
+            experiment_number: If provided, apply augmenters only to this experiment's result.
+                If None, apply to all results.
+        """
+        if experiment_number is not None:
+            assert experiment_number < len(self.results), "[SR_results.augment] experiment number out of bounds"
+            for augmenter in augmenters:
+                try:
+                    augmenter.write_results(self.results[experiment_number])
+                except Exception as e:
+                    warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
+        else:
+            for result in self.results:
+                for augmenter in augmenters:
+                    try:
+                        augmenter.write_results(result)
+                    except Exception as e:
+                        warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
 
     def __add__(self, other):
         """

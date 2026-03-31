@@ -1,10 +1,10 @@
 import os
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
 from SRToolkit.approaches.sr_approach import SR_approach
-from SRToolkit.evaluation.sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
+from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
 from SRToolkit.utils import Node, SymbolLibrary
 
 
@@ -19,7 +19,6 @@ class SR_dataset:
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
         original_equation: Optional[str] = None,
         success_threshold: Optional[float] = None,
-        result_augmenters: Optional[List[ResultAugmenter]] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
         dataset_name: Optional[str] = None,
@@ -55,7 +54,6 @@ class SR_dataset:
                 (see SRToolkit.utils.create_behavior_matrix for more details).
             original_equation: The original equation from which the ground truth expression was generated).
             success_threshold: The threshold for determining whether an expression is successful or not. If None,
-            result_augmenters: Optional list of objects that augment the results returned by the "get_results" function.
             seed: The seed to use for random number generation/reproducibility. Default is None, which means no seed is used.
             dataset_metadata: An optional dictionary containing metadata about this evaluation. This could include
                 information such as the name of the dataset, a citation for the dataset, number of variables, etc.
@@ -92,7 +90,6 @@ class SR_dataset:
         self.ranking_function = ranking_function
         self.ground_truth = ground_truth
         self.original_equation = original_equation
-        self.result_augmenters = result_augmenters
         self.kwargs = kwargs
         self.dataset_name = dataset_name
 
@@ -207,7 +204,6 @@ class SR_dataset:
                 success_threshold=self.success_threshold,
                 ranking_function=self.ranking_function,
                 ground_truth=self.ground_truth,
-                result_augmenters=self.result_augmenters,
                 symbol_library=self.symbol_library,
                 seed=seed,
                 metadata=metadata,
@@ -308,11 +304,6 @@ class SR_dataset:
 
         output["kwargs"] = self.kwargs
 
-        if self.result_augmenters is None:
-            output["result_augmenters"] = None
-        else:
-            output["result_augmenters"] = [ag.to_dict(base_path, name) for ag in self.result_augmenters]
-
         if not os.path.isdir(base_path):
             os.makedirs(base_path)
 
@@ -337,7 +328,7 @@ class SR_dataset:
         return output
 
     @staticmethod
-    def from_dict(d: dict, augmentation_map: Optional[Dict[str, Type[ResultAugmenter]]] = None) -> "SR_dataset":
+    def from_dict(d: dict) -> "SR_dataset":
         """
         Creates an instance of the SR_dataset class from its dictionary representation. This is mainly used for
         loading the dataset from disk.
@@ -355,17 +346,11 @@ class SR_dataset:
 
         Args:
             d: The dictionary representation of the dataset.
-            augmentation_map: A dictionary mapping the names of the result augmentation classes to their respective
-                classes. When default value (None) is used, the SRToolit.evaluation.result_augmentation.RESULT_AUGMENTERS dictionary is used.
         """
         if d.get("format_version", 1) != 1:
             raise ValueError(
                 f"[SR_dataset.from_dict] Unsupported format_version: {d.get('format_version')!r}. Expected 1."
             )
-        if augmentation_map is None:
-            from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
-
-            augmentation_map = RESULT_AUGMENTERS
         try:
             data = np.load(d["dataset_path"])
             X = data["X"]
@@ -384,19 +369,6 @@ class SR_dataset:
             except Exception:
                 raise Exception(f"[SR_dataset.from_dict] Could not load ground truth from {d['ground_truth']}")
 
-        if "result_augmenters" not in d:
-            raise Exception(
-                "[SR_dataset.from_dict] Could not find result_augmenters keyword in the provided dictionary."
-            )
-
-        if d["result_augmenters"] is None:
-            result_augmenters = None
-        else:
-            result_augmenters = [
-                augmentation_map[ag_data["type"]].from_dict(ag_data, augmentation_map)
-                for ag_data in d["result_augmenters"]
-            ]
-
         if "bed_X" in d["kwargs"] and d["kwargs"]["bed_X"] is not None:
             d["kwargs"]["bed_X"] = np.array(d["kwargs"]["bed_X"])
 
@@ -410,7 +382,6 @@ class SR_dataset:
                 ground_truth=ground_truth,
                 original_equation=d["original_equation"],
                 success_threshold=d["success_threshold"],
-                result_augmenters=result_augmenters,
                 seed=d["seed"],
                 dataset_metadata=d["dataset_metadata"],
                 dataset_name=d["dataset_name"],
