@@ -5,7 +5,7 @@ of the best expression, or RMSE on the test set, ...
 """
 
 import warnings
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 import numpy as np
 
@@ -14,57 +14,76 @@ from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
 
 
 class ExpressionToLatex(ResultAugmenter):
-    def __init__(self, symbol_library: SymbolLibrary, only_best_expression: bool = False, verbose: bool = False):
+    def __init__(
+        self,
+        symbol_library: SymbolLibrary,
+        scope: str = "top",
+        verbose: bool = False,
+        name: str = "ExpressionToLatex",
+    ):
         """
-        Transforms the expressions inside the results dictionary into LaTeX strings.
+        Transforms the expressions inside the results into LaTeX strings.
 
         Args:
             symbol_library: The symbol library used to convert tokens into LaTeX symbols.
-            only_best_expression: If True, only the best expression is transformed. If False, all top expressions are
-                transformed.
+            scope: Which expressions to convert. Can be:
+                - "best": only the best expression is converted
+                - "top": the best expression and expressions in the top models are converted
+                - "all": everything in "top" plus all evaluated expressions
             verbose: If True, warns the user if LaTeX conversion fails for a given expression.
+            name: Key used in :attr:`EvalResult.augmentations` and :attr:`ModelResult.augmentations`.
         """
-        super().__init__()
+        super().__init__(name)
         self.symbol_library = symbol_library
-        self.only_best_expression = only_best_expression
+
+        if scope not in ["best", "top", "all"]:
+            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+        self.scope = scope
+
         self.verbose = verbose
 
-    def augment_results(
-        self,
-        results: EvalResult,
-        models: List[ModelResult],
-    ) -> EvalResult:
+    def write_results(self, results: EvalResult) -> None:
         """
-        Transforms the expressions inside the results dictionary into LaTeX strings.
+        Writes LaTeX representations into *results* and its top models.
+
+        Stores ``{"best_expr_latex": ...}`` in ``results.augmentations[self.name]``.
+        If ``only_best_expression`` is False, also stores ``{"expr_latex": ...}`` in
+        each top model's augmentations.
 
         Args:
-            results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
-        Returns:
-            The augmented results dictionary. The results dictionary contains an additional key "best_expr_latex" with
-                the LaTeX representation of the best expression, and similarly keys "expr_latex" for expressions inside
-                the top_models list if only_best_expression is False.
+            results: The :class:`EvalResult` to augment..
         """
+        eval_data: Dict[str, Any] = {}
         try:
-            results["best_expr_latex"] = tokens_to_tree(models[0]["expr"], self.symbol_library).to_latex(
+            eval_data["best_expr_latex"] = tokens_to_tree(EvalResult.top_models[0].expr, self.symbol_library).to_latex(
                 self.symbol_library
             )
         except Exception as e:
             if self.verbose:
                 warnings.warn(f"Unable to convert best expression to LaTeX: {e}")
-        if not self.only_best_expression:
-            for model in results["top_models"]:
+        results.add_augmentation(self.name, eval_data)
+
+        if self.scope == "top" or self.scope == "all":
+            for model in results.top_models:
                 try:
-                    model["expr_latex"] = tokens_to_tree(model["expr"], self.symbol_library).to_latex(
-                        self.symbol_library
+                    model.add_augmentation(
+                        self.name,
+                        {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
                     )
                 except Exception as e:
                     if self.verbose:
-                        warnings.warn(f"Unable to convert expression {''.join(model['expr'])} to LaTeX: {e}")
+                        warnings.warn(f"Unable to convert expression {''.join(model.expr)} to LaTeX: {e}")
 
-        return results
+        if self.scope == "all":
+            for model in results.all_models:
+                try:
+                    model.add_augmentation(
+                        self.name,
+                        {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
+                    )
+                except Exception as e:
+                    if self.verbose:
+                        warnings.warn(f"Unable to convert expression {''.join(model.expr)} to LaTeX: {e}")
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -80,8 +99,9 @@ class ExpressionToLatex(ResultAugmenter):
         return {
             "format_version": 1,
             "type": "ExpressionToLatex",
+            "name": self.name,
             "symbol_library": self.symbol_library.to_dict(),
-            "only_best_expression": self.only_best_expression,
+            "scope": self.scope,
             "verbose": self.verbose,
         }
 
@@ -103,75 +123,97 @@ class ExpressionToLatex(ResultAugmenter):
             )
         return ExpressionToLatex(
             symbol_library=data["symbol_library"],
-            only_best_expression=data["only_best_expression"],
+            scope=data["scope"],
             verbose=data["verbose"],
+            name=data["name"],
         )
 
 
 class ExpressionSimplifier(ResultAugmenter):
-    def __init__(self, symbol_library: SymbolLibrary, only_best_expression: bool = False, verbose: bool = False):
+    def __init__(
+        self,
+        symbol_library: SymbolLibrary,
+        scope: str = "top",
+        verbose: bool = False,
+        name: str = "ExpressionSimplifier",
+    ):
         """
-        Simplifies the expressions inside the results dictionary if possible.
+        Simplifies the expressions inside the results if possible.
 
         Args:
             symbol_library: The symbol library used to simplify the expressions.
-            only_best_expression: If True, only the best expression is simplified. If False, all top expressions are
-                simplified.
+            scope: Which expressions to convert. Can be:
+                - "best": only the best expression is converted
+                - "top": the best expression and expressions in the top models are converted
+                - "all": everything in "top" plus all evaluated expressions
             verbose: If True, warns the user if simplification fails for a given expression.
+            name: Key used in :attr:`EvalResult.augmentations` and :attr:`ModelResult.augmentations`.
         """
-        super().__init__()
+        super().__init__(name)
         self.symbol_library = symbol_library
-        self.only_best_expression = only_best_expression
+
+        if scope not in ["best", "top", "all"]:
+            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+        self.scope = scope
+
         self.verbose = verbose
 
-    def augment_results(
-        self,
-        results: EvalResult,
-        models: List[ModelResult],
-    ) -> EvalResult:
+    def write_results(self, results: EvalResult) -> None:
         """
-        Simplifies the expressions inside the results dictionary if possible.
+        Writes simplified expressions into *results* and its top models.
+
+        Stores ``{"simplified_best_expr": ...}`` in ``results.augmentations[self.name]`` if
+        simplification succeeds. Also stores ``{"simplified_expr": ...}`` for each top model
+        if ``only_best_expression`` is False.
 
         Args:
-            results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
-
-        Returns:
-            The augmented results dictionary. The results dictionary contains an additional key "simplified_best_expr"
-            if simplification was successful for the best expression, and similarly keys "simplified_expr" inside the
-            top_models list if only_best_expression is False.
+            results: The :class:`EvalResult` to augment.
         """
+        eval_data: Dict[str, Any] = {}
         try:
-            simplified_expr = simplify(models[0]["expr"], self.symbol_library)
+            simplified_expr = simplify(results.top_models[0].expr, self.symbol_library)
             if isinstance(simplified_expr, list):
-                results["simplified_best_expr"] = "".join(simplified_expr)
+                eval_data["simplified_best_expr"] = "".join(simplified_expr)
             elif isinstance(simplified_expr, Node):
-                token_list = simplified_expr.to_list(self.symbol_library)
-                results["simplified_best_expr"] = "".join(token_list)
+                eval_data["simplified_best_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
             else:
                 raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
-
         except Exception as e:
             if self.verbose:
-                warnings.warn(f"Unable to simplify {results['best_expr']}: {e}")
+                warnings.warn(f"Unable to simplify {results.best_expr}: {e}")
+        results.add_augmentation(self.name, eval_data)
 
-        for model in results["top_models"]:
-            try:
-                simplified_expr = simplify(model["expr"], self.symbol_library)
-                if isinstance(simplified_expr, list):
-                    model["simplified_expr"] = "".join(simplified_expr)
-                elif isinstance(simplified_expr, Node):
-                    token_list = simplified_expr.to_list(self.symbol_library)
-                    model["simplified_expr"] = "".join(token_list)
-                else:
-                    raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
-            except Exception as e:
-                if self.verbose:
-                    warnings.warn(f"Unable to simplify {model['expr']}: {e}")
+        if self.scope == "top" or self.scope == "all":
+            for model in results.top_models:
+                top_model_data: Dict[str, Any] = {}
+                try:
+                    simplified_expr = simplify(model.expr, self.symbol_library)
+                    if isinstance(simplified_expr, list):
+                        top_model_data["simplified_expr"] = "".join(simplified_expr)
+                    elif isinstance(simplified_expr, Node):
+                        top_model_data["simplified_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
+                    else:
+                        raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
+                except Exception as e:
+                    if self.verbose:
+                        warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
+                model.add_augmentation(self.name, top_model_data)
 
-        return results
+        if self.scope == "all":
+            for model in results.all_models:
+                all_model_data: Dict[str, Any] = {}
+                try:
+                    simplified_expr = simplify(model.expr, self.symbol_library)
+                    if isinstance(simplified_expr, list):
+                        all_model_data["simplified_expr"] = "".join(simplified_expr)
+                    elif isinstance(simplified_expr, Node):
+                        all_model_data["simplified_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
+                    else:
+                        raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
+                except Exception as e:
+                    if self.verbose:
+                        warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
+                model.add_augmentation(self.name, all_model_data)
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -187,8 +229,9 @@ class ExpressionSimplifier(ResultAugmenter):
         return {
             "format_version": 1,
             "type": "ExpressionSimplifier",
+            "name": self.name,
             "symbol_library": self.symbol_library,
-            "only_best_expression": self.only_best_expression,
+            "scope": self.scope,
             "verbose": self.verbose,
         }
 
@@ -209,57 +252,71 @@ class ExpressionSimplifier(ResultAugmenter):
             )
         return ExpressionSimplifier(
             symbol_library=data["symbol_library"],
-            only_best_expression=data["only_best_expression"],
+            scope=data["scope"],
             verbose=data["verbose"],
+            name=data["name"],
         )
 
 
 class RMSE(ResultAugmenter):
-    def __init__(self, evaluator: SR_evaluator):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "RMSE"):  # noqa: F821
         """
-        Computes the RMSE for the top models in the results dictionary.
+        Computes the RMSE for the top models using a separate evaluator (e.g. a test-set evaluator).
 
         Args:
-            evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
-                evaluator must be initialized with ranking_function = "rmse"
+            evaluator: The evaluator used to evaluate the models. Must be initialized with
+                ``ranking_function = "rmse"``.
+            scope: Which expressions to convert. Can be:
+                - "best": only the best expression is converted
+                - "top": the best expression and expressions in the top models are converted
+                - "all": everything in "top" plus all evaluated expressions
+            name: Key used in :attr:`EvalResult.augmentations` and :attr:`ModelResult.augmentations`.
 
         Raises:
             Exception: If the evaluator is not initialized with ranking_function = "rmse" or if y in the evaluator is None.
         """
-        super().__init__()
+        super().__init__(name)
         self.evaluator = evaluator
+
+        if scope not in ["best", "top", "all"]:
+            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+        self.scope = scope
+
         if self.evaluator.ranking_function != "rmse":
             raise Exception("[RMSE augmenter] Ranking function of the evaluator must be set to 'rmse' to compute RMSE.")
         if self.evaluator.y is None:
             raise Exception("[RMSE augmenter] y in the evaluator must not be None to compute RMSE.")
 
-    def augment_results(
-        self,
-        results: EvalResult,
-        models: List[ModelResult],
-    ) -> EvalResult:
+    def write_results(self, results: EvalResult) -> None:
         """
-        Computes the RMSE for the top models in the results dictionary.
+        Writes RMSE scores into *results* and its top models.
+
+        Stores ``{"min_error": ...}`` in ``results.augmentations[self.name]`` and
+        ``{"error": ..., "parameters": ...}`` in each top model's augmentations.
 
         Args:
-            results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
-
-        Returns:
-            The augmented results dictionary. The results dictionary contains an additional key "best_expr_rmse" with the
-            RMSE of the best expression, and keys "rmse" and "parameters_rmse" for each of the top_models inside the
-            results["top_models"] list.
+            results: The :class:`EvalResult` to augment.
         """
-        expr = models[0]["expr"]
-        error = self.evaluator.evaluate_expr(expr)
-        results["min_error"] = error
-        for model in results["top_models"]:
-            error = self.evaluator.evaluate_expr(model["expr"])
-            model["error"] = error
-            model["parameters"] = self.evaluator.models["".join(model["expr"])]["parameters"]
-        return results
+        eval_data: Dict[str, Any] = {"min_error": self.evaluator.evaluate_expr(results.top_models[0].expr)}
+        results.add_augmentation(self.name, eval_data)
+
+        if self.scope == "top" or self.scope == "all":
+            for model in results.top_models:
+                key = "".join(model.expr)
+                top_model_data: Dict[str, Any] = {
+                    "error": self.evaluator.evaluate_expr(model.expr),
+                    "parameters": self.evaluator.models[key].parameters,
+                }
+                model.add_augmentation(self.name, top_model_data)
+
+        if self.scope == "all":
+            for model in results.all_models:
+                key = "".join(model.expr)
+                all_model_data: Dict[str, Any] = {
+                    "error": self.evaluator.evaluate_expr(model.expr),
+                    "parameters": self.evaluator.models[key].parameters,
+                }
+                model.add_augmentation(self.name, all_model_data)
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -274,7 +331,9 @@ class RMSE(ResultAugmenter):
         """
         return {
             "format_version": 1,
+            "name": self.name,
             "type": "RMSE",
+            "scope": self.scope,
             "evaluator": self.evaluator.to_dict(base_path, name + "_RMSE_augmenter"),
         }
 
@@ -295,50 +354,61 @@ class RMSE(ResultAugmenter):
                 f"[RMSE.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
             )
         evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
-        return RMSE(evaluator)
+        return RMSE(evaluator, scope=data["scope"], name=data["name"])
 
 
 class BED(ResultAugmenter):
-    def __init__(self, evaluator: SR_evaluator):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "BED"):  # noqa: F821
         """
-        Computes BED for the top models in the results dictionary.
+        Computes BED for the top models using a separate evaluator.
 
         Args:
-            evaluator: The evaluator used to evaluate the models. This evaluator must be initialized with
-                ranking_function = "bed"
+            evaluator: The evaluator used to evaluate the models. Must be initialized with
+                ``ranking_function = "bed"``.
+            scope: Which expressions to convert. Can be:
+                - "best": only the best expression is converted
+                - "top": the best expression and expressions in the top models are converted
+                - "all": everything in "top" plus all evaluated expressions
+            name: Key used in :attr:`EvalResult.augmentations` and :attr:`ModelResult.augmentations`.
 
         Raises:
             Exception: If the evaluator is not initialized with ranking_function = "bed".
         """
-        super().__init__()
+        super().__init__(name)
         self.evaluator = evaluator
+
+        if scope not in ["best", "top", "all"]:
+            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+        self.scope = scope
+
         if self.evaluator.ranking_function != "bed":
             raise Exception("[BED augmenter] Ranking function of the evaluator must be set to 'bed' to compute BED.")
 
-    def augment_results(
+    def write_results(
         self,
         results: EvalResult,
-        models: List[ModelResult],
-    ) -> EvalResult:
+    ) -> None:
         """
-        Computes BED for the top models in the results dictionary.
+        Writes BED scores into *results* and its top models.
+
+        Stores ``{"best_expr_bed": ...}`` in ``results.augmentations[self.name]`` and
+        ``{"bed": ...}`` in each top model's augmentations.
 
         Args:
-            results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
-
-        Returns:
-            The augmented results dictionary. The results dictionary contains an additional key "best_expr_bed" with
-            BED of the best expression, and key "bed" for each of the top_models inside the results["top_models"] list.
+            results: The :class:`EvalResult` to augment.
         """
-        expr = models[0]["expr"]
-        error = self.evaluator.evaluate_expr(expr)
-        results["best_expr_bed"] = error
-        for model in results["top_models"]:
-            model["bed"] = self.evaluator.evaluate_expr(model["expr"])
-        return results
+        eval_data: Dict[str, Any] = {"best_expr_bed": self.evaluator.evaluate_expr(results.top_models[0].expr)}
+        results.add_augmentation(self.name, eval_data)
+
+        if self.scope == "top" or self.scope == "all":
+            for model in results.top_models:
+                top_model_data: Dict[str, Any] = {"bed": self.evaluator.evaluate_expr(model.expr)}
+                model.add_augmentation(self.name, top_model_data)
+
+        if self.scope == "all":
+            for model in results.all_models:
+                all_model_data: Dict[str, Any] = {"bed": self.evaluator.evaluate_expr(model.expr)}
+                model.add_augmentation(self.name, all_model_data)
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -353,7 +423,9 @@ class BED(ResultAugmenter):
         """
         return {
             "format_version": 1,
+            "name": self.name,
             "type": "BED",
+            "scope": self.scope,
             "evaluator": self.evaluator.to_dict(base_path, name + "_BED_augmenter"),
         }
 
@@ -372,23 +444,33 @@ class BED(ResultAugmenter):
         if data.get("format_version", 1) != 1:
             raise ValueError(f"[BED.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1.")
         evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
-        return BED(evaluator)
+        return BED(evaluator, scope=data["scope"], name=data["name"])
 
 
 class R2(ResultAugmenter):
-    def __init__(self, evaluator: SR_evaluator):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "R2"):  # noqa: F821
         """
-        Computes the R^2 for the top models in the results dictionary.
+        Computes the R^2 for the top models using a separate evaluator.
 
         Args:
-            evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). This
-                evaluator must be initialized with ranking_function = "rmse". If you're also using the RMSE augmenter,
-                they the same one can be used for both.
+            evaluator: The evaluator used to evaluate the models (e.g., evaluator defined with test set data). Must be
+                initialized with ``ranking_function = "rmse"``. The same evaluator instance can be shared with
+                :class:`RMSE`.
+            scope: Which expressions to convert. Can be:
+                - "best": only the best expression is converted
+                - "top": the best expression and expressions in the top models are converted
+                - "all": everything in "top" plus all evaluated expressions
+            name: Key used in :attr:`EvalResult.augmentations` and :attr:`ModelResult.augmentations`.
 
         Raises:
             Exception: If the evaluator is not initialized with ranking_function = "rmse" or if y in the evaluator is None.
         """
-        super().__init__()
+        super().__init__(name)
+
+        if scope not in ["best", "top", "all"]:
+            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+        self.scope = scope
+
         self.evaluator = evaluator
         if self.evaluator.ranking_function != "rmse":
             raise Exception("[R2 augmenter] Ranking function of the evaluator must be set to 'rmse' to compute R^2.")
@@ -396,38 +478,40 @@ class R2(ResultAugmenter):
             raise Exception("[R2 augmenter] y in the evaluator must not be None to compute R^2.")
         self.ss_tot = np.sum((self.evaluator.y - np.mean(self.evaluator.y)) ** 2)
 
-    def augment_results(
-        self,
-        results: EvalResult,
-        models: List[ModelResult],
-    ) -> EvalResult:
+    def write_results(self, results: EvalResult) -> None:
         """
-        Computes the R^2 for the top models in the results dictionary.
+        Writes R^2 scores into *results* and its top models.
+
+        Stores ``{"best_expr_r^2": ...}`` in ``results.augmentations[self.name]`` and
+        ``{"r^2": ..., "parameters_r^2": ...}`` in each top model's augmentations.
 
         Args:
-            results: The dictionary containing the results to augment.
-            models: A list of dictionaries describing the performance of expressions using the base ranking function.
-                Keyword expr contains the expression, error contains the error of the expression. The list is sorted
-                by error.
-
-        Returns:
-            The augmented results dictionary. The results dictionary contains an additional key "best_expr_r^2" with the
-            R^2 of the best expression, and keys "r^2" and "parameters_r^2" for each of the top_models inside the
-            results["top_models"] list.
+            results: The :class:`EvalResult` to augment.
         """
-        results["best_expr_r^2"] = self._compute_r2(models[0])
-        for model in results["top_models"]:
-            r2 = self._compute_r2(model)
-            model["r^2"] = r2
-            model["parameters_r^2"] = (
-                self.evaluator.models["".join(model["expr"])]["parameters"]
-                if "parameters" in self.evaluator.models["".join(model["expr"])]
-                else ""
-            )
-        return results
+        eval_data: Dict[str, Any] = {"best_expr_r^2": self._compute_r2(results.top_models[0])}
+        results.add_augmentation(self.name, eval_data)
 
-    def _compute_r2(self, model: dict):
-        ss_res = self.evaluator.y.shape[0] * self.evaluator.evaluate_expr(model["expr"]) ** 2
+        if self.scope == "top" or self.scope == "all":
+            for model in results.top_models:
+                key = "".join(model.expr)
+                top_model_data: Dict[str, Any] = {
+                    "r^2": self._compute_r2(model),
+                    "parameters_r^2": self.evaluator.models[key].parameters,
+                }
+                model.add_augmentation(self.name, top_model_data)
+
+        if self.scope == "all":
+            for model in results.top_models:
+                key = "".join(model.expr)
+                all_model_data: Dict[str, Any] = {
+                    "r^2": self._compute_r2(model),
+                    "parameters_r^2": self.evaluator.models[key].parameters,
+                }
+                model.add_augmentation(self.name, all_model_data)
+
+    def _compute_r2(self, model: ModelResult) -> float:
+        assert self.evaluator.y is not None, "y in the evaluator must not be None to compute R^2."
+        ss_res = self.evaluator.y.shape[0] * self.evaluator.evaluate_expr(model.expr) ** 2
         return max(0, 1 - ss_res / self.ss_tot)
 
     def to_dict(self, base_path: str, name: str) -> dict:
@@ -443,7 +527,9 @@ class R2(ResultAugmenter):
         """
         return {
             "format_version": 1,
+            "name": self.name,
             "type": "R2",
+            "scope": self.scope,
             "evaluator": self.evaluator.to_dict(base_path, name + "_R2_augmenter"),
         }
 
@@ -462,7 +548,7 @@ class R2(ResultAugmenter):
         if data.get("format_version", 1) != 1:
             raise ValueError(f"[R2.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1.")
         evaluator = SR_evaluator.from_dict(data["evaluator"], augmenter_map=augmenter_map)
-        return R2(evaluator)
+        return R2(evaluator, scope=data["scope"], name=data["name"])
 
 
 RESULT_AUGMENTERS: Dict[str, Type[ResultAugmenter]] = {

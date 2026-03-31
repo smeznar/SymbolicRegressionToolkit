@@ -7,7 +7,8 @@ import logging
 import os
 import warnings
 from contextlib import nullcontext
-from typing import Any, Dict, List, Optional, TypedDict, Union, cast
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
@@ -21,34 +22,56 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 logger = logging.getLogger(__name__)
 
 
-class _ModelResultBase(TypedDict):
-    """Required fields present in every model entry."""
-
-    expr: List[str]
-    error: float
-
-
-class ModelResult(_ModelResultBase, total=False):
+@dataclass
+class ModelResult:
     """
-    A single model entry in ``EvalResult["top_models"]`` and ``EvalResult["all_models"]``.
+    A single model entry in ``EvalResult.top_models`` and ``EvalResult.all_models``.
 
     Attributes:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
         error: Numeric error under the ranking function (RMSE or BED).
-        parameters: (Optional) Fitted constant values. Present for RMSE ranking only.
-        expr_latex: (Optional) LaTeX string. Added by :class:`ExpressionToLatex`.
-        simplified_expr: (Optional) Simplified token string. Added by :class:`ExpressionSimplifier`.
-        bed: (Optional) BED score. Added by :class:`BED` augmenter.
+        parameters: Fitted constant values. Present for RMSE ranking only, ``None`` otherwise.
+        augmentations: Per-augmenter data keyed by augmenter name. Populated by
+            :class:`ResultAugmenter` subclasses via :meth:`add_augmentation`.
     """
 
-    parameters: "np.ndarray"
-    expr_latex: str
-    simplified_expr: str
-    bed: float
+    expr: List[str]
+    error: float
+    parameters: Optional["np.ndarray"] = None
+    augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    def add_augmentation(self, name: str, data: Dict[str, Any]) -> None:
+        """
+        Stores *data* under *name* in :attr:`augmentations`. If *name* already exists,
+        appends a numeric suffix (``"RMSE_1"``, ``"RMSE_2"``, …) to avoid overwriting.
+        """
+        resolved = name
+        counter = 1
+        while resolved in self.augmentations:
+            resolved = f"{name}_{counter}"
+            counter += 1
+        self.augmentations[resolved] = data
 
 
-class _EvalResultBase(TypedDict):
-    """Required fields present in every experiment result."""
+@dataclass
+class EvalResult:
+    """
+    Result for a single SR experiment, as returned by ``SR_results[i]``.
+
+    Attributes:
+        min_error: Lowest error achieved across all evaluated expressions.
+        best_expr: String representation of the best expression found.
+        num_evaluated: Number of unique expressions evaluated.
+        evaluation_calls: Number of times ``evaluate_expr`` was called (includes cache hits).
+        top_models: Top-*k* models sorted by error.
+        all_models: All evaluated models sorted by error.
+        approach_name: Name of the SR approach, or empty string if not provided.
+        success: Whether ``min_error`` is below the configured ``success_threshold``.
+        dataset_name: Name of the dataset, extracted from metadata. ``None`` if not provided.
+        metadata: Remaining metadata dict after ``dataset_name`` is popped. ``None`` if empty.
+        augmentations: Per-augmenter data keyed by augmenter name. Populated by
+            :class:`ResultAugmenter` subclasses via :meth:`add_augmentation`.
+    """
 
     min_error: float
     best_expr: str
@@ -58,64 +81,52 @@ class _EvalResultBase(TypedDict):
     all_models: List[ModelResult]
     approach_name: str
     success: bool
+    dataset_name: Optional[str] = None
+    metadata: Optional[dict] = None
+    augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
-
-class EvalResult(_EvalResultBase, total=False):
-    """
-    Result dictionary for a single SR experiment, as returned by ``SR_results[i]``.
-
-    Attributes:
-        min_error: Lowest error achieved across all evaluated expressions.
-        best_expr: String representation of the best expression found.
-        num_evaluated: Number of unique expressions evaluated.
-        evaluation_calls: Number of times ``evaluate_expr`` was called (includes cache hits).
-        top_models: Top-*k* models sorted by error, each a :class:`ModelResult`.
-        all_models: All evaluated models sorted by error, each a :class:`ModelResult`.
-        approach_name: Name of the SR approach, or empty string if not provided.
-        success: Whether ``min_error`` is below the configured ``success_threshold``.
-        dataset_name: (Optional) Name of the dataset, extracted from metadata.
-        metadata: (Optional) Remaining metadata dict after ``dataset_name`` is popped.
-        best_expr_latex: (Optional) LaTeX string of the best expression. Added by :class:`ExpressionToLatex`.
-        simplified_best_expr: (Optional) Simplified best expression string. Added by :class:`ExpressionSimplifier`.
-        best_expr_bed: (Optional) BED score of the best expression. Added by :class:`BED` augmenter.
-
-    Custom augmenters may add arbitrary keys at runtime. Static type checkers
-    will flag access to those keys unless you subclass ``EvalResult`` to declare
-    them or suppress the error with ``cast``/``# type: ignore``.
-    """
-
-    dataset_name: str
-    metadata: dict
-    best_expr_latex: str
-    simplified_best_expr: str
-    best_expr_bed: float
+    def add_augmentation(self, name: str, data: Dict[str, Any]) -> None:
+        """
+        Stores *data* under *name* in :attr:`augmentations`. If *name* already exists,
+        appends a numeric suffix (``"RMSE_1"``, ``"RMSE_2"``, …) to avoid overwriting.
+        """
+        resolved = name
+        counter = 1
+        while resolved in self.augmentations:
+            resolved = f"{name}_{counter}"
+            counter += 1
+        self.augmentations[resolved] = data
 
 
 class ResultAugmenter:
-    def __init__(self):
+    def __init__(self, name: str):
         """
-        Generic class that defines the interface for result augmentation. For examples, see the implementations of
-        this class at SRToolkit.evaluation.result_augmentation.py.
-        """
-        raise NotImplementedError("ResultAugmenter is an abstract class and cannot be instantiated.")
+        Base class for result augmenters. Subclasses implement :meth:`write_results` to compute
+        and store additional data in an :class:`EvalResult` via :meth:`EvalResult.add_augmentation`.
 
-    def augment_results(
-        self,
-        results: "EvalResult",
-        models: List[ModelResult],
-    ) -> "EvalResult":
-        """
-        Augments the results dictionary with additional information. The model variable contains all models, for only
-        top models, results["top_models"] should be used.
+        For examples, see the implementations in ``SRToolkit.evaluation.result_augmentation``.
 
         Args:
-            results: The dictionary containing the results to augment.
-            models: A list of :class:`ModelResult` dicts sorted by error (best first).
-
-        Returns:
-            The augmented results dictionary.
+            name: Identifier used as the key in :attr:`EvalResult.augmentations` and
+                :attr:`ModelResult.augmentations`. If two augmenters share the same name,
+                :meth:`EvalResult.add_augmentation` appends a numeric suffix automatically.
         """
-        raise NotImplementedError("augment_results is not implemented as ResultAugmenter is an abstract class.")
+        self.name = name
+
+    def write_results(
+        self,
+        results: "EvalResult",
+    ) -> None:
+        """
+        Computes and writes augmentation data into *results* and its top models.
+
+        Call ``results.add_augmentation(self.name, {...})`` for experiment-level data and
+        ``model.add_augmentation(self.name, {...})`` for per-model data.
+
+        Args:
+            results: The :class:`EvalResult` to augment.
+        """
+        raise NotImplementedError("write_results is not implemented as ResultAugmenter is an abstract class.")
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -384,7 +395,7 @@ class SR_evaluator:
             True
             >>> list(se.models.keys())[0]
             'C+X_1'
-            >>> print(0.99 < se.models["C+X_1"]["parameters"][0] < 1.01)
+            >>> print(0.99 < se.models["C+X_1"].parameters[0] < 1.01)
             True
             >>> # Evaluating invalid expression returns nan and adds it to invalid list
             >>> print(se.evaluate_expr(["C", "*", "X_1", "X_0"]))
@@ -449,7 +460,7 @@ class SR_evaluator:
             if expr_str in self.models:
                 if verbose > 0:
                     logger.debug("Already evaluated %s", expr_str)
-                return self.models[expr_str]["error"]
+                return self.models[expr_str].error
 
             else:
                 if self.ranking_function == "rmse":
@@ -482,11 +493,11 @@ class SR_evaluator:
                         self.invalid.append(expr_str)
                         error, parameters = np.nan, np.array([])
 
-                    self.models[expr_str] = {
-                        "error": error,
-                        "parameters": parameters,
-                        "expr": expr_list,
-                    }
+                    self.models[expr_str] = ModelResult(
+                        expr=expr_list,
+                        error=error,
+                        parameters=parameters,
+                    )
 
                 elif self.ranking_function == "bed":
                     try:
@@ -525,10 +536,10 @@ class SR_evaluator:
                         self.invalid.append(expr_str)
                         error = np.nan
 
-                    self.models[expr_str] = {
-                        "error": error,
-                        "expr": expr_list,
-                    }
+                    self.models[expr_str] = ModelResult(
+                        expr=expr_list,
+                        error=error,
+                    )
 
                 else:
                     raise ValueError(f"Ranking function {self.ranking_function} not supported.")
@@ -549,15 +560,15 @@ class SR_evaluator:
             >>> se = SR_evaluator(X, y)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
-            >>> print(results[0]["num_evaluated"])
+            >>> print(results[0].num_evaluated)
             1
-            >>> print(results[0]["evaluation_calls"])
+            >>> print(results[0].evaluation_calls)
             1
-            >>> print(results[0]["best_expr"])
+            >>> print(results[0].best_expr)
             C*X_1-X_0
-            >>> print(results[0]["min_error"] < 1e-6)
+            >>> print(results[0].min_error < 1e-6)
             True
-            >>> print(1.99 < results[0]["top_models"][0]["parameters"][0] < 2.01)
+            >>> print(1.99 < results[0].top_models[0].parameters[0] < 2.01)
             True
 
         Args:
@@ -578,6 +589,7 @@ class SR_evaluator:
 
         if results is None:
             results = SR_results()
+
         results.add_results(
             self.models,
             top_k,
@@ -721,19 +733,19 @@ class SR_results:
             >>> se = SR_evaluator(X, y, seed=42)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1) # Obtain an instance of SR_results
-            >>> print(results[0]["num_evaluated"])
+            >>> print(results[0].num_evaluated)
             1
-            >>> print(results[0]["evaluation_calls"])
+            >>> print(results[0].evaluation_calls)
             1
-            >>> print(results[0]["best_expr"])
+            >>> print(results[0].best_expr)
             C*X_1-X_0
-            >>> print(results[0]["min_error"] < 1e-6)
+            >>> print(results[0].min_error < 1e-6)
             True
-            >>> print(1.99 < results[0]["top_models"][0]["parameters"][0] < 2.01)
+            >>> print(1.99 < results[0].top_models[0].parameters[0] < 2.01)
             True
 
         Attributes:
-            results: A list of dictionaries containing the results of each evaluation.
+            results: A list of :class:`EvalResult` instances containing the results of each evaluation.
 
         Methods:
             add_results: Adds the results of an evaluation to the results object. If needed, the results are
@@ -767,56 +779,44 @@ class SR_results:
             metadata: A dictionary containing additional metadata about the evaluation.
         """
         models_list = list(models.values())
-        best_indices = np.argsort([v["error"] for v in models_list])
-        best_models = [models_list[i] for i in best_indices]
+        sorted_indices = np.argsort([v.error for v in models_list])
+        sorted_models = [models_list[i] for i in sorted_indices]
 
-        results_dict = cast(
-            EvalResult,
-            cast(
-                object,
-                {
-                    "min_error": best_models[0]["error"],
-                    "best_expr": "".join(best_models[0]["expr"]),
-                    "num_evaluated": len(models_list),
-                    "evaluation_calls": total_evaluations,
-                    "top_models": list(),
-                    "all_models": models_list,
-                    "approach_name": approach_name,
-                },
-            ),
-        )
-
+        dataset_name = None
+        remaining_metadata = None
         if metadata is not None and "dataset_name" in metadata:
-            results_dict["dataset_name"] = metadata["dataset_name"]
-            metadata.pop("dataset_name")
-            if len(metadata) > 0:
-                results_dict["metadata"] = metadata
+            dataset_name = metadata["dataset_name"]
+            remaining_metadata = {key: value for key, value in metadata.items() if key != "dataset_name"}
+            if len(remaining_metadata) == 0:
+                remaining_metadata = None
         elif metadata is not None:
-            results_dict["metadata"] = metadata
+            remaining_metadata = metadata
 
-        # Determine success based on the predefined success threshold
-        if success_threshold is not None and results_dict["min_error"] < success_threshold:
-            results_dict["success"] = True
-        else:
-            results_dict["success"] = False
+        success = success_threshold is not None and sorted_models[0].error < success_threshold
 
-        for model in best_models[:top_k]:
-            m: ModelResult = {"expr": model["expr"], "error": model["error"]}
-            if "parameters" in model:
-                m["parameters"] = model["parameters"]
-
-            results_dict["top_models"].append(m)
+        results_obj = EvalResult(
+            min_error=sorted_models[0].error,
+            best_expr="".join(sorted_models[0].expr),
+            num_evaluated=len(models_list),
+            evaluation_calls=total_evaluations,
+            top_models=sorted_models[:top_k],
+            all_models=models_list,
+            approach_name=approach_name,
+            success=success,
+            dataset_name=dataset_name,
+            metadata=remaining_metadata,
+        )
 
         if result_augmenters is not None:
             for augmenter in result_augmenters:
                 try:
-                    results_dict = augmenter.augment_results(results_dict, models_list)
+                    augmenter.write_results(results_obj)
                 except Exception as e:
                     warnings.warn(
                         f"Error augmenting results, skipping current augmentor because of the following error: {e}"
                     )
 
-        self.results.append(results_dict)
+        self.results.append(results_obj)
 
     def print_results(self, experiment_number: Optional[int] = None, detailed: bool = False):
         r"""
@@ -848,7 +848,7 @@ class SR_results:
             Success: ...
             <BLANKLINE>
             Top models:
-            Model 1 - expr: ['C', '*', 'X_1', '-', 'X_0'], error: ..., parameters: [...]
+            Model 1 - expr: ['C', '*', 'X_1', '-', 'X_0'], error: ..., parameters: ...
             <BLANKLINE>
 
         Args:
@@ -867,31 +867,40 @@ class SR_results:
             SR_results._print_result_(self.results[experiment_number], detailed)
 
     @staticmethod
-    def _print_result_(result, detailed: bool = False):
-        if "dataset_name" in result:
-            print(f"Dataset: {result['dataset_name']}")
-        if result["approach_name"] != "":
-            print(f"Approach: {result['approach_name']}")
-        print(f"Best expression found: {result['best_expr']}")
-        print(f"Error: {result['min_error']}")
-        print(f"Number of evaluated expressions: {result['num_evaluated']}")
-        print(f"Number of times evaluate_expr was called: {result['evaluation_calls']}")
-        print(f"Success: {result['success']}")
+    def _print_result_(result: EvalResult, detailed: bool = False):
+        if result.dataset_name is not None:
+            print(f"Dataset: {result.dataset_name}")
+        if result.approach_name != "":
+            print(f"Approach: {result.approach_name}")
+        print(f"Best expression found: {result.best_expr}")
+        print(f"Error: {result.min_error}")
+        print(f"Number of evaluated expressions: {result.num_evaluated}")
+        print(f"Number of times evaluate_expr was called: {result.evaluation_calls}")
+        print(f"Success: {result.success}")
         print()
-        if "metadata" in result and result["metadata"] is not None and len(result["metadata"]) > 0:
+        if result.metadata is not None and len(result.metadata) > 0:
             print("Metadata:")
-            for key, value in result["metadata"].items():
+            for key, value in result.metadata.items():
                 print(f"{key}: {value}")
             print()
         if detailed:
             print("Top models:")
-            for j, model in enumerate(result["top_models"]):
-                print(f"Model {j + 1} - " + ", ".join(["{}: {}".format(key, value) for key, value in model.items()]))
+            for j, model in enumerate(result.top_models):
+                parts = [f"expr: {model.expr}", f"error: {model.error}"]
+                if model.parameters is not None:
+                    parts.append(f"parameters: {model.parameters}")
+                if model.augmentations is not None:
+                    parts.append("augmentations: ")
+                    for augmentation in model.augmentations:
+                        parts.append(f"({augmentation})")
+                print(f"Model {j + 1} - " + ", ".join(parts))
             print()
+        # TODO: Add augmentation information to the results
 
     # TODO: Function that creates a pareto front
     # TODO: Function that creates a table with results
     # TODO: Function that returns the best expression
+    # TODO: Function that augments existing results with new information
 
     def __add__(self, other):
         """

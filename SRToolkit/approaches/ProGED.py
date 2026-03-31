@@ -28,15 +28,15 @@ class ProGED(SR_approach):
         >>> model = ProGED(dataset.symbol_library, verbose=False)
         >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
         >>> r = results[0]
-        >>> r["dataset_name"]
+        >>> r.dataset_name
         'I.16.6'
-        >>> r["approach_name"]
+        >>> r.approach_name
         'ProGED'
-        >>> r["best_expr"]
+        >>> r.best_expr
         'X_0/C/C'
-        >>> r["num_evaluated"]
+        >>> r.num_evaluated
         77
-        >>> r["success"]
+        >>> bool(r.success)
         False
 
     Args:

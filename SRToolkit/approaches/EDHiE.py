@@ -150,6 +150,9 @@ class BatchedNode:
         return torch.stack(predictions, dim=2)
 
     def get_prediction_rec(self) -> List[torch.Tensor]:
+        if self.prediction is None:
+            return []
+
         reps = []
         if isinstance(self.left, BatchedNode):
             reps += self.left.get_prediction_rec()
@@ -216,7 +219,7 @@ class HVAE(nn.Module):
         mu, logvar = self.encoder(tree)
         return mu, logvar
 
-    def decode(self, z: torch.Tensor) -> List[Node]:
+    def decode(self, z: torch.Tensor) -> List[Node | None]:
         return self.decoder.decode(z)
 
 
@@ -241,14 +244,15 @@ class Encoder(nn.Module):
         if isinstance(tree.left, BatchedNode):
             h_left = self.recursive_forward(tree.left)
         else:
-            h_left = torch.zeros(tree.target.size(0), self.hidden_size)
+            h_left = torch.zeros(len(tree.symbols), self.hidden_size)
 
         if isinstance(tree.right, BatchedNode):
             h_right = self.recursive_forward(tree.right)
         else:
-            h_right = torch.zeros(tree.target.size(0), self.hidden_size)
+            h_right = torch.zeros(len(tree.symbols), self.hidden_size)
 
         hidden = self.gru(tree.target, h_left, h_right)
+        assert tree.mask is not None, "Mask is not defined"
         hidden = hidden.mul(tree.mask[:, None])
         return hidden
 
@@ -293,7 +297,7 @@ class Decoder(nn.Module):
                 self.recursive_forward(right, tree.right)
 
     # Used for inference to generate expression trees from latent vectorS
-    def decode(self, z: torch.Tensor) -> List[Node]:
+    def decode(self, z: torch.Tensor) -> List[Node | None]:
         with torch.no_grad():
             mask = torch.ones(z.size(0)).bool()
             hidden = self.z2h(z)
@@ -324,7 +328,7 @@ class Decoder(nn.Module):
 
     def sample_symbol(
         self, prediction: torch.Tensor, mask: torch.Tensor, height: int
-    ) -> (List[str], torch.Tensor, torch.Tensor):
+    ) -> Tuple[List[str], torch.Tensor, torch.Tensor]:
         # Select the symbol with the highest value ("probability")
         symbols = []
         left_mask = torch.clone(mask)
