@@ -10,7 +10,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
 class Node:
-    def __init__(self, symbol: str, right: Optional["Node"] = None, left: Optional["Node"] = None):
+    def __init__(self, symbol: str, right: Optional["Node"] = None, left: Optional["Node"] = None) -> None:
         """
         Initializes a Node object. We assume that nodes containing functions have only one child node, i.e. right is None.
 

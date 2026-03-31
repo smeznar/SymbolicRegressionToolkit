@@ -36,14 +36,13 @@ class TestExprToExecutableFunction:
         with pytest.raises(Exception, match="Expression must be given"):
             expr_to_executable_function(42)
 
-    def test_namespace_isolation(self): # Recheck
+    def test_namespace_isolation(self):  # Recheck
         """The exec namespace should not leak module globals."""
         sl = SymbolLibrary.default_symbols(1)
         fn = expr_to_executable_function(["X_0", "+", "1"], sl)
         X = np.array([[1.0]])
         result = fn(X, np.array([]))
         assert result[0] == 2.0
-
 
     def test_nan_producing_expr(self):
         """Expressions that produce inf/nan should return the result without crashing."""
@@ -84,6 +83,7 @@ class TestExprToErrorFunction:
     # Test too few constants
     # Test too many variables
     # Test too few variables
+
 
 class TestPreambleInjection:
     def test_custom_preamble(self):

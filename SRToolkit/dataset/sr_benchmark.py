@@ -8,10 +8,12 @@ from urllib.request import urlopen
 from zipfile import ZipFile
 
 import numpy as np
+from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.types import EstimationSettings
 
 from .sr_dataset import SR_dataset
 
@@ -100,7 +102,7 @@ class SR_benchmark:
         success_threshold: Optional[float] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
-        **kwargs,
+        **kwargs: Unpack[EstimationSettings],
     ):
         """
         Adds a dataset to the benchmark.
@@ -110,8 +112,8 @@ class SR_benchmark:
             >>> benchmark = SR_benchmark("BM", "data/bm")
             >>> benchmark.add_dataset("data/feynman/I.14.3.npz", SymbolLibrary.default_symbols(3),
             ...       dataset_name="I.14.3", ranking_function="rmse", ground_truth = ["X_0", "*", "X_1", "*", "X_2"],
-            ...       original_equation="U = m*g*z", max_evaluations=100000, max_expression_length=50,
-            ...       success_threshold=1e-7, dataset_metadata={}, constant_range=[-5.0, 5.0],
+            ...       original_equation="U = m*g*z", max_evaluations=100000, max_expr_length=50,
+            ...       success_threshold=1e-7, dataset_metadata={}, constant_bounds=[-5.0, 5.0],
             ...       seed = 42)
             >>> len(benchmark.list_datasets(verbose=False))
             1
@@ -599,8 +601,8 @@ class SR_benchmark:
             success_threshold=1e-7,
             seed=seed,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
-            max_expression_length=50,
+            constant_bounds=[-5.0, 5.0],
+            max_expr_length=50,
         )
         benchmark.add_dataset(
             "",
@@ -610,10 +612,10 @@ class SR_benchmark:
             ground_truth=["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"],  # noqa: F401
             original_equation="E_n = -mom*B*cos(theta)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -624,10 +626,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2", "^2"],  # noqa: F401
             original_equation="flux = epsilon*c*Ef^2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -638,10 +640,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_3", "+", "X_1", "*", "X_4", "+", "X_2", "*", "X_5"],  # noqa: F401
             original_equation="A = x1*y1+x2*y2+x3*y3",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -671,10 +673,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="x1 = (x-u*t)/sqrt(1-u^2/c^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -685,10 +687,10 @@ class SR_benchmark:
             ground_truth=["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="m = m_0/sqrt(1-v^2/c^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -728,10 +730,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="F = G*m1*m2/((x2-x1)^2+(y2-y1)^2+(z2-z1)^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -764,10 +766,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="t1 = (t-u*x/c^2)/sqrt(1-u^2/c^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -811,10 +813,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="f = mom*H/(kb*T)+(mom*alpha)/(epsilon*c**2*kb*T)*M",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -825,10 +827,10 @@ class SR_benchmark:
             ground_truth=["(", "1", "/", "(", "X_0", "-", "1", ")", ")", "*", "X_1", "*", "X_3", "/", "X_2"],  # noqa: F401
             original_equation="kappa = 1/(gamma-1)*kb*v/A",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -839,10 +841,10 @@ class SR_benchmark:
             ground_truth=["u-", "X_0", "*", "X_1", "*", "cos", "(", "X_2", ")"],  # noqa: F401
             original_equation="E_n = -p_d*Ef*cos(theta)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -871,10 +873,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="Int = I1+I2+2*sqrt(I1*I2)*cos(delta)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -907,10 +909,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="Volt = 1/(4*pi*epsilon)*p_d*cos(theta)/r^2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -921,10 +923,10 @@ class SR_benchmark:
             ground_truth=["2", "*", "X_0", "*", "X_1", "/", "(", "X_2", "/", "(", "2", "*", "pi", ")", ")"],  # noqa: F401
             original_equation="omega = 2*mom*B/(h/(2*pi))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -935,10 +937,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "/", "(", "2", "*", "pi", "*", "X_2", ")"],  # noqa: F401
             original_equation="l = q*v/(2*pi*r)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -949,10 +951,10 @@ class SR_benchmark:
             ground_truth=["X_0", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="rho_c = rho_c_0/sqrt(1-v^2/c^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -963,10 +965,10 @@ class SR_benchmark:
             ground_truth=["X_0", "/", "X_1"],  # noqa: F401
             original_equation="k = omega/c",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1001,10 +1003,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="r = 4*pi*epsilon*(h/(2*pi))^2/(m*q^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1015,10 +1017,10 @@ class SR_benchmark:
             ground_truth=["2", "*", "pi", "*", "X_0", "/", "(", "X_1", "*", "X_2", ")"],  # noqa: F401
             original_equation="k = 2*pi*alpha/(n*d)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1075,10 +1077,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="L_rad = h/(2*pi)*omega^3/(pi^2*c^2*(exp((h/(2*pi))*omega/(kb*T))-1))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1089,10 +1091,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_2", "^2", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="E_n = m*c^2/sqrt(1-v^2/c^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1103,10 +1105,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "^2", "*", "X_2", "/", "(", "3", "*", "X_3", "*", "X_4", ")"],  # noqa: F401
             original_equation="Pol = n_rho*p_d^2*Ef/(3*kb*T)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1117,10 +1119,10 @@ class SR_benchmark:
             ground_truth=["X_0", "/", "X_1"],  # noqa: F401
             original_equation="Volt = q/C",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1131,10 +1133,10 @@ class SR_benchmark:
             ground_truth=["2", "*", "X_0", "*", "(", "1", "-", "cos", "(", "X_1", "*", "X_2", ")", ")"],  # noqa: F401
             original_equation="E_n = 2*U*(1-cos(k*d))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1145,10 +1147,10 @@ class SR_benchmark:
             ground_truth=["0.25", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", ")", "*", "X_3", "^2"],  # noqa: F401
             original_equation="E_n = 1/2*m*(omega^2+omega_0^2)*1/2*x^2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1159,10 +1161,10 @@ class SR_benchmark:
             ground_truth=["(", "X_1", "/", "(", "2", "*", "pi", ")", ")", "*", "X_0"],  # noqa: F401
             original_equation="E_n =(h/(2*pi))*omega",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1173,10 +1175,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_2", "*", "X_1"],  # noqa: F401
             original_equation="D = mob*kb*T",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1209,10 +1211,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="x = sqrt(x1^2+x2^2-2*x1*x2*cos(theta1-theta2))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1223,10 +1225,10 @@ class SR_benchmark:
             ground_truth=["(", "X_0", "*", "X_2", "+", "X_1", "*", "X_3", ")", "/", "(", "X_0", "+", "X_1", ")"],  # noqa: F401
             original_equation="r = (m1*r1+m2*r2)/(m1+m2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1272,10 +1274,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="Ef = p_d/(4*pi*epsilon)*3*z/r^5*sqrt(x^2+y^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1306,10 +1308,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="Int = Int_0*sin(n*theta/2)^2/sin(theta/2)^2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1365,10 +1367,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="prob = (p_d*Ef*t/(h/(2*pi)))*sin((omega-omega_0)*t/2)^2/((omega-omega_0)*t/2)^2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1379,10 +1381,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "2"],  # noqa: F401
             original_equation="mom = q*v*r/2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1393,10 +1395,10 @@ class SR_benchmark:
             ground_truth=["(", "1", "/", "(", "X_0", "-", "1", ")", ")", "*", "X_1", "*", "X_2"],  # noqa: F401
             original_equation="E_n = (1/(gamma-1))*pr*V",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1407,10 +1409,10 @@ class SR_benchmark:
             ground_truth=["1", "+", "X_0", "*", "X_1", "/", "(", "1", "-", "(", "X_0", "*", "X_1", "/", "3", ")", ")"],  # noqa: F401
             original_equation="theta = 1+n*alpha/(1-(n*alpha/3))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1421,10 +1423,10 @@ class SR_benchmark:
             ground_truth=["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "^2", ")"],  # noqa: F401
             original_equation="flux = Pwr/(4*pi*r^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1435,10 +1437,10 @@ class SR_benchmark:
             ground_truth=["sqrt", "(", "X_0", "^2", "/", "X_1", "^2", "-", "pi", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="k = sqrt(omega^2/c^2-pi^2/d^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1470,10 +1472,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="B = 1/(4*pi*epsilon*c^2)*2*I/r",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1484,10 +1486,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1"],  # noqa: F401
             original_equation="F = q2*Ef",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1529,10 +1531,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="n = n_0/(exp(mom*B/(kb*T))+exp(-mom*B/(kb*T)))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1543,10 +1545,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "(", "2", "*", "X_3", ")"],  # noqa: F401
             original_equation="omega = g_*q*B/(2*m)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1557,10 +1559,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "/", "(", "4", "*", "pi", "*", "X_2", ")"],  # noqa: F401
             original_equation="E_n = q*h/(4*pi*m)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1612,10 +1614,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="Pwr = (1/2*epsilon*c*Ef**2)*(8*pi*r**2/3)*(omega**4/(omega**2-omega_0**2)**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1643,10 +1645,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="M = n_rho*mom*tanh(mom*B/(kb*T))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1657,10 +1659,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2", "*", "ln", "(", "X_4", "/", "X_3", ")"],  # noqa: F401
             original_equation="E_n = n*kb*T*ln(V2/V1)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1698,10 +1700,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="n = 1/(exp((h/(2*pi))*omega/(kb*T))-1)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1712,10 +1714,10 @@ class SR_benchmark:
             ground_truth=["(", "X_0", "/", "X_1", ")", "*", "1", "/", "(", "1", "+", "X_2", ")"],  # noqa: F401
             original_equation="Ef = sigma_den/epsilon*1/(1+chi)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1726,10 +1728,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_3", "/", "X_2"],  # noqa: F401
             original_equation="F = Y*A*x/d",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1770,10 +1772,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="f = exp(-((theta-theta1)/sigma)**2/2)/(sqrt(2*pi)*sigma)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1784,10 +1786,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "^2", "/", "2"],  # noqa: F401
             original_equation="E_den = epsilon*Ef**2/2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1798,10 +1800,10 @@ class SR_benchmark:
             ground_truth=["exp", "(", "u-", "X_0", "^2", "/", "2", ")", "/", "sqrt", "(", "2", "*", "pi", ")"],  # noqa: F401
             original_equation="f = exp(-theta**2/2)/sqrt(2*pi)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1812,10 +1814,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "(", "X_1", "/", "(", "2", "*", "pi", ")", ")"],  # noqa: F401
             original_equation="L = n*(h/(2*pi))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1826,10 +1828,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "(", "1", "+", "X_1", "*", "cos", "(", "X_2", ")", ")"],  # noqa: F401
             original_equation="f = beta*(1+alpha*cos(theta))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1840,10 +1842,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "sqrt", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"],  # noqa: F401
             original_equation="E_n = mom*sqrt(Bx**2+By**2+Bz**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1875,10 +1877,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="n = n_0*(1+p_d*Ef*cos(theta)/(kb*T))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1889,10 +1891,10 @@ class SR_benchmark:
             ground_truth=["1.5", "*", "X_0", "*", "X_1"],  # noqa: F401
             original_equation="E_n = 3/2*pr*V",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1903,10 +1905,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "(", "1", "+", "X_2", ")", "*", "X_1"],  # noqa: F401
             original_equation="E_n = mom*(1+chi)*B",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1917,10 +1919,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", "^3", ")"],  # noqa: F401
             original_equation="Ef = q1*r/(4*pi*epsilon*r**3)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1931,10 +1933,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "^2"],  # noqa: F401
             original_equation="E_den = epsilon*Ef**2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1945,10 +1947,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_3", "/", "(", "4", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"],  # noqa: F401
             original_equation="F = q1*q2*r/(4*pi*epsilon*r**3)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1978,10 +1980,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="v = 2*E_n*d**2*k/(h/(2*pi))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -1992,10 +1994,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "/", "(", "X_2", "*", "(", "X_3", "^2", "-", "X_4", "^2", ")", ")"],  # noqa: F401
             original_equation="x = q*Ef/(m*(omega_0**2-omega**2))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2024,10 +2026,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="n = n_0*exp(-m*g*x/(kb*T))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2038,10 +2040,10 @@ class SR_benchmark:
             ground_truth=["u-", "X_0", "*", "X_1", "*", "X_2", "/", "X_3"],  # noqa: F401
             original_equation="j = -rho_c_0*q*A_vec/m",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2052,10 +2054,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "X_3"],  # noqa: F401
             original_equation="v = mu_drift*q*Volt/d",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2066,10 +2068,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="p = m_0*v/sqrt(1-v**2/c**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2080,10 +2082,10 @@ class SR_benchmark:
             ground_truth=["arcsin", "(", "X_0", "/", "(", "X_2", "*", "X_1", ")", ")"],  # noqa: F401
             original_equation="theta = arcsin(lambd/(n*d))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2115,10 +2117,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="x = x1*(cos(omega*t)+alpha*cos(omega*t)**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2129,10 +2131,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "(", "X_1", "+", "X_2", "*", "X_3", "*", "sin", "(", "X_4", ")", ")"],  # noqa: F401
             original_equation="F = q*(Ef+B*v*sin(theta))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2169,10 +2171,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="f = exp(-(theta/sigma)**2/2)/(sqrt(2*pi)*sigma)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2183,10 +2185,10 @@ class SR_benchmark:
             ground_truth=["0.5", "*", "X_0", "*", "X_1", "^2"],  # noqa: F401
             original_equation="U = 1/2*k_spring*x**2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2197,10 +2199,10 @@ class SR_benchmark:
             ground_truth=["sqrt", "(", "X_0", "*", "X_1", "/", "X_2", ")"],  # noqa: F401
             original_equation="c = sqrt(gamma*pr/rho)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2211,10 +2213,10 @@ class SR_benchmark:
             ground_truth=["0.6", "*", "X_0", "^2", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"],  # noqa: F401
             original_equation="E_n = 3/5*q**2/(4*pi*epsilon*d)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2245,10 +2247,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="m = (h/(2*pi))**2/(2*E_n*d**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2284,10 +2286,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="omega = ((1+v/c)/sqrt(1-v**2/c**2))*omega_0",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2316,10 +2318,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="prob = sin(E_n*t/(h/(2*pi)))**2",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2330,10 +2332,10 @@ class SR_benchmark:
             ground_truth=["arcsin", "(", "X_0", "*", "sin", "(", "X_1", ")", ")"],  # noqa: F401
             original_equation="theta1 = arcsin(n*sin(theta2))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2390,10 +2392,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="E_n = -m*q**4/(2*(4*pi*epsilon)**2*(h/(2*pi))**2)*(1/n**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2441,10 +2443,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="E_n = (h/(2*pi))*omega/(exp((h/(2*pi))*omega/(kb*T))-1)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2455,10 +2457,10 @@ class SR_benchmark:
             ground_truth=["X_2", "/", "(", "1", "-", "X_1", "/", "X_0", ")"],  # noqa: F401
             original_equation="omega = omega_0/(1-v/c)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2491,10 +2493,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="Pol = n*alpha/(1-(n*alpha/3))*epsilon*Ef",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2505,10 +2507,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "/", "sqrt", "(", "1", "-", "X_1", "^2", "/", "X_2", "^2", ")"],  # noqa: F401
             original_equation="j = rho_c_0*v/sqrt(1-v**2/c**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2519,10 +2521,10 @@ class SR_benchmark:
             ground_truth=["X_0", "/", "(", "4", "*", "pi", "*", "X_1", "*", "X_2", ")"],  # noqa: F401
             original_equation="Volt = q/(4*pi*epsilon*r)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2533,10 +2535,10 @@ class SR_benchmark:
             ground_truth=["X_0", "^2", "*", "X_1", "^2", "/", "(", "6", "*", "pi", "*", "X_2", "*", "X_3", "^3", ")"],  # noqa: F401
             original_equation="Pwr = q**2*a**2/(6*pi*epsilon*c**3)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2547,10 +2549,10 @@ class SR_benchmark:
             ground_truth=["X_4", "*", "X_0", "*", "X_1", "*", "(", "1", "/", "X_3", "-", "1", "/", "X_2", ")"],  # noqa: F401
             original_equation="U = G*m1*m2*(1/r2-1/r1)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2561,10 +2563,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "(", "X_2", "-", "X_1", ")", "*", "X_3", "/", "X_4"],  # noqa: F401
             original_equation="Pwr = kappa*(T2-T1)*A/d",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2575,10 +2577,10 @@ class SR_benchmark:
             ground_truth=["1", "/", "(", "1", "/", "X_0", "+", "X_2", "/", "X_1", ")"],  # noqa: F401
             original_equation="foc = 1/(1/d1+n/d2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2608,10 +2610,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="I = I_0*(exp(q*Volt/(kb*T))-1)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2622,10 +2624,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "sin", "(", "X_2", ")"],  # noqa: F401
             original_equation="tau = r*F*sin(theta)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2636,10 +2638,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2", "*", "sin", "(", "X_3", ")"],  # noqa: F401
             original_equation="L = m*r*v*sin(theta)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2670,10 +2672,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="Volt = q/(4*pi*epsilon*r*(1-v/c))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2684,10 +2686,10 @@ class SR_benchmark:
             ground_truth=["X_0", "/", "(", "2", "*", "(", "1", "+", "X_1", ")", ")"],  # noqa: F401
             original_equation="mu_S = Y/(2*(1+sigma))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2698,10 +2700,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2", "/", "X_3"],  # noqa: F401
             original_equation="omega = q*v*B/p",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2712,10 +2714,10 @@ class SR_benchmark:
             ground_truth=["sqrt", "(", "(", "X_1", "-", "X_0", ")", "^2", "+", "(", "X_3", "-", "X_2", ")", "^2", ")"],  # noqa: F401
             original_equation="d = sqrt((x2-x1)**2+(y2-y1)**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2753,10 +2755,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="E_f = p_d/(4*pi*epsilon)*3*cos(theta)*sin(theta)/r**3",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2767,10 +2769,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1"],  # noqa: F401
             original_equation="F = mu*Nn",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2799,10 +2801,10 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="E_n = g_*mom*B*Jz/(h/(2*pi))",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2813,10 +2815,10 @@ class SR_benchmark:
             ground_truth=["0.5", "*", "X_0", "*", "(", "X_1", "^2", "+", "X_2", "^2", "+", "X_3", "^2", ")"],  # noqa: F401
             original_equation="K = 1/2*m*(v**2+u**2+w**2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2827,10 +2829,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_3", "*", "X_1", "/", "X_2"],  # noqa: F401
             original_equation="pr = n*kb*T/V",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
         benchmark.add_dataset(
@@ -2841,10 +2843,10 @@ class SR_benchmark:
             ground_truth=["X_0", "*", "X_1", "*", "X_2"],  # noqa: F401
             original_equation="U = m*g*z",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
-            constant_range=[-5.0, 5.0],
+            constant_bounds=[-5.0, 5.0],
             seed=seed,
         )
 
@@ -2914,7 +2916,7 @@ class SR_benchmark:
             ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3"],  # noqa: F401
             original_equation="y = x+x^2+x^3",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -2928,7 +2930,7 @@ class SR_benchmark:
             ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"],  # noqa: F401
             original_equation="y = x+x^2+x^3+x^4",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -2961,7 +2963,7 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="y = x+x^2+x^3+x^4+x^5",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -3000,7 +3002,7 @@ class SR_benchmark:
             ],  # noqa: F401
             original_equation="y = x+x^2+x^3+x^4+x^5+x^6",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -3014,7 +3016,7 @@ class SR_benchmark:
             ground_truth=["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"],  # noqa: F401
             original_equation="y = sin(x^2)*cos(x)-1",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -3028,7 +3030,7 @@ class SR_benchmark:
             ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"],  # noqa: F401
             original_equation="y = sin(x)+sin(x+x^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -3042,7 +3044,7 @@ class SR_benchmark:
             ground_truth=["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"],  # noqa: F401
             original_equation="y = log(1+x)+log(1+x^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -3056,7 +3058,7 @@ class SR_benchmark:
             ground_truth=["sqrt", "(", "X_0", ")"],  # noqa: F401
             original_equation="y = sqrt(x)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -3070,7 +3072,7 @@ class SR_benchmark:
             ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"],  # noqa: F401
             original_equation="y = sin(x)+sin(y^2)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,
@@ -3084,7 +3086,7 @@ class SR_benchmark:
             ground_truth=["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"],  # noqa: F401
             original_equation="y = 2*sin(x)*cos(y)",
             max_evaluations=100000,
-            max_expression_length=50,
+            max_expr_length=50,
             success_threshold=1e-7,
             dataset_metadata=benchmark.metadata,
             seed=seed,

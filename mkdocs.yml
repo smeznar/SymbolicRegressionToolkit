@@ -18,9 +18,9 @@ theme:
     - content.code.annotate
     - content.tooltips
     - navigation.indexes
-#    - navigation.tabs
+    #    - navigation.tabs
     - navigation.top
-#    - navigation.footer
+    #    - navigation.footer
     - search.highlight
     - search.share
     - search.suggest
@@ -83,7 +83,6 @@ plugins:
             extra:
               allow_inspections: true
 
-
 # Markdown Extensions
 markdown_extensions:
   - admonition
@@ -106,26 +105,27 @@ markdown_extensions:
 nav:
   - Home: index.md
   - API References:
-    - references/index.md
-    - utils:
-      - references/utils/index.md
-      - symbol_library: references/utils/symbol_library.md
-      - expression_tree: references/utils/expression_tree.md
-      - expression_compiler: references/utils/expression_compiler.md
-      - expression_simplifier: references/utils/expression_simplifier.md
-      - expression_generator: references/utils/expression_generator.md
-      - measures: references/utils/measures.md
-    - evaluation:
-      - references/evaluation/index.md
-      - parameter_estimator: references/evaluation/parameter_estimator.md
-      - sr_evaluator: references/evaluation/sr_evaluator.md
-      - result_augmentation: references/evaluation/result_augmentation.md
-    - dataset:
-      - references/dataset/index.md
-      - dataset: references/dataset/srdataset.md
-      - benchmark: references/dataset/srbenchmark.md
-    - approaches:
-      - references/approaches/index.md
-      - sr_approach: references/approaches/sr_approach.md
-      - ProGED: references/approaches/ProGED.md
+      - references/index.md
+      - utils:
+          - references/utils/index.md
+          - symbol_library: references/utils/symbol_library.md
+          - expression_tree: references/utils/expression_tree.md
+          - expression_compiler: references/utils/expression_compiler.md
+          - expression_simplifier: references/utils/expression_simplifier.md
+          - expression_generator: references/utils/expression_generator.md
+          - measures: references/utils/measures.md
+          - types: references/utils/types.md
+      - evaluation:
+          - references/evaluation/index.md
+          - parameter_estimator: references/evaluation/parameter_estimator.md
+          - sr_evaluator: references/evaluation/sr_evaluator.md
+          - result_augmentation: references/evaluation/result_augmentation.md
+      - dataset:
+          - references/dataset/index.md
+          - dataset: references/dataset/srdataset.md
+          - benchmark: references/dataset/srbenchmark.md
+      - approaches:
+          - references/approaches/index.md
+          - sr_approach: references/approaches/sr_approach.md
+          - ProGED: references/approaches/ProGED.md
   - Changelog: changelog.md

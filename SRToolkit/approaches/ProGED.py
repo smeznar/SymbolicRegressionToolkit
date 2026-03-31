@@ -33,9 +33,9 @@ class ProGED(SR_approach):
         >>> r.approach_name
         'ProGED'
         >>> r.best_expr
-        'X_0/C/C'
+        'X_0'
         >>> r.num_evaluated
-        77
+        74
         >>> bool(r.success)
         False
 
@@ -45,7 +45,7 @@ class ProGED(SR_approach):
         verbose: If True, prints the expression and its error if the expression is better than the current best.
     """
 
-    def __init__(self, grammar: Union[str, SymbolLibrary], verbose: bool = False):
+    def __init__(self, grammar: Union[str, SymbolLibrary], verbose: bool = False) -> None:
         super().__init__("ProGED")
         self.grammar = grammar
         self.verbose = verbose
@@ -56,7 +56,7 @@ class ProGED(SR_approach):
         """
         pass
 
-    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None):
+    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
         """
         Samples expressions from the grammar using the Monte Carlo approach and evaluates them on the dataset.
 

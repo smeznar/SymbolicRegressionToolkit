@@ -17,7 +17,7 @@ try:
 except ImportError:
 
     class EDHiE:  # type: ignore[no-redef]
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args, **kwargs) -> None:
             raise ImportError(
                 "EDHiE requires PyTorch. Please install the required dependencies either"
                 "manually or using the command: pip install 'symbolic-regression-toolkit[approaches]'"

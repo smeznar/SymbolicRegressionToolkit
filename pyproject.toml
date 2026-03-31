@@ -28,7 +28,8 @@ dependencies = [
   "nltk",
   "zss",
   "editdistance",
-  "tqdm"
+  "tqdm",
+  "typing_extensions>=4.0"
 ]
 classifiers = [
   "Intended Audience :: Information Technology",

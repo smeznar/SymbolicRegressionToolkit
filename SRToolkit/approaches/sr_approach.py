@@ -2,6 +2,7 @@
 This module contains the SR_approach class, which is the base class for all symbolic regression approaches.
 """
 
+from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 
 import numpy as np
@@ -21,7 +22,7 @@ def check_dependencies(packages: List[str]):
             )
 
 
-class SR_approach:
+class SR_approach(ABC):
     def __init__(self, name: str):
         """
         The base class for all symbolic regression approaches. Any symbolic regression approach should inherit from
@@ -69,6 +70,7 @@ class SR_approach:
         """
         return False
 
+    @abstractmethod
     def prepare(self) -> None:
         """
         Reset the approach's per-experiment state in preparation for a new run.
@@ -96,13 +98,17 @@ class SR_approach:
         expressions (e.g. by calling ``sr_evaluator.evaluate_expr()``) during adaptation —
         only the points from the domain and the symbol library may be used.
 
+        The default implementation does nothing. Override when ``adaptation_scope`` is
+        ``"once"`` or ``"experiment"``.
+
         Args:
             X: input variables from the domain, shape ``(n_samples, n_variables)``.
             symbol_library: The symbol library defining the available symbols/tokens.
         """
-        raise NotImplementedError
+        pass
 
-    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None):
+    @abstractmethod
+    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
         """
         Run the symbolic regression search.
 
@@ -141,6 +147,8 @@ class SR_approach:
         when ``adaptation_scope == "experiment"`` and ``save_adapted_model`` is
         ``True``.
 
+        The default raises ``NotImplementedError``. Override when needed.
+
         Returns:
             The saved state (e.g., a file path or the model).
         """
@@ -155,6 +163,8 @@ class SR_approach:
         passed to ``torch.load``).
 
         Must be implemented when ``adaptation_scope == "symbol_library"``
+
+        The default raises ``NotImplementedError``. Override when needed.
 
         Args:
             state: The identifier previously returned by ``save_adapted_state()``.

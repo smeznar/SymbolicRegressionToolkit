@@ -6,18 +6,21 @@ the generic ResultAugmenter class is defined here to avoid circular imports.
 import logging
 import os
 import warnings
+from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
+from typing_extensions import Unpack
 
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.measures import bed, create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.types import EstimationSettings
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +101,7 @@ class EvalResult:
         self.augmentations[resolved] = data
 
 
-class ResultAugmenter:
+class ResultAugmenter(ABC):
     def __init__(self, name: str):
         """
         Base class for result augmenters. Subclasses implement :meth:`write_results` to compute
@@ -113,6 +116,7 @@ class ResultAugmenter:
         """
         self.name = name
 
+    @abstractmethod
     def write_results(
         self,
         results: "EvalResult",
@@ -126,8 +130,8 @@ class ResultAugmenter:
         Args:
             results: The :class:`EvalResult` to augment.
         """
-        raise NotImplementedError("write_results is not implemented as ResultAugmenter is an abstract class.")
 
+    @abstractmethod
     def to_dict(self, base_path: str, name: str) -> dict:
         """
         Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
@@ -139,9 +143,9 @@ class ResultAugmenter:
         Returns:
             A dictionary containing the necessary information to recreate the augmenter.
         """
-        raise NotImplementedError("to_dict is not implemented as ResultAugmenter is an abstract class.")
 
     @staticmethod
+    @abstractmethod
     def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ResultAugmenter":
         """
         Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
@@ -168,7 +172,7 @@ class SR_evaluator:
         ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
         seed: Optional[int] = None,
         metadata: Optional[dict] = None,
-        **kwargs,
+        **kwargs: Unpack[EstimationSettings],
     ):
         """
         Initializes an instance of the SR_evaluator class. This class is used for evaluating symbolic regression approaches.
@@ -266,7 +270,7 @@ class SR_evaluator:
         if kwargs:
             for k in self.bed_evaluation_parameters.keys():
                 if k in kwargs:
-                    self.bed_evaluation_parameters[k] = kwargs[k]
+                    self.bed_evaluation_parameters[k] = kwargs[k]  # type: ignore[literal-required]
         if self.bed_evaluation_parameters["num_points_sampled"] == -1:
             self.bed_evaluation_parameters["num_points_sampled"] = X.shape[0]
 
@@ -530,7 +534,6 @@ class SR_evaluator:
                     raise ValueError(f"Ranking function {self.ranking_function} not supported.")
 
                 return error
-
 
     def get_results(
         self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None
@@ -888,7 +891,7 @@ class SR_results:
                     except Exception as e:
                         warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
 
-    def __add__(self, other):
+    def __add__(self, other) -> "SR_results":
         """
         Returns a new SR_results object that is the concatenation of the current SR_results object with the other SR_results object.
 
@@ -902,7 +905,7 @@ class SR_results:
         new.results = self.results + other.results
         return new
 
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> "SR_results":
         """
         In-place concatenation of SR_results objects.
 

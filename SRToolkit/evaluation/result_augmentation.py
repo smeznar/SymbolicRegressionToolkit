@@ -20,7 +20,7 @@ class ExpressionToLatex(ResultAugmenter):
         scope: str = "top",
         verbose: bool = False,
         name: str = "ExpressionToLatex",
-    ):
+    ) -> None:
         """
         Transforms the expressions inside the results into LaTeX strings.
 
@@ -136,7 +136,7 @@ class ExpressionSimplifier(ResultAugmenter):
         scope: str = "top",
         verbose: bool = False,
         name: str = "ExpressionSimplifier",
-    ):
+    ) -> None:
         """
         Simplifies the expressions inside the results if possible.
 
@@ -259,7 +259,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
 
 class RMSE(ResultAugmenter):
-    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "RMSE"):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "RMSE") -> None:  # noqa: F821
         """
         Computes the RMSE for the top models using a separate evaluator (e.g. a test-set evaluator).
 
@@ -358,7 +358,7 @@ class RMSE(ResultAugmenter):
 
 
 class BED(ResultAugmenter):
-    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "BED"):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "BED") -> None:  # noqa: F821
         """
         Computes BED for the top models using a separate evaluator.
 
@@ -448,7 +448,7 @@ class BED(ResultAugmenter):
 
 
 class R2(ResultAugmenter):
-    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "R2"):  # noqa: F821
+    def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "R2") -> None:  # noqa: F821
         """
         Computes the R^2 for the top models using a separate evaluator.
 

@@ -2,10 +2,12 @@ import os
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+from typing_extensions import Unpack
 
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
 from SRToolkit.utils import Node, SymbolLibrary
+from SRToolkit.utils.types import EstimationSettings
 
 
 class SR_dataset:
@@ -22,8 +24,8 @@ class SR_dataset:
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
         dataset_name: Optional[str] = None,
-        **kwargs,
-    ):
+        **kwargs: Unpack[EstimationSettings],
+    ) -> None:
         """
         Initializes an instance of the SR_dataset class.
 

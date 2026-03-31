@@ -129,13 +129,13 @@ class BatchedNode:
         if self.right is not None:
             self.right.create_target()
 
-    def to_expr_list(self) -> List[Node | None]:
+    def to_expr_list(self) -> List[Optional[Node]]:
         expressions = []
         for i in range(len(self.symbols)):
             expressions.append(self.get_expr_at_idx(i))
         return expressions
 
-    def get_expr_at_idx(self, idx: int) -> Node | None:
+    def get_expr_at_idx(self, idx: int) -> Optional[Node]:
         symbol = self.symbols[idx]
         if symbol == "":
             return None
@@ -219,7 +219,7 @@ class HVAE(nn.Module):
         mu, logvar = self.encoder(tree)
         return mu, logvar
 
-    def decode(self, z: torch.Tensor) -> List[Node | None]:
+    def decode(self, z: torch.Tensor) -> List[Optional[Node]]:
         return self.decoder.decode(z)
 
 
@@ -297,7 +297,7 @@ class Decoder(nn.Module):
                 self.recursive_forward(right, tree.right)
 
     # Used for inference to generate expression trees from latent vectorS
-    def decode(self, z: torch.Tensor) -> List[Node | None]:
+    def decode(self, z: torch.Tensor) -> List[Optional[Node]]:
         with torch.no_grad():
             mask = torch.ones(z.size(0)).bool()
             hidden = self.z2h(z)

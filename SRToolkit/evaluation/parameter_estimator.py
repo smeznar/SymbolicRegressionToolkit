@@ -6,10 +6,12 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.optimize import minimize
+from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import expr_to_error_function
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.types import EstimationSettings
 
 
 class ParameterEstimator:
@@ -19,8 +21,8 @@ class ParameterEstimator:
         y: np.ndarray,
         symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
         seed: Optional[int] = None,
-        **kwargs,
-    ):
+        **kwargs: Unpack[EstimationSettings],
+    ) -> None:
         """
         Initializes an instance of the ParameterEstimator class.
 
@@ -74,7 +76,7 @@ class ParameterEstimator:
         if kwargs:
             for k in self.estimation_settings.keys():
                 if k in kwargs:
-                    self.estimation_settings[k] = kwargs[k]
+                    self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
 
         if self.seed is not None:
             np.random.seed(self.seed)
