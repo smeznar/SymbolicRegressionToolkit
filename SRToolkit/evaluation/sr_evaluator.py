@@ -3,6 +3,7 @@ This module contains the SR_evaluator class, which is used for evaluating symbol
 the generic ResultAugmenter class is defined here to avoid circular imports.
 """
 
+import json
 import logging
 import os
 import warnings
@@ -23,6 +24,45 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EstimationSettings
 
 logger = logging.getLogger(__name__)
+
+
+def _to_json_safe(obj: Any) -> Any:
+    """
+    Recursively converts numpy types to JSON-safe Python types.
+
+    - ``np.ndarray`` → ``{"__ndarray__": True, "data": <list>}``
+    - ``np.floating`` → ``float``
+    - ``np.integer`` → ``int``
+    - ``np.bool_`` → ``bool``
+    """
+    if isinstance(obj, np.ndarray):
+        return {"__ndarray__": True, "data": obj.tolist()}
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, dict):
+        return {k: _to_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_json_safe(v) for v in obj]
+    return obj
+
+
+def _from_json_safe(obj: Any) -> Any:
+    """
+    Recursively converts JSON-safe Python types back to numpy types.
+
+    Reverses the transformation applied by :func:`_to_json_safe`.
+    """
+    if isinstance(obj, dict):
+        if obj.get("__ndarray__"):
+            return np.array(obj["data"])
+        return {k: _from_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_from_json_safe(v) for v in obj]
+    return obj
 
 
 @dataclass
@@ -61,6 +101,25 @@ class ModelResult:
             counter += 1
         data["_type"] = aug_type
         self.augmentations[resolved] = data
+
+    def to_dict(self) -> dict:
+        """Serializes this model result to a JSON-safe dictionary."""
+        return {
+            "expr": self.expr,
+            "error": float(self.error),
+            "parameters": _to_json_safe(self.parameters),
+            "augmentations": _to_json_safe(self.augmentations),
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> "ModelResult":
+        """Creates a :class:`ModelResult` from a dictionary produced by :meth:`to_dict`."""
+        return ModelResult(
+            expr=data["expr"],
+            error=data["error"],
+            parameters=_from_json_safe(data["parameters"]),
+            augmentations=_from_json_safe(data["augmentations"]),
+        )
 
 
 @dataclass
@@ -113,6 +172,39 @@ class EvalResult:
             counter += 1
         data["_type"] = aug_type
         self.augmentations[resolved] = data
+
+    def to_dict(self) -> dict:
+        """Serializes this evaluation result to a JSON-safe dictionary."""
+        return {
+            "min_error": float(self.min_error),
+            "best_expr": self.best_expr,
+            "num_evaluated": int(self.num_evaluated),
+            "evaluation_calls": int(self.evaluation_calls),
+            "top_models": [m.to_dict() for m in self.top_models],
+            "all_models": [m.to_dict() for m in self.all_models],
+            "approach_name": self.approach_name,
+            "success": bool(self.success),
+            "dataset_name": self.dataset_name,
+            "metadata": self.metadata,
+            "augmentations": _to_json_safe(self.augmentations),
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> "EvalResult":
+        """Creates an :class:`EvalResult` from a dictionary produced by :meth:`to_dict`."""
+        return EvalResult(
+            min_error=data["min_error"],
+            best_expr=data["best_expr"],
+            num_evaluated=data["num_evaluated"],
+            evaluation_calls=data["evaluation_calls"],
+            top_models=[ModelResult.from_dict(m) for m in data["top_models"]],
+            all_models=[ModelResult.from_dict(m) for m in data["all_models"]],
+            approach_name=data["approach_name"],
+            success=data["success"],
+            dataset_name=data.get("dataset_name"),
+            metadata=data.get("metadata"),
+            augmentations=_from_json_safe(data["augmentations"]),
+        )
 
 
 class ResultAugmenter(ABC):
@@ -1075,3 +1167,57 @@ class SR_results:
             The number of results stored in the results object.
         """
         return len(self.results)
+
+    def save(self, path: str) -> None:
+        """
+        Saves the results to a directory as JSON.
+
+        Creates *path* if it does not exist, then writes ``results.json`` inside it.
+
+        Examples:
+            >>> import tempfile
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y, seed=42)
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     results.save(tmpdir + "/my_results")
+            ...     loaded = SR_results.load(tmpdir + "/my_results")
+            ...     print(loaded[0].best_expr)
+            C*X_1-X_0
+
+        Args:
+            path: Directory path where the results will be saved.
+        """
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        output = {
+            "format_version": 1,
+            "type": "SR_results",
+            "results": [r.to_dict() for r in self.results],
+        }
+        with open(os.path.join(path, "results.json"), "w") as f:
+            json.dump(output, f, indent=2)
+
+    @staticmethod
+    def load(path: str) -> "SR_results":
+        """
+        Loads results previously saved with :meth:`save`.
+
+        Args:
+            path: Directory path containing a ``results.json`` file.
+
+        Returns:
+            A new :class:`SR_results` instance with the loaded data.
+        """
+        results_path = os.path.join(path, "results.json")
+        with open(results_path, "r") as f:
+            data = json.load(f)
+        if data.get("format_version", 1) != 1:
+            raise ValueError(
+                f"[SR_results.load] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+            )
+        sr_results = SR_results()
+        sr_results.results = [EvalResult.from_dict(r) for r in data["results"]]
+        return sr_results

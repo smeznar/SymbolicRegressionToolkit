@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult, SR_evaluator
+from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult, SR_evaluator, SR_results
 
 
 @pytest.fixture
@@ -188,3 +188,141 @@ class TestEvalResult:
         )
         er.add_augmentation("test", {"value": 42}, "TestAugmenter")
         assert "test" in er.augmentations
+
+
+class TestSRResultsSaveLoad:
+    def test_save_load_round_trip(self, simple_evaluator):
+        simple_evaluator.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        simple_evaluator.evaluate_expr(["X_0", "+", "X_1"])
+        results = simple_evaluator.get_results(top_k=2)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            results.save(tmpdir + "/test_results")
+            loaded = SR_results.load(tmpdir + "/test_results")
+
+            assert len(loaded) == 1
+            orig = results[0]
+            rest = loaded[0]
+            assert rest.best_expr == orig.best_expr
+            assert abs(rest.min_error - orig.min_error) < 1e-12
+            assert rest.num_evaluated == orig.num_evaluated
+            assert rest.evaluation_calls == orig.evaluation_calls
+            assert rest.success == orig.success
+            assert rest.approach_name == orig.approach_name
+            assert len(rest.top_models) == len(orig.top_models)
+            assert len(rest.all_models) == len(orig.all_models)
+
+            for loaded_m, orig_m in zip(rest.top_models, orig.top_models):
+                assert loaded_m.expr == orig_m.expr
+                assert abs(loaded_m.error - orig_m.error) < 1e-12
+                np.testing.assert_array_almost_equal(loaded_m.parameters, orig_m.parameters)
+
+    def test_save_load_multiple_experiments(self):
+        X = np.array([[1.0, 2.0], [3.0, 4.0]])
+        y = np.array([1.0, 2.0])
+
+        se1 = SR_evaluator(X, y, seed=42)
+        se1.evaluate_expr(["X_0"])
+        r1 = se1.get_results()
+
+        se2 = SR_evaluator(X, y, seed=42)
+        se2.evaluate_expr(["X_1"])
+        r2 = se2.get_results()
+
+        combined = r1 + r2
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            combined.save(tmpdir + "/combined")
+            loaded = SR_results.load(tmpdir + "/combined")
+
+            assert len(loaded) == 2
+            assert loaded[0].best_expr == combined[0].best_expr
+            assert loaded[1].best_expr == combined[1].best_expr
+
+    def test_save_load_with_metadata(self):
+        X = np.array([[1.0, 2.0], [3.0, 4.0]])
+        y = np.array([1.0, 2.0])
+        se = SR_evaluator(X, y, metadata={"dataset_name": "test_ds", "fold": 3}, seed=42)
+        se.evaluate_expr(["X_0"])
+        results = se.get_results(approach_name="TestApproach")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            results.save(tmpdir + "/meta_test")
+            loaded = SR_results.load(tmpdir + "/meta_test")
+
+            assert loaded[0].dataset_name == "test_ds"
+            assert loaded[0].metadata == {"fold": 3}
+            assert loaded[0].approach_name == "TestApproach"
+
+    def test_save_load_with_augmentations(self, simple_evaluator):
+        from SRToolkit.evaluation.result_augmentation import ExpressionToLatex, RMSE
+
+        simple_evaluator.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        simple_evaluator.evaluate_expr(["X_0", "+", "X_1"])
+        results = simple_evaluator.get_results(top_k=2)
+
+        sl = np.array([[1.0, 2.0], [8.0, 4.0], [5.0, 4.0], [7.0, 9.0]])
+        y_test = np.array([3.0, 0.0, 3.0, 11.0])
+        test_eval = SR_evaluator(sl, y_test, seed=99)
+
+        results.augment(
+            [
+                ExpressionToLatex(
+                    __import__(
+                        "SRToolkit.utils.symbol_library", fromlist=["SymbolLibrary"]
+                    ).SymbolLibrary.default_symbols(2)
+                ),
+                RMSE(test_eval),
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            results.save(tmpdir + "/aug_test")
+            loaded = SR_results.load(tmpdir + "/aug_test")
+
+            orig_aug = results[0].augmentations
+            rest_aug = loaded[0].augmentations
+
+            assert "ExpressionToLatex" in rest_aug
+            assert rest_aug["ExpressionToLatex"]["_type"] == "ExpressionToLatex"
+            assert rest_aug["ExpressionToLatex"]["best_expr_latex"] == orig_aug["ExpressionToLatex"]["best_expr_latex"]
+
+            assert "RMSE" in rest_aug
+            assert rest_aug["RMSE"]["_type"] == "RMSE"
+            assert abs(rest_aug["RMSE"]["min_error"] - orig_aug["RMSE"]["min_error"]) < 1e-12
+
+            # Check model-level augmentations round-trip
+            orig_model_aug = results[0].top_models[0].augmentations
+            rest_model_aug = loaded[0].top_models[0].augmentations
+            assert "RMSE" in rest_model_aug
+            np.testing.assert_array_almost_equal(
+                rest_model_aug["RMSE"]["parameters"], orig_model_aug["RMSE"]["parameters"]
+            )
+
+    def test_save_creates_directory(self, simple_evaluator):
+        simple_evaluator.evaluate_expr(["X_0"])
+        results = simple_evaluator.get_results()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = tmpdir + "/new/nested/dir"
+            results.save(path)
+            loaded = SR_results.load(path)
+            assert len(loaded) == 1
+
+    def test_load_bad_format_version(self, simple_evaluator):
+        simple_evaluator.evaluate_expr(["X_0"])
+        results = simple_evaluator.get_results()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            results.save(tmpdir + "/bad_version")
+            import json
+
+            results_path = tmpdir + "/bad_version/results.json"
+            with open(results_path, "r") as f:
+                data = json.load(f)
+            data["format_version"] = 99
+            with open(results_path, "w") as f:
+                json.dump(data, f)
+
+            with pytest.raises(ValueError, match="Unsupported format_version"):
+                SR_results.load(tmpdir + "/bad_version")
