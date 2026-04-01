@@ -255,7 +255,7 @@ class TestSRResultsSaveLoad:
             assert loaded[0].approach_name == "TestApproach"
 
     def test_save_load_with_augmentations(self, simple_evaluator):
-        from SRToolkit.evaluation.result_augmentation import ExpressionToLatex, RMSE
+        from SRToolkit.evaluation.result_augmentation import RMSE, ExpressionToLatex
 
         simple_evaluator.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         simple_evaluator.evaluate_expr(["X_0", "+", "X_1"])
