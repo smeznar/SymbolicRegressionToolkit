@@ -1,10 +1,17 @@
 """
-Shared type definitions for the SRToolkit package.
+Shared type definitions and constants for the SRToolkit package.
 """
 
-from typing import List, Optional, Tuple, TypedDict, Union
+from typing import List, Optional, Set, Tuple, TypedDict, Union
 
 import numpy as np
+
+VAR = "var"
+CONST = "const"
+FN = "fn"
+OP = "op"
+LIT = "lit"
+VALID_SYMBOL_TYPES: Set[str] = {VAR, CONST, FN, OP, LIT}
 
 
 class EstimationSettings(TypedDict, total=False):

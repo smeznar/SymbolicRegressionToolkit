@@ -25,7 +25,15 @@ from .expression_simplifier import simplify
 from .expression_tree import Node, expr_to_latex, is_float, tokens_to_tree
 from .measures import bed, create_behavior_matrix, edit_distance, tree_edit_distance
 from .symbol_library import SymbolLibrary
-from .types import EstimationSettings
+from .types import (
+    CONST,
+    FN,
+    LIT,
+    OP,
+    VALID_SYMBOL_TYPES,
+    VAR,
+    EstimationSettings,
+)
 
 __all__ = [
     "SymbolLibrary",
@@ -45,4 +53,10 @@ __all__ = [
     "tree_edit_distance",
     "expr_to_latex",
     "EstimationSettings",
+    "VAR",
+    "CONST",
+    "FN",
+    "OP",
+    "LIT",
+    "VALID_SYMBOL_TYPES",
 ]

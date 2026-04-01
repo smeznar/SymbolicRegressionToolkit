@@ -9,11 +9,11 @@ import warnings
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
-from typing_extensions import Unpack
+from typing_extensions import Literal, Unpack
 
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_simplifier import simplify
@@ -43,16 +43,23 @@ class ModelResult:
     parameters: Optional["np.ndarray"] = None
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
-    def add_augmentation(self, name: str, data: Dict[str, Any]) -> None:
+    def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
         """
         Stores *data* under *name* in :attr:`augmentations`. If *name* already exists,
         appends a numeric suffix (``"RMSE_1"``, ``"RMSE_2"``, …) to avoid overwriting.
+
+        Args:
+            name: Key for the augmentation entry.
+            data: The augmentation data dictionary.
+            aug_type: Identifier of the augmenter that produced this data (e.g. ``"RMSE"``).
+                Stored as ``data["_type"]`` for later lookup during printing.
         """
         resolved = name
         counter = 1
         while resolved in self.augmentations:
             resolved = f"{name}_{counter}"
             counter += 1
+        data["_type"] = aug_type
         self.augmentations[resolved] = data
 
 
@@ -88,20 +95,29 @@ class EvalResult:
     metadata: Optional[dict] = None
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
-    def add_augmentation(self, name: str, data: Dict[str, Any]) -> None:
+    def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
         """
         Stores *data* under *name* in :attr:`augmentations`. If *name* already exists,
         appends a numeric suffix (``"RMSE_1"``, ``"RMSE_2"``, …) to avoid overwriting.
+
+        Args:
+            name: Key for the augmentation entry.
+            data: The augmentation data dictionary.
+            aug_type: Identifier of the augmenter that produced this data (e.g. ``"RMSE"``).
+                Stored as ``data["_type"]`` for later lookup during printing.
         """
         resolved = name
         counter = 1
         while resolved in self.augmentations:
             resolved = f"{name}_{counter}"
             counter += 1
+        data["_type"] = aug_type
         self.augmentations[resolved] = data
 
 
 class ResultAugmenter(ABC):
+    _type: ClassVar[str] = ""
+
     def __init__(self, name: str):
         """
         Base class for result augmenters. Subclasses implement :meth:`write_results` to compute
@@ -124,8 +140,8 @@ class ResultAugmenter(ABC):
         """
         Computes and writes augmentation data into *results* and its top models.
 
-        Call ``results.add_augmentation(self.name, {...})`` for experiment-level data and
-        ``model.add_augmentation(self.name, {...})`` for per-model data.
+        Call ``results.add_augmentation(self.name, data, self._type)`` for experiment-level
+        data and ``model.add_augmentation(self.name, data, self._type)`` for per-model data.
 
         Args:
             results: The :class:`EvalResult` to augment.
@@ -144,20 +160,61 @@ class ResultAugmenter(ABC):
             A dictionary containing the necessary information to recreate the augmenter.
         """
 
+    @classmethod
+    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+        """
+        Returns a formatted string for experiment-level augmentation data.
+
+        Subclasses override this for custom formatting. The *data* dict is the inner
+        augmentation dictionary (includes ``_type``).
+
+        Args:
+            data: The augmentation data dictionary.
+
+        Returns:
+            A formatted string, or empty string if no relevant data exists.
+        """
+        return "\n".join(f"  {k}: {v}" for k, v in data.items() if k != "_type")
+
+    @classmethod
+    def format_model_result(cls, data: Dict[str, Any]) -> str:
+        """
+        Returns a formatted string for a single model's augmentation data.
+
+        Subclasses override this for custom formatting. The *data* dict is the inner
+        augmentation dictionary (includes ``_type``).
+
+        Args:
+            data: The augmentation data dictionary.
+
+        Returns:
+            A formatted string, or empty string if no relevant data exists.
+        """
+        parts = [f"{k}={v}" for k, v in data.items() if k != "_type"]
+        return ", ".join(parts)
+
     @staticmethod
-    @abstractmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ResultAugmenter":
+    def from_dict(data: dict) -> "ResultAugmenter":
         """
         Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
 
+        Subclasses should override this method if they support serialization. The default
+        implementation raises ``NotImplementedError``, allowing custom augmenters to skip
+        serialization if not needed.
+
         Args:
             data: the dictionary containing the data needed to recreate the augmenter.
-            augmenter_map: A dictionary mapping augmenter names to their classes.
 
         Returns:
             An instance of the ResultAugmenter class with the same configuration as in the data dictionary.
+
+        Raises:
+            NotImplementedError: If the subclass does not implement this method.
         """
-        raise NotImplementedError("from_dict is not implemented as ResultAugmenter is an abstract class.")
+        raise NotImplementedError(
+            "from_dict is not implemented for this augmenter. "
+            "Override this method if your augmenter supports serialization."
+        )
 
 
 class SR_evaluator:
@@ -772,12 +829,21 @@ class SR_results:
 
         self.results.append(results_obj)
 
-    def print_results(self, experiment_number: Optional[int] = None, detailed: bool = False):
+    def print_results(
+        self,
+        experiment_number: Optional[int] = None,
+        detailed: bool = False,
+        model_scope: Literal["best", "top", "all"] = "top",
+        augmentations: Optional[List[str]] = None,
+    ):
         r"""
-        Prints the results of the SR_evaluator. Specifically, prints the minimum error, the best expression,
-        the number of evaluated expressions, the number of times the "evaluate_expr" function was called, whether
-        the evaluation was successful, and the metadata and the approach name, if present. If detailed is True, prints
-        all the information about the top models.
+        Prints the results of the SR_evaluator.
+
+        Displays the minimum error, best expression, evaluation counts, success status,
+        metadata, and approach name. When *detailed* is True, also prints per-model
+        information. Augmentation data is formatted by the corresponding
+        :class:`ResultAugmenter` class, looked up from the global registry via the
+        ``_type`` field stored in each augmentation entry.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -786,74 +852,125 @@ class SR_results:
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> results.print_results()  # doctest: +ELLIPSIS
-            Experiment 1/1:
-            Best expression found: C*X_1-X_0
+            === Experiment 1/1 ===
+            Best expression: C*X_1-X_0
             Error: ...
-            Number of evaluated expressions: 1
-            Number of times evaluate_expr was called: 1
-            Success: ...
+            Evaluated: 1 expressions | Calls: 1 | Success: ...
             <BLANKLINE>
-            -----------------------------------------
             >>> results.print_results(detailed=True, experiment_number=0)  # doctest: +ELLIPSIS
-            Best expression found: C*X_1-X_0
+            Best expression: C*X_1-X_0
             Error: ...
-            Number of evaluated expressions: 1
-            Number of times evaluate_expr was called: 1
-            Success: ...
+            Evaluated: 1 expressions | Calls: 1 | Success: ...
             <BLANKLINE>
-            Top models:
-            Model 1 - expr: ['C', '*', 'X_1', '-', 'X_0'], error: ..., parameters: ...
+            Models:
+              C*X_1-X_0  (error=..., params=...)
             <BLANKLINE>
 
         Args:
-            experiment_number: Number of the experiment you want to print the results for. If None, prints the results for all experiments.
-            detailed: If True, prints all the information about the top models.
-
+            experiment_number: Number of the experiment to print. If None, prints all.
+            detailed: If True, prints per-model information.
+            model_scope: Which models to show when *detailed* is True.
+                ``"best"`` shows only the top model, ``"top"`` shows the top-k,
+                ``"all"`` shows all evaluated models.
+            augmentations: Filter which augmenters to display by name.
+                If None, all augmentations present in the data are shown.
         """
         if experiment_number is None:
             for i, result in enumerate(self.results):
-                print(f"Experiment {i + 1}/{len(self.results)}:")
-                SR_results._print_result_(result, detailed)
-                print("-----------------------------------------")
-
+                print(f"=== Experiment {i + 1}/{len(self.results)} ===")
+                SR_results._print_result_(result, detailed, model_scope, augmentations)
+                print()
         else:
-            assert experiment_number < len(self.results), "[SR_Results.print_results] experiment number out of bounds"
-            SR_results._print_result_(self.results[experiment_number], detailed)
+            assert experiment_number < len(self.results), "[SR_results.print_results] experiment number out of bounds"
+            SR_results._print_result_(self.results[experiment_number], detailed, model_scope, augmentations)
 
     @staticmethod
-    def _print_result_(result: EvalResult, detailed: bool = False):
+    def _print_result_(
+        result: EvalResult,
+        detailed: bool = False,
+        model_scope: Literal["best", "top", "all"] = "top",
+        augmentations_filter: Optional[List[str]] = None,
+    ):
+        # TODO: Check if this works for custom augmenters even after registering
+        from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
+
+        # --- Core info ---
         if result.dataset_name is not None:
             print(f"Dataset: {result.dataset_name}")
         if result.approach_name != "":
             print(f"Approach: {result.approach_name}")
-        print(f"Best expression found: {result.best_expr}")
+        print(f"Best expression: {result.best_expr}")
         print(f"Error: {result.min_error}")
-        print(f"Number of evaluated expressions: {result.num_evaluated}")
-        print(f"Number of times evaluate_expr was called: {result.evaluation_calls}")
-        print(f"Success: {result.success}")
-        print()
+        print(
+            f"Evaluated: {result.num_evaluated} expressions | Calls: {result.evaluation_calls} | Success: {result.success}"
+        )
         if result.metadata is not None and len(result.metadata) > 0:
             print("Metadata:")
             for key, value in result.metadata.items():
-                print(f"{key}: {value}")
-            print()
-        if detailed:
-            print("Top models:")
-            for j, model in enumerate(result.top_models):
-                parts = [f"expr: {model.expr}", f"error: {model.error}"]
-                if model.parameters is not None:
-                    parts.append(f"parameters: {model.parameters}")
-                if model.augmentations is not None:
-                    parts.append("augmentations: ")
-                    for augmentation in model.augmentations:
-                        parts.append(f"({augmentation})")
-                print(f"Model {j + 1} - " + ", ".join(parts))
-            print()
-        # TODO: Add augmentation information to the results
+                print(f"  {key}: {value}")
+        print()
 
-        # TODO: Function that creates a pareto front
-        # TODO: Function that creates a table with results
-        # TODO: Function that returns the best expression
+        # --- Resolve which augmenter keys to show ---
+        eval_aug_keys = list(result.augmentations.keys())
+        if augmentations_filter is not None:
+            eval_aug_keys = [k for k in eval_aug_keys if k in augmentations_filter]
+
+        # --- Experiment-level augmentation sections ---
+        for key in eval_aug_keys:
+            data = result.augmentations[key]
+            type_str = data.get("_type", "")
+            cls = RESULT_AUGMENTERS.get(type_str) if type_str else None
+            print(f"--- {key} ---")
+            if cls is not None:
+                line = cls.format_eval_result(data)
+                if line:
+                    print(line)
+            else:
+                if type_str:
+                    warnings.warn(
+                        f"No registered augmenter for type '{type_str}'. "
+                        f"Register with register_augmenter() or fall back to default dump."
+                    )
+                for k, v in data.items():
+                    if k != "_type":
+                        print(f"  {k}: {v}")
+
+        # --- Per-model output ---
+        if detailed:
+            # Pick model list based on scope
+            if model_scope == "best":
+                models = result.top_models[:1]
+            elif model_scope == "top":
+                models = result.top_models
+            else:
+                models = result.all_models
+
+            if models:
+                print()
+                print("Models:")
+                for model in models:
+                    parts = [f"error={model.error:.6g}"]
+                    if model.parameters is not None:
+                        parts.append(f"params={np.round(model.parameters, 4).tolist()}")
+                    expr_str = "".join(model.expr)
+                    print(f"  {expr_str}  ({', '.join(parts)})")
+
+                    # Model-level augmentations
+                    model_aug_keys = list(model.augmentations.keys())
+                    if augmentations_filter is not None:
+                        model_aug_keys = [k for k in model_aug_keys if k in augmentations_filter]
+                    for key in model_aug_keys:
+                        data = model.augmentations[key]
+                        type_str = data.get("_type", "")
+                        cls = RESULT_AUGMENTERS.get(type_str) if type_str else None
+                        if cls is not None:
+                            line = cls.format_model_result(data)
+                            if line:
+                                print(f"    {key}: {line}")
+                        else:
+                            parts = [f"{k}={v}" for k, v in data.items() if k != "_type"]
+                            if parts:
+                                print(f"    {key}: {', '.join(parts)}")
 
     def augment(self, augmenters: List[ResultAugmenter], experiment_number: Optional[int] = None) -> None:
         r"""

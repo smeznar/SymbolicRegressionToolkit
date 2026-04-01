@@ -161,14 +161,15 @@ class TestSRResults:
 class TestModelResult:
     def test_add_augmentation(self):
         mr = ModelResult(expr=["X_0"], error=0.5)
-        mr.add_augmentation("test", {"value": 42})
+        mr.add_augmentation("test", {"value": 42}, "TestAugmenter")
         assert "test" in mr.augmentations
         assert mr.augmentations["test"]["value"] == 42
+        assert mr.augmentations["test"]["_type"] == "TestAugmenter"
 
     def test_add_augmentation_collision(self):
         mr = ModelResult(expr=["X_0"], error=0.5)
-        mr.add_augmentation("test", {"a": 1})
-        mr.add_augmentation("test", {"b": 2})
+        mr.add_augmentation("test", {"a": 1}, "TestAugmenter")
+        mr.add_augmentation("test", {"b": 2}, "TestAugmenter")
         assert "test" in mr.augmentations
         assert "test_1" in mr.augmentations
 
@@ -185,5 +186,5 @@ class TestEvalResult:
             approach_name="",
             success=False,
         )
-        er.add_augmentation("test", {"value": 42})
+        er.add_augmentation("test", {"value": 42}, "TestAugmenter")
         assert "test" in er.augmentations

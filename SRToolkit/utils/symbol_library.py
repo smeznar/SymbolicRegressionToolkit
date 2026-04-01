@@ -5,6 +5,8 @@ This module contains the SymbolLibrary class, which is used for managing symbols
 import copy
 from typing import Any, Dict, List, Optional
 
+from SRToolkit.utils.types import VALID_SYMBOL_TYPES
+
 
 class SymbolLibrary:
     def __init__(
@@ -113,6 +115,9 @@ class SymbolLibrary:
             np_fn: A string representing the numpy function associated with this symbol.
             latex_str: A string that represents how the symbol is written in LaTeX
         """
+        if symbol_type not in VALID_SYMBOL_TYPES:
+            raise ValueError(f"Invalid symbol type '{symbol_type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
+
         if latex_str is None:
             if symbol_type == "var":
                 latex_str = f"{{}} \text{{{symbol}}} {{}}"

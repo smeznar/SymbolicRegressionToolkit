@@ -5,7 +5,7 @@ of the best expression, or RMSE on the test set, ...
 """
 
 import warnings
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Type
 
 import numpy as np
 
@@ -14,6 +14,8 @@ from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
 
 
 class ExpressionToLatex(ResultAugmenter):
+    _type = "ExpressionToLatex"
+
     def __init__(
         self,
         symbol_library: SymbolLibrary,
@@ -61,7 +63,7 @@ class ExpressionToLatex(ResultAugmenter):
         except Exception as e:
             if self.verbose:
                 warnings.warn(f"Unable to convert best expression to LaTeX: {e}")
-        results.add_augmentation(self.name, eval_data)
+        results.add_augmentation(self.name, eval_data, self._type)
 
         if self.scope == "top" or self.scope == "all":
             for model in results.top_models:
@@ -69,6 +71,7 @@ class ExpressionToLatex(ResultAugmenter):
                     model.add_augmentation(
                         self.name,
                         {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
+                        self._type,
                     )
                 except Exception as e:
                     if self.verbose:
@@ -80,10 +83,21 @@ class ExpressionToLatex(ResultAugmenter):
                     model.add_augmentation(
                         self.name,
                         {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
+                        self._type,
                     )
                 except Exception as e:
                     if self.verbose:
                         warnings.warn(f"Unable to convert expression {''.join(model.expr)} to LaTeX: {e}")
+
+    @classmethod
+    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+        latex = data.get("best_expr_latex", "")
+        return f"LaTeX of the best expression: {latex}" if latex else ""
+
+    @classmethod
+    def format_model_result(cls, data: Dict[str, Any]) -> str:
+        latex = data.get("expr_latex", "")
+        return f"LaTeX: {latex}" if latex else ""
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -106,13 +120,12 @@ class ExpressionToLatex(ResultAugmenter):
         }
 
     @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ExpressionToLatex":
+    def from_dict(data: dict) -> "ExpressionToLatex":
         """
         Creates an instance of the ExpressionToLatex augmenter from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the augmenter.
-            augmenter_map: Unused and ignored
 
         Returns:
             An instance of the ExpressionToLatex augmenter.
@@ -130,6 +143,8 @@ class ExpressionToLatex(ResultAugmenter):
 
 
 class ExpressionSimplifier(ResultAugmenter):
+    _type = "ExpressionSimplifier"
+
     def __init__(
         self,
         symbol_library: SymbolLibrary,
@@ -181,7 +196,7 @@ class ExpressionSimplifier(ResultAugmenter):
         except Exception as e:
             if self.verbose:
                 warnings.warn(f"Unable to simplify {results.best_expr}: {e}")
-        results.add_augmentation(self.name, eval_data)
+        results.add_augmentation(self.name, eval_data, self._type)
 
         if self.scope == "top" or self.scope == "all":
             for model in results.top_models:
@@ -197,7 +212,7 @@ class ExpressionSimplifier(ResultAugmenter):
                 except Exception as e:
                     if self.verbose:
                         warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
-                model.add_augmentation(self.name, top_model_data)
+                model.add_augmentation(self.name, top_model_data, self._type)
 
         if self.scope == "all":
             for model in results.all_models:
@@ -213,7 +228,17 @@ class ExpressionSimplifier(ResultAugmenter):
                 except Exception as e:
                     if self.verbose:
                         warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
-                model.add_augmentation(self.name, all_model_data)
+                model.add_augmentation(self.name, all_model_data, self._type)
+
+    @classmethod
+    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+        simplified = data.get("simplified_best_expr", "")
+        return f"Simplified: {simplified}" if simplified else ""
+
+    @classmethod
+    def format_model_result(cls, data: Dict[str, Any]) -> str:
+        simplified = data.get("simplified_expr", "")
+        return f"Simplified: {simplified}" if simplified else ""
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -236,13 +261,12 @@ class ExpressionSimplifier(ResultAugmenter):
         }
 
     @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "ExpressionSimplifier":
+    def from_dict(data: dict) -> "ExpressionSimplifier":
         """
         Creates an instance of the ExpressionSimplifier augmenter from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the augmenter.
-            augmenter_map: Unused and ignored
         Returns:
             An instance of the ExpressionSimplifier augmenter.
         """
@@ -259,6 +283,8 @@ class ExpressionSimplifier(ResultAugmenter):
 
 
 class RMSE(ResultAugmenter):
+    _type = "RMSE"
+
     def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "RMSE") -> None:  # noqa: F821
         """
         Computes the RMSE for the top models using a separate evaluator (e.g. a test-set evaluator).
@@ -298,7 +324,7 @@ class RMSE(ResultAugmenter):
             results: The :class:`EvalResult` to augment.
         """
         eval_data: Dict[str, Any] = {"min_error": self.evaluator.evaluate_expr(results.top_models[0].expr)}
-        results.add_augmentation(self.name, eval_data)
+        results.add_augmentation(self.name, eval_data, self._type)
 
         if self.scope == "top" or self.scope == "all":
             for model in results.top_models:
@@ -307,7 +333,7 @@ class RMSE(ResultAugmenter):
                     "error": self.evaluator.evaluate_expr(model.expr),
                     "parameters": self.evaluator.models[key].parameters,
                 }
-                model.add_augmentation(self.name, top_model_data)
+                model.add_augmentation(self.name, top_model_data, self._type)
 
         if self.scope == "all":
             for model in results.all_models:
@@ -316,7 +342,19 @@ class RMSE(ResultAugmenter):
                     "error": self.evaluator.evaluate_expr(model.expr),
                     "parameters": self.evaluator.models[key].parameters,
                 }
-                model.add_augmentation(self.name, all_model_data)
+                model.add_augmentation(self.name, all_model_data, self._type)
+
+    @classmethod
+    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+        val = data.get("min_error", "")
+        return f"Test RMSE: {val}" if val != "" else ""
+
+    @classmethod
+    def format_model_result(cls, data: Dict[str, Any]) -> str:
+        parts = [f"RMSE={data['error']:.6g}"]
+        if "parameters" in data and data["parameters"] is not None:
+            parts.append(f"params={np.round(data['parameters'], 4).tolist()}")
+        return ", ".join(parts)
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -338,13 +376,12 @@ class RMSE(ResultAugmenter):
         }
 
     @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "RMSE":
+    def from_dict(data: dict) -> "RMSE":
         """
         Creates an instance of the RMSE augmenter from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the augmenter.
-            augmenter_map: A dictionary mapping augmenter names to their classes.
 
         Returns:
             An instance of the RMSE augmenter.
@@ -358,6 +395,8 @@ class RMSE(ResultAugmenter):
 
 
 class BED(ResultAugmenter):
+    _type = "BED"
+
     def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "BED") -> None:  # noqa: F821
         """
         Computes BED for the top models using a separate evaluator.
@@ -398,17 +437,27 @@ class BED(ResultAugmenter):
             results: The :class:`EvalResult` to augment.
         """
         eval_data: Dict[str, Any] = {"best_expr_bed": self.evaluator.evaluate_expr(results.top_models[0].expr)}
-        results.add_augmentation(self.name, eval_data)
+        results.add_augmentation(self.name, eval_data, self._type)
 
         if self.scope == "top" or self.scope == "all":
             for model in results.top_models:
                 top_model_data: Dict[str, Any] = {"bed": self.evaluator.evaluate_expr(model.expr)}
-                model.add_augmentation(self.name, top_model_data)
+                model.add_augmentation(self.name, top_model_data, self._type)
 
         if self.scope == "all":
             for model in results.all_models:
                 all_model_data: Dict[str, Any] = {"bed": self.evaluator.evaluate_expr(model.expr)}
-                model.add_augmentation(self.name, all_model_data)
+                model.add_augmentation(self.name, all_model_data, self._type)
+
+    @classmethod
+    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+        val = data.get("best_expr_bed", "")
+        return f"Test BED: {val}" if val != "" else ""
+
+    @classmethod
+    def format_model_result(cls, data: Dict[str, Any]) -> str:
+        val = data.get("bed", "")
+        return f"BED={val}" if val != "" else ""
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -430,13 +479,12 @@ class BED(ResultAugmenter):
         }
 
     @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "BED":
+    def from_dict(data: dict) -> "BED":
         """
         Creates an instance of the BED augmenter from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the augmenter.
-            augmenter_map: A dictionary mapping augmenter names to their classes.
 
         Returns:
             An instance of the BED augmenter.
@@ -448,6 +496,8 @@ class BED(ResultAugmenter):
 
 
 class R2(ResultAugmenter):
+    _type = "R2"
+
     def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "R2") -> None:  # noqa: F821
         """
         Computes the R^2 for the top models using a separate evaluator.
@@ -489,7 +539,7 @@ class R2(ResultAugmenter):
             results: The :class:`EvalResult` to augment.
         """
         eval_data: Dict[str, Any] = {"best_expr_r^2": self._compute_r2(results.top_models[0])}
-        results.add_augmentation(self.name, eval_data)
+        results.add_augmentation(self.name, eval_data, self._type)
 
         if self.scope == "top" or self.scope == "all":
             for model in results.top_models:
@@ -498,7 +548,7 @@ class R2(ResultAugmenter):
                     "r^2": self._compute_r2(model),
                     "parameters_r^2": self.evaluator.models[key].parameters,
                 }
-                model.add_augmentation(self.name, top_model_data)
+                model.add_augmentation(self.name, top_model_data, self._type)
 
         if self.scope == "all":
             for model in results.all_models:
@@ -507,12 +557,24 @@ class R2(ResultAugmenter):
                     "r^2": self._compute_r2(model),
                     "parameters_r^2": self.evaluator.models[key].parameters,
                 }
-                model.add_augmentation(self.name, all_model_data)
+                model.add_augmentation(self.name, all_model_data, self._type)
 
     def _compute_r2(self, model: ModelResult) -> float:
         assert self.evaluator.y is not None, "y in the evaluator must not be None to compute R^2."
         ss_res = self.evaluator.y.shape[0] * self.evaluator.evaluate_expr(model.expr) ** 2
         return max(0, 1 - ss_res / self.ss_tot)
+
+    @classmethod
+    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+        val = data.get("best_expr_r^2", "")
+        return f"Test R²: {val}" if val != "" else ""
+
+    @classmethod
+    def format_model_result(cls, data: Dict[str, Any]) -> str:
+        parts = [f"R²={data['r^2']:.4g}"]
+        if "parameters_r^2" in data and data["parameters_r^2"] is not None:
+            parts.append(f"params={np.round(data['parameters_r^2'], 4).tolist()}")
+        return ", ".join(parts)
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """
@@ -534,13 +596,12 @@ class R2(ResultAugmenter):
         }
 
     @staticmethod
-    def from_dict(data: dict, augmenter_map: Optional[dict] = None) -> "R2":
+    def from_dict(data: dict) -> "R2":
         """
         Creates an instance of the R2 augmenter from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the augmenter.
-            augmenter_map: A dictionary mapping augmenter names to their classes.
 
         Returns:
             An instance of the R2 augmenter.
@@ -565,3 +626,30 @@ This constant defines the library of available result augmentation classes used 
 The dictionary keys are the unique string identifiers for the augmentor found under the 'type' value in the to_dict
 function. The values are the uninstantiated class objects, all of which inherit from ResultAugmenter.
 """
+
+
+def register_augmenter(name: str, cls: Type[ResultAugmenter]) -> None:
+    """
+    Registers a custom ResultAugmenter class in the global registry.
+
+    This allows users to add custom augmenters that can be discovered and used
+    alongside the built-in ones.
+
+    Examples:
+        >>> from SRToolkit.evaluation import ResultAugmenter, register_augmenter
+        >>> class MyAugmenter(ResultAugmenter):
+        ...     def __init__(self):
+        ...         super().__init__("MyAugmenter")
+        ...     def write_results(self, results):
+        ...         pass
+        ...     def to_dict(self, base_path, name):
+        ...         return {"type": "MyAugmenter"}
+        >>> register_augmenter("MyAugmenter", MyAugmenter)
+        >>> "MyAugmenter" in RESULT_AUGMENTERS
+        True
+
+    Args:
+        name: The string identifier for the augmenter.
+        cls: The ResultAugmenter subclass to register.
+    """
+    RESULT_AUGMENTERS[name] = cls
