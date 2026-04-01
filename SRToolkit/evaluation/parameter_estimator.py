@@ -167,5 +167,5 @@ class ParameterEstimator:
                 for _ in range(num_constants)
             ],
         )
-
+        # print(res.nfev)
         return res.fun, res.x

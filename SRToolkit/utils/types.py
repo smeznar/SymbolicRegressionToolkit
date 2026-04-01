@@ -40,7 +40,7 @@ class EstimationSettings(TypedDict, total=False):
     tol: float
     gtol: float
     max_iter: int
-    constant_bounds: Union[Tuple[float, float], List[float]]
+    constant_bounds: Union[Tuple[float, float]]
     initialization: str
     max_constants: int
     max_expr_length: int

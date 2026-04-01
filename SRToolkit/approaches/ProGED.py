@@ -33,7 +33,7 @@ class ProGED(SR_approach):
         >>> r.approach_name
         'ProGED'
         >>> r.best_expr
-        'X_0'
+        'X_0/C/C'
         >>> r.num_evaluated
         74
         >>> bool(r.success)
