@@ -1,5 +1,6 @@
 """
-The module containing the expression tree data structure and functions for transforming expressions into trees and back.
+Binary expression tree ([Node][SRToolkit.utils.expression_tree.Node]) and conversion utilities between token
+lists, trees, and LaTeX strings.
 """
 
 import warnings
@@ -12,7 +13,11 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 class Node:
     def __init__(self, symbol: str, right: Optional["Node"] = None, left: Optional["Node"] = None) -> None:
         """
-        Initializes a Node object. We assume that nodes containing functions have only one child node, i.e. right is None.
+        A node in a binary expression tree.
+
+        - Binary operators (``"op"``) set both ``left`` and ``right``.
+        - Unary functions (``"fn"``) set only ``left``; ``right`` is ``None``.
+        - Leaves (variables, constants, literals, numeric values) have both children as ``None``.
 
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
@@ -20,24 +25,9 @@ class Node:
             3
 
         Args:
-            symbol: The symbol string stored in this node.
-            right: The right child of this node.
-            left: The left child of this node.
-
-        Methods:
-            __len__(self):
-                Returns the number of nodes in the tree rooted at this node.
-            height(self):
-                Returns the height of the tree rooted at this node.
-            __str__(self):
-                Returns a string representation of the tree rooted at this node.
-            to_list(self, notation: str = "infix", symbol_library: SymbolLibrary = None):
-                Returns a list representation of the tree rooted at this node.
-            to_latex(self, symbol_library: SymbolLibrary):
-                Returns a LaTeX representation of the tree rooted at this node.
-            __copy__(self):
-                Returns a copy of the expression (tree).
-
+            symbol: Token string stored at this node.
+            right: Right operand (binary operators only).
+            left: Left operand (operators and unary functions).
         """
         self.symbol = symbol
         self.right = right
@@ -73,17 +63,18 @@ class Node:
             ['X_0', '*', '(', 'X_0', '*', 'X_0', ')']
 
         Args:
-            notation: The notation to use for the resulting list of tokens. One of "prefix", "postfix", or "infix".
-            symbol_library: The symbol library to use when converting the tree. This library defines the properties of the symbols in the tree.
+            symbol_library: Symbol library used to determine token types and precedences
+                during infix reconstruction. If ``None`` with ``"infix"`` notation, the
+                output may contain redundant parentheses.
+            notation: Output notation: ``"infix"``, ``"prefix"``, or ``"postfix"``.
+                Default ``"infix"``.
 
         Returns:
-            A list of tokens representing the tree rooted at this node in the specified notation.
+            Token list representing the subtree rooted at this node.
 
         Raises:
-             Exception: If the notation is not one of "prefix", "postfix", or "infix" or if a symbol is not in the symbol library.
-
-        Notes:
-            If the notation is "infix" and the symbol library is not provided, then the resulting list of tokens may contain unnecessary parentheses or have other issues.
+            Exception: If ``notation`` is not one of the accepted values, or if a token's
+                type cannot be resolved during infix reconstruction.
         """
         # if symbol_library is None:
         #     symbol_library = SymbolLibrary.default_symbols()
@@ -173,13 +164,14 @@ class Node:
             $C_{0} + C_{1} \cdot X_{0}$
 
         Args:
-            symbol_library: The symbol library to use when converting the tree. This library defines the properties of the symbols in the tree.
+            symbol_library: Symbol library providing the LaTeX template for each token.
 
         Returns:
-            A latex string representing the tree rooted at this node.
+            A LaTeX string of the form ``$...$``.
 
         Raises:
-             Exception: If the notation is not one of "prefix", "postfix", or "infix" or if a symbol is not in the symbol library.
+            Exception: If the tree contains a token whose type cannot be resolved in
+                ``symbol_library``.
         """
         assert symbol_library is not None, "[Node.to_latex] parameter symbol_library should be of type SymbolLibrary"
         return f"${self.__to_latex_rec(symbol_library)[0]}$"
@@ -219,7 +211,9 @@ class Node:
 
     def height(self) -> int:
         """
-        Returns the height of the tree rooted at this node.
+        Return the height of the subtree rooted at this node.
+
+        A single-node tree has height 1.
 
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
@@ -227,7 +221,7 @@ class Node:
             2
 
         Returns:
-            The height of the tree rooted at this node.
+            Height of the subtree.
         """
         return 1 + max(
             (self.left.height() if self.left is not None else 0),
@@ -236,7 +230,7 @@ class Node:
 
     def __len__(self) -> int:
         """
-        Returns the number of nodes in the tree rooted at this node.
+        Return the number of nodes in the subtree rooted at this node.
 
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
@@ -244,13 +238,13 @@ class Node:
             3
 
         Returns:
-            The number of nodes in the tree rooted at this node.
+            Total node count of the subtree.
         """
         return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
 
     def __str__(self) -> str:
         """
-        Returns a string representation of the tree rooted at this node.
+        Return the expression as a concatenated string using default infix notation that may contain redundant parentheses.
 
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
@@ -258,13 +252,13 @@ class Node:
             '1+x'
 
         Returns:
-            A string representation of the tree rooted at this node.
+            Concatenated token string with no spaces.
         """
         return "".join(self.to_list())
 
     def __copy__(self) -> "Node":
         """
-        Creates a copy of the expression (usefull for manipulating expressions).
+        Return a deep copy of the subtree rooted at this node.
 
         Examples:
             >>> node = Node("+", Node("X_0"), Node("1"))
@@ -279,7 +273,7 @@ class Node:
             False
 
         Returns:
-            A copy of the expression (tree).
+            An independent copy of the subtree.
         """
         if self.left is not None:
             left = copy(self.left)
@@ -294,7 +288,7 @@ class Node:
 
 def is_float(element: Any) -> bool:
     """
-    Checks if a given element is a float.
+    Return ``True`` if ``element`` can be interpreted as a floating-point number.
 
     Examples:
         >>> is_float(1.0)
@@ -306,12 +300,11 @@ def is_float(element: Any) -> bool:
         >>> is_float(None)
         False
 
-
     Args:
-        element: The element to check.
+        element: Value to test.
 
     Returns:
-        True if the element is a float, False otherwise.
+        ``True`` if ``float(element)`` succeeds, ``False`` otherwise (including ``None``).
     """
     if element is None:
         return False
@@ -324,8 +317,7 @@ def is_float(element: Any) -> bool:
 
 def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
     """
-    Converts a list of tokens to a tree data structure. Throws an exception if the expression is invalid (check syntax
-    and that all symbols are in the symbol library correctly defined).
+    Parse a token list into an expression tree using the shunting-yard algorithm.
 
     Examples:
         >>> tree = tokens_to_tree(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())
@@ -333,15 +325,15 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         3
 
     Args:
-        tokens: The list of tokens to convert.
-        sl: The symbol library to use when parsing the tokens.
+        tokens: Token list in infix notation.
+        sl: Symbol library used to resolve token types and precedences.
 
     Returns:
-        The root of the expression tree data structure.
+        Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
 
     Raises:
-        Exception: If the expression is invalid. Usually this means that a symbol is not in the symbol library or that
-                   there is a syntactic error in the expression.
+        Exception: If a token is absent from ``sl``, or if the expression is
+            syntactically invalid.
     """
     num_tokens = len([t for t in tokens if t != "(" and t != ")"])
     expr_str = "".join(tokens)
@@ -391,7 +383,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
 
 def expr_to_latex(expr: Union[Node, List[str]], symbol_library: SymbolLibrary) -> str:
     """
-    Transforms an expression into a LaTeX string.
+    Convert an expression to a LaTeX string.
 
     Examples:
         >>> expr_to_latex(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())
@@ -401,11 +393,11 @@ def expr_to_latex(expr: Union[Node, List[str]], symbol_library: SymbolLibrary) -
         '$1 + X_{0}$'
 
     Args:
-        expr: An expression
-        symbol_library: The symbol library.
+        expr: Expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        symbol_library: Symbol library providing LaTeX templates.
 
     Returns:
-        A LaTeX string representing the expression.
+        A LaTeX string of the form ``$...$``, or an empty string if conversion fails.
     """
     try:
         if isinstance(expr, Node):

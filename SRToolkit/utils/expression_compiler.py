@@ -1,5 +1,5 @@
 """
-This module contains functions that convert an expression in infix notation to an executable python function.
+Functions for compiling symbolic expressions into executable Python callables.
 """
 
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -15,7 +15,11 @@ def expr_to_executable_function(
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
     """
-    Converts an expression in infix notation to an executable function.
+    Compile an expression into an executable Python function.
+
+    The returned callable evaluates the expression over a batch of inputs and a vector
+    of constant values. To use a backend other than NumPy, set
+    ``symbol_library.preamble`` to the required import statements.
 
     Examples:
         >>> executable_fun = expr_to_executable_function(["X_0", "+", "1"])
@@ -41,14 +45,17 @@ def expr_to_executable_function(
         array([2, 3, 4, 5])
 
     Args:
-        expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
-
-    Raises:
-        Exception: If expression is not of the right type
+        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        symbol_library: Defines token semantics (NumPy function strings, preamble imports).
+            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        An executable function that takes in a 2D array of input values and a 1D array of constant values and returns the output of the expression.
+        A callable ``f(X, C)`` where ``X`` is a 2-D array of shape
+        ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values.
+        Returns a 1-D output array of shape ``(n_samples,)``.
+
+    Raises:
+        Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
     if not (isinstance(expr, list) or isinstance(expr, Node)):
         raise Exception(
@@ -77,8 +84,10 @@ def expr_to_error_function(
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
     """
-    Converts an expression in infix notation to an executable function that returns the root mean squared error between
-    the output of the expression and the target values.
+    Compile an expression into a callable that computes the RMSE against target values.
+
+    To use a backend other than NumPy, set ``symbol_library.preamble`` to the required
+    import statements.
 
     Examples:
         >>> executable_fun = expr_to_error_function(["X_0", "+", "1"])
@@ -98,14 +107,17 @@ def expr_to_error_function(
         0.0
 
     Args:
-        expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
-
-    Raises:
-        Exception: If expression is not of the right type
+        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        symbol_library: Defines token semantics (NumPy function strings, preamble imports).
+            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        An executable function that takes in a 2D array of input values `X`, a 1D array of constant values `C`, and a 1D array of target values `y`. It returns the root mean squared error between the output of the expression and the target values.
+        A callable ``f(X, C, y)`` where ``X`` is a 2-D array of shape
+        ``(n_samples, n_features)``, ``C`` is a 1-D array of constant values, and ``y``
+        is a 1-D target array. Returns the scalar RMSE as a float.
+
+    Raises:
+        Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
     if not (isinstance(expr, list) or isinstance(expr, Node)):
         raise Exception(
@@ -136,27 +148,29 @@ def tree_to_function_rec(
     const_counter: int = 0,
 ) -> Tuple[List[str], str, int, int]:
     """
-    Recursively converts a parse tree into a string of Python code that can be executed to evaluate the expression
-    represented by the tree. For usage examples, see code for expr_to_executable_function and expr_to_error_function.
+    Recursively convert a parse tree into lines of Python code for expression evaluation.
+
+    This is a low-level helper for [expr_to_executable_function][SRToolkit.utils.expression_compiler.expr_to_executable_function] and
+    [expr_to_error_function][SRToolkit.utils.expression_compiler.expr_to_error_function]. Call those functions directly unless you need
+    fine-grained control over code generation.
 
     Args:
-        tree: The root of the parse tree to convert.
-        symbol_library: The symbol library to use when converting the tree. This library defines the properties of the symbols in the tree.
-        var_counter: The number of variables encountered so far. This is used to create a unique variable name for each variable.
-        const_counter: The number of constants encountered so far. This is used to select the correct constant value from the constant array.
+        tree: Root of the subtree to convert.
+        symbol_library: Provides NumPy function strings for each token.
+        var_counter: Running count of intermediate variables, used to generate unique
+            names. Default ``0``.
+        const_counter: Running count of constants consumed; used to index into the ``C``
+            array. Default ``0``.
 
     Returns:
-        A list of strings, where each string contains a line of Python code to execute to evaluate the expression represented by the tree.
-        The name of the variable that represents the output of the expression.
-        The updated value of `var_counter`.
-        The updated value of `const_counter`.
+        A 4-tuple ``(code, symbol, var_counter, const_counter)`` where ``code`` is a list
+        of Python assignment strings forming the expression body, ``symbol`` is the name
+        of the variable holding this subtree's result, and ``var_counter`` /
+        ``const_counter`` are the updated counters.
 
     Raises:
-        Exception: If the parse tree contains an invalid symbol.
-
-    Notes:
-        This function is a helper function for `expr_to_executable_function` and similar and should not be called directly
-        unless you want to customize the way the expression is defined. For examples, see the code of `expr_to_executable_function` and `expr_to_error_function` in this module.
+        Exception: If the tree contains a token that is neither a recognized symbol nor
+            a numeric literal.
     """
     if tree.left is None and tree.right is None:
         if symbol_library.get_type(tree.symbol) in ["var", "lit"]:

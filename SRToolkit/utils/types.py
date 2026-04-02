@@ -16,24 +16,34 @@ VALID_SYMBOL_TYPES: Set[str] = {VAR, CONST, FN, OP, LIT}
 
 class EstimationSettings(TypedDict, total=False):
     """
-    TypedDict for parameter estimation and BED evaluation settings.
+    Shared settings for parameter estimation and BED evaluation.
 
-    These settings are passed as ``**kwargs`` through ``SR_dataset``, ``SR_evaluator``,
-    and ``ParameterEstimator``. All fields are optional and have defaults.
+    Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and
+    ``ParameterEstimator``. All fields are optional.
 
     Attributes:
-        method: Minimization method. Default ``"L-BFGS-B"``.
-        tol: Tolerance for termination. Default ``1e-6``.
-        gtol: Tolerance for the gradient norm. Default ``1e-3``.
-        max_iter: Maximum number of iterations. Default ``100``.
-        constant_bounds: Lower and upper bounds for constant values. Default ``(-5, 5)``.
-        initialization: How to initialize constants: ``"random"`` or ``"mean"``. Default ``"random"``.
-        max_constants: Maximum number of free constants. Default ``8``.
-        max_expr_length: Maximum expression length (``-1`` = no limit). Default ``-1``.
-        num_points_sampled: Number of points for behavior estimation. Default ``64``.
-        bed_X: Points used for BED evaluation. Default ``None``.
-        num_consts_sampled: Number of constants sampled for BED. Default ``32``.
-        domain_bounds: Domain bounds for sampling BED points. Default ``None``.
+        method: Optimization algorithm for parameter fitting. Default: ``"L-BFGS-B"``.
+        tol: Termination tolerance for the optimizer. Default: ``1e-6``.
+        gtol: Gradient-norm termination tolerance. Default: ``1e-3``.
+        max_iter: Maximum optimizer iterations. Default: ``100``.
+        constant_bounds: ``(lower, upper)`` bounds for sampled constant values.
+            Default: ``(-5, 5)``.
+        initialization: Constant initialization strategy — ``"random"`` samples
+            uniformly within ``constant_bounds``; ``"mean"`` sets all constants
+            to the midpoint. Default: ``"random"``.
+        max_constants: Maximum number of free constants permitted in a single
+            expression. Expressions exceeding this limit score ``NaN``.
+            Default: ``8``.
+        max_expr_length: Maximum expression length in tokens. ``-1`` disables the
+            limit. Default: ``-1``.
+        num_points_sampled: Number of domain points used when evaluating expression
+            behavior for BED. ``-1`` uses all points in ``X``. Default: ``64``.
+        bed_X: Fixed evaluation points for BED. If ``None``, points are sampled from
+            ``domain_bounds`` or selected randomly from ``X``. Default: ``None``.
+        num_consts_sampled: Number of constant vectors sampled per expression for
+            BED. Default: ``32``.
+        domain_bounds: Per-variable ``(lower, upper)`` bounds used to sample
+            ``bed_X`` when it is ``None``. Default: ``None``.
     """
 
     method: str

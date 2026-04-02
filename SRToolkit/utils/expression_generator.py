@@ -1,5 +1,6 @@
 """
-This module contains helper functions for creating a PCFG with generic probabilities from the SymbolLibrary and to use it for generating random expressions.
+PCFG construction from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] and Monte-Carlo sampling of symbolic
+expressions.
 """
 
 from typing import List, Union
@@ -13,7 +14,20 @@ from .symbol_library import SymbolLibrary
 
 def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
     """
-    Creates a generic PCFG from the SymbolLibrary.
+    Construct a generic Probabilistic Context-Free Grammar (PCFG) from a symbol library.
+
+    The grammar encodes standard mathematical operator precedence through a fixed
+    non-terminal hierarchy:
+
+    - ``E`` — additive level (precedence 0 operators)
+    - ``F`` — multiplicative level (precedence 1 operators)
+    - ``B`` — power level (precedence 2 operators)
+    - ``T`` — terminal: function application (``R``), constant (``C``), or variable (``V``)
+    - ``R`` — unary functions (precedence 5) and parenthesised sub-expressions
+    - ``P`` — postfix functions (precedence -1, e.g. ``^2``)
+
+    The returned string is in NLTK PCFG format and can be passed directly to
+    [generate_from_pcfg][SRToolkit.utils.expression_generator.generate_from_pcfg] or [generate_n_expressions][SRToolkit.utils.expression_generator.generate_n_expressions].
 
     Examples:
         >>> sl = SymbolLibrary.from_symbol_list(["+", "-", "*", "sin", "^2", "pi"], 2)
@@ -37,10 +51,11 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
         <BLANKLINE>
 
     Args:
-        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+        symbol_library: Symbol library defining the available tokens, their types,
+            and precedences.
 
     Returns:
-        A PCFG with generic probabilities, written as a string.
+        NLTK-formatted PCFG string with generic probabilities.
     """
     symbols = symbol_library.symbols.values()
     E = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 0]
@@ -121,6 +136,18 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
 
 
 def _expand(grammar, symbol, current_depth, max_depth=40):
+    """
+    Recursively expand a grammar symbol by weighted random production selection.
+
+    Args:
+        grammar: Parsed NLTK PCFG object.
+        symbol: Current symbol to expand (terminal or non-terminal).
+        current_depth: Current recursion depth.
+        max_depth: Maximum allowed recursion depth. Values ≤ 0 allow unbounded depth.
+
+    Returns:
+        List of terminal token strings, or ``None`` if ``max_depth`` is exceeded.
+    """
     if current_depth > max_depth > 0:
         return None
 
@@ -145,7 +172,7 @@ def _expand(grammar, symbol, current_depth, max_depth=40):
 
 def generate_from_pcfg(grammar_str: str, start_symbol: str = "E", max_depth: int = 40, limit: int = 100) -> List[str]:
     """
-    Generates a random expression from a PCFG with monte-carlo sampling.
+    Sample a single expression from a PCFG by Monte-Carlo tree expansion.
 
     Examples:
         >>> generate_from_pcfg("E -> '1' [1.0]")
@@ -155,16 +182,18 @@ def generate_from_pcfg(grammar_str: str, start_symbol: str = "E", max_depth: int
         True
 
     Args:
-        grammar_str: Grammar given as a string in the NLTK notation
-        start_symbol: Non-terminal symbol used as the starting point
-        max_depth: Maximum depth of the generated parse trees. If less than 0, expressions can have arbitrary depth
-        limit: Number of times the function tries to generate a valid expression before raising an Exception.
-
-    Raises:
-        Exception: If the maximum number of tries is reached without generating a valid expression
+        grammar_str: Grammar in NLTK PCFG notation.
+        start_symbol: Non-terminal from which expansion begins. Default ``"E"``.
+        max_depth: Maximum parse-tree depth. Values below ``0`` allow unbounded depth.
+            Default ``40``.
+        limit: Maximum number of sampling attempts before raising an exception.
+            Default ``100``.
 
     Returns:
-        An expression written as a list of string tokens in the infix notation.
+        A single expression as a list of string tokens in infix notation.
+
+    Raises:
+        Exception: If a valid expression cannot be produced within ``limit`` attempts.
     """
     start_symbol = nltk.grammar.Nonterminal(start_symbol)
     grammar = nltk.PCFG.fromstring(grammar_str)
@@ -189,7 +218,7 @@ def generate_n_expressions(
     verbose: bool = True,
 ) -> List[List[str]]:
     """
-    Generates a set of n expressions.
+    Sample ``num_expressions`` expressions from a grammar or symbol library.
 
     Examples:
         >>> len(generate_n_expressions(SymbolLibrary.default_symbols(5), 100, verbose=False))
@@ -198,14 +227,18 @@ def generate_n_expressions(
         [['X_0'], ['X_0'], ['X_0']]
 
     Args:
-        expression_description: Decription of expressions, given as either a grammar in the NLTK notation or a SymbolLibrary instance
-        num_expressions: Number of generated expressions
-        unique: When True, each generated expression will be unique (not necesarily unequivalent to others)
-        max_expression_length: Generated expressions will have at most "max_expression_length" tokens. If less than 0, expressions can be of arbitrary size.
-        verbose: If True, adds a progress bar
+        expression_description: Grammar source as a NLTK PCFG string or a
+            [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] (a generic PCFG is built automatically via
+            [create_generic_pcfg][SRToolkit.utils.expression_generator.create_generic_pcfg]).
+        num_expressions: Number of expressions to generate.
+        unique: If ``True``, every expression in the output is lexicographically distinct
+            (though not necessarily semantically inequivalent). Default ``True``.
+        max_expression_length: Maximum token count per expression. Values below ``0``
+            allow unbounded length. Default ``50``.
+        verbose: Display a progress bar. Default ``True``.
 
     Returns:
-        A list of expressions represented as lists of tokens
+        List of expressions, each represented as a list of string tokens in infix notation.
     """
     if isinstance(expression_description, SymbolLibrary):
         grammar = create_generic_pcfg(expression_description)

@@ -1,14 +1,18 @@
-"""The module containing the `utils`.
-
-The `utils` module provides a set of utilities used in the package and for expression compilation.
+"""
+Utilities for expression representation, compilation, generation, and evaluation.
 
 Modules:
-    symbol_library: The module containing the symbol library data structure for managing symbols that can occur in expressions and their properties.
-    expression_tree: The module containing the expression tree data structure and functions for transforming expressions into trees and back.
-    expression_compiler: The module containing functions that transform expressions in the infix notation (represented as lists of tokens) to executable python functions.
-    expression_simplifier: The module containing functions that simplify an expression using SymPy
-    expression_generator: The module containing helper functions for generating expressions
-    measures: The module containing functions for computing various performance measures on expressions
+    symbol_library: The [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] class — manages the token vocabulary and
+        token properties.
+    expression_tree: The [Node][SRToolkit.utils.expression_tree.Node] binary-tree representation and conversion utilities
+        for expressions.
+    expression_compiler: Compiles token-list or tree expressions into executable Python
+        callables.
+    expression_simplifier: SymPy-backed algebraic simplification, including constant folding.
+    expression_generator: PCFG construction from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] and Monte-Carlo
+        expression sampling.
+    measures: Distance and similarity measures: edit distance, tree edit distance,
+        and Behavior-aware Expression Distance (BED).
 """
 
 from .expression_compiler import (

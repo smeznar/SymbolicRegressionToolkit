@@ -1,5 +1,6 @@
 """
-This module contains the SymbolLibrary class, which is used for managing symbols and their properties.
+The [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] class for managing the token vocabulary used in symbolic
+regression expressions.
 """
 
 import copy
@@ -13,12 +14,11 @@ class SymbolLibrary:
         self, symbols: Optional[List[str]] = None, num_variables: int = 0, preamble: Optional[List[str]] = None
     ) -> None:
         """
-        Initializes an instance of the SymbolLibrary class. This class is used for managing symbols and their
-        properties for other functionality in this package.
+        A registry of tokens and their properties, used throughout the toolkit to parse,
+        compile, and generate symbolic expressions.
 
-        By default, the library uses the numpy package for inference of operators, functions, and numpy arrays as the
-        data structure for data and constants. If you want to define these symbols using other libraries, you should
-        populate the preamble argument with the import statements for those libraries.
+        By default, the library uses NumPy for operator and function evaluation. To use a
+        different backend, pass the required import statements via ``preamble``.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -38,30 +38,16 @@ class SymbolLibrary:
             5
 
         Args:
-            symbols: A list of symbols to be added to the library. If None, the library is initialized with no symbols.
-                Check the SymbolLibrary.default_symbols() function for a list of supported symbols.
-            num_variables: The number of variables to add to the library. If None, the library is initialized with ]
-                no variables. Variables added this way will be labeled 'X_0', 'X_1', ..., 'X_{num_variables-1}'.
-            preamble: A list of import statements for libraries used in the preamble of the generated function. If
-                None, the preamble is set to ["import numpy as np"].
+            symbols: Symbols to pre-populate from the default set. ``None`` produces an empty
+                library. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
+            num_variables: Number of variable tokens to add, labeled ``X_0`` through
+                ``X_{num_variables-1}``. Default is ``0``.
+            preamble: Import statements prepended to compiled expression functions.
+                Defaults to ``["import numpy as np"]``.
 
         Attributes:
-            symbols : dict
-                A dictionary mapping symbols to their properties (type, precedence, numpy function).
-
-        Methods:
-            add_symbol(symbol, symbol_type, precedence, np_fn):
-                Adds a symbol to the library.
-            remove_symbol(symbol):
-                Removes a symbol from the library.
-            get_type(symbol):
-                Retrieves the type of a symbol from the library.
-            get_precedence(symbol):
-                Returns the precedence of the given symbol.
-            get_np_fn(symbol):
-                Returns the numpy function corresponding to the given symbol.
-            default_symbols():
-                Returns a SymbolLibrary with the default symbols.
+            symbols: Mapping from token string to its property dict (type, precedence,
+                NumPy function string, LaTeX template).
         """
         if preamble is None:
             self.preamble = ["import numpy as np"]
@@ -87,18 +73,21 @@ class SymbolLibrary:
         latex_str: Optional[str] = None,
     ):
         r"""
-        Adds a symbol to the library. A symbol should have a type, precedence, a numpy function, and a LaTeX template associated with it.
-        Type "op" should be used for symbols operating on two operands, "fn" for symbols operating on one operand,
-        "lit" for constants with a known value (such as pi or e), "const" for constants/parameters without a value that
-        need to be optimized, and "var" for variables whose values are provided as input data.
+        Add a token to the library with its associated type, precedence, NumPy function
+        string, and LaTeX template.
 
-        We recommend you use a single token of "const" type as using multiple might lead to more work, errors, and less
-        readability.
+        Symbol types:
 
-        If the argument 'latex_str' is ommited, a default LaTeX template will be generated for the symbol. In case of symbol 'symb', the default template
-        will be '{} \text{symb} {}' for an operator,'\text{symb} {}' for a function, and '\text{symb}' otherwise.
+        - ``"op"``: binary operator (e.g. ``+``, ``*``).
+        - ``"fn"``: unary function (e.g. ``sin``, ``sqrt``).
+        - ``"lit"``: literal with a fixed value (e.g. ``pi``, ``e``).
+        - ``"const"``: free constant whose value is optimised during parameter estimation
+          (e.g. ``C``). Using a single ``"const"`` token is recommended; multiple tokens
+          increase complexity and reduce readability.
+        - ``"var"``: input variable whose values are read from the data array ``X``.
 
-        For example, look at the default_symbols function for the SymbolLibrary class.
+        If ``latex_str`` is omitted, a default template is generated: ``"{} \text{symb} {}"``
+        for operators, ``"\text{symb} {}"`` for functions, and ``"\text{symb}"`` otherwise.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -109,11 +98,16 @@ class SymbolLibrary:
             >>> library.add_symbol("pi", "lit", 5, "np.pi", r"\pi")
 
         Args:
-            symbol: The symbol to be added to the library.
-            symbol_type: The type of the symbol, one of "op" (operator), "fn" (function), "lit" (literal), "const" (constant), or "var" (variable).
-            precedence: The precedence of the symbol, used to determine the order of operations.
-            np_fn: A string representing the numpy function associated with this symbol.
-            latex_str: A string that represents how the symbol is written in LaTeX
+            symbol: Token string to register.
+            symbol_type: One of ``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``.
+            precedence: Operator precedence, used for infix reconstruction and PCFG generation.
+            np_fn: Python/NumPy expression string used in compiled callables
+                (e.g. ``"{} = np.sin({})"``) .
+            latex_str: LaTeX template string with ``{}`` placeholders for operands.
+                Auto-generated if omitted.
+
+        Raises:
+            ValueError: If ``symbol_type`` is not one of the valid types.
         """
         if symbol_type not in VALID_SYMBOL_TYPES:
             raise ValueError(f"Invalid symbol type '{symbol_type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
@@ -142,7 +136,7 @@ class SymbolLibrary:
 
     def remove_symbol(self, symbol: str):
         """
-        Removes a symbol from the library.
+        Remove a token from the library.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -154,16 +148,16 @@ class SymbolLibrary:
             0
 
         Args:
-            symbol: The symbol to be removed from the library.
+            symbol: Token string to remove.
 
         Raises:
-            KeyError: If the symbol does not exist in the library.
+            KeyError: If ``symbol`` is not present in the library.
         """
         del self.symbols[symbol]
 
     def get_type(self, symbol: str) -> str:
         """
-        Retrieves the type of a symbol from the library.
+        Return the type of a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -172,10 +166,11 @@ class SymbolLibrary:
             'var'
 
         Args:
-            symbol: The symbol whose type is to be retrieved.
+            symbol: Token to look up.
 
         Returns:
-            The type of the symbol if it exists in the library, otherwise an empty string.
+            The type string (``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``)
+            if the symbol is in the library, otherwise an empty string.
         """
         if symbol in self.symbols:
             return self.symbols[symbol]["type"]
@@ -184,7 +179,7 @@ class SymbolLibrary:
 
     def get_precedence(self, symbol: str) -> int:
         """
-        Retrieves the precedence of the given symbol.
+        Return the precedence of a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -193,10 +188,10 @@ class SymbolLibrary:
             0
 
         Args:
-            symbol: The symbol whose precedence is to be retrieved.
+            symbol: Token to look up.
 
         Returns:
-            The precedence of the symbol if it exists in the library, otherwise -1.
+            The precedence value if the symbol is in the library, otherwise ``-1``.
         """
         if symbol in self.symbols:
             return self.symbols[symbol]["precedence"]
@@ -205,7 +200,7 @@ class SymbolLibrary:
 
     def get_np_fn(self, symbol: str) -> str:
         """
-        Returns the numpy function corresponding to the given symbol.
+        Return the NumPy function string for a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -214,10 +209,10 @@ class SymbolLibrary:
             'x'
 
         Args:
-            symbol: The symbol to look up.
+            symbol: Token to look up.
 
         Returns:
-            The numpy function corresponding to the given symbol, or an empty string if the symbol was not found.
+            The NumPy function string if the symbol is in the library, otherwise an empty string.
         """
         if symbol in self.symbols:
             return self.symbols[symbol]["np_fn"]
@@ -226,7 +221,7 @@ class SymbolLibrary:
 
     def get_latex_str(self, symbol: str) -> str:
         """
-        Returns the LaTeX template for the corresponding symbol.
+        Return the LaTeX template string for a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -235,10 +230,10 @@ class SymbolLibrary:
             'test'
 
         Args:
-            symbol: The symbol to look up.
+            symbol: Token to look up.
 
         Returns:
-            The LaTeX template for the corresponding symbol, or an empty string if the symbol was not found.
+            The LaTeX template string if the symbol is in the library, otherwise an empty string.
         """
         if symbol in self.symbols:
             return self.symbols[symbol]["latex_str"]
@@ -247,7 +242,7 @@ class SymbolLibrary:
 
     def get_symbols_of_type(self, symbol_type: str) -> List[str]:
         """
-        Returns a list of symbols with the requested type ("op", "fn", "var", "const", "lit").
+        Return all symbols of a given type.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -257,10 +252,11 @@ class SymbolLibrary:
             ['x', 'y']
 
         Args:
-            symbol_type: Type of symbols you want to get.
+            symbol_type: Type to filter by. One of ``"op"``, ``"fn"``, ``"var"``,
+                ``"const"``, ``"lit"``.
 
         Returns:
-            A list of symbols with the requested type
+            List of token strings matching the requested type.
         """
         symbols = list()
         for symbol in self.symbols.keys():
@@ -271,7 +267,7 @@ class SymbolLibrary:
 
     def symbols2index(self) -> Dict[str, int]:
         """
-        Generates a dictionary mapping symbols to their indices in the symbol list.
+        Return a mapping from each token to its index in insertion order.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -284,15 +280,16 @@ class SymbolLibrary:
             {'y': 0}
 
         Returns:
-            A dictionary mapping symbols to their indices in the symbol list.
+            Dict mapping each token string to its zero-based position in the library.
         """
         return {s: i for i, s in enumerate(self.symbols.keys())}
 
     @staticmethod
     def from_symbol_list(symbols: List[str], num_variables: int = 25) -> "SymbolLibrary":
         """
-        Creates an instance of SymbolLibrary from a list of symbols and number of variables. The list of currently
-        supported symbols (by default) can be seen in the SymbolLibrary.default_symbols() function.
+        Create a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] containing only the specified subset of default symbols.
+
+        The supported token names are those defined in [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
         Examples:
             >>> library = SymbolLibrary().from_symbol_list(["+", "*", "C"], num_variables=2)
@@ -300,11 +297,12 @@ class SymbolLibrary:
             5
 
         Args:
-            symbols: List of symbols you want.
-            num_variables: Number of variables you want.
+            symbols: Token strings to include. Must be a subset of the default symbol names.
+            num_variables: Number of variable tokens (``X_0`` through ``X_{num_variables-1}``).
+                Default is ``25``.
 
         Returns:
-            An instance of SymbolLibrary
+            A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] restricted to the requested symbols and variables.
         """
         variables = [f"X_{i}" for i in range(num_variables)]
         symbols = symbols + variables
@@ -321,22 +319,18 @@ class SymbolLibrary:
     @staticmethod
     def default_symbols(num_variables: int = 25) -> "SymbolLibrary":
         """
-        Creates a SymbolLibrary instance populated with default mathematical symbols.
+        Return a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] pre-populated with standard mathematical symbols.
 
-        This method adds a set of predefined symbols to a SymbolLibrary instance,
-        representing common mathematical operations, functions, constants, and optional
-        variables. The symbols include basic arithmetic operations, trigonometric and
-        exponential functions, and mathematical constants like pi and e.
+        Supported tokens:
 
-        If num_variables is greater than 0, it adds variables labeled 'X_0' to 'X_{num_variables-1}', each
-         associated with a column in a data array X.
-
-        By default, we currently support the following symbols: "+", "-", "*", "/", "^", "u-" (unary minus), "sqrt",
-        "sin", "cos", "exp", "tan", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "floor", "ceil", "ln", "log",
-        "^-1", "^2", "^3", "^4", "^5", "pi", "e", "C" (unknown constant).
-
-        Notes: The variables in the default_symbols function are added in the predefined order,
-        which is the same order as the columns in the data array X.
+        - **Operators** (``"op"``): ``+``, ``-``, ``*``, ``/``, ``^``
+        - **Functions** (``"fn"``): ``u-``, ``sqrt``, ``sin``, ``cos``, ``exp``, ``tan``,
+          ``arcsin``, ``arccos``, ``arctan``, ``sinh``, ``cosh``, ``tanh``, ``floor``,
+          ``ceil``, ``ln``, ``log``, ``^-1``, ``^2``, ``^3``, ``^4``, ``^5``
+        - **Literals** (``"lit"``): ``pi``, ``e``
+        - **Free constant** (``"const"``): ``C``
+        - **Variables** (``"var"``): ``X_0`` through ``X_{num_variables-1}``,
+          mapped to columns of the input array in order.
 
         Examples:
             >>> library = SymbolLibrary.default_symbols()
@@ -344,10 +338,10 @@ class SymbolLibrary:
             54
 
         Args:
-            num_variables: The number of variables to add to the library (default is 25).
+            num_variables: Number of variable tokens to include. Default is ``25``.
 
         Returns:
-            A SymbolLibrary instance populated with default mathematical symbols.
+            A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] populated with the symbols listed above.
         """
         sl = SymbolLibrary()
         sl.add_symbol(
@@ -532,10 +526,10 @@ class SymbolLibrary:
 
     def to_dict(self) -> dict:
         """
-        Creates a dictionary representation of the SymbolLibrary instance.
+        Serialize the library to a JSON-safe dictionary.
 
         Returns:
-            A dictionary containing the symbol library's data.
+            A dictionary suitable for passing to [from_dict][SRToolkit.utils.symbol_library.SymbolLibrary.from_dict].
         """
         return {
             "format_version": 1,
@@ -548,13 +542,16 @@ class SymbolLibrary:
     @staticmethod
     def from_dict(d: dict) -> "SymbolLibrary":
         """
-        Creates a SymbolLibrary instance from its dictionary representation.
+        Reconstruct a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] from a dictionary produced by [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
 
         Args:
-            d: the dictionary containing data about the symbol library.
+            d: Dictionary representation of the library.
 
         Returns:
-            The SymbolLibrary instance created from the dictionary.
+            The reconstructed [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+
+        Raises:
+            ValueError: If ``d["format_version"]`` is not ``1``.
         """
         if d.get("format_version", 1) != 1:
             raise ValueError(
@@ -568,7 +565,7 @@ class SymbolLibrary:
 
     def __len__(self) -> int:
         """
-        Returns the number of symbols currently stored in the SymbolLibrary.
+        Return the number of symbols currently in the library.
 
         Examples:
              >>> library = SymbolLibrary.default_symbols(5)
@@ -578,17 +575,14 @@ class SymbolLibrary:
              >>> len(library)
              35
 
-        Returns
-            Number of symbols currently stored in the SymbolLibrary.
+        Returns:
+            Number of tokens registered in the library.
         """
         return len(self.symbols)
 
     def __str__(self) -> str:
         r"""
-        Returns a string representation of the SymbolLibrary instance.
-
-        This method provides a comma-separated string of all the symbol keys
-        currently stored in the SymbolLibrary.
+        Return a comma-separated string of all registered token strings.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -600,13 +594,13 @@ class SymbolLibrary:
             'x, sin'
 
         Returns:
-            A string containing all symbols in the library, separated by commas.
+            All token names joined by ``", "``, in insertion order.
         """
         return ", ".join(self.symbols.keys())
 
     def __copy__(self) -> "SymbolLibrary":
         r"""
-        Creates a copy of the SymbolLibrary instance.
+        Return a copy of the library with independent copies of all attributes.
 
         Examples:
             >>> old_symbols = SymbolLibrary()
@@ -621,7 +615,7 @@ class SymbolLibrary:
             x, sin
 
         Returns:
-            A copy of the SymbolLibrary instance.
+            A new [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] instance with deep-copied symbols and preamble.
         """
         sl = SymbolLibrary()
         sl.symbols = copy.deepcopy(self.symbols)

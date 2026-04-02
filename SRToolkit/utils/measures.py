@@ -1,5 +1,6 @@
 """
-This module contains measures for evaluating the similarity between two expressions.
+Distance and similarity measures between symbolic expressions: edit distance,
+tree edit distance, and Behavioral Embedding Distance (BED).
 """
 
 from typing import List, Optional, Tuple, Union
@@ -21,7 +22,10 @@ def edit_distance(
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
 ) -> int:
     """
-    Calculates the edit distance between two expressions.
+    Compute the edit distance between two expressions.
+
+    Both expressions are normalised to the requested notation before computing
+    Levenshtein distance, making the result independent of input serialisation.
 
     Examples:
         >>> edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
@@ -32,14 +36,15 @@ def edit_distance(
         1
 
     Args:
-        expr1: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        expr2: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        notation: The notation in which the distance between the two expressions is computed. Can be one of "infix", "postfix", or "prefix".
-            By default, "postfix" is used to avoid inconsistencies that occur because of parenthesis.
-        symbol_library: The symbol library to use when converting the expressions to lists of tokens and vice versa. Defaults to SymbolLibrary.default_symbols().
+        expr1: First expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr2: Second expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        notation: Notation used for comparison: ``"infix"``, ``"prefix"``, or
+            ``"postfix"``. Defaults to ``"postfix"`` to avoid parenthesis artefacts.
+        symbol_library: Symbol library used when converting expressions to the target
+            notation. Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        The edit distance between the two expressions written in a given notation.
+        Integer edit distance between the two serialised expressions.
     """
     if isinstance(expr1, Node):
         expr1 = expr1.to_list(symbol_library=symbol_library, notation=notation)
@@ -55,6 +60,7 @@ def edit_distance(
 
 
 def _expr_to_zss(expr):
+    """Convert a [Node][SRToolkit.utils.expression_tree.Node] tree to a ``zss.Node`` tree for Zhang-Shasha distance computation."""
     zexpr = zss.Node(expr.symbol)
     if expr.left is not None:
         zexpr.addkid(_expr_to_zss(expr.left))
@@ -70,7 +76,7 @@ def tree_edit_distance(
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
 ) -> int:
     """
-    Calculates the tree edit distance between two expressions.
+    Compute the Zhang-Shasha tree edit distance between two expressions.
 
     Examples:
         >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
@@ -81,12 +87,13 @@ def tree_edit_distance(
         1
 
     Args:
-        expr1: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        expr2: Expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        symbol_library: Symbol library to use when converting the lists of tokens into an instance of SRToolkit.utils.expression_tree.Node.
+        expr1: First expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr2: Second expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        symbol_library: Symbol library used when converting token lists to trees.
+            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        The tree edit distance between the two expressions.
+        Integer tree edit distance.
     """
     if isinstance(expr1, Node):
         expr1 = _expr_to_zss(expr1)
@@ -110,7 +117,10 @@ def create_behavior_matrix(
     seed: Optional[int] = None,
 ) -> np.ndarray:
     """
-    Creates a behavior matrix from an expression with free parameters. The shape of the matrix is (X.shape[0], num_consts_sampled).
+    Evaluate an expression over multiple constant samples to produce a behavior matrix.
+
+    For expressions with free constants, constants are drawn via Latin Hypercube Sampling
+    within ``consts_bounds``. For constant-free expressions, all columns are identical.
 
     Examples:
         >>> X = np.random.rand(10, 2) - 0.5
@@ -126,20 +136,22 @@ def create_behavior_matrix(
         >>> print(bool(np.array_equal(bm1, bm2)))
         True
 
-
     Args:
-        expr: An expression given as a list of tokens in the infix notation.
-        X: Points on which the expression is evaluated to determine the behavior
-        num_consts_sampled: Number of sets of constants sampled
-        consts_bounds: Bounds between which constant values are sampled
-        symbol_library: Symbol library used to transform the expression into an executable function.
-        seed: Random seed. If None, generation will be random.
-
-    Raises:
-        Exception: If expr is not a list of tokens or an instance of SRToolkit.utils.expression_tree.Node.
+        expr: Expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        X: Input data of shape ``(n_samples, n_features)`` at which the expression is
+            evaluated.
+        num_consts_sampled: Number of constant vectors to sample; sets the number of
+            output columns. Default ``32``.
+        consts_bounds: ``(lower, upper)`` bounds for constant sampling. Default ``(-5, 5)``.
+        symbol_library: Symbol library used to compile the expression. Defaults to
+            [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        seed: Random seed for reproducible constant sampling. Default ``None``.
 
     Returns:
-        A matrix of size (X.shape[0], num_consts_sampled) that represents the behavior of an expression.
+        Behavior matrix of shape ``(n_samples, num_consts_sampled)``.
+
+    Raises:
+        Exception: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
     if isinstance(expr, list):
         num_constants = expr.count("C")
@@ -163,6 +175,18 @@ def create_behavior_matrix(
 
 
 def _custom_wasserstein(u, v):
+    """
+    Compute the 1-D Wasserstein distance between two sample arrays.
+
+    Uses a direct CDF comparison over the sorted union of values, without scipy.
+
+    Args:
+        u: First sample array.
+        v: Second sample array.
+
+    Returns:
+        Wasserstein distance as a float.
+    """
     u = np.sort(u)
     v = np.sort(v)
     all_values = np.sort(np.concatenate((u, v)))
@@ -186,11 +210,16 @@ def bed(
     seed: Optional[int] = None,
 ) -> float:
     """
-    Computes the Behavioral Embedding Distance (BED) between two expressions or behavior matrices over a
-    given dataset or domain, using Wasserstein distance as a metric.
+    Compute the Behavior-aware Expression Distance (BED) between two expressions.
 
-    The BED is computed either by using precomputed behavior matrices or by sampling points from a
-    domain and evaluating the expressions over them.
+    BED measures how similarly two expressions behave over a domain by comparing
+    their output distributions point-by-point using the Wasserstein distance. Free
+    constants are marginalised by sampling multiple constant vectors via Latin
+    Hypercube Sampling.
+
+    Either ``X`` or ``domain_bounds`` must be provided when expressions are given as
+    token lists or [Node][SRToolkit.utils.expression_tree.Node] trees. Pre-computed behavior matrices can be passed
+    directly to avoid redundant evaluation.
 
     Examples:
         >>> X = np.random.rand(10, 2) - 0.5
@@ -215,33 +244,27 @@ def bed(
         True
 
     Args:
-        expr1: The first expression or behavior matrix. If it is
-            an expression, it must be provided as a Node or a list of string representations. If it is
-            already a behavior matrix, it should be a numpy array of size (num_points_sampled, num_consts_sampled).
-        expr2: The second expression or behavior matrix. Similar
-            to expr1, it should be either a Node, list of strings representing the expression, or a
-            numpy array representing the behavior matrix.
-        X: Array of points over which behavior is evaluated. If not provided, the domain bounds parameter will be
-            used to sample points.
-        num_consts_sampled: Number of constants sampled for behavior evaluation if expressions
-            are given as Nodes or lists rather than matrices. Default is 32.
-        num_points_sampled: Number of points sampled from the domain if X is not provided. Default is 64.
-        domain_bounds: The bounds of the domain for sampling points when X is not given. Each tuple represents the
-            lower and upper bounds for a domain feature (e.g., [(0, 1), (0, 2)]).
-        consts_bounds: The lower and upper bounds for sampling constants when evaluating expressions. Default is (-5, 5).
-        symbol_library: The library of symbols used to parse and evaluate expressions. Default is the default symbol
-            library from SymbolLibrary.
-        seed: Seed for random number generation during sampling for deterministic results. Default is None.
+        expr1: First expression as a token list, a [Node][SRToolkit.utils.expression_tree.Node] tree, or a pre-computed
+            behavior matrix of shape ``(n_samples, num_consts_sampled)``.
+        expr2: Second expression in the same format as ``expr1``.
+        X: Evaluation points of shape ``(n_samples, n_features)``. Required unless both
+            expressions are behavior matrices or ``domain_bounds`` is provided.
+        num_consts_sampled: Number of constant vectors sampled per expression. Default ``32``.
+        num_points_sampled: Number of points sampled from ``domain_bounds`` when ``X`` is
+            ``None``. Default ``64``.
+        domain_bounds: Per-variable ``(lower, upper)`` bounds used to sample ``X`` via
+            Latin Hypercube Sampling when ``X`` is ``None``.
+        consts_bounds: ``(lower, upper)`` bounds for constant sampling. Default ``(-5, 5)``.
+        symbol_library: Symbol library used to compile expressions. Defaults to
+            [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        seed: Random seed for reproducible sampling. Default ``None``.
 
     Returns:
-        float: The mean Wasserstein distance computed between the behaviors of the two expressions or
-        matrices over the sampled points.
+        BED between the expressions, given as a float.
 
     Raises:
-        Exception: If X is not provided and domain_bounds is missing, this exception is raised to
-            ensure proper sampling of points for behavior evaluation.
-        AssertionError: Raised when the shapes of the behavior matrices or sampling points do not match
-            the expected dimensions.
+        Exception: If ``X`` is ``None`` and neither ``domain_bounds`` is provided nor
+            both expressions are pre-computed behavior matrices.
     """
 
     if X is None and not isinstance(expr1, np.ndarray) and not isinstance(expr2, np.ndarray):

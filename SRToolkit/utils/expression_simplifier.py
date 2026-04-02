@@ -1,3 +1,8 @@
+"""
+Algebraic simplification of symbolic expressions using SymPy.
+The functions in this script are work in progress and will be improved in the future for better accuracy and performance.
+"""
+
 import re
 from typing import List, Union
 
@@ -15,9 +20,14 @@ def simplify(
     symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
 ) -> Union[List[str], Node]:
     """
-    Simplifies a mathematical expression by:
-        1. Making use of sympy's simplification functions
-        2. Simplifying constants, e.g. C*C + C -> C
+    Simplify an expression algebraically.
+
+    Two successive steps are applied:
+
+    1. **SymPy simplification** — expands and reduces the expression algebraically
+       (e.g. ``X_0 * X_1 / X_0`` → ``X_1``).
+    2. **Constant folding** — collapses any sub-expression containing no variables
+       into a single free constant ``C`` (e.g. ``C * C + C`` → ``C``).
 
     Examples:
         >>> expr = ["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
@@ -25,14 +35,17 @@ def simplify(
         C+X_1
 
     Args:
-        expr: The expression given as a list of tokens in the infix notation or as an instance of SRToolkit.utils.expression_tree.Node
-        symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
-
-    Raises:
-        Exception: If problems occur during simplification or if the expression contains invalid symbols.
+        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        symbol_library: Symbol library defining variables and constants.
+            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        The simplified expression
+        The simplified expression in the same form as the input (list if a list was
+        given, [Node][SRToolkit.utils.expression_tree.Node] if a tree was given).
+
+    Raises:
+        Exception: If simplification fails or the result contains tokens absent from
+            ``symbol_library``.
     """
     is_tree = False
     if isinstance(expr, Node):
@@ -65,14 +78,14 @@ def simplify(
 
 def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
     """
-    Checks if the expression tree contains only valid symbols from the symbol library.
+    Return ``True`` if every token in the tree is present in ``symbol_library`` or is numeric.
 
     Args:
-        expr: The expression tree to check.
-        symbol_library: The symbol library to use.
+        expr: Expression tree to validate.
+        symbol_library: Symbol library to check against.
 
     Returns:
-        True if the expression tree contains only valid symbols from the symbol library, False otherwise.
+        ``True`` if all nodes are valid, ``False`` if any token is absent and non-numeric.
     """
     if expr.symbol not in symbol_library.symbols and not is_float(expr.symbol):
         return False
@@ -85,22 +98,27 @@ def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
 
 
 def _sympy_to_number(expr):
-    """
-    Extracts the number contained in the Sympy node
-    """
+    """Return the numeric value of a SymPy number node as a Python ``int`` or ``float``."""
     evaluated = float(expr.evalf())
     return int(evaluated) if evaluated.is_integer() else evaluated
 
 
 def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
     """
-    Converts a Sympy expression into an instance of SRToolkit.expression_tree.Node, explicitly handling left-associative division.
+    Convert a SymPy expression into a [Node][SRToolkit.utils.expression_tree.Node] tree.
+
+    Handles left-associative division explicitly to match the SRToolkit tree
+    convention when SymPy reorders multiplication factors.
 
     Args:
-        expr: The Sympy expression.
+        expr: A SymPy expression object.
 
     Returns:
-        An instance of SRToolkit.expression_tree.Node that corresponds to the expression given as the input.
+        The corresponding [Node][SRToolkit.utils.expression_tree.Node] tree.
+
+    Raises:
+        ValueError: If ``expr`` contains a SymPy construct that has no mapping to the
+            supported token types.
     """
     if expr.is_Number:
         return Node(str(_sympy_to_number(expr)))
@@ -148,17 +166,20 @@ def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
 
 
 def _simplify_constants(eq, c, var):
-    """Simplifies the constants in a Sympy expression. output[2][0][1] is the simplified expression.
+    """
+    Recursively fold constant-only sub-expressions in a SymPy expression.
+
+    Any sub-tree that contains no variables is replaced by the constant symbol ``c``.
 
     Args:
-        eq: The Sympy expression.
-        c: The constant symbol.
-        var: List of symbols representing variables.
+        eq: SymPy expression to process.
+        c: SymPy symbol representing the free constant.
+        var: List of SymPy symbols representing input variables.
 
     Returns:
-        - bool: True if the expression contains a variable.
-        - bool: True if the expression contains the constant.
-        - list: List of tuples containing the original and simplified expressions
+        A 3-tuple ``(has_var, has_c, substitutions)`` where ``has_var`` is ``True`` if the
+        sub-expression depends on a variable, ``has_c`` is ``True`` if it depends on a
+        constant, and ``substitutions`` is a list of ``(original, replacement)`` pairs.
     """
     if len(eq.args) == 0:
         if eq in var:
@@ -202,17 +223,20 @@ def _simplify_constants(eq, c, var):
 
 
 def _enumerate_constants(expr, constant):
-    """Enumerates the constants in a Sympy expression.
+    """
+    Replace each occurrence of the constant token with a uniquely numbered version.
 
-    Example: C*x**2 + C*x + C -> C0*x**2 + C1*x + C2
+    Example: ``C*x**2 + C*x + C`` → ``C0*x**2 + C1*x + C2``
 
-    Input:
-        expr - Sympy expression
-        constant - constant symbol
+    Args:
+        expr: SymPy expression containing unnumbered constants.
+        constant: Character string used as the constant token (e.g. ``"C"``).
 
     Returns:
-        Sympy expression with enumerated constants
-        list of enumerated constants"""
+        A 2-tuple ``(numbered_expr, constants)`` where ``numbered_expr`` is the SymPy
+        expression with enumerated constants and ``constants`` is a tuple of the
+        generated constant name strings.
+    """
 
     char_list = np.array(list(str(expr)), dtype="<U16")
     constind = np.where(char_list == constant)[0]
@@ -223,29 +247,35 @@ def _enumerate_constants(expr, constant):
 
 
 def _denumerate_constants(expr, constant):
-    """Removes the enumeration of constants in a Sympy expression.
+    """
+    Remove the numeric suffix from all constant tokens in a string expression.
+
+    Inverse of ``_enumerate_constants``: ``"C0*x + C1"`` → ``"C*x + C"``.
 
     Args:
-        expr: Sympy expression
-        constant: constant symbol
+        expr: String representation of the expression with enumerated constants.
+        constant: Base constant token string (e.g. ``"C"``).
 
     Returns:
-        Sympy expression with denumerated constants
+        Expression string with all ``C<n>`` occurrences replaced by ``C``.
     """
     return re.sub(f"{constant}\\d", constant, expr)
 
 
 def _simplify_expression(expr_str, constant, variables):
-    """Simplifies a mathematical expression.
+    """
+    Apply full algebraic simplification to an expression string.
+
+    Performs two rounds of constant folding around a SymPy ``expand`` call to produce
+    a canonical form.
 
     Args:
-        expr_str: String representing the expression.
-        constant: The character representing numerical constants.
-        variables: List of characters representing variables.
+        expr_str: Infix expression as a concatenated token string (no spaces).
+        constant: Token string representing the free constant (e.g. ``"C"``).
+        variables: Token strings representing the input variables.
 
     Returns:
-        expr: Sympy expression object in canonical form.
-        symbols_params: Tuple of enumerated constants.
+        Simplified SymPy expression object.
     """
     x = [sp_symbols(s.strip("'")) for s in variables]
     c = sp_symbols(constant)
