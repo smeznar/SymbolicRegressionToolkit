@@ -1,3 +1,7 @@
+"""
+Dataset wrapper for a single symbolic regression problem.
+"""
+
 import os
 from typing import Any, Dict, List, Optional, Union
 
@@ -28,7 +32,7 @@ class SR_dataset:
         **kwargs: Unpack[EstimationSettings],
     ) -> None:
         """
-        Initializes an instance of the SR_dataset class.
+        Wraps input data and evaluation settings for a single symbolic regression problem.
 
         Examples:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
@@ -41,49 +45,28 @@ class SR_dataset:
             True
 
         Args:
-            X: The input data to be used in calculation of the error/ranking function. We assume that X is a 2D array
-                with the shape (n_samples, n_features).
-            symbol_library: The symbol library to use.
-            ranking_function: The ranking function to use. Currently, "rmse" and "bed" are supported. RMSE is the
-                standard ranking function in symbolic regression, calculating the error between the ground truth values
-                and outputs of expressions with fitted free parameters. BED is a stochastic measure that calculates
-                the behavioral distance between two expressions that can contain free parameters. Its advantage is that
-                expressions with lots of parameters are less likely to overfit, and thus the measure focuses more on
+            X: Input data of shape ``(n_samples, n_features)`` used to evaluate expressions.
+            symbol_library: The symbol library defining the token vocabulary.
+            ranking_function: Ranking function to use. ``"rmse"`` calculates the error between ground truth
+                values and expression outputs with fitted free parameters. ``"bed"`` is a stochastic measure of
+                behavioral distance between expressions; it is less sensitive to overfitting and focuses more on
                 structure identification.
-            y: The target values to be used in parameter estimation if the ranking function is "rmse".
-            max_evaluations: The maximum number of expressions to evaluate. Less than 0 means no limit.
-            ground_truth: The ground truth expression, represented as a list of tokens (strings) in the infix notation,
-                a SRToolkit.utils.Node object, or a numpy array representing behavior
-                (see SRToolkit.utils.create_behavior_matrix for more details).
-            original_equation: The original equation from which the ground truth expression was generated).
-            success_threshold: The threshold for determining whether an expression is successful or not. If None,
-            seed: The seed to use for random number generation/reproducibility. Default is None, which means no seed is used.
-            dataset_metadata: An optional dictionary containing metadata about this evaluation. This could include
-                information such as the name of the dataset, a citation for the dataset, number of variables, etc.
-            dataset_name: An optional string containing the name of the dataset.
-
-        Keyword Arguments:
-            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested.
-                Default is "L-BFGS-B".
-            tol (float): The tolerance for termination. Default is 1e-6.
-            gtol (float): The tolerance for the gradient norm. Default is 1e-3.
-            max_iter (int): The maximum number of iterations. Default is 100.
-            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for
-                the constant values. Default is (-5, 5).
-            initialization (str): The method to use for initializing the constant values. Currently, only "random" and
-                "mean" are supported. "random" creates a vector with random values sampled within the bounds. "mean"
-                creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
-            max_constants (int): The maximum number of constants allowed in the expression. Default is 8.
-            max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
-            num_points_sampled (int): The number of points to sample when estimating the behavior of an expression.
-                Default is 64. If num_points_sampled==-1, then the number of points sampled is equal to the number of
-                points in the dataset.
-            bed_X (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points
-                are sampled from the domain. If None and domain_bounds are not givem, points are randomly selected
-                from X. Default is None.
-            num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
-            domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to
-                sample random points. Default is None.
+            y: Target values used for parameter estimation when ``ranking_function="rmse"``.
+            max_evaluations: Maximum number of expressions to evaluate. Values less than 0 mean no limit.
+            ground_truth: The ground truth expression, as a list of tokens in infix notation, a
+                [Node][SRToolkit.utils.expression_tree.Node] tree, or a numpy array of behavior vectors
+                (see [create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]).
+            original_equation: Human-readable string of the original equation (e.g. ``"z = x + y"``).
+            success_threshold: Error threshold below which an expression is considered successful. If ``None``,
+                no threshold is applied.
+            seed: Random seed for reproducibility. ``None`` means no seed is set.
+            dataset_metadata: Optional dictionary of metadata about the dataset (e.g. citation, variable names).
+            dataset_name: Optional name for this dataset.
+            **kwargs: Optional estimation settings passed to
+                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+                Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
+                ``initialization``, ``max_constants``, ``max_expr_length``, ``num_points_sampled``,
+                ``bed_X``, ``num_consts_sampled``, ``domain_bounds``.
         """
         self.X = X
         self.symbol_library = symbol_library
@@ -111,24 +94,32 @@ class SR_dataset:
         initial_seed: Optional[int] = None,
         results: Optional[SR_results] = None,
         callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None,
-        verbose=True,
+        verbose: bool = True,
     ) -> SR_results:
         """
-        Evaluates an SR_approach on this dataset.
+        Evaluates an SR approach on this dataset.
+
+        Examples:
+            >>> X = np.array([[1, 2], [3, 4], [5, 6]])
+            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
+            ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y")
+            >>> results = dataset.evaluate_approach(my_approach, num_experiments=5)  # doctest: +SKIP
 
         Args:
-            sr_approach: An instance of SR_approach that will be evaluated on this dataset.
-            num_experiments: The number of times the approach should be evaluated on this dataset.
-            top_k: Number of the best expressions presented in the results
-            initial_seed: The seed used for random number generation. If None, the seed from the dataset is used.
-            results: An optional SR_results object to which the results of the evaluation will be added. If None,
-                a new SR_results object will be created.
-            callbacks: Optional callbacks for monitoring and controlling the search. Can be a single
-                SRCallbacks instance, a CallbackDispatcher, or None.
-            verbose: If true, prints the progress of the evaluation.
+            sr_approach: The SR approach to evaluate.
+            num_experiments: Number of independent experiments (runs) to perform.
+            top_k: Number of top expressions to retain per experiment.
+            initial_seed: Seed for random number generation. If ``None``, the dataset seed is used.
+            results: Existing [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object to append
+                results to. If ``None``, a new one is created.
+            callbacks: Optional [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] or
+                [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for monitoring
+                and controlling the search.
+            verbose: If ``True``, prints progress for each experiment.
 
         Returns:
-            The results of the evaluation.
+            An [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object containing results
+            from all experiments.
         """
         if initial_seed is None:
             seed = self.seed
@@ -202,15 +193,17 @@ class SR_dataset:
             0.0...
 
         Args:
-            metadata: An optional dictionary containing metadata about this evaluation. This could include
-                information such as the dataset used, the model used, seed, etc.
-            seed: An optional seed to be used for the random number generator. If None, the seed from the dataset is used.
+            metadata: Optional dictionary of metadata to attach to the evaluator (e.g. model name, seed).
+                Dataset metadata is merged in automatically.
+            seed: Seed for the random number generator. If ``None``, the dataset seed is used.
 
         Returns:
-            An instance of the SR_evaluator class.
+            A configured [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] ready to evaluate
+            expressions against this dataset.
 
         Raises:
-            Exception: if an error occurs when creating the evaluator.
+            Exception: If [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] cannot be
+                instantiated with the current dataset settings.
         """
         if metadata is None:
             metadata = dict()
@@ -371,7 +364,15 @@ class SR_dataset:
             (3, 2)
 
         Args:
-            d: The dictionary representation of the dataset.
+            d: Dictionary representation of the dataset, as produced by
+                [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict].
+
+        Returns:
+            A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance.
+
+        Raises:
+            ValueError: If the ``format_version`` in ``d`` is not supported.
+            Exception: If the dataset file or ground truth file cannot be loaded.
         """
         if d.get("format_version", 1) != 1:
             raise ValueError(

@@ -1,5 +1,5 @@
 """
-This module contains the ParameterEstimator class, which is used to estimate the parameters of an expression.
+Constant parameter estimation for symbolic regression expressions using numerical optimization.
 """
 
 from typing import Callable, List, Optional, Tuple, Union
@@ -24,10 +24,10 @@ class ParameterEstimator:
         **kwargs: Unpack[EstimationSettings],
     ) -> None:
         """
-        Initializes an instance of the ParameterEstimator class.
+        Fits free constants in symbolic expressions by minimizing RMSE against target values.
 
         Examples:
-            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> pe = ParameterEstimator(X, y)
             >>> rmse, constants = pe.estimate_parameters(["C", "*", "X_1", "-", "X_0"])
@@ -37,30 +37,28 @@ class ParameterEstimator:
             True
 
         Args:
-            X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array
-                with shape (n_samples, n_features).
-            y: The target values to be used in parameter estimation.
-            symbol_library: The symbol library to use. Defaults to SymbolLibrary.default_symbols().
+            X: Input data of shape ``(n_samples, n_features)`` used to evaluate expressions.
+            y: Target values of shape ``(n_samples,)``.
+            symbol_library: Symbol library defining the token vocabulary.
+                Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+            seed: Random seed for reproducible constant initialization. Default ``None``.
+            **kwargs: Optional estimation settings from
+                [EstimationSettings][SRToolkit.utils.types.EstimationSettings].
+                Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
+                ``constant_bounds``, ``initialization``, ``max_constants``,
+                ``max_expr_length``.
 
-        Keyword Arguments:
-            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested. Default is "L-BFGS-B".
-            tol (float): The tolerance for termination. Default is 1e-6.
-            gtol (float): The tolerance for the gradient norm. Default is 1e-3.
-            max_iter (int): The maximum number of iterations. Default is 100.
-            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for the constant values. Default is (-5, 5).
-            initialization (str): The method to use for initializing the constant values. Currently, only "random" and "mean" are supported. "random" creates a vector with random values
-                sampled within the bounds. "mean" creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
-            max_constants (int): The maximum number of constants allowed in the expression. Default is 8.
-            max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
-
-        Methods:
-            estimate_parameters(expr: List[str]): Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
+        Attributes:
+            symbol_library: The symbol library used.
+            X: Input data.
+            y: Target values.
+            seed: Random seed.
+            estimation_settings: Active settings dict, merged from defaults and ``**kwargs``.
         """
         self.symbol_library = symbol_library
         self.X = X
         self.y = y
         self.seed = seed
-        # self.stats = {"success": 0, "failure": 0, "steps": dict(), "num_constants": dict(), "failed_constants": dict()}
 
         self.estimation_settings = {
             "method": "L-BFGS-B",
@@ -83,10 +81,14 @@ class ParameterEstimator:
 
     def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
         """
-        Estimates the parameters of an expression by minimizing the error between the predicted and actual values.
+        Fit free constants in *expr* by minimizing RMSE against the target values.
+
+        Expressions that exceed ``max_constants`` or ``max_expr_length`` immediately
+        return ``(NaN, [])``. Expressions with no free constants are evaluated directly
+        without running the optimizer.
 
         Examples:
-            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> pe = ParameterEstimator(X, y)
             >>> rmse, constants = pe.estimate_parameters(["C", "*", "X_1", "-", "X_0"])
@@ -94,19 +96,20 @@ class ParameterEstimator:
             True
             >>> print(1.99 < constants[0] < 2.01)
             True
+            >>> # Constant-free expressions are evaluated directly
+            >>> rmse, constants = pe.estimate_parameters(["X_1", "-", "X_0"])
+            >>> constants.size
+            0
 
         Args:
-            expr: An expression. This should either be an instance of SRToolkit.utils.expression_tree.Node or a list of
-                  tokens in the infix notation representing the expression to be evaluated.
+            expr: Expression as a token list in infix notation or a
+                [Node][SRToolkit.utils.expression_tree.Node] tree.
 
         Returns:
-            the root mean square error (RMSE) of the optimized expression.
-            An array containing the optimized constant values.
-
-        Notes:
-            if the length of the expression exceeds the maximum allowed, NaN and an empty array are returned.
-            If the number of constants in the expression exceeds the maximum allowed, NaN and an empty array are returned.
-            If there are no constants in the expression, the RMSE is calculated directly without optimization.
+            A 2-tuple ``(rmse, parameters)`` where ``rmse`` is the root-mean-square error
+            of the fitted expression and ``parameters`` is a 1-D array of optimized constant
+            values. Returns ``(NaN, [])`` if the expression violates ``max_constants`` or
+            ``max_expr_length``.
         """
         if isinstance(expr, Node):
             expr_str = expr.to_list(notation="prefix")
@@ -133,6 +136,17 @@ class ParameterEstimator:
             return self._optimize_parameters(executable_error_fn, num_constants)
 
     def _optimize_parameters(self, executable_error_fn: Callable, num_constants: int) -> Tuple[float, np.ndarray]:
+        """
+        Run L-BFGS-B to minimize *executable_error_fn* over *num_constants* constant values.
+
+        Args:
+            executable_error_fn: Compiled error function ``f(X, C, y)`` returning scalar RMSE.
+            num_constants: Number of free constants to optimize.
+
+        Returns:
+            A 2-tuple ``(rmse, parameters)`` — the achieved minimum RMSE and the
+            corresponding optimized constant vector.
+        """
         assert (
             isinstance(self.estimation_settings["constant_bounds"], tuple)
             and len(self.estimation_settings["constant_bounds"]) == 2
@@ -167,5 +181,4 @@ class ParameterEstimator:
                 for _ in range(num_constants)
             ],
         )
-        # print(res.nfev)
         return res.fun, res.x

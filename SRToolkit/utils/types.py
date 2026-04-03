@@ -1,5 +1,9 @@
 """
-Shared type definitions and constants for the SRToolkit package.
+Shared type definitions, constants, and result dataclasses for the SRToolkit package.
+
+Defines symbol-type constants (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``),
+``EstimationSettings`` for parameter estimation configuration, and ``ModelResult`` /
+``EvalResult`` for representing SR experiment outcomes.
 """
 
 from dataclasses import dataclass, field
@@ -23,6 +27,13 @@ class EstimationSettings(TypedDict, total=False):
 
     Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and
     ``ParameterEstimator``. All fields are optional.
+
+    Examples:
+        >>> settings: EstimationSettings = {"method": "L-BFGS-B", "max_iter": 200}
+        >>> settings.get("method")
+        'L-BFGS-B'
+        >>> settings.get("tol", 1e-6)
+        1e-06
 
     Attributes:
         method: Optimization algorithm for parameter fitting. Default: ``"L-BFGS-B"``.
@@ -68,12 +79,22 @@ class ModelResult:
     """
     A single model entry in ``EvalResult.top_models`` and ``EvalResult.all_models``.
 
+    Examples:
+        >>> result = ModelResult(expr=["C", "*", "X_0"], error=0.42)
+        >>> result.expr
+        ['C', '*', 'X_0']
+        >>> result.error
+        0.42
+        >>> result.parameters is None
+        True
+
     Attributes:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
         error: Numeric error under the ranking function (RMSE or BED).
         parameters: Fitted constant values. Present for RMSE ranking only, ``None`` otherwise.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
-            :class:`ResultAugmenter` subclasses via :meth:`add_augmentation`.
+            [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
+            [add_augmentation][SRToolkit.utils.types.ModelResult.add_augmentation].
     """
 
     expr: List[str]
@@ -82,6 +103,28 @@ class ModelResult:
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
+        """
+        Attach augmentation data produced by a :class:`ResultAugmenter` to this result.
+
+        If ``name`` is already present in :attr:`augmentations`, a numeric suffix is
+        appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.
+
+        Examples:
+            >>> result = ModelResult(expr=["X_0"], error=0.1)
+            >>> result.add_augmentation("latex", {"value": "$X_0$"}, "LaTeXAugmenter")
+            >>> result.augmentations["latex"]["value"]
+            '$X_0$'
+            >>> result.add_augmentation("latex", {"value": "$X_0$"}, "LaTeXAugmenter")
+            >>> "latex_1" in result.augmentations
+            True
+
+        Args:
+            name: Key under which the augmentation is stored in :attr:`augmentations`.
+                A suffix is added automatically if the key already exists.
+            data: Arbitrary dict of augmentation data. A ``"_type"`` key is injected
+                automatically and should not be included.
+            aug_type: Augmenter class name, stored as ``data["_type"]``.
+        """
         resolved = name
         counter = 1
         while resolved in self.augmentations:
@@ -91,7 +134,25 @@ class ModelResult:
         self.augmentations[resolved] = data
 
     def to_dict(self) -> dict:
-        """Serializes this model result to a JSON-safe dictionary."""
+        """
+        Serialize this model result to a JSON-safe dictionary.
+
+        NumPy arrays and scalars are converted to native Python types so the
+        result can be passed directly to ``json.dump``.
+
+        Examples:
+            >>> result = ModelResult(expr=["X_0", "+", "C"], error=0.25)
+            >>> d = result.to_dict()
+            >>> d["expr"]
+            ['X_0', '+', 'C']
+            >>> d["error"]
+            0.25
+            >>> d["parameters"] is None
+            True
+
+        Returns:
+            A JSON-safe dictionary suitable for passing to :meth:`from_dict`.
+        """
         return {
             "expr": self.expr,
             "error": float(self.error),
@@ -101,7 +162,24 @@ class ModelResult:
 
     @staticmethod
     def from_dict(data: dict) -> "ModelResult":
-        """Creates a :class:`ModelResult` from a dictionary produced by :meth:`to_dict`."""
+        """
+        Reconstruct a :class:`ModelResult` from a dictionary produced by :meth:`to_dict`.
+
+        Examples:
+            >>> result = ModelResult(expr=["X_0", "+", "C"], error=0.25)
+            >>> result2 = ModelResult.from_dict(result.to_dict())
+            >>> result2.expr
+            ['X_0', '+', 'C']
+            >>> result2.error
+            0.25
+
+        Args:
+            data: Dictionary representation of a :class:`ModelResult`, as produced
+                by :meth:`to_dict`.
+
+        Returns:
+            The reconstructed :class:`ModelResult`.
+        """
         return ModelResult(
             expr=data["expr"],
             error=data["error"],
@@ -115,6 +193,25 @@ class EvalResult:
     """
     Result for a single SR experiment, as returned by ``SR_results[i]``.
 
+    Examples:
+        >>> model = ModelResult(expr=["X_0"], error=0.05)
+        >>> result = EvalResult(
+        ...     min_error=0.05,
+        ...     best_expr="X_0",
+        ...     num_evaluated=500,
+        ...     evaluation_calls=612,
+        ...     top_models=[model],
+        ...     all_models=[model],
+        ...     approach_name="MyApproach",
+        ...     success=True,
+        ... )
+        >>> result.min_error
+        0.05
+        >>> result.success
+        True
+        >>> result.dataset_name is None
+        True
+
     Attributes:
         min_error: Lowest error achieved across all evaluated expressions.
         best_expr: String representation of the best expression found.
@@ -127,7 +224,8 @@ class EvalResult:
         dataset_name: Name of the dataset, extracted from metadata. ``None`` if not provided.
         metadata: Remaining metadata dict after ``dataset_name`` is popped. ``None`` if empty.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
-            :class:`ResultAugmenter` subclasses via :meth:`add_augmentation`.
+            [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
+            [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
     """
 
     min_error: float
@@ -143,6 +241,33 @@ class EvalResult:
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
+        """
+        Attach augmentation data produced by a :class:`ResultAugmenter` to this result.
+
+        If ``name`` is already present in :attr:`augmentations`, a numeric suffix is
+        appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.
+
+        Examples:
+            >>> model = ModelResult(expr=["X_0"], error=0.05)
+            >>> result = EvalResult(
+            ...     min_error=0.05, best_expr="X_0", num_evaluated=10,
+            ...     evaluation_calls=10, top_models=[model], all_models=[model],
+            ...     approach_name="MyApproach", success=True,
+            ... )
+            >>> result.add_augmentation("complexity", {"value": 3}, "ComplexityAugmenter")
+            >>> result.augmentations["complexity"]["value"]
+            3
+            >>> result.add_augmentation("complexity", {"value": 5}, "ComplexityAugmenter")
+            >>> "complexity_1" in result.augmentations
+            True
+
+        Args:
+            name: Key under which the augmentation is stored in :attr:`augmentations`.
+                A suffix is added automatically if the key already exists.
+            data: Arbitrary dict of augmentation data. A ``"_type"`` key is injected
+                automatically and should not be included.
+            aug_type: Augmenter class name, stored as ``data["_type"]``.
+        """
         resolved = name
         counter = 1
         while resolved in self.augmentations:
@@ -152,7 +277,31 @@ class EvalResult:
         self.augmentations[resolved] = data
 
     def to_dict(self) -> dict:
-        """Serializes this evaluation result to a JSON-safe dictionary."""
+        """
+        Serialize this evaluation result to a JSON-safe dictionary.
+
+        NumPy arrays and scalars within nested :class:`ModelResult` entries are
+        converted to native Python types so the result can be passed directly
+        to ``json.dump``.
+
+        Examples:
+            >>> model = ModelResult(expr=["X_0"], error=0.05)
+            >>> result = EvalResult(
+            ...     min_error=0.05, best_expr="X_0", num_evaluated=10,
+            ...     evaluation_calls=10, top_models=[model], all_models=[model],
+            ...     approach_name="MyApproach", success=True,
+            ... )
+            >>> d = result.to_dict()
+            >>> d["min_error"]
+            0.05
+            >>> d["approach_name"]
+            'MyApproach'
+            >>> len(d["top_models"])
+            1
+
+        Returns:
+            A JSON-safe dictionary suitable for passing to :meth:`from_dict`.
+        """
         return {
             "min_error": float(self.min_error),
             "best_expr": self.best_expr,
@@ -169,7 +318,31 @@ class EvalResult:
 
     @staticmethod
     def from_dict(data: dict) -> "EvalResult":
-        """Creates an :class:`EvalResult` from a dictionary produced by :meth:`to_dict`."""
+        """
+        Reconstruct an :class:`EvalResult` from a dictionary produced by :meth:`to_dict`.
+
+        Examples:
+            >>> model = ModelResult(expr=["X_0"], error=0.05)
+            >>> result = EvalResult(
+            ...     min_error=0.05, best_expr="X_0", num_evaluated=10,
+            ...     evaluation_calls=10, top_models=[model], all_models=[model],
+            ...     approach_name="MyApproach", success=True,
+            ... )
+            >>> result2 = EvalResult.from_dict(result.to_dict())
+            >>> result2.min_error
+            0.05
+            >>> result2.best_expr
+            'X_0'
+            >>> len(result2.top_models)
+            1
+
+        Args:
+            data: Dictionary representation of an :class:`EvalResult`, as produced
+                by :meth:`to_dict`.
+
+        Returns:
+            The reconstructed :class:`EvalResult`.
+        """
         return EvalResult(
             min_error=data["min_error"],
             best_expr=data["best_expr"],

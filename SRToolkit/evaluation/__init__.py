@@ -1,11 +1,16 @@
 """
-This module contains classes and functions for evaluating symbolic regression approaches. Mainly it contains classes that
-can be used for parameter estimation and evaluation of mathematical expressions on some dataset.
+Classes and functions for evaluating symbolic regression approaches.
 
 Modules:
-    parameter_estimator: The module containing classes and functions for parameter estimation.
-    sr_evaluator: The module containing classes and functions for expressions on some dataset.
-    result_augmentation: The module containing classes and functions for result augmentation.
+    parameter_estimator: [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator] — fits
+        free constants in expressions and ranks them by RMSE.
+    sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] and
+        [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] — expression evaluation and result management.
+    result_augmentation: [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] implementations
+        that post-process results with LaTeX, simplified forms, RMSE, BED, and R² scores.
+    callbacks: [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] and
+        [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] — event-driven hooks
+        for monitoring and early stopping during evaluation.
 """
 
 from .parameter_estimator import ParameterEstimator

@@ -1,10 +1,15 @@
 """
-This module contains data sets and benchmarks for symbolic regression. A dataset represents a single equation with specific data, constraints for evaluation, etc.
-A benchmark is a collection of datasets. Our library provides the user with two modified version of popular equation discovery benchmarks. Specifically Feynman and Nguyen.
+Datasets and benchmarks for symbolic regression.
+
+A dataset ([SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]) represents a single equation
+with associated data, a symbol library, and evaluation constraints. A benchmark
+([SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark]) is a collection of datasets.
 
 Modules:
-    sr_dataset: The module containing the SRDataset class, which can be used to create a dataset and easily evaluate equation discovery approaches.
-    sr_benchmark: The module containing the SRBenchmark class, which can be used to create a benchmark i.e. a collection of datasets.
+    sr_dataset: [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] — wraps input data and
+        evaluation settings for a single equation discovery problem.
+    sr_benchmark: [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] — manages a
+        collection of datasets, with built-in support for the Feynman and Nguyen benchmarks.
 """
 
 from .sr_benchmark import SR_benchmark

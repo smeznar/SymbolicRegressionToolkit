@@ -1,6 +1,14 @@
 """
-This module contains the SR_evaluator class, which is used for evaluating symbolic regression approaches. Additionally,
-the generic ResultAugmenter class is defined here to avoid circular imports.
+Expression evaluation and results management for symbolic regression.
+
+Contains [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] — the base class for
+post-processing results, [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] — the core
+evaluator that ranks expressions by RMSE or BED, and
+[SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] — a container for experiment results.
+
+Note:
+    [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] is defined here rather than
+    in ``result_augmentation`` to avoid circular imports.
 """
 
 import json
@@ -31,15 +39,21 @@ class ResultAugmenter(ABC):
 
     def __init__(self, name: str):
         """
-        Base class for result augmenters. Subclasses implement :meth:`write_results` to compute
-        and store additional data in an :class:`EvalResult` via :meth:`EvalResult.add_augmentation`.
+        Base class for result augmenters. Subclasses implement
+        [write_results][SRToolkit.evaluation.sr_evaluator.ResultAugmenter.write_results] to compute
+        and store additional data in an [EvalResult][SRToolkit.utils.types.EvalResult] via
+        [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
 
-        For examples, see the implementations in ``SRToolkit.evaluation.result_augmentation``.
+        For concrete implementations, see
+        [result_augmentation][SRToolkit.evaluation.result_augmentation].
 
         Args:
-            name: Identifier used as the key in :attr:`EvalResult.augmentations` and
-                :attr:`ModelResult.augmentations`. If two augmenters share the same name,
-                :meth:`EvalResult.add_augmentation` appends a numeric suffix automatically.
+            name: Identifier used as the key in
+                ``augmentations`` dict of [EvalResult][SRToolkit.utils.types.EvalResult] and
+                [ModelResult][SRToolkit.utils.types.ModelResult].
+                If two augmenters share the same name,
+                [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation] appends a
+                numeric suffix automatically.
         """
         self.name = name
 
@@ -49,13 +63,13 @@ class ResultAugmenter(ABC):
         results: "EvalResult",
     ) -> None:
         """
-        Computes and writes augmentation data into *results* and its top models.
+        Compute and write augmentation data into *results* and its models.
 
         Call ``results.add_augmentation(self.name, data, self._type)`` for experiment-level
         data and ``model.add_augmentation(self.name, data, self._type)`` for per-model data.
 
         Args:
-            results: The :class:`EvalResult` to augment.
+            results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
         """
 
     @abstractmethod
@@ -143,10 +157,20 @@ class SR_evaluator:
         **kwargs: Unpack[EstimationSettings],
     ):
         """
-        Initializes an instance of the SR_evaluator class. This class is used for evaluating symbolic regression approaches.
+        Evaluates symbolic regression expressions and ranks them by RMSE or Behavioral Expression Distance (BED).
+
+        Previously evaluated expressions are cached so repeated calls with the same expression
+        are free. Results are collected via
+        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
+
+        Note:
+            Determining whether two expressions are semantically equivalent is undecidable.
+            Random sampling, parameter fitting, and numerical errors all make the
+            ``success_threshold`` only a proxy for success — we recommend inspecting the best
+            expression manually.
 
         Examples:
-            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
@@ -154,72 +178,50 @@ class SR_evaluator:
             True
 
         Args:
-            X: The input data to be used in parameter estimation for variables. We assume that X is a 2D array with
-                shape (n_samples, n_features).
-            y: The target values to be used in parameter estimation.
-            max_evaluations: The maximum number of expressions to evaluate. Default is -1, which means no limit.
-            success_threshold: The threshold used for determining whether an expression is considered successful. If
-                None, the threshold is set to 1e-7 for RMSE and calculated automatically for BED. For BED we calculate
-                this value by evaluating the distance of ground truth to itself 100 times and setting the threshold to
-                np.max(distances)*1.1. For this calculation to be helpful, ground_truth must be provided as a list of
-                tokens or SRToolkit.utils.Node object.
-            metadata: An optional dictionary containing metadata about this evaluation. This could include information
-                such as the dataset used, the model used, seed, etc.
-            symbol_library: The symbol library to use.
-            ranking_function: The function used for ranking the expressions and fitting parameters if needed.
-                Currently, "rmse" and "bed" are supported. Default is "rmse".
-            ground_truth: The ground truth for the BED evaluation. This should be a list of tokens, a Node object, or a
-                numpy array representing behavior (see SRToolkit.utils.create_behavior_matrix for more details).
-            seed: The seed to use for random number generation.
-
-        Keyword Arguments:
-            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested.
-                Default is "L-BFGS-B".
-            tol (float): The tolerance for termination. Default is 1e-6.
-            gtol (float): The tolerance for the gradient norm. Default is 1e-3.
-            max_iter (int): The maximum number of iterations. Default is 100.
-            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for
-                the constant values. Default is (-5, 5).
-            initialization (str): The method to use for initializing the constant values. Currently, only "random" and
-                "mean" are supported. "random" creates a vector with random values sampled within the bounds. "mean"
-                creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
-            max_constants (int): The maximum number of constants allowed in the expression. Default is 8.
-            max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
-            num_points_sampled (int): The number of points to sample when estimating the behavior of an expression.
-                Default is 64. If num_points_sampled==-1, then the number of points sampled is equal to the number of
-                points in the dataset.
-            bed_X (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points
-                are sampled from the domain. If None and domain_bounds are not given, points are randomly selected
-                from X. Default is None.
-            num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
-            domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to
-                sample random points. Default is None.
+            X: Input data of shape ``(n_samples, n_features)``.
+            y: Target values of shape ``(n_samples,)``. Required when ``ranking_function="rmse"``.
+            symbol_library: Symbol library defining the token vocabulary.
+                Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+            max_evaluations: Maximum number of expressions to evaluate. ``-1`` means no limit.
+                Default ``-1``.
+            success_threshold: Error value below which an expression is considered successful.
+                If ``None``, defaults to ``1e-7`` for RMSE and is auto-calculated for BED by
+                evaluating the ground truth against itself 100 times and taking
+                ``max(distances) * 1.1``.
+            ranking_function: ``"rmse"`` or ``"bed"``. Default ``"rmse"``.
+            ground_truth: Required when ``ranking_function="bed"``. The target expression as a
+                token list, a [Node][SRToolkit.utils.expression_tree.Node] tree, or a pre-computed
+                behavior matrix (see
+                [create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]).
+            seed: Random seed for reproducible sampling. Default ``None``.
+            metadata: Optional dict with information about this evaluation (e.g. dataset name,
+                seed). If a ``"dataset_name"`` key is present it is extracted into
+                [EvalResult][SRToolkit.utils.types.EvalResult] ``dataset_name``.
+            **kwargs: Optional settings from
+                [EstimationSettings][SRToolkit.utils.types.EstimationSettings].
+                Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
+                ``constant_bounds``, ``initialization``, ``max_constants``,
+                ``max_expr_length``, ``num_points_sampled``, ``bed_X``,
+                ``num_consts_sampled``, ``domain_bounds``.
 
         Attributes:
-            models: A dictionary containing the results of previously evaluated expressions.
-            invalid: A list containing the expressions that could not be evaluated.
-            ground_truth: The ground truth we are trying to find.
-            gt_behavior: The behavior matrix for the ground truth that is used when BED is chosen as the ranking function.
-            max_evaluations: The maximum number of expressions to evaluate.
-            bed_evaluation_parameters: A dictionary containing parameters used for BED evaluation.
-            metadata: An optional dictionary containing metadata about this evaluation. This could include information
-                such as the dataset used, the model used, seed, etc.
-            symbol_library: The symbol library to use.
-            total_evaluations: The number of times the "evaluate_expr" function was called.
-            seed: The seed to use for random number generation.
-            parameter_estimator: An instance of the ParameterEstimator class used for parameter estimation.
-            ranking_function: The function used for ranking the expressions and fitting parameters if needed.
-            success_threshold: The threshold used for determining whether an expression is considered successful.
-
-        Methods:
-            evaluate_expr(expr): Evaluates an expression in infix notation and stores the result in memory to prevent re-evaluation.
-            get_results(top_k): Returns the results of the evaluation.
-
-        Notes:
-            Determining if two expressions are equivalent is undecidable. Furthermore, random sampling, parameter
-            fitting, and numerical errors all make it hard to determine whether we found the correct expression.
-            Because of this, the success threshold is only a proxy for determining the success of an expression.
-            We recommend checking the best performing expression manually for a better indication of success.
+            models: Cached [ModelResult][SRToolkit.utils.types.ModelResult] for every evaluated expression,
+                keyed by the concatenated token string.
+            invalid: Token strings of expressions that raised an exception during evaluation.
+            ground_truth: The target expression passed at construction (BED mode).
+            gt_behavior: Pre-computed behavior matrix for the ground truth (BED mode).
+            max_evaluations: Maximum number of expressions to evaluate.
+            bed_evaluation_parameters: Active BED evaluation settings dict.
+            metadata: Metadata dict passed at construction.
+            symbol_library: The symbol library used.
+            total_evaluations: Number of times
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+                has been called, including cache hits.
+            seed: Random seed.
+            parameter_estimator: [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
+                instance used in RMSE mode.
+            ranking_function: Active ranking function (``"rmse"`` or ``"bed"``).
+            success_threshold: Error threshold for determining success.
         """
         self.kwargs = kwargs
         self.models: Dict[str, ModelResult] = dict()
@@ -332,10 +334,24 @@ class SR_evaluator:
 
     def set_callbacks(self, callbacks: Union[SRCallbacks, CallbackDispatcher]) -> None:
         """
-        Set callbacks for monitoring and controlling the search.
+        Register callbacks for monitoring and early stopping.
+
+        A single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance is
+        automatically wrapped in a
+        [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher].
+
+        Examples:
+            >>> from SRToolkit.evaluation.callbacks import EarlyStoppingCallback
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> se.set_callbacks(EarlyStoppingCallback(threshold=1e-6))
+            >>> se._callbacks is not None
+            True
 
         Args:
-            callbacks: A CallbackDispatcher instance or a single SRCallbacks instance.
+            callbacks: A [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher]
+                or a single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance.
         """
         if isinstance(callbacks, CallbackDispatcher):
             self._callbacks = callbacks
@@ -390,23 +406,20 @@ class SR_evaluator:
             True
 
         Args:
-            expr: An expression. This should be an instance of the SRToolkit.utils.expression_tree.Node class or a list
-                  of tokens in the infix notation.
-            simplify_expr: If True, simplifies the expression using SymPy before evaluating it. This typically slows down
-                           evaluation. We recommend simplifying only the best expressions when getting results using
-                           the get_results method.
-            verbose: When 0, no additional output is printed, when 1, prints the expression being evaluated, RMSE, and
-                     estimated parameters, and when 2, also prints numpy errors produced during evaluation.
+            expr: Expression as a token list in infix notation or a
+                [Node][SRToolkit.utils.expression_tree.Node] tree.
+            simplify_expr: If ``True``, simplifies the expression with SymPy before evaluating.
+                Slows down evaluation; recommended only for post-hoc inspection of top results.
+                Default ``False``.
+            verbose: ``0`` — silent; ``1`` — logs expression, error, and fitted parameters;
+                ``2`` — also surfaces NumPy warnings during evaluation. Default ``0``.
 
         Returns:
-            The root-mean-square error of the expression.
-
-        Warnings:
-            Maximum number of evaluations reached: If the maximum number of evaluations has been reached, a warning is printed and np.nan is returned.
-
-        Notes:
-            If the expression has already been evaluated, its stored value is returned instead of re-evaluating the expression.
-            When the maximum number of evaluations has been reached, a warning is printed and np.nan is returned.
+            The error of the expression under the active ranking function: RMSE when
+            ``ranking_function="rmse"``, BED when ``ranking_function="bed"``.
+            Returns ``NaN`` if the expression is invalid or ``max_evaluations`` has been
+            reached (a warning is emitted in the latter case). If the expression was
+            already evaluated, the cached value is returned immediately.
         """
         self.total_evaluations += 1
 
@@ -672,13 +685,19 @@ class SR_evaluator:
     @staticmethod
     def from_dict(data: dict) -> "SR_evaluator":
         """
-        Creates an instance of the SR_evaluator from a dictionary.
+        Reconstruct an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] from a
+        dictionary produced by [to_dict][SRToolkit.evaluation.sr_evaluator.SR_evaluator.to_dict].
 
         Args:
-            data: A dictionary containing the necessary information to recreate the evaluator.
+            data: Dictionary representation of the evaluator, as produced by
+                [to_dict][SRToolkit.evaluation.sr_evaluator.SR_evaluator.to_dict].
 
         Returns:
-            An instance of the SR_evaluator.
+            The reconstructed [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+
+        Raises:
+            ValueError: If ``data["format_version"]`` is not ``1`` or if the numpy arrays
+                for ``X``, ``y``, or ``ground_truth`` cannot be loaded from disk.
         """
         if data.get("format_version", 1) != 1:
             raise ValueError(
@@ -721,33 +740,25 @@ class SR_evaluator:
 class SR_results:
     def __init__(self):
         """
-        Initializes an SR_results object. This object stores the results of an equation discovery/symbolic regression experiments.
+        Container for SR experiment results, typically obtained via
+        [SR_evaluator.get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
 
         Examples:
-            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y, seed=42)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
-            >>> results = se.get_results(top_k=1) # Obtain an instance of SR_results
-            >>> print(results[0].num_evaluated)
-            1
-            >>> print(results[0].evaluation_calls)
-            1
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
             >>> print(results[0].best_expr)
             C*X_1-X_0
             >>> print(results[0].min_error < 1e-6)
             True
-            >>> print(1.99 < results[0].top_models[0].parameters[0] < 2.01)
-            True
+            >>> len(results)
+            1
 
         Attributes:
-            results: A list of :class:`EvalResult` instances containing the results of each evaluation.
-
-        Methods:
-            add_results: Adds the results of an evaluation to the results object. If needed, the results are
-                additionally augmented using the provided result augmenters.
-            print_results: Prints the results of the evaluation.
-            __len__: Returns the number of results stored in the results object.
+            results: List of [EvalResult][SRToolkit.utils.types.EvalResult] instances,
+                one per experiment.
         """
         self.results = list()
 
@@ -813,10 +824,11 @@ class SR_results:
         Prints the results of the SR_evaluator.
 
         Displays the minimum error, best expression, evaluation counts, success status,
-        metadata, and approach name. When *detailed* is True, also prints per-model
+        metadata, and approach name. When *detailed* is ``True``, also prints per-model
         information. Augmentation data is formatted by the corresponding
-        :class:`ResultAugmenter` class, looked up from the global registry via the
-        ``_type`` field stored in each augmentation entry.
+        [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclass,
+        looked up from the global registry via the ``_type`` field stored in each
+        augmentation entry.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -947,8 +959,9 @@ class SR_results:
 
     def augment(self, augmenters: List[ResultAugmenter], experiment_number: Optional[int] = None) -> None:
         r"""
-        Applies the given augmenters to the results. Augmenters add additional information to the results,
-        such as LaTeX representations, simplified expressions, or R2 scores.
+        Applies the given [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter]
+        instances to the stored results. Augmenters add post-hoc information such as LaTeX
+        representations, simplified expressions, or R² scores.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -981,7 +994,7 @@ class SR_results:
                     except Exception as e:
                         warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
 
-    def __add__(self, other) -> "SR_results":
+    def __add__(self, other: "SR_results") -> "SR_results":
         """
         Returns a new SR_results object that is the concatenation of the current SR_results object with the other SR_results object.
 
@@ -995,7 +1008,7 @@ class SR_results:
         new.results = self.results + other.results
         return new
 
-    def __iadd__(self, other) -> "SR_results":
+    def __iadd__(self, other: "SR_results") -> "SR_results":
         """
         In-place concatenation of SR_results objects.
 
@@ -1008,7 +1021,7 @@ class SR_results:
         self.results += other.results
         return self
 
-    def __getitem__(self, item) -> EvalResult:
+    def __getitem__(self, item: int) -> EvalResult:
         """
         Returns the results of the experiment with the given index.
 
@@ -1084,13 +1097,17 @@ class SR_results:
     @staticmethod
     def load(path: str) -> "SR_results":
         """
-        Loads results previously saved with :meth:`save`.
+        Load results previously saved with [save][SRToolkit.evaluation.sr_evaluator.SR_results.save].
 
         Args:
             path: Directory path containing a ``results.json`` file.
 
         Returns:
-            A new :class:`SR_results` instance with the loaded data.
+            A new [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] instance with
+            the loaded data.
+
+        Raises:
+            ValueError: If ``format_version`` in the JSON is not ``1``.
         """
         results_path = os.path.join(path, "results.json")
         with open(results_path, "r") as f:

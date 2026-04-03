@@ -1,8 +1,10 @@
 """
-Callback system for SR execution events.
+Event-driven callback system for monitoring and controlling SR evaluation.
 
-This module provides the callback infrastructure for monitoring and controlling
-SR experiments. Users can implement custom callbacks or use built-in ones.
+Provides event dataclasses fired during evaluation, the
+[SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] base class for implementing custom callbacks,
+a [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for managing multiple callbacks,
+and built-in implementations for progress display, early stopping, and logging.
 """
 
 from abc import ABC
@@ -14,7 +16,19 @@ from SRToolkit.utils import EvalResult
 
 @dataclass
 class ExprEvaluated:
-    """Fired after each expression evaluation."""
+    """
+    Fired after each expression is evaluated by
+    [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr].
+
+    Attributes:
+        expression: String representation of the evaluated expression.
+        error: Error value returned by the ranking function (RMSE or BED).
+        evaluation_number: Total number of
+            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+            calls made so far, including cache hits.
+        experiment_id: Identifier of the current experiment.
+        is_new_best: ``True`` if this expression achieved a lower error than all previous ones.
+    """
 
     expression: str
     error: float
@@ -25,7 +39,17 @@ class ExprEvaluated:
 
 @dataclass
 class BestExpressionFound:
-    """Fired when a new best expression is found."""
+    """
+    Fired when a new best expression is found during evaluation.
+
+    Attributes:
+        experiment_id: Identifier of the current experiment.
+        expression: String representation of the new best expression.
+        error: Error value of the new best expression.
+        evaluation_number: Total number of
+            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+            calls made at the time this event is fired.
+    """
 
     experiment_id: int
     expression: str
@@ -35,7 +59,15 @@ class BestExpressionFound:
 
 @dataclass
 class ExperimentEvent:
-    """Fired at experiment start/end."""
+    """
+    Fired at experiment start and end.
+
+    Attributes:
+        experiment_id: Identifier of the experiment.
+        dataset_name: Name of the dataset being evaluated.
+        approach_name: Name of the SR approach being run.
+        seed: Random seed used for this experiment, or ``None`` if not set.
+    """
 
     experiment_id: int
     dataset_name: str
@@ -45,31 +77,55 @@ class ExperimentEvent:
 
 @dataclass
 class DatasetEvent:
-    """Fired at dataset start/end."""
+    """
+    Fired at dataset start and end.
+
+    Attributes:
+        dataset_name: Name of the dataset.
+    """
 
     dataset_name: str
 
 
 @dataclass
 class ApproachEvent:
-    """Fired at approach start/end."""
+    """
+    Fired at approach start and end.
+
+    Attributes:
+        approach_name: Name of the SR approach.
+    """
 
     approach_name: str
 
 
 class SRCallbacks(ABC):
     """
-    Base class for SR callbacks.
+    Abstract base class for SR evaluation callbacks.
 
-    Implement only the methods you need. Methods return None by default,
-    which is treated as "continue". Return False to signal early stopping.
+    Implement only the methods you need. Return ``False`` from
+    [on_expr_evaluated][SRToolkit.evaluation.callbacks.SRCallbacks.on_expr_evaluated] or
+    [on_best_expression][SRToolkit.evaluation.callbacks.SRCallbacks.on_best_expression]
+    to request early stopping; return ``True`` or ``None`` to continue.
+
+    Examples:
+        >>> class PrintBestCallback(SRCallbacks):
+        ...     def on_best_expression(self, event):
+        ...         print(f"New best: {event.expression} (error={event.error:.4g})")
+        >>> cb = PrintBestCallback()
+        >>> cb.on_best_expression(BestExpressionFound(0, "X_0+C", 0.01, 5))
+        New best: X_0+C (error=0.01)
     """
 
     def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
         """
         Called after each expression is evaluated.
 
-        Return False to stop search early, True or None to continue.
+        Args:
+            event: Data about the evaluated expression.
+
+        Returns:
+            ``False`` to stop the search early, ``True`` or ``None`` to continue.
         """
         return None
 
@@ -77,64 +133,125 @@ class SRCallbacks(ABC):
         """
         Called when a new best expression is found.
 
-        Return False to stop search early.
+        Args:
+            event: Data about the new best expression.
+
+        Returns:
+            ``False`` to stop the search early, ``True`` or ``None`` to continue.
         """
         return None
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
-        """Called before an experiment starts."""
+        """
+        Called before an experiment starts.
+
+        Args:
+            event: Data about the experiment that is about to begin.
+        """
         pass
 
     def on_experiment_end(self, event: ExperimentEvent, results: EvalResult) -> None:
-        """Called after an experiment completes."""
+        """
+        Called after an experiment completes.
+
+        Args:
+            event: Data about the experiment that just ended.
+            results: Final [EvalResult][SRToolkit.utils.types.EvalResult] for this experiment.
+        """
         pass
 
     def on_dataset_start(self, event: DatasetEvent) -> None:
-        """Called before processing a dataset."""
+        """
+        Called before processing a dataset.
+
+        Args:
+            event: Data about the dataset that is about to be processed.
+        """
         pass
 
     def on_dataset_end(self, event: DatasetEvent, results: dict) -> None:
-        """Called after processing all experiments on a dataset."""
+        """
+        Called after all experiments on a dataset complete.
+
+        Args:
+            event: Data about the dataset.
+            results: Aggregated results for the dataset.
+        """
         pass
 
     def on_approach_start(self, event: ApproachEvent) -> None:
-        """Called before processing an approach."""
+        """
+        Called before an approach starts processing.
+
+        Args:
+            event: Data about the approach that is about to run.
+        """
         pass
 
     def on_approach_end(self, event: ApproachEvent, results: dict) -> None:
-        """Called after processing an approach on all datasets."""
+        """
+        Called after an approach finishes processing all datasets.
+
+        Args:
+            event: Data about the approach.
+            results: Aggregated results for the approach.
+        """
         pass
 
 
 class CallbackDispatcher:
     """
-    Manages multiple callbacks and dispatches events to all of them.
+    Manages multiple [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instances and
+    dispatches events to all of them.
 
-    Usage:
-        dispatcher = CallbackDispatcher()
-        dispatcher.add(ProgressBarCallback())
-        dispatcher.add(EarlyStoppingCallback(threshold=1e-6))
-
-        results = dataset.evaluate_approach(approach, callbacks=dispatcher)
+    Examples:
+        >>> dispatcher = CallbackDispatcher()
+        >>> dispatcher.add(EarlyStoppingCallback(threshold=1e-6))
+        >>> len(dispatcher._callbacks)
+        1
     """
 
     def __init__(self, callbacks: Optional[List[SRCallbacks]] = None):
+        """
+        Args:
+            callbacks: Initial list of callbacks. Defaults to an empty list.
+        """
         if callbacks is None:
             self._callbacks: List[SRCallbacks] = []
         else:
             self._callbacks = callbacks
 
     def add(self, callback: SRCallbacks) -> None:
-        """Add a callback. Returns self for chaining."""
+        """
+        Add a callback to the dispatcher.
+
+        Args:
+            callback: The [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance to add.
+        """
         self._callbacks.append(callback)
 
     def remove(self, callback: SRCallbacks) -> None:
-        """Remove a callback."""
+        """
+        Remove a callback from the dispatcher.
+
+        Args:
+            callback: The [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance to remove.
+
+        Raises:
+            ValueError: If ``callback`` is not currently registered.
+        """
         self._callbacks.remove(callback)
 
     def on_expr_evaluated(self, event: ExprEvaluated) -> bool:
         """
-        Dispatch to all callbacks. Return False if any callback requests stop.
+        Dispatch to all callbacks and aggregate the stop signal.
+
+        Args:
+            event: Data about the evaluated expression.
+
+        Returns:
+            ``False`` if any callback returned ``False`` (requesting early stop),
+            ``True`` otherwise.
         """
         should_continue = True
         for cb in self._callbacks:
@@ -144,6 +261,16 @@ class CallbackDispatcher:
         return should_continue
 
     def on_best_expression(self, event: BestExpressionFound) -> bool:
+        """
+        Dispatch to all callbacks and aggregate the stop signal.
+
+        Args:
+            event: Data about the new best expression.
+
+        Returns:
+            ``False`` if any callback returned ``False`` (requesting early stop),
+            ``True`` otherwise.
+        """
         should_continue = True
         for cb in self._callbacks:
             cont = cb.on_best_expression(event)
@@ -152,34 +279,85 @@ class CallbackDispatcher:
         return should_continue
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
+        """
+        Dispatch to all callbacks.
+
+        Args:
+            event: Data about the experiment that is about to begin.
+        """
         for cb in self._callbacks:
             cb.on_experiment_start(event)
 
     def on_experiment_end(self, event: ExperimentEvent, results: EvalResult) -> None:
+        """
+        Dispatch to all callbacks.
+
+        Args:
+            event: Data about the experiment that just ended.
+            results: Final [EvalResult][SRToolkit.utils.types.EvalResult] for this experiment.
+        """
         for cb in self._callbacks:
             cb.on_experiment_end(event, results)
 
     def on_dataset_start(self, event: DatasetEvent) -> None:
+        """
+        Dispatch to all callbacks.
+
+        Args:
+            event: Data about the dataset that is about to be processed.
+        """
         for cb in self._callbacks:
             cb.on_dataset_start(event)
 
     def on_dataset_end(self, event: DatasetEvent, results: dict) -> None:
+        """
+        Dispatch to all callbacks.
+
+        Args:
+            event: Data about the dataset.
+            results: Aggregated results for the dataset.
+        """
         for cb in self._callbacks:
             cb.on_dataset_end(event, results)
 
     def on_approach_start(self, event: ApproachEvent) -> None:
+        """
+        Dispatch to all callbacks.
+
+        Args:
+            event: Data about the approach that is about to run.
+        """
         for cb in self._callbacks:
             cb.on_approach_start(event)
 
     def on_approach_end(self, event: ApproachEvent, results: dict) -> None:
+        """
+        Dispatch to all callbacks.
+
+        Args:
+            event: Data about the approach.
+            results: Aggregated results for the approach.
+        """
         for cb in self._callbacks:
             cb.on_approach_end(event, results)
 
 
 class ProgressBarCallback(SRCallbacks):
-    """Progress bar using tqdm."""
+    """
+    Displays a tqdm progress bar that updates after each expression evaluation.
+
+    Examples:
+        >>> cb = ProgressBarCallback(desc="My search")
+        >>> cb.desc
+        'My search'
+    """
 
     def __init__(self, desc: Optional[str] = None):
+        """
+        Args:
+            desc: Description label shown on the progress bar. If ``None``, the label
+                is auto-generated as ``"<approach> on <dataset>"`` when the experiment starts.
+        """
         self.pbar = None
         self.desc = desc
 
@@ -201,9 +379,22 @@ class ProgressBarCallback(SRCallbacks):
 
 
 class EarlyStoppingCallback(SRCallbacks):
-    """Stop search when success threshold is reached."""
+    """
+    Stops the search when the best expression error falls below a threshold.
+
+    Examples:
+        >>> cb = EarlyStoppingCallback(threshold=1e-6)
+        >>> cb.on_best_expression(BestExpressionFound(0, "X_0", 1e-7, 42))
+        False
+        >>> cb.on_best_expression(BestExpressionFound(0, "X_0", 1e-5, 43))
+        True
+    """
 
     def __init__(self, threshold: float):
+        """
+        Args:
+            threshold: Error value below which the search is stopped.
+        """
         self.threshold = threshold
 
     def on_best_expression(self, event: BestExpressionFound) -> Optional[bool]:
@@ -213,9 +404,21 @@ class EarlyStoppingCallback(SRCallbacks):
 
 
 class LoggingCallback(SRCallbacks):
-    """Log best expressions to file or stdout."""
+    """
+    Logs each new best expression to stdout or a file.
+
+    Examples:
+        >>> cb = LoggingCallback()
+        >>> cb.on_best_expression(BestExpressionFound(0, "X_0+C", 0.001, 10))
+        [Experiment 0] New best: X_0+C (error=1.000000e-03)
+    """
 
     def __init__(self, log_file: Optional[str] = None):
+        """
+        Args:
+            log_file: Path to a file where log messages are appended. If ``None``,
+                messages are printed to stdout.
+        """
         self.log_file = log_file
 
     def on_best_expression(self, event: BestExpressionFound) -> None:
