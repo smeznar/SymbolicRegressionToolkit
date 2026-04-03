@@ -13,6 +13,7 @@ Modules:
         expression sampling.
     measures: Distance and similarity measures: edit distance, tree edit distance,
         and Behavior-aware Expression Distance (BED).
+    serialization: Internal JSON serialization utilities for numpy types.
 """
 
 from .expression_compiler import (
@@ -28,6 +29,7 @@ from .expression_generator import (
 from .expression_simplifier import simplify
 from .expression_tree import Node, expr_to_latex, is_float, tokens_to_tree
 from .measures import bed, create_behavior_matrix, edit_distance, tree_edit_distance
+from .serialization import _from_json_safe, _to_json_safe
 from .symbol_library import SymbolLibrary
 from .types import (
     CONST,
@@ -37,6 +39,8 @@ from .types import (
     VALID_SYMBOL_TYPES,
     VAR,
     EstimationSettings,
+    EvalResult,
+    ModelResult,
 )
 
 __all__ = [
@@ -63,4 +67,8 @@ __all__ = [
     "OP",
     "LIT",
     "VALID_SYMBOL_TYPES",
+    "EvalResult",
+    "ModelResult",
+    "_to_json_safe",
+    "_from_json_safe",
 ]

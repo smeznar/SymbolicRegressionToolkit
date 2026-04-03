@@ -9,202 +9,21 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
 from typing_extensions import Literal, Unpack
 
+from SRToolkit.evaluation.callbacks import BestExpressionFound, CallbackDispatcher, ExprEvaluated, SRCallbacks
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.measures import bed, create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EstimationSettings
+from SRToolkit.utils.types import EstimationSettings, EvalResult, ModelResult
 
 logger = logging.getLogger(__name__)
-
-
-def _to_json_safe(obj: Any) -> Any:
-    """
-    Recursively converts numpy types to JSON-safe Python types.
-
-    - ``np.ndarray`` → ``{"__ndarray__": True, "data": <list>}``
-    - ``np.floating`` → ``float``
-    - ``np.integer`` → ``int``
-    - ``np.bool_`` → ``bool``
-    """
-    if isinstance(obj, np.ndarray):
-        return {"__ndarray__": True, "data": obj.tolist()}
-    if isinstance(obj, np.bool_):
-        return bool(obj)
-    if isinstance(obj, np.floating):
-        return float(obj)
-    if isinstance(obj, np.integer):
-        return int(obj)
-    if isinstance(obj, dict):
-        return {k: _to_json_safe(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_to_json_safe(v) for v in obj]
-    return obj
-
-
-def _from_json_safe(obj: Any) -> Any:
-    """
-    Recursively converts JSON-safe Python types back to numpy types.
-
-    Reverses the transformation applied by :func:`_to_json_safe`.
-    """
-    if isinstance(obj, dict):
-        if obj.get("__ndarray__"):
-            return np.array(obj["data"])
-        return {k: _from_json_safe(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_from_json_safe(v) for v in obj]
-    return obj
-
-
-@dataclass
-class ModelResult:
-    """
-    A single model entry in ``EvalResult.top_models`` and ``EvalResult.all_models``.
-
-    Attributes:
-        expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
-        error: Numeric error under the ranking function (RMSE or BED).
-        parameters: Fitted constant values. Present for RMSE ranking only, ``None`` otherwise.
-        augmentations: Per-augmenter data keyed by augmenter name. Populated by
-            :class:`ResultAugmenter` subclasses via :meth:`add_augmentation`.
-    """
-
-    expr: List[str]
-    error: float
-    parameters: Optional["np.ndarray"] = None
-    augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-
-    def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
-        """
-        Stores *data* under *name* in :attr:`augmentations`. If *name* already exists,
-        appends a numeric suffix (``"RMSE_1"``, ``"RMSE_2"``, …) to avoid overwriting.
-
-        Args:
-            name: Key for the augmentation entry.
-            data: The augmentation data dictionary.
-            aug_type: Identifier of the augmenter that produced this data (e.g. ``"RMSE"``).
-                Stored as ``data["_type"]`` for later lookup during printing.
-        """
-        resolved = name
-        counter = 1
-        while resolved in self.augmentations:
-            resolved = f"{name}_{counter}"
-            counter += 1
-        data["_type"] = aug_type
-        self.augmentations[resolved] = data
-
-    def to_dict(self) -> dict:
-        """Serializes this model result to a JSON-safe dictionary."""
-        return {
-            "expr": self.expr,
-            "error": float(self.error),
-            "parameters": _to_json_safe(self.parameters),
-            "augmentations": _to_json_safe(self.augmentations),
-        }
-
-    @staticmethod
-    def from_dict(data: dict) -> "ModelResult":
-        """Creates a :class:`ModelResult` from a dictionary produced by :meth:`to_dict`."""
-        return ModelResult(
-            expr=data["expr"],
-            error=data["error"],
-            parameters=_from_json_safe(data["parameters"]),
-            augmentations=_from_json_safe(data["augmentations"]),
-        )
-
-
-@dataclass
-class EvalResult:
-    """
-    Result for a single SR experiment, as returned by ``SR_results[i]``.
-
-    Attributes:
-        min_error: Lowest error achieved across all evaluated expressions.
-        best_expr: String representation of the best expression found.
-        num_evaluated: Number of unique expressions evaluated.
-        evaluation_calls: Number of times ``evaluate_expr`` was called (includes cache hits).
-        top_models: Top-*k* models sorted by error.
-        all_models: All evaluated models sorted by error.
-        approach_name: Name of the SR approach, or empty string if not provided.
-        success: Whether ``min_error`` is below the configured ``success_threshold``.
-        dataset_name: Name of the dataset, extracted from metadata. ``None`` if not provided.
-        metadata: Remaining metadata dict after ``dataset_name`` is popped. ``None`` if empty.
-        augmentations: Per-augmenter data keyed by augmenter name. Populated by
-            :class:`ResultAugmenter` subclasses via :meth:`add_augmentation`.
-    """
-
-    min_error: float
-    best_expr: str
-    num_evaluated: int
-    evaluation_calls: int
-    top_models: List[ModelResult]
-    all_models: List[ModelResult]
-    approach_name: str
-    success: bool
-    dataset_name: Optional[str] = None
-    metadata: Optional[dict] = None
-    augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-
-    def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
-        """
-        Stores *data* under *name* in :attr:`augmentations`. If *name* already exists,
-        appends a numeric suffix (``"RMSE_1"``, ``"RMSE_2"``, …) to avoid overwriting.
-
-        Args:
-            name: Key for the augmentation entry.
-            data: The augmentation data dictionary.
-            aug_type: Identifier of the augmenter that produced this data (e.g. ``"RMSE"``).
-                Stored as ``data["_type"]`` for later lookup during printing.
-        """
-        resolved = name
-        counter = 1
-        while resolved in self.augmentations:
-            resolved = f"{name}_{counter}"
-            counter += 1
-        data["_type"] = aug_type
-        self.augmentations[resolved] = data
-
-    def to_dict(self) -> dict:
-        """Serializes this evaluation result to a JSON-safe dictionary."""
-        return {
-            "min_error": float(self.min_error),
-            "best_expr": self.best_expr,
-            "num_evaluated": int(self.num_evaluated),
-            "evaluation_calls": int(self.evaluation_calls),
-            "top_models": [m.to_dict() for m in self.top_models],
-            "all_models": [m.to_dict() for m in self.all_models],
-            "approach_name": self.approach_name,
-            "success": bool(self.success),
-            "dataset_name": self.dataset_name,
-            "metadata": self.metadata,
-            "augmentations": _to_json_safe(self.augmentations),
-        }
-
-    @staticmethod
-    def from_dict(data: dict) -> "EvalResult":
-        """Creates an :class:`EvalResult` from a dictionary produced by :meth:`to_dict`."""
-        return EvalResult(
-            min_error=data["min_error"],
-            best_expr=data["best_expr"],
-            num_evaluated=data["num_evaluated"],
-            evaluation_calls=data["evaluation_calls"],
-            top_models=[ModelResult.from_dict(m) for m in data["top_models"]],
-            all_models=[ModelResult.from_dict(m) for m in data["all_models"]],
-            approach_name=data["approach_name"],
-            success=data["success"],
-            dataset_name=data.get("dataset_name"),
-            metadata=data.get("metadata"),
-            augmentations=_from_json_safe(data["augmentations"]),
-        )
 
 
 class ResultAugmenter(ABC):
@@ -409,6 +228,9 @@ class SR_evaluator:
         self.metadata = metadata
         self.ground_truth = ground_truth
         self.gt_behavior = None
+        self._callbacks: Optional[Union[CallbackDispatcher, SRCallbacks]] = None
+        self._should_stop = False
+        self._current_best_error = float("inf")
         self.bed_evaluation_parameters: Dict[str, Any] = {
             "bed_X": None,
             "num_consts_sampled": 32,
@@ -507,6 +329,19 @@ class SR_evaluator:
 
         self.X = X
         self.y = y
+
+    def set_callbacks(self, callbacks: Union[SRCallbacks, CallbackDispatcher]) -> None:
+        """
+        Set callbacks for monitoring and controlling the search.
+
+        Args:
+            callbacks: A CallbackDispatcher instance or a single SRCallbacks instance.
+        """
+        if isinstance(callbacks, CallbackDispatcher):
+            self._callbacks = callbacks
+        elif isinstance(callbacks, SRCallbacks):
+            dispatcher = CallbackDispatcher(callbacks=[callbacks])
+            self._callbacks = dispatcher
 
     def evaluate_expr(
         self,
@@ -637,6 +472,29 @@ class SR_evaluator:
                         parameters=parameters,
                     )
 
+                    if self._callbacks is not None:
+                        is_new_best = error < self._current_best_error
+                        if is_new_best:
+                            self._current_best_error = error
+                        event = ExprEvaluated(
+                            expression=expr_str,
+                            error=error,
+                            evaluation_number=self.total_evaluations,
+                            experiment_id=0,  # TODO: Change through meta-data when defined
+                            is_new_best=is_new_best,
+                        )
+                        should_continue = self._callbacks.on_expr_evaluated(event)
+                        if should_continue is False:
+                            self._should_stop = True
+                        if is_new_best:
+                            best_event = BestExpressionFound(
+                                experiment_id=0,  # TODO: Change through meta-data when defined
+                                expression=expr_str,
+                                error=error,
+                                evaluation_number=self.total_evaluations,
+                            )
+                            self._callbacks.on_best_expression(best_event)
+
                 elif self.ranking_function == "bed":
                     try:
                         with (
@@ -678,6 +536,29 @@ class SR_evaluator:
                         expr=expr_list,
                         error=error,
                     )
+
+                    if self._callbacks is not None:
+                        is_new_best = error < self._current_best_error
+                        if is_new_best:
+                            self._current_best_error = error
+                        event = ExprEvaluated(
+                            expression=expr_str,
+                            error=error,
+                            evaluation_number=self.total_evaluations,
+                            experiment_id=0,  # TODO: Change through meta-data when defined
+                            is_new_best=is_new_best,
+                        )
+                        should_continue = self._callbacks.on_expr_evaluated(event)
+                        if should_continue is False:
+                            self._should_stop = True
+                        if is_new_best:
+                            best_event = BestExpressionFound(
+                                experiment_id=0,  # TODO: Change through meta-data when defined
+                                expression=expr_str,
+                                error=error,
+                                evaluation_number=self.total_evaluations,
+                            )
+                            self._callbacks.on_best_expression(best_event)
 
                 else:
                     raise ValueError(f"Ranking function {self.ranking_function} not supported.")

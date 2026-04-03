@@ -3,12 +3,14 @@ This module contains the SR_approach class, which is the base class for all symb
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, List, Optional
 
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import SymbolLibrary
+from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 
 def check_dependencies(packages: List[str]):
@@ -20,10 +22,38 @@ def check_dependencies(packages: List[str]):
                 "This approach requires PyTorch. Install dependencies either manually or with"
                 "the command: pip install 'symbolic-regression-toolkit[approaches]'"
             )
+    if "pymoo" in packages:
+        try:
+            import pymoo  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "This approach requires pymoo. Install dependencies either manually or with"
+                "the command: pip install 'symbolic-regression-toolkit[approaches]'"
+            )
+
+
+@dataclass
+class ApproachConfig:
+    """
+    Base configuration for SR approaches.
+
+    Each approach should define its own config dataclass inheriting from this.
+    """
+
+    name: str = "base"
+
+    def to_dict(self) -> dict:
+        """Serialize to dictionary."""
+        return _to_json_safe(self.__dict__)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ApproachConfig":
+        """Deserialize from dictionary."""
+        return cls(**_from_json_safe(d))
 
 
 class SR_approach(ABC):
-    def __init__(self, name: str):
+    def __init__(self, name: str, config: Optional[ApproachConfig] = None):
         """
         The base class for all symbolic regression approaches. Any symbolic regression approach should inherit from
         this class.
@@ -33,8 +63,20 @@ class SR_approach(ABC):
 
         Args:
             name: The name of the approach.
+            config: Optional configuration dataclass for the approach.
         """
         self.name = name
+        self._config = config
+
+    @property
+    def config(self) -> Optional[ApproachConfig]:
+        """Returns the approach configuration, if set."""
+        return self._config
+
+    @config.setter
+    def config(self, value: ApproachConfig) -> None:
+        """Set the approach configuration."""
+        self._config = value
 
     @property
     def adaptation_scope(self) -> str:

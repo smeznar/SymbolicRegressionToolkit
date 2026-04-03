@@ -46,7 +46,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-approaches = ["torch>=2.0", "tqdm"]
+approaches = ["torch>=2.0", "tqdm", "pymoo"]
 dev = ["pytest", "pytest-cov", "ruff", "mypy", "pre-commit"]
 
 [project.urls]

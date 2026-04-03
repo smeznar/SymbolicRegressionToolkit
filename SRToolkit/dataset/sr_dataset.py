@@ -5,6 +5,7 @@ import numpy as np
 from typing_extensions import Unpack
 
 from SRToolkit.approaches.sr_approach import SR_approach
+from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.types import EstimationSettings
@@ -109,6 +110,7 @@ class SR_dataset:
         top_k: int = 20,
         initial_seed: Optional[int] = None,
         results: Optional[SR_results] = None,
+        callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None,
         verbose=True,
     ) -> SR_results:
         """
@@ -121,6 +123,8 @@ class SR_dataset:
             initial_seed: The seed used for random number generation. If None, the seed from the dataset is used.
             results: An optional SR_results object to which the results of the evaluation will be added. If None,
                 a new SR_results object will be created.
+            callbacks: Optional callbacks for monitoring and controlling the search. Can be a single
+                SRCallbacks instance, a CallbackDispatcher, or None.
             verbose: If true, prints the progress of the evaluation.
 
         Returns:
@@ -134,6 +138,12 @@ class SR_dataset:
         if results is None:
             results = SR_results()
 
+        if isinstance(callbacks, SRCallbacks):
+            dispatcher = CallbackDispatcher(callbacks=[callbacks])
+            callbacks = dispatcher
+
+        dataset_name = self.dataset_name or "unknown"
+
         adaptation_cache = None
 
         for experiment in range(num_experiments):
@@ -141,6 +151,15 @@ class SR_dataset:
                 print(f"Running experiment {experiment + 1}/{num_experiments}")
             if seed is not None:
                 seed += 1
+
+            event = ExperimentEvent(
+                experiment_id=experiment,
+                dataset_name=dataset_name,
+                approach_name=sr_approach.name,
+                seed=seed,
+            )
+            if callbacks is not None:
+                callbacks.on_experiment_start(event)
 
             sr_approach.prepare()
 
@@ -159,8 +178,13 @@ class SR_dataset:
                     sr_approach.save_adapted_state()
 
             evaluator = self.create_evaluator(seed=seed)
+            if callbacks is not None:
+                evaluator.set_callbacks(callbacks)
             sr_approach.search(evaluator, seed)
             results += evaluator.get_results(sr_approach.name, top_k)
+
+            if callbacks:
+                callbacks.on_experiment_end(event, results.results[-1])
         return results
 
     def create_evaluator(self, metadata: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> SR_evaluator:

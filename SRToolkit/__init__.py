@@ -7,6 +7,7 @@ Modules:
     dataset: The module containing classes for working with Datasets and Benchmarks.
     utils: The module contains utility classes and functions.
     evaluation: The module contains classes and functions for estimating parameters and evaluating Symbolic Regression models.
+    approaches: The module containing SR approach implementations and configurations.
 """
 
 __version__ = "1.4.0"
@@ -14,6 +15,6 @@ __license__ = "GPL-3.0 License"
 __author__ = "Sebastian Mežnar, Jure Brence"
 __credits__ = "Jožef Stefan Institute"
 
-from . import dataset, evaluation, utils
+from . import approaches, dataset, evaluation, utils
 
-__all__ = utils.__all__ + evaluation.__all__ + dataset.__all__
+__all__ = utils.__all__ + evaluation.__all__ + dataset.__all__ + approaches.__all__

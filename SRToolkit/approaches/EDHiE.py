@@ -2,10 +2,21 @@
 This module contains the EDHiE (Equation Discovery with Hierarchical variational autoEncoders) approach by Mežnar et. al.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+import random
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from SRToolkit.approaches.sr_approach import SR_approach, check_dependencies
-from SRToolkit.dataset import SR_benchmark
+from pymoo.algorithms.soo.nonconvex.ga import GA
+from pymoo.core.crossover import Crossover
+from pymoo.core.mutation import Mutation
+from pymoo.core.problem import Problem
+from pymoo.core.sampling import Sampling
+from pymoo.core.termination import Termination
+from pymoo.optimize import minimize
+from pymoo.termination.max_gen import MaximumGenerationTermination
+
+from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach, check_dependencies
+from SRToolkit.dataset import SR_benchmark, SR_dataset
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
 
@@ -24,31 +35,152 @@ except ImportError:
 
 
 class EDHiE(SR_approach):
-    r""" """
+    r"""
+    EDHiE (Equation Discovery with Hierarchical variational autoEncoders) approach by Mežnar et. al.
 
-    def __init__(self):
+    The approach trains a Hierarchical VAE (HVAE) on randomly generated expressions from the symbol
+    library, then explores the learned latent space using a genetic algorithm to find expressions
+    that best fit the dataset.
+
+    Args:
+        latent_size: Dimensionality of the HVAE latent space.
+        num_expressions: Number of random expressions to generate for HVAE training.
+        max_expression_length: Maximum token length of generated training expressions.
+        epochs: Number of training epochs for the HVAE.
+        batch_size: Batch size used during HVAE training.
+        max_beta: Maximum value of the KL annealing coefficient during HVAE training.
+        population_size: GA population size used during latent space search.
+        max_generations: Maximum number of GA generations during search.
+        verbose: If True, prints training and search progress.
+    """
+
+    def __init__(
+        self,
+        latent_size: int = 24,
+        num_expressions: int = 20000,
+        max_expression_length: int = 30,
+        epochs: int = 20,
+        batch_size: int = 32,
+        max_beta: float = 0.035,
+        population_size: int = 40,
+        max_generations: int = 250,
+        verbose: bool = True,
+    ) -> None:
         super().__init__("EDHiE")
-        check_dependencies(["pytorch"])
-        raise NotImplementedError
+        check_dependencies(["pytorch", "pymoo"])
+        self.latent_size = latent_size
+        self.num_expressions = num_expressions
+        self.max_expression_length = max_expression_length
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.max_beta = max_beta
+        self.population_size = population_size
+        self.max_generations = max_generations
+        self.verbose = verbose
 
-    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None):
+        self.model: Optional[HVAE] = None
+
+    @property
+    def adaptation_scope(self) -> str:
+        return "once"
+
+    def prepare(self) -> None:
         """
-        Samples expressions from the grammar using the Monte Carlo approach and evaluates them on the dataset.
+        Resets per-experiment state. The trained HVAE weights are preserved;
+        only the evolutionary search is re-initialised on each call to search().
+        """
+        pass
+
+    def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary) -> None:
+        """
+        Trains the HVAE on randomly generated expressions from the symbol library.
 
         Args:
-            sr_evaluator: The evaluator used for scoring expressions.
-            seed: The seed used for random number generation.
+            X: Input data from the domain (used only to determine variable count via the symbol library).
+            symbol_library: The symbol library defining available tokens.
         """
-        raise NotImplementedError
+        expressions = generate_n_expressions(
+            symbol_library,
+            self.num_expressions,
+            max_expression_length=self.max_expression_length,
+        )
+        expr_trees = [tokens_to_tree(expr, symbol_library) for expr in expressions]
+        trainset = TreeDataset(expr_trees)
 
-    def clone(self):
-        """
-        Clones the EDHiE approach.
+        self.model = HVAE(len(symbol_library), self.latent_size, symbol_library)
+        train_hvae(
+            self.model,
+            trainset,
+            symbol_library,
+            epochs=self.epochs,
+            batch_size=self.batch_size,
+            max_beta=self.max_beta,
+            verbose=self.verbose,
+        )
 
-        Returns:
-            The approach is stateless, so this method only returns the object itself.
+    def save_adapted_state(self) -> Any:
         """
-        return self
+        Returns the trained HVAE model so the framework can cache it in memory.
+        """
+        return self.model
+
+    def load_adapted_state(self, state: Any) -> None:
+        """
+        Restores a previously trained HVAE model from the cached state.
+
+        Args:
+            state: The HVAE model returned by save_adapted_state().
+        """
+        self.model = state
+
+    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
+        """
+        Explores the HVAE latent space with a genetic algorithm to find the best expression.
+
+        Args:
+            sr_evaluator: The evaluator used to score candidate expressions.
+            seed: Optional random seed for reproducibility.
+        """
+        if self.model is None:
+            raise RuntimeError("EDHiE.adapt() must be called before search().")
+
+        if seed is not None:
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            random.seed(seed)
+
+        success_threshold = sr_evaluator.success_threshold if sr_evaluator.success_threshold is not None else 1e-10
+
+        problem = SRProblem(self.model, sr_evaluator, self.latent_size, verbose=self.verbose)
+        ga = GA(
+            pop_size=self.population_size,
+            sampling=TorchNormalSampling(),
+            crossover=LICrossover(),
+            mutation=RandomMutation(),
+            eliminate_duplicates=False,
+        )
+        minimize(
+            problem,
+            ga,
+            BestTermination(min_f=success_threshold, n_max_gen=self.max_generations),
+            verbose=False,
+        )
+
+
+@dataclass
+class EDHiEConfig(ApproachConfig):
+    """Configuration for EDHiE approach."""
+
+    name: str = "EDHiE"
+    latent_size: int = 24
+    num_expressions: int = 20000
+    max_expression_length: int = 30
+    epochs: int = 20
+    batch_size: int = 32
+    max_beta: float = 0.035
+    population_size: int = 40
+    max_generations: int = 250
+    verbose: bool = True
 
 
 class BatchedNode:
@@ -482,6 +614,96 @@ def train_hvae(model, trainset, symbol_library, epochs=20, batch_size=32, max_be
                         print()
                         print(f"O: {''.join(original_trees[i].to_list(symbol_library=symbol_library))}")
                         print(f"P: {''.join(decoded_trees[i].to_list(symbol_library=symbol_library))}")
+
+
+class SRProblem(Problem):
+    def __init__(self, model, evaluator: SR_evaluator, dim, default_value=1e10, verbose=True):
+        self.model = model
+        self.default_value = np.array(default_value)
+        self.evaluator = evaluator
+        self.symbol2index = self.evaluator.symbol_library.symbols2index()
+        self.input_mean = torch.zeros(next(model.decoder.parameters()).size(0))
+        self.best_f = 9e50
+        self.verbose = verbose
+        super().__init__(n_var=dim, n_obj=1)
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        trees = self.model.decode(torch.tensor(x[:, :]))
+
+        errors = []
+        for tree in trees:
+            expr = tree.to_list(self.evaluator.symbol_library, "infix")
+            error = self.evaluator.evaluate_expr(expr)
+            if error < self.best_f:
+                self.best_f = error
+                if self.verbose:
+                    print(f"New best expression with score {error}: {''.join(expr)}")
+            errors.append(error)
+
+        out["F"] = np.array(errors)
+
+
+class TorchNormalSampling(Sampling):
+    def _do(self, problem, n_samples, **kwargs):
+        return [torch.normal(problem.input_mean).numpy() for _ in range(n_samples)]
+
+
+class BestTermination(Termination):
+    def __init__(self, min_f=1e-10, n_max_gen=500) -> None:
+        super().__init__()
+        self.min_f = min_f
+        self.max_gen = MaximumGenerationTermination(n_max_gen)
+
+    def _update(self, algorithm):
+        if algorithm.problem.best_f < self.min_f:
+            self.terminate()
+        return self.max_gen.update(algorithm)
+
+
+class LICrossover(Crossover):
+    def __init__(self):
+        super().__init__(2, 1)
+
+    def _do(self, problem, X, **kwargs):
+        weights = np.random.random(X.shape[1])
+        return (X[0, :] * weights[:, None] + X[1, :] * (1 - weights[:, None]))[None, :, :]
+
+
+class RandomMutation(Mutation):
+    def __init__(self):
+        super().__init__()
+
+    def _do(self, problem, X, **kwargs):
+        trees = problem.model.decode(torch.tensor(X))
+        batch = create_batch(trees, problem.symbol2index)
+        var = problem.model.encode(batch)[1].detach().numpy()
+        mutation_scale = np.random.random((X.shape[0], 1))
+        std = np.multiply(mutation_scale, (np.exp(var / 2.0) - 1)) + 1
+        return np.random.normal(mutation_scale * X, std).astype(np.float32)
+
+
+def symbolic_regression_run(
+    model, approach, dataset: SR_dataset, seed, population_size=40, latent_size=24, max_generations=250, verbose=True
+):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
+
+    evaluator = dataset.create_evaluator()
+    if approach == "EDHiE":
+        ga = GA(
+            pop_size=population_size,
+            sampling=TorchNormalSampling(),
+            crossover=LICrossover(),
+            mutation=RandomMutation(),
+            eliminate_duplicates=False,
+        )
+        problem = SRProblem(model, evaluator, latent_size, verbose)
+        minimize(
+            problem, ga, BestTermination(min_f=dataset.success_threshold, n_max_gen=max_generations), verbose=verbose
+        )
+
+        return evaluator.get_results(top_k=-1)
 
 
 if __name__ == "__main__":
