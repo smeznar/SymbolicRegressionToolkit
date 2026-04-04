@@ -1,5 +1,5 @@
 """
-This module contains the SR_approach class, which is the base class for all symbolic regression approaches.
+Abstract base class and configuration dataclass for symbolic regression approaches.
 """
 
 from abc import ABC, abstractmethod
@@ -13,7 +13,16 @@ from SRToolkit.utils import SymbolLibrary
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 
-def check_dependencies(packages: List[str]):
+def check_dependencies(packages: List[str]) -> None:
+    """
+    Verify that optional heavy dependencies are installed, raising a descriptive error if not.
+
+    Args:
+        packages: Names of packages to check. Recognised values: ``"pytorch"``, ``"pymoo"``.
+
+    Raises:
+        ImportError: If any requested package cannot be imported.
+    """
     if "pytorch" in packages:
         try:
             import torch  # noqa: F401
@@ -35,35 +44,63 @@ def check_dependencies(packages: List[str]):
 @dataclass
 class ApproachConfig:
     """
-    Base configuration for SR approaches.
+    Serialisable base configuration for SR approaches.
 
-    Each approach should define its own config dataclass inheriting from this.
+    Subclass this dataclass to define approach-specific hyperparameters that can be
+    saved and restored via [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]
+    and [from_dict][SRToolkit.approaches.sr_approach.ApproachConfig.from_dict].
+
+    Examples:
+        >>> cfg = ApproachConfig(name="my_approach")
+        >>> d = cfg.to_dict()
+        >>> ApproachConfig.from_dict(d).name
+        'my_approach'
     """
 
     name: str = "base"
 
     def to_dict(self) -> dict:
-        """Serialize to dictionary."""
+        """
+        Serialise this config to a JSON-safe dictionary.
+
+        Returns:
+            A dictionary representation with all values converted to JSON-compatible types.
+        """
         return _to_json_safe(self.__dict__)
 
     @classmethod
     def from_dict(cls, d: dict) -> "ApproachConfig":
-        """Deserialize from dictionary."""
+        """
+        Restore a config from a dictionary produced by
+        [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].
+
+        Args:
+            d: Dictionary representation of the config.
+
+        Returns:
+            A new instance of this config class populated with the values from ``d``.
+        """
         return cls(**_from_json_safe(d))
 
 
 class SR_approach(ABC):
     def __init__(self, name: str, config: Optional[ApproachConfig] = None):
         """
-        The base class for all symbolic regression approaches. Any symbolic regression approach should inherit from
-        this class.
+        Abstract base class for all symbolic regression approaches.
 
-        If the approach requires pretraining on an external corpus, this should be done inside ``__init__``.
-        The approach is responsible for defining what corpus it expects and how to load it.
+        Subclasses must implement [prepare][SRToolkit.approaches.sr_approach.SR_approach.prepare]
+        and [search][SRToolkit.approaches.sr_approach.SR_approach.search], and optionally override
+        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt],
+        [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state], and
+        [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state]
+        according to their [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope].
 
         Args:
-            name: The name of the approach.
+            name: Name of this approach, used for result labelling.
             config: Optional configuration dataclass for the approach.
+
+        Attributes:
+            name: Name of this approach.
         """
         self.name = name
         self._config = config
@@ -185,7 +222,7 @@ class SR_approach(ABC):
         in memory by the framework and passed back to ``load_adapted_state()``
         when the cached state is needed.
 
-        Must be implemented when ``adaptation_scope == "symbol_library"``, or
+        Must be implemented when ``adaptation_scope == "once"``, or
         when ``adaptation_scope == "experiment"`` and ``save_adapted_model`` is
         ``True``.
 
@@ -204,7 +241,7 @@ class SR_approach(ABC):
         using the identifier returned by ``save_adapted_state()`` (e.g. a file path
         passed to ``torch.load``).
 
-        Must be implemented when ``adaptation_scope == "symbol_library"``
+        Must be implemented when ``adaptation_scope == "once"``.
 
         The default raises ``NotImplementedError``. Override when needed.
 

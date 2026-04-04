@@ -1,3 +1,7 @@
+"""
+Benchmark collection for symbolic regression datasets.
+"""
+
 import copy
 import json
 import os
@@ -27,8 +31,7 @@ class SR_benchmark:
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """
-        Initializes an instance of the SR_benchmark class. You can find examples of how to use this class in the
-        feynman and nguyen methods below.
+        A named, persistent collection of symbolic regression datasets.
 
         Examples:
             >>> benchmark = SR_benchmark.feynman('data/feynman')
@@ -36,17 +39,16 @@ class SR_benchmark:
             100
 
         Args:
-            benchmark_name: The name of this benchmark.
-            base_dir: The directory where the datasets will be stored.
-            datasets: A list of SR_dataset instances or tuples containing the name of the dataset and an instance of
-                SR_dataset. When name of the dataset is not provided, the dataset will be named
-                'benchmark_name'_'index of dataset in the list + 1'
-            metadata: An optional dictionary containing metadata about this benchmark. This could include information
-                such as the name of the benchmark, a citation for the benchmark, number of datasets, etc.
+            benchmark_name: Name of this benchmark.
+            base_dir: Directory where dataset files are stored or will be written.
+            datasets: Initial datasets to add. Each element can be an
+                [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance (auto-named as
+                ``"<benchmark_name>_<index>"``) or a ``(name, SR_dataset)`` tuple.
+            metadata: Optional dictionary of benchmark-level metadata (e.g. citation, description).
 
         Raises:
-            Exception: If elements in the "datasets" argument are not instances of SR_dataset or tuples containing
-                the name of the dataset and an instance of SR_dataset.
+            ValueError: If any element of ``datasets`` is not an
+                [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] or a valid ``(name, SR_dataset)`` tuple.
         """
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
@@ -134,38 +136,19 @@ class SR_benchmark:
                 'benchmark_name'_'index+1'.
             ranking_function: The ranking function used during evaluation. Can be: 'rmse', 'bed'.
             max_evaluations: The maximum number of expressions to evaluate. Less than 0 means no limit.
-            ground_truth: The ground truth expression. Can either a list of symbols, a SRToolkit.utils.Node, or a
-                numpy array representing behavior of an expressions. When 'bed' is used as the ranking function,
-                ground truth must be provided.
-            original_equation: The original equation from which the ground truth expression was generated.
-            success_threshold: The threshold below which the experiment is considered successful. If None, the
-                threshold will be calculated automatically. See SRToolkit.evaluation.SR_evaluator for more details.
-            seed: The seed to use for random number generation. If None, number generation will be random.
-            dataset_metadata: An optional dictionary containing metadata about this dataset. This could include
-                information such as the name of the dataset, a citation for the dataset, number of variables, etc.
-
-        Keyword Arguments:
-            method (str): The method to be used for minimization. Currently, only "L-BFGS-B" is supported/tested.
-                Default is "L-BFGS-B".
-            tol (float): The tolerance for termination. Default is 1e-6.
-            gtol (float): The tolerance for the gradient norm. Default is 1e-3.
-            max_iter (int): The maximum number of iterations. Default is 100.
-            constant_bounds (Tuple[float, float]): A tuple of two elements, specifying the lower and upper bounds for
-                the constant values. Default is (-5, 5).
-            initialization (str): The method to use for initializing the constant values. Currently, only "random" and
-                "mean" are supported. "random" creates a vector with random values sampled within the bounds. "mean"
-                creates a vector where all values are calculated as (lower_bound + upper_bound)/2. Default is "random".
-            max_constants (int): The maximum number of constants allowed in the expression. Default is 8.
-            max_expr_length (int): The maximum length of the expression. Default is -1 (no limit).
-            num_points_sampled (int): The number of points to sample when estimating the behavior of an expression.
-                Default is 64. If num_points_sampled==-1, then the number of points sampled is equal to the number of
-                points in the dataset.
-            bed_X (Optional[np.ndarray]): Points used for BED evaluation. If None and domain_bounds are given, points
-                are sampled from the domain. If None and domain_bounds are not givem, points are randomly selected
-                from X. Default is None.
-            num_consts_sampled (int): Number of constants sampled for BED evaluation. Default is 32.
-            domain_bounds (Optional[List[Tuple[float, float]]]): Bounds for the domain to be used if bed_X is None to
-                sample random points. Default is None.
+            ground_truth: Ground truth expression as a token list in infix notation, a
+                [Node][SRToolkit.utils.expression_tree.Node] tree, or a numpy behavior array. Required when
+                ``ranking_function="bed"``.
+            original_equation: Human-readable string of the original equation.
+            success_threshold: Error threshold below which an expression is considered successful. If ``None``,
+                no threshold is applied.
+            seed: Random seed for reproducibility. ``None`` means no seed is set.
+            dataset_metadata: Optional dictionary of dataset-level metadata (merged with benchmark metadata).
+            **kwargs: Optional estimation settings passed to
+                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+                Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
+                ``initialization``, ``max_constants``, ``max_expr_length``, ``num_points_sampled``,
+                ``bed_X``, ``num_consts_sampled``, ``domain_bounds``.
 
         Raises:
             ValueError: When BED ranking function is used but ground truth is not provided. When dataset is given as
@@ -355,7 +338,7 @@ class SR_benchmark:
         else:
             raise ValueError(f"Dataset {dataset_name} not found")
 
-    def list_datasets(self, verbose=True, num_variables: int = -1) -> List[str]:
+    def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> List[str]:
         """
         Lists the available datasets.
 
@@ -368,8 +351,8 @@ class SR_benchmark:
             'II.36.38'
 
         Args:
-            verbose (bool): If True, also prints out a description of each dataset.
-            num_variables (int): If not -1, only show datasets with the given number of variables.
+            verbose: If ``True``, also prints a description of each dataset.
+            num_variables: If not ``-1``, only return datasets with this many input variables.
 
         Returns:
             A list of dataset names.
@@ -413,11 +396,12 @@ class SR_benchmark:
         return datasets
 
     @staticmethod
-    def download_benchmark_data(url, directory_path):
+    def download_benchmark_data(url: str, directory_path: str) -> None:
         """
-        Downloads a benchmark dataset from the given url to the given directory path.
+        Downloads and extracts a benchmark zip archive if the target directory is empty.
 
-        This function will first check if the directory_path exists. If not, it will create it. Then it will check if the directory_path is empty. If it is not empty, it will not download the data. If it is empty, it will download the data from the given url and extract it to the directory_path.
+        Creates ``directory_path`` if it does not exist. If the directory is already non-empty,
+        the download is skipped.
 
         Examples:
             >>> url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
@@ -425,8 +409,8 @@ class SR_benchmark:
             >>> SR_benchmark.download_benchmark_data(url, dataset_directory)
 
         Args:
-            url (str): The url of the benchmark dataset to download.
-            directory_path (str): The path of the directory where the dataset should be downloaded.
+            url: URL of the zip archive to download.
+            directory_path: Local directory where the archive will be extracted.
         """
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
@@ -439,10 +423,11 @@ class SR_benchmark:
 
     def save_benchmark(self):
         """
-        Saves the benchmark to a json file. The json file will contain the metadata about datasets
-        and metadata of the benchmark. Data is not directly saved to the json file, but contains paths to the datasets.
+        Saves the benchmark to ``<base_dir>/dataset_info.json``.
 
-        Saved data can be loaded using SR_benchmark.load_benchmark method.
+        The JSON file stores dataset metadata and paths to data files; the data arrays themselves are
+        not embedded. Use [load_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark.load_benchmark]
+        to restore the benchmark.
 
         Examples:
             >>> benchmark = SR_benchmark.feynman('data/feynman')
@@ -481,6 +466,17 @@ class SR_benchmark:
             >>> bool(rmse < dataset.success_threshold)
             True
 
+        Args:
+            base_dir: Directory containing the ``dataset_info.json`` file previously written by
+                [save_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark.save_benchmark].
+
+        Returns:
+            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance with all datasets
+            restored from the saved JSON.
+
+        Raises:
+            FileNotFoundError: If ``dataset_info.json`` does not exist in ``base_dir``.
+            json.JSONDecodeError: If the JSON file is malformed.
         """
         with open(f"{base_dir}/dataset_info.json", "r") as f:
             data = json.load(f)

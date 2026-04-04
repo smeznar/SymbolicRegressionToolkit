@@ -1,10 +1,14 @@
 """
-This module contains implementations of symbolic regression approaches. Class SR_approach is the base class for all
-symbolic regression approaches.
+Symbolic regression approaches and the base class for implementing new ones.
 
 Modules:
-    sr_approach: The base class for all symbolic regression approaches.
-    ProGED: The ProGED approach - Probabilistic grammar-based equation discovery.
+    sr_approach: [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] — abstract base class
+        for all SR approaches; [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] —
+        serialisable configuration dataclass.
+    ProGED: [ProGED][SRToolkit.approaches.ProGED.ProGED] — probabilistic grammar-based equation
+        discovery by Brence et al.
+    EDHiE: [EDHiE][SRToolkit.approaches.EDHiE.EDHiE] — equation discovery with hierarchical
+        variational autoencoders by Mežnar et al. Requires PyTorch and pymoo.
 """
 
 from .ProGED import ProGED

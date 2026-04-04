@@ -1,5 +1,5 @@
 """
-This module contains the ProGED approach - Probabilistic grammar-based equation discovery by Brence et. al.
+ProGED approach — probabilistic grammar-based equation discovery by Brence et al.
 """
 
 from typing import Optional, Union
@@ -13,56 +13,65 @@ from .sr_approach import SR_approach
 
 
 class ProGED(SR_approach):
-    r"""
-    A slimmed-down version of the ProGED approach. You can find the full version of the approach at
-    <https://github.com/brencej/ProGED> and the paper presenting the approach at
-    <https://www.sciencedirect.com/science/article/pii/S0950705121003403>.
-
-    The approach randomly samples expressions from a probabilistic grammar and evaluates them on the dataset.
-
-    Examples:
-        >>> from SRToolkit.dataset import SR_benchmark
-        >>> benchmark = SR_benchmark.feynman('../../data/feynman/')
-        >>> dataset = benchmark.create_dataset('I.16.6')
-        >>> dataset.max_evaluations = 100
-        >>> model = ProGED(dataset.symbol_library, verbose=False)
-        >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
-        >>> r = results[0]
-        >>> r.dataset_name
-        'I.16.6'
-        >>> r.approach_name
-        'ProGED'
-        >>> r.best_expr
-        'X_0/C/C'
-        >>> r.num_evaluated
-        77
-        >>> bool(r.success)
-        False
-
-    Args:
-        grammar: The grammar to use for sampling expressions. Can be either a string or a SymbolLibrary object. Using
-            a string let's you define a custom grammar.
-        verbose: If True, prints the expression and its error if the expression is better than the current best.
-    """
-
     def __init__(self, grammar: Union[str, SymbolLibrary], verbose: bool = False) -> None:
+        r"""
+        A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.
+
+        Randomly samples expressions from a probabilistic context-free grammar (PCFG) and evaluates
+        them using the provided evaluator. The full version of the approach is available at
+        https://github.com/brencej/ProGED; see also Brence et al. (2021),
+        https://doi.org/10.1016/j.knosys.2021.107077.
+
+        Examples:
+            >>> from SRToolkit.dataset import SR_benchmark
+            >>> benchmark = SR_benchmark.feynman('../../data/feynman/')
+            >>> dataset = benchmark.create_dataset('I.16.6')
+            >>> dataset.max_evaluations = 100
+            >>> model = ProGED(dataset.symbol_library, verbose=False)
+            >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
+            >>> r = results[0]
+            >>> r.dataset_name
+            'I.16.6'
+            >>> r.approach_name
+            'ProGED'
+            >>> r.best_expr
+            'X_0/C/C'
+            >>> r.num_evaluated
+            77
+            >>> bool(r.success)
+            False
+
+        Args:
+            grammar: Grammar used for sampling. Either a
+                [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] (grammar is derived
+                automatically) or a custom grammar string.
+            verbose: If ``True``, prints each new best expression and its error during search.
+        """
         super().__init__("ProGED")
         self.grammar = grammar
         self.verbose = verbose
 
     def prepare(self) -> None:
         """
-        ProGED is stateless, so this method does nothing.
+        ProGED is stateless — this method does nothing.
+
+        Returns:
+            None
         """
         pass
 
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
         """
-        Samples expressions from the grammar using the Monte Carlo approach and evaluates them on the dataset.
+        Randomly sample expressions from the grammar and evaluate them until the budget is exhausted
+        or the success threshold is reached.
 
         Args:
-            sr_evaluator: The evaluator used for scoring expressions.
-            seed: The seed used for random number generation.
+            sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to
+                score candidate expressions.
+            seed: Optional random seed for reproducible sampling.
+
+        Returns:
+            None
         """
         np.random.seed(seed)
         min_error = float("inf")
