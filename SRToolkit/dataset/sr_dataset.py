@@ -93,7 +93,7 @@ class SR_dataset:
         top_k: int = 20,
         initial_seed: Optional[int] = None,
         results: Optional[SR_results] = None,
-        callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None,
+        callbacks: Optional[Union[SRCallbacks, CallbackDispatcher, List[SRCallbacks]]] = None,
         verbose: bool = True,
     ) -> SR_results:
         """
@@ -112,7 +112,7 @@ class SR_dataset:
             initial_seed: Seed for random number generation. If ``None``, the dataset seed is used.
             results: Existing [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object to append
                 results to. If ``None``, a new one is created.
-            callbacks: Optional [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] or
+            callbacks: Optional list of [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], or
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for monitoring
                 and controlling the search.
             verbose: If ``True``, prints progress for each experiment.
@@ -132,6 +132,11 @@ class SR_dataset:
         if isinstance(callbacks, SRCallbacks):
             dispatcher = CallbackDispatcher(callbacks=[callbacks])
             callbacks = dispatcher
+        elif isinstance(callbacks, list):
+            if len(callbacks) == 0:
+                callbacks = None
+            else:
+                callbacks = CallbackDispatcher(callbacks=callbacks)
 
         dataset_name = self.dataset_name or "unknown"
 
@@ -147,6 +152,7 @@ class SR_dataset:
                 experiment_id=experiment,
                 dataset_name=dataset_name,
                 approach_name=sr_approach.name,
+                max_evaluations=self.max_evaluations,
                 seed=seed,
             )
             if callbacks is not None:

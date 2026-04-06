@@ -66,12 +66,14 @@ class ExperimentEvent:
         experiment_id: Identifier of the experiment.
         dataset_name: Name of the dataset being evaluated.
         approach_name: Name of the SR approach being run.
+        max_evaluations: Maximum number of evaluations allowed for this experiment.
         seed: Random seed used for this experiment, or ``None`` if not set.
     """
 
     experiment_id: int
     dataset_name: str
     approach_name: str
+    max_evaluations: Optional[int]
     seed: Optional[int]
 
 
@@ -365,10 +367,13 @@ class ProgressBarCallback(SRCallbacks):
         desc = self.desc or f"{event.approach_name} on {event.dataset_name}"
         from tqdm import tqdm
 
-        self.pbar = tqdm(desc=desc, unit="expr")
+        if event.max_evaluations is not None:
+            self.pbar = tqdm(total=event.max_evaluations, desc=desc, unit=" expr")
+        else:
+            self.pbar = tqdm(desc=desc, unit=" expr")
 
     def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
-        if self.pbar:
+        if self.pbar is not None:
             self.pbar.update(1)
         return None
 

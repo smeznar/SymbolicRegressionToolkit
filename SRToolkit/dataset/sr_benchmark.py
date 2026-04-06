@@ -113,7 +113,7 @@ class SR_benchmark:
             >>> from SRToolkit.dataset import Feynman
             >>> fey_benchmark = Feynman() # Feynman is a specific instance of SR_benchmark with additional functionality
             >>> benchmark = SR_benchmark("BM", "data/bm")
-            >>> benchmark.add_dataset("data/feynman/I.14.3.npz", SymbolLibrary.default_symbols(3),
+            >>> benchmark.add_dataset(fey_benchmark.base_dir+"/I.14.3.npz", SymbolLibrary.default_symbols(3),
             ...       dataset_name="I.14.3", ranking_function="rmse", ground_truth = ["X_0", "*", "X_1", "*", "X_2"],
             ...       original_equation="U = m*g*z", max_evaluations=100000, max_expr_length=50,
             ...       success_threshold=1e-7, dataset_metadata={}, constant_bounds=(-5.0, 5.0),

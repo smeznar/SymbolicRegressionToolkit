@@ -74,18 +74,6 @@ class ProGED(SR_approach):
             None
         """
         np.random.seed(seed)
-        min_error = float("inf")
-        success = sr_evaluator.success_threshold is not None and min_error <= sr_evaluator.success_threshold
-        budget_exhausted = 0 < sr_evaluator.max_evaluations <= sr_evaluator.total_evaluations
-        while not success and not budget_exhausted:
+        while not sr_evaluator.should_stop:
             expr = generate_n_expressions(self.grammar, 1, verbose=False)[0]
-            error = sr_evaluator.evaluate_expr(expr)
-            if error < min_error:
-                min_error = error
-                if self.verbose:
-                    print(
-                        f"New best expression {''.join(expr)} with error {min_error} "
-                        f"after {sr_evaluator.total_evaluations} evaluations."
-                    )
-            success = sr_evaluator.success_threshold is not None and min_error <= sr_evaluator.success_threshold
-            budget_exhausted = 0 < sr_evaluator.max_evaluations <= sr_evaluator.total_evaluations
+            _ = sr_evaluator.evaluate_expr(expr)

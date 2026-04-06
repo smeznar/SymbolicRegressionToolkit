@@ -13,6 +13,18 @@ Modules:
         for monitoring and early stopping during evaluation.
 """
 
+from .callbacks import (
+    ApproachEvent,
+    BestExpressionFound,
+    CallbackDispatcher,
+    DatasetEvent,
+    EarlyStoppingCallback,
+    ExperimentEvent,
+    ExprEvaluated,
+    LoggingCallback,
+    ProgressBarCallback,
+    SRCallbacks,
+)
 from .parameter_estimator import ParameterEstimator
 from .result_augmentation import (
     BED,
@@ -41,4 +53,14 @@ __all__ = [
     "ExpressionToLatex",
     "RESULT_AUGMENTERS",
     "register_augmenter",
+    "SRCallbacks",
+    "CallbackDispatcher",
+    "EarlyStoppingCallback",
+    "ProgressBarCallback",
+    "LoggingCallback",
+    "ApproachEvent",
+    "DatasetEvent",
+    "ExperimentEvent",
+    "BestExpressionFound",
+    "ExprEvaluated",
 ]

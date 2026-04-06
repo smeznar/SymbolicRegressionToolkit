@@ -74,11 +74,11 @@ expr_latex = expr_to_latex(expr_tree, sl)
 The primary advantage of SRToolkit is its robust benchmarking framework, allowing you to quickly evaluate and compare different Symbolic Regression approaches.
 
 ```python
-from SRToolkit.dataset import SR_benchmark
+from SRToolkit.dataset import Feynman
 from SRToolkit.utils import generate_n_expressions
 
 # Create the Feynman benchmark suite
-feynman = SR_benchmark.feynman("./data/feynman")
+feynman = Feynman()
 
 # List datasets in the benchmark and select the first 2-variable one
 dataset_name = feynman.list_datasets(verbose=False, num_variables=2)[0]

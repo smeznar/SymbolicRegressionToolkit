@@ -231,7 +231,7 @@ class SR_evaluator:
         self.ground_truth = ground_truth
         self.gt_behavior = None
         self._callbacks: Optional[Union[CallbackDispatcher, SRCallbacks]] = None
-        self._should_stop = False
+        self.should_stop = False
         self._current_best_error = float("inf")
         self.bed_evaluation_parameters: Dict[str, Any] = {
             "bed_X": None,
@@ -423,7 +423,8 @@ class SR_evaluator:
         """
         self.total_evaluations += 1
 
-        if 0 <= self.max_evaluations < self.total_evaluations:
+        if 0 <= self.max_evaluations <= self.total_evaluations:
+            self.should_stop = True
             warnings.warn(f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
             return np.nan
         else:
@@ -446,6 +447,16 @@ class SR_evaluator:
             if expr_str in self.models:
                 if verbose > 0:
                     logger.debug("Already evaluated %s", expr_str)
+                if self._callbacks is not None:
+                    event = ExprEvaluated(
+                        expression=expr_str,
+                        error=self.models[expr_str].error,
+                        evaluation_number=self.total_evaluations,
+                        experiment_id=0,  # TODO: Change through meta-data when defined
+                        is_new_best=False,
+                    )
+                    if not self._callbacks.on_expr_evaluated(event):
+                        self.should_stop = True
                 return self.models[expr_str].error
 
             else:
@@ -498,7 +509,7 @@ class SR_evaluator:
                         )
                         should_continue = self._callbacks.on_expr_evaluated(event)
                         if should_continue is False:
-                            self._should_stop = True
+                            self.should_stop = True
                         if is_new_best:
                             best_event = BestExpressionFound(
                                 experiment_id=0,  # TODO: Change through meta-data when defined
@@ -563,7 +574,7 @@ class SR_evaluator:
                         )
                         should_continue = self._callbacks.on_expr_evaluated(event)
                         if should_continue is False:
-                            self._should_stop = True
+                            self.should_stop = True
                         if is_new_best:
                             best_event = BestExpressionFound(
                                 experiment_id=0,  # TODO: Change through meta-data when defined
@@ -957,7 +968,9 @@ class SR_results:
                             if parts:
                                 print(f"    {key}: {', '.join(parts)}")
 
-    def augment(self, augmenters: List[ResultAugmenter], experiment_number: Optional[int] = None) -> None:
+    def augment(
+        self, augmenters: Union[List[ResultAugmenter], ResultAugmenter], experiment_number: Optional[int] = None
+    ) -> None:
         r"""
         Applies the given [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter]
         instances to the stored results. Augmenters add post-hoc information such as LaTeX
@@ -975,10 +988,13 @@ class SR_results:
             '$C_{0} \\cdot X_{1} - X_{0}$'
 
         Args:
-            augmenters: A list of ResultAugmenter objects to apply to the results.
+            augmenters: A [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] or a list of [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] objects to apply to the results.
             experiment_number: If provided, apply augmenters only to this experiment's result.
                 If None, apply to all results.
         """
+        if isinstance(augmenters, ResultAugmenter):
+            augmenters = [augmenters]
+
         if experiment_number is not None:
             assert experiment_number < len(self.results), "[SR_results.augment] experiment number out of bounds"
             for augmenter in augmenters:
