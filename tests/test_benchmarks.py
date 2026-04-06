@@ -10,21 +10,21 @@ because they depend on external data files.
 
 import pytest
 
-from SRToolkit.dataset import SR_benchmark, SR_dataset
+from SRToolkit.dataset import Feynman, Nguyen, SR_benchmark, SR_dataset
 
 FEYNMAN_DIR = "data/feynman"
-NGUYEN_DIR = "data/nguyen"
+# NGUYEN_DIR = "data/nguyen"
 
 
 @pytest.mark.benchmark
 def test_feynman_loads():
-    benchmark = SR_benchmark.feynman(FEYNMAN_DIR)
+    benchmark = Feynman()
     assert len(benchmark.list_datasets(verbose=False)) == 100
 
 
 @pytest.mark.benchmark
 def test_feynman_add_dataset_instance():
-    benchmark = SR_benchmark.feynman(FEYNMAN_DIR)
+    benchmark = Feynman()
     dataset = benchmark.create_dataset("I.16.6")
     assert isinstance(dataset, SR_dataset)
 
@@ -35,7 +35,7 @@ def test_feynman_add_dataset_instance():
 
 @pytest.mark.benchmark
 def test_feynman_save_load():
-    b1 = SR_benchmark.feynman(FEYNMAN_DIR)
+    b1 = Feynman(FEYNMAN_DIR)
     b2 = SR_benchmark.load_benchmark(FEYNMAN_DIR)
     assert len(b1.list_datasets(verbose=False)) == len(b2.list_datasets(verbose=False))
 
@@ -47,7 +47,7 @@ def test_feynman_save_load():
 
 @pytest.mark.benchmark
 def test_feynman_ground_truth():
-    benchmark = SR_benchmark.feynman(FEYNMAN_DIR)
+    benchmark = Feynman()
     failures = []
     for dataset_name in benchmark.list_datasets(verbose=False):
         ds = benchmark.create_dataset(dataset_name)
@@ -59,7 +59,7 @@ def test_feynman_ground_truth():
 
 @pytest.mark.benchmark
 def test_nguyen_ground_truth():
-    benchmark = SR_benchmark.nguyen(NGUYEN_DIR)
+    benchmark = Nguyen()
     failures = []
     for dataset_name in benchmark.list_datasets(verbose=False):
         ds = benchmark.create_dataset(dataset_name)
@@ -73,7 +73,7 @@ def test_nguyen_ground_truth():
 def test_proged_on_feynman():
     from SRToolkit.approaches import ProGED
 
-    benchmark = SR_benchmark.feynman(FEYNMAN_DIR)
+    benchmark = Feynman()
     dataset = benchmark.create_dataset("I.16.6")
     # Change max_evaluations to 100 to speed up the test as results here don't matter.
     dataset.max_evaluations = 100

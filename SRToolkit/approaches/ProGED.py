@@ -23,8 +23,8 @@ class ProGED(SR_approach):
         https://doi.org/10.1016/j.knosys.2021.107077.
 
         Examples:
-            >>> from SRToolkit.dataset import SR_benchmark
-            >>> benchmark = SR_benchmark.feynman('../../data/feynman/')
+            >>> from SRToolkit.dataset import Feynman
+            >>> benchmark = Feynman()
             >>> dataset = benchmark.create_dataset('I.16.6')
             >>> dataset.max_evaluations = 100
             >>> model = ProGED(dataset.symbol_library, verbose=False)

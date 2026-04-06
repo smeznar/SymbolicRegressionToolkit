@@ -126,6 +126,8 @@ nav:
           - references/dataset/index.md
           - dataset: references/dataset/srdataset.md
           - benchmark: references/dataset/srbenchmark.md
+          - feynman: references/dataset/feynman.md
+          - nguyen: references/dataset/nguyen.md
       - approaches:
           - references/approaches/index.md
           - sr_approach: references/approaches/sr_approach.md

@@ -16,7 +16,7 @@ from pymoo.optimize import minimize
 from pymoo.termination.max_gen import MaximumGenerationTermination
 
 from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach, check_dependencies
-from SRToolkit.dataset import SR_dataset
+from SRToolkit.dataset import Feynman, SR_dataset
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
 
@@ -1202,9 +1202,9 @@ def symbolic_regression_run(
 
 
 if __name__ == "__main__":
-    from SRToolkit.dataset import SR_benchmark
+    from SRToolkit.dataset import Feynman
 
-    dataset = SR_benchmark.feynman("../data/fey_data").create_dataset("I.12.4")
+    dataset = Feynman().create_dataset("I.12.4")
     latent_size = 24
     num_expressions = 20000
     max_beta = 0.035
