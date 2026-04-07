@@ -152,6 +152,7 @@ class SR_dataset:
                 experiment_id=experiment,
                 dataset_name=dataset_name,
                 approach_name=sr_approach.name,
+                success_threshold=self.success_threshold,
                 max_evaluations=self.max_evaluations,
                 seed=seed,
             )
@@ -175,8 +176,7 @@ class SR_dataset:
                     sr_approach.save_adapted_state()
 
             evaluator = self.create_evaluator(seed=seed)
-            if callbacks is not None:
-                evaluator.set_callbacks(callbacks)
+            evaluator.set_callbacks(callbacks)
             sr_approach.search(evaluator, seed)
             results += evaluator.get_results(sr_approach.name, top_k)
 

@@ -67,6 +67,7 @@ class ExperimentEvent:
         dataset_name: Name of the dataset being evaluated.
         approach_name: Name of the SR approach being run.
         max_evaluations: Maximum number of evaluations allowed for this experiment.
+        success_threshold: Error threshold for success, or ``None`` if not set.
         seed: Random seed used for this experiment, or ``None`` if not set.
     """
 
@@ -74,6 +75,7 @@ class ExperimentEvent:
     dataset_name: str
     approach_name: str
     max_evaluations: Optional[int]
+    success_threshold: Optional[float]
     seed: Optional[int]
 
 
@@ -222,6 +224,15 @@ class CallbackDispatcher:
             self._callbacks: List[SRCallbacks] = []
         else:
             self._callbacks = callbacks
+
+    def get_callbacks(self) -> List[SRCallbacks]:
+        """
+        Returns the list of callbacks.
+
+        Returns:
+            A list of [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instances in this dispatcher.
+        """
+        return self._callbacks
 
     def add(self, callback: SRCallbacks) -> None:
         """
@@ -395,15 +406,27 @@ class EarlyStoppingCallback(SRCallbacks):
         True
     """
 
-    def __init__(self, threshold: float):
+    def __init__(self, threshold: Optional[float], max_evaluations: Optional[int] = None):
         """
         Args:
             threshold: Error value below which the search is stopped.
         """
         self.threshold = threshold
+        self.max_evaluations = max_evaluations
+
+    def on_experiment_start(self, event: ExperimentEvent) -> None:
+        if self.threshold is None and event.success_threshold is not None:
+            self.threshold = event.success_threshold
+        if self.max_evaluations is None and event.max_evaluations is not None and event.max_evaluations > 0:
+            self.max_evaluations = event.max_evaluations
+
+    def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
+        if self.max_evaluations is not None and event.evaluation_number >= self.max_evaluations >= 0:
+            return False
+        return True
 
     def on_best_expression(self, event: BestExpressionFound) -> Optional[bool]:
-        if event.error < self.threshold:
+        if self.threshold is not None and event.error < self.threshold:
             return False
         return True
 

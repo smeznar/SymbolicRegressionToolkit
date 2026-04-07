@@ -17,7 +17,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 def evaluator():
     X = np.array([[1.0, 2.0], [8.0, 4.0], [5.0, 4.0], [7.0, 9.0]])
     y = np.array([3.0, 0.0, 3.0, 11.0])
-    return SR_evaluator(X, y, seed=42)
+    return SR_evaluator(X, y, seed=42, success_threshold=-1)
 
 
 @pytest.fixture

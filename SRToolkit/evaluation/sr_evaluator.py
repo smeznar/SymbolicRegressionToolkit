@@ -23,7 +23,13 @@ import numpy as np
 from scipy.stats.qmc import LatinHypercube
 from typing_extensions import Literal, Unpack
 
-from SRToolkit.evaluation.callbacks import BestExpressionFound, CallbackDispatcher, ExprEvaluated, SRCallbacks
+from SRToolkit.evaluation.callbacks import (
+    BestExpressionFound,
+    CallbackDispatcher,
+    EarlyStoppingCallback,
+    ExprEvaluated,
+    SRCallbacks,
+)
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import Node
@@ -187,7 +193,7 @@ class SR_evaluator:
             success_threshold: Error value below which an expression is considered successful.
                 If ``None``, defaults to ``1e-7`` for RMSE and is auto-calculated for BED by
                 evaluating the ground truth against itself 100 times and taking
-                ``max(distances) * 1.1``.
+                ``max(distances) * 1.1``. If less than 0, no threshold is used.
             ranking_function: ``"rmse"`` or ``"bed"``. Default ``"rmse"``.
             ground_truth: Required when ``ranking_function="bed"``. The target expression as a
                 token list, a [Node][SRToolkit.utils.expression_tree.Node] tree, or a pre-computed
@@ -329,10 +335,13 @@ class SR_evaluator:
                 ]
                 self.success_threshold = np.max(distances) * 1.1
 
+        self._callbacks = CallbackDispatcher(
+            callbacks=[EarlyStoppingCallback(threshold=self.success_threshold, max_evaluations=max_evaluations)]
+        )
         self.X = X
         self.y = y
 
-    def set_callbacks(self, callbacks: Union[SRCallbacks, CallbackDispatcher]) -> None:
+    def set_callbacks(self, callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None) -> None:
         """
         Register callbacks for monitoring and early stopping.
 
@@ -354,10 +363,24 @@ class SR_evaluator:
                 or a single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance.
         """
         if isinstance(callbacks, CallbackDispatcher):
+            if self._callbacks is not None:
+                if isinstance(self._callbacks, SRCallbacks):
+                    old_callbacks = [self._callbacks]
+                if isinstance(self._callbacks, CallbackDispatcher):
+                    old_callbacks = self._callbacks.get_callbacks()
+                else:
+                    old_callbacks = []
+
             self._callbacks = callbacks
+            for cb in old_callbacks:
+                self._callbacks.add(cb)
         elif isinstance(callbacks, SRCallbacks):
-            dispatcher = CallbackDispatcher(callbacks=[callbacks])
-            self._callbacks = dispatcher
+            if isinstance(self._callbacks, CallbackDispatcher):
+                self._callbacks.add(callbacks)
+            elif isinstance(self._callbacks, SRCallbacks):
+                self._callbacks = CallbackDispatcher(callbacks=[self._callbacks, callbacks])
+            else:
+                self._callbacks = CallbackDispatcher(callbacks=[callbacks])
 
     def evaluate_expr(
         self,
@@ -378,7 +401,7 @@ class SR_evaluator:
             True
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
             >>> y = np.array([2, 3, 4])
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = SR_evaluator(X, y, seed=42, success_threshold=-1)
             >>> rmse = se.evaluate_expr(["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
             >>> print(rmse < 1e-6)
             True
@@ -423,9 +446,10 @@ class SR_evaluator:
         """
         self.total_evaluations += 1
 
-        if 0 <= self.max_evaluations <= self.total_evaluations:
-            self.should_stop = True
-            warnings.warn(f"Maximum number of evaluations ({self.max_evaluations}) reached. Stopping evaluation.")
+        if self.should_stop:
+            warnings.warn(
+                f"Evaluation stopped because max_evaluations ({self.max_evaluations}) reached or an expression with error lower than success_threshold ({self.success_threshold}) was found. "
+            )
             return np.nan
         else:
             if simplify_expr:
@@ -507,8 +531,7 @@ class SR_evaluator:
                             experiment_id=0,  # TODO: Change through meta-data when defined
                             is_new_best=is_new_best,
                         )
-                        should_continue = self._callbacks.on_expr_evaluated(event)
-                        if should_continue is False:
+                        if not self._callbacks.on_expr_evaluated(event):
                             self.should_stop = True
                         if is_new_best:
                             best_event = BestExpressionFound(
@@ -517,7 +540,8 @@ class SR_evaluator:
                                 error=error,
                                 evaluation_number=self.total_evaluations,
                             )
-                            self._callbacks.on_best_expression(best_event)
+                            if not self._callbacks.on_best_expression(best_event):
+                                self.should_stop = True
 
                 elif self.ranking_function == "bed":
                     try:
@@ -572,8 +596,7 @@ class SR_evaluator:
                             experiment_id=0,  # TODO: Change through meta-data when defined
                             is_new_best=is_new_best,
                         )
-                        should_continue = self._callbacks.on_expr_evaluated(event)
-                        if should_continue is False:
+                        if not self._callbacks.on_expr_evaluated(event):
                             self.should_stop = True
                         if is_new_best:
                             best_event = BestExpressionFound(
@@ -582,7 +605,8 @@ class SR_evaluator:
                                 error=error,
                                 evaluation_number=self.total_evaluations,
                             )
-                            self._callbacks.on_best_expression(best_event)
+                            if not self._callbacks.on_best_expression(best_event):
+                                self.should_stop = True
 
                 else:
                     raise ValueError(f"Ranking function {self.ranking_function} not supported.")
