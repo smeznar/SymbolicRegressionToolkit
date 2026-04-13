@@ -438,11 +438,7 @@ class SR_evaluator:
                 ``2`` — also surfaces NumPy warnings during evaluation. Default ``0``.
 
         Returns:
-            The error of the expression under the active ranking function: RMSE when
-            ``ranking_function="rmse"``, BED when ``ranking_function="bed"``.
-            Returns ``NaN`` if the expression is invalid or ``max_evaluations`` has been
-            reached (a warning is emitted in the latter case). If the expression was
-            already evaluated, the cached value is returned immediately.
+            The error of the expression under the active ranking function: RMSE when ``ranking_function="rmse"``, BED when ``ranking_function="bed"``. Returns ``NaN`` if the expression is invalid or ``max_evaluations`` has been reached (a warning is emitted in the latter case). If the expression was already evaluated, the cached value is returned immediately.
         """
         self.total_evaluations += 1
 
@@ -1104,9 +1100,10 @@ class SR_results:
 
     def save(self, path: str) -> None:
         """
-        Saves the results to a directory as JSON.
+        Saves the results to a specific file or directory as JSON.
 
-        Creates *path* if it does not exist, then writes ``results.json`` inside it.
+        If *path* is an existing directory, it writes ``results.json`` inside it.
+        If *path* is a file path, it must end with the ``.json`` extension.
 
         Examples:
             >>> import tempfile
@@ -1116,22 +1113,42 @@ class SR_results:
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> with tempfile.TemporaryDirectory() as tmpdir:
-            ...     results.save(tmpdir + "/my_results")
-            ...     loaded = SR_results.load(tmpdir + "/my_results")
+            ...     results.save(tmpdir + "/my_results/results.json")
+            ...     loaded = SR_results.load(tmpdir + "/my_results/results.json")
             ...     print(loaded[0].best_expr)
             C*X_1-X_0
 
         Args:
-            path: Directory path where the results will be saved.
+            path: Directory path or specific .json file path.
+
+        Raises:
+            ValueError: If the path is a file with an extension other than .json.
+            OSError: If the directory cannot be created.
         """
-        if not os.path.isdir(path):
-            os.makedirs(path)
+        if os.path.isdir(path):
+            target_file = os.path.join(path, "results.json")
+        else:
+            _, extension = os.path.splitext(path)
+
+            if extension == "":
+                target_file = os.path.join(path, "results.json")
+            elif extension.lower() == ".json":
+                target_file = path
+            else:
+                raise ValueError(f"Invalid file extension '{extension}'. Results must be saved to a '.json' file.")
+
+        target_dir = os.path.dirname(target_file)
+        if target_dir and not os.path.isdir(target_dir):
+            os.makedirs(target_dir)
+
+        # 3. Prepare data
         output = {
             "format_version": 1,
             "type": "SR_results",
             "results": [r.to_dict() for r in self.results],
         }
-        with open(os.path.join(path, "results.json"), "w") as f:
+
+        with open(target_file, "w") as f:
             json.dump(output, f, indent=2)
 
     @staticmethod
@@ -1139,23 +1156,40 @@ class SR_results:
         """
         Load results previously saved with [save][SRToolkit.evaluation.sr_evaluator.SR_results.save].
 
+        If *path* is a directory, it looks for ``results.json`` inside it.
+        If *path* is a file, it must end with the ``.json`` extension.
+
         Args:
-            path: Directory path containing a ``results.json`` file.
+            path: Directory path containing ``results.json`` or path to a specific .json file.
 
         Returns:
-            A new [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] instance with
-            the loaded data.
+            A new [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] instance with the loaded data.
 
         Raises:
-            ValueError: If ``format_version`` in the JSON is not ``1``.
+            FileNotFoundError: If the specified file or directory does not exist.
+            ValueError: If the file extension is not .json or if ``format_version`` is not ``1``.
         """
-        results_path = os.path.join(path, "results.json")
+        if os.path.isdir(path):
+            results_path = os.path.join(path, "results.json")
+        else:
+            _, extension = os.path.splitext(path)
+            if extension.lower() != ".json":
+                raise ValueError(
+                    f"Invalid file extension '{extension}'. SR_results can only be loaded from '.json' files."
+                )
+            results_path = path
+
+        if not os.path.exists(results_path):
+            raise FileNotFoundError(f"Could not find results file at: {results_path}")
+
         with open(results_path, "r") as f:
             data = json.load(f)
+
         if data.get("format_version", 1) != 1:
             raise ValueError(
                 f"[SR_results.load] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
             )
+
         sr_results = SR_results()
         sr_results.results = [EvalResult.from_dict(r) for r in data["results"]]
         return sr_results

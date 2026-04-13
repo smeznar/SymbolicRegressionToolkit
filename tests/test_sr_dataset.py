@@ -57,7 +57,7 @@ class TestSRDatasetEvaluator:
 class TestSRDatasetSerialization:
     def test_to_dict_round_trip(self, simple_dataset):
         with tempfile.TemporaryDirectory() as tmpdir:
-            d = simple_dataset.to_dict(tmpdir, "test")
+            d = simple_dataset.to_dict(tmpdir)
             restored = SR_dataset.from_dict(d)
 
             np.testing.assert_array_equal(restored.X, simple_dataset.X)
@@ -69,12 +69,12 @@ class TestSRDatasetSerialization:
 
     def test_to_dict_format_version(self, simple_dataset):
         with tempfile.TemporaryDirectory() as tmpdir:
-            d = simple_dataset.to_dict(tmpdir, "test")
+            d = simple_dataset.to_dict(tmpdir)
             assert d["format_version"] == 1
 
     def test_from_dict_bad_format_version(self, simple_dataset):
         with tempfile.TemporaryDirectory() as tmpdir:
-            d = simple_dataset.to_dict(tmpdir, "test")
+            d = simple_dataset.to_dict(tmpdir)
             d["format_version"] = 99
             with pytest.raises(ValueError, match="Unsupported format_version"):
                 SR_dataset.from_dict(d)

@@ -153,12 +153,18 @@ def create_behavior_matrix(
     Raises:
         Exception: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.default_symbols()
+    const_symbols = symbol_library.get_symbols_of_type("const")
+
     if isinstance(expr, list):
-        num_constants = expr.count("C")
+        tokens = expr
     elif isinstance(expr, Node):
-        num_constants = expr.to_list(notation="postfix").count("C")
+        tokens = expr.to_list(notation="postfix")
     else:
         raise Exception("Expression should be a list of strings (tokens) or a Node")
+
+    num_constants = sum(tokens.count(c) for c in const_symbols)
 
     callable_expr = expr_to_executable_function(expr, symbol_library)
 
@@ -273,6 +279,9 @@ def bed(
                 "If X is not given and both expressions are not given as a behavior matrix, "
                 "then domain_bounds parameter must be given"
             )
+        for i, (lb, ub) in enumerate(domain_bounds):
+            if lb >= ub:
+                raise ValueError(f"domain_bounds[{i}] has lower bound ({lb}) >= upper bound ({ub}).")
         interval_length = np.array([ub - lb for (lb, ub) in domain_bounds])
         lower_bound = np.array([lb for (lb, ub) in domain_bounds])
         lho = LatinHypercube(len(domain_bounds), optimization="random-cd", seed=seed)
@@ -284,25 +293,27 @@ def bed(
         )
 
     if isinstance(expr1, list) or isinstance(expr1, Node):
-        assert X is not None, (
-            "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
-        )
+        if X is None:
+            raise ValueError(
+                "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
+            )
         expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     if isinstance(expr2, list) or isinstance(expr2, Node):
-        assert X is not None, (
-            "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
-        )
+        if X is None:
+            raise ValueError(
+                "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
+            )
         expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
-    assert expr1.shape[0] == expr2.shape[0], (
-        "Behavior matrices must have the same number rows (points on which behavior is evaluated.)"
-    )
-    assert expr1.shape[0] > 0, (
-        "Behavior matrices must have at least one row. if your expressions are given as behavior"
-        "matrices, make sure they are not empty. Otherwise, if X is given, make sure it contains"
-        "at least one point. If X is not given, make sure num_points_sampled is greater than 0."
-    )
+    if expr1.shape[0] != expr2.shape[0]:
+        raise ValueError("Behavior matrices must have the same number of rows (points on which behavior is evaluated).")
+    if expr1.shape[0] == 0:
+        raise ValueError(
+            "Behavior matrices must have at least one row. If your expressions are given as behavior "
+            "matrices, make sure they are not empty. Otherwise, if X is given, make sure it contains "
+            "at least one point. If X is not given, make sure num_points_sampled is greater than 0."
+        )
     wds = []
     for i in range(expr1.shape[0]):
         u = expr1[i][np.isfinite(expr1[i])]

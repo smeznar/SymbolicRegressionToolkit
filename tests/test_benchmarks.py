@@ -78,7 +78,7 @@ def test_proged_on_feynman():
     # Change max_evaluations to 100 to speed up the test as results here don't matter.
     dataset.max_evaluations = 100
 
-    model = ProGED(dataset.symbol_library, verbose=False)
+    model = ProGED(dataset.symbol_library)
     results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
 
     assert len(results) == 1

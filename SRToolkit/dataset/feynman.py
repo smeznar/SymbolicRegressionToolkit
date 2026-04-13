@@ -1602,7 +1602,7 @@ class Feynman(SR_benchmark):
         """
         Generate fresh data for a dataset by sampling new inputs and evaluating the ground truth.
 
-        Variable bounds are taken from [_BOUNDS][SRToolkit.dataset.feynman._BOUNDS].
+        Variable bounds are taken from ``_BOUNDS``.
 
         Examples:
             >>> benchmark = Feynman()

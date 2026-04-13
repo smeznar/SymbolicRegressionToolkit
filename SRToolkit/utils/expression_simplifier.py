@@ -40,8 +40,7 @@ def simplify(
             Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        The simplified expression in the same form as the input (list if a list was
-        given, [Node][SRToolkit.utils.expression_tree.Node] if a tree was given).
+        The simplified expression in the same form as the input (list if a list was given, [Node][SRToolkit.utils.expression_tree.Node] if a tree was given).
 
     Raises:
         Exception: If simplification fails or the result contains tokens absent from

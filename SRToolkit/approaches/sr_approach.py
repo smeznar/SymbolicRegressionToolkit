@@ -4,7 +4,7 @@ Abstract base class and configuration dataclass for symbolic regression approach
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import numpy as np
 
@@ -28,7 +28,7 @@ def check_dependencies(packages: List[str]) -> None:
             import torch  # noqa: F401
         except ImportError:
             raise ImportError(
-                "This approach requires PyTorch. Install dependencies either manually or with"
+                "This approach requires PyTorch. Install dependencies either manually or with "
                 "the command: pip install 'symbolic-regression-toolkit[approaches]'"
             )
     if "pymoo" in packages:
@@ -36,7 +36,7 @@ def check_dependencies(packages: List[str]) -> None:
             import pymoo  # noqa: F401
         except ImportError:
             raise ImportError(
-                "This approach requires pymoo. Install dependencies either manually or with"
+                "This approach requires pymoo. Install dependencies either manually or with "
                 "the command: pip install 'symbolic-regression-toolkit[approaches]'"
             )
 
@@ -50,6 +50,11 @@ class ApproachConfig:
     saved and restored via [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]
     and [from_dict][SRToolkit.approaches.sr_approach.ApproachConfig.from_dict].
 
+    The ``approach_class`` field is populated automatically by
+    [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] and contains
+    the fully-qualified importlib path of the concrete approach class. This makes a serialised
+    config dict self-sufficient for reconstruction without any additional metadata.
+
     Examples:
         >>> cfg = ApproachConfig(name="my_approach")
         >>> d = cfg.to_dict()
@@ -58,6 +63,7 @@ class ApproachConfig:
     """
 
     name: str = "base"
+    approach_class: str = ""
 
     def to_dict(self) -> dict:
         """
@@ -84,7 +90,7 @@ class ApproachConfig:
 
 
 class SR_approach(ABC):
-    def __init__(self, name: str, config: Optional[ApproachConfig] = None):
+    def __init__(self, config: ApproachConfig) -> None:
         """
         Abstract base class for all symbolic regression approaches.
 
@@ -95,25 +101,31 @@ class SR_approach(ABC):
         [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state]
         according to their [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope].
 
+        The ``config.approach_class`` field is set automatically to the fully-qualified class path
+        of the concrete subclass, so the config dict alone is sufficient to reconstruct the approach.
+
         Args:
-            name: Name of this approach, used for result labelling.
-            config: Optional configuration dataclass for the approach.
+            config: Configuration dataclass for the approach. Every concrete approach defines its
+                own [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] subclass
+                and passes an instance here from its own ``__init__``.
 
         Attributes:
-            name: Name of this approach.
+            name: Name of this approach, read from ``config.name``.
+            config: The approach configuration.
         """
-        self.name = name
+        cls = type(self)
+        config.approach_class = f"{cls.__module__}.{cls.__qualname__}"
         self._config = config
 
     @property
-    def config(self) -> Optional[ApproachConfig]:
-        """Returns the approach configuration, if set."""
-        return self._config
+    def name(self) -> str:
+        """Name of this approach, as stored in ``config.name``."""
+        return self._config.name
 
-    @config.setter
-    def config(self, value: ApproachConfig) -> None:
-        """Set the approach configuration."""
-        self._config = value
+    @property
+    def config(self) -> ApproachConfig:
+        """Returns the approach configuration."""
+        return self._config
 
     @property
     def adaptation_scope(self) -> str:
@@ -213,39 +225,71 @@ class SR_approach(ABC):
         """
         raise NotImplementedError
 
-    def save_adapted_state(self) -> Any:
+    def save_adapted_state(self, path: str) -> None:
         """
-        Saves the adapted model/approach and returns the saved state.
+        Save the adapted model/approach state to ``path``.
 
-        For neural approaches we suggest you save the model's weights to disk (e.g. via
-        ``torch.save``) and return the file path. The returned value is stored
-        in memory by the framework and passed back to ``load_adapted_state()``
-        when the cached state is needed.
+        The approach is free to choose any serialization format (e.g. ``torch.save``,
+        ``numpy.save``, JSON, pickle).  The framework passes ``path`` as a base path
+        without an extension; the approach may append its own extension (e.g.
+        ``path + ".pt"``), but must be consistent between ``save_adapted_state`` and
+        ``load_adapted_state``.
 
-        Must be implemented when ``adaptation_scope == "once"``, or
-        when ``adaptation_scope == "experiment"`` and ``save_adapted_model`` is
-        ``True``.
+        Must be implemented when ``adaptation_scope == "once"``, or when
+        ``adaptation_scope == "experiment"`` and ``save_adapted_model`` is ``True``.
 
         The default raises ``NotImplementedError``. Override when needed.
 
-        Returns:
-            The saved state (e.g., a file path or the model).
+        Args:
+            path: Base file path to save the adapted state to.
         """
         raise NotImplementedError
 
-    def load_adapted_state(self, state: Any) -> None:
+    def load_adapted_state(self, path: str) -> None:
         """
-        Restore the previously saved state.
-
-        For neural approaches we suggest that this function loads weights from the disk
-        using the identifier returned by ``save_adapted_state()`` (e.g. a file path
-        passed to ``torch.load``).
+        Restore the previously saved adapted state from ``path``.
 
         Must be implemented when ``adaptation_scope == "once"``.
 
         The default raises ``NotImplementedError``. Override when needed.
 
         Args:
-            state: The identifier previously returned by ``save_adapted_state()``.
+            path: Base file path previously passed to ``save_adapted_state()``.
         """
         raise NotImplementedError
+
+    @classmethod
+    def from_config(cls, config: dict) -> "SR_approach":
+        """
+        Reconstruct an approach instance from a configuration dictionary.
+
+        This classmethod is the counterpart to saving an
+        [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] via
+        [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].  It is used by
+        [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] when loading an approach from a
+        ``grid.json`` manifest for CLI or HPC execution.
+
+        The default raises ``NotImplementedError``.  Override this classmethod in subclasses
+        that need to support CLI/grid loading.
+
+        Examples:
+            >>> class MyApproach(SR_approach):
+            ...     @classmethod
+            ...     def from_config(cls, config: dict) -> "MyApproach":
+            ...         return cls(param=config["param"])
+
+        Args:
+            config: Dictionary previously produced by
+                [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]
+                or any JSON-serialisable dict describing the approach's hyperparameters.
+
+        Returns:
+            A new instance of this approach class.
+
+        Raises:
+            NotImplementedError: If the subclass has not implemented this method.
+        """
+        raise NotImplementedError(
+            f"[{cls.__name__}] from_config() is not implemented. "
+            "Override this classmethod to support loading from a grid manifest (CLI/HPC use)."
+        )

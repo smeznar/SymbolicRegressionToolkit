@@ -50,9 +50,7 @@ def expr_to_executable_function(
             Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        A callable ``f(X, C)`` where ``X`` is a 2-D array of shape
-        ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values.
-        Returns a 1-D output array of shape ``(n_samples,)``.
+        A callable ``f(X, C)`` where ``X`` is a 2-D array of shape ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values. Returns a 1-D output array of shape ``(n_samples,)``.
 
     Raises:
         Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
@@ -112,9 +110,7 @@ def expr_to_error_function(
             Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
-        A callable ``f(X, C, y)`` where ``X`` is a 2-D array of shape
-        ``(n_samples, n_features)``, ``C`` is a 1-D array of constant values, and ``y``
-        is a 1-D target array. Returns the scalar RMSE as a float.
+        A callable ``f(X, C, y)`` where ``X`` is a 2-D array of shape ``(n_samples, n_features)``, ``C`` is a 1-D array of constant values, and ``y`` is a 1-D target array. Returns the scalar RMSE as a float.
 
     Raises:
         Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
@@ -163,10 +159,7 @@ def tree_to_function_rec(
             array. Default ``0``.
 
     Returns:
-        A 4-tuple ``(code, symbol, var_counter, const_counter)`` where ``code`` is a list
-        of Python assignment strings forming the expression body, ``symbol`` is the name
-        of the variable holding this subtree's result, and ``var_counter`` /
-        ``const_counter`` are the updated counters.
+        A 4-tuple ``(code, symbol, var_counter, const_counter)`` where ``code`` is a list of Python assignment strings forming the expression body, ``symbol`` is the name of the variable holding this subtree's result, and ``var_counter`` / ``const_counter`` are the updated counters.
 
     Raises:
         Exception: If the tree contains a token that is neither a recognized symbol nor

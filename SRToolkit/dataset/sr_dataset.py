@@ -28,7 +28,7 @@ class SR_dataset:
         success_threshold: Optional[float] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
-        dataset_name: Optional[str] = None,
+        dataset_name: str = "unnamed",
         **kwargs: Unpack[EstimationSettings],
     ) -> None:
         """
@@ -61,7 +61,7 @@ class SR_dataset:
                 no threshold is applied.
             seed: Random seed for reproducibility. ``None`` means no seed is set.
             dataset_metadata: Optional dictionary of metadata about the dataset (e.g. citation, variable names).
-            dataset_name: Optional name for this dataset.
+            dataset_name: Name for this dataset. Defaults to ``"unnamed"``.
             **kwargs: Optional estimation settings passed to
                 [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
                 Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
@@ -95,6 +95,7 @@ class SR_dataset:
         results: Optional[SR_results] = None,
         callbacks: Optional[Union[SRCallbacks, CallbackDispatcher, List[SRCallbacks]]] = None,
         verbose: bool = True,
+        adaptation_path: Optional[str] = None,
     ) -> SR_results:
         """
         Evaluates an SR approach on this dataset.
@@ -116,10 +117,13 @@ class SR_dataset:
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for monitoring
                 and controlling the search.
             verbose: If ``True``, prints progress for each experiment.
+            adaptation_path: Path to save/load the adapted state for approaches with
+                ``adaptation_scope="once"``. If the file already exists it is loaded directly,
+                skipping adaptation. If it does not exist, the approach is adapted and the state
+                is saved to this path. If ``None``, adaptation runs without saving.
 
         Returns:
-            An [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object containing results
-            from all experiments.
+            An [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object containing results from all experiments.
         """
         if initial_seed is None:
             seed = self.seed
@@ -138,9 +142,18 @@ class SR_dataset:
             else:
                 callbacks = CallbackDispatcher(callbacks=callbacks)
 
-        dataset_name = self.dataset_name or "unknown"
+        dataset_name = self.dataset_name
 
-        adaptation_cache = None
+        if sr_approach.adaptation_scope == "once":
+            if adaptation_path is not None and os.path.exists(adaptation_path):
+                sr_approach.load_adapted_state(adaptation_path)
+            else:
+                sr_approach.adapt(self.X, self.symbol_library)
+                if adaptation_path is not None:
+                    dir_name = os.path.dirname(adaptation_path)
+                    if dir_name:
+                        os.makedirs(dir_name, exist_ok=True)
+                    sr_approach.save_adapted_state(adaptation_path)
 
         for experiment in range(num_experiments):
             if verbose:
@@ -161,19 +174,8 @@ class SR_dataset:
 
             sr_approach.prepare()
 
-            if sr_approach.adaptation_scope == "never":
-                pass
-            elif sr_approach.adaptation_scope == "once":
-                key = sr_approach.name
-                if adaptation_cache is not None:
-                    sr_approach.load_adapted_state(adaptation_cache[key])
-                else:
-                    sr_approach.adapt(self.X, self.symbol_library)
-                    adaptation_cache = sr_approach.save_adapted_state()
-            else:  # "experiment"
+            if sr_approach.adaptation_scope == "experiment":
                 sr_approach.adapt(self.X, self.symbol_library)
-                if sr_approach.save_adapted_model:
-                    sr_approach.save_adapted_state()
 
             evaluator = self.create_evaluator(seed=seed)
             evaluator.set_callbacks(callbacks)
@@ -204,8 +206,7 @@ class SR_dataset:
             seed: Seed for the random number generator. If ``None``, the dataset seed is used.
 
         Returns:
-            A configured [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] ready to evaluate
-            expressions against this dataset.
+            A configured [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] ready to evaluate expressions against this dataset.
 
         Raises:
             Exception: If [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] cannot be
@@ -215,8 +216,7 @@ class SR_dataset:
             metadata = dict()
         if self.dataset_metadata is not None:
             metadata["dataset_metadata"] = self.dataset_metadata
-        if self.dataset_name is not None:
-            metadata["dataset_name"] = self.dataset_name
+        metadata["dataset_name"] = self.dataset_name
 
         if seed is None:
             seed = self.seed
@@ -294,7 +294,7 @@ class SR_dataset:
     # Once SR_approach base class is implemented, we can add a function to run experiments
     # def run_experiments(self, approach: SR_approach, num_runs: int=10):
 
-    def to_dict(self, base_path: str, name: str) -> dict:
+    def to_dict(self, base_path: str) -> dict:
         r"""
         Creates a dictionary representation of this dataset. This is mainly used for saving the dataset to disk.
 
@@ -303,11 +303,10 @@ class SR_dataset:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> dataset.to_dict("data/example_ds", "test_dataset")  # doctest: +SKIP
+            >>> dataset.to_dict("data/example_ds")  # doctest: +SKIP
 
         Args:
             base_path: The path to the directory where the data in the dataset should be saved.
-            name: The name of the dataset. This will be used to name the files containing the dataset data.
 
         Returns:
             A dictionary representation of this dataset.
@@ -321,7 +320,7 @@ class SR_dataset:
             "original_equation": self.original_equation,
             "seed": self.seed,
             "dataset_metadata": self.dataset_metadata,
-            "dataset_name": self.dataset_name if self.dataset_name is not None else name,
+            "dataset_name": self.dataset_name,
         }
 
         if self.kwargs is not None and "bed_X" in self.kwargs and isinstance(self.kwargs["bed_X"], np.ndarray):
@@ -339,16 +338,18 @@ class SR_dataset:
                 output["ground_truth"] = self.ground_truth
             elif isinstance(self.ground_truth, Node):
                 output["ground_truth"] = self.ground_truth.to_list()
-            elif isinstance(self.ground_truth, np.ndarray) and not os.path.exists(f"{base_path}/{name}_gt.npy"):
-                np.save(f"{base_path}/{name}_gt.npy", self.ground_truth)
-                output["ground_truth"] = f"{base_path}/{name}_gt.npy"
+            elif isinstance(self.ground_truth, np.ndarray) and not os.path.exists(
+                f"{base_path}/{self.dataset_name}_gt.npy"
+            ):
+                np.save(f"{base_path}/{self.dataset_name}_gt.npy", self.ground_truth)
+                output["ground_truth"] = f"{base_path}/{self.dataset_name}_gt.npy"
 
-        if not os.path.exists(f"{base_path}/{name}.npz"):
+        if not os.path.exists(f"{base_path}/{self.dataset_name}.npz"):
             if self.y is None:
-                np.savez(f"{base_path}/{name}.npz", X=self.X)
+                np.savez(f"{base_path}/{self.dataset_name}.npz", X=self.X)
             else:
-                np.savez(f"{base_path}/{name}.npz", X=self.X, y=self.y)
-        output["dataset_path"] = f"{base_path}/{name}.npz"
+                np.savez(f"{base_path}/{self.dataset_name}.npz", X=self.X, y=self.y)
+        output["dataset_path"] = f"{base_path}/{self.dataset_name}.npz"
 
         return output
 
@@ -364,7 +365,7 @@ class SR_dataset:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
             >>> ds = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> dataset_dict = ds.to_dict(tmpdir, "test_dataset")
+            >>> dataset_dict = ds.to_dict(tmpdir)
             >>> dataset = SR_dataset.from_dict(dataset_dict)
             >>> dataset.X.shape
             (3, 2)

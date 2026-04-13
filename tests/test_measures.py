@@ -76,5 +76,5 @@ class TestBED:
     def test_mismatched_behavior_matrix_shapes(self):
         bm1 = np.random.rand(10, 32)
         bm2 = np.random.rand(5, 32)
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             bed(bm1, bm2)

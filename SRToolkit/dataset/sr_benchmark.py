@@ -414,9 +414,7 @@ class SR_benchmark:
         datasets = []
         for dataset_name, dataset_info in self.datasets.items():
             if "sr_dataset" in dataset_info:
-                datasets.append(
-                    {"name": dataset_name, "info": dataset_info["sr_dataset"].to_dict(self.base_dir, dataset_name)}
-                )
+                datasets.append({"name": dataset_name, "info": dataset_info["sr_dataset"].to_dict(self.base_dir)})
             else:
                 datasets.append({"name": dataset_name, "info": dataset_info})
 
@@ -450,8 +448,7 @@ class SR_benchmark:
                 [save_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark.save_benchmark].
 
         Returns:
-            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance with all datasets
-            restored from the saved JSON.
+            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance with all datasets restored from the saved JSON.
 
         Raises:
             FileNotFoundError: If ``dataset_info.json`` does not exist in ``base_dir``.

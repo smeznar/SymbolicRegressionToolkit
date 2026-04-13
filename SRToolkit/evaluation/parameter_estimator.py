@@ -76,8 +76,7 @@ class ParameterEstimator:
                 if k in kwargs:
                     self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
 
-        if self.seed is not None:
-            np.random.seed(self.seed)
+        self._rng = np.random.default_rng(self.seed)
 
     def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
         """
@@ -106,10 +105,7 @@ class ParameterEstimator:
                 [Node][SRToolkit.utils.expression_tree.Node] tree.
 
         Returns:
-            A 2-tuple ``(rmse, parameters)`` where ``rmse`` is the root-mean-square error
-            of the fitted expression and ``parameters`` is a 1-D array of optimized constant
-            values. Returns ``(NaN, [])`` if the expression violates ``max_constants`` or
-            ``max_expr_length``.
+            A 2-tuple ``(rmse, parameters)`` where ``rmse`` is the root-mean-square error of the fitted expression and ``parameters`` is a 1-D array of optimized constant values. Returns ``(NaN, [])`` if the expression violates ``max_constants`` or ``max_expr_length``.
         """
         if isinstance(expr, Node):
             expr_str = expr.to_list(notation="prefix")
@@ -147,13 +143,14 @@ class ParameterEstimator:
             A 2-tuple ``(rmse, parameters)`` — the achieved minimum RMSE and the
             corresponding optimized constant vector.
         """
-        assert (
+        if not (
             isinstance(self.estimation_settings["constant_bounds"], tuple)
             and len(self.estimation_settings["constant_bounds"]) == 2
-        ), "constant_bounds must be a tuple of two elements"
+        ):
+            raise ValueError("constant_bounds must be a tuple of two elements")
         if self.estimation_settings["initialization"] == "random":
             x0 = (
-                np.random.rand(num_constants)
+                self._rng.random(num_constants)
                 * (
                     self.estimation_settings["constant_bounds"][1]
                     - self.estimation_settings["constant_bounds"][0]

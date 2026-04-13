@@ -14,10 +14,8 @@ Modules:
 """
 
 from .callbacks import (
-    ApproachEvent,
     BestExpressionFound,
     CallbackDispatcher,
-    DatasetEvent,
     EarlyStoppingCallback,
     ExperimentEvent,
     ExprEvaluated,
@@ -58,8 +56,6 @@ __all__ = [
     "EarlyStoppingCallback",
     "ProgressBarCallback",
     "LoggingCallback",
-    "ApproachEvent",
-    "DatasetEvent",
     "ExperimentEvent",
     "BestExpressionFound",
     "ExprEvaluated",

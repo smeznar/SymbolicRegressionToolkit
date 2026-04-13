@@ -501,7 +501,7 @@ class BED(ResultAugmenter):
         self.evaluator = evaluator
 
         if scope not in ["best", "top", "all"]:
-            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+            raise Exception(f"[BED augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
         self.scope = scope
 
         if self.evaluator.ranking_function != "bed":
@@ -628,7 +628,7 @@ class R2(ResultAugmenter):
         super().__init__(name)
 
         if scope not in ["best", "top", "all"]:
-            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+            raise Exception(f"[R2 augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
         self.scope = scope
 
         self.evaluator = evaluator

@@ -2,6 +2,7 @@
 ProGED approach — probabilistic grammar-based equation discovery by Brence et al.
 """
 
+from dataclasses import dataclass
 from typing import Optional, Union
 
 import numpy as np
@@ -9,11 +10,28 @@ import numpy as np
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import SymbolLibrary, generate_n_expressions
 
-from .sr_approach import SR_approach
+from .sr_approach import ApproachConfig, SR_approach
+
+
+@dataclass
+class ProGEDConfig(ApproachConfig):
+    """
+    Configuration dataclass for the [ProGED][SRToolkit.approaches.ProGED.ProGED] approach.
+
+    Examples:
+        >>> cfg = ProGEDConfig()
+        >>> cfg.name
+        'ProGED'
+        >>> d = cfg.to_dict()
+        >>> ProGEDConfig.from_dict(d).grammar
+    """
+
+    name: str = "ProGED"
+    grammar: Optional[str] = None
 
 
 class ProGED(SR_approach):
-    def __init__(self, grammar: Union[str, SymbolLibrary], verbose: bool = False) -> None:
+    def __init__(self, grammar: Optional[str] = None) -> None:
         r"""
         A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.
 
@@ -27,7 +45,8 @@ class ProGED(SR_approach):
             >>> benchmark = Feynman()
             >>> dataset = benchmark.create_dataset('I.16.6')
             >>> dataset.max_evaluations = 100
-            >>> model = ProGED(dataset.symbol_library, verbose=False)
+            >>> model = ProGED()
+            >>> model.adapt(dataset.X, dataset.symbol_library) # Since we don't put a custom grammar into ProGED we will need an automatically created PCFG.
             >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
             >>> r = results[0]
             >>> r.dataset_name
@@ -35,9 +54,9 @@ class ProGED(SR_approach):
             >>> r.approach_name
             'ProGED'
             >>> r.best_expr
-            'X_0/C/C'
+            'C*X_0'
             >>> r.num_evaluated
-            77
+            74
             >>> bool(r.success)
             False
 
@@ -45,11 +64,10 @@ class ProGED(SR_approach):
             grammar: Grammar used for sampling. Either a
                 [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] (grammar is derived
                 automatically) or a custom grammar string.
-            verbose: If ``True``, prints each new best expression and its error during search.
         """
-        super().__init__("ProGED")
-        self.grammar = grammar
-        self.verbose = verbose
+        grammar_str = grammar if isinstance(grammar, str) else None
+        super().__init__(ProGEDConfig(grammar=grammar_str))
+        self.grammar: Optional[Union[str, SymbolLibrary]] = grammar
 
     def prepare(self) -> None:
         """
@@ -59,6 +77,13 @@ class ProGED(SR_approach):
             None
         """
         pass
+
+    @property
+    def adaptation_scope(self) -> str:
+        return "experiment" if self.grammar is None else "never"
+
+    def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary) -> None:
+        self.grammar = symbol_library
 
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
         """
@@ -75,5 +100,14 @@ class ProGED(SR_approach):
         """
         np.random.seed(seed)
         while not sr_evaluator.should_stop:
-            expr = generate_n_expressions(self.grammar, 1, verbose=False)[0]
-            _ = sr_evaluator.evaluate_expr(expr)
+            if self.grammar is not None:
+                expr = generate_n_expressions(self.grammar, 1, verbose=False)[0]
+                _ = sr_evaluator.evaluate_expr(expr)
+            else:
+                raise RuntimeError("ProGED.search() must be called after adapt() if grammar is not provided.")
+
+    @classmethod
+    def from_config(cls, config: dict) -> "ProGED":
+        return cls(
+            grammar=config.get("grammar", None),
+        )

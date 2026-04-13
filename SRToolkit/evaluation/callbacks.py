@@ -79,30 +79,6 @@ class ExperimentEvent:
     seed: Optional[int]
 
 
-@dataclass
-class DatasetEvent:
-    """
-    Fired at dataset start and end.
-
-    Attributes:
-        dataset_name: Name of the dataset.
-    """
-
-    dataset_name: str
-
-
-@dataclass
-class ApproachEvent:
-    """
-    Fired at approach start and end.
-
-    Attributes:
-        approach_name: Name of the SR approach.
-    """
-
-    approach_name: str
-
-
 class SRCallbacks(ABC):
     """
     Abstract base class for SR evaluation callbacks.
@@ -161,44 +137,6 @@ class SRCallbacks(ABC):
         Args:
             event: Data about the experiment that just ended.
             results: Final [EvalResult][SRToolkit.utils.types.EvalResult] for this experiment.
-        """
-        pass
-
-    def on_dataset_start(self, event: DatasetEvent) -> None:
-        """
-        Called before processing a dataset.
-
-        Args:
-            event: Data about the dataset that is about to be processed.
-        """
-        pass
-
-    def on_dataset_end(self, event: DatasetEvent, results: dict) -> None:
-        """
-        Called after all experiments on a dataset complete.
-
-        Args:
-            event: Data about the dataset.
-            results: Aggregated results for the dataset.
-        """
-        pass
-
-    def on_approach_start(self, event: ApproachEvent) -> None:
-        """
-        Called before an approach starts processing.
-
-        Args:
-            event: Data about the approach that is about to run.
-        """
-        pass
-
-    def on_approach_end(self, event: ApproachEvent, results: dict) -> None:
-        """
-        Called after an approach finishes processing all datasets.
-
-        Args:
-            event: Data about the approach.
-            results: Aggregated results for the approach.
         """
         pass
 
@@ -263,8 +201,7 @@ class CallbackDispatcher:
             event: Data about the evaluated expression.
 
         Returns:
-            ``False`` if any callback returned ``False`` (requesting early stop),
-            ``True`` otherwise.
+            ``False`` if any callback returned ``False`` (requesting early stop), ``True`` otherwise.
         """
         should_continue = True
         for cb in self._callbacks:
@@ -281,8 +218,7 @@ class CallbackDispatcher:
             event: Data about the new best expression.
 
         Returns:
-            ``False`` if any callback returned ``False`` (requesting early stop),
-            ``True`` otherwise.
+            ``False`` if any callback returned ``False`` (requesting early stop), ``True`` otherwise.
         """
         should_continue = True
         for cb in self._callbacks:
@@ -311,48 +247,6 @@ class CallbackDispatcher:
         """
         for cb in self._callbacks:
             cb.on_experiment_end(event, results)
-
-    def on_dataset_start(self, event: DatasetEvent) -> None:
-        """
-        Dispatch to all callbacks.
-
-        Args:
-            event: Data about the dataset that is about to be processed.
-        """
-        for cb in self._callbacks:
-            cb.on_dataset_start(event)
-
-    def on_dataset_end(self, event: DatasetEvent, results: dict) -> None:
-        """
-        Dispatch to all callbacks.
-
-        Args:
-            event: Data about the dataset.
-            results: Aggregated results for the dataset.
-        """
-        for cb in self._callbacks:
-            cb.on_dataset_end(event, results)
-
-    def on_approach_start(self, event: ApproachEvent) -> None:
-        """
-        Dispatch to all callbacks.
-
-        Args:
-            event: Data about the approach that is about to run.
-        """
-        for cb in self._callbacks:
-            cb.on_approach_start(event)
-
-    def on_approach_end(self, event: ApproachEvent, results: dict) -> None:
-        """
-        Dispatch to all callbacks.
-
-        Args:
-            event: Data about the approach.
-            results: Aggregated results for the approach.
-        """
-        for cb in self._callbacks:
-            cb.on_approach_end(event, results)
 
 
 class ProgressBarCallback(SRCallbacks):

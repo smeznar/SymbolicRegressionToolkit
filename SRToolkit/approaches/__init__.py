@@ -23,11 +23,16 @@ except ImportError:
     class EDHiE:  # type: ignore[no-redef]
         def __init__(self, *args, **kwargs) -> None:
             raise ImportError(
-                "EDHiE requires PyTorch. Please install the required dependencies either"
+                "EDHiE requires PyTorch. Please install the required dependencies either "
                 "manually or using the command: pip install 'symbolic-regression-toolkit[approaches]'"
             )
 
-    # TODO: add a fake EDHiEConfig
+    class EDHiEConfig(ApproachConfig):  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs) -> None:
+            raise ImportError(
+                "EDHiEConfig requires PyTorch. Please install the required dependencies either "
+                "manually or using the command: pip install 'symbolic-regression-toolkit[approaches]'"
+            )
 finally:
     __all__.append("EDHiE")
     __all__.append("EDHiEConfig")

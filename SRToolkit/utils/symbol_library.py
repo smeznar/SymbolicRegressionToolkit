@@ -113,7 +113,7 @@ class SymbolLibrary:
             raise ValueError(f"Invalid symbol type '{symbol_type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
 
         if latex_str is None:
-            if symbol_type == "var":
+            if symbol_type == "op":
                 latex_str = f"{{}} \text{{{symbol}}} {{}}"
             elif symbol_type == "fn":
                 latex_str = f"\text{{{symbol}}} {{}}"
@@ -169,8 +169,7 @@ class SymbolLibrary:
             symbol: Token to look up.
 
         Returns:
-            The type string (``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``)
-            if the symbol is in the library, otherwise an empty string.
+            The type string (``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``) if the symbol is in the library, otherwise an empty string.
         """
         if symbol in self.symbols:
             return self.symbols[symbol]["type"]
@@ -622,3 +621,6 @@ class SymbolLibrary:
         sl.preamble = copy.deepcopy(self.preamble)
         sl.num_variables = self.num_variables
         return sl
+
+    def __deepcopy__(self, memo=None) -> "SymbolLibrary":
+        return self.__copy__()

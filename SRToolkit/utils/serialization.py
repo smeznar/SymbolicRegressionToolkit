@@ -27,6 +27,8 @@ def _to_json_safe(obj: Any) -> Any:
         return float(obj)
     if isinstance(obj, np.integer):
         return int(obj)
+    if isinstance(obj, np.str_):
+        return str(obj)
     if isinstance(obj, dict):
         return {k: _to_json_safe(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
