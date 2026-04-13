@@ -46,6 +46,7 @@ from typing import Dict, List, Optional, Set, Union
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
+from SRToolkit.evaluation.callbacks import CallbackDispatcher, SRCallbacks
 from SRToolkit.evaluation.sr_evaluator import SR_results
 
 
@@ -55,6 +56,14 @@ def _approach_from_config(config_dict: dict) -> SR_approach:
     module_path, cls_name = class_path.rsplit(".", 1)
     cls = getattr(importlib.import_module(module_path), cls_name)
     return cls.from_config(config_dict)
+
+
+def _callback_from_config(config_dict: dict) -> SRCallbacks:
+    """Reconstruct an SRCallbacks instance from a config dict that includes ``callback_class``."""
+    class_path = config_dict["callback_class"]
+    module_path, cls_name = class_path.rsplit(".", 1)
+    cls = getattr(importlib.import_module(module_path), cls_name)
+    return cls.from_dict(config_dict)
 
 
 @dataclass
@@ -164,6 +173,7 @@ class ExperimentJob:
         dataset: Union[SR_dataset, str, dict],
         approach: Union[SR_approach, str, dict],
         info: Union[ExperimentInfo, str, dict],
+        callbacks: Optional[Union[SRCallbacks, List[SRCallbacks], dict, List[dict]]] = None,
     ) -> None:
         """
         Args:
@@ -184,6 +194,14 @@ class ExperimentJob:
                 - [ExperimentInfo][SRToolkit.experiments.ExperimentInfo] instance.
                 - ``str`` — path to a JSON produced by ``ExperimentInfo.to_dict()``.
                 - ``dict`` — the ``ExperimentInfo.to_dict()`` output directly.
+
+            callbacks: Optional callbacks to attach during
+                [run][SRToolkit.experiments.ExperimentJob.run].  Accepts a single
+                [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance, a list
+                of instances, a single serialised callback dict, or a list of dicts.
+                Instances are serialised to dicts immediately so that
+                [run][SRToolkit.experiments.ExperimentJob.run] always reconstructs fresh
+                instances (no shared state between jobs).  Defaults to ``None``.
 
         Raises:
             ValueError: If ``info.result_path`` is not a directory and does not end
@@ -226,6 +244,13 @@ class ExperimentJob:
             self.approach_name = self._approach_dict.get("name", "unknown")
 
         self.seed = self.info.seed
+
+        if callbacks is None:
+            self._callback_configs: Optional[List[dict]] = None
+        elif isinstance(callbacks, list):
+            self._callback_configs = [cb if isinstance(cb, dict) else cb.to_dict() for cb in callbacks]
+        else:
+            self._callback_configs = [callbacks if isinstance(callbacks, dict) else callbacks.to_dict()]
 
         if os.path.isdir(self.info.result_path):
             self.result_path = os.path.join(self.info.result_path, f"exp_{self.seed}.json")
@@ -291,6 +316,10 @@ class ExperimentJob:
             approach.adapt(dataset.X, dataset.symbol_library)
 
         evaluator = dataset.create_evaluator(seed=self.info.seed)
+        evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
+        if self._callback_configs:
+            cbs = [_callback_from_config(d) for d in self._callback_configs]
+            evaluator.set_callbacks(CallbackDispatcher(callbacks=cbs))
         approach.search(evaluator, self.info.seed)
         results = evaluator.get_results(self.approach_name, self.info.top_k)
         results.save(self.result_path)
@@ -348,6 +377,15 @@ class ExperimentGrid:
             (approach, dataset) pairs will load state from the given path if it
             exists, or adapt and save to it otherwise.  Pairs not listed will adapt
             on every run without saving.
+        callbacks: Optional callback or list of callbacks forwarded to every job
+            created by [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs].
+            Callbacks are serialised to dicts immediately so that each job reconstructs
+            fresh instances in [run][SRToolkit.experiments.ExperimentJob.run] (no shared
+            state between jobs).  When the grid is saved via
+            [save][SRToolkit.experiments.ExperimentGrid.save] or
+            [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands], a
+            ``_callbacks.json`` file is written alongside the grid and the
+            ``--callbacks`` flag is added to every CLI command.  Defaults to ``None``.
     """
 
     def __init__(
@@ -359,12 +397,20 @@ class ExperimentGrid:
         initial_seed: int = 0,
         top_k: int = 20,
         adapted_states: Optional[Dict[str, Dict[str, str]]] = None,
+        callbacks: Optional[Union[SRCallbacks, List[SRCallbacks]]] = None,
     ) -> None:
         self.num_experiments = num_experiments
         self.results_dir = results_dir
         self.initial_seed = initial_seed
         self.top_k = top_k
         self._adapted_states: Dict[str, Dict[str, str]] = adapted_states or {}
+
+        if callbacks is None:
+            self.callback_configs: Optional[List[dict]] = None
+        elif isinstance(callbacks, list):
+            self.callback_configs = [cb.to_dict() for cb in callbacks]
+        else:
+            self.callback_configs = [callbacks.to_dict()]
 
         # Build approach configs (plain serialisable dicts, no instance caching)
         if isinstance(approaches, SR_approach):
@@ -481,7 +527,7 @@ class ExperimentGrid:
                         top_k=self.top_k,
                         adapted_state_path=adapted_state_ref_path,
                     )
-                    job = ExperimentJob(dataset=dataset_dict, approach=approach_config, info=info)
+                    job = ExperimentJob(dataset=dataset_dict, approach=approach_config, info=info, callbacks=self.callback_configs)
                     if skip_completed and job.is_complete:
                         continue
                     jobs.append(job)
@@ -505,7 +551,10 @@ class ExperimentGrid:
             python -m SRToolkit.experiments run_job \\
                 --dataset /path/dataset.json \\
                 --approach /path/config.json \\
-                --info /path/exp_N/info.json
+                --info /path/exp_N/info.json \\
+                --callbacks /path/_callbacks.json
+
+        The ``--callbacks`` flag is included only when callbacks are configured.
 
         Args:
             path: File path to write commands to.
@@ -523,6 +572,9 @@ class ExperimentGrid:
             for cfg in self.approach_configs
         }
 
+        callbacks_path = os.path.join(self.results_dir, "_callbacks.json")
+        callbacks_arg = f" --callbacks {callbacks_path}" if os.path.exists(callbacks_path) else ""
+
         # Write per-job info.json files and collect command lines
         jobs = self.create_jobs(skip_completed=skip_completed)
         lines = [f"# results_dir: {self.results_dir}"]
@@ -536,6 +588,7 @@ class ExperimentGrid:
                 f"--dataset {ds_json_paths[job.dataset_name]} "
                 f"--approach {config_json_paths[job.approach_name]} "
                 f"--info {info_path}"
+                f"{callbacks_arg}"
             )
 
         out_dir = os.path.dirname(os.path.abspath(path))
@@ -616,11 +669,13 @@ class ExperimentGrid:
         """
         Persist the grid specification and supporting files to ``results_dir``.
 
-        Writes three things, all idempotent (existing files are not overwritten):
+        Writes the following files (all idempotent — existing files are not overwritten):
 
         - ``results_dir/grid.json`` — the grid specification.
         - ``results_dir/_datasets/{name}/{name}.json`` — one JSON file per dataset.
         - ``results_dir/_approaches/{name}_config.json`` — one JSON file per approach config.
+        - ``results_dir/_callbacks.json`` — serialised callbacks, written only when callbacks
+          are set.
 
         [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] calls this
         automatically, so a separate ``save()`` call is only needed when checkpointing
@@ -643,6 +698,12 @@ class ExperimentGrid:
                 os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
                 with open(cfg_path, "w") as f:
                     json.dump(approach_config, f, indent=2)
+
+        # Write callbacks file when callbacks are set
+        if self.callback_configs is not None:
+            callbacks_path = os.path.join(self.results_dir, "_callbacks.json")
+            with open(callbacks_path, "w") as f:
+                json.dump(self.callback_configs, f, indent=2)
 
         grid_dict = {
             "format_version": 1,
@@ -701,6 +762,13 @@ class ExperimentGrid:
             cfg_path = os.path.join(grid.results_dir, "_approaches", f"{name}_config.json")
             with open(cfg_path) as f:
                 grid.approach_configs.append(json.load(f))
+
+        callbacks_path = os.path.join(grid.results_dir, "_callbacks.json")
+        if os.path.exists(callbacks_path):
+            with open(callbacks_path) as f:
+                grid.callback_configs = json.load(f)
+        else:
+            grid.callback_configs = None
 
         return grid
 

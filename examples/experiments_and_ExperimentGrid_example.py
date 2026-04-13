@@ -1,5 +1,6 @@
 from SRToolkit.approaches import EDHiE, ProGED
 from SRToolkit.dataset import Feynman
+from SRToolkit.evaluation import LoggingCallback
 from SRToolkit.experiments import ExperimentGrid
 
 # Load the Feynman benchmark and pick two 2-variable datasets to run on.
@@ -15,6 +16,9 @@ dataset2.max_evaluations = 5000  # We lower max_evaluations to make the example 
 ae = EDHiE()
 ap = ProGED()
 
+# Add a callback that logs each new best expression found.
+lc = LoggingCallback()
+
 # Map each (approach, dataset) pair to a file where the adapted model state will
 # be saved. Both datasets reuse the same file here because they share the same
 # number of variables, so one adapted state covers both.
@@ -29,11 +33,12 @@ eg = ExperimentGrid(
     num_experiments=2,
     results_dir="../results/",
     adapted_states=adapted_states,
+    callbacks=lc,
 )
 
 # Write a shell script of CLI commands that can be executed in parallel, e.g.:
 #   cat commands.sh | parallel -j 4
-eg.save_commands("commands.sh")
+eg.save_commands("commands.sh", skip_completed=False)
 
 # Run adaptation for any approach/dataset pair whose adapted state file is missing.
 # This is a no-op if all state files already exist.

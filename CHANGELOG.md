@@ -1,3 +1,20 @@
+### SymbolicRegressionToolkit-1.5.0 (2026-04-14)
+- Reworked how SR_results and ResultAugmenters work
+- Improved documentation
+- Fixed some bugs
+- Made the interface more consistent and easier to use
+- Two instances of SR_benchmarks are now in separate files and allow resampling of data
+- All (or at least all relevant) classes can now be saved and loaded/transformed into and from a dictionary
+- Added some tests (a lot more to go)
+- Added new examples
+
+**New Features:**
+
+- Added a base class for approaches and implemented ProGED and EDHiE
+- Added a way to run generate and run experiments easily
+- Added the callback system to allow custom events during experiments
+
+
 ### SymbolicRegressionToolkit-1.4.0 (2025-10-28)
 
 - Updated documentation

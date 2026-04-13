@@ -33,7 +33,7 @@ class ExprEvaluated:
     expression: str
     error: float
     evaluation_number: int
-    experiment_id: int
+    experiment_id: str
     is_new_best: bool
 
 
@@ -51,7 +51,7 @@ class BestExpressionFound:
             calls made at the time this event is fired.
     """
 
-    experiment_id: int
+    experiment_id: str
     expression: str
     error: float
     evaluation_number: int
@@ -63,7 +63,6 @@ class ExperimentEvent:
     Fired at experiment start and end.
 
     Attributes:
-        experiment_id: Identifier of the experiment.
         dataset_name: Name of the dataset being evaluated.
         approach_name: Name of the SR approach being run.
         max_evaluations: Maximum number of evaluations allowed for this experiment.
@@ -71,7 +70,6 @@ class ExperimentEvent:
         seed: Random seed used for this experiment, or ``None`` if not set.
     """
 
-    experiment_id: int
     dataset_name: str
     approach_name: str
     max_evaluations: Optional[int]
@@ -93,7 +91,7 @@ class SRCallbacks(ABC):
         ...     def on_best_expression(self, event):
         ...         print(f"New best: {event.expression} (error={event.error:.4g})")
         >>> cb = PrintBestCallback()
-        >>> cb.on_best_expression(BestExpressionFound(0, "X_0+C", 0.01, 5))
+        >>> cb.on_best_expression(BestExpressionFound("", "X_0+C", 0.01, 5))
         New best: X_0+C (error=0.01)
     """
 
@@ -139,6 +137,37 @@ class SRCallbacks(ABC):
             results: Final [EvalResult][SRToolkit.utils.types.EvalResult] for this experiment.
         """
         pass
+
+    def to_dict(self) -> dict:
+        """
+        Serialise this callback to a JSON-safe dictionary.
+
+        The default implementation stores only the fully-qualified class path.
+        Override in subclasses to include constructor parameters so that
+        [from_dict][SRToolkit.evaluation.callbacks.SRCallbacks.from_dict] can
+        reconstruct a functionally identical instance.
+
+        Returns:
+            A JSON-safe dict with at least a ``"callback_class"`` key.
+        """
+        return {"callback_class": f"{self.__class__.__module__}.{self.__class__.__qualname__}"}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SRCallbacks":
+        """
+        Reconstruct a callback from a serialised dictionary.
+
+        The default implementation calls ``cls()`` with no arguments. Override in
+        subclasses that require constructor parameters.
+
+        Args:
+            d: Dictionary produced by
+                [to_dict][SRToolkit.evaluation.callbacks.SRCallbacks.to_dict].
+
+        Returns:
+            A new instance of this callback class.
+        """
+        return cls()
 
 
 class CallbackDispatcher:
@@ -287,6 +316,13 @@ class ProgressBarCallback(SRCallbacks):
             self.pbar.close()
             self.pbar = None
 
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "desc": self.desc}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ProgressBarCallback":
+        return cls(desc=d.get("desc"))
+
 
 class EarlyStoppingCallback(SRCallbacks):
     """
@@ -294,9 +330,9 @@ class EarlyStoppingCallback(SRCallbacks):
 
     Examples:
         >>> cb = EarlyStoppingCallback(threshold=1e-6)
-        >>> cb.on_best_expression(BestExpressionFound(0, "X_0", 1e-7, 42))
+        >>> cb.on_best_expression(BestExpressionFound("", "X_0", 1e-7, 42))
         False
-        >>> cb.on_best_expression(BestExpressionFound(0, "X_0", 1e-5, 43))
+        >>> cb.on_best_expression(BestExpressionFound("", "X_0", 1e-5, 43))
         True
     """
 
@@ -324,29 +360,80 @@ class EarlyStoppingCallback(SRCallbacks):
             return False
         return True
 
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "threshold": self.threshold, "max_evaluations": self.max_evaluations}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "EarlyStoppingCallback":
+        return cls(threshold=d.get("threshold"), max_evaluations=d.get("max_evaluations"))
+
 
 class LoggingCallback(SRCallbacks):
     """
     Logs each new best expression to stdout or a file.
 
+    ``log_file`` may contain placeholders that are resolved at experiment start
+    using fields from [ExperimentEvent][SRToolkit.evaluation.callbacks.ExperimentEvent].
+    Available placeholders: ``{dataset_name}``,``{approach_name}``, ``{seed}``. Using
+    per-experiment placeholders (e.g. ``{seed}``) gives each job its own file, which is
+    the recommended approach for parallel execution.
+
+    When multiple jobs share the same resolved file path, writes are protected
+    by ``fcntl.flock`` (POSIX advisory locking) so concurrent processes on
+    Linux / macOS do not corrupt each other's output.  On Windows or network
+    filesystems where ``flock`` is unavailable the lock is silently skipped.
+
     Examples:
         >>> cb = LoggingCallback()
-        >>> cb.on_best_expression(BestExpressionFound(0, "X_0+C", 0.001, 10))
-        [Experiment 0] New best: X_0+C (error=1.000000e-03)
+        >>> cb.on_best_expression(BestExpressionFound("Nguyen-1_ProGED_42", "X_0+C", 0.001, 10))
+        [Experiment Nguyen-1_ProGED_42] New best: X_0+C (error=1.000000e-03)
+        >>> cb = LoggingCallback(log_file="logs/{dataset_name}_{seed}.log")
+        >>> cb.on_experiment_start(ExperimentEvent(dataset_name="test", max_evaluations=10, seed=1,
+        ...                                        success_threshold=0, approach_name="ta"))
+        >>> cb._resolved_log_file
+        'logs/test_1.log'
     """
 
     def __init__(self, log_file: Optional[str] = None):
         """
         Args:
-            log_file: Path to a file where log messages are appended. If ``None``,
-                messages are printed to stdout.
+            log_file: Destination for log messages.  If ``None``, messages are
+                printed to stdout.  May be a plain path or a template string with
+                placeholders ``{dataset_name}``, ``{approach_name}``, ``{seed}``
+                that are resolved when the experiment starts.
         """
         self.log_file = log_file
+        self._resolved_log_file: Optional[str] = log_file
+
+    def on_experiment_start(self, event: ExperimentEvent) -> None:
+        if self.log_file is not None:
+            self._resolved_log_file = self.log_file.format(
+                dataset_name=event.dataset_name,
+                approach_name=event.approach_name,
+                seed=event.seed,
+            )
+        else:
+            self._resolved_log_file = None
 
     def on_best_expression(self, event: BestExpressionFound) -> None:
-        log_msg = f"[Experiment {event.experiment_id}] New best: {event.expression} (error={event.error:.6e})"
-        if self.log_file:
-            with open(self.log_file, "a") as f:
-                f.write(log_msg + "\n")
+        log_msg = f"[Experiment {event.experiment_id}] New best: {event.expression} (error={event.error:.6e})\n"
+        if self._resolved_log_file is not None:
+            import os
+            os.makedirs(os.path.dirname(os.path.abspath(self._resolved_log_file)), exist_ok=True)
+            with open(self._resolved_log_file, "a") as f:
+                try:
+                    import fcntl
+                    fcntl.flock(f, fcntl.LOCK_EX)
+                    f.write(log_msg)
+                    fcntl.flock(f, fcntl.LOCK_UN)
+                except (ImportError, OSError):
+                    f.write(log_msg)
         else:
-            print(log_msg)
+            print(log_msg, end="")
+
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "log_file": self.log_file}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "LoggingCallback":
+        return cls(log_file=d.get("log_file"))

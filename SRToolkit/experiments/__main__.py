@@ -12,7 +12,8 @@ Usage examples::
     python -m SRToolkit.experiments run_job \\
         --dataset /out/run1/_datasets/NG-1/NG-1.json \\
         --approach /out/run1/_approaches/ProGED_config.json \\
-        --info /out/run1/NG-1/ProGED/exp_42/info.json
+        --info /out/run1/NG-1/ProGED/exp_42/info.json \\
+        --callbacks /out/run1/_callbacks.json
 
     python -m SRToolkit.experiments adapt --grid /out/run1/grid.json
 
@@ -23,12 +24,17 @@ Usage examples::
 """
 
 import argparse
+import json
 
-from .experiment_grid import ExperimentGrid, ExperimentJob
+from .experiment_grid import ExperimentGrid, ExperimentJob, _callback_from_config
 
 
 def _cmd_run_job(args: argparse.Namespace) -> None:
-    job = ExperimentJob(args.dataset, args.approach, args.info)
+    callbacks = None
+    if args.callbacks is not None:
+        with open(args.callbacks) as f:
+            callbacks = [_callback_from_config(d) for d in json.load(f)]
+    job = ExperimentJob(args.dataset, args.approach, args.info, callbacks=callbacks)
     job.run()
     print(f"[run_job] Saved result to {job.result_path}")
 
@@ -65,6 +71,12 @@ def main() -> None:
     p_run.add_argument("--dataset", required=True, metavar="PATH", help="Path to SR_dataset.to_dict() JSON file.")
     p_run.add_argument("--approach", required=True, metavar="PATH", help="Path to ApproachConfig.to_dict() JSON file.")
     p_run.add_argument("--info", required=True, metavar="PATH", help="Path to ExperimentInfo.to_dict() JSON file.")
+    p_run.add_argument(
+        "--callbacks",
+        default=None,
+        metavar="PATH",
+        help="Optional path to a _callbacks.json file produced by ExperimentGrid.save().",
+    )
 
     # ---- adapt ----
     p_adapt = subparsers.add_parser(

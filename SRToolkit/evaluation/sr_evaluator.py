@@ -237,6 +237,7 @@ class SR_evaluator:
         self.ground_truth = ground_truth
         self.gt_behavior = None
         self._callbacks: Optional[Union[CallbackDispatcher, SRCallbacks]] = None
+        self._experiment_id: str = ""
         self.should_stop = False
         self._current_best_error = float("inf")
         self.bed_evaluation_parameters: Dict[str, Any] = {
@@ -472,7 +473,7 @@ class SR_evaluator:
                         expression=expr_str,
                         error=self.models[expr_str].error,
                         evaluation_number=self.total_evaluations,
-                        experiment_id=0,  # TODO: Change through meta-data when defined
+                        experiment_id=self._experiment_id,
                         is_new_best=False,
                     )
                     if not self._callbacks.on_expr_evaluated(event):
@@ -524,14 +525,14 @@ class SR_evaluator:
                             expression=expr_str,
                             error=error,
                             evaluation_number=self.total_evaluations,
-                            experiment_id=0,  # TODO: Change through meta-data when defined
+                            experiment_id=self._experiment_id,
                             is_new_best=is_new_best,
                         )
                         if not self._callbacks.on_expr_evaluated(event):
                             self.should_stop = True
                         if is_new_best:
                             best_event = BestExpressionFound(
-                                experiment_id=0,  # TODO: Change through meta-data when defined
+                                experiment_id=self._experiment_id,
                                 expression=expr_str,
                                 error=error,
                                 evaluation_number=self.total_evaluations,
@@ -589,14 +590,14 @@ class SR_evaluator:
                             expression=expr_str,
                             error=error,
                             evaluation_number=self.total_evaluations,
-                            experiment_id=0,  # TODO: Change through meta-data when defined
+                            experiment_id=self._experiment_id,
                             is_new_best=is_new_best,
                         )
                         if not self._callbacks.on_expr_evaluated(event):
                             self.should_stop = True
                         if is_new_best:
                             best_event = BestExpressionFound(
-                                experiment_id=0,  # TODO: Change through meta-data when defined
+                                experiment_id=self._experiment_id,
                                 expression=expr_str,
                                 error=error,
                                 evaluation_number=self.total_evaluations,

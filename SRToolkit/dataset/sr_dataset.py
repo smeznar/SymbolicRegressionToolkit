@@ -162,7 +162,6 @@ class SR_dataset:
                 seed += 1
 
             event = ExperimentEvent(
-                experiment_id=experiment,
                 dataset_name=dataset_name,
                 approach_name=sr_approach.name,
                 success_threshold=self.success_threshold,
@@ -178,11 +177,12 @@ class SR_dataset:
                 sr_approach.adapt(self.X, self.symbol_library)
 
             evaluator = self.create_evaluator(seed=seed)
+            evaluator._experiment_id = f"{dataset_name}_{sr_approach.name}_{seed}"
             evaluator.set_callbacks(callbacks)
             sr_approach.search(evaluator, seed)
             results += evaluator.get_results(sr_approach.name, top_k)
 
-            if callbacks:
+            if callbacks is not None:
                 callbacks.on_experiment_end(event, results.results[-1])
         return results
 
