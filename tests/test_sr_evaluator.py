@@ -293,11 +293,13 @@ class TestSRResultsSaveLoad:
             rest_aug = loaded[0].augmentations
 
             assert "ExpressionToLatex" in rest_aug
-            assert rest_aug["ExpressionToLatex"]["_type"] == "ExpressionToLatex"
+            assert (
+                rest_aug["ExpressionToLatex"]["_type"] == "SRToolkit.evaluation.result_augmentation.ExpressionToLatex"
+            )
             assert rest_aug["ExpressionToLatex"]["best_expr_latex"] == orig_aug["ExpressionToLatex"]["best_expr_latex"]
 
             assert "RMSE" in rest_aug
-            assert rest_aug["RMSE"]["_type"] == "RMSE"
+            assert rest_aug["RMSE"]["_type"] == "SRToolkit.evaluation.result_augmentation.RMSE"
             assert abs(rest_aug["RMSE"]["min_error"] - orig_aug["RMSE"]["min_error"]) < 1e-12
 
             # Check model-level augmentations round-trip

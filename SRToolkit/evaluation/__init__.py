@@ -27,13 +27,11 @@ from .parameter_estimator import ParameterEstimator
 from .result_augmentation import (
     BED,
     R2,
-    RESULT_AUGMENTERS,
     RMSE,
     EvalResult,
     ExpressionSimplifier,
     ExpressionToLatex,
     ModelResult,
-    register_augmenter,
 )
 from .sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
 
@@ -49,8 +47,6 @@ __all__ = [
     "R2",
     "BED",
     "ExpressionToLatex",
-    "RESULT_AUGMENTERS",
-    "register_augmenter",
     "SRCallbacks",
     "CallbackDispatcher",
     "EarlyStoppingCallback",

@@ -11,6 +11,7 @@ Note:
     in ``result_augmentation`` to avoid circular imports.
 """
 
+import importlib
 import json
 import logging
 import os
@@ -41,7 +42,11 @@ logger = logging.getLogger(__name__)
 
 
 class ResultAugmenter(ABC):
-    _type: ClassVar[str] = ""
+    _type: ClassVar[str]
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        cls._type = f"{cls.__module__}.{cls.__qualname__}"
 
     def __init__(self, name: str):
         """
@@ -908,8 +913,12 @@ class SR_results:
         model_scope: Literal["best", "top", "all"] = "top",
         augmentations_filter: Optional[List[str]] = None,
     ):
-        # TODO: Check if this works for custom augmenters even after registering
-        from SRToolkit.evaluation.result_augmentation import RESULT_AUGMENTERS
+        def _get_augmenter_class(type_str: str) -> Optional[type]:
+            try:
+                module_path, cls_name = type_str.rsplit(".", 1)
+                return getattr(importlib.import_module(module_path), cls_name)
+            except Exception:
+                return None
 
         # --- Core info ---
         if result.dataset_name is not None:
@@ -936,18 +945,13 @@ class SR_results:
         for key in eval_aug_keys:
             data = result.augmentations[key]
             type_str = data.get("_type", "")
-            cls = RESULT_AUGMENTERS.get(type_str) if type_str else None
+            cls = _get_augmenter_class(type_str) if type_str else None
             print(f"--- {key} ---")
-            if cls is not None:
+            if cls is not None and issubclass(cls, ResultAugmenter):
                 line = cls.format_eval_result(data)
                 if line:
                     print(line)
             else:
-                if type_str:
-                    warnings.warn(
-                        f"No registered augmenter for type '{type_str}'. "
-                        f"Register with register_augmenter() or fall back to default dump."
-                    )
                 for k, v in data.items():
                     if k != "_type":
                         print(f"  {k}: {v}")
@@ -979,8 +983,8 @@ class SR_results:
                     for key in model_aug_keys:
                         data = model.augmentations[key]
                         type_str = data.get("_type", "")
-                        cls = RESULT_AUGMENTERS.get(type_str) if type_str else None
-                        if cls is not None:
+                        cls = _get_augmenter_class(type_str) if type_str else None
+                        if cls is not None and issubclass(cls, ResultAugmenter):
                             line = cls.format_model_result(data)
                             if line:
                                 print(f"    {key}: {line}")

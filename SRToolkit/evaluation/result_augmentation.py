@@ -7,12 +7,13 @@ Available augmenters: [ExpressionToLatex][SRToolkit.evaluation.result_augmentati
 [RMSE][SRToolkit.evaluation.result_augmentation.RMSE],
 [BED][SRToolkit.evaluation.result_augmentation.BED],
 [R2][SRToolkit.evaluation.result_augmentation.R2].
-Custom augmenters can be registered with
-[register_augmenter][SRToolkit.evaluation.result_augmentation.register_augmenter].
+Custom augmenters work automatically without registration — just subclass
+[ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] and implement the
+required methods.
 """
 
 import warnings
-from typing import Any, Dict, Type
+from typing import Any, Dict
 
 import numpy as np
 
@@ -21,8 +22,6 @@ from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
 
 
 class ExpressionToLatex(ResultAugmenter):
-    _type = "ExpressionToLatex"
-
     def __init__(
         self,
         symbol_library: SymbolLibrary,
@@ -174,8 +173,6 @@ class ExpressionToLatex(ResultAugmenter):
 
 
 class ExpressionSimplifier(ResultAugmenter):
-    _type = "ExpressionSimplifier"
-
     def __init__(
         self,
         symbol_library: SymbolLibrary,
@@ -338,8 +335,6 @@ class ExpressionSimplifier(ResultAugmenter):
 
 
 class RMSE(ResultAugmenter):
-    _type = "RMSE"
-
     def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "RMSE") -> None:  # noqa: F821
         """
         Computes RMSE for the top models using a separate evaluator (e.g. a held-out test set).
@@ -475,8 +470,6 @@ class RMSE(ResultAugmenter):
 
 
 class BED(ResultAugmenter):
-    _type = "BED"
-
     def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "BED") -> None:  # noqa: F821
         """
         Computes BED for the top models using a separate evaluator (e.g. a held-out test set).
@@ -599,8 +592,6 @@ class BED(ResultAugmenter):
 
 
 class R2(ResultAugmenter):
-    _type = "R2"
-
     def __init__(self, evaluator: SR_evaluator, scope: str = "top", name: str = "R2") -> None:  # noqa: F821
         """
         Computes R² for the top models using a separate evaluator (e.g. a held-out test set).
@@ -740,46 +731,3 @@ class R2(ResultAugmenter):
             raise ValueError(f"[R2.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1.")
         evaluator = SR_evaluator.from_dict(data["evaluator"])
         return R2(evaluator, scope=data["scope"], name=data["name"])
-
-
-RESULT_AUGMENTERS: Dict[str, Type[ResultAugmenter]] = {
-    "ExpressionToLatex": ExpressionToLatex,
-    "RMSE": RMSE,
-    "BED": BED,
-    "R2": R2,
-    "ExpressionSimplifier": ExpressionSimplifier,
-}
-"""A mapping of augmentation names to their corresponding ResultAugmenter classes.
-
-This constant defines the library of available result augmentation classes used across the benchmarking framework.
-
-The dictionary keys are the unique string identifiers for the augmentor found under the 'type' value in the to_dict
-function. The values are the uninstantiated class objects, all of which inherit from ResultAugmenter.
-"""
-
-
-def register_augmenter(name: str, cls: Type[ResultAugmenter]) -> None:
-    """
-    Registers a custom ResultAugmenter class in the global registry.
-
-    This allows users to add custom augmenters that can be discovered and used
-    alongside the built-in ones.
-
-    Examples:
-        >>> from SRToolkit.evaluation import ResultAugmenter, register_augmenter
-        >>> class MyAugmenter(ResultAugmenter):
-        ...     def __init__(self):
-        ...         super().__init__("MyAugmenter")
-        ...     def write_results(self, results):
-        ...         pass
-        ...     def to_dict(self, base_path, name):
-        ...         return {"type": "MyAugmenter"}
-        >>> register_augmenter("MyAugmenter", MyAugmenter)
-        >>> "MyAugmenter" in RESULT_AUGMENTERS
-        True
-
-    Args:
-        name: The string identifier for the augmenter.
-        cls: The ResultAugmenter subclass to register.
-    """
-    RESULT_AUGMENTERS[name] = cls

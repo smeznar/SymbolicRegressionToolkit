@@ -419,10 +419,12 @@ class LoggingCallback(SRCallbacks):
         log_msg = f"[Experiment {event.experiment_id}] New best: {event.expression} (error={event.error:.6e})\n"
         if self._resolved_log_file is not None:
             import os
+
             os.makedirs(os.path.dirname(os.path.abspath(self._resolved_log_file)), exist_ok=True)
             with open(self._resolved_log_file, "a") as f:
                 try:
                     import fcntl
+
                     fcntl.flock(f, fcntl.LOCK_EX)
                     f.write(log_msg)
                     fcntl.flock(f, fcntl.LOCK_UN)

@@ -527,7 +527,9 @@ class ExperimentGrid:
                         top_k=self.top_k,
                         adapted_state_path=adapted_state_ref_path,
                     )
-                    job = ExperimentJob(dataset=dataset_dict, approach=approach_config, info=info, callbacks=self.callback_configs)
+                    job = ExperimentJob(
+                        dataset=dataset_dict, approach=approach_config, info=info, callbacks=self.callback_configs
+                    )
                     if skip_completed and job.is_complete:
                         continue
                     jobs.append(job)
