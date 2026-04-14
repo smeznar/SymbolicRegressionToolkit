@@ -46,6 +46,11 @@ theme:
     text: Roboto # A clean, modern font
     code: Roboto Mono # A clear monospace font
 
+extra:
+  version:
+    provider: mike
+    default: stable
+
 extra_css:
   - stylesheets/extra.css
 

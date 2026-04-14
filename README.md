@@ -14,7 +14,11 @@ The **SRToolkit** is a **comprehensive Python toolkit** designed to accelerate r
 
 SRToolkit provides a straightforward interface for:
 
-* **Benchmarking** Symbolic Regression algorithms using built-in datasets (currently **Feynman** and **Nguyen**) or **custom data**.
+* **Implementing** new Symbolic Regression approaches and evaluating their performance against other approaches.
+
+* **Benchmarking** Symbolic Regression approaches using built-in benchmarks (currently **Feynman** and **Nguyen**) or **custom data**.
+
+* **Experiment organization** and postprocessing of results.
 
 * **Converting expressions** into **expression trees** or **fast, callable NumPy functions**.
 
@@ -31,7 +35,7 @@ To install the latest stable release of the package, run the following command i
 pip install symbolic-regression-toolkit
 ```
 
-Alternatively, you can install the latest build directly from the repository with the command:
+Alternatively, you can install the latest build directly from the repository with the command (Recommended):
 
 ```
 pip install git+https://github.com/smeznar/SymbolicRegressionToolkit
@@ -74,51 +78,86 @@ expr_latex = expr_to_latex(expr_tree, sl)
 The primary advantage of SRToolkit is its robust benchmarking framework, allowing you to quickly evaluate and compare different Symbolic Regression approaches.
 
 ```python
+from SRToolkit.approaches import EDHiE, ProGED
 from SRToolkit.dataset import Feynman
-from SRToolkit.utils import generate_n_expressions
+from SRToolkit.evaluation import LoggingCallback
+from SRToolkit.experiments import ExperimentGrid
 
-# Create the Feynman benchmark suite
-feynman = Feynman()
+# Load the Feynman benchmark and pick two 2-variable datasets to run on.
+bm = Feynman()
+ds_names = bm.list_datasets(num_variables=2, verbose=False)
+dataset1 = bm.create_dataset(ds_names[0])
+dataset2 = bm.create_dataset(ds_names[1])
 
-# List datasets in the benchmark and select the first 2-variable one
-dataset_name = feynman.list_datasets(verbose=False, num_variables=2)[0]
+# Define the SR approaches to benchmark.
+# EDHiE requires a pre-trained/adapted model state; ProGED needs no time consuming adaptation.
+edhie = EDHiE()
+proged = ProGED()
 
-# Create the dataset and the dedicated evaluator object
-dataset = feynman.create_dataset(dataset_name)
-evaluator = dataset.create_evaluator()
+# Map each (approach, dataset) pair to a file where the adapted model state will
+# be saved. Both datasets reuse the same file here because they share the same
+# number of variables, so one adapted state covers both.
+adapted_states = {edhie.name: {ds_names[0]: "adapted_state_2_vars.pt", ds_names[1]: "adapted_state_2_vars.pt"}}
 
-# Generate 100 random expressions for a baseline evaluation
-expressions = generate_n_expressions(dataset.symbol_library, 100)
+# Build the experiment grid: every combination of approach × dataset will be run
+# num_experiments times (with different random seeds). Results are written under
+# results_dir, specifically to "results_dir/{dataset}/{approach}/exp_{seed}.json".
+eg = ExperimentGrid(
+    approaches=[proged, edhie],
+    datasets=[dataset1, dataset2],
+    num_experiments=2,
+    results_dir="../results/",
+    adapted_states=adapted_states,
+)
 
-# Evaluate the expressions and print their error
-for expr in expressions:
-    rmse = evaluator.evaluate_expr(expr)
-    print(f"Expr: {''.join(expr)}, Error: {rmse}")
+# Write a shell script of CLI commands that can be executed in parallel, e.g.:
+#   cat commands.sh | parallel -j 4
+eg.save_commands("commands.sh")
 
-# Get structured results of the evaluation, focusing on the 20 best expressions
-results = evaluator.get_results(top_k=20)
+# Run adaptation for any approach/dataset pair whose adapted state file is missing.
+# This is a no-op if all state files already exist.
+eg.adapt_if_missing()
+
+# Collect all pending jobs (skip any whose result file already exists on disk).
+jobs = eg.create_jobs(skip_completed=True)
+
+# Run each job sequentially in this process. To parallelize, use the generated
+# commands.sh instead.
+for job in jobs:
+    job.run()
+
+# See how many jobs are completed 
+eg.progress()
+
 ```
 
 Additional examples can be found in the `examples` folder or in the official documentation.
 
 ## Roadmap 🗺️
 
-In future releases, our primary focus will be on benchmarking and comparability:
+In future releases, our primary focus will:
 
-* **Benchmarking Core:** Add the ability to save/load benchmark runs and automatically evaluate multiple ED/SR approaches.
+* **Expanded Library of Approaches:** Add more Symbolic Regression approaches to the toolkit.
 
-* **SR Library:** Create a library of easy-to-use and comparable ED/SR approach implementations.
+* **Result Visualization:** Implement a robust visualization and result aggregation framework for SR results.
 
-* **Advanced Expressions (Distant Plan):** Implement support for different types of expressions, such as **ODEs and PDEs**.
+* **Simplification:** Implement a better (more accurate, efficient, and stable) simplification system for expressions. 
 
 * **Constraints:** Implement more robust expression generation constraints using techniques like attribute grammars.
 
+* **Improved Benchmarking:** Improve the robustness and efficiency of the benchmarking framework (continuous).
+
+* **Advanced Expressions (Distant Plan):** Implement support for different types of expressions, such as **ODEs and PDEs**.
+
 ## Contributing 🤝
 
-We welcome contributions! Whether you're adding a new benchmark, implementing an SR approach, fixing a bug, or improving the documentation, please feel free to submit a **Pull Request (PR)** with a clear description of your changes.
+We welcome contributions! Whether you're adding a new benchmark, implementing an SR approach, fixing a bug, or improving the documentation, please feel free to 
+open a issue on the Github page or submit a **Pull Request (PR)** with a clear description of your changes.
 
 We are especially looking for contributions of:
 
-* New **Benchmarks** and **Datasets** (e.g., datasets from physics, finance, etc.).
+* New **Benchmarks** and **Datasets**.
 
 * Implementations of additional **Symbolic Regression Approaches** (once the core framework for comparison is finalized).
+
+Instructions on how to contribute can be found in the [Contribution Guide](https://github.com/smeznar/SymbolicRegressionToolkit/blob/master/CONTRIBUTING.md).

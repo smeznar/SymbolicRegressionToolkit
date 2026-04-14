@@ -11,7 +11,7 @@ Modules:
     experiments: The module containing the job-based experiment runner for multi-dataset, multi-approach experiments.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __license__ = "GPL-3.0 License"
 __author__ = "Sebastian Mežnar, Jure Brence"
 __credits__ = "Jožef Stefan Institute"
