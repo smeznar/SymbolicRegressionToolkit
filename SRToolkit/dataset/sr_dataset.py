@@ -3,7 +3,7 @@ Dataset wrapper for a single symbolic regression problem.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from typing_extensions import Unpack
@@ -12,7 +12,10 @@ from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
 from SRToolkit.utils import Node, SymbolLibrary
+from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.types import EstimationSettings
+
+from .sampling import sampling_from_dict
 
 
 class SR_dataset:
@@ -29,6 +32,7 @@ class SR_dataset:
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
         dataset_name: str = "unnamed",
+        samplers: Optional[List[Any]] = None,
         **kwargs: Unpack[EstimationSettings],
     ) -> None:
         """
@@ -62,6 +66,13 @@ class SR_dataset:
             seed: Random seed for reproducibility. ``None`` means no seed is set.
             dataset_metadata: Optional dictionary of metadata about the dataset (e.g. citation, variable names).
             dataset_name: Name for this dataset. Defaults to ``"unnamed"``.
+            samplers: Optional list of callable samplers (one per input variable) used to
+                generate new input data when calling [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample].
+                Each sampler must accept a single ``sample_size`` integer and return a 1-D numpy array.
+                Instances of [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling],
+                [UniformSampling][SRToolkit.dataset.sampling.UniformSampling], and
+                [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] satisfy this
+                interface and support round-trip serialization via ``to_dict`` / ``from_dict``.
             **kwargs: Optional estimation settings passed to
                 [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
                 Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
@@ -85,6 +96,7 @@ class SR_dataset:
 
         self.seed = seed
         self.dataset_metadata = dataset_metadata
+        self.samplers = samplers
 
     def evaluate_approach(
         self,
@@ -294,6 +306,44 @@ class SR_dataset:
     # Once SR_approach base class is implemented, we can add a function to run experiments
     # def run_experiments(self, approach: SR_approach, num_runs: int=10):
 
+    def resample(self, n: int, seed: Optional[int] = None) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+        """
+        Generate fresh data by applying the stored samplers to produce new inputs.
+
+        For ``ranking_function="rmse"``, the ground truth expression is also evaluated and
+        ``(X, y)`` is returned. For ``ranking_function="bed"``, only ``X`` is returned.
+
+        Args:
+            n: Number of samples to generate.
+            seed: Random seed for reproducibility. If ``None``, no seed is set.
+
+        Returns:
+            For RMSE: a tuple ``(X, y)`` with shapes ``(n, n_features)`` and ``(n,)``.
+            For BED: a single array ``X`` with shape ``(n, n_features)``.
+
+        Raises:
+            ValueError: If ``samplers`` is ``None``, or if ``ranking_function="rmse"`` and
+                ``ground_truth`` is ``None`` or a behaviour array.
+        """
+        if self.samplers is None:
+            raise ValueError(
+                f"[SR_dataset.resample] Dataset '{self.dataset_name}' has no samplers defined. "
+                "Provide samplers when constructing the dataset."
+            )
+        if seed is not None:
+            np.random.seed(seed)
+        X = np.column_stack([s(n) for s in self.samplers])
+        if self.ranking_function == "bed":
+            return X
+        if self.ground_truth is None or isinstance(self.ground_truth, np.ndarray):
+            raise ValueError(
+                f"[SR_dataset.resample] Dataset '{self.dataset_name}' has no token-list ground truth — "
+                "cannot evaluate y. ground_truth must be a list of tokens or a Node."
+            )
+        f = expr_to_executable_function(self.ground_truth, self.symbol_library)
+        y = f(X, np.array([]))
+        return X, y
+
     def to_dict(self, base_path: str) -> dict:
         r"""
         Creates a dictionary representation of this dataset. This is mainly used for saving the dataset to disk.
@@ -327,6 +377,7 @@ class SR_dataset:
             self.kwargs["bed_X"] = self.kwargs["bed_X"].tolist()
 
         output["kwargs"] = self.kwargs
+        output["samplers"] = [s.to_dict() for s in self.samplers] if self.samplers is not None else None
 
         if not os.path.isdir(base_path):
             os.makedirs(base_path)
@@ -406,6 +457,10 @@ class SR_dataset:
         if "bed_X" in d["kwargs"] and d["kwargs"]["bed_X"] is not None:
             d["kwargs"]["bed_X"] = np.array(d["kwargs"]["bed_X"])
 
+        samplers = None
+        if d.get("samplers") is not None:
+            samplers = [sampling_from_dict(s) for s in d["samplers"]]
+
         try:
             return SR_dataset(
                 X,
@@ -419,6 +474,7 @@ class SR_dataset:
                 seed=d["seed"],
                 dataset_metadata=d["dataset_metadata"],
                 dataset_name=d["dataset_name"],
+                samplers=samplers,
                 **d["kwargs"],
             )
         except Exception as e:

@@ -3,28 +3,15 @@ Nguyen symbolic regression benchmark.
 """
 
 import os
-from typing import Optional, Tuple
+import warnings
+from typing import Optional
 
-import numpy as np
 from platformdirs import user_data_dir
 
-from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
+from .sampling import UniformSampling
 from .sr_benchmark import SR_benchmark, download_benchmark_data
-
-_BOUNDS = {
-    "NG-1": [(-20, 20)],
-    "NG-2": [(-20, 20)],
-    "NG-3": [(-20, 20)],
-    "NG-4": [(-20, 20)],
-    "NG-5": [(-20, 20)],
-    "NG-6": [(-20, 20)],
-    "NG-7": [(1, 100)],
-    "NG-8": [(0, 100)],
-    "NG-9": [(-20, 20), (-20, 20)],
-    "NG-10": [(-20, 20), (-20, 20)],
-}
 
 
 class Nguyen(SR_benchmark):
@@ -32,7 +19,9 @@ class Nguyen(SR_benchmark):
     The Nguyen symbolic regression benchmark.
 
     Contains 10 expressions without constant parameters (first 4 are polynomials, first 8 use
-    one variable, last 2 use two variables). The benchmark ships with pre-generated data.
+    one variable, last 2 use two variables). The benchmark ships with pre-generated data. If the
+    download fails, data is generated from the stored per-variable samplers using ``n_samples``
+    points and the given ``seed``.
 
     References:
         [Uy et al. (2011)][cite-nguyen]
@@ -45,17 +34,38 @@ class Nguyen(SR_benchmark):
     Args:
         dataset_directory: Directory where dataset files are stored or will be downloaded to.
             Defaults to the platform-appropriate user data directory (e.g. ``~/.local/share/SRToolkit/nguyen`` on Linux).
+        n_samples: Number of samples to generate per dataset when falling back to sampler-based
+            data generation (i.e. when the download fails or ``force_generate=True``). Defaults to ``1000``.
+        seed: Random seed used for sampler-based data generation. Defaults to ``42``.
+        force_generate: If ``True``, skip downloading/loading pre-generated data and always
+            generate fresh data from samplers. Defaults to ``False``.
     """
 
-    def __init__(self, dataset_directory: str = os.path.join(user_data_dir("SRToolkit"), "nguyen")):
+    def __init__(
+        self,
+        dataset_directory: str = os.path.join(user_data_dir("SRToolkit"), "nguyen"),
+        n_samples: int = 10000,
+        seed: Optional[int] = 42,
+        force_generate: bool = False,
+    ):
         super().__init__("Nguyen", dataset_directory)
+        self._n_samples = n_samples
+        self._seed = seed
+        self._force_generate = force_generate
         self._populate()
 
     def _populate(self):
         # fmt: off
-        seed = None
+        seed = self._seed
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/nguyen.zip"
-        download_benchmark_data(url, self.base_dir)
+        if not self._force_generate:
+            try:
+                download_benchmark_data(url, self.base_dir)
+            except Exception as e:
+                warnings.warn(
+                    f"[Nguyen] Could not download benchmark data ({e}). "
+                    "Data will be generated from samplers on first access."
+                )
         # we create a SymbolLibrary with 1 and with 2 variables
         # Each library contains +, -, *, /, sin, cos, exp, log, sqrt, ^2, ^3
         sl_1v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt", "^2", "^3"], 1)
@@ -92,6 +102,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -106,6 +119,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -139,6 +155,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -178,6 +197,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -192,6 +214,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -206,6 +231,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -220,6 +248,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(1, 100, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -234,6 +265,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 100, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -248,6 +282,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
@@ -262,42 +299,9 @@ class Nguyen(SR_benchmark):
             success_threshold=1e-7,
             dataset_metadata=self.metadata,
             seed=seed,
+            samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
     # fmt: on
-
-    def resample(self, dataset_name: str, n: int, seed: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Generate fresh data for a dataset by sampling new inputs and evaluating the ground truth.
-
-        Variable bounds are taken from ``_BOUNDS``.
-
-        Examples:
-            >>> benchmark = Nguyen('data/nguyen/')
-            >>> X, y = benchmark.resample('NG-1', n=200, seed=42)
-            >>> X.shape
-            (200, 1)
-
-        Args:
-            dataset_name: Name of the dataset to resample.
-            n: Number of new samples to generate.
-            seed: Random seed for reproducibility.
-
-        Returns:
-            A tuple ``(X, y)`` of numpy arrays with shapes ``(n, n_vars)`` and ``(n,)``.
-
-        Raises:
-            ValueError: If the dataset has no ground truth expression.
-        """
-        info = self.datasets[dataset_name]
-        if info.get("ground_truth") is None:
-            raise ValueError(f"Dataset '{dataset_name}' has no ground truth expression — cannot compute y.")
-        bounds = _BOUNDS[dataset_name]
-        lb = np.array([b[0] for b in bounds], dtype=float)
-        ub = np.array([b[1] for b in bounds], dtype=float)
-        rng = np.random.default_rng(seed)
-        X_new = rng.uniform(lb, ub, size=(n, len(bounds)))
-        sl = SymbolLibrary.from_dict(info["symbol_library"])
-        f = expr_to_executable_function(info["ground_truth"], sl)
-        y_new = f(X_new, np.array([]))
-        return X_new, y_new

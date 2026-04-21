@@ -104,6 +104,9 @@ class SR_benchmark:
         success_threshold: Optional[float] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
+        samplers: Optional[List[Any]] = None,
+        n_samples: int = 10000,
+        force_generate: bool = False,
         **kwargs: Unpack[EstimationSettings],
     ):
         """
@@ -145,6 +148,18 @@ class SR_benchmark:
                 no threshold is applied.
             seed: Random seed for reproducibility. ``None`` means no seed is set.
             dataset_metadata: Optional dictionary of dataset-level metadata (merged with benchmark metadata).
+            samplers: Optional list of callable samplers (one per input variable). When the dataset
+                file cannot be found, these are used to generate ``n_samples`` input rows and the
+                result is saved for future use. Must support [to_dict][] for serialization
+                (e.g. :class:`~SRToolkit.dataset.sampling.LogUniformSampling`,
+                :class:`~SRToolkit.dataset.sampling.UniformSampling`,
+                :class:`~SRToolkit.dataset.sampling.IntegerUniformSampling`).
+            n_samples: Number of samples to generate when falling back to sampler-based data
+                generation. Only used when ``dataset`` is a string path that cannot be found (or
+                ``force_generate=True``) and ``samplers`` is provided. Defaults to ``10000``.
+            force_generate: If ``True``, skip loading an existing data file entirely and always
+                regenerate data from ``samplers``. Requires ``samplers`` to be provided.
+                Defaults to ``False``.
             **kwargs: Optional estimation settings passed to
                 [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
                 Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
@@ -182,6 +197,7 @@ class SR_benchmark:
         self.datasets[dataset_name]["kwargs"] = kwargs
         self.datasets[dataset_name]["original_equation"] = original_equation
         self.datasets[dataset_name]["ground_truth"] = ground_truth
+        self.datasets[dataset_name]["samplers"] = [s.to_dict() for s in samplers] if samplers is not None else None
 
         if ground_truth is None:
             if ranking_function == "bed":
@@ -200,22 +216,55 @@ class SR_benchmark:
 
         if isinstance(dataset, str):
             dataset_path = None
-            if os.path.exists(dataset):
-                dataset_path = dataset
-            elif dataset != "" and os.path.exists(f"{self.base_dir}/{dataset}"):
-                dataset_path = f"{self.base_dir}/{dataset}"
-            elif os.path.exists(f"{self.base_dir}/{dataset_name}.npz"):
-                dataset_path = f"{self.base_dir}/{dataset_name}.npz"
+            if not force_generate:
+                if os.path.exists(dataset):
+                    dataset_path = dataset
+                elif dataset != "" and os.path.exists(f"{self.base_dir}/{dataset}"):
+                    dataset_path = f"{self.base_dir}/{dataset}"
+                elif os.path.exists(f"{self.base_dir}/{dataset_name}.npz"):
+                    dataset_path = f"{self.base_dir}/{dataset_name}.npz"
 
             if dataset_path is None:
-                error_msg = (
-                    f"[SR_benchmark.add_dataset] Could not find the dataset file. "
-                    f"Expected locations:\n"
-                    f"- Absolute path: '{dataset}'\n"
-                    f"- Relative to base_dir: '{self.base_dir}/{dataset}'\n"
-                    f"- NPZ with the name of the dataset in base_dir: '{self.base_dir}/{dataset_name}.npz'"
-                )
-                raise FileNotFoundError(error_msg)
+                if samplers is None:
+                    if force_generate:
+                        raise ValueError(
+                            f"[SR_benchmark.add_dataset] force_generate=True requires samplers to be provided "
+                            f"for dataset '{dataset_name}'."
+                        )
+                    error_msg = (
+                        f"[SR_benchmark.add_dataset] Could not find the dataset file. "
+                        f"Expected locations:\n"
+                        f"- Absolute path: '{dataset}'\n"
+                        f"- Relative to base_dir: '{self.base_dir}/{dataset}'\n"
+                        f"- NPZ with the name of the dataset in base_dir: '{self.base_dir}/{dataset_name}.npz'"
+                    )
+                    raise FileNotFoundError(error_msg)
+                else:
+                    if not force_generate:
+                        warnings.warn(
+                            f"[SR_benchmark.add_dataset] Could not find dataset file for '{dataset_name}'. "
+                            f"Generating {n_samples} samples using provided samplers."
+                        )
+                    if seed is not None:
+                        np.random.seed(seed)
+                    X_gen = np.column_stack([s(n_samples) for s in samplers])
+                    if not os.path.isdir(self.base_dir):
+                        os.makedirs(self.base_dir)
+                    if ranking_function == "bed":
+                        np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, allow_pickle=False)
+                    elif ground_truth is not None and not isinstance(ground_truth, np.ndarray):
+                        try:
+                            expr = expr_to_executable_function(ground_truth, symbol_library)
+                            y_gen = expr(X_gen, None)
+                            np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, y=y_gen, allow_pickle=False)
+                        except Exception as e:
+                            raise Exception(
+                                f"[SR_benchmark.add_dataset] Could not evaluate ground truth for fallback "
+                                f"sampling of '{dataset_name}'. Original error: {e}"
+                            )
+                    else:
+                        np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, allow_pickle=False)
+                    dataset_path = f"{self.base_dir}/{dataset_name}.npz"
 
             self.datasets[dataset_name]["dataset_path"] = dataset_path
 
@@ -305,9 +354,19 @@ class SR_benchmark:
 
         self.datasets[dataset_name]["num_variables"] = num_variables
 
-    def create_dataset(self, dataset_name: str) -> SR_dataset:
+    def create_dataset(
+        self,
+        dataset_name: str,
+        n_samples: Optional[int] = None,
+        seed: Optional[int] = None,
+    ) -> SR_dataset:
         """
         Creates an instance of a dataset from the given dataset name.
+
+        When ``n_samples`` is provided the returned dataset contains freshly sampled data
+        instead of the pre-generated data on disk. The dataset must have samplers defined
+        (see ``samplers`` argument of
+        [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset]).
 
         Examples:
             >>> from SRToolkit.dataset import Feynman
@@ -315,30 +374,52 @@ class SR_benchmark:
             >>> dataset = benchmark.create_dataset('I.16.6')
             >>> dataset.X.shape
             (10000, 3)
+            >>> dataset_small = benchmark.create_dataset('I.16.6', n_samples=500, seed=0)
+            >>> dataset_small.X.shape
+            (500, 3)
 
         Args:
             dataset_name: The name of the dataset to create.
+            n_samples: If provided, generate a fresh dataset with this many samples using
+                the stored samplers instead of loading pre-generated data from disk.
+            seed: Random seed used when ``n_samples`` is provided. If ``None``, no seed is set.
 
         Returns:
-            A SR_dataset instance containing the data, ground truth expression, and metadata for the given dataset.
+            An [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance containing the
+            data, ground truth expression, and metadata for the given dataset.
 
         Raises:
-            ValueError: If the dataset name is not found in the available datasets.
+            ValueError: If the dataset name is not found, or if ``n_samples`` is provided but
+                the dataset has no samplers defined.
         """
-        if dataset_name in self.datasets:
-            if "sr_dataset" in self.datasets[dataset_name]:
-                return self.datasets[dataset_name]["sr_dataset"]
-            else:
-                try:
-                    return SR_dataset.from_dict(self.datasets[dataset_name])
-                except Exception as e:
-                    raise ValueError(
-                        f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
-                        f"given dictionary. Original error: {e}"
-                    )
-
-        else:
+        if dataset_name not in self.datasets:
             raise ValueError(f"Dataset {dataset_name} not found")
+
+        if n_samples is not None:
+            info = self.datasets[dataset_name]
+            if info.get("samplers") is None:
+                raise ValueError(
+                    f"[SR_benchmark.create_dataset] Cannot resample '{dataset_name}': no samplers defined."
+                )
+            dataset = SR_dataset.from_dict(info)
+            result = dataset.resample(n_samples, seed=seed)
+            if isinstance(result, tuple):
+                X_new, y_new = result
+            else:
+                X_new, y_new = result, None
+            dataset.X = X_new
+            dataset.y = y_new
+            return dataset
+
+        if "sr_dataset" in self.datasets[dataset_name]:
+            return self.datasets[dataset_name]["sr_dataset"]
+        try:
+            return SR_dataset.from_dict(self.datasets[dataset_name])
+        except Exception as e:
+            raise ValueError(
+                f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
+                f"given dictionary. Original error: {e}"
+            )
 
     def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> List[str]:
         """

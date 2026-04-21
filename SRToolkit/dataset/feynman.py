@@ -3,118 +3,15 @@ Feynman symbolic regression benchmark.
 """
 
 import os
-from typing import Optional, Tuple
+import warnings
+from typing import Optional
 
-import numpy as np
 from platformdirs import user_data_dir
 
-from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
+from .sampling import UniformSampling
 from .sr_benchmark import SR_benchmark, download_benchmark_data
-
-_BOUNDS = {
-    "I.10.7": [(1, 5), (1, 2), (3, 10)],
-    "I.11.19": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.12.1": [(1, 5), (1, 5)],
-    "I.12.11": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.12.2": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.12.4": [(1, 5), (1, 5), (1, 5)],
-    "I.12.5": [(1, 5), (1, 5)],
-    "I.13.12": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.13.4": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.14.3": [(1, 5), (1, 5), (1, 5)],
-    "I.14.4": [(1, 5), (1, 5)],
-    "I.15.10": [(1, 5), (1, 2), (3, 10)],
-    "I.15.3t": [(1, 5), (3, 10), (1, 2), (1, 5)],
-    "I.15.3x": [(5, 10), (1, 2), (3, 20), (1, 2)],
-    "I.16.6": [(1, 5), (1, 5), (1, 5)],
-    "I.18.12": [(1, 5), (1, 5), (0, 5)],
-    "I.18.14": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.18.4": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.24.6": [(1, 3), (1, 3), (1, 3), (1, 3)],
-    "I.25.13": [(1, 5), (1, 5)],
-    "I.26.2": [(0, 1), (1, 5)],
-    "I.27.6": [(1, 5), (1, 5), (1, 5)],
-    "I.29.16": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.29.4": [(1, 10), (1, 10)],
-    "I.30.3": [(1, 5), (1, 5), (1, 5)],
-    "I.30.5": [(1, 2), (2, 5), (1, 5)],
-    "I.32.17": [(1, 2), (1, 2), (1, 2), (1, 2), (1, 2), (3, 5)],
-    "I.32.5": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.34.1": [(3, 10), (1, 2), (1, 5)],
-    "I.34.14": [(3, 10), (1, 2), (1, 5)],
-    "I.34.27": [(1, 5), (1, 5)],
-    "I.34.8": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.37.4": [(1, 5), (1, 5), (1, 5)],
-    "I.38.12": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.39.1": [(1, 5), (1, 5)],
-    "I.39.11": [(2, 5), (1, 5), (1, 5)],
-    "I.39.22": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.40.1": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.41.16": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.43.16": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.43.31": [(1, 5), (1, 5), (1, 5)],
-    "I.43.43": [(2, 5), (1, 5), (1, 5), (1, 5)],
-    "I.44.4": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.47.23": [(1, 5), (1, 5), (1, 5)],
-    "I.48.20": [(1, 5), (1, 2), (3, 10)],
-    "I.50.26": [(1, 3), (1, 3), (1, 3), (1, 3)],
-    "I.6.2": [(1, 3), (1, 3)],
-    "I.6.2a": [(1, 3)],
-    "I.6.2b": [(1, 3), (1, 3), (1, 3)],
-    "I.8.14": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "I.9.18": [(1, 2), (1, 2), (1, 2), (3, 4), (1, 2), (3, 4), (1, 2), (3, 4), (1, 2)],
-    "II.10.9": [(1, 5), (1, 5), (1, 5)],
-    "II.11.20": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "II.11.27": [(0, 1), (0, 1), (1, 2), (1, 2)],
-    "II.11.28": [(0, 1), (0, 1)],
-    "II.11.3": [(1, 3), (1, 3), (1, 3), (3, 5), (1, 2)],
-    "II.11.7": [(1, 3), (1, 3), (1, 3), (1, 3), (1, 3), (1, 3)],
-    "II.13.17": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "II.13.23": [(1, 5), (1, 2), (3, 10)],
-    "II.13.34": [(1, 5), (1, 2), (3, 10)],
-    "II.15.4": [(1, 5), (1, 5), (1, 5)],
-    "II.15.5": [(1, 5), (1, 5), (1, 5)],
-    "II.2.42": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "II.21.32": [(1, 5), (1, 5), (1, 5), (1, 2), (3, 10)],
-    "II.24.17": [(4, 6), (1, 2), (2, 4)],
-    "II.27.16": [(1, 5), (1, 5), (1, 5)],
-    "II.27.18": [(1, 5), (1, 5)],
-    "II.3.24": [(1, 5), (1, 5)],
-    "II.34.11": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "II.34.2": [(1, 5), (1, 5), (1, 5)],
-    "II.34.29a": [(1, 5), (1, 5), (1, 5)],
-    "II.34.29b": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "II.34.2a": [(1, 5), (1, 5), (1, 5)],
-    "II.35.18": [(1, 3), (1, 3), (1, 3), (1, 3), (1, 3)],
-    "II.35.21": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "II.36.38": [(1, 3), (1, 3), (1, 3), (1, 3), (1, 3), (1, 3), (1, 3), (1, 3)],
-    "II.37.1": [(1, 5), (1, 5), (1, 5)],
-    "II.38.14": [(1, 5), (1, 5)],
-    "II.38.3": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "II.4.23": [(1, 5), (1, 5), (1, 5)],
-    "II.6.11": [(1, 3), (1, 3), (1, 3), (1, 3)],
-    "II.6.15a": [(1, 3), (1, 3), (1, 3), (1, 3), (1, 3), (1, 3)],
-    "II.6.15b": [(1, 3), (1, 3), (1, 3), (1, 3)],
-    "II.8.31": [(1, 5), (1, 5)],
-    "II.8.7": [(1, 5), (1, 5), (1, 5)],
-    "III.10.19": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "III.12.43": [(1, 5), (1, 5)],
-    "III.13.18": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "III.14.14": [(1, 5), (1, 2), (1, 2), (1, 2), (1, 2)],
-    "III.15.12": [(1, 5), (1, 5), (1, 5)],
-    "III.15.14": [(1, 5), (1, 5), (1, 5)],
-    "III.15.27": [(1, 5), (1, 5), (1, 5)],
-    "III.17.37": [(1, 5), (1, 5), (1, 5)],
-    "III.19.51": [(1, 5), (1, 5), (1, 5), (1, 5), (1, 5)],
-    "III.21.20": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "III.4.32": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "III.4.33": [(1, 5), (1, 5), (1, 5), (1, 5)],
-    "III.7.38": [(1, 5), (1, 5), (1, 5)],
-    "III.8.54": [(1, 2), (1, 2), (1, 4)],
-    "III.9.52": [(1, 3), (1, 3), (1, 3), (1, 3), (1, 5), (1, 5)],
-}
 
 
 class Feynman(SR_benchmark):
@@ -123,7 +20,8 @@ class Feynman(SR_benchmark):
 
     Contains 100 physics equations with up to 9 variables. Data is downloaded on first use from
     the SymbolicRegressionToolkit repository (10,000 samples per dataset instead of the original
-    1,000,000 from the paper).
+    1,000,000 from the paper). If the download fails, data is generated from the stored per-variable
+    samplers using ``n_samples`` points and the given ``seed``.
 
     References:
         [Udrescu & Tegmark (2020)][cite-feynman]
@@ -132,24 +30,33 @@ class Feynman(SR_benchmark):
         >>> benchmark = Feynman()
         >>> len(benchmark.list_datasets(verbose=False))
         100
-        >>> X, y = benchmark.resample('I.16.6', n=500, seed=0)
-        >>> X.shape
-        (500, 3)
-        >>> y.shape
-        (500,)
 
     Args:
         dataset_directory: Directory where dataset files are stored or will be downloaded to.
             Defaults to the platform-appropriate user data directory (e.g. ``~/.local/share/SRToolkit/feynman`` on Linux).
+        n_samples: Number of samples to generate per dataset when falling back to sampler-based
+            data generation (i.e. when the download fails or ``force_generate=True``). Defaults to ``10000``.
+        seed: Random seed used for sampler-based data generation. Defaults to ``42``.
+        force_generate: If ``True``, skip downloading/loading pre-generated data and always
+            generate fresh data from samplers. Defaults to ``False``.
     """
 
-    def __init__(self, dataset_directory: str = os.path.join(user_data_dir("SRToolkit"), "feynman")):
+    def __init__(
+        self,
+        dataset_directory: str = os.path.join(user_data_dir("SRToolkit"), "feynman"),
+        n_samples: int = 10000,
+        seed: Optional[int] = 42,
+        force_generate: bool = False,
+    ):
         super().__init__("feynman", dataset_directory)
+        self._n_samples = n_samples
+        self._seed = seed
+        self._force_generate = force_generate
         self._populate()
 
     def _populate(self):
         # fmt: off
-        seed = None
+        seed = self._seed
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
 
         self.metadata = {
@@ -168,7 +75,14 @@ class Feynman(SR_benchmark):
 """,
         }
 
-        download_benchmark_data(url, self.base_dir)
+        if not self._force_generate:
+            try:
+                download_benchmark_data(url, self.base_dir)
+            except Exception as e:
+                warnings.warn(
+                    f"[Feynman] Could not download benchmark data ({e}). "
+                    "Data will be generated from samplers on first access."
+                )
 
         sl_1v = SymbolLibrary.from_symbol_list(
             ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "arcsin", "tanh", "ln", "^2", "^3", "pi", "C"], 1
@@ -208,6 +122,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -222,6 +139,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -236,6 +156,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -250,6 +173,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -264,6 +190,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(5, 10, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 20, uses_negative=False), UniformSampling(1, 2, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -278,6 +207,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -292,6 +224,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 4, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 4, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 4, uses_negative=False), UniformSampling(1, 2, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -306,6 +241,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(3, 10, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -320,6 +258,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -334,6 +275,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(2, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -348,6 +292,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -362,6 +309,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -376,6 +326,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -390,6 +343,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -404,6 +360,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -418,6 +377,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -432,6 +394,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 10, uses_negative=False), UniformSampling(1, 10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -446,6 +411,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -460,6 +428,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -474,6 +445,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -488,6 +462,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -502,6 +479,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -516,6 +496,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -530,6 +513,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -544,6 +530,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -558,6 +547,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -572,6 +564,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -586,6 +581,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -600,6 +598,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -614,6 +615,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -628,6 +632,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -642,6 +649,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -656,6 +666,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -670,6 +683,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(2, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -684,6 +700,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(0, 1, uses_negative=False), UniformSampling(0, 1, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -698,6 +717,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -712,6 +734,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(4, 6, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(2, 4, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -726,6 +751,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -740,6 +768,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -754,6 +785,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -768,6 +802,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -782,6 +819,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -796,6 +836,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -810,6 +853,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -824,6 +870,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -838,6 +887,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -852,6 +904,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -866,6 +921,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -880,6 +938,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -894,6 +955,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -908,6 +972,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -922,6 +989,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -936,6 +1006,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -950,6 +1023,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -964,6 +1040,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -978,6 +1057,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -992,6 +1074,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1006,6 +1091,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1020,6 +1108,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1034,6 +1125,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1048,6 +1142,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1062,6 +1159,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(3, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1076,6 +1176,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1090,6 +1193,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1104,6 +1210,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1118,6 +1227,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1132,6 +1244,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 2, uses_negative=False), UniformSampling(2, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1146,6 +1261,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1160,6 +1278,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1174,6 +1295,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1188,6 +1312,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1202,6 +1329,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1216,6 +1346,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1230,6 +1363,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1244,6 +1380,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(3, 10, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1258,6 +1397,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 4, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1272,6 +1414,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(0, 1, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1286,6 +1431,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1300,6 +1448,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1314,6 +1465,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(3, 10, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1328,6 +1482,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(0, 1, uses_negative=False), UniformSampling(0, 1, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1342,6 +1499,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1356,6 +1516,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1370,6 +1533,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1384,6 +1550,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1398,6 +1567,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1412,6 +1584,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1426,6 +1601,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(1, 2, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1440,6 +1618,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(0, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1454,6 +1635,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1468,6 +1652,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 2, uses_negative=False), UniformSampling(3, 10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1482,6 +1669,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1496,6 +1686,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1510,6 +1703,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1524,6 +1720,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False), UniformSampling(1, 3, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1538,6 +1737,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1552,6 +1754,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1566,6 +1771,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1580,6 +1788,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
             "",
@@ -1594,42 +1805,9 @@ class Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             seed=seed,
+            samplers=[UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False), UniformSampling(1, 5, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
     # fmt: on
-
-    def resample(self, dataset_name: str, n: int, seed: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Generate fresh data for a dataset by sampling new inputs and evaluating the ground truth.
-
-        Variable bounds are taken from ``_BOUNDS``.
-
-        Examples:
-            >>> benchmark = Feynman()
-            >>> X, y = benchmark.resample('I.16.6', n=200, seed=42)
-            >>> X.shape
-            (200, 3)
-
-        Args:
-            dataset_name: Name of the dataset to resample.
-            n: Number of new samples to generate.
-            seed: Random seed for reproducibility.
-
-        Returns:
-            A tuple ``(X, y)`` of numpy arrays with shapes ``(n, n_vars)`` and ``(n,)``.
-
-        Raises:
-            ValueError: If the dataset has no ground truth expression.
-        """
-        info = self.datasets[dataset_name]
-        if info.get("ground_truth") is None:
-            raise ValueError(f"Dataset '{dataset_name}' has no ground truth expression — cannot compute y.")
-        bounds = _BOUNDS[dataset_name]
-        lb = np.array([b[0] for b in bounds], dtype=float)
-        ub = np.array([b[1] for b in bounds], dtype=float)
-        rng = np.random.default_rng(seed)
-        X_new = rng.uniform(lb, ub, size=(n, len(bounds)))
-        sl = SymbolLibrary.from_dict(info["symbol_library"])
-        f = expr_to_executable_function(info["ground_truth"], sl)
-        y_new = f(X_new, np.array([]))
-        return X_new, y_new

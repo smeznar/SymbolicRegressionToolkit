@@ -3,15 +3,14 @@ SRSD Feynman symbolic regression benchmark.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Tuple
+import warnings
+from typing import Optional
 
-import numpy as np
 from platformdirs import user_data_dir
 
-from SRToolkit.dataset.sampling import DefaultSampling, IntegerSampling, SimpleSampling
-from SRToolkit.utils.expression_compiler import expr_to_executable_function
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
+from .sampling import IntegerUniformSampling, LogUniformSampling, UniformSampling
 from .sr_benchmark import SR_benchmark, download_benchmark_data
 
 _SYMBOL_LIST = [
@@ -36,560 +35,6 @@ _SYMBOL_LIST = [
 ]
 
 
-_SAMPLING_OBJS: Dict[str, List[Any]] = {
-    "SRSD I.6.20": [DefaultSampling(0.1, 10.0), DefaultSampling(0.1, 10.0, uses_negative=False)],
-    "SRSD I.6.20a": [DefaultSampling(0.1, 10.0)],
-    "SRSD I.6.20b": [
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-    ],
-    "SRSD I.8.14": [
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-    ],
-    "SRSD I.9.18": [
-        DefaultSampling(1.0, 1000.0, uses_negative=False),
-        DefaultSampling(1.0, 1000.0, uses_negative=False),
-        DefaultSampling(1.0, 10.0),
-        DefaultSampling(1.0, 10.0),
-        DefaultSampling(1.0, 10.0),
-        DefaultSampling(1.0, 10.0),
-        DefaultSampling(1.0, 10.0),
-        DefaultSampling(1.0, 10.0),
-    ],
-    "SRSD I.10.7": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(100000.0, 100000000.0, uses_negative=False),
-    ],
-    "SRSD I.11.19": [
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-    ],
-    "SRSD I.12.1": [DefaultSampling(0.01, 1.0, uses_negative=False), DefaultSampling(0.01, 1.0, uses_negative=False)],
-    "SRSD I.12.2": [
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-    ],
-    "SRSD I.12.4": [DefaultSampling(0.1, 10.0), DefaultSampling(0.1, 10.0, uses_negative=False)],
-    "SRSD I.12.5": [DefaultSampling(0.1, 10.0), DefaultSampling(0.1, 10.0)],
-    "SRSD I.12.11": [
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        SimpleSampling(0.0, 1.5707963267948966, uses_negative=False),
-    ],
-    "SRSD I.13.4": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-    ],
-    "SRSD I.13.12": [
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-    ],
-    "SRSD I.14.3": [DefaultSampling(0.01, 1.0, uses_negative=False), DefaultSampling(0.01, 1.0)],
-    "SRSD I.14.4": [DefaultSampling(100.0, 10000.0, uses_negative=False), DefaultSampling(0.01, 1.0)],
-    "SRSD I.15.10": [DefaultSampling(0.01, 1.0, uses_negative=False), DefaultSampling(100000.0, 10000000.0)],
-    "SRSD I.15.3t": [
-        DefaultSampling(1e-06, 0.0001, uses_negative=False),
-        DefaultSampling(100000.0, 10000000.0),
-        DefaultSampling(1.0, 100.0),
-    ],
-    "SRSD I.15.3x": [
-        DefaultSampling(1.0, 100.0),
-        DefaultSampling(1000000.0, 100000000.0),
-        DefaultSampling(1e-06, 0.0001, uses_negative=False),
-    ],
-    "SRSD I.16.6": [DefaultSampling(1000000.0, 100000000.0), DefaultSampling(1000000.0, 100000000.0)],
-    "SRSD I.18.4": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0),
-    ],
-    "SRSD I.18.12": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD I.18.16": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD I.24.6": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.1, 10.0),
-    ],
-    "SRSD I.25.13": [DefaultSampling(1e-05, 0.001), DefaultSampling(1e-05, 0.001, uses_negative=False)],
-    "SRSD I.26.2": [
-        SimpleSampling(0, 1.5707963267948966, uses_negative=False),
-        SimpleSampling(0, 1.5707963267948966, uses_negative=False),
-    ],
-    "SRSD I.27.6": [
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-    ],
-    "SRSD I.29.4": [DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False)],
-    "SRSD I.29.16": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD I.30.3": [
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-        IntegerSampling(10, 1000, uses_negative=False),
-        SimpleSampling(-6.283185307179586, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD I.30.5": [
-        DefaultSampling(1e-11, 1e-09, uses_negative=False),
-        IntegerSampling(1, 100, uses_negative=False),
-        SimpleSampling(0, 1.5707963267948966, uses_negative=False),
-    ],
-    "SRSD I.32.5": [DefaultSampling(0.001, 0.1), DefaultSampling(100000.0, 10000000.0, uses_negative=False)],
-    "SRSD I.32.17": [
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(1000000000.0, 100000000000.0),
-        DefaultSampling(1000000000.0, 100000000000.0),
-    ],
-    "SRSD I.34.10": [
-        DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False),
-        DefaultSampling(100000.0, 10000000.0),
-    ],
-    "SRSD I.34.8": [
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(100000.0, 10000000.0),
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(1000000000.0, 100000000000.0),
-    ],
-    "SRSD I.34.14": [
-        DefaultSampling(1000000.0, 100000000.0),
-        DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False),
-    ],
-    "SRSD I.34.27": [DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False)],
-    "SRSD I.37.4": [
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD I.38.12": [
-        DefaultSampling(1e-28, 1e-26, uses_negative=False),
-        DefaultSampling(1e-11, 1e-09, uses_negative=False),
-    ],
-    "SRSD I.39.10": [
-        DefaultSampling(10000.0, 1000000.0, uses_negative=False),
-        DefaultSampling(1e-05, 0.001, uses_negative=False),
-    ],
-    "SRSD I.39.11": [
-        SimpleSampling(1, 2, uses_negative=False),
-        DefaultSampling(10000.0, 1000000.0, uses_negative=False),
-        DefaultSampling(1e-05, 0.001, uses_negative=False),
-    ],
-    "SRSD I.39.22": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-        DefaultSampling(1e-05, 0.001, uses_negative=False),
-    ],
-    "SRSD I.40.1": [
-        DefaultSampling(1e25, 1e27, uses_negative=False),
-        DefaultSampling(1e-24, 1e-22, uses_negative=False),
-        DefaultSampling(0.01, 1.0),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD I.41.16": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD I.43.16": [
-        DefaultSampling(1e-06, 0.0001),
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-    ],
-    "SRSD I.43.31": [
-        DefaultSampling(10000000000000.0, 1000000000000000.0, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD I.43.43": [
-        SimpleSampling(1, 2, uses_negative=False),
-        DefaultSampling(100.0, 10000.0, uses_negative=False),
-        DefaultSampling(1e-21, 1e-19, uses_negative=False),
-    ],
-    "SRSD I.44.4": [
-        DefaultSampling(1e25, 1e27, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-        DefaultSampling(1e-05, 0.001, uses_negative=False),
-        DefaultSampling(1e-05, 0.001, uses_negative=False),
-    ],
-    "SRSD I.47.23": [
-        SimpleSampling(1, 2, uses_negative=False),
-        SimpleSampling(5e-06, 1.5e-05, uses_negative=False),
-        SimpleSampling(1, 2, uses_negative=False),
-    ],
-    "SRSD I.48.2": [
-        DefaultSampling(1e-29, 1e-27, uses_negative=False),
-        DefaultSampling(1000000.0, 100000000.0, uses_negative=False),
-    ],
-    "SRSD I.50.26": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-        DefaultSampling(0.001, 0.1),
-    ],
-    "SRSD II.2.42": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-        DefaultSampling(0.0001, 0.01, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-    ],
-    "SRSD II.3.24": [DefaultSampling(1.0, 100.0), DefaultSampling(0.01, 1.0, uses_negative=False)],
-    "SRSD II.4.23": [DefaultSampling(0.001, 0.1), DefaultSampling(0.01, 1.0, uses_negative=False)],
-    "SRSD II.6.11": [
-        DefaultSampling(1e-22, 1e-20),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-    ],
-    "SRSD II.6.15a": [
-        DefaultSampling(1e-22, 1e-20),
-        DefaultSampling(1e-10, 1e-08),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-        DefaultSampling(1e-10, 1e-08),
-        DefaultSampling(1e-10, 1e-08),
-    ],
-    "SRSD II.6.15b": [
-        DefaultSampling(1e-22, 1e-20),
-        SimpleSampling(0, 3.141592653589793, uses_negative=False),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-    ],
-    "SRSD II.8.7": [DefaultSampling(1e-11, 1e-09), DefaultSampling(1e-12, 1e-10, uses_negative=False)],
-    "SRSD II.8.31": [DefaultSampling(10.0, 1000.0, uses_negative=False)],
-    "SRSD II.10.9": [DefaultSampling(0.001, 0.1), DefaultSampling(1.0, 100.0, uses_negative=False)],
-    "SRSD II.11.3": [
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(1e-09, 1e-07, uses_negative=False),
-        DefaultSampling(1e-28, 1e-26, uses_negative=False),
-        DefaultSampling(1000000000.0, 100000000000.0),
-        DefaultSampling(1000000000.0, 100000000000.0),
-    ],
-    "SRSD II.11.17": [
-        DefaultSampling(1e27, 1e29, uses_negative=False),
-        DefaultSampling(1e-22, 1e-20),
-        DefaultSampling(10.0, 1000.0),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD II.11.20": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e-22, 1e-20),
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD II.11.27": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e-33, 1e-31, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD II.11.28": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e-33, 1e-31, uses_negative=False),
-    ],
-    "SRSD II.13.17": [DefaultSampling(0.001, 0.1), DefaultSampling(0.001, 0.1, uses_negative=False)],
-    "SRSD II.13.23": [
-        DefaultSampling(1e27, 1e29, uses_negative=False),
-        DefaultSampling(1000000.0, 100000000.0, uses_negative=False),
-    ],
-    "SRSD II.13.34": [
-        DefaultSampling(1e27, 1e29, uses_negative=False),
-        DefaultSampling(1000000.0, 100000000.0, uses_negative=False),
-    ],
-    "SRSD II.15.4": [
-        DefaultSampling(1e-25, 1e-23),
-        DefaultSampling(0.001, 0.1),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD II.15.5": [
-        DefaultSampling(1e-22, 1e-20),
-        DefaultSampling(10.0, 1000.0),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD II.21.32": [
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(1.0, 100.0, uses_negative=False),
-        DefaultSampling(1000000.0, 100000000.0, uses_negative=False),
-    ],
-    "SRSD II.24.17": [DefaultSampling(1000000000.0, 100000000000.0), DefaultSampling(0.001, 0.1, uses_negative=False)],
-    "SRSD II.27.16": [DefaultSampling(0.1, 10.0, uses_negative=False)],
-    "SRSD II.27.18": [DefaultSampling(0.1, 10.0, uses_negative=False)],
-    "SRSD II.34.2a": [
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(100000.0, 10000000.0),
-        DefaultSampling(1e-11, 1e-09, uses_negative=False),
-    ],
-    "SRSD II.34.2": [
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(100000.0, 10000000.0),
-        DefaultSampling(1e-11, 1e-09, uses_negative=False),
-    ],
-    "SRSD II.34.11": [
-        SimpleSampling(-1.0, 1.0, uses_negative=False),
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(1e-09, 1e-07),
-        DefaultSampling(1e-30, 1e-28, uses_negative=False),
-    ],
-    "SRSD II.34.29a": [DefaultSampling(1e-11, 1e-09), DefaultSampling(1e-30, 1e-28, uses_negative=False)],
-    "SRSD II.34.29b": [
-        SimpleSampling(-1.0, 1.0, uses_negative=False),
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(1e-26, 1e-22),
-    ],
-    "SRSD II.35.18": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e-25, 1e-23, uses_negative=False),
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD II.35.21": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e-25, 1e-23, uses_negative=False),
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD II.36.38": [
-        DefaultSampling(1e-25, 1e-23),
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-        SimpleSampling(0, 1, uses_negative=False),
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-    ],
-    "SRSD II.37.1": [DefaultSampling(1e-25, 1e-23), DefaultSampling(10000.0, 1000000.0), DefaultSampling(0.001, 0.1)],
-    "SRSD II.38.3": [
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(0.0001, 0.01, uses_negative=False),
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-    ],
-    "SRSD II.38.14": [DefaultSampling(0.1, 10.0, uses_negative=False), DefaultSampling(0.01, 1.0, uses_negative=False)],
-    "SRSD III.4.32": [
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD III.4.33": [
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD III.7.38": [DefaultSampling(1e-11, 1e-09), DefaultSampling(0.001, 0.1)],
-    "SRSD III.8.54": [DefaultSampling(1e-18, 1e-16), DefaultSampling(1e-18, 1e-16, uses_negative=False)],
-    "SRSD III.9.52": [
-        DefaultSampling(1e-22, 1e-20),
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(1e-18, 1e-16, uses_negative=False),
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-    ],
-    "SRSD III.10.19": [
-        DefaultSampling(1e-25, 1e-23),
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(0.001, 0.1),
-    ],
-    "SRSD III.12.43": [IntegerSampling(1, 100, uses_negative=False)],
-    "SRSD III.13.18": [
-        DefaultSampling(1e-18, 1e-16),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-    ],
-    "SRSD III.14.14": [
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(1e-22, 1e-20, uses_negative=False),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(10.0, 1000.0, uses_negative=False),
-    ],
-    "SRSD III.15.12": [
-        DefaultSampling(1e-18, 1e-16, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-    ],
-    "SRSD III.15.14": [
-        DefaultSampling(1e-18, 1e-16, uses_negative=False),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-    ],
-    "SRSD III.15.27": [
-        IntegerSampling(1, 100),
-        IntegerSampling(1, 100, uses_negative=False),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-    ],
-    "SRSD III.17.37": [
-        DefaultSampling(1e-18, 1e-16, uses_negative=False),
-        DefaultSampling(1e-18, 1e-16),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD III.19.51": [
-        DefaultSampling(1e-30, 1e-28, uses_negative=False),
-        DefaultSampling(1e-11, 1e-09),
-        IntegerSampling(1, 100, uses_negative=False),
-    ],
-    "SRSD III.21.20": [
-        DefaultSampling(1e-29, 1e-27, uses_positive=False),
-        DefaultSampling(1e-11, 1e-09, uses_positive=False),
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(1e-30, 1e-28, uses_negative=False),
-    ],
-    "SRSD Bonus 1": [
-        IntegerSampling(1, 10, uses_negative=False),
-        IntegerSampling(1, 10, uses_negative=False),
-        DefaultSampling(1e-18, 1e-16, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD Bonus 2": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False),
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        DefaultSampling(1e25, 1e27, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD Bonus 3": [
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        SimpleSampling(0.0, 1.0, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD Bonus 4": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e25, 1e27, uses_negative=False),
-        DefaultSampling(1e25, 1e27, uses_negative=False),
-        DefaultSampling(100000000.0, 10000000000.0),
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-    ],
-    "SRSD Bonus 5": [
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-    ],
-    "SRSD Bonus 6": [
-        DefaultSampling(1e-18, 1e-16),
-        DefaultSampling(1e-18, 1e-16, uses_negative=False),
-        DefaultSampling(1e-10, 1e-08, uses_negative=False),
-        DefaultSampling(1e-30, 1e-28, uses_negative=False),
-        IntegerSampling(1, 10, uses_negative=False),
-        IntegerSampling(1, 10, uses_negative=False),
-        DefaultSampling(1e-11, 1e-09),
-    ],
-    "SRSD Bonus 7": [
-        DefaultSampling(1e-28, 1e-26, uses_negative=False),
-        IntegerSampling(-1, 2),
-        DefaultSampling(1e25, 1e27, uses_negative=False),
-    ],
-    "SRSD Bonus 8": [
-        DefaultSampling(1e-24, 1e-22, uses_negative=False),
-        SimpleSampling(-3.141592653589793, 3.141592653589793),
-    ],
-    "SRSD Bonus 9": [
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(1e23, 1e25, uses_negative=False),
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-    ],
-    "SRSD Bonus 10": [
-        SimpleSampling(0, 3.141592653589793, uses_negative=False),
-        DefaultSampling(1000000.0, 100000000.0),
-    ],
-    "SRSD Bonus 11": [
-        DefaultSampling(0.001, 0.1, uses_negative=False),
-        DefaultSampling(1e-11, 1e-09, uses_negative=False),
-        IntegerSampling(1, 100, uses_negative=False),
-        DefaultSampling(1e-11, 1e-09, uses_negative=False),
-    ],
-    "SRSD Bonus 12": [
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(1e-12, 1e-10, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-    ],
-    "SRSD Bonus 13": [
-        DefaultSampling(1e-12, 1e-10, uses_negative=False),
-        DefaultSampling(0.001, 0.1),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        SimpleSampling(0, 3.141592653589793, uses_negative=False),
-    ],
-    "SRSD Bonus 14": [
-        DefaultSampling(10.0, 1000.0),
-        SimpleSampling(0, 3.141592653589793, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(0.01, 1.0, uses_negative=False),
-        DefaultSampling(0.1, 10.0, uses_negative=False),
-    ],
-    "SRSD Bonus 15": [
-        DefaultSampling(100000.0, 10000000.0, uses_negative=False),
-        DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-    "SRSD Bonus 16": [
-        DefaultSampling(1e-09, 1e-07),
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(1e-30, 1e-28, uses_negative=False),
-        DefaultSampling(0.1, 10.0),
-    ],
-    "SRSD Bonus 17": [
-        DefaultSampling(1e-30, 1e-28, uses_negative=False),
-        DefaultSampling(1e-09, 1e-07),
-        DefaultSampling(1000000000.0, 100000000000.0),
-        DefaultSampling(1e-11, 1e-09),
-        DefaultSampling(0.1, 10.0),
-        DefaultSampling(1e-11, 1e-09, uses_negative=False),
-    ],
-    "SRSD Bonus 18": [
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        DefaultSampling(1.0, 100.0),
-    ],
-    "SRSD Bonus 19": [
-        DefaultSampling(10.0, 1000.0),
-        DefaultSampling(100000000.0, 10000000000.0, uses_negative=False),
-        DefaultSampling(1.0, 100.0, uses_negative=False),
-        SimpleSampling(-10, 10),
-    ],
-    "SRSD Bonus 20": [
-        DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False),
-        DefaultSampling(1000000000.0, 100000000000.0, uses_negative=False),
-        SimpleSampling(0, 6.283185307179586, uses_negative=False),
-    ],
-}
-
-
-def _load_or_sample(base_dir: str, dataset_name: str, n_samples: int, seed: Optional[int]) -> object:
-    """Return empty string if .npz exists, else return a sampled X array."""
-    npz_path = os.path.join(base_dir, f"{dataset_name}.npz")
-    if os.path.exists(npz_path):
-        return ""
-    samplers = _SAMPLING_OBJS[dataset_name]
-    if seed is not None:
-        np.random.seed(seed)
-    X_cols = [sampler(n_samples) for sampler in samplers]
-    return np.column_stack(X_cols)
-
-
 class SRSD_Feynman(SR_benchmark):
     """
     The SRSD Feynman symbolic regression benchmark.
@@ -609,8 +54,11 @@ class SRSD_Feynman(SR_benchmark):
     Args:
         dataset_directory: Directory where dataset files are stored or will be generated.
             Defaults to the platform-appropriate user data directory.
-        n_samples: Number of samples to generate per dataset on first creation.
+        n_samples: Number of samples to generate per dataset on first creation or when
+            ``force_generate=True``.
         seed: Random seed used for data generation.
+        force_generate: If ``True``, skip downloading/loading pre-generated data and always
+            generate fresh data from samplers. Defaults to ``False``.
     """
 
     GRAVITATIONAL_CONSTANT = 6.67430e-11
@@ -629,10 +77,12 @@ class SRSD_Feynman(SR_benchmark):
         dataset_directory: str = os.path.join(user_data_dir("SRToolkit"), "srsd_feynman"),
         n_samples: int = 10000,
         seed: Optional[int] = 42,
+        force_generate: bool = False,
     ):
         super().__init__("SRSD_Feynman", dataset_directory)
         self._n_samples = n_samples
         self._seed = seed
+        self._force_generate = force_generate
         self._populate()
 
     def _populate(self):
@@ -655,7 +105,14 @@ class SRSD_Feynman(SR_benchmark):
 """,
         }
 
-        download_benchmark_data(url, self.base_dir)
+        if not self._force_generate:
+            try:
+                download_benchmark_data(url, self.base_dir)
+            except Exception as e:
+                warnings.warn(
+                    f"[SRSD_Feynman] Could not download benchmark data ({e}). "
+                    "Data will be generated from samplers on first access."
+                )
 
         sl_1v = SymbolLibrary.from_symbol_list(_SYMBOL_LIST, 1)
         sl_2v = SymbolLibrary.from_symbol_list(_SYMBOL_LIST, 2)
@@ -667,7 +124,7 @@ class SRSD_Feynman(SR_benchmark):
         sl_8v = SymbolLibrary.from_symbol_list(_SYMBOL_LIST, 8)
 
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.6.20", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.6.20",
             ranking_function="rmse",
@@ -679,9 +136,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.1, 10.0), LogUniformSampling(0.1, 10.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.6.20a", self._n_samples, self._seed),
+            "",
             sl_1v,
             dataset_name="SRSD I.6.20a",
             ranking_function="rmse",
@@ -693,9 +153,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.1, 10.0)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.6.20b", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.6.20b",
             ranking_function="rmse",
@@ -707,9 +170,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.8.14", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.8.14",
             ranking_function="rmse",
@@ -721,9 +191,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.9.18", self._n_samples, self._seed),
+            "",
             sl_8v,
             dataset_name="SRSD I.9.18",
             ranking_function="rmse",
@@ -735,9 +213,21 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1.0, 1000.0, uses_negative=False),
+        LogUniformSampling(1.0, 1000.0, uses_negative=False),
+        LogUniformSampling(1.0, 10.0),
+        LogUniformSampling(1.0, 10.0),
+        LogUniformSampling(1.0, 10.0),
+        LogUniformSampling(1.0, 10.0),
+        LogUniformSampling(1.0, 10.0),
+        LogUniformSampling(1.0, 10.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.10.7", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.10.7",
             ranking_function="rmse",
@@ -749,9 +239,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(100000.0, 100000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.11.19", self._n_samples, self._seed),
+            "",
             sl_6v,
             dataset_name="SRSD I.11.19",
             ranking_function="rmse",
@@ -763,9 +259,19 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.12.1", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.12.1",
             ranking_function="rmse",
@@ -777,9 +283,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.01, 1.0, uses_negative=False), LogUniformSampling(0.01, 1.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.12.2", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.12.2",
             ranking_function="rmse",
@@ -791,9 +300,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5, 5),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.12.4", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.12.4",
             ranking_function="rmse",
@@ -805,9 +321,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5, 5),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.1, 10.0), LogUniformSampling(0.1, 10.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.12.5", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.12.5",
             ranking_function="rmse",
@@ -819,9 +338,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.1, 10.0), LogUniformSampling(0.1, 10.0)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.12.11", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD I.12.11",
             ranking_function="rmse",
@@ -833,9 +355,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        UniformSampling(0.0, 1.5707963267948966, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.13.4", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.13.4",
             ranking_function="rmse",
@@ -847,9 +378,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.13.12", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.13.12",
             ranking_function="rmse",
@@ -861,9 +400,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.14.3", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.14.3",
             ranking_function="rmse",
@@ -875,9 +422,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-10.0, 10.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.01, 1.0, uses_negative=False), LogUniformSampling(0.01, 1.0)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.14.4", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.14.4",
             ranking_function="rmse",
@@ -889,9 +439,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(100.0, 10000.0, uses_negative=False), LogUniformSampling(0.01, 1.0)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.15.10", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.15.10",
             ranking_function="rmse",
@@ -903,9 +456,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.01, 1.0, uses_negative=False), LogUniformSampling(100000.0, 10000000.0)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.15.3t", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.15.3t",
             ranking_function="rmse",
@@ -917,9 +473,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-06, 0.0001, uses_negative=False),
+        LogUniformSampling(100000.0, 10000000.0),
+        LogUniformSampling(1.0, 100.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.15.3x", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.15.3x",
             ranking_function="rmse",
@@ -931,9 +494,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1.0, 100.0),
+        LogUniformSampling(1000000.0, 100000000.0),
+        LogUniformSampling(1e-06, 0.0001, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.16.6", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.16.6",
             ranking_function="rmse",
@@ -945,9 +515,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1000000.0, 100000000.0), LogUniformSampling(1000000.0, 100000000.0)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.18.4", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.18.4",
             ranking_function="rmse",
@@ -959,9 +532,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.18.12", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.18.12",
             ranking_function="rmse",
@@ -973,9 +554,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.18.16", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.18.16",
             ranking_function="rmse",
@@ -987,9 +575,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.24.6", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.24.6",
             ranking_function="rmse",
@@ -1001,9 +597,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.1, 10.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.25.13", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.25.13",
             ranking_function="rmse",
@@ -1015,9 +619,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1e-05, 0.001), LogUniformSampling(1e-05, 0.001, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.26.2", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.26.2",
             ranking_function="rmse",
@@ -1029,9 +636,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        UniformSampling(0, 1.5707963267948966, uses_negative=False),
+        UniformSampling(0, 1.5707963267948966, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.27.6", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.27.6",
             ranking_function="rmse",
@@ -1043,9 +656,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.29.4", self._n_samples, self._seed),
+            "",
             sl_1v,
             dataset_name="SRSD I.29.4",
             ranking_function="rmse",
@@ -1057,9 +677,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.29.16", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.29.16",
             ranking_function="rmse",
@@ -1071,9 +694,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.30.3", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.30.3",
             ranking_function="rmse",
@@ -1085,9 +716,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+        IntegerUniformSampling(10, 1000, uses_negative=False),
+        UniformSampling(-6.283185307179586, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.30.5", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.30.5",
             ranking_function="rmse",
@@ -1099,9 +737,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-11, 1e-09, uses_negative=False),
+        IntegerUniformSampling(1, 100, uses_negative=False),
+        UniformSampling(0, 1.5707963267948966, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.32.5", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.32.5",
             ranking_function="rmse",
@@ -1113,9 +758,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.001, 0.1), LogUniformSampling(100000.0, 10000000.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.32.17", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.32.17",
             ranking_function="rmse",
@@ -1127,9 +775,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-10.0, 10.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(1000000000.0, 100000000000.0),
+        LogUniformSampling(1000000000.0, 100000000000.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.34.10", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.34.10",
             ranking_function="rmse",
@@ -1141,9 +797,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False),
+        LogUniformSampling(100000.0, 10000000.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.34.8", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.34.8",
             ranking_function="rmse",
@@ -1155,9 +817,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(100000.0, 10000000.0),
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(1000000000.0, 100000000000.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.34.14", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.34.14",
             ranking_function="rmse",
@@ -1169,9 +839,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1000000.0, 100000000.0),
+        LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.34.27", self._n_samples, self._seed),
+            "",
             sl_1v,
             dataset_name="SRSD I.34.27",
             ranking_function="rmse",
@@ -1183,9 +859,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.37.4", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.37.4",
             ranking_function="rmse",
@@ -1197,9 +876,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.38.12", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.38.12",
             ranking_function="rmse",
@@ -1211,9 +897,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-28, 1e-26, uses_negative=False),
+        LogUniformSampling(1e-11, 1e-09, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.39.10", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.39.10",
             ranking_function="rmse",
@@ -1225,9 +917,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(10000.0, 1000000.0, uses_negative=False),
+        LogUniformSampling(1e-05, 0.001, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.39.11", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.39.11",
             ranking_function="rmse",
@@ -1239,9 +937,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        UniformSampling(1, 2, uses_negative=False),
+        LogUniformSampling(10000.0, 1000000.0, uses_negative=False),
+        LogUniformSampling(1e-05, 0.001, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.39.22", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.39.22",
             ranking_function="rmse",
@@ -1253,9 +958,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+        LogUniformSampling(1e-05, 0.001, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.40.1", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.40.1",
             ranking_function="rmse",
@@ -1267,9 +979,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e25, 1e27, uses_negative=False),
+        LogUniformSampling(1e-24, 1e-22, uses_negative=False),
+        LogUniformSampling(0.01, 1.0),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.41.16", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.41.16",
             ranking_function="rmse",
@@ -1281,9 +1001,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.43.16", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.43.16",
             ranking_function="rmse",
@@ -1295,9 +1021,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-06, 0.0001),
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.43.31", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.43.31",
             ranking_function="rmse",
@@ -1309,9 +1043,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(10000000000000.0, 1000000000000000.0, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.43.43", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.43.43",
             ranking_function="rmse",
@@ -1323,9 +1063,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        UniformSampling(1, 2, uses_negative=False),
+        LogUniformSampling(100.0, 10000.0, uses_negative=False),
+        LogUniformSampling(1e-21, 1e-19, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.44.4", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.44.4",
             ranking_function="rmse",
@@ -1337,9 +1084,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e25, 1e27, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+        LogUniformSampling(1e-05, 0.001, uses_negative=False),
+        LogUniformSampling(1e-05, 0.001, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.47.23", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD I.47.23",
             ranking_function="rmse",
@@ -1351,9 +1106,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        UniformSampling(1, 2, uses_negative=False),
+        UniformSampling(5e-06, 1.5e-05, uses_negative=False),
+        UniformSampling(1, 2, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.48.2", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD I.48.2",
             ranking_function="rmse",
@@ -1365,9 +1127,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5, 5),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-29, 1e-27, uses_negative=False),
+        LogUniformSampling(1000000.0, 100000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD I.50.26", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD I.50.26",
             ranking_function="rmse",
@@ -1379,9 +1147,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+        LogUniformSampling(0.001, 0.1),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.2.42", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD II.2.42",
             ranking_function="rmse",
@@ -1393,9 +1169,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+        LogUniformSampling(0.0001, 0.01, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.3.24", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.3.24",
             ranking_function="rmse",
@@ -1407,9 +1192,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1.0, 100.0), LogUniformSampling(0.01, 1.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.4.23", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.4.23",
             ranking_function="rmse",
@@ -1421,9 +1209,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.001, 0.1), LogUniformSampling(0.01, 1.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.6.11", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.6.11",
             ranking_function="rmse",
@@ -1435,9 +1226,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-22, 1e-20),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.6.15a", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD II.6.15a",
             ranking_function="rmse",
@@ -1449,10 +1247,19 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-22, 1e-20),
+        LogUniformSampling(1e-10, 1e-08),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+        LogUniformSampling(1e-10, 1e-08),
+        LogUniformSampling(1e-10, 1e-08),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.6.15b", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.6.15b",
             ranking_function="rmse",
@@ -1464,10 +1271,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-22, 1e-20),
+        UniformSampling(0, 3.141592653589793, uses_negative=False),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.8.7", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.8.7",
             ranking_function="rmse",
@@ -1479,9 +1293,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1e-11, 1e-09), LogUniformSampling(1e-12, 1e-10, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.8.31", self._n_samples, self._seed),
+            "",
             sl_1v,
             dataset_name="SRSD II.8.31",
             ranking_function="rmse",
@@ -1493,9 +1310,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(10.0, 1000.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.10.9", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.10.9",
             ranking_function="rmse",
@@ -1507,9 +1327,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-1e12, 1e12),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.001, 0.1), LogUniformSampling(1.0, 100.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.11.3", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD II.11.3",
             ranking_function="rmse",
@@ -1521,9 +1344,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(1e-09, 1e-07, uses_negative=False),
+        LogUniformSampling(1e-28, 1e-26, uses_negative=False),
+        LogUniformSampling(1000000000.0, 100000000000.0),
+        LogUniformSampling(1000000000.0, 100000000000.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.11.17", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD II.11.17",
             ranking_function="rmse",
@@ -1535,9 +1367,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e27, 1e29, uses_negative=False),
+        LogUniformSampling(1e-22, 1e-20),
+        LogUniformSampling(10.0, 1000.0),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.11.20", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD II.11.20",
             ranking_function="rmse",
@@ -1549,9 +1390,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e-22, 1e-20),
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.11.27", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.11.27",
             ranking_function="rmse",
@@ -1563,9 +1412,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e-33, 1e-31, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.11.28", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.11.28",
             ranking_function="rmse",
@@ -1577,9 +1433,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e-33, 1e-31, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.13.17", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.13.17",
             ranking_function="rmse",
@@ -1591,9 +1453,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.001, 0.1), LogUniformSampling(0.001, 0.1, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.13.23", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.13.23",
             ranking_function="rmse",
@@ -1605,9 +1470,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e27, 1e29, uses_negative=False),
+        LogUniformSampling(1000000.0, 100000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.13.34", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.13.34",
             ranking_function="rmse",
@@ -1619,9 +1490,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e27, 1e29, uses_negative=False),
+        LogUniformSampling(1000000.0, 100000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.15.4", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.15.4",
             ranking_function="rmse",
@@ -1633,9 +1510,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-25, 1e-23),
+        LogUniformSampling(0.001, 0.1),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.15.5", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.15.5",
             ranking_function="rmse",
@@ -1647,9 +1531,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-22, 1e-20),
+        LogUniformSampling(10.0, 1000.0),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.21.32", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.21.32",
             ranking_function="rmse",
@@ -1661,9 +1552,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(1.0, 100.0, uses_negative=False),
+        LogUniformSampling(1000000.0, 100000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.24.17", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.24.17",
             ranking_function="rmse",
@@ -1675,9 +1573,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1000000000.0, 100000000000.0), LogUniformSampling(0.001, 0.1, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.27.16", self._n_samples, self._seed),
+            "",
             sl_1v,
             dataset_name="SRSD II.27.16",
             ranking_function="rmse",
@@ -1689,9 +1590,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.1, 10.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.27.18", self._n_samples, self._seed),
+            "",
             sl_1v,
             dataset_name="SRSD II.27.18",
             ranking_function="rmse",
@@ -1703,9 +1607,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.1, 10.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.34.2a", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.34.2a",
             ranking_function="rmse",
@@ -1717,9 +1624,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-10.0, 10.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(100000.0, 10000000.0),
+        LogUniformSampling(1e-11, 1e-09, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.34.2", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.34.2",
             ranking_function="rmse",
@@ -1731,9 +1645,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(100000.0, 10000000.0),
+        LogUniformSampling(1e-11, 1e-09, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.34.11", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD II.34.11",
             ranking_function="rmse",
@@ -1745,9 +1666,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        UniformSampling(-1.0, 1.0, uses_negative=False),
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(1e-09, 1e-07),
+        LogUniformSampling(1e-30, 1e-28, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.34.29a", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.34.29a",
             ranking_function="rmse",
@@ -1759,9 +1688,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1e-11, 1e-09), LogUniformSampling(1e-30, 1e-28, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.34.29b", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.34.29b",
             ranking_function="rmse",
@@ -1773,9 +1705,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        UniformSampling(-1.0, 1.0, uses_negative=False),
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(1e-26, 1e-22),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.35.18", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD II.35.18",
             ranking_function="rmse",
@@ -1787,9 +1726,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e-25, 1e-23, uses_negative=False),
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.35.21", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD II.35.21",
             ranking_function="rmse",
@@ -1801,9 +1748,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e-25, 1e-23, uses_negative=False),
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.36.38", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD II.36.38",
             ranking_function="rmse",
@@ -1815,9 +1770,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-25, 1e-23),
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+        UniformSampling(0, 1, uses_negative=False),
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.37.1", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD II.37.1",
             ranking_function="rmse",
@@ -1829,9 +1793,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1e-25, 1e-23), LogUniformSampling(10000.0, 1000000.0), LogUniformSampling(0.001, 0.1)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.38.3", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD II.38.3",
             ranking_function="rmse",
@@ -1843,9 +1810,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(0.0001, 0.01, uses_negative=False),
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD II.38.14", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD II.38.14",
             ranking_function="rmse",
@@ -1857,9 +1832,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[LogUniformSampling(0.1, 10.0, uses_negative=False), LogUniformSampling(0.01, 1.0, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.4.32", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD III.4.32",
             ranking_function="rmse",
@@ -1871,9 +1849,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.4.33", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD III.4.33",
             ranking_function="rmse",
@@ -1885,9 +1869,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.7.38", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD III.7.38",
             ranking_function="rmse",
@@ -1899,9 +1889,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-1e34, 1e34),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1e-11, 1e-09), LogUniformSampling(0.001, 0.1)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.8.54", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD III.8.54",
             ranking_function="rmse",
@@ -1913,10 +1906,13 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-1e34, 1e34),
             max_expr_length=50,
+            samplers=[LogUniformSampling(1e-18, 1e-16), LogUniformSampling(1e-18, 1e-16, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.9.52", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD III.9.52",
             ranking_function="rmse",
@@ -1928,9 +1924,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-22, 1e-20),
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(1e-18, 1e-16, uses_negative=False),
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.10.19", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD III.10.19",
             ranking_function="rmse",
@@ -1942,9 +1947,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-25, 1e-23),
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(0.001, 0.1),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.12.43", self._n_samples, self._seed),
+            "",
             sl_1v,
             dataset_name="SRSD III.12.43",
             ranking_function="rmse",
@@ -1956,9 +1969,12 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[IntegerUniformSampling(1, 100, uses_negative=False)],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.13.18", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD III.13.18",
             ranking_function="rmse",
@@ -1970,9 +1986,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-18, 1e-16),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.14.14", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD III.14.14",
             ranking_function="rmse",
@@ -1984,9 +2007,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(1e-22, 1e-20, uses_negative=False),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(10.0, 1000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.15.12", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD III.15.12",
             ranking_function="rmse",
@@ -1998,9 +2029,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-18, 1e-16, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.15.14", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD III.15.14",
             ranking_function="rmse",
@@ -2012,9 +2050,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-18, 1e-16, uses_negative=False),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.15.27", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD III.15.27",
             ranking_function="rmse",
@@ -2026,9 +2070,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        IntegerUniformSampling(1, 100),
+        IntegerUniformSampling(1, 100, uses_negative=False),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.17.37", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD III.17.37",
             ranking_function="rmse",
@@ -2040,9 +2091,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-18, 1e-16, uses_negative=False),
+        LogUniformSampling(1e-18, 1e-16),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.19.51", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD III.19.51",
             ranking_function="rmse",
@@ -2054,9 +2112,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-30, 1e-28, uses_negative=False),
+        LogUniformSampling(1e-11, 1e-09),
+        IntegerUniformSampling(1, 100, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD III.21.20", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD III.21.20",
             ranking_function="rmse",
@@ -2068,9 +2133,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-29, 1e-27, uses_positive=False),
+        LogUniformSampling(1e-11, 1e-09, uses_positive=False),
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(1e-30, 1e-28, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 1", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD Bonus 1",
             ranking_function="rmse",
@@ -2082,9 +2155,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        IntegerUniformSampling(1, 10, uses_negative=False),
+        IntegerUniformSampling(1, 10, uses_negative=False),
+        LogUniformSampling(1e-18, 1e-16, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 2", self._n_samples, self._seed),
+            "",
             sl_6v,
             dataset_name="SRSD Bonus 2",
             ranking_function="rmse",
@@ -2096,9 +2177,19 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False),
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        LogUniformSampling(1e25, 1e27, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 3", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD Bonus 3",
             ranking_function="rmse",
@@ -2110,9 +2201,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        UniformSampling(0.0, 1.0, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 4", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD Bonus 4",
             ranking_function="rmse",
@@ -2124,9 +2223,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e25, 1e27, uses_negative=False),
+        LogUniformSampling(1e25, 1e27, uses_negative=False),
+        LogUniformSampling(100000000.0, 10000000000.0),
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 5", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD Bonus 5",
             ranking_function="rmse",
@@ -2138,9 +2246,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-10.0, 10.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 6", self._n_samples, self._seed),
+            "",
             sl_7v,
             dataset_name="SRSD Bonus 6",
             ranking_function="rmse",
@@ -2152,9 +2267,20 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-18, 1e-16),
+        LogUniformSampling(1e-18, 1e-16, uses_negative=False),
+        LogUniformSampling(1e-10, 1e-08, uses_negative=False),
+        LogUniformSampling(1e-30, 1e-28, uses_negative=False),
+        IntegerUniformSampling(1, 10, uses_negative=False),
+        IntegerUniformSampling(1, 10, uses_negative=False),
+        LogUniformSampling(1e-11, 1e-09),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 7", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD Bonus 7",
             ranking_function="rmse",
@@ -2166,9 +2292,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-28, 1e-26, uses_negative=False),
+        IntegerUniformSampling(-1, 2),
+        LogUniformSampling(1e25, 1e27, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 8", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD Bonus 8",
             ranking_function="rmse",
@@ -2180,9 +2313,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-24, 1e-22, uses_negative=False),
+        UniformSampling(-3.141592653589793, 3.141592653589793),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 9", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD Bonus 9",
             ranking_function="rmse",
@@ -2194,9 +2333,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(1e23, 1e25, uses_negative=False),
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 10", self._n_samples, self._seed),
+            "",
             sl_2v,
             dataset_name="SRSD Bonus 10",
             ranking_function="rmse",
@@ -2208,9 +2354,15 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        UniformSampling(0, 3.141592653589793, uses_negative=False),
+        LogUniformSampling(1000000.0, 100000000.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 11", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD Bonus 11",
             ranking_function="rmse",
@@ -2222,9 +2374,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.001, 0.1, uses_negative=False),
+        LogUniformSampling(1e-11, 1e-09, uses_negative=False),
+        IntegerUniformSampling(1, 100, uses_negative=False),
+        LogUniformSampling(1e-11, 1e-09, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 12", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD Bonus 12",
             ranking_function="rmse",
@@ -2236,9 +2396,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(1e-12, 1e-10, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 13", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD Bonus 13",
             ranking_function="rmse",
@@ -2250,10 +2419,19 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-12, 1e-10, uses_negative=False),
+        LogUniformSampling(0.001, 0.1),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        UniformSampling(0, 3.141592653589793, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 14", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD Bonus 14",
             ranking_function="rmse",
@@ -2265,9 +2443,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(10.0, 1000.0),
+        UniformSampling(0, 3.141592653589793, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(0.01, 1.0, uses_negative=False),
+        LogUniformSampling(0.1, 10.0, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 15", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD Bonus 15",
             ranking_function="rmse",
@@ -2279,9 +2466,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(100000.0, 10000000.0, uses_negative=False),
+        LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 16", self._n_samples, self._seed),
+            "",
             sl_5v,
             dataset_name="SRSD Bonus 16",
             ranking_function="rmse",
@@ -2293,9 +2487,18 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-09, 1e-07),
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(1e-30, 1e-28, uses_negative=False),
+        LogUniformSampling(0.1, 10.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 17", self._n_samples, self._seed),
+            "",
             sl_6v,
             dataset_name="SRSD Bonus 17",
             ranking_function="rmse",
@@ -2307,9 +2510,19 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1e-30, 1e-28, uses_negative=False),
+        LogUniformSampling(1e-09, 1e-07),
+        LogUniformSampling(1000000000.0, 100000000000.0),
+        LogUniformSampling(1e-11, 1e-09),
+        LogUniformSampling(0.1, 10.0),
+        LogUniformSampling(1e-11, 1e-09, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 18", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD Bonus 18",
             ranking_function="rmse",
@@ -2321,9 +2534,16 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        LogUniformSampling(1.0, 100.0),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 19", self._n_samples, self._seed),
+            "",
             sl_4v,
             dataset_name="SRSD Bonus 19",
             ranking_function="rmse",
@@ -2335,9 +2555,17 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(10.0, 1000.0),
+        LogUniformSampling(100000000.0, 10000000000.0, uses_negative=False),
+        LogUniformSampling(1.0, 100.0, uses_negative=False),
+        UniformSampling(-10, 10),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
         self.add_dataset(
-            _load_or_sample(self.base_dir, "SRSD Bonus 20", self._n_samples, self._seed),
+            "",
             sl_3v,
             dataset_name="SRSD Bonus 20",
             ranking_function="rmse",
@@ -2349,42 +2577,13 @@ class SRSD_Feynman(SR_benchmark):
             dataset_metadata=self.metadata,
             constant_bounds=(-5.0, 5.0),
             max_expr_length=50,
+            samplers=[
+        LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False),
+        LogUniformSampling(1000000000.0, 100000000000.0, uses_negative=False),
+        UniformSampling(0, 6.283185307179586, uses_negative=False),
+    ],
+            n_samples=self._n_samples,
+            force_generate=self._force_generate,
         )
 
     # fmt: on
-
-    def resample(self, dataset_name: str, n: int, seed: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Generate fresh data for a dataset by sampling new inputs and evaluating the ground truth.
-
-        Variable sampling uses the per-variable strategies defined in ``_SAMPLING_OBJS``.
-
-        Examples:
-            >>> benchmark = SRSD_Feynman()
-            >>> X, y = benchmark.resample('SRSD I.8.14', n=200, seed=42)
-            >>> X.shape
-            (200, 4)
-
-        Args:
-            dataset_name: Name of the dataset to resample.
-            n: Number of new samples to generate.
-            seed: Random seed for reproducibility.
-
-        Returns:
-            A tuple ``(X, y)`` of numpy arrays with shapes ``(n, n_vars)`` and ``(n,)``.
-
-        Raises:
-            ValueError: If the dataset has no ground truth expression.
-        """
-        info = self.datasets[dataset_name]
-        if info.get("ground_truth") is None:
-            raise ValueError(f"Dataset '{dataset_name}' has no ground truth expression — cannot compute y.")
-        samplers = _SAMPLING_OBJS[dataset_name]
-        if seed is not None:
-            np.random.seed(seed)
-        X_cols = [sampler(n) for sampler in samplers]
-        X = np.column_stack(X_cols)
-        sl = SymbolLibrary.from_dict(info["symbol_library"])
-        f = expr_to_executable_function(info["ground_truth"], sl)
-        y = f(X, np.array([]))
-        return X, y

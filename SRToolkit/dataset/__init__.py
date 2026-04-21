@@ -14,14 +14,15 @@ Modules:
     nguyen: [Nguyen][SRToolkit.dataset.nguyen.Nguyen] — 10-equation polynomial/trig benchmark.
     srsd_feynman: [SRSD_Feynman][SRToolkit.dataset.srsd_feynman.SRSD_Feynman] — 120-equation
         SRSD physics benchmark with per-variable sampling strategies.
-    sampling: [DefaultSampling][SRToolkit.dataset.sampling.DefaultSampling],
-        [SimpleSampling][SRToolkit.dataset.sampling.SimpleSampling],
-        [IntegerSampling][SRToolkit.dataset.sampling.IntegerSampling] — variable samplers.
+    sampling: [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling],
+        [UniformSampling][SRToolkit.dataset.sampling.UniformSampling],
+        [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] — variable
+        samplers with serialisation support.
 """
 
 from .feynman import Feynman
 from .nguyen import Nguyen
-from .sampling import DefaultSampling, IntegerSampling, SimpleSampling
+from .sampling import IntegerUniformSampling, LogUniformSampling, Sampler, UniformSampling, sampling_from_dict
 from .sr_benchmark import SR_benchmark
 from .sr_dataset import SR_dataset
 from .srsd_feynman import SRSD_Feynman
@@ -32,7 +33,9 @@ __all__ = [
     "Feynman",
     "Nguyen",
     "SRSD_Feynman",
-    "DefaultSampling",
-    "SimpleSampling",
-    "IntegerSampling",
+    "Sampler",
+    "LogUniformSampling",
+    "UniformSampling",
+    "IntegerUniformSampling",
+    "sampling_from_dict",
 ]
