@@ -37,8 +37,10 @@ class ProGED(SR_approach):
 
         Randomly samples expressions from a probabilistic context-free grammar (PCFG) and evaluates
         them using the provided evaluator. The full version of the approach is available at
-        https://github.com/brencej/ProGED; see also Brence et al. (2021),
-        https://doi.org/10.1016/j.knosys.2021.107077.
+        https://github.com/brencej/ProGED.
+
+        References:
+            [Brence et al. (2021)][cite-proged]
 
         Examples:
             >>> from SRToolkit.dataset import Feynman

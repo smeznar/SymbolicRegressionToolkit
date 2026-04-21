@@ -110,6 +110,14 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Guides:
+      - guides/index.md
+      - Quickstart: guides/quickstart.md
+      - Expression Manipulation: guides/expression-manipulation.md
+      - Benchmarking SR Approaches: guides/benchmarking.md
+      - Running Experiments: guides/experiments.md
+      - Implementing a Custom Approach: guides/custom-approach.md
+      - Creating a Custom Dataset: guides/custom-dataset.md
   - API References:
       - references/index.md
       - utils:
@@ -141,4 +149,5 @@ nav:
       - experiments:
           - references/experiments/index.md
           - experiment_grid: references/experiments/experiment_grid.md
+  - Citations: citations.md
   - Changelog: changelog.md

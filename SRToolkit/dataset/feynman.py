@@ -125,8 +125,8 @@ class Feynman(SR_benchmark):
     the SymbolicRegressionToolkit repository (10,000 samples per dataset instead of the original
     1,000,000 from the paper).
 
-    For more information about the Feynman benchmark, see:
-    <https://doi.org/10.1126/sciadv.aay2631>
+    References:
+        [Udrescu & Tegmark (2020)][cite-feynman]
 
     Examples:
         >>> benchmark = Feynman()

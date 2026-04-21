@@ -34,8 +34,8 @@ class Nguyen(SR_benchmark):
     Contains 10 expressions without constant parameters (first 4 are polynomials, first 8 use
     one variable, last 2 use two variables). The benchmark ships with pre-generated data.
 
-    For more information about the Nguyen benchmark, see:
-    <https://doi.org/10.1007/s10710-010-9121-2>
+    References:
+        [Uy et al. (2011)][cite-nguyen]
 
     Examples:
         >>> benchmark = Nguyen()

@@ -85,6 +85,9 @@ class EDHiE(SR_approach):
         (``adapt``), then explores the learned latent space with a genetic algorithm to find
         expressions that best fit the target dataset (``search``).
 
+        References:
+            [Mežnar et al. (2023)][cite-edhie]
+
         Examples:
             >>> model = EDHiE(latent_size=24, num_expressions=100, epochs=1, verbose=False)
             >>> model.name
