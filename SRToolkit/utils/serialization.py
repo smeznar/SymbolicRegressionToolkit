@@ -18,6 +18,10 @@ def _to_json_safe(obj: Any) -> Any:
     - ``np.floating`` → ``float``
     - ``np.integer`` → ``int``
     - ``np.bool_`` → ``bool``
+    - ``np.str_`` → ``str``
+    - ``tuple`` → ``list``
+    - ``dict`` and ``list`` → recursively converted
+    - All other types are returned unchanged.
     """
     if isinstance(obj, np.ndarray):
         return {"__ndarray__": True, "data": obj.tolist()}
@@ -39,6 +43,11 @@ def _to_json_safe(obj: Any) -> Any:
 def _from_json_safe(obj: Any) -> Any:
     """
     Reverses the transformation applied by [_to_json_safe][SRToolkit.utils.serialization._to_json_safe].
+
+    - ``{"__ndarray__": True, "data": [...]}`` → ``np.ndarray``
+    - ``dict`` without ``__ndarray__`` → recursively converted
+    - ``list`` → recursively converted
+    - All other types are returned unchanged.
     """
     if isinstance(obj, dict):
         if obj.get("__ndarray__"):

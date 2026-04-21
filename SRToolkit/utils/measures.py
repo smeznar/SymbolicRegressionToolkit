@@ -24,8 +24,9 @@ def edit_distance(
     """
     Compute the edit distance between two expressions.
 
-    Both expressions are normalised to the requested notation before computing
-    Levenshtein distance, making the result independent of input serialisation.
+    Both expressions are first converted to the requested notation, so the result
+    is independent of whether a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree is passed.
+    Levenshtein distance is then computed on the serialised token sequences.
 
     Examples:
         >>> edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
@@ -77,6 +78,11 @@ def tree_edit_distance(
 ) -> int:
     """
     Compute the Zhang-Shasha tree edit distance between two expressions.
+
+    Unlike [edit_distance][SRToolkit.utils.measures.edit_distance], which operates on flattened
+    token sequences, tree edit distance considers the expression's hierarchical structure.
+    The cost is the minimum number of node insertions, deletions, and relabellings needed
+    to transform one tree into the other.
 
     Examples:
         >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
@@ -180,15 +186,15 @@ def create_behavior_matrix(
             return np.repeat(callable_expr(X, None)[:, None], num_consts_sampled, axis=1)
 
 
-def _custom_wasserstein(u, v):
+def _custom_wasserstein(u: np.ndarray, v: np.ndarray):
     """
     Compute the 1-D Wasserstein distance between two sample arrays.
 
     Uses a direct CDF comparison over the sorted union of values, without scipy.
 
     Args:
-        u: First sample array.
-        v: Second sample array.
+        u: First sample array. Must be non-empty.
+        v: Second sample array. Must be non-empty.
 
     Returns:
         Wasserstein distance as a float.
@@ -266,11 +272,20 @@ def bed(
         seed: Random seed for reproducible sampling. Default ``None``.
 
     Returns:
-        BED between the expressions, given as a float.
+        BED between the expressions as a non-negative float. A value of ``0.0``
+        indicates identical behavior over the sampled domain; larger values indicate
+        greater behavioral dissimilarity. Returns ``inf`` if any evaluation point
+        produces finite outputs for one expression but not the other.
 
     Raises:
         Exception: If ``X`` is ``None`` and neither ``domain_bounds`` is provided nor
             both expressions are pre-computed behavior matrices.
+        Exception: If ``X`` is ``None`` and exactly one expression is a pre-computed
+            behavior matrix (the two matrices would be over different domains).
+        ValueError: If any entry in ``domain_bounds`` has a lower bound greater than
+            or equal to its upper bound.
+        ValueError: If the two behavior matrices have different numbers of rows.
+        ValueError: If the behavior matrices have zero rows.
     """
 
     if X is None and not isinstance(expr1, np.ndarray) and not isinstance(expr2, np.ndarray):
@@ -293,17 +308,11 @@ def bed(
         )
 
     if isinstance(expr1, list) or isinstance(expr1, Node):
-        if X is None:
-            raise ValueError(
-                "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
-            )
+        assert X is not None
         expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     if isinstance(expr2, list) or isinstance(expr2, Node):
-        if X is None:
-            raise ValueError(
-                "Either X must be given, domain_bounds must be given, or both expressions must be given as behavior matrices."
-            )
+        assert X is not None
         expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
 
     if expr1.shape[0] != expr2.shape[0]:
@@ -326,11 +335,3 @@ def bed(
             wds.append(np.inf)
 
     return float(np.mean(wds))
-
-
-if __name__ == "__main__":
-    expr = ["X_0", "+", "C"]
-    expr2 = ["sqrt", "(", "C", ")", "+", "X_0"]
-    X = np.random.rand(10, 2) - 0.5
-    b = bed(expr, expr2, X)
-    print(b)

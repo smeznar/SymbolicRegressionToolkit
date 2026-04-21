@@ -22,7 +22,8 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
     - ``E`` — additive level (precedence 0 operators)
     - ``F`` — multiplicative level (precedence 1 operators)
     - ``B`` — power level (precedence 2 operators)
-    - ``T`` — terminal: function application (``R``), constant (``C``), or variable (``V``)
+    - ``T`` — leaf-level non-terminal: expands to function application (``R``), constant/literal (``C``), or variable (``V``)
+    - ``C`` — numeric constants (``const`` type) and named literals (``lit`` type, e.g. ``pi``)
     - ``R`` — unary functions (precedence 5) and parenthesised sub-expressions
     - ``P`` — postfix functions (precedence -1, e.g. ``^2``)
 
@@ -161,7 +162,7 @@ def _expand(grammar, symbol, current_depth, max_depth=40):
 
         generated_sequence = []
         for rhs_symbol in chosen_production.rhs():
-            expanded_part = _expand(grammar, rhs_symbol, current_depth + 1)
+            expanded_part = _expand(grammar, rhs_symbol, current_depth + 1, max_depth)
             if expanded_part is None:
                 return None
             generated_sequence.extend(expanded_part)
@@ -184,7 +185,7 @@ def generate_from_pcfg(grammar_str: str, start_symbol: str = "E", max_depth: int
     Args:
         grammar_str: Grammar in NLTK PCFG notation.
         start_symbol: Non-terminal from which expansion begins. Default ``"E"``.
-        max_depth: Maximum parse-tree depth. Values below ``0`` allow unbounded depth.
+        max_depth: Maximum parse-tree depth. Values ≤ ``0`` allow unbounded depth.
             Default ``40``.
         limit: Maximum number of sampling attempts before raising an exception.
             Default ``100``.
@@ -201,6 +202,7 @@ def generate_from_pcfg(grammar_str: str, start_symbol: str = "E", max_depth: int
     tries = 1
     while expr is None and tries < limit:
         expr = _expand(grammar, start_symbol, 0, max_depth)
+        tries += 1
 
     if expr is None:
         raise Exception(
@@ -216,6 +218,7 @@ def generate_n_expressions(
     unique: bool = True,
     max_expression_length: int = 50,
     verbose: bool = True,
+    max_consecutive_failures: int = 100,
 ) -> List[List[str]]:
     """
     Sample ``num_expressions`` expressions from a grammar or symbol library.
@@ -232,13 +235,22 @@ def generate_n_expressions(
             [create_generic_pcfg][SRToolkit.utils.expression_generator.create_generic_pcfg]).
         num_expressions: Number of expressions to generate.
         unique: If ``True``, every expression in the output is lexicographically distinct
-            (though not necessarily semantically inequivalent). Default ``True``.
-        max_expression_length: Maximum token count per expression. Values below ``0``
+            (though semantically equivalent expressions may still appear). Default ``True``.
+        max_expression_length: Maximum token count per expression. Values ≤ ``0``
             allow unbounded length. Default ``50``.
         verbose: Display a progress bar. Default ``True``.
+        max_consecutive_failures: Maximum number of consecutive sampling failures (e.g.
+            due to depth limits or length constraints) before raising an exception.
+            Default ``100``.
 
     Returns:
         List of expressions, each represented as a list of string tokens in infix notation.
+
+    Raises:
+        Exception: If ``expression_description`` is neither a ``str`` nor a
+            [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+        Exception: If sampling fails ``max_consecutive_failures`` times in a row, indicating
+            the grammar or length constraint may be too restrictive.
     """
     if isinstance(expression_description, SymbolLibrary):
         grammar = create_generic_pcfg(expression_description)
@@ -251,13 +263,21 @@ def generate_n_expressions(
 
     expressions: List[List[str]] = []
     expression_strings = set()
-    if verbose:
-        pbar = tqdm(total=num_expressions)
+    consecutive_failures = 0
+    pbar = tqdm(total=num_expressions) if verbose else None
     while len(expressions) < num_expressions:
         try:
             expr = generate_from_pcfg(grammar, max_depth=max_expression_length * 10)
+            consecutive_failures = 0
         except Exception:
-            print("Couldn't generate a valid expression in 100 tries")
+            consecutive_failures += 1
+            if consecutive_failures >= max_consecutive_failures:
+                if pbar is not None:
+                    pbar.close()
+                raise Exception(
+                    f"[Expression generation] Couldn't generate a valid expression after "
+                    f"{consecutive_failures} consecutive failures. The grammar or length constraint may be too restrictive."
+                )
             continue
         if len(expr) > max_expression_length > 0:
             continue
@@ -266,17 +286,9 @@ def generate_n_expressions(
         if expr_string not in expression_strings or not unique:
             expressions.append(expr)
             expression_strings.add(expr_string)
-            if verbose:
+            if pbar is not None:
                 pbar.update(1)
 
-    if verbose:
+    if pbar is not None:
         pbar.close()
     return expressions
-
-
-if __name__ == "__main__":
-    sl = SymbolLibrary.default_symbols(5)
-    a = generate_n_expressions(sl, 1000, unique=False, max_expression_length=1)
-    b = 0
-    # grammar = create_generic_pcfg(sl)
-    # print(generate_from_pcfg(grammar))

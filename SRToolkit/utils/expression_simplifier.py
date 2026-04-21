@@ -106,8 +106,8 @@ def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
     """
     Convert a SymPy expression into a [Node][SRToolkit.utils.expression_tree.Node] tree.
 
-    Handles left-associative division explicitly to match the SRToolkit tree
-    convention when SymPy reorders multiplication factors.
+    Division is handled explicitly: SymPy represents ``x/y`` as ``Mul(x, Pow(y, -1))``,
+    so any ``Pow`` factor with exponent ``-1`` inside a ``Mul`` is converted to a ``"/"`` node.
 
     Args:
         expr: A SymPy expression object.
@@ -158,9 +158,6 @@ def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
         base, exp = expr.args
         return Node("^", _sympy_to_sr(exp), _sympy_to_sr(base))
 
-    if expr.is_Rational and expr.q != 1:
-        return Node("/", _sympy_to_sr(expr.q), _sympy_to_sr(expr.p))
-
     raise ValueError(f"{expr}")
 
 
@@ -205,19 +202,13 @@ def _simplify_constants(eq, c, var):
 
                 for i in range(len(has_var)):
                     if has_var[i] or (not has_free_c and not has_c[i]):
-                        if len(subs[i]) > 0:
-                            args += [eq.args[i].subs(subs[i])]
-                        else:
-                            args += [eq.args[i]]
+                        args += [eq.args[i].subs(subs[i])]
                 if has_free_c:
                     args += [c]
 
             else:
                 for i in range(len(has_var)):
-                    if len(subs[i]) > 0:
-                        args += [eq.args[i].subs(subs[i])]
-                    else:
-                        args += [eq.args[i]]
+                    args += [eq.args[i].subs(subs[i])]
             return True in has_var, True in has_c, [(eq, eq.func(*args))]
 
 
@@ -228,7 +219,8 @@ def _enumerate_constants(expr, constant):
     Example: ``C*x**2 + C*x + C`` → ``C0*x**2 + C1*x + C2``
 
     Args:
-        expr: SymPy expression containing unnumbered constants.
+        expr: String or SymPy expression containing unnumbered constants
+            (converted to a string via ``str()`` before processing).
         constant: Character string used as the constant token (e.g. ``"C"``).
 
     Returns:
@@ -239,7 +231,7 @@ def _enumerate_constants(expr, constant):
 
     char_list = np.array(list(str(expr)), dtype="<U16")
     constind = np.where(char_list == constant)[0]
-    """ Rename all constants: c -> cn, where n is the index of the associated term"""
+    # Rename all constants: C -> C0, C1, ... by index
     constants = [constant + str(i) for i in range(len(constind))]
     char_list[constind] = constants
     return sympify("".join(char_list)), tuple(constants)
@@ -284,17 +276,4 @@ def _simplify_expression(expr_str, constant, variables):
     expr, _ = _enumerate_constants(expr, constant)
     expr = expand(expr)
     expr = _simplify_constants(expr, c, x)[2][0][1]
-    # expr, _ = _enumerate_constants(expr, constant)
-    # expr = _simplify_constants(expr, c, x)[2][0][1]
     return expr
-
-
-if __name__ == "__main__":
-    # Should simplify
-    expr = ["C", "+", "C*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
-    print(simplify(expr))
-
-    # Should raise an exception
-    expr = ["X_0", "*", "X_0", "^2"]
-    sl = SymbolLibrary.from_symbol_list(["+", "*", "-"], 1)
-    print(simplify(expr, symbol_library=sl))

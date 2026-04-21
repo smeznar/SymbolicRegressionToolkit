@@ -38,8 +38,10 @@ class SymbolLibrary:
             5
 
         Args:
-            symbols: Symbols to pre-populate from the default set. ``None`` produces an empty
-                library. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
+            symbols: Symbols to pre-populate from the default set. ``None`` with
+                ``num_variables=0`` produces an empty library; with ``num_variables > 0``,
+                only variable tokens are added. Symbols not present in the default set are
+                silently ignored. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
             num_variables: Number of variable tokens to add, labeled ``X_0`` through
                 ``X_{num_variables-1}``. Default is ``0``.
             preamble: Import statements prepended to compiled expression functions.
@@ -86,8 +88,10 @@ class SymbolLibrary:
           increase complexity and reduce readability.
         - ``"var"``: input variable whose values are read from the data array ``X``.
 
-        If ``latex_str`` is omitted, a default template is generated: ``"{} \text{symb} {}"``
-        for operators, ``"\text{symb} {}"`` for functions, and ``"\text{symb}"`` otherwise.
+        If ``latex_str`` is omitted, a default template is generated based on the symbol type:
+        ``"{} \text{symb} {}"`` for operators (e.g. ``+`` → ``{} \text{+} {}``),
+        ``"\text{symb} {}"`` for functions (e.g. ``sin`` → ``\text{sin} {}``),
+        and ``"\text{symb}"`` for all other types.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -102,7 +106,9 @@ class SymbolLibrary:
             symbol_type: One of ``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``.
             precedence: Operator precedence, used for infix reconstruction and PCFG generation.
             np_fn: Python/NumPy expression string used in compiled callables
-                (e.g. ``"{} = np.sin({})"``) .
+                (e.g. ``"{} = np.sin({})"``) . For ``"var"`` type, passing ``None``
+                or ``""`` auto-generates ``"X[:, i]"`` where ``i`` is the current
+                ``num_variables`` count at the time of the call.
             latex_str: LaTeX template string with ``{}`` placeholders for operands.
                 Auto-generated if omitted.
 
@@ -114,11 +120,11 @@ class SymbolLibrary:
 
         if latex_str is None:
             if symbol_type == "op":
-                latex_str = f"{{}} \text{{{symbol}}} {{}}"
+                latex_str = r"{} \text{{" + symbol + r"}} {}"
             elif symbol_type == "fn":
-                latex_str = f"\text{{{symbol}}} {{}}"
+                latex_str = r"\text{{" + symbol + r"}} {}"
             else:
-                latex_str = f"\text{{{symbol}}}"
+                latex_str = r"\text{{" + symbol + r"}}"
 
         if symbol_type == "var" and (np_fn is None or np_fn == ""):
             np_fn = "X[:, {}]".format(self.num_variables)
@@ -255,7 +261,8 @@ class SymbolLibrary:
                 ``"const"``, ``"lit"``.
 
         Returns:
-            List of token strings matching the requested type.
+            List of token strings matching the requested type. Returns an empty list
+            if no symbols match or if ``symbol_type`` is not recognised.
         """
         symbols = list()
         for symbol in self.symbols.keys():
@@ -291,12 +298,12 @@ class SymbolLibrary:
         The supported token names are those defined in [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
         Examples:
-            >>> library = SymbolLibrary().from_symbol_list(["+", "*", "C"], num_variables=2)
+            >>> library = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
             >>> len(library.symbols)
             5
 
         Args:
-            symbols: Token strings to include. Must be a subset of the default symbol names.
+            symbols: Token strings to include. Symbols not in the default set are silently ignored.
             num_variables: Number of variable tokens (``X_0`` through ``X_{num_variables-1}``).
                 Default is ``25``.
 
@@ -333,7 +340,7 @@ class SymbolLibrary:
 
         Examples:
             >>> library = SymbolLibrary.default_symbols()
-            >>> len(library.symbols)
+            >>> len(library)
             54
 
         Args:
@@ -527,6 +534,14 @@ class SymbolLibrary:
         """
         Serialize the library to a JSON-safe dictionary.
 
+        Examples:
+            >>> library = SymbolLibrary.from_symbol_list(["+"], num_variables=1)
+            >>> d = library.to_dict()
+            >>> d["format_version"]
+            1
+            >>> d["num_variables"]
+            1
+
         Returns:
             A dictionary suitable for passing to [from_dict][SRToolkit.utils.symbol_library.SymbolLibrary.from_dict].
         """
@@ -544,7 +559,8 @@ class SymbolLibrary:
         Reconstruct a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] from a dictionary produced by [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
 
         Args:
-            d: Dictionary representation of the library.
+            d: Dictionary representation of the library, as produced by
+                [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
 
         Returns:
             The reconstructed [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].

@@ -24,6 +24,12 @@ class Node:
             >>> len(node)
             3
 
+        Warning:
+            The second positional argument is ``right``, not ``left``. When passing
+            children positionally (e.g. ``Node("+", Node("a"), Node("b"))``),
+            ``Node("a")`` becomes the ``right`` child and ``Node("b")`` the ``left``.
+            Use keyword arguments to avoid confusion: ``Node("+", right=Node("a"), left=Node("b"))``.
+
         Args:
             symbol: Token string stored at this node.
             right: Right operand (binary operators only).
@@ -64,8 +70,8 @@ class Node:
 
         Args:
             symbol_library: Symbol library used to determine token types and precedences
-                during infix reconstruction. If ``None`` with ``"infix"`` notation, the
-                output may contain redundant parentheses.
+                during infix reconstruction. If ``None`` with ``"infix"`` notation, a
+                ``UserWarning`` is issued and the output may contain redundant parentheses.
             notation: Output notation: ``"infix"``, ``"prefix"``, or ``"postfix"``.
                 Default ``"infix"``.
 
@@ -73,8 +79,9 @@ class Node:
             Token list representing the subtree rooted at this node.
 
         Raises:
-            Exception: If ``notation`` is not one of the accepted values, or if a token's
-                type cannot be resolved during infix reconstruction.
+            Exception: If ``notation`` is not one of the accepted values.
+            Exception: If ``symbol_library`` is provided and a token's type cannot be
+                resolved during infix reconstruction.
         """
         # if symbol_library is None:
         #     symbol_library = SymbolLibrary.default_symbols()
@@ -150,21 +157,21 @@ class Node:
         Transforms the tree rooted at this node into a LaTeX expression.
 
         Examples:
-            >>> node = Node("+", Node("X_0"), Node("1"))
+            >>> node = Node("+", right=Node("X_0"), left=Node("1"))
             >>> node.to_latex(symbol_library=SymbolLibrary.default_symbols())
             '$1 + X_{0}$'
-            >>> node = Node("+", Node("*", Node("X_0"), Node("X_1")), Node("1"))
+            >>> node = Node("+", right=Node("*", right=Node("X_0"), left=Node("X_1")), left=Node("1"))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
             $1 + X_{1} \cdot X_{0}$
             >>> node = Node("sin", None, Node("X_0"))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
             $\sin X_{0}$
-            >>> node = Node("+", Node("*", Node("X_0"), Node("C")), Node("C"))
+            >>> node = Node("+", right=Node("*", right=Node("X_0"), left=Node("C")), left=Node("C"))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
             $C_{0} + C_{1} \cdot X_{0}$
 
         Args:
-            symbol_library: Symbol library providing the LaTeX template for each token.
+            symbol_library: Symbol library providing LaTeX templates for each token.
 
         Returns:
             A LaTeX string of the form ``$...$``.
@@ -299,6 +306,8 @@ def is_float(element: Any) -> bool:
         True
         >>> is_float(None)
         False
+        >>> is_float("hello")
+        False
 
     Args:
         element: Value to test.
@@ -413,8 +422,4 @@ def expr_to_latex(expr: Union[Node, List[str]], symbol_library: SymbolLibrary) -
         return ""
 
 
-if __name__ == "__main__":
-    tree = tokens_to_tree(
-        ["(", "X_0", "+", "tan", "(", "X_1", "-", "5.2", ")", ")"],
-        SymbolLibrary.default_symbols(num_variables=2),
-    )
+# TODO: function transforming list of symbols to/from a given notation

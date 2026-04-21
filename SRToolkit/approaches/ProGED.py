@@ -56,9 +56,9 @@ class ProGED(SR_approach):
             >>> r.approach_name
             'ProGED'
             >>> r.best_expr
-            'C*X_0'
+            'X_0*C'
             >>> r.num_evaluated
-            74
+            75
             >>> bool(r.success)
             False
 

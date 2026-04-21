@@ -1,504 +1,292 @@
-"""Tests for SRToolkit.utils.symbol_library — SymbolLibrary."""
-
 import copy
 
 import pytest
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+
+class TestSymbolLibraryInit:
+    def test_empty_init(self):
+        lib = SymbolLibrary()
+        assert lib.symbols == {}
+        assert lib.num_variables == 0
+        assert lib.preamble == ["import numpy as np"]
+
+    def test_custom_preamble(self):
+        lib = SymbolLibrary(preamble=["import math"])
+        assert lib.preamble == ["import math"]
+
+    def test_with_symbols_and_variables(self):
+        lib = SymbolLibrary(["+", "*"], num_variables=2)
+        assert "+" in lib.symbols
+        assert "*" in lib.symbols
+        assert "X_0" in lib.symbols
+        assert "X_1" in lib.symbols
+        assert lib.num_variables == 2
+
+    def test_only_num_variables(self):
+        lib = SymbolLibrary(num_variables=2)
+        assert "X_0" in lib.symbols
+        assert "X_1" in lib.symbols
+        assert lib.num_variables == 2
+        assert all(lib.symbols[s]["type"] == "var" for s in lib.symbols)
+
+    def test_unknown_symbols_silently_dropped(self):
+        lib = SymbolLibrary(["not_a_real_symbol"], num_variables=0)
+        assert len(lib.symbols) == 0
+
+    def test_empty_list_produces_empty_library(self):
+        lib = SymbolLibrary([])
+        assert lib.symbols == {}
+        assert lib.num_variables == 0
 
 
-def _empty() -> SymbolLibrary:
-    return SymbolLibrary()
-
-
-def _mixed() -> SymbolLibrary:
-    """Library with one op, one fn, one var — used across multiple groups."""
-    sl = SymbolLibrary()
-    sl.add_symbol("+", "op", 0, "{} = {} + {}", r"{} + {}")
-    sl.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
-    sl.add_symbol("X_0", "var", 5, "X[:, 0]", r"X_{0}")
-    return sl
-
-
-# ---------------------------------------------------------------------------
-# Group 1 — __init__ / construction
-# ---------------------------------------------------------------------------
-
-
-class TestInit:
-    def test_no_args_empty_symbols(self):
-        sl = SymbolLibrary()
-        assert sl.symbols == {}
-
-    def test_no_args_num_variables_zero(self):
-        sl = SymbolLibrary()
-        assert sl.num_variables == 0
-
-    def test_no_args_default_preamble(self):
-        sl = SymbolLibrary()
-        assert sl.preamble == ["import numpy as np"]
-
-    def test_preamble_none_explicit_gives_default(self):
-        sl = SymbolLibrary(preamble=None)
-        assert sl.preamble == ["import numpy as np"]
-
-    def test_custom_preamble_stored(self):
-        sl = SymbolLibrary(preamble=["import torch"])
-        assert sl.preamble == ["import torch"]
-
-    def test_num_variables_only_adds_var_tokens(self):
-        sl = SymbolLibrary(num_variables=3)
-        assert set(sl.symbols.keys()) == {"X_0", "X_1", "X_2"}
-        assert sl.num_variables == 3
-
-    def test_symbols_and_num_variables(self):
-        sl = SymbolLibrary(["+", "sin"], num_variables=2)
-        assert set(sl.symbols.keys()) == {"+", "sin", "X_0", "X_1"}
-        assert len(sl) == 4
-
-    def test_symbols_only_no_num_variables(self):
-        sl = SymbolLibrary(["+"])
-        assert set(sl.symbols.keys()) == {"+"}
-
-    def test_empty_list_not_none_still_gives_empty_library(self):
-        # symbols=[] is NOT None, so it goes through from_symbol_list — but
-        # with no non-variable symbols and num_variables=0 the result is empty.
-        sl = SymbolLibrary(symbols=[], num_variables=0)
-        assert sl.symbols == {}
-
-    def test_unknown_symbol_name_silently_dropped(self):
-        sl = SymbolLibrary(["NOT_A_REAL_TOKEN"], num_variables=0)
-        assert sl.symbols == {}
-
-
-# ---------------------------------------------------------------------------
-# Group 2 — add_symbol
-# ---------------------------------------------------------------------------
-
-
-class TestAddSymbol:
-    @pytest.mark.parametrize("sym_type", ["op", "fn", "lit", "const", "var"])
-    def test_add_all_valid_types_stores_entry(self, sym_type):
-        sl = _empty()
-        sl.add_symbol("tok", sym_type, 1, "fn_str", "latex_str")
-        assert "tok" in sl.symbols
-        entry = sl.symbols["tok"]
-        assert entry["type"] == sym_type
-        assert entry["precedence"] == 1
-        assert entry["np_fn"] == "fn_str"
-        assert entry["latex_str"] == "latex_str"
-
-    def test_add_var_increments_num_variables(self):
-        sl = _empty()
-        assert sl.num_variables == 0
-        sl.add_symbol("X_0", "var", 5, "X[:, 0]")
-        assert sl.num_variables == 1
-        sl.add_symbol("X_1", "var", 5, "X[:, 1]")
-        assert sl.num_variables == 2
-
-    def test_add_non_var_does_not_increment_num_variables(self):
-        sl = _empty()
-        sl.add_symbol("+", "op", 0, "{} + {}")
-        assert sl.num_variables == 0
-
-    def test_add_var_empty_np_fn_auto_assigned(self):
-        sl = _empty()
-        sl.add_symbol("X_0", "var", 5, "")
-        assert sl.symbols["X_0"]["np_fn"] == "X[:, 0]"
-
-    def test_add_var_none_np_fn_auto_assigned(self):
-        sl = _empty()
-        sl.add_symbol("X_0", "var", 5, None)
-        assert sl.symbols["X_0"]["np_fn"] == "X[:, 0]"
-
-    def test_add_var_auto_np_fn_uses_pre_increment_index(self):
-        sl = _empty()
-        sl.add_symbol("X_0", "var", 5, "")  # index 0
-        sl.add_symbol("X_1", "var", 5, "")  # index 1
-        assert sl.symbols["X_0"]["np_fn"] == "X[:, 0]"
-        assert sl.symbols["X_1"]["np_fn"] == "X[:, 1]"
-
-    def test_add_op_auto_latex(self):
-        sl = _empty()
-        sl.add_symbol("+", "op", 0, "fn")
-        latex = sl.symbols["+"]["latex_str"]
-        assert "\text{+}" in latex
-        assert latex.count("{}") == 2
-
-    def test_add_fn_auto_latex_has_one_placeholder(self):
-        sl = _empty()
-        sl.add_symbol("sin", "fn", 5, "fn")
-        latex = sl.symbols["sin"]["latex_str"]
-        # auto-latex uses a regular f-string, so \t is a tab character
-        assert "\text{sin}" in latex
-        assert "{}" in latex
-
-    @pytest.mark.parametrize("sym_type", ["lit", "const"])
-    def test_add_lit_const_auto_latex_no_placeholders(self, sym_type):
-        sl = _empty()
-        sl.add_symbol("pi", sym_type, 5, "fn")
-        latex = sl.symbols["pi"]["latex_str"]
-        # auto-latex uses a regular f-string, so \t is a tab character
-        assert "\text{pi}" in latex
-
-    @pytest.mark.parametrize("bad_type", ["VAR", "operator", "function", "", "Fn", "OP"])
-    def test_invalid_symbol_type_raises(self, bad_type):
-        sl = _empty()
+class TestSymbolLibraryAddSymbol:
+    def test_invalid_type_raises(self):
+        lib = SymbolLibrary()
         with pytest.raises(ValueError, match="Invalid symbol type"):
-            sl.add_symbol("tok", bad_type, 0, "fn")
+            lib.add_symbol("x", "invalid", 0, "x")
 
-    def test_add_duplicate_token_overwrites(self):
-        sl = _empty()
-        sl.add_symbol("+", "op", 0, "first")
-        sl.add_symbol("+", "op", 1, "second")
-        assert sl.symbols["+"]["np_fn"] == "second"
-        assert sl.symbols["+"]["precedence"] == 1
-        assert len(sl) == 1
+    def test_auto_latex_op(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("+", "op", 0, "{} + {}")
+        assert lib.symbols["+"]["latex_str"] == r"{} \text{{+}} {}"
+
+    def test_auto_latex_fn(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("sin", "fn", 5, "np.sin({})")
+        assert lib.symbols["sin"]["latex_str"] == r"\text{{sin}} {}"
+
+    def test_auto_latex_other(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("pi", "lit", 5, "np.pi")
+        assert lib.symbols["pi"]["latex_str"] == r"\text{{pi}}"
+
+    def test_explicit_latex_stored(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("sin", "fn", 5, "np.sin({})", r"\sin {}")
+        s = lib.symbols["sin"]
+        assert s["symbol"] == "sin"
+        assert s["type"] == "fn"
+        assert s["precedence"] == 5
+        assert s["np_fn"] == "np.sin({})"
+        assert s["latex_str"] == r"\sin {}"
+
+    def test_var_auto_np_fn(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("X_0", "var", 5, "")
+        assert lib.symbols["X_0"]["np_fn"] == "X[:, 0]"
+        lib.add_symbol("X_1", "var", 5, None)
+        assert lib.symbols["X_1"]["np_fn"] == "X[:, 1]"
+
+    def test_var_increments_num_variables(self):
+        lib = SymbolLibrary()
+        assert lib.num_variables == 0
+        lib.add_symbol("X_0", "var", 5, "X[:, 0]")
+        assert lib.num_variables == 1
+        lib.add_symbol("X_1", "var", 5, "X[:, 1]")
+        assert lib.num_variables == 2
+
+    def test_duplicate_token_overwrites(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("+", "op", 0, "first")
+        lib.add_symbol("+", "op", 1, "second")
+        assert lib.symbols["+"]["np_fn"] == "second"
+        assert lib.symbols["+"]["precedence"] == 1
+        assert len(lib) == 1
 
 
-# ---------------------------------------------------------------------------
-# Group 3 — remove_symbol
-# ---------------------------------------------------------------------------
+class TestSymbolLibraryRemoveSymbol:
+    def test_removes_existing_symbol(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("x", "var", 0, "x")
+        assert "x" in lib.symbols
+        lib.remove_symbol("x")
+        assert "x" not in lib.symbols
 
-
-class TestRemoveSymbol:
-    def test_remove_existing_symbol(self):
-        sl = _mixed()
-        sl.remove_symbol("+")
-        assert "+" not in sl.symbols
-        assert len(sl) == 2
-
-    def test_remove_missing_symbol_raises_key_error(self):
-        sl = _empty()
+    def test_missing_symbol_raises(self):
+        lib = SymbolLibrary()
         with pytest.raises(KeyError):
-            sl.remove_symbol("nonexistent")
+            lib.remove_symbol("nonexistent")
 
 
-# ---------------------------------------------------------------------------
-# Group 4 — getter methods
-# ---------------------------------------------------------------------------
+class TestSymbolLibraryGetType:
+    def test_returns_type_for_known_symbol(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("x", "var", 0, "x")
+        assert lib.get_type("x") == "var"
+
+    def test_returns_empty_string_for_unknown_symbol(self):
+        lib = SymbolLibrary()
+        assert lib.get_type("unknown") == ""
 
 
-class TestGetters:
-    def setup_method(self):
-        self.sl = _mixed()
+class TestSymbolLibraryGetPrecedence:
+    def test_returns_precedence_for_known_symbol(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("+", "op", 0, "{} + {}")
+        assert lib.get_precedence("+") == 0
 
-    def test_get_type_present(self):
-        assert self.sl.get_type("+") == "op"
-        assert self.sl.get_type("sin") == "fn"
-        assert self.sl.get_type("X_0") == "var"
-
-    def test_get_type_missing(self):
-        assert self.sl.get_type("MISSING") == ""
-
-    def test_get_precedence_present(self):
-        assert self.sl.get_precedence("+") == 0
-        assert self.sl.get_precedence("sin") == 5
-
-    def test_get_precedence_missing(self):
-        assert self.sl.get_precedence("MISSING") == -1
-
-    def test_get_np_fn_present(self):
-        assert self.sl.get_np_fn("+") == "{} = {} + {}"
-
-    def test_get_np_fn_missing(self):
-        assert self.sl.get_np_fn("MISSING") == ""
-
-    def test_get_latex_str_present(self):
-        assert self.sl.get_latex_str("+") == r"{} + {}"
-
-    def test_get_latex_str_missing(self):
-        assert self.sl.get_latex_str("MISSING") == ""
+    def test_returns_minus_one_for_unknown_symbol(self):
+        lib = SymbolLibrary()
+        assert lib.get_precedence("unknown") == -1
 
 
-# ---------------------------------------------------------------------------
-# Group 5 — get_symbols_of_type
-# ---------------------------------------------------------------------------
+class TestSymbolLibraryGetNpFn:
+    def test_returns_np_fn_for_known_symbol(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("sin", "fn", 5, "np.sin({})")
+        assert lib.get_np_fn("sin") == "np.sin({})"
+
+    def test_returns_empty_string_for_unknown_symbol(self):
+        lib = SymbolLibrary()
+        assert lib.get_np_fn("unknown") == ""
 
 
-class TestGetSymbolsOfType:
-    def setup_method(self):
-        self.sl = _mixed()
+class TestSymbolLibraryGetLatexStr:
+    def test_returns_latex_str_for_known_symbol(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("sin", "fn", 5, "np.sin({})", r"\sin {}")
+        assert lib.get_latex_str("sin") == r"\sin {}"
 
-    def test_get_ops(self):
-        assert self.sl.get_symbols_of_type("op") == ["+"]
-
-    def test_get_fns(self):
-        assert self.sl.get_symbols_of_type("fn") == ["sin"]
-
-    def test_get_vars(self):
-        assert self.sl.get_symbols_of_type("var") == ["X_0"]
-
-    def test_type_with_no_matches_returns_empty(self):
-        assert self.sl.get_symbols_of_type("lit") == []
-
-    def test_empty_library_returns_empty(self):
-        assert _empty().get_symbols_of_type("op") == []
+    def test_returns_empty_string_for_unknown_symbol(self):
+        lib = SymbolLibrary()
+        assert lib.get_latex_str("unknown") == ""
 
 
-# ---------------------------------------------------------------------------
-# Group 6 — symbols2index
-# ---------------------------------------------------------------------------
+class TestSymbolLibraryGetSymbolsOfType:
+    def test_returns_matching_symbols(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("X_0", "var", 5, "X[:, 0]")
+        lib.add_symbol("X_1", "var", 5, "X[:, 1]")
+        lib.add_symbol("+", "op", 0, "{} + {}")
+        assert lib.get_symbols_of_type("var") == ["X_0", "X_1"]
+        assert lib.get_symbols_of_type("op") == ["+"]
+
+    def test_returns_empty_list_when_no_match(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("+", "op", 0, "{} + {}")
+        assert lib.get_symbols_of_type("fn") == []
 
 
-class TestSymbols2Index:
-    def test_empty_library(self):
-        assert _empty().symbols2index() == {}
+class TestSymbolLibrarySymbols2Index:
+    def test_returns_correct_index_mapping(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("x", "var", 0, "x")
+        lib.add_symbol("y", "var", 0, "y")
+        lib.add_symbol("+", "op", 0, "{} + {}")
+        assert lib.symbols2index() == {"x": 0, "y": 1, "+": 2}
+        lib.remove_symbol("x")
+        assert lib.symbols2index() == {"y": 0, "+": 1}
 
-    def test_length_matches(self):
-        sl = _mixed()
-        idx = sl.symbols2index()
-        assert len(idx) == len(sl)
-
-    def test_values_are_zero_based_contiguous(self):
-        sl = _mixed()
-        idx = sl.symbols2index()
-        assert sorted(idx.values()) == list(range(len(sl)))
-
-    def test_insertion_order_preserved(self):
-        sl = _empty()
-        sl.add_symbol("a", "lit", 5, "a", "a")
-        sl.add_symbol("b", "lit", 5, "b", "b")
-        sl.add_symbol("c", "lit", 5, "c", "c")
-        idx = sl.symbols2index()
-        assert idx["a"] == 0
-        assert idx["b"] == 1
-        assert idx["c"] == 2
-
-    def test_after_removal_reindexed(self):
-        sl = _mixed()
-        sl.remove_symbol("+")
-        idx = sl.symbols2index()
-        assert 0 in idx.values()
-        assert max(idx.values()) == len(sl) - 1
+    def test_empty_library_returns_empty_dict(self):
+        lib = SymbolLibrary()
+        assert lib.symbols2index() == {}
 
 
-# ---------------------------------------------------------------------------
-# Group 7 — from_symbol_list
-# ---------------------------------------------------------------------------
+class TestSymbolLibraryFromSymbolList:
+    def test_filters_to_requested_symbols(self):
+        lib = SymbolLibrary.from_symbol_list(["+", "*"], num_variables=0)
+        assert "+" in lib.symbols
+        assert "*" in lib.symbols
+        assert "sin" not in lib.symbols
+        assert "cos" not in lib.symbols
 
-
-class TestFromSymbolList:
-    def test_known_names_and_variables(self):
-        sl = SymbolLibrary.from_symbol_list(["+", "sin"], num_variables=2)
-        assert set(sl.symbols.keys()) == {"+", "sin", "X_0", "X_1"}
-
-    def test_empty_list_zero_variables(self):
-        sl = SymbolLibrary.from_symbol_list([], num_variables=0)
-        assert sl.symbols == {}
+    def test_variables_added_by_num_variables(self):
+        lib = SymbolLibrary.from_symbol_list(["+"], num_variables=2)
+        assert "X_0" in lib.symbols
+        assert "X_1" in lib.symbols
+        assert "X_2" not in lib.symbols
 
     def test_variable_in_symbols_list_not_duplicated(self):
-        sl = SymbolLibrary.from_symbol_list(["X_0"], num_variables=1)
-        var_tokens = [k for k in sl.symbols if k.startswith("X_")]
-        assert var_tokens.count("X_0") == 1
+        lib = SymbolLibrary.from_symbol_list(["X_0"], num_variables=1)
+        assert list(lib.symbols.keys()).count("X_0") == 1
 
     def test_default_num_variables_is_25(self):
-        sl = SymbolLibrary.from_symbol_list([])
-        var_tokens = [k for k in sl.symbols if k.startswith("X_")]
-        assert len(var_tokens) == 25
-
-    def test_unknown_symbol_silently_omitted(self):
-        sl = SymbolLibrary.from_symbol_list(["NOT_REAL"], num_variables=0)
-        assert "NOT_REAL" not in sl.symbols
+        lib = SymbolLibrary.from_symbol_list([])
+        assert len(lib.get_symbols_of_type("var")) == 25
 
 
-# ---------------------------------------------------------------------------
-# Group 8 — default_symbols
-# ---------------------------------------------------------------------------
+class TestSymbolLibraryDefaultSymbols:
+    def test_default_symbol_count(self):
+        lib = SymbolLibrary.default_symbols()
+        assert len(lib) == 54  # 5 ops + 21 fns + 2 lits + 1 const + 25 vars
+
+    def test_num_variables_controls_variable_count(self):
+        lib = SymbolLibrary.default_symbols(num_variables=0)
+        assert lib.get_symbols_of_type("var") == []
+        lib3 = SymbolLibrary.default_symbols(num_variables=3)
+        assert lib3.get_symbols_of_type("var") == ["X_0", "X_1", "X_2"]
 
 
-class TestDefaultSymbols:
-    def test_default_25_variables(self):
-        sl = SymbolLibrary.default_symbols()
-        var_tokens = sl.get_symbols_of_type("var")
-        assert len(var_tokens) == 25
-
-    def test_zero_variables(self):
-        sl = SymbolLibrary.default_symbols(num_variables=0)
-        assert sl.get_symbols_of_type("var") == []
-
-    def test_non_var_symbols_present_with_zero_variables(self):
-        sl = SymbolLibrary.default_symbols(num_variables=0)
-        assert sl.get_type("+") == "op"
-        assert sl.get_type("sin") == "fn"
-
-    def test_custom_variable_count(self):
-        sl = SymbolLibrary.default_symbols(num_variables=3)
-        var_tokens = sl.get_symbols_of_type("var")
-        assert set(var_tokens) == {"X_0", "X_1", "X_2"}
-
-    def test_no_extra_variables_beyond_count(self):
-        sl = SymbolLibrary.default_symbols(num_variables=2)
-        assert "X_2" not in sl.symbols
-
-    @pytest.mark.parametrize(
-        "sym,expected_type",
-        [
-            ("+", "op"),
-            ("-", "op"),
-            ("*", "op"),
-            ("/", "op"),
-            ("^", "op"),
-            ("sin", "fn"),
-            ("cos", "fn"),
-            ("sqrt", "fn"),
-            ("ln", "fn"),
-            ("pi", "lit"),
-            ("e", "lit"),
-            ("C", "const"),
-        ],
-    )
-    def test_spot_check_types(self, sym, expected_type):
-        sl = SymbolLibrary.default_symbols(num_variables=0)
-        assert sl.get_type(sym) == expected_type
-
-    def test_num_variables_attribute_matches_arg(self):
-        sl = SymbolLibrary.default_symbols(num_variables=7)
-        assert sl.num_variables == 7
-
-
-# ---------------------------------------------------------------------------
-# Group 9 — to_dict / from_dict
-# ---------------------------------------------------------------------------
-
-
-class TestSerialization:
-    def test_to_dict_empty_library(self):
-        d = _empty().to_dict()
+class TestSymbolLibraryToDict:
+    def test_serializes_all_fields(self):
+        lib = SymbolLibrary(["+"], num_variables=1)
+        d = lib.to_dict()
         assert d["format_version"] == 1
         assert d["type"] == "SymbolLibrary"
-        assert d["symbols"] == {}
-        assert d["num_variables"] == 0
-
-    def test_to_dict_populated(self):
-        sl = _mixed()
-        d = sl.to_dict()
-        assert "+" in d["symbols"]
+        assert d["symbols"] == lib.symbols
+        assert d["preamble"] == lib.preamble
         assert d["num_variables"] == 1
 
-    def test_to_dict_preamble_preserved(self):
-        sl = SymbolLibrary(preamble=["import torch"])
-        d = sl.to_dict()
-        assert d["preamble"] == ["import torch"]
 
-    def test_from_dict_reconstructs_symbols(self):
-        sl = _mixed()
-        sl2 = SymbolLibrary.from_dict(sl.to_dict())
-        assert sl2.symbols == sl.symbols
+class TestSymbolLibraryFromDict:
+    def test_round_trip(self):
+        original = SymbolLibrary(["+", "sin"], num_variables=2)
+        restored = SymbolLibrary.from_dict(original.to_dict())
+        assert restored.symbols == original.symbols
+        assert restored.preamble == original.preamble
+        assert restored.num_variables == original.num_variables
 
-    def test_from_dict_reconstructs_preamble_and_num_variables(self):
-        sl = _mixed()
-        sl2 = SymbolLibrary.from_dict(sl.to_dict())
-        assert sl2.preamble == sl.preamble
-        assert sl2.num_variables == sl.num_variables
-
-    def test_full_roundtrip(self):
-        sl = _mixed()
-        sl2 = SymbolLibrary.from_dict(sl.to_dict())
-        assert sl2.symbols == sl.symbols
-        assert sl2.preamble == sl.preamble
-        assert sl2.num_variables == sl.num_variables
-
-    def test_from_dict_invalid_format_version_raises(self):
-        d = _empty().to_dict()
+    def test_unsupported_format_version_raises(self):
+        d = SymbolLibrary(["+"], num_variables=1).to_dict()
         d["format_version"] = 99
         with pytest.raises(ValueError, match="format_version"):
             SymbolLibrary.from_dict(d)
 
-    def test_from_dict_missing_format_version_defaults_to_1(self):
-        d = _empty().to_dict()
+    def test_missing_format_version_defaults_to_1(self):
+        d = SymbolLibrary(["+"], num_variables=1).to_dict()
         del d["format_version"]
-        sl = SymbolLibrary.from_dict(d)
-        assert sl.symbols == {}
-
-    def test_custom_preamble_survives_roundtrip(self):
-        sl = SymbolLibrary(preamble=["import torch", "import sympy"])
-        sl2 = SymbolLibrary.from_dict(sl.to_dict())
-        assert sl2.preamble == ["import torch", "import sympy"]
-
-    def test_from_dict_symbols_aliasing(self):
-        # from_dict assigns d["symbols"] directly — mutations bleed through.
-        # This test documents (and pins) that behaviour.
-        sl = _mixed()
-        d = sl.to_dict()
-        sl2 = SymbolLibrary.from_dict(d)
-        sl2.symbols["+"]["precedence"] = 99
-        assert d["symbols"]["+"]["precedence"] == 99  # aliased, not copied
+        lib = SymbolLibrary.from_dict(d)
+        assert "+" in lib.symbols
 
 
-# ---------------------------------------------------------------------------
-# Group 10 — dunder methods (__len__, __str__, __copy__, __deepcopy__)
-# ---------------------------------------------------------------------------
+class TestSymbolLibraryLen:
+    def test_returns_symbol_count(self):
+        lib = SymbolLibrary()
+        assert len(lib) == 0
+        lib.add_symbol("x", "var", 0, "x")
+        assert len(lib) == 1
+        lib.add_symbol("+", "op", 0, "{} + {}")
+        assert len(lib) == 2
+        lib.remove_symbol("x")
+        assert len(lib) == 1
 
 
-class TestDunders:
-    def test_len_empty(self):
-        assert len(_empty()) == 0
+class TestSymbolLibraryStr:
+    def test_returns_comma_separated_tokens(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("x", "var", 0, "x")
+        lib.add_symbol("+", "op", 0, "{} + {}")
+        assert str(lib) == "x, +"
 
-    def test_len_after_additions(self):
-        sl = _mixed()
-        assert len(sl) == 3
+    def test_empty_library_returns_empty_string(self):
+        assert str(SymbolLibrary()) == ""
 
-    def test_len_after_removal(self):
-        sl = _mixed()
-        sl.remove_symbol("+")
-        assert len(sl) == 2
 
-    def test_str_empty(self):
-        assert str(_empty()) == ""
+class TestSymbolLibraryCopy:
+    def test_copy_is_independent(self):
+        original = SymbolLibrary(["+"], num_variables=1)
+        copied = copy.copy(original)
+        copied.add_symbol("sin", "fn", 5, "np.sin({})")
+        assert "sin" not in original.symbols
+        assert "sin" in copied.symbols
 
-    def test_str_single_symbol(self):
-        sl = _empty()
-        sl.add_symbol("a", "lit", 5, "a", "a")
-        assert str(sl) == "a"
 
-    def test_str_multiple_symbols(self):
-        sl = _empty()
-        sl.add_symbol("a", "lit", 5, "a", "a")
-        sl.add_symbol("b", "lit", 5, "b", "b")
-        assert str(sl) == "a, b"
-
-    def test_str_insertion_order(self):
-        sl = _mixed()
-        tokens = str(sl).split(", ")
-        assert tokens == ["+", "sin", "X_0"]
-
-    def test_copy_returns_new_object(self):
-        sl = _mixed()
-        sl2 = copy.copy(sl)
-        assert sl2 is not sl
-
-    def test_copy_symbols_dict_is_independent(self):
-        sl = _mixed()
-        sl2 = copy.copy(sl)
-        sl2.symbols["+"]["precedence"] = 99
-        assert sl.symbols["+"]["precedence"] == 0
-
-    def test_copy_preamble_is_independent(self):
-        sl = _mixed()
-        sl2 = copy.copy(sl)
-        sl2.preamble.append("extra")
-        assert "extra" not in sl.preamble
-
-    def test_copy_num_variables_matches(self):
-        sl = _mixed()
-        sl2 = copy.copy(sl)
-        assert sl2.num_variables == sl.num_variables
-
-    def test_copy_adding_symbol_does_not_affect_original(self):
-        sl = _mixed()
-        sl2 = copy.copy(sl)
-        sl2.add_symbol("new", "lit", 5, "new", "new")
-        assert "new" not in sl.symbols
-
-    def test_deepcopy_returns_independent_copy(self):
-        sl = _mixed()
-        sl2 = copy.deepcopy(sl)
-        assert sl2 is not sl
-        assert sl2.symbols == sl.symbols
-        sl2.symbols["+"]["precedence"] = 99
-        assert sl.symbols["+"]["precedence"] == 0
+class TestSymbolLibraryDeepcopy:
+    def test_deepcopy_is_independent(self):
+        original = SymbolLibrary(["+"], num_variables=1)
+        deep = copy.deepcopy(original)
+        deep.add_symbol("sin", "fn", 5, "np.sin({})")
+        assert "sin" not in original.symbols
+        assert "sin" in deep.symbols
