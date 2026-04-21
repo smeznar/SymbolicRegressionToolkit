@@ -1317,23 +1317,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" Feynman">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#SRToolkit.dataset.feynman.Feynman.resample" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;resample
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
       </ul>
@@ -1758,23 +1741,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" Feynman">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#SRToolkit.dataset.feynman.Feynman.resample" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;resample
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
       </ul>
@@ -1847,7 +1813,7 @@
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Feynman</span><span class="p">(</span><span class="n">dataset_directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">user_data_dir</span><span class="p">(</span><span class="s1">&#39;SRToolkit&#39;</span><span class="p">),</span> <span class="s1">&#39;feynman&#39;</span><span class="p">))</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Feynman</span><span class="p">(</span><span class="n">dataset_directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">user_data_dir</span><span class="p">(</span><span class="s1">&#39;SRToolkit&#39;</span><span class="p">),</span> <span class="s1">&#39;feynman&#39;</span><span class="p">),</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span> <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1859,7 +1825,8 @@
         <p>The Feynman symbolic regression benchmark.</p>
 <p>Contains 100 physics equations with up to 9 variables. Data is downloaded on first use from
 the SymbolicRegressionToolkit repository (10,000 samples per dataset instead of the original
-1,000,000 from the paper).</p>
+1,000,000 from the paper). If the download fails, data is generated from the stored per-variable
+samplers using <code>n_samples</code> points and the given <code>seed</code>.</p>
 
 
 <details class="references" open>
@@ -1871,11 +1838,6 @@ the SymbolicRegressionToolkit repository (10,000 samples per dataset instead of 
     <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">benchmark</span> <span class="o">=</span> <span class="n">Feynman</span><span class="p">()</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">benchmark</span><span class="o">.</span><span class="n">list_datasets</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">100</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">benchmark</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s1">&#39;I.16.6&#39;</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">X</span><span class="o">.</span><span class="n">shape</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">(500, 3)</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">y</span><span class="o">.</span><span class="n">shape</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">(500,)</span>
 </code></pre></div>
 
 
@@ -1907,6 +1869,56 @@ Defaults to the platform-appropriate user data directory (e.g. <code>~/.local/sh
                   <code><span title="os.path.join">join</span>(<span title="platformdirs.user_data_dir">user_data_dir</span>(&#39;SRToolkit&#39;), &#39;feynman&#39;)</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_samples</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of samples to generate per dataset when falling back to sampler-based
+data generation (i.e. when the download fails or <code>force_generate=True</code>). Defaults to <code>10000</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Random seed used for sampler-based data generation. Defaults to <code>42</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>42</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>force_generate</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>True</code>, skip downloading/loading pre-generated data and always
+generate fresh data from samplers. Defaults to <code>False</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -1919,11 +1931,29 @@ Defaults to the platform-appropriate user data directory (e.g. <code>~/.local/sh
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/feynman.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-146">146</a></span>
-<span class="normal"><a href="#__codelineno-0-147">147</a></span>
-<span class="normal"><a href="#__codelineno-0-148">148</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">user_data_dir</span><span class="p">(</span><span class="s2">&quot;SRToolkit&quot;</span><span class="p">),</span> <span class="s2">&quot;feynman&quot;</span><span class="p">)):</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="n">dataset_directory</span><span class="p">)</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="n">dataset_directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">user_data_dir</span><span class="p">(</span><span class="s2">&quot;SRToolkit&quot;</span><span class="p">),</span> <span class="s2">&quot;feynman&quot;</span><span class="p">),</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="p">):</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="n">dataset_directory</span><span class="p">)</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1939,217 +1969,6 @@ Defaults to the platform-appropriate user data directory (e.g. <code>~/.local/sh
 
 
 
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="SRToolkit.dataset.feynman.Feynman.resample" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">resample</span>
-
-
-</h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resample</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Generate fresh data for a dataset by sampling new inputs and evaluating the ground truth.</p>
-<p>Variable bounds are taken from <code>_BOUNDS</code>.</p>
-
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">benchmark</span> <span class="o">=</span> <span class="n">Feynman</span><span class="p">()</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">benchmark</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s1">&#39;I.16.6&#39;</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">X</span><span class="o">.</span><span class="n">shape</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">(200, 3)</span>
-</code></pre></div>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>dataset_name</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Name of the dataset to resample.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>n</code>
-            </td>
-            <td>
-                  <code><span title="int">int</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of new samples to generate.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>seed</code>
-            </td>
-            <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="int">int</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Random seed for reproducibility.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Tuple">Tuple</span>[<span title="numpy.ndarray">ndarray</span>, <span title="numpy.ndarray">ndarray</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple <code>(X, y)</code> of numpy arrays with shapes <code>(n, n_vars)</code> and <code>(n,)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="ValueError">ValueError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the dataset has no ground truth expression.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-            <details class="mkdocstrings-source">
-              <summary>Source code in <code>SRToolkit/dataset/feynman.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1601">1601</a></span>
-<span class="normal"><a href="#__codelineno-0-1602">1602</a></span>
-<span class="normal"><a href="#__codelineno-0-1603">1603</a></span>
-<span class="normal"><a href="#__codelineno-0-1604">1604</a></span>
-<span class="normal"><a href="#__codelineno-0-1605">1605</a></span>
-<span class="normal"><a href="#__codelineno-0-1606">1606</a></span>
-<span class="normal"><a href="#__codelineno-0-1607">1607</a></span>
-<span class="normal"><a href="#__codelineno-0-1608">1608</a></span>
-<span class="normal"><a href="#__codelineno-0-1609">1609</a></span>
-<span class="normal"><a href="#__codelineno-0-1610">1610</a></span>
-<span class="normal"><a href="#__codelineno-0-1611">1611</a></span>
-<span class="normal"><a href="#__codelineno-0-1612">1612</a></span>
-<span class="normal"><a href="#__codelineno-0-1613">1613</a></span>
-<span class="normal"><a href="#__codelineno-0-1614">1614</a></span>
-<span class="normal"><a href="#__codelineno-0-1615">1615</a></span>
-<span class="normal"><a href="#__codelineno-0-1616">1616</a></span>
-<span class="normal"><a href="#__codelineno-0-1617">1617</a></span>
-<span class="normal"><a href="#__codelineno-0-1618">1618</a></span>
-<span class="normal"><a href="#__codelineno-0-1619">1619</a></span>
-<span class="normal"><a href="#__codelineno-0-1620">1620</a></span>
-<span class="normal"><a href="#__codelineno-0-1621">1621</a></span>
-<span class="normal"><a href="#__codelineno-0-1622">1622</a></span>
-<span class="normal"><a href="#__codelineno-0-1623">1623</a></span>
-<span class="normal"><a href="#__codelineno-0-1624">1624</a></span>
-<span class="normal"><a href="#__codelineno-0-1625">1625</a></span>
-<span class="normal"><a href="#__codelineno-0-1626">1626</a></span>
-<span class="normal"><a href="#__codelineno-0-1627">1627</a></span>
-<span class="normal"><a href="#__codelineno-0-1628">1628</a></span>
-<span class="normal"><a href="#__codelineno-0-1629">1629</a></span>
-<span class="normal"><a href="#__codelineno-0-1630">1630</a></span>
-<span class="normal"><a href="#__codelineno-0-1631">1631</a></span>
-<span class="normal"><a href="#__codelineno-0-1632">1632</a></span>
-<span class="normal"><a href="#__codelineno-0-1633">1633</a></span>
-<span class="normal"><a href="#__codelineno-0-1634">1634</a></span>
-<span class="normal"><a href="#__codelineno-0-1635">1635</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1601" name="__codelineno-0-1601"></a><span class="k">def</span><span class="w"> </span><span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<a id="__codelineno-0-1602" name="__codelineno-0-1602"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-1603" name="__codelineno-0-1603"></a><span class="sd">    Generate fresh data for a dataset by sampling new inputs and evaluating the ground truth.</span>
-<a id="__codelineno-0-1604" name="__codelineno-0-1604"></a>
-<a id="__codelineno-0-1605" name="__codelineno-0-1605"></a><span class="sd">    Variable bounds are taken from ``_BOUNDS``.</span>
-<a id="__codelineno-0-1606" name="__codelineno-0-1606"></a>
-<a id="__codelineno-0-1607" name="__codelineno-0-1607"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-1608" name="__codelineno-0-1608"></a><span class="sd">        &gt;&gt;&gt; benchmark = Feynman()</span>
-<a id="__codelineno-0-1609" name="__codelineno-0-1609"></a><span class="sd">        &gt;&gt;&gt; X, y = benchmark.resample(&#39;I.16.6&#39;, n=200, seed=42)</span>
-<a id="__codelineno-0-1610" name="__codelineno-0-1610"></a><span class="sd">        &gt;&gt;&gt; X.shape</span>
-<a id="__codelineno-0-1611" name="__codelineno-0-1611"></a><span class="sd">        (200, 3)</span>
-<a id="__codelineno-0-1612" name="__codelineno-0-1612"></a>
-<a id="__codelineno-0-1613" name="__codelineno-0-1613"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-1614" name="__codelineno-0-1614"></a><span class="sd">        dataset_name: Name of the dataset to resample.</span>
-<a id="__codelineno-0-1615" name="__codelineno-0-1615"></a><span class="sd">        n: Number of new samples to generate.</span>
-<a id="__codelineno-0-1616" name="__codelineno-0-1616"></a><span class="sd">        seed: Random seed for reproducibility.</span>
-<a id="__codelineno-0-1617" name="__codelineno-0-1617"></a>
-<a id="__codelineno-0-1618" name="__codelineno-0-1618"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-1619" name="__codelineno-0-1619"></a><span class="sd">        A tuple ``(X, y)`` of numpy arrays with shapes ``(n, n_vars)`` and ``(n,)``.</span>
-<a id="__codelineno-0-1620" name="__codelineno-0-1620"></a>
-<a id="__codelineno-0-1621" name="__codelineno-0-1621"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-1622" name="__codelineno-0-1622"></a><span class="sd">        ValueError: If the dataset has no ground truth expression.</span>
-<a id="__codelineno-0-1623" name="__codelineno-0-1623"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-1624" name="__codelineno-0-1624"></a>    <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span>
-<a id="__codelineno-0-1625" name="__codelineno-0-1625"></a>    <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ground_truth&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-1626" name="__codelineno-0-1626"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dataset &#39;</span><span class="si">{</span><span class="n">dataset_name</span><span class="si">}</span><span class="s2">&#39; has no ground truth expression — cannot compute y.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-1627" name="__codelineno-0-1627"></a>    <span class="n">bounds</span> <span class="o">=</span> <span class="n">_BOUNDS</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span>
-<a id="__codelineno-0-1628" name="__codelineno-0-1628"></a>    <span class="n">lb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-<a id="__codelineno-0-1629" name="__codelineno-0-1629"></a>    <span class="n">ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-<a id="__codelineno-0-1630" name="__codelineno-0-1630"></a>    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-<a id="__codelineno-0-1631" name="__codelineno-0-1631"></a>    <span class="n">X_new</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)))</span>
-<a id="__codelineno-0-1632" name="__codelineno-0-1632"></a>    <span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;symbol_library&quot;</span><span class="p">])</span>
-<a id="__codelineno-0-1633" name="__codelineno-0-1633"></a>    <span class="n">f</span> <span class="o">=</span> <span class="n">expr_to_executable_function</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;ground_truth&quot;</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
-<a id="__codelineno-0-1634" name="__codelineno-0-1634"></a>    <span class="n">y_new</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">X_new</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]))</span>
-<a id="__codelineno-0-1635" name="__codelineno-0-1635"></a>    <span class="k">return</span> <span class="n">X_new</span><span class="p">,</span> <span class="n">y_new</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
 
 
 
