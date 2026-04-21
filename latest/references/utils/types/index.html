@@ -2095,7 +2095,7 @@
           <tr class="doc-section-item">
             <td><code><span title="SRToolkit.utils.types.EstimationSettings.constant_bounds">constant_bounds</span></code></td>
             <td>
-                  <code><span title="typing.Union">Union</span>[<span title="typing.Tuple">Tuple</span>[<span title="float">float</span>, <span title="float">float</span>]]</code>
+                  <code><span title="typing.Tuple">Tuple</span>[<span title="float">float</span>, <span title="float">float</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2349,7 +2349,7 @@ BED. Default: <code>32</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Attach augmentation data produced by a :class:<code>ResultAugmenter</code> to this result.</p>
+        <p>Attach augmentation data produced by a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.ResultAugmenter">ResultAugmenter</a> to this result.</p>
 <p>If <code>name</code> is already present in :attr:<code>augmentations</code>, a numeric suffix is
 appended (<code>name_1</code>, <code>name_2</code>, …) to avoid overwriting existing data.</p>
 
@@ -2402,8 +2402,8 @@ A suffix is added automatically if the key already exists.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Arbitrary dict of augmentation data. A <code>"_type"</code> key is injected
-automatically and should not be included.</p>
+                <p>Arbitrary dict of augmentation data. Any existing <code>"_type"</code> key
+will be overwritten with <code>aug_type</code>.</p>
               </div>
             </td>
             <td>
@@ -2463,7 +2463,7 @@ automatically and should not be included.</p>
 <span class="normal"><a href="#__codelineno-0-133">133</a></span>
 <span class="normal"><a href="#__codelineno-0-134">134</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_augmentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">aug_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    Attach augmentation data produced by a :class:`ResultAugmenter` to this result.</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.</span>
 <a id="__codelineno-0-108" name="__codelineno-0-108"></a>
 <a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    If ``name`` is already present in :attr:`augmentations`, a numeric suffix is</span>
 <a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="sd">    appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.</span>
@@ -2480,8 +2480,8 @@ automatically and should not be included.</p>
 <a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="sd">    Args:</span>
 <a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="sd">        name: Key under which the augmentation is stored in :attr:`augmentations`.</span>
 <a id="__codelineno-0-123" name="__codelineno-0-123"></a><span class="sd">            A suffix is added automatically if the key already exists.</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a><span class="sd">        data: Arbitrary dict of augmentation data. A ``&quot;_type&quot;`` key is injected</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">            automatically and should not be included.</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a><span class="sd">        data: Arbitrary dict of augmentation data. Any existing ``&quot;_type&quot;`` key</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">            will be overwritten with ``aug_type``.</span>
 <a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">        aug_type: Augmenter class name, stored as ``data[&quot;_type&quot;]``.</span>
 <a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="n">name</span>
@@ -2542,7 +2542,12 @@ result can be passed directly to <code>json.dump</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A JSON-safe dictionary suitable for passing to :meth:<code>from_dict</code>.</p>
+                <p>A JSON-safe dictionary suitable for passing to <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult.from_dict">from_dict</a>.</p>
               </div>
             </td>
           </tr>
@@ -2595,7 +2600,7 @@ result can be passed directly to <code>json.dump</code>.</p>
 <a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="sd">        True</span>
 <a id="__codelineno-0-152" name="__codelineno-0-152"></a>
 <a id="__codelineno-0-153" name="__codelineno-0-153"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">        A JSON-safe dictionary suitable for passing to :meth:`from_dict`.</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">        A JSON-safe dictionary suitable for passing to [from_dict][SRToolkit.utils.types.ModelResult.from_dict].</span>
 <a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-156" name="__codelineno-0-156"></a>    <span class="k">return</span> <span class="p">{</span>
 <a id="__codelineno-0-157" name="__codelineno-0-157"></a>        <span class="s2">&quot;expr&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">expr</span><span class="p">,</span>
@@ -2626,7 +2631,12 @@ result can be passed directly to <code>json.dump</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Reconstruct a :class:<code>ModelResult</code> from a dictionary produced by :meth:<code>to_dict</code>.</p>
+        <p>Reconstruct a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult">ModelResult</a> from a dictionary produced by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult.to_dict">to_dict</a>.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
@@ -2659,8 +2669,13 @@ result can be passed directly to <code>json.dump</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Dictionary representation of a :class:<code>ModelResult</code>, as produced
-by :meth:<code>to_dict</code>.</p>
+                <p>Dictionary representation of a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult">ModelResult</a>, as produced
+by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult.to_dict">to_dict</a>.</p>
               </div>
             </td>
             <td>
@@ -2729,7 +2744,7 @@ by :meth:<code>to_dict</code>.</p>
 <span class="normal"><a href="#__codelineno-0-188">188</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="nd">@staticmethod</span>
 <a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ModelResult&quot;</span><span class="p">:</span>
 <a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    Reconstruct a :class:`ModelResult` from a dictionary produced by :meth:`to_dict`.</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    Reconstruct a [ModelResult][SRToolkit.utils.types.ModelResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.ModelResult.to_dict].</span>
 <a id="__codelineno-0-167" name="__codelineno-0-167"></a>
 <a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    Examples:</span>
 <a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">        &gt;&gt;&gt; result = ModelResult(expr=[&quot;X_0&quot;, &quot;+&quot;, &quot;C&quot;], error=0.25)</span>
@@ -2740,8 +2755,8 @@ by :meth:<code>to_dict</code>.</p>
 <a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">        0.25</span>
 <a id="__codelineno-0-175" name="__codelineno-0-175"></a>
 <a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">        data: Dictionary representation of a :class:`ModelResult`, as produced</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">            by :meth:`to_dict`.</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">        data: Dictionary representation of a [ModelResult][SRToolkit.utils.types.ModelResult], as produced</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">            by [to_dict][SRToolkit.utils.types.ModelResult.to_dict].</span>
 <a id="__codelineno-0-179" name="__codelineno-0-179"></a>
 <a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    Returns:</span>
 <a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="sd">        The reconstructed :class:`ModelResult`.</span>
@@ -2925,7 +2940,7 @@ by :meth:<code>to_dict</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Name of the dataset, extracted from metadata. <code>None</code> if not provided.</p>
+                <p>Name of the dataset. <code>None</code> if not provided.</p>
               </div>
             </td>
           </tr>
@@ -2936,7 +2951,7 @@ by :meth:<code>to_dict</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Remaining metadata dict after <code>dataset_name</code> is popped. <code>None</code> if empty.</p>
+                <p>Arbitrary metadata dict associated with the dataset. <code>None</code> if not provided.</p>
               </div>
             </td>
           </tr>
@@ -2990,7 +3005,7 @@ by :meth:<code>to_dict</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Attach augmentation data produced by a :class:<code>ResultAugmenter</code> to this result.</p>
+        <p>Attach augmentation data produced by a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.ResultAugmenter">ResultAugmenter</a> to this result.</p>
 <p>If <code>name</code> is already present in :attr:<code>augmentations</code>, a numeric suffix is
 appended (<code>name_1</code>, <code>name_2</code>, …) to avoid overwriting existing data.</p>
 
@@ -3048,8 +3063,8 @@ A suffix is added automatically if the key already exists.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Arbitrary dict of augmentation data. A <code>"_type"</code> key is injected
-automatically and should not be included.</p>
+                <p>Arbitrary dict of augmentation data. Any existing <code>"_type"</code> key
+will be overwritten with <code>aug_type</code>.</p>
               </div>
             </td>
             <td>
@@ -3114,7 +3129,7 @@ automatically and should not be included.</p>
 <span class="normal"><a href="#__codelineno-0-276">276</a></span>
 <span class="normal"><a href="#__codelineno-0-277">277</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_augmentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">aug_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">    Attach augmentation data produced by a :class:`ResultAugmenter` to this result.</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">    Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.</span>
 <a id="__codelineno-0-246" name="__codelineno-0-246"></a>
 <a id="__codelineno-0-247" name="__codelineno-0-247"></a><span class="sd">    If ``name`` is already present in :attr:`augmentations`, a numeric suffix is</span>
 <a id="__codelineno-0-248" name="__codelineno-0-248"></a><span class="sd">    appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.</span>
@@ -3136,8 +3151,8 @@ automatically and should not be included.</p>
 <a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    Args:</span>
 <a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">        name: Key under which the augmentation is stored in :attr:`augmentations`.</span>
 <a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">            A suffix is added automatically if the key already exists.</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">        data: Arbitrary dict of augmentation data. A ``&quot;_type&quot;`` key is injected</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">            automatically and should not be included.</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">        data: Arbitrary dict of augmentation data. Any existing ``&quot;_type&quot;`` key</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">            will be overwritten with ``aug_type``.</span>
 <a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">        aug_type: Augmenter class name, stored as ``data[&quot;_type&quot;]``.</span>
 <a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="n">name</span>
@@ -3167,7 +3182,12 @@ automatically and should not be included.</p>
     <div class="doc doc-contents ">
 
         <p>Serialize this evaluation result to a JSON-safe dictionary.</p>
-<p>NumPy arrays and scalars within nested :class:<code>ModelResult</code> entries are
+<p>NumPy arrays and scalars within nested <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult">ModelResult</a> entries are
 converted to native Python types so the result can be passed directly
 to <code>json.dump</code>.</p>
 
@@ -3204,7 +3224,12 @@ to <code>json.dump</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A JSON-safe dictionary suitable for passing to :meth:<code>from_dict</code>.</p>
+                <p>A JSON-safe dictionary suitable for passing to <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.EvalResult.from_dict">from_dict</a>.</p>
               </div>
             </td>
           </tr>
@@ -3256,7 +3281,7 @@ to <code>json.dump</code>.</p>
 <a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    Serialize this evaluation result to a JSON-safe dictionary.</span>
 <a id="__codelineno-0-282" name="__codelineno-0-282"></a>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    NumPy arrays and scalars within nested :class:`ModelResult` entries are</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    NumPy arrays and scalars within nested [ModelResult][SRToolkit.utils.types.ModelResult] entries are</span>
 <a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">    converted to native Python types so the result can be passed directly</span>
 <a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    to ``json.dump``.</span>
 <a id="__codelineno-0-286" name="__codelineno-0-286"></a>
@@ -3276,7 +3301,7 @@ to <code>json.dump</code>.</p>
 <a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">        1</span>
 <a id="__codelineno-0-301" name="__codelineno-0-301"></a>
 <a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">        A JSON-safe dictionary suitable for passing to :meth:`from_dict`.</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">        A JSON-safe dictionary suitable for passing to [from_dict][SRToolkit.utils.types.EvalResult.from_dict].</span>
 <a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="k">return</span> <span class="p">{</span>
 <a id="__codelineno-0-306" name="__codelineno-0-306"></a>        <span class="s2">&quot;min_error&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_error</span><span class="p">),</span>
@@ -3314,7 +3339,12 @@ to <code>json.dump</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Reconstruct an :class:<code>EvalResult</code> from a dictionary produced by :meth:<code>to_dict</code>.</p>
+        <p>Reconstruct an <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EvalResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.EvalResult">EvalResult</a> from a dictionary produced by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="#SRToolkit.utils.types.EvalResult.to_dict">to_dict</a>.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
@@ -3354,8 +3384,13 @@ to <code>json.dump</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Dictionary representation of an :class:<code>EvalResult</code>, as produced
-by :meth:<code>to_dict</code>.</p>
+                <p>Dictionary representation of an <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EvalResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.EvalResult">EvalResult</a>, as produced
+by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="#SRToolkit.utils.types.EvalResult.to_dict">to_dict</a>.</p>
               </div>
             </td>
             <td>
@@ -3386,7 +3421,12 @@ by :meth:<code>to_dict</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The reconstructed :class:<code>EvalResult</code>.</p>
+                <p>The reconstructed <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EvalResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.types.EvalResult">EvalResult</a>.</p>
               </div>
             </td>
           </tr>
@@ -3438,7 +3478,7 @@ by :meth:<code>to_dict</code>.</p>
 <span class="normal"><a href="#__codelineno-0-358">358</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="nd">@staticmethod</span>
 <a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;EvalResult&quot;</span><span class="p">:</span>
 <a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">    Reconstruct an :class:`EvalResult` from a dictionary produced by :meth:`to_dict`.</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">    Reconstruct an [EvalResult][SRToolkit.utils.types.EvalResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict].</span>
 <a id="__codelineno-0-323" name="__codelineno-0-323"></a>
 <a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">    Examples:</span>
 <a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">        &gt;&gt;&gt; model = ModelResult(expr=[&quot;X_0&quot;], error=0.05)</span>
@@ -3456,11 +3496,11 @@ by :meth:<code>to_dict</code>.</p>
 <a id="__codelineno-0-337" name="__codelineno-0-337"></a><span class="sd">        1</span>
 <a id="__codelineno-0-338" name="__codelineno-0-338"></a>
 <a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="sd">        data: Dictionary representation of an :class:`EvalResult`, as produced</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="sd">            by :meth:`to_dict`.</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="sd">        data: Dictionary representation of an [EvalResult][SRToolkit.utils.types.EvalResult], as produced</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="sd">            by [to_dict][SRToolkit.utils.types.EvalResult.to_dict].</span>
 <a id="__codelineno-0-342" name="__codelineno-0-342"></a>
 <a id="__codelineno-0-343" name="__codelineno-0-343"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a><span class="sd">        The reconstructed :class:`EvalResult`.</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a><span class="sd">        The reconstructed [EvalResult][SRToolkit.utils.types.EvalResult].</span>
 <a id="__codelineno-0-345" name="__codelineno-0-345"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="k">return</span> <span class="n">EvalResult</span><span class="p">(</span>
 <a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="n">min_error</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;min_error&quot;</span><span class="p">],</span>
