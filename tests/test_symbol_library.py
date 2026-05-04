@@ -2,6 +2,7 @@ import copy
 
 import pytest
 
+from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
@@ -290,3 +291,91 @@ class TestSymbolLibraryDeepcopy:
         deep.add_symbol("sin", "fn", 5, "np.sin({})")
         assert "sin" not in original.symbols
         assert "sin" in deep.symbols
+
+
+class TestSymbolLibraryContextManager:
+    def test_basic_context_manager(self):
+        sl = SymbolLibrary.default_symbols(num_variables=2)
+        with sl:
+            tree_implicit = tokens_to_tree(["X_0", "+", "X_1"])
+        tree_explicit = tokens_to_tree(["X_0", "+", "X_1"], sl)
+        assert len(tree_implicit) == len(tree_explicit)
+        assert tree_implicit.symbol == tree_explicit.symbol
+
+    def test_nested_context_managers(self):
+        outer = SymbolLibrary.default_symbols(num_variables=2)
+        inner = SymbolLibrary.default_symbols(num_variables=5)
+        with outer:
+            assert SymbolLibrary.get_active() is outer
+            with inner:
+                assert SymbolLibrary.get_active() is inner
+            assert SymbolLibrary.get_active() is outer
+
+    def test_no_active_context_raises_runtime_error(self):
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            SymbolLibrary.get_active()
+
+    def test_explicit_parameter_takes_precedence_over_context(self):
+        context_sl = SymbolLibrary.default_symbols(num_variables=1)
+        explicit_sl = SymbolLibrary.default_symbols(num_variables=3)
+        with context_sl:
+            tree = tokens_to_tree(["X_0", "+", "X_2"], explicit_sl)
+        assert tree.symbol == "+"
+
+    def test_exception_inside_with_still_resets_context(self):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        with pytest.raises(ValueError):
+            with sl:
+                raise ValueError("deliberate")
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            SymbolLibrary.get_active()
+
+    def test_context_manager_without_as_clause(self):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        with sl:
+            assert SymbolLibrary.get_active() is sl
+        with pytest.raises(RuntimeError):
+            SymbolLibrary.get_active()
+
+
+class TestSymbolLibrarySetDefault:
+    def setup_method(self):
+        # Always start each test with no default set.
+        SymbolLibrary.set_default(None)
+
+    def teardown_method(self):
+        SymbolLibrary.set_default(None)
+
+    def test_set_default_returned_by_get_active(self):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        SymbolLibrary.set_default(sl)
+        assert SymbolLibrary.get_active() is sl
+
+    def test_set_default_returned_by_get_or_default(self):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        SymbolLibrary.set_default(sl)
+        assert SymbolLibrary.get_or_default() is sl
+
+    def test_context_manager_overrides_default(self):
+        default_sl = SymbolLibrary.default_symbols(num_variables=1)
+        context_sl = SymbolLibrary.default_symbols(num_variables=3)
+        SymbolLibrary.set_default(default_sl)
+        with context_sl:
+            assert SymbolLibrary.get_active() is context_sl
+        assert SymbolLibrary.get_active() is default_sl
+
+    def test_set_default_none_clears_default(self):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        SymbolLibrary.set_default(sl)
+        SymbolLibrary.set_default(None)
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            SymbolLibrary.get_active()
+
+    def test_get_or_default_falls_back_to_default_symbols_when_nothing_set(self):
+        result = SymbolLibrary.get_or_default()
+        assert isinstance(result, SymbolLibrary)
+        assert len(result) > 0  # default_symbols() is non-empty
+
+    def test_no_active_context_or_default_still_raises_for_get_active(self):
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            SymbolLibrary.get_active()

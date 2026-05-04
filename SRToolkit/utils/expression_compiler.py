@@ -56,7 +56,7 @@ _eval_py_spec.loader.exec_module(_eval_py)  # type: ignore[union-attr]
 
 def _expr_to_executable_function(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
     """
     Compile an expression into an executable Python function.
@@ -99,6 +99,8 @@ def _expr_to_executable_function(
     Raises:
         Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if not (isinstance(expr, list) or isinstance(expr, Node)):
         raise Exception(
             "Expression must be given as either a list of tokens or a tree (an instance of the "
@@ -123,7 +125,7 @@ def _expr_to_executable_function(
 
 def _expr_to_error_function(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
     """
     Compile an expression into a callable that computes the RMSE against target values.
@@ -159,6 +161,8 @@ def _expr_to_error_function(
     Raises:
         Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if not (isinstance(expr, list) or isinstance(expr, Node)):
         raise Exception(
             "Expression must be given as either a list of tokens or a tree (an instance of the "
@@ -561,7 +565,7 @@ def _prepare_cython_traversal(
 
 def _expr_to_cython_callable(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
     """
     Compile an expression into a fast callable backed by the Cython evaluator.
@@ -595,6 +599,8 @@ def _expr_to_cython_callable(
         constant values (pass an empty array or ``None`` for constant-free
         expressions). Returns a 1-D output array of shape ``(n_samples,)``.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
@@ -609,7 +615,7 @@ def _expr_to_cython_callable(
 
 def _expr_to_cython_error_callable(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
     X: Optional[np.ndarray] = None,
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
     """
@@ -642,6 +648,8 @@ def _expr_to_cython_error_callable(
     Returns:
         A callable ``f(X, C, y)`` returning the scalar RMSE as a float.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if X is not None:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal_partial(
             expr, symbol_library, X
@@ -665,7 +673,7 @@ def _expr_to_cython_error_callable(
 
 def _expr_to_python_callable(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
     """
     Compile an expression into a callable backed by the pure-Python evaluator.
@@ -694,6 +702,8 @@ def _expr_to_python_callable(
         (pass ``None`` or an empty array for constant-free expressions).
         Returns a 1-D output array of shape ``(n_samples,)``.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
@@ -706,7 +716,7 @@ def _expr_to_python_callable(
 
 def _expr_to_python_stack_error_callable(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
     X: Optional[np.ndarray] = None,
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
     """
@@ -741,6 +751,8 @@ def _expr_to_python_stack_error_callable(
     Returns:
         A callable ``f(X, C, y)`` returning the scalar RMSE as a float.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if X is not None:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal_partial(
             expr, symbol_library, X
@@ -761,7 +773,7 @@ def _expr_to_python_stack_error_callable(
 
 def compile_expr(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
     backend: str = "stack",
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
     """
@@ -800,6 +812,8 @@ def compile_expr(
     Raises:
         ValueError: If ``backend`` is not one of the supported values.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if backend == "stack":
         return _expr_to_cython_callable(expr, symbol_library)
     elif backend == "codegen":
@@ -812,7 +826,7 @@ def compile_expr(
 
 def compile_expr_rmse(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
     backend: str = "stack",
     X: Optional[np.ndarray] = None,
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
@@ -855,6 +869,8 @@ def compile_expr_rmse(
     Raises:
         ValueError: If ``backend`` is not one of the supported values.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if backend == "stack":
         return _expr_to_cython_error_callable(expr, symbol_library, X)
     elif backend == "codegen":

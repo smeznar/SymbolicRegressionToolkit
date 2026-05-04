@@ -19,7 +19,7 @@ def edit_distance(
     expr1: Union[List[str], Node],
     expr2: Union[List[str], Node],
     notation: str = "postfix",
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
 ) -> int:
     """
     Compute the edit distance between two expressions.
@@ -47,6 +47,8 @@ def edit_distance(
     Returns:
         Integer edit distance between the two serialised expressions.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if isinstance(expr1, Node):
         expr1 = expr1.to_list(symbol_library=symbol_library, notation=notation)
     elif isinstance(expr1, list):
@@ -74,7 +76,7 @@ def _expr_to_zss(expr: Node) -> zss.Node:
 def tree_edit_distance(
     expr1: Union[Node, List[str]],
     expr2: Union[Node, List[str]],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
 ) -> int:
     """
     Compute the Zhang-Shasha tree edit distance between two expressions.
@@ -101,6 +103,8 @@ def tree_edit_distance(
     Returns:
         Integer tree edit distance.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if isinstance(expr1, Node):
         zss1 = _expr_to_zss(expr1)
     elif isinstance(expr1, list):
@@ -119,7 +123,7 @@ def create_behavior_matrix(
     X: np.ndarray,
     num_consts_sampled: int = 32,
     consts_bounds: Tuple[float, float] = (-5, 5),
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
     seed: Optional[int] = None,
 ) -> np.ndarray:
     """
@@ -160,7 +164,7 @@ def create_behavior_matrix(
         Exception: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
     if symbol_library is None:
-        symbol_library = SymbolLibrary.default_symbols()
+        symbol_library = SymbolLibrary.get_or_default()
     const_symbols = symbol_library.get_symbols_of_type("const")
 
     if isinstance(expr, list):
@@ -256,7 +260,7 @@ def bed(
     num_points_sampled: int = 64,
     domain_bounds: Optional[List[Tuple[float, float]]] = None,
     consts_bounds: Tuple[float, float] = (-5, 5),
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
     seed: Optional[int] = None,
 ) -> float:
     """
@@ -326,6 +330,8 @@ def bed(
         ValueError: If the behavior matrices have zero rows.
     """
 
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     if X is None and not isinstance(expr1, np.ndarray) and not isinstance(expr2, np.ndarray):
         if domain_bounds is None:
             raise Exception(

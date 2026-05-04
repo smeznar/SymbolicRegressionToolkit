@@ -19,7 +19,7 @@ class ParameterEstimator:
         self,
         X: np.ndarray,
         y: np.ndarray,
-        symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+        symbol_library: Optional[SymbolLibrary] = None,
         seed: Optional[int] = None,
         **kwargs: Unpack[EstimationSettings],
     ) -> None:
@@ -55,6 +55,8 @@ class ParameterEstimator:
             seed: Random seed.
             estimation_settings: Active settings dict, merged from defaults and ``**kwargs``.
         """
+        if symbol_library is None:
+            symbol_library = SymbolLibrary.get_or_default()
         self.symbol_library = symbol_library
         self.X = X
         self.y = y

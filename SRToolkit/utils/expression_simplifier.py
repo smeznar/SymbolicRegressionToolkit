@@ -4,7 +4,7 @@ The functions in this script are work in progress and will be improved in the fu
 """
 
 import re
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 from sympy import Basic, Expr, expand, sympify
@@ -17,7 +17,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 
 def simplify(
     expr: Union[List[str], Node],
-    symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+    symbol_library: Optional[SymbolLibrary] = None,
 ) -> Union[List[str], Node]:
     """
     Simplify an expression algebraically.
@@ -46,6 +46,8 @@ def simplify(
         Exception: If simplification fails or the result contains tokens absent from
             ``symbol_library``.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
     is_tree = False
     if isinstance(expr, Node):
         expr = expr.to_list(symbol_library=symbol_library, notation="infix")

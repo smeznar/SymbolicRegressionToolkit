@@ -54,6 +54,36 @@ sl = SymbolLibrary(preamble=["import numpy as np", "import scipy.special as sp"]
 sl.add_symbol("erf", "fn", precedence=5, np_fn="sp.erf({})", latex_str=r"\mathrm{erf}\,{}")
 ```
 
+## Symbol library context
+
+Passing `sl` to every function call is verbose. Two alternatives let you set it once.
+
+**Context manager** — active for the duration of the `with` block:
+
+```python
+sl = SymbolLibrary.default_symbols(num_variables=2)
+
+with sl:
+    tree  = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
+    f     = compile_expr(["X_0", "*", "C"])
+    latex = expr_to_latex(["sin", "(", "X_0", ")", "+", "X_1"])
+    d     = edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
+```
+
+**Module-level default** — persists for the whole session, useful in scripts and notebooks:
+
+```python
+SymbolLibrary.set_default(SymbolLibrary.default_symbols(num_variables=3))
+
+# No sl argument needed anywhere below this point
+tree = tokens_to_tree(["X_0", "+", "X_1"])
+f    = compile_expr(["X_0", "*", "C"])
+
+SymbolLibrary.set_default(None)   # clear when done
+```
+
+The resolution order is: **explicit argument → context manager → module default → `default_symbols()`**. Functions that parse token vocabularies (`tokens_to_tree`, `create_generic_pcfg`) raise `RuntimeError` if no library is available; all other functions fall back to `default_symbols()`.
+
 ## Expression trees
 
 [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree] parses a token list into a binary [Node][SRToolkit.utils.expression_tree.Node] tree:

@@ -4,9 +4,13 @@ regression expressions.
 """
 
 import copy
+from contextvars import ContextVar
 from typing import Any, Dict, List, Optional
 
 from SRToolkit.utils.types import VALID_SYMBOL_TYPES
+
+_active_sl: ContextVar["SymbolLibrary"] = ContextVar("active_symbol_library")
+_default_sl: Optional["SymbolLibrary"] = None
 
 
 class SymbolLibrary:
@@ -36,6 +40,9 @@ class SymbolLibrary:
             >>> library2 = SymbolLibrary(["+", "*", "sin"], num_variables=2)
             >>> len(library2)
             5
+            >>> # Use as a context manager to avoid passing sl explicitly
+            >>> # with SymbolLibrary.default_symbols(num_variables=2) as sl:
+            >>> #     tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
 
         Args:
             symbols: Symbols to pre-populate from the default set. ``None`` with
@@ -591,6 +598,75 @@ class SymbolLibrary:
                 sl.add_symbol(f"X_{i}", "var", 5, "X[:, {}]".format(i), "X_{{{}}}".format(i))
 
         return sl
+
+    def __enter__(self) -> "SymbolLibrary":
+        self._token = _active_sl.set(self)
+        return self
+
+    def __exit__(self, *args) -> None:
+        _active_sl.reset(self._token)
+
+    @staticmethod
+    def get_active() -> "SymbolLibrary":
+        """
+        Return the currently active [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+
+        Checks, in order: (1) the context manager stack, (2) the module-level default set via
+        [set_default][SRToolkit.utils.symbol_library.SymbolLibrary.set_default].
+
+        Returns:
+            The active [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] instance.
+
+        Raises:
+            RuntimeError: If no library is active and no default has been set.
+        """
+        try:
+            return _active_sl.get()
+        except LookupError:
+            if _default_sl is not None:
+                return _default_sl
+            raise RuntimeError(
+                "No active SymbolLibrary. Either pass one explicitly, use "
+                "'with SymbolLibrary(...) as sl:', or call SymbolLibrary.set_default(sl)."
+            )
+
+    @staticmethod
+    def get_or_default() -> "SymbolLibrary":
+        """
+        Return the active [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary], falling back to
+        [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] when nothing is active.
+
+        Checks, in order: (1) the context manager stack, (2) the module-level default set via
+        [set_default][SRToolkit.utils.symbol_library.SymbolLibrary.set_default], (3) a freshly
+        constructed default library.
+
+        Returns:
+            The active or default [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] instance.
+        """
+        try:
+            return _active_sl.get()
+        except LookupError:
+            if _default_sl is not None:
+                return _default_sl
+            return SymbolLibrary.default_symbols()
+
+    @staticmethod
+    def set_default(sl: Optional["SymbolLibrary"]) -> None:
+        """
+        Set (or clear) a module-level default [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+
+        The default is used as a fallback by [get_active][SRToolkit.utils.symbol_library.SymbolLibrary.get_active]
+        and [get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default] when no context manager
+        is active. It is module-global (not per-thread or per-task) and intended for scripts and
+        notebooks where a single library is used throughout a session.
+
+        Pass ``None`` to clear the default.
+
+        Args:
+            sl: Library to set as the module-level default, or ``None`` to clear it.
+        """
+        global _default_sl
+        _default_sl = sl
 
     def to_dict(self) -> dict:
         """

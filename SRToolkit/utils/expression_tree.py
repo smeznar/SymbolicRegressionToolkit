@@ -96,6 +96,12 @@ class Node:
             return left + right + [self.symbol]
 
         elif notation == "infix" and symbol_library is None:
+            try:
+                symbol_library = SymbolLibrary.get_active()
+            except RuntimeError:
+                pass
+
+        if notation == "infix" and symbol_library is None:
             warnings.warn(
                 "Symbol library not provided. Generated expression may contain unnecessary parentheses and"
                 " have other issues."
@@ -114,7 +120,7 @@ class Node:
                     right = ["("] + right + [")"]
                 return left + [self.symbol] + right
 
-        elif notation == "infix":
+        if notation == "infix":
             assert symbol_library is not None, "[Node.to_list] parameter symbol_library should be of type SymbolLibrary"
             if is_float(self.symbol):
                 return [self.symbol]
@@ -152,7 +158,7 @@ class Node:
                 "Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix')."
             )
 
-    def to_latex(self, symbol_library: SymbolLibrary) -> str:
+    def to_latex(self, symbol_library: Optional[SymbolLibrary] = None) -> str:
         r"""
         Transforms the tree rooted at this node into a LaTeX expression.
 
@@ -172,6 +178,8 @@ class Node:
 
         Args:
             symbol_library: Symbol library providing LaTeX templates for each token.
+                If None, falls back to the currently active library set via
+                'with SymbolLibrary(...) as sl:'. Defaults to None.
 
         Returns:
             A LaTeX string of the form ``$...$``.
@@ -180,7 +188,8 @@ class Node:
             Exception: If the tree contains a token whose type cannot be resolved in
                 ``symbol_library``.
         """
-        assert symbol_library is not None, "[Node.to_latex] parameter symbol_library should be of type SymbolLibrary"
+        if symbol_library is None:
+            symbol_library = SymbolLibrary.get_active()
         return f"${self.__to_latex_rec(symbol_library)[0]}$"
 
     def __to_latex_rec(self, symbol_library, num_const=0) -> Tuple[str, int]:
@@ -324,7 +333,7 @@ def is_float(element: Any) -> bool:
         return False
 
 
-def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
+def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None) -> Node:
     """
     Parse a token list into an expression tree using the shunting-yard algorithm.
 
@@ -335,7 +344,9 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
 
     Args:
         tokens: Token list in infix notation.
-        sl: Symbol library used to resolve token types and precedences.
+        sl: Symbol library used to resolve token types and precedences. If None,
+            falls back to the currently active library set via
+            'with SymbolLibrary(...) as sl:'. Defaults to None.
 
     Returns:
         Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
@@ -344,6 +355,8 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         Exception: If a token is absent from ``sl``, or if the expression is
             syntactically invalid.
     """
+    if sl is None:
+        sl = SymbolLibrary.get_active()
     num_tokens = len([t for t in tokens if t != "(" and t != ")"])
     expr_str = "".join(tokens)
     tokens = ["("] + tokens + [")"]
@@ -390,7 +403,7 @@ def tokens_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         raise Exception(f"Error while parsing expression {expr_str}.")
 
 
-def expr_to_latex(expr: Union[Node, List[str]], symbol_library: SymbolLibrary) -> str:
+def expr_to_latex(expr: Union[Node, List[str]], symbol_library: Optional[SymbolLibrary] = None) -> str:
     """
     Convert an expression to a LaTeX string.
 
@@ -403,11 +416,15 @@ def expr_to_latex(expr: Union[Node, List[str]], symbol_library: SymbolLibrary) -
 
     Args:
         expr: Expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library providing LaTeX templates.
+        symbol_library: Symbol library providing LaTeX templates. If None, falls
+            back to the currently active library set via
+            'with SymbolLibrary(...) as sl:'. Defaults to None.
 
     Returns:
         A LaTeX string of the form ``$...$``, or an empty string if conversion fails.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_active()
     try:
         if isinstance(expr, Node):
             return expr.to_latex(symbol_library)

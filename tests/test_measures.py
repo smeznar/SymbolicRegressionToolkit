@@ -5,6 +5,7 @@ from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.measures import (
     _custom_wasserstein,
     _expr_to_zss,
+    _vectorized_wasserstein_batch,
     bed,
     create_behavior_matrix,
     edit_distance,
@@ -235,4 +236,99 @@ class TestBed:
         bm1 = np.array([[np.nan, np.nan], [np.inf, np.inf]])
         bm2 = np.array([[np.nan, np.nan], [np.nan, np.inf]])
         result = bed(bm1, bm2, symbol_library=self.sl)
+        assert result == pytest.approx(0.0)
+
+    def test_rows_with_partial_nan_use_custom_wasserstein_fallback(self):
+        # A row that has some NaN alongside finite values passes the finite_any filter
+        # but fails np.all(np.isfinite), routing it through the _custom_wasserstein loop.
+        bm1 = np.array([[1.0, np.nan, 3.0, 4.0]])
+        bm2 = np.array([[1.0, 2.0, 3.0, 4.0]])
+        result = bed(bm1, bm2, symbol_library=self.sl)
+        assert np.isfinite(result)
+        assert result >= 0.0
+
+    def test_active_rows_with_inf_return_inf(self):
+        # Row passes the initial finite_any filter (has at least one finite entry),
+        # but contains inf → the np.isinf guard after filtering returns inf.
+        bm1 = np.array([[1.0, np.inf, 3.0]])
+        bm2 = np.array([[1.0, 2.0, 3.0]])
+        result = bed(bm1, bm2, symbol_library=self.sl)
+        assert result == np.inf
+
+
+class TestVectorizedWassersteinBatch:
+    def test_identical_rows_return_zeros(self):
+        rng = np.random.default_rng(42)
+        m = rng.random((5, 8))
+        result = _vectorized_wasserstein_batch(m, m)
+        np.testing.assert_allclose(result, 0.0)
+
+    def test_output_shape(self):
+        rng = np.random.default_rng(1)
+        result = _vectorized_wasserstein_batch(rng.random((10, 8)), rng.random((10, 8)))
+        assert result.shape == (10,)
+
+    def test_single_row_matches_custom_wasserstein(self):
+        rng = np.random.default_rng(0)
+        u = rng.random((1, 16))
+        v = rng.random((1, 16))
+        assert _vectorized_wasserstein_batch(u, v)[0] == pytest.approx(_custom_wasserstein(u[0], v[0]), rel=1e-9)
+
+    def test_batch_matches_row_by_row(self):
+        rng = np.random.default_rng(7)
+        m1 = rng.random((6, 12))
+        m2 = rng.random((6, 12))
+        batch = _vectorized_wasserstein_batch(m1, m2)
+        expected = np.array([_custom_wasserstein(m1[i], m2[i]) for i in range(6)])
+        np.testing.assert_allclose(batch, expected, rtol=1e-9)
+
+    def test_symmetry(self):
+        rng = np.random.default_rng(5)
+        m1 = rng.random((4, 10))
+        m2 = rng.random((4, 10))
+        np.testing.assert_allclose(
+            _vectorized_wasserstein_batch(m1, m2), _vectorized_wasserstein_batch(m2, m1), rtol=1e-9
+        )
+
+
+class TestContextFallback:
+    """Verify that measures functions use the active context / module default when
+    no symbol_library argument is provided."""
+
+    def setup_method(self):
+        SymbolLibrary.set_default(None)
+
+    def teardown_method(self):
+        SymbolLibrary.set_default(None)
+
+    def test_edit_distance_uses_context(self):
+        sl = SymbolLibrary.default_symbols(num_variables=2)
+        with sl:
+            result = edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
+        assert result == 0
+
+    def test_edit_distance_uses_default(self):
+        SymbolLibrary.set_default(SymbolLibrary.default_symbols(num_variables=2))
+        assert edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"]) == 1
+
+    def test_tree_edit_distance_uses_context(self):
+        sl = SymbolLibrary.default_symbols(num_variables=2)
+        with sl:
+            result = tree_edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
+        assert result == 0
+
+    def test_create_behavior_matrix_uses_context(self):
+        sl = SymbolLibrary.default_symbols(num_variables=2)
+        rng = np.random.default_rng(0)
+        X = rng.random((10, 2))
+        with sl:
+            bm = create_behavior_matrix(["X_0", "+", "X_1"], X)
+        assert bm.shape[0] == 10
+
+    def test_bed_uses_context(self):
+        sl = SymbolLibrary.default_symbols(num_variables=2)
+        rng = np.random.default_rng(0)
+        X = rng.random((10, 2))
+        with sl:
+            result = bed(["X_0", "+", "X_1"], ["X_0", "+", "X_1"], X)
         assert result == pytest.approx(0.0)

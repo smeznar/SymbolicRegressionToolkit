@@ -3,7 +3,7 @@ PCFG construction from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLi
 expressions.
 """
 
-from typing import List, Union
+from typing import List, Optional, Union
 
 import nltk
 import numpy as np
@@ -12,7 +12,7 @@ from tqdm import tqdm
 from .symbol_library import SymbolLibrary
 
 
-def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
+def create_generic_pcfg(symbol_library: Optional[SymbolLibrary] = None) -> str:
     """
     Construct a generic Probabilistic Context-Free Grammar (PCFG) from a symbol library.
 
@@ -53,11 +53,14 @@ def create_generic_pcfg(symbol_library: SymbolLibrary) -> str:
 
     Args:
         symbol_library: Symbol library defining the available tokens, their types,
-            and precedences.
+            and precedences. If None, falls back to the currently active library
+            set via 'with SymbolLibrary(...) as sl:'. Defaults to None.
 
     Returns:
         NLTK-formatted PCFG string with generic probabilities.
     """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_active()
     symbols = symbol_library.symbols.values()
     E = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 0]
     F = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 1]

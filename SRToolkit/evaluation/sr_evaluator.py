@@ -158,7 +158,7 @@ class SR_evaluator:
         self,
         X: np.ndarray,
         y: Optional[np.ndarray] = None,
-        symbol_library: SymbolLibrary = SymbolLibrary.default_symbols(),
+        symbol_library: Optional[SymbolLibrary] = None,
         max_evaluations: int = -1,
         success_threshold: Optional[float] = None,
         ranking_function: str = "rmse",
@@ -259,6 +259,8 @@ class SR_evaluator:
         if self.bed_evaluation_parameters["num_points_sampled"] == -1:
             self.bed_evaluation_parameters["num_points_sampled"] = X.shape[0]
 
+        if symbol_library is None:
+            symbol_library = SymbolLibrary.get_or_default()
         self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
         self.total_evaluations = 0

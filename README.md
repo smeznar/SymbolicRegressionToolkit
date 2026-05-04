@@ -60,17 +60,16 @@ constants = [3]
 output = expr(data_points, constants)
 # Variable "output" should now contain np.array([7, 17])
 
-# Create a SymbolLibrary defining the symbol space for 2 variables
-sl = SymbolLibrary.default_symbols(num_variables=2)
+# Use a SymbolLibrary as a context manager to avoid passing it to every call
+with SymbolLibrary.default_symbols(num_variables=2) as sl:
+    # Create an expression tree from the token list
+    expr_tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
 
-# Create an expression tree from the token list
-expr_tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"], sl)
+    # Transform the expression into a list of symbols in postfix notation
+    postfix_expr = expr_tree.to_list(notation="postfix")
 
-# Transform the expression into a list of symbols in postfix notation
-postfix_expr = expr_tree.to_list(notation="postfix")
-
-# Create a LaTeX string of the expression for clear presentation
-expr_latex = expr_to_latex(expr_tree, sl)
+    # Create a LaTeX string of the expression for clear presentation
+    expr_latex = expr_to_latex(expr_tree)
 ```
 
 ### 2. Benchmarking and Evaluation (The Main Use Case)

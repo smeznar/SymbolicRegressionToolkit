@@ -170,3 +170,16 @@ class TestGenerateNExpressions:
         grammar = "E -> '1' '+' E [1.0]"
         with pytest.raises(Exception, match="consecutive failures"):
             generate_n_expressions(grammar, 1, verbose=True, max_expression_length=1, max_consecutive_failures=2)
+
+
+class TestCreateGenericPcfgContextManager:
+    def test_uses_active_context_when_no_argument(self):
+        sl = SymbolLibrary.from_symbol_list(["+"], num_variables=1)
+        with sl:
+            grammar = create_generic_pcfg()
+        assert "E -> E '+' F" in grammar
+        assert "V -> 'X_0'" in grammar
+
+    def test_no_active_context_raises(self):
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            create_generic_pcfg()

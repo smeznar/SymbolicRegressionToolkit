@@ -310,6 +310,76 @@ class TestExprToLatex:
         assert "Error" in capsys.readouterr().out
 
 
+class TestNodeToListContextFallback:
+    def setup_method(self):
+        SymbolLibrary.set_default(None)
+
+    def teardown_method(self):
+        SymbolLibrary.set_default(None)
+
+    def test_to_list_uses_active_context_no_warning(self, recwarn):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        node = Node("sin", None, Node("X_0"))
+        with sl:
+            result = node.to_list()
+        assert result == ["sin", "(", "X_0", ")"]
+        user_warnings = [w for w in recwarn.list if issubclass(w.category, UserWarning)]
+        assert len(user_warnings) == 0
+
+    def test_to_list_uses_default_no_warning(self, recwarn):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        SymbolLibrary.set_default(sl)
+        node = Node("sin", None, Node("X_0"))
+        result = node.to_list()
+        assert result == ["sin", "(", "X_0", ")"]
+        user_warnings = [w for w in recwarn.list if issubclass(w.category, UserWarning)]
+        assert len(user_warnings) == 0
+
+    def test_to_list_warns_when_no_context_or_default(self):
+        node = Node("sin", None, Node("X_0"))
+        with pytest.warns(UserWarning):
+            result = node.to_list()
+        # crude fallback: prefix fn wrapped in parens
+        assert result == ["sin", "(", "X_0", ")"]
+
+    def test_str_node_uses_context_no_warning(self, recwarn):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        node = Node("+", Node("1"), Node("X_0"))
+        with sl:
+            result = str(node)
+        assert result == "X_0+1"
+        user_warnings = [w for w in recwarn.list if issubclass(w.category, UserWarning)]
+        assert len(user_warnings) == 0
+
+
+class TestContextManagerFallback:
+    def test_tokens_to_tree_no_active_context_raises(self):
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            tokens_to_tree(["X_0", "+", "1"])
+
+    def test_node_to_latex_uses_active_context(self):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        node = Node("+", right=Node("X_0"), left=Node("1"))
+        with sl:
+            result = node.to_latex()
+        assert result == "$1 + X_{0}$"
+
+    def test_node_to_latex_no_active_context_raises(self):
+        node = Node("+", right=Node("X_0"), left=Node("1"))
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            node.to_latex()
+
+    def test_expr_to_latex_uses_active_context(self):
+        sl = SymbolLibrary.default_symbols(num_variables=1)
+        with sl:
+            result = expr_to_latex(["X_0", "+", "1"])
+        assert result == "$X_{0} + 1$"
+
+    def test_expr_to_latex_no_active_context_raises(self):
+        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
+            expr_to_latex(["X_0", "+", "1"])
+
+
 class TestIsFloat:
     def test_returns_false_for_none(self):
         assert is_float(None) is False
