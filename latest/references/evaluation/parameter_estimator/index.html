@@ -1968,7 +1968,7 @@ Defaults to <a class="autorefs autorefs-internal" title="&lt;code class=&quot;do
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EstimationSettings&lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.EstimationSettings">EstimationSettings</a>.
 Supported keys: <code>method</code>, <code>tol</code>, <code>gtol</code>, <code>max_iter</code>,
 <code>constant_bounds</code>, <code>initialization</code>, <code>max_constants</code>,
-<code>max_expr_length</code>.</p>
+<code>max_expr_length</code>, <code>backend</code>.</p>
               </div>
             </td>
             <td>
@@ -2112,7 +2112,13 @@ Supported keys: <code>method</code>, <code>tol</code>, <code>gtol</code>, <code>
 <span class="normal"><a href="#__codelineno-0-76">76</a></span>
 <span class="normal"><a href="#__codelineno-0-77">77</a></span>
 <span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 <a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="bp">self</span><span class="p">,</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21"></a>    <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -2143,7 +2149,7 @@ Supported keys: <code>method</code>, <code>tol</code>, <code>gtol</code>, <code>
 <a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">            [EstimationSettings][SRToolkit.utils.types.EstimationSettings].</span>
 <a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">            Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,</span>
 <a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">            ``constant_bounds``, ``initialization``, ``max_constants``,</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">            ``max_expr_length``.</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">            ``max_expr_length``, ``backend``.</span>
 <a id="__codelineno-0-50" name="__codelineno-0-50"></a>
 <a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    Attributes:</span>
 <a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">        symbol_library: The symbol library used.</span>
@@ -2166,14 +2172,20 @@ Supported keys: <code>method</code>, <code>tol</code>, <code>gtol</code>, <code>
 <a id="__codelineno-0-69" name="__codelineno-0-69"></a>        <span class="s2">&quot;initialization&quot;</span><span class="p">:</span> <span class="s2">&quot;random&quot;</span><span class="p">,</span>  <span class="c1"># random, mean</span>
 <a id="__codelineno-0-70" name="__codelineno-0-70"></a>        <span class="s2">&quot;max_constants&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
 <a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="s2">&quot;max_expr_length&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="p">}</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>  <span class="c1"># type: ignore[literal-required]</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>        <span class="s2">&quot;backend&quot;</span><span class="p">:</span> <span class="s2">&quot;stack&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="p">}</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>  <span class="c1"># type: ignore[literal-required]</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;backend&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;stack&quot;</span><span class="p">,</span> <span class="s2">&quot;codegen&quot;</span><span class="p">,</span> <span class="s2">&quot;stack_py&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>            <span class="sa">f</span><span class="s2">&quot;backend must be &#39;stack&#39;, &#39;codegen&#39;, or &#39;stack_py&#39;, got </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s1">&#39;backend&#39;</span><span class="p">]</span><span class="si">!r}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>        <span class="p">)</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2282,13 +2294,7 @@ without running the optimizer.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/evaluation/parameter_estimator.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
-<span class="normal"><a href="#__codelineno-0-82"> 82</a></span>
-<span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
-<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
-<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
-<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
-<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
 <span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
 <span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
 <span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
@@ -2333,58 +2339,74 @@ without running the optimizer.</p>
 <span class="normal"><a href="#__codelineno-0-129">129</a></span>
 <span class="normal"><a href="#__codelineno-0-130">130</a></span>
 <span class="normal"><a href="#__codelineno-0-131">131</a></span>
-<span class="normal"><a href="#__codelineno-0-132">132</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="k">def</span><span class="w"> </span><span class="nf">estimate_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    Fit free constants in *expr* by minimizing RMSE against the target values.</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    Expressions that exceed ``max_constants`` or ``max_expr_length`` immediately</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    return ``(NaN, [])``. Expressions with no free constants are evaluated directly</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">    without running the optimizer.</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">        &gt;&gt;&gt; X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="sd">        &gt;&gt;&gt; y = np.array([3, 0, 3, 11])</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">        &gt;&gt;&gt; pe = ParameterEstimator(X, y)</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">        &gt;&gt;&gt; rmse, constants = pe.estimate_parameters([&quot;C&quot;, &quot;*&quot;, &quot;X_1&quot;, &quot;-&quot;, &quot;X_0&quot;])</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="sd">        &gt;&gt;&gt; print(rmse &lt; 1e-6)</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">        True</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">        &gt;&gt;&gt; print(1.99 &lt; constants[0] &lt; 2.01)</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">        True</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">        &gt;&gt;&gt; # Constant-free expressions are evaluated directly</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">        &gt;&gt;&gt; rmse, constants = pe.estimate_parameters([&quot;X_1&quot;, &quot;-&quot;, &quot;X_0&quot;])</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">        &gt;&gt;&gt; constants.size</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">        0</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="sd">        expr: Expression as a token list in infix notation or a</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">        A 2-tuple ``(rmse, parameters)`` where ``rmse`` is the root-mean-square error of the fitted expression and ``parameters`` is a 1-D array of optimized constant values. Returns ``(NaN, [])`` if the expression violates ``max_constants`` or ``max_expr_length``.</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Node</span><span class="p">):</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="n">expr_str</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">&quot;prefix&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>        <span class="n">num_constants</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">expr_str</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">get_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;const&quot;</span><span class="p">])</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>        <span class="n">num_constants</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">expr</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">get_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;const&quot;</span><span class="p">])</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="k">if</span> <span class="p">(</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>        <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;max_constants&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;max_constants&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">num_constants</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="p">):</span>
-<a id="__codelineno-0-119" name="__codelineno-0-119"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
-<a id="__codelineno-0-120" name="__codelineno-0-120"></a>
-<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;max_expr_length&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span>
-<a id="__codelineno-0-122" name="__codelineno-0-122"></a>        <span class="s2">&quot;max_expr_length&quot;</span>
-<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="p">]</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a>
-<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="n">executable_error_fn</span> <span class="o">=</span> <span class="n">expr_to_error_function</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">)</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="k">if</span> <span class="n">num_constants</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a>        <span class="n">rmse</span> <span class="o">=</span> <span class="n">executable_error_fn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
-<a id="__codelineno-0-130" name="__codelineno-0-130"></a>        <span class="k">return</span> <span class="n">rmse</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimize_parameters</span><span class="p">(</span><span class="n">executable_error_fn</span><span class="p">,</span> <span class="n">num_constants</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="k">def</span><span class="w"> </span><span class="nf">estimate_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">    Fit free constants in *expr* by minimizing RMSE against the target values.</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="sd">    Expressions that exceed ``max_constants`` or ``max_expr_length`` immediately</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    return ``(NaN, [])``. Expressions with no free constants are evaluated directly</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    without running the optimizer.</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">        &gt;&gt;&gt; X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">        &gt;&gt;&gt; y = np.array([3, 0, 3, 11])</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">        &gt;&gt;&gt; pe = ParameterEstimator(X, y)</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">        &gt;&gt;&gt; rmse, constants = pe.estimate_parameters([&quot;C&quot;, &quot;*&quot;, &quot;X_1&quot;, &quot;-&quot;, &quot;X_0&quot;])</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">        &gt;&gt;&gt; print(rmse &lt; 1e-6)</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">        True</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">        &gt;&gt;&gt; print(1.99 &lt; constants[0] &lt; 2.01)</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">        True</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="sd">        &gt;&gt;&gt; # Constant-free expressions are evaluated directly</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">        &gt;&gt;&gt; rmse, constants = pe.estimate_parameters([&quot;X_1&quot;, &quot;-&quot;, &quot;X_0&quot;])</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="sd">        &gt;&gt;&gt; constants.size</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">        0</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="sd">        expr: Expression as a token list in infix notation or a</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="sd">        A 2-tuple ``(rmse, parameters)`` where ``rmse`` is the root-mean-square error of the fitted expression and ``parameters`` is a 1-D array of optimized constant values. Returns ``(NaN, [])`` if the expression violates ``max_constants`` or ``max_expr_length``.</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Node</span><span class="p">):</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="n">expr_str</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">&quot;prefix&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>        <span class="n">num_constants</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">expr_str</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">get_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;const&quot;</span><span class="p">])</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>        <span class="n">num_constants</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="mi">1</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">expr</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">get_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;const&quot;</span><span class="p">])</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="k">if</span> <span class="p">(</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a>        <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;max_constants&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a>        <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;max_constants&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">num_constants</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="p">):</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;max_expr_length&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>        <span class="s2">&quot;max_expr_length&quot;</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>    <span class="p">]</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">expr</span><span class="p">):</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="n">executable_error_fn</span> <span class="o">=</span> <span class="n">compile_expr_rmse</span><span class="p">(</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>        <span class="n">expr</span><span class="p">,</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">,</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>        <span class="n">backend</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">estimation_settings</span><span class="p">[</span><span class="s2">&quot;backend&quot;</span><span class="p">]),</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>        <span class="n">X</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="k">if</span> <span class="n">num_constants</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>    <span class="p">)</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="k">if</span> <span class="n">num_constants</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>        <span class="n">rmse</span> <span class="o">=</span> <span class="n">executable_error_fn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>        <span class="k">return</span> <span class="n">rmse</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimize_parameters</span><span class="p">(</span><span class="n">executable_error_fn</span><span class="p">,</span> <span class="n">num_constants</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
