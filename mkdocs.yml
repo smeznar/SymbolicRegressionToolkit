@@ -141,6 +141,8 @@ nav:
           - benchmark: references/dataset/srbenchmark.md
           - feynman: references/dataset/feynman.md
           - nguyen: references/dataset/nguyen.md
+          - srsd_feynman: references/dataset/srsd_feynman.md
+          - sampling: references/dataset/sampling.md
       - approaches:
           - references/approaches/index.md
           - sr_approach: references/approaches/sr_approach.md
