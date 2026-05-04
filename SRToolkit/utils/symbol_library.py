@@ -73,6 +73,7 @@ class SymbolLibrary:
         precedence: int,
         np_fn: str,
         latex_str: Optional[str] = None,
+        cython_id: int = -1,
     ):
         r"""
         Add a token to the library with its associated type, precedence, NumPy function
@@ -93,6 +94,12 @@ class SymbolLibrary:
         ``"\text{symb} {}"`` for functions (e.g. ``sin`` → ``\text{sin} {}``),
         and ``"\text{symb}"`` for all other types.
 
+        Note:
+            For best performance, we recommend selecting symbols from the predefined set via the
+            constructor or [from_symbol_list][SRToolkit.utils.symbol_library.SymbolLibrary.from_symbol_list]
+            rather than adding custom ones. Predefined symbols have C implementations and
+            benefit from Cython acceleration; custom symbols always fall back to Python callables.
+
         Examples:
             >>> library = SymbolLibrary()
             >>> library.add_symbol("x", "var", 0, "x")
@@ -106,11 +113,17 @@ class SymbolLibrary:
             symbol_type: One of ``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``.
             precedence: Operator precedence, used for infix reconstruction and PCFG generation.
             np_fn: Python/NumPy expression string used in compiled callables
-                (e.g. ``"{} = np.sin({})"``) . For ``"var"`` type, passing ``None``
+                (e.g. ``"np.sin({})"``). For ``"var"`` type, passing ``None``
                 or ``""`` auto-generates ``"X[:, i]"`` where ``i`` is the current
                 ``num_variables`` count at the time of the call.
             latex_str: LaTeX template string with ``{}`` placeholders for operands.
                 Auto-generated if omitted.
+            cython_id: Integer dispatch ID used by the Cython-based evaluator.
+                ``-1`` (default) means the symbol has no C implementation and will
+                fall back to a Python callable during Cython evaluation. Custom symbols
+                should leave this at ``-1``; to redefine a built-in symbol while
+                preserving its Cython acceleration, look up its ID in the source of
+                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
         Raises:
             ValueError: If ``symbol_type`` is not one of the valid types.
@@ -138,6 +151,7 @@ class SymbolLibrary:
             "precedence": precedence,
             "np_fn": np_fn,
             "latex_str": latex_str,
+            "cython_id": cython_id,
         }
 
     def remove_symbol(self, symbol: str):
@@ -223,6 +237,33 @@ class SymbolLibrary:
             return self.symbols[symbol]["np_fn"]
         else:
             return ""
+
+    def get_cython_id(self, symbol: str) -> int:
+        """
+        Return the Cython stack machine dispatch ID for a symbol.
+
+        Returns ``-1`` for symbols without a C implementation (they will fall
+        back to a Python callable during Cython evaluation).
+
+        Examples:
+            >>> library = SymbolLibrary.default_symbols()
+            >>> library.get_cython_id("+")
+            0
+            >>> library.get_cython_id("sin")
+            10
+            >>> library.get_cython_id("unknown_symbol")
+            -1
+
+        Args:
+            symbol: Token to look up.
+
+        Returns:
+            Integer dispatch ID, or ``-1`` if the symbol is not in the library
+            or has no Cython implementation.
+        """
+        if symbol in self.symbols:
+            return self.symbols[symbol].get("cython_id", -1)
+        return -1
 
     def get_latex_str(self, symbol: str) -> str:
         """
@@ -354,166 +395,187 @@ class SymbolLibrary:
             "+",
             symbol_type="op",
             precedence=0,
-            np_fn="{} = {} + {}",
+            np_fn="{} + {}",
             latex_str=r"{} + {}",
+            cython_id=0,
         )
         sl.add_symbol(
             "-",
             symbol_type="op",
             precedence=0,
-            np_fn="{} = {} - {}",
+            np_fn="{} - {}",
             latex_str=r"{} - {}",
+            cython_id=1,
         )
         sl.add_symbol(
             "*",
             symbol_type="op",
             precedence=1,
-            np_fn="{} = {} * {}",
+            np_fn="{} * {}",
             latex_str=r"{} \cdot {}",
+            cython_id=2,
         )
         sl.add_symbol(
             "/",
             symbol_type="op",
             precedence=1,
-            np_fn="{} = {} / {}",
+            np_fn="{} / {}",
             latex_str=r"\frac{{{}}}{{{}}}",
+            cython_id=3,
         )
         sl.add_symbol(
             "^",
             symbol_type="op",
             precedence=2,
-            np_fn="{} = np.power({},{})",
+            np_fn="np.power({},{})",
             latex_str=r"{}^{{{}}}",
+            cython_id=4,
         )
-        sl.add_symbol("u-", symbol_type="fn", precedence=5, np_fn="{} = -{}", latex_str=r"- {}")
+        sl.add_symbol("u-", symbol_type="fn", precedence=5, np_fn="-{}", latex_str=r"- {}", cython_id=25)
         sl.add_symbol(
             "sqrt",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.sqrt({})",
+            np_fn="np.sqrt({})",
             latex_str=r"\sqrt {{{}}}",
+            cython_id=14,
         )
         sl.add_symbol(
             "sin",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.sin({})",
+            np_fn="np.sin({})",
             latex_str=r"\sin {}",
+            cython_id=10,
         )
         sl.add_symbol(
             "cos",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.cos({})",
+            np_fn="np.cos({})",
             latex_str=r"\cos {}",
+            cython_id=11,
         )
         sl.add_symbol(
             "exp",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.exp({})",
+            np_fn="np.exp({})",
             latex_str=r"e^{{{}}}",
+            cython_id=13,
         )
         sl.add_symbol(
             "tan",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.tan({})",
+            np_fn="np.tan({})",
             latex_str=r"\tan {}",
+            cython_id=12,
         )
         sl.add_symbol(
             "arcsin",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.arcsin({})",
+            np_fn="np.arcsin({})",
             latex_str=r"\arcsin {}",
+            cython_id=17,
         )
         sl.add_symbol(
             "arccos",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.arccos({})",
+            np_fn="np.arccos({})",
             latex_str=r"\arccos {}",
+            cython_id=18,
         )
         sl.add_symbol(
             "arctan",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.arctan({})",
+            np_fn="np.arctan({})",
             latex_str=r"\arctan {}",
+            cython_id=19,
         )
         sl.add_symbol(
             "sinh",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.sinh({})",
+            np_fn="np.sinh({})",
             latex_str=r"\sinh {}",
+            cython_id=20,
         )
         sl.add_symbol(
             "cosh",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.cosh({})",
+            np_fn="np.cosh({})",
             latex_str=r"\cosh {}",
+            cython_id=21,
         )
         sl.add_symbol(
             "tanh",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.tanh({})",
+            np_fn="np.tanh({})",
             latex_str=r"\tanh {}",
+            cython_id=22,
         )
         sl.add_symbol(
             "floor",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.floor({})",
+            np_fn="np.floor({})",
             latex_str=r"\lfloor {} \rfloor",
+            cython_id=23,
         )
         sl.add_symbol(
             "ceil",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.ceil({})",
+            np_fn="np.ceil({})",
             latex_str=r"\lceil {} \rceil",
+            cython_id=24,
         )
         sl.add_symbol(
             "ln",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.log({})",
+            np_fn="np.log({})",
             latex_str=r"\ln {}",
+            cython_id=15,
         )
         sl.add_symbol(
             "log",
             symbol_type="fn",
             precedence=5,
-            np_fn="{} = np.log10({})",
+            np_fn="np.log10({})",
             latex_str=r"\log_{{10}} {}",
+            cython_id=16,
         )
         sl.add_symbol(
             "^-1",
             symbol_type="fn",
             precedence=-1,
-            np_fn="{} = 1/{}",
+            np_fn="1/{}",
             latex_str=r"{}^{{-1}}",
+            cython_id=26,
         )
-        sl.add_symbol("^2", symbol_type="fn", precedence=-1, np_fn="{} = {}**2", latex_str=r"{}^2")
-        sl.add_symbol("^3", symbol_type="fn", precedence=-1, np_fn="{} = {}**3", latex_str=r"{}^3")
-        sl.add_symbol("^4", symbol_type="fn", precedence=-1, np_fn="{} = {}**4", latex_str=r"{}^4")
-        sl.add_symbol("^5", symbol_type="fn", precedence=-1, np_fn="{} = {}**5", latex_str=r"{}^5")
+        sl.add_symbol("^2", symbol_type="fn", precedence=-1, np_fn="{}**2", latex_str=r"{}^2", cython_id=27)
+        sl.add_symbol("^3", symbol_type="fn", precedence=-1, np_fn="{}**3", latex_str=r"{}^3", cython_id=28)
+        sl.add_symbol("^4", symbol_type="fn", precedence=-1, np_fn="{}**4", latex_str=r"{}^4", cython_id=29)
+        sl.add_symbol("^5", symbol_type="fn", precedence=-1, np_fn="{}**5", latex_str=r"{}^5", cython_id=30)
         sl.add_symbol(
             "pi",
             symbol_type="lit",
             precedence=5,
-            np_fn="np.full(X.shape[0], np.pi)",
+            np_fn="np.pi",
             latex_str=r"\pi",
         )
         sl.add_symbol(
             "e",
             symbol_type="lit",
             precedence=5,
-            np_fn="np.full(X.shape[0], np.e)",
+            np_fn="np.e",
             latex_str=r"e",
         )
         sl.add_symbol(
@@ -604,7 +666,7 @@ class SymbolLibrary:
             >>> library.add_symbol("x", "var", 0, "x", "x")
             >>> str(library)
             'x'
-            >>> library.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
+            >>> library.add_symbol("sin", "fn", 5, "np.sin({})", r"\sin {}")
             >>> str(library)
             'x, sin'
 
@@ -623,7 +685,7 @@ class SymbolLibrary:
             >>> print(old_symbols)
             x
             >>> new_symbols = copy.copy(old_symbols)
-            >>> new_symbols.add_symbol("sin", "fn", 5, "{} = np.sin({})", r"\sin {}")
+            >>> new_symbols.add_symbol("sin", "fn", 5, "np.sin({})", r"\sin {}")
             >>> print(old_symbols)
             x
             >>> print(new_symbols)

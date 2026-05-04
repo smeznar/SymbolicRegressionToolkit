@@ -12,7 +12,7 @@ from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
 from SRToolkit.utils import Node, SymbolLibrary
-from SRToolkit.utils.expression_compiler import expr_to_executable_function
+from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.types import EstimationSettings
 
 from .sampling import sampling_from_dict
@@ -340,7 +340,7 @@ class SR_dataset:
                 f"[SR_dataset.resample] Dataset '{self.dataset_name}' has no token-list ground truth — "
                 "cannot evaluate y. ground_truth must be a list of tokens or a Node."
             )
-        f = expr_to_executable_function(self.ground_truth, self.symbol_library)
+        f = compile_expr(self.ground_truth, self.symbol_library)
         y = f(X, np.array([]))
         return X, y
 

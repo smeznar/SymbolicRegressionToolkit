@@ -16,11 +16,7 @@ Modules:
     serialization: Internal JSON serialization utilities for numpy types.
 """
 
-from .expression_compiler import (
-    expr_to_error_function,
-    expr_to_executable_function,
-    tree_to_function_rec,
-)
+from .expression_compiler import compile_expr, compile_expr_rmse
 from .expression_generator import (
     create_generic_pcfg,
     generate_from_pcfg,
@@ -47,9 +43,8 @@ __all__ = [
     "Node",
     "tokens_to_tree",
     "is_float",
-    "tree_to_function_rec",
-    "expr_to_executable_function",
-    "expr_to_error_function",
+    "compile_expr",
+    "compile_expr_rmse",
     "simplify",
     "generate_from_pcfg",
     "create_generic_pcfg",

@@ -49,10 +49,10 @@ SRToolkit offers fundamental utilities for working with mathematical expressions
 
 ```python
 import numpy as np
-from SRToolkit.utils import expr_to_executable_function, tokens_to_tree, SymbolLibrary, expr_to_latex
+from SRToolkit.utils import compile_expr, tokens_to_tree, SymbolLibrary, expr_to_latex
 
 # Create an executable function from the expression
-expr = expr_to_executable_function(["X_0", "+", "X_1", "*", "C"])
+expr = compile_expr(["X_0", "+", "X_1", "*", "C"])
 
 # Calculate the output at two points (1, 2) and (2, 5) with C=3
 data_points = np.array([[1, 2], [2, 5]])

@@ -50,6 +50,11 @@ class EstimationSettings(TypedDict, total=False):
             Default: ``8``.
         max_expr_length: Maximum expression length in tokens. ``-1`` disables the
             limit. Default: ``-1``.
+        backend: Evaluation backend used by ``ParameterEstimator``.
+            ``"stack"`` uses the Cython-backed postfix stack machine (default);
+            ``"codegen"`` generates Python/NumPy source via ``exec()``;
+            ``"stack_py"`` uses the pure-Python stack machine (faster than
+            ``"stack"`` when the symbol library contains many custom symbols).
         num_points_sampled: Number of domain points used when evaluating expression
             behavior for BED. ``-1`` uses all points in ``X``. Default: ``64``.
         bed_X: Fixed evaluation points for BED. If ``None``, points are sampled from
@@ -68,6 +73,7 @@ class EstimationSettings(TypedDict, total=False):
     initialization: str
     max_constants: int
     max_expr_length: int
+    backend: str
     num_points_sampled: int
     bed_X: Optional[np.ndarray]
     num_consts_sampled: int

@@ -114,13 +114,13 @@ class MyBenchmark(SR_benchmark):
 
     def resample(self, dataset_name: str, n: int, seed=None):
         from SRToolkit.utils import SymbolLibrary
-        from SRToolkit.utils.expression_compiler import expr_to_executable_function
+        from SRToolkit.utils.expression_compiler import compile_expr
         info = self.datasets[dataset_name]
         rng = np.random.default_rng(seed)
         sl = SymbolLibrary.from_dict(info["symbol_library"])
         n_vars = sl.num_variables
         X = rng.uniform(0.5, 5.0, size=(n, n_vars))
-        f = expr_to_executable_function(info["ground_truth"], sl)
+        f = compile_expr(info["ground_truth"], sl)
         y = f(X, np.array([]))
         return X, y
 ```

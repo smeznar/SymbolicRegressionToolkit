@@ -8,7 +8,7 @@ import numpy as np
 from scipy.optimize import minimize
 from typing_extensions import Unpack
 
-from SRToolkit.utils.expression_compiler import expr_to_error_function
+from SRToolkit.utils.expression_compiler import compile_expr_rmse
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EstimationSettings
@@ -46,7 +46,7 @@ class ParameterEstimator:
                 [EstimationSettings][SRToolkit.utils.types.EstimationSettings].
                 Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
                 ``constant_bounds``, ``initialization``, ``max_constants``,
-                ``max_expr_length``.
+                ``max_expr_length``, ``backend``.
 
         Attributes:
             symbol_library: The symbol library used.
@@ -69,12 +69,18 @@ class ParameterEstimator:
             "initialization": "random",  # random, mean
             "max_constants": 8,
             "max_expr_length": -1,
+            "backend": "stack",
         }
 
         if kwargs:
             for k in self.estimation_settings.keys():
                 if k in kwargs:
                     self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
+
+        if self.estimation_settings["backend"] not in ("stack", "codegen", "stack_py"):
+            raise ValueError(
+                f"backend must be 'stack', 'codegen', or 'stack_py', got {self.estimation_settings['backend']!r}"
+            )
 
         self._rng = np.random.default_rng(self.seed)
 
@@ -123,7 +129,12 @@ class ParameterEstimator:
         ] < len(expr):
             return np.nan, np.array([])
 
-        executable_error_fn = expr_to_error_function(expr, self.symbol_library)
+        executable_error_fn = compile_expr_rmse(
+            expr,
+            self.symbol_library,
+            backend=str(self.estimation_settings["backend"]),
+            X=self.X if num_constants > 0 else None,
+        )
 
         if num_constants == 0:
             rmse = executable_error_fn(self.X, np.array([]), self.y)

@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel", "cython>=3.0", "numpy>=2.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["SRToolkit*"]
 
 [tool.setuptools.package-data]
-SRToolkit = ["py.typed"]
+SRToolkit = ["py.typed", "utils/_eval_cython.pyx"]
 
 [project]
 name = "symbolic-regression-toolkit"
@@ -48,14 +48,14 @@ classifiers = [
 
 [project.optional-dependencies]
 approaches = ["torch>=2.0", "tqdm", "pymoo"]
-dev = ["pytest", "pytest-cov", "ruff", "mypy", "pre-commit"]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "pre-commit", "cython>=3.0"]
 
 [project.urls]
 Homepage = "https://github.com/smeznar/SymbolicRegressionToolkit"
 Documentation = "https://smeznar.github.io/SymbolicRegressionToolkit/"
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules --ignore=SRToolkit/approaches/EDHiE.py --cov-report=term-missing"
+addopts = "--doctest-modules --ignore=SRToolkit/approaches/EDHiE.py --ignore=SRToolkit/utils/_eval_cython.py --cov-report=term-missing"
 doctest_optionflags = ["NORMALIZE_WHITESPACE"]
 testpaths = ["SRToolkit", "tests"]
 markers = [

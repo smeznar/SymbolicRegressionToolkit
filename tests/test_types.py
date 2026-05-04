@@ -42,6 +42,7 @@ class TestEstimationSettings:
         "bed_X",
         "num_consts_sampled",
         "domain_bounds",
+        "backend",
     }
 
     def test_all_fields_in_annotations(self):

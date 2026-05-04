@@ -12,7 +12,7 @@ import numpy as np
 from platformdirs import user_data_dir
 from typing_extensions import Unpack
 
-from SRToolkit.utils.expression_compiler import expr_to_executable_function
+from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EstimationSettings
@@ -150,7 +150,7 @@ class SR_benchmark:
             dataset_metadata: Optional dictionary of dataset-level metadata (merged with benchmark metadata).
             samplers: Optional list of callable samplers (one per input variable). When the dataset
                 file cannot be found, these are used to generate ``n_samples`` input rows and the
-                result is saved for future use. Must support [to_dict][] for serialization
+                result is saved for future use. Must support ``to_dict()`` for serialization
                 (e.g. :class:`~SRToolkit.dataset.sampling.LogUniformSampling`,
                 :class:`~SRToolkit.dataset.sampling.UniformSampling`,
                 :class:`~SRToolkit.dataset.sampling.IntegerUniformSampling`).
@@ -254,7 +254,7 @@ class SR_benchmark:
                         np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, allow_pickle=False)
                     elif ground_truth is not None and not isinstance(ground_truth, np.ndarray):
                         try:
-                            expr = expr_to_executable_function(ground_truth, symbol_library)
+                            expr = compile_expr(ground_truth, symbol_library)
                             y_gen = expr(X_gen, None)
                             np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, y=y_gen, allow_pickle=False)
                         except Exception as e:
@@ -305,7 +305,7 @@ class SR_benchmark:
                         "[SR_benchmark.add_dataset] For 'rmse' ranking, the ground truth must be a string or a SRToolkit.utils.Node object. "
                     )
                 try:
-                    expr = expr_to_executable_function(ground_truth, symbol_library)
+                    expr = compile_expr(ground_truth, symbol_library)
                     y = expr(dataset, None)
                 except Exception as e:
                     raise Exception(

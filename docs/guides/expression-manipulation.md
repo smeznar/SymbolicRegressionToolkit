@@ -51,7 +51,7 @@ Custom symbols can be added for non-standard backends:
 
 ```python
 sl = SymbolLibrary(preamble=["import numpy as np", "import scipy.special as sp"])
-sl.add_symbol("erf", "fn", precedence=5, np_fn="{} = sp.erf({})", latex_str=r"\mathrm{erf}\,{}")
+sl.add_symbol("erf", "fn", precedence=5, np_fn="sp.erf({})", latex_str=r"\mathrm{erf}\,{}")
 ```
 
 ## Expression trees
@@ -75,13 +75,13 @@ tree.to_list(notation="postfix")      # ['X_0', 'X_1', 'C', '*', '+']
 
 ## Executable functions
 
-[expr_to_executable_function][SRToolkit.utils.expression_compiler.expr_to_executable_function] compiles an expression into a fast NumPy callable `f(X, C)`:
+[compile_expr][SRToolkit.utils.expression_compiler.compile_expr] compiles an expression into a fast callable `f(X, C)`:
 
 ```python
 import numpy as np
-from SRToolkit.utils import expr_to_executable_function
+from SRToolkit.utils import compile_expr
 
-f = expr_to_executable_function(["X_0", "*", "C", "+", "X_1"])
+f = compile_expr(["X_0", "*", "C", "+", "X_1"])
 
 X = np.array([[1.0, 2.0],
               [3.0, 4.0],
