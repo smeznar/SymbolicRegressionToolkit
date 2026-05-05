@@ -298,7 +298,7 @@ class SR_evaluator:
                         assert isinstance(db, List), "Domain bounds should be a list of tuples."
                         interval_length = np.array([ub - lb for (lb, ub) in db])
                         lower_bound = np.array([lb for (lb, ub) in db])
-                        lho = LatinHypercube(len(db), optimization="random-cd", seed=seed)
+                        lho = LatinHypercube(len(db), optimization="random-cd", rng=seed)
                         self.bed_evaluation_parameters["bed_X"] = (
                             lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length
                             + lower_bound
