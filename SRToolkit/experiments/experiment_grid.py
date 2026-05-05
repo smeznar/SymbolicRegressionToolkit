@@ -319,7 +319,7 @@ class ExperimentJob:
         evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
         if self._callback_configs:
             cbs = [_callback_from_config(d) for d in self._callback_configs]
-            evaluator.set_callbacks(CallbackDispatcher(callbacks=cbs))
+            evaluator.register_callbacks(CallbackDispatcher(callbacks=cbs))
         approach.search(evaluator, self.info.seed)
         results = evaluator.get_results(self.approach_name, self.info.top_k)
         results.save(self.result_path)

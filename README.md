@@ -2,6 +2,12 @@
 
 ![SRToolkit logo](https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/refs/heads/master/docs/assets/imgs/logo.png)
 
+[![CI](https://github.com/smeznar/SymbolicRegressionToolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/smeznar/SymbolicRegressionToolkit/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/symbolic-regression-toolkit)](https://pypi.org/project/symbolic-regression-toolkit/)
+[![Python](https://img.shields.io/pypi/pyversions/symbolic-regression-toolkit)](https://pypi.org/project/symbolic-regression-toolkit/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://smeznar.github.io/SymbolicRegressionToolkit/)
+
 **Documentation:**: [https://smeznar.github.io/SymbolicRegressionToolkit](https://smeznar.github.io/SymbolicRegressionToolkit/)
 
 ## What is SRToolkit?

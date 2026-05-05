@@ -190,7 +190,7 @@ class SR_dataset:
 
             evaluator = self.create_evaluator(seed=seed)
             evaluator._experiment_id = f"{dataset_name}_{sr_approach.name}_{seed}"
-            evaluator.set_callbacks(callbacks)
+            evaluator.register_callbacks(callbacks)
             sr_approach.search(evaluator, seed)
             results += evaluator.get_results(sr_approach.name, top_k)
 

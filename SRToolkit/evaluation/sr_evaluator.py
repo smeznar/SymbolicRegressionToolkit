@@ -349,7 +349,7 @@ class SR_evaluator:
         self.X = X
         self.y = y
 
-    def set_callbacks(self, callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None) -> None:
+    def register_callbacks(self, callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None) -> None:
         """
         Register callbacks for monitoring and early stopping.
 
@@ -362,7 +362,7 @@ class SR_evaluator:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> se.set_callbacks(EarlyStoppingCallback(threshold=1e-6))
+            >>> se.register_callbacks(EarlyStoppingCallback(threshold=1e-6))
             >>> se._callbacks is not None
             True
 

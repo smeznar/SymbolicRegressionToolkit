@@ -1,3 +1,9 @@
+### SymbolicRegressionToolkit-1.6.0 (TBD)
+- New backends for expression evaluations (about 1.5x speedup for parameter estimation)
+- SymbolLibrary can now be as a global default or used with the ContextManager (with SymbolLibrary()...:)
+- Added guides to the documentation
+- Added tests for all scripts
+
 ### SymbolicRegressionToolkit-1.5.0 (2026-04-14)
 - Reworked how SR_results and ResultAugmenters work
 - Improved documentation
