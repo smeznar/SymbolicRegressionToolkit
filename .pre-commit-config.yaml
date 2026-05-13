@@ -12,4 +12,14 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        args: [--unsafe]
       - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest SRToolkit/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true

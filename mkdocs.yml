@@ -129,6 +129,11 @@ nav:
           - expression_generator: references/utils/expression_generator.md
           - measures: references/utils/measures.md
           - types: references/utils/types.md
+          - grammar:
+              - references/utils/grammar/index.md
+              - grammar: references/utils/grammar/grammar.md
+              - constraints: references/utils/grammar/constraints.md
+              - derivation: references/utils/grammar/derivation.md
       - evaluation:
           - references/evaluation/index.md
           - parameter_estimator: references/evaluation/parameter_estimator.md

@@ -11,6 +11,11 @@ Modules:
     expression_simplifier: SymPy-backed algebraic simplification, including constant folding.
     expression_generator: PCFG construction from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] and Monte-Carlo
         expression sampling.
+    grammar: CFG/PCFG representation, constraint protocol, and stateful derivation —
+        [Rule][SRToolkit.utils.grammar.grammar.Rule],
+        [Grammar][SRToolkit.utils.grammar.grammar.Grammar],
+        [Constraint][SRToolkit.utils.grammar.constraints.Constraint],
+        [Derivation][SRToolkit.utils.grammar.derivation.Derivation], and more.
     measures: Distance and similarity measures: edit distance, tree edit distance,
         and Behavior-aware Expression Distance (BED).
     serialization: Internal JSON serialization utilities for numpy types.
@@ -24,6 +29,21 @@ from .expression_generator import (
 )
 from .expression_simplifier import simplify
 from .expression_tree import Node, expr_to_latex, is_float, tokens_to_tree
+from .grammar import (
+    AncestorInfo,
+    Constraint,
+    Derivation,
+    DimensionalConsistency,
+    ExpansionContext,
+    Grammar,
+    MaxDepth,
+    MaxNodes,
+    MaxOccurrences,
+    NoNested,
+    ParseTree,
+    ParseTreeNode,
+    Rule,
+)
 from .measures import bed, create_behavior_matrix, edit_distance, tree_edit_distance
 from .symbol_library import SymbolLibrary
 from .types import (
@@ -39,6 +59,19 @@ from .types import (
 )
 
 __all__ = [
+    "Grammar",
+    "Rule",
+    "ParseTree",
+    "ParseTreeNode",
+    "Derivation",
+    "Constraint",
+    "ExpansionContext",
+    "AncestorInfo",
+    "MaxDepth",
+    "MaxNodes",
+    "MaxOccurrences",
+    "NoNested",
+    "DimensionalConsistency",
     "SymbolLibrary",
     "Node",
     "tokens_to_tree",
