@@ -3,8 +3,14 @@ import numpy as np
 from SRToolkit.utils.types import (
     CONST,
     FN,
+    FN_POSTFIX,
+    FN_PREFIX,
+    LEAF,
     LIT,
     OP,
+    OP_ADDITIVE,
+    OP_MULTIPLICATIVE,
+    OP_POWER,
     VALID_SYMBOL_TYPES,
     VAR,
     EstimationSettings,
@@ -26,6 +32,31 @@ class TestSymbolTypeConstants:
 
     def test_valid_symbol_types_is_set(self):
         assert isinstance(VALID_SYMBOL_TYPES, set)
+
+
+class TestPrecedenceConstants:
+    def test_operator_levels_ordered(self):
+        assert OP_ADDITIVE < OP_MULTIPLICATIVE < OP_POWER
+
+    def test_operator_levels_values(self):
+        assert OP_ADDITIVE == 100
+        assert OP_MULTIPLICATIVE == 200
+        assert OP_POWER == 300
+
+    def test_fn_prefix_above_all_ops(self):
+        assert FN_PREFIX > OP_POWER
+
+    def test_fn_postfix_below_zero(self):
+        assert FN_POSTFIX < 0
+
+    def test_fn_postfix_distinct_from_get_precedence_fallback(self):
+        assert FN_POSTFIX != -1
+
+    def test_leaf_above_all_ops(self):
+        assert LEAF > OP_POWER
+
+    def test_fn_prefix_equals_leaf(self):
+        assert FN_PREFIX == LEAF
 
 
 class TestEstimationSettings:

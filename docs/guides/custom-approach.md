@@ -33,18 +33,18 @@ class RandomSearch(SR_approach):
         rng = np.random.default_rng(seed)
         sl = sr_evaluator.symbol_library
 
-        while not sr_evaluator.should_stop():
-            exprs = generate_n_expressions(self.batch_size, sl, seed=int(rng.integers(1e9)))
+        while not sr_evaluator.should_stop:
+            exprs = generate_n_expressions(sl, self.batch_size, verbose=False)
             for expr in exprs:
                 sr_evaluator.evaluate_expr(expr)
-                if sr_evaluator.should_stop():
+                if sr_evaluator.should_stop:
                     return
 ```
 
 ### Key rules for `search()`
 
 - Call `sr_evaluator.evaluate_expr(expr)` for every candidate expression. The evaluator handles parameter fitting, caching, and result bookkeeping.
-- Check `sr_evaluator.should_stop()` (or `sr_evaluator.total_evaluations >= sr_evaluator.max_evaluations`) regularly and return when it is `True`.
+- Check `sr_evaluator.should_stop` (or `sr_evaluator.total_evaluations >= sr_evaluator.max_evaluations`) regularly and finish search when it is `True`.
 - Do **not** access target values directly — use the evaluator as the sole interface to `y`.
 
 ## The `adapt()` lifecycle

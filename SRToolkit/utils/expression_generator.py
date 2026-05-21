@@ -1,227 +1,29 @@
 """
-PCFG construction from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] and Monte-Carlo sampling of symbolic
-expressions.
+Monte-Carlo sampling of symbolic expressions from a grammar or symbol library.
 """
 
-from typing import List, Optional, Union
+import warnings
+from typing import List, Union
 
-import nltk
-import numpy as np
 from tqdm import tqdm
 
+from .grammar import Grammar
 from .symbol_library import SymbolLibrary
 
-
-def create_generic_pcfg(symbol_library: Optional[SymbolLibrary] = None) -> str:
-    """
-    Construct a generic Probabilistic Context-Free Grammar (PCFG) from a symbol library.
-
-    The grammar encodes standard mathematical operator precedence through a fixed
-    non-terminal hierarchy:
-
-    - ``E`` — additive level (precedence 0 operators)
-    - ``F`` — multiplicative level (precedence 1 operators)
-    - ``B`` — power level (precedence 2 operators)
-    - ``T`` — leaf-level non-terminal: expands to function application (``R``), constant/literal (``C``), or variable (``V``)
-    - ``C`` — numeric constants (``const`` type) and named literals (``lit`` type, e.g. ``pi``)
-    - ``R`` — unary functions (precedence 5) and parenthesised sub-expressions
-    - ``P`` — postfix functions (precedence -1, e.g. ``^2``)
-
-    The returned string is in NLTK PCFG format and can be passed directly to
-    [generate_from_pcfg][SRToolkit.utils.expression_generator.generate_from_pcfg] or [generate_n_expressions][SRToolkit.utils.expression_generator.generate_n_expressions].
-
-    Examples:
-        >>> sl = SymbolLibrary.from_symbol_list(["+", "-", "*", "sin", "^2", "pi"], 2)
-        >>> print(create_generic_pcfg(sl))
-        E -> E '+' F [0.2]
-        E -> E '-' F [0.2]
-        E -> F [0.6]
-        F -> F '*' B [0.4]
-        F -> B [0.6]
-        B -> T [1.0]
-        T -> R [0.2]
-        T -> C [0.2]
-        T -> V [0.6]
-        C -> 'pi' [1.0]
-        R -> 'sin' '(' E ')' [0.4]
-        R -> P [0.15]
-        R -> '(' E ')' [0.45]
-        P -> '(' E ')' '^2' [1.0]
-        V -> 'X_0' [0.5]
-        V -> 'X_1' [0.5]
-        <BLANKLINE>
-
-    Args:
-        symbol_library: Symbol library defining the available tokens, their types,
-            and precedences. If None, falls back to the currently active library
-            set via 'with SymbolLibrary(...) as sl:'. Defaults to None.
-
-    Returns:
-        NLTK-formatted PCFG string with generic probabilities.
-    """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_active()
-    symbols = symbol_library.symbols.values()
-    E = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 0]
-    F = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 1]
-    BP = [s["symbol"] for s in symbols if s["type"] == "op" and s["precedence"] == 2]
-    R = [s["symbol"] for s in symbols if s["type"] == "fn" and s["precedence"] == 5]
-    P = [s["symbol"] for s in symbols if s["type"] == "fn" and s["precedence"] == -1]
-    V = [s["symbol"] for s in symbols if s["type"] == "var"]
-    Cc = [s["symbol"] for s in symbols if s["type"] == "const"]
-    Cl = [s["symbol"] for s in symbols if s["type"] == "lit"]
-
-    grammar = ""
-    if len(E) > 0:
-        for s in E:
-            grammar += f"E -> E '{s}' F [{0.4 / len(E)}]\n"
-        grammar += "E -> F [0.6]\n"
-    else:
-        grammar += "E -> F [1.0]\n"
-
-    if len(F) > 0:
-        for s in F:
-            grammar += f"F -> F '{s}' B [{0.4 / len(F)}]\n"
-        grammar += "F -> B [0.6]\n"
-    else:
-        grammar += "F -> B [1.0]\n"
-
-    if len(BP) > 0:
-        for s in BP:
-            grammar += f"B -> B '{s}' T [{0.05 / len(BP)}]\n"
-        grammar += "B -> T [0.95]\n"
-    else:
-        grammar += "B -> T [1.0]\n"
-
-    if len(Cc) + len(Cl) > 0:
-        grammar += "T -> R [0.2]\n"
-        grammar += "T -> C [0.2]\n"
-        grammar += "T -> V [0.6]\n"
-        if len(Cl) > 0 and len(Cc) > 0:
-            for s in Cl:
-                grammar += f"C -> '{s}' [{0.2 / len(Cl)}]\n"
-            for s in Cc:
-                grammar += f"C -> '{s}' [{0.8 / len(Cc)}]\n"
-        elif len(Cl) > 0:
-            for s in Cl:
-                grammar += f"C -> '{s}' [{1 / len(Cl)}]\n"
-        elif len(Cc) > 0:
-            for s in Cc:
-                grammar += f"C -> '{s}' [{1 / len(Cc)}]\n"
-    else:
-        grammar += "T -> R [0.3]\n"
-        grammar += "T -> V [0.7]\n"
-
-    if len(R) > 0:
-        for s in R:
-            grammar += f"R -> '{s}' '(' E ')' [{0.4 / len(R)}]\n"
-        if len(P) > 0:
-            grammar += "R -> P [0.15]\n"
-            grammar += "R -> '(' E ')' [0.45]\n"
-        else:
-            grammar += "R -> '(' E ')' [0.6]\n"
-    else:
-        if len(P) > 0:
-            grammar += "R -> P [0.15]\n"
-            grammar += "R -> '(' E ')' [0.85]\n"
-        else:
-            grammar += "R -> '(' E ')' [1.0]\n"
-
-    if len(P) > 0:
-        total = sum([1 / abs(float(s[1:])) for s in P])
-        for s in P:
-            grammar += f"P -> '(' E ')' '{s}' [{(1 / abs(float(s[1:]))) / total}]\n"
-
-    if len(V) > 0:
-        for s in V:
-            grammar += f"V -> '{s}' [{1 / len(V)}]\n"
-
-    return grammar
-
-
-def _expand(grammar, symbol, current_depth, max_depth=40):
-    """
-    Recursively expand a grammar symbol by weighted random production selection.
-
-    Args:
-        grammar: Parsed NLTK PCFG object.
-        symbol: Current symbol to expand (terminal or non-terminal).
-        current_depth: Current recursion depth.
-        max_depth: Maximum allowed recursion depth. Values ≤ 0 allow unbounded depth.
-
-    Returns:
-        List of terminal token strings, or ``None`` if ``max_depth`` is exceeded.
-    """
-    if current_depth > max_depth > 0:
-        return None
-
-    if isinstance(symbol, nltk.grammar.Nonterminal):
-        productions = grammar.productions(lhs=symbol)
-        if not productions:
-            return [str(symbol)]
-
-        weights = [p.prob() for p in productions]
-        chosen_production = np.random.choice(productions, p=weights)
-
-        generated_sequence = []
-        for rhs_symbol in chosen_production.rhs():
-            expanded_part = _expand(grammar, rhs_symbol, current_depth + 1, max_depth)
-            if expanded_part is None:
-                return None
-            generated_sequence.extend(expanded_part)
-        return generated_sequence
-    else:
-        return [str(symbol)]
-
-
-def generate_from_pcfg(grammar_str: str, start_symbol: str = "E", max_depth: int = 40, limit: int = 100) -> List[str]:
-    """
-    Sample a single expression from a PCFG by Monte-Carlo tree expansion.
-
-    Examples:
-        >>> generate_from_pcfg("E -> '1' [1.0]")
-        ['1']
-        >>> grammar = create_generic_pcfg(SymbolLibrary.default_symbols())
-        >>> len(generate_from_pcfg(grammar)) > 0
-        True
-
-    Args:
-        grammar_str: Grammar in NLTK PCFG notation.
-        start_symbol: Non-terminal from which expansion begins. Default ``"E"``.
-        max_depth: Maximum parse-tree depth. Values ≤ ``0`` allow unbounded depth.
-            Default ``40``.
-        limit: Maximum number of sampling attempts before raising an exception.
-            Default ``100``.
-
-    Returns:
-        A single expression as a list of string tokens in infix notation.
-
-    Raises:
-        Exception: If a valid expression cannot be produced within ``limit`` attempts.
-    """
-    start_symbol = nltk.grammar.Nonterminal(start_symbol)
-    grammar = nltk.PCFG.fromstring(grammar_str)
-    expr = _expand(grammar, start_symbol, 0, max_depth)
-    tries = 1
-    while expr is None and tries < limit:
-        expr = _expand(grammar, start_symbol, 0, max_depth)
-        tries += 1
-
-    if expr is None:
-        raise Exception(
-            f"[Expression generation] Couldn't find an expression with max_depth {max_depth} from this grammar in {limit} tries."
-        )
-
-    return expr
+_INVALID_RATIO_THRESHOLD = 0.8
+_MIN_ATTEMPTS_BEFORE_WARNING = 500
 
 
 def generate_n_expressions(
-    expression_description: Union[str, SymbolLibrary],
+    expression_description: Union[str, SymbolLibrary, Grammar],
     num_expressions: int,
     unique: bool = True,
     max_expression_length: int = 50,
     verbose: bool = True,
-    max_consecutive_failures: int = 100,
+    max_consecutive_generation_failures: int = 100,
+    max_consecutive_uniqueness_failures: int = 200,
+    max_derivation_steps: int = 1000,
+    start: str = "E",
 ) -> List[List[str]]:
     """
     Sample ``num_expressions`` expressions from a grammar or symbol library.
@@ -233,64 +35,153 @@ def generate_n_expressions(
         [['X_0'], ['X_0'], ['X_0']]
 
     Args:
-        expression_description: Grammar source as a NLTK PCFG string or a
-            [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] (a generic PCFG is built automatically via
-            [create_generic_pcfg][SRToolkit.utils.expression_generator.create_generic_pcfg]).
+        expression_description: Grammar source — one of:
+
+            - A [Grammar][SRToolkit.utils.grammar.Grammar] object (used directly, including
+              any registered constraints).
+            - A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] (a generic PCFG
+              is built automatically via
+              [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library]).
+            - A grammar string in the NLTK notation (with an optional ``# start: nonterminal``
+              line where nonterminal indicates the start symbol) used by
+              [Grammar.from_grammar_string][SRToolkit.utils.grammar.Grammar.from_grammar_string].
+
         num_expressions: Number of expressions to generate.
         unique: If ``True``, every expression in the output is lexicographically distinct
             (though semantically equivalent expressions may still appear). Default ``True``.
         max_expression_length: Maximum token count per expression. Values ≤ ``0``
             allow unbounded length. Default ``50``.
-        verbose: Display a progress bar. Default ``True``.
-        max_consecutive_failures: Maximum number of consecutive sampling failures (e.g.
-            due to depth limits or length constraints) before raising an exception.
+        verbose: Display a progress bar showing total attempts, the ratio of invalid
+            expressions (derivation failed or exceeded ``max_expression_length``), and —
+            when ``unique=True`` — the ratio of duplicate expressions among valid ones
+            and the total number of generation attempts.
+        max_consecutive_generation_failures: Maximum number of consecutive attempts that
+            produce an invalid expression (derivation failed *or* result exceeded
+            ``max_expression_length``) before raising an exception. Resets on any valid expression.
             Default ``100``.
+        max_consecutive_uniqueness_failures: Maximum number of consecutive valid expressions
+            that are already in the output set before stopping early and returning what has
+            been collected so far. Only relevant when ``unique=True``. Resets whenever a new
+            unique expression is found. Default ``200``.
+        max_derivation_steps: Maximum number of rule applications per single derivation
+            attempt before it is abandoned. Increase for grammars with deep recursion that
+            legitimately require many steps. Default ``1000``.
+        start: Start non-terminal used when ``expression_description`` is a grammar
+            string. Ignored for [Grammar][SRToolkit.utils.grammar.Grammar] and
+            [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] inputs.
+            Default ``"E"``.
 
     Returns:
         List of expressions, each represented as a list of string tokens in infix notation.
+        May contain fewer than ``num_expressions`` entries if ``unique=True`` and the
+        search space is exhausted before the target count is reached.
 
     Raises:
-        Exception: If ``expression_description`` is neither a ``str`` nor a
-            [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
-        Exception: If sampling fails ``max_consecutive_failures`` times in a row, indicating
-            the grammar or length constraint may be too restrictive.
+        Exception: If ``expression_description`` is not a
+            [Grammar][SRToolkit.utils.grammar.Grammar],
+            [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary], or ``str``.
+        Exception: If generation fails ``max_consecutive_generation_failures`` times in a
+            row, indicating the grammar or length constraint may be too restrictive.
+
+    Warns:
+        UserWarning: If more than 80 % of attempts produce an invalid expression (after at
+            least ``500`` total attempts), suggesting the grammar
+            or constraints are overly restrictive. Emitted at most once per call.
+        UserWarning: If ``unique=True`` and no new unique expression is found after
+            ``max_consecutive_uniqueness_failures`` consecutive valid attempts, indicating
+            the search space may be exhausted. The expressions collected so far are returned.
     """
-    if isinstance(expression_description, SymbolLibrary):
-        grammar = create_generic_pcfg(expression_description)
-    elif isinstance(expression_description, str):
+    if isinstance(expression_description, Grammar):
         grammar = expression_description
+    elif isinstance(expression_description, SymbolLibrary):
+        grammar = Grammar.from_symbol_library(expression_description)
+    elif isinstance(expression_description, str):
+        grammar = Grammar.from_grammar_string(expression_description, start=start)
     else:
-        raise Exception(
-            "Description of expressions must be either a grammar written as a string or an instance of SymbolLibrary."
-        )
+        raise Exception("expression_description must be a Grammar, SymbolLibrary, or grammar string.")
 
     expressions: List[List[str]] = []
-    expression_strings = set()
-    consecutive_failures = 0
+    expression_strings: set = set()
+
+    total_attempts = 0
+    total_invalid = 0
+    total_duplicates = 0
+    consecutive_generation_failures = 0
+    consecutive_uniqueness_failures = 0
+    ratio_warning_sent = False
+
     pbar = tqdm(total=num_expressions) if verbose else None
+
+    def update_postfix() -> None:
+        if pbar is None:
+            return
+        fail_pct = total_invalid / total_attempts if total_attempts > 0 else 0.0
+        postfix: dict = {"attempts": total_attempts, "fail%": f"{fail_pct:.0%}"}
+        if unique:
+            total_valid = total_attempts - total_invalid
+            dup_pct = total_duplicates / total_valid if total_valid > 0 else 0.0
+            postfix["dup%"] = f"{dup_pct:.0%}"
+        pbar.set_postfix(postfix)
+
     while len(expressions) < num_expressions:
-        try:
-            expr = generate_from_pcfg(grammar, max_depth=max_expression_length * 10)
-            consecutive_failures = 0
-        except Exception:
-            consecutive_failures += 1
-            if consecutive_failures >= max_consecutive_failures:
+        expr = grammar.generate_one(max_retries=1, max_steps=max_derivation_steps)
+        total_attempts += 1
+
+        if expr is None or (max_expression_length > 0 and len(expr) > max_expression_length):
+            total_invalid += 1
+            consecutive_generation_failures += 1
+
+            if (
+                not ratio_warning_sent
+                and total_attempts >= _MIN_ATTEMPTS_BEFORE_WARNING
+                and total_invalid / total_attempts > _INVALID_RATIO_THRESHOLD
+            ):
+                warnings.warn(
+                    f"[Expression generation] {total_invalid / total_attempts:.0%} of "
+                    f"{total_attempts} attempts produced an invalid expression (derivation "
+                    "failed or exceeded max_expression_length). Consider relaxing grammar "
+                    "constraints or increasing max_expression_length.",
+                    stacklevel=2,
+                )
+                ratio_warning_sent = True
+
+            if consecutive_generation_failures >= max_consecutive_generation_failures:
                 if pbar is not None:
                     pbar.close()
                 raise Exception(
-                    f"[Expression generation] Couldn't generate a valid expression after "
-                    f"{consecutive_failures} consecutive failures. The grammar or length constraint may be too restrictive."
+                    f"[Expression generation] Failed to generate a valid expression "
+                    f"{consecutive_generation_failures} times in a row "
+                    f"({total_invalid} invalid out of {total_attempts} total attempts). "
+                    "The grammar or length constraint may be too restrictive."
                 )
-            continue
-        if len(expr) > max_expression_length > 0:
+            update_postfix()
             continue
 
+        consecutive_generation_failures = 0
+
         expr_string = "".join(expr)
-        if expr_string not in expression_strings or not unique:
-            expressions.append(expr)
+        if unique and expr_string in expression_strings:
+            total_duplicates += 1
+            consecutive_uniqueness_failures += 1
+            if consecutive_uniqueness_failures >= max_consecutive_uniqueness_failures:
+                warnings.warn(
+                    f"[Expression generation] Failed to find a new unique expression "
+                    f"{consecutive_uniqueness_failures} times in a row — stopping early "
+                    f"with {len(expressions)} of {num_expressions} expressions collected. "
+                    "The expression search space may be exhausted.",
+                    stacklevel=2,
+                )
+                break
+            update_postfix()
+            continue
+
+        consecutive_uniqueness_failures = 0
+        expressions.append(expr)
+        if unique:
             expression_strings.add(expr_string)
-            if pbar is not None:
-                pbar.update(1)
+        if pbar is not None:
+            pbar.update(1)
+        update_postfix()
 
     if pbar is not None:
         pbar.close()

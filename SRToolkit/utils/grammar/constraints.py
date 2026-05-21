@@ -20,7 +20,7 @@ Per-derivation state comes in two flavours:
 Both flavours are owned by the engine; the [Derivation][SRToolkit.utils.grammar.derivation.Derivation]
 initialises them at [Grammar.start_derivation][SRToolkit.utils.grammar.Grammar.start_derivation]
 and threads them through every [allows][SRToolkit.utils.grammar.constraints.Constraint.allows]
-/ [update][SRToolkit.utils.grammar.constraints.Constraint.update] call.  Constraint instances
+/ [update][SRToolkit.utils.grammar.constraints.Constraint.update] call. Constraint instances
 carry only construction-time configuration and are safe to share across
 parallel derivations.
 
@@ -36,12 +36,13 @@ Built-in constraints
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Generic, Iterable, Optional, TypeVar, cast
 
 from ..symbol_library import SymbolLibrary
-from ..types import CONST, FN, LIT, OP, VAR
+from ..types import CONST, FN, LIT, OP, OP_ADDITIVE, VAR
 from .grammar import ParseTreeNode, Rule
 
 L = TypeVar("L")
@@ -134,7 +135,7 @@ class Constraint(Generic[L, G]):
 
     **Scoping** — set ``nonterminals`` and/or ``rule_names`` to restrict
     [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] to a subset of slots
-    or rules.  A scope miss is treated as implicit acceptance.
+    or rules. A scope miss is treated as implicit acceptance.
     [update][SRToolkit.utils.grammar.constraints.Constraint.update] is *always* called
     regardless of scope so that global counters stay accurate.
 
@@ -157,12 +158,81 @@ class Constraint(Generic[L, G]):
     #: ``None`` means "any rule name".
     rule_names: Optional[frozenset[str]] = None
 
+    def to_dict(self) -> dict:
+        """
+        Serialise this constraint to a JSON-safe dictionary.
+
+        The base implementation stores only the fully-qualified class path under
+        ``constraint_class``. Subclasses should call ``super().to_dict()`` and
+        add their own constructor arguments so that ``from_dict`` can reconstruct
+        the instance faithfully. See
+        [from_dict][SRToolkit.utils.grammar.constraints.Constraint.from_dict]
+        for an example.
+
+        Returns:
+            Dictionary with at least the key ``constraint_class``.
+        """
+        return {"constraint_class": f"{self.__class__.__module__}.{self.__class__.__qualname__}"}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Constraint":
+        """
+        Reconstruct a constraint from a dictionary produced by ``to_dict``.
+
+        When called on the base [Constraint][SRToolkit.utils.grammar.constraints.Constraint]
+        class, dispatches to the correct subclass via the ``constraint_class`` key using
+        `importlib` — both built-in and user-defined subclasses are supported.
+        When called on a concrete subclass, the subclass must override this method.
+
+        The dictionary must contain at minimum the key ``constraint_class``, whose value
+        is the fully-qualified class path (e.g. ``"mymodule.MyConstraint"``).  Any
+        additional keys are forwarded to the subclass override.
+
+        To make a custom subclass serialisable, override both ``to_dict`` and
+        ``from_dict``::
+
+            class MyConstraint(Constraint):
+                def __init__(self, threshold: float) -> None:
+                    self.threshold = threshold
+
+                def to_dict(self) -> dict:
+                    return {**super().to_dict(), "threshold": self.threshold}
+
+                @classmethod
+                def from_dict(cls, d: dict) -> "MyConstraint":
+                    return cls(d["threshold"])
+
+        Examples:
+            >>> from SRToolkit.utils.grammar import Constraint, MaxDepth
+            >>> c = Constraint.from_dict(MaxDepth(5).to_dict())
+            >>> isinstance(c, MaxDepth) and c.limit == 5
+            True
+
+        Args:
+            d: Dictionary previously returned by ``to_dict``.
+
+        Returns:
+            A reconstructed [Constraint][SRToolkit.utils.grammar.constraints.Constraint] instance.
+
+        Raises:
+            KeyError: If ``constraint_class`` is missing from ``d`` (dispatch path).
+            ImportError: If the module cannot be imported (dispatch path).
+            AttributeError: If the class cannot be found in the module (dispatch path).
+            NotImplementedError: If called on a subclass that has not overridden this method.
+        """
+        if cls is Constraint:
+            class_path = d["constraint_class"]
+            module_path, cls_name = class_path.rsplit(".", 1)
+            resolved = getattr(importlib.import_module(module_path), cls_name)
+            return resolved.from_dict(d)
+        raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
+
     def initial_local(self, start: str) -> L:
-        """Return the local state for the start-symbol slot."""
+        """Return the initial local state for the constraint."""
         return None  # type: ignore[return-value]
 
     def initial_global(self) -> G:
-        """Return the per-derivation global state."""
+        """Return the initial global state for the constraint."""
         return None  # type: ignore[return-value]
 
     def allows(self, slot: ExpansionContext[L], rule: Rule, global_: G) -> bool:
@@ -186,7 +256,7 @@ class Constraint(Generic[L, G]):
         Called after ``rule`` is applied at ``slot``.
 
         Returns per-child local states (one per non-terminal in ``rule.rhs``,
-        in order) and the new global state.  May be used to update global
+        in order) and the new global state. May be used to update global
         counters by returning a new ``global_`` value.
 
         Args:
@@ -233,6 +303,13 @@ class MaxDepth(Constraint[int, None]):
     def __init__(self, limit: int) -> None:
         self.limit = limit
 
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "limit": self.limit}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MaxDepth":
+        return cls(d["limit"])
+
     def initial_local(self, start: str) -> int:
         return self.limit
 
@@ -275,6 +352,13 @@ class MaxNodes(Constraint[None, int]):
 
     def __init__(self, limit: int) -> None:
         self.limit = limit
+
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "limit": self.limit}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MaxNodes":
+        return cls(d["limit"])
 
     def initial_global(self) -> int:
         return 0
@@ -322,6 +406,13 @@ class MaxOccurrences(Constraint[None, int]):
         self.symbol = symbol
         self.limit = limit
 
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "symbol": self.symbol, "limit": self.limit}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MaxOccurrences":
+        return cls(d["symbol"], d["limit"])
+
     def initial_global(self) -> int:
         return 0
 
@@ -349,6 +440,19 @@ class NoNested(Constraint[bool, None]):
     forbid cross-nesting within the group (e.g. ``NoNested(TRIG_FNS)`` prevents
     ``sin(cos(x))`` as well as ``sin(sin(x))``).
 
+    Warning:
+        This constraint propagates the "inside" flag to **all** non-terminal
+        children of any rule whose ``rhs`` contains a group symbol.  It works
+        correctly when each group symbol appears in a rule with exactly one
+        non-terminal child (typical prefix-function rules such as
+        ``E -> sin ( E )``) and for infix operators where every child should be
+        blocked (e.g. ``E -> E + E``).  It does **not** work correctly for
+        mixed rules that combine a function call with additional non-terminal
+        siblings in a single production (e.g. ``E -> sin ( E ) + F``): the
+        sibling ``F`` will be incorrectly treated as inside the group.  If your
+        grammar uses such rules, implement a custom
+        [Constraint][SRToolkit.utils.grammar.constraints.Constraint] instead.
+
     Examples:
         >>> from SRToolkit.utils.grammar import Grammar, Rule
         >>> g = Grammar([
@@ -374,6 +478,13 @@ class NoNested(Constraint[bool, None]):
             self.symbols: frozenset[str] = frozenset({symbols})
         else:
             self.symbols = frozenset(symbols)
+
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "symbols": sorted(self.symbols)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "NoNested":
+        return cls(d["symbols"])
 
     def initial_local(self, start: str) -> bool:
         return False
@@ -532,6 +643,28 @@ class DimensionalConsistency(Constraint[Optional[Unit], None]):
         self._sl = symbol_library
         self._allow_poly_const = allow_unit_polymorphic_constants
 
+    @staticmethod
+    def _unit_to_dict(unit: Unit) -> dict[str, str]:
+        return {dim: str(exp) for dim, exp in unit.items()}
+
+    def to_dict(self) -> dict:
+        return {
+            **super().to_dict(),
+            "variable_units": {k: self._unit_to_dict(v) for k, v in self._var_units.items()},
+            "target_unit": self._unit_to_dict(self._target),
+            "constant_units": {k: self._unit_to_dict(v) for k, v in self._const_units.items()} or None,
+            "allow_unit_polymorphic_constants": self._allow_poly_const,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "DimensionalConsistency":
+        return cls(
+            variable_units=d["variable_units"],
+            target_unit=d["target_unit"],
+            constant_units=d.get("constant_units"),
+            allow_unit_polymorphic_constants=d.get("allow_unit_polymorphic_constants", False),
+        )
+
     def initial_local(self, start: str) -> Optional[Unit]:
         return self._target
 
@@ -620,13 +753,13 @@ class DimensionalConsistency(Constraint[Optional[Unit], None]):
             if name.startswith("E_add_") or name.startswith("F_mul_") or name.startswith("B_pow_"):
                 op = name.split("_", 2)[-1]
                 return "binary", op
-            if name in ("E_to_F", "F_to_B", "B_to_T", "T_to_R", "T_to_C", "T_to_V", "R_to_P"):
+            if name in ("E_to_F", "F_to_B", "B_to_T", "T_to_R", "T_to_K", "T_to_V", "R_to_P"):
                 return "chain", None
             if name.startswith("R_fn_"):
                 return "function", name[5:]
             if name.startswith("P_"):
                 return "postfix", name[2:]
-            if name.startswith("V_") or name.startswith("C_"):
+            if name.startswith("V_") or name.startswith("K_"):
                 terms = [s for s in rule.rhs if s not in nonterminals and s not in ("(", ")")]
                 return "leaf", terms
 
@@ -672,5 +805,5 @@ class DimensionalConsistency(Constraint[Optional[Unit], None]):
     def _is_additive(self, op: str) -> bool:
         if self._sl:
             info = self._sl.symbols.get(op, {})
-            return info.get("type") == OP and info.get("precedence") == 0
+            return info.get("type") == OP and info.get("precedence") == OP_ADDITIVE
         return op in {"+", "-"}

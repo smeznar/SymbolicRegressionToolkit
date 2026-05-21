@@ -503,7 +503,7 @@ class TestToParseTree:
         for _ in range(10):
             d = g.start_derivation("E")
             d.generate(limit=200)
-            assert g.verify(d.to_parse_tree()) is True
+            assert g.validate(d.to_parse_tree()) is True
 
 
 # ---------------------------------------------------------------------------

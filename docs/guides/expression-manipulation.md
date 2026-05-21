@@ -82,7 +82,7 @@ f    = compile_expr(["X_0", "*", "C"])
 SymbolLibrary.set_default(None)   # clear when done
 ```
 
-The resolution order is: **explicit argument → context manager → module default → `default_symbols()`**. Functions that parse token vocabularies (`tokens_to_tree`, `create_generic_pcfg`) raise `RuntimeError` if no library is available; all other functions fall back to `default_symbols()`.
+The resolution order is: **explicit argument → context manager → module default → `default_symbols()`**. Functions that parse token vocabularies (`tokens_to_tree`, `expr_to_latex`) raise `RuntimeError` if no library is available; all other functions fall back to `default_symbols()`.
 
 ## Expression trees
 
@@ -126,8 +126,7 @@ print(f(X, C))            # [4.  10.  16.]
 ## LaTeX rendering
 
 ```python
-from SRToolkit.utils import SymbolLibrary, tokens_to_tree
-from SRToolkit.utils.expression_compiler import expr_to_latex
+from SRToolkit.utils import SymbolLibrary, expr_to_latex
 
 sl = SymbolLibrary.default_symbols(num_variables=2)
 latex = expr_to_latex(["sin", "(", "X_0", ")", "+", "X_1", "^2"], sl)

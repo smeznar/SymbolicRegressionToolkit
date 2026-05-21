@@ -28,7 +28,6 @@ dependencies = [
   "numpy>=2.0",
   "scipy",
   "sympy",
-  "nltk",
   "zss",
   "editdistance",
   "tqdm",
@@ -60,6 +59,9 @@ doctest_optionflags = ["NORMALIZE_WHITESPACE"]
 testpaths = ["SRToolkit", "tests"]
 markers = [
     "benchmark: tests requiring downloaded benchmark data (run with: pytest tests/)",
+]
+filterwarnings = [
+    "ignore:Symbol library not provided",
 ]
 
 [tool.ruff]

@@ -11,7 +11,7 @@ repo_url: https://github.com/smeznar/SymbolicRegressionToolkit
 theme:
   name: material
   features:
-    - navigation.sections # Helps collapse sections in the sidebar
+    # - navigation.sections # Helps collapse sections in the sidebar
     - toc.follow # Keeps the table of contents visible as you scroll
     - content.code.copy # Adds a handy "copy" button to code blocks
     - content.code.select # Allows selection of different code snippets (if applicable)
@@ -118,6 +118,8 @@ nav:
       - Running Experiments: guides/experiments.md
       - Implementing a Custom Approach: guides/custom-approach.md
       - Creating a Custom Dataset: guides/custom-dataset.md
+      - Grammar-Guided Generation: guides/grammars.md
+      - Sharing Custom Implementations: guides/sharing.md
   - API References:
       - references/index.md
       - utils:

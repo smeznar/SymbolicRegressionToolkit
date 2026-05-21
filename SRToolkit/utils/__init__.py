@@ -22,11 +22,7 @@ Modules:
 """
 
 from .expression_compiler import compile_expr, compile_expr_rmse
-from .expression_generator import (
-    create_generic_pcfg,
-    generate_from_pcfg,
-    generate_n_expressions,
-)
+from .expression_generator import generate_n_expressions
 from .expression_simplifier import simplify
 from .expression_tree import Node, expr_to_latex, is_float, tokens_to_tree
 from .grammar import (
@@ -49,8 +45,14 @@ from .symbol_library import SymbolLibrary
 from .types import (
     CONST,
     FN,
+    FN_POSTFIX,
+    FN_PREFIX,
+    LEAF,
     LIT,
     OP,
+    OP_ADDITIVE,
+    OP_MULTIPLICATIVE,
+    OP_POWER,
     VALID_SYMBOL_TYPES,
     VAR,
     EstimationSettings,
@@ -79,8 +81,6 @@ __all__ = [
     "compile_expr",
     "compile_expr_rmse",
     "simplify",
-    "generate_from_pcfg",
-    "create_generic_pcfg",
     "generate_n_expressions",
     "bed",
     "create_behavior_matrix",
@@ -91,8 +91,14 @@ __all__ = [
     "VAR",
     "CONST",
     "FN",
+    "FN_PREFIX",
+    "FN_POSTFIX",
     "OP",
+    "OP_ADDITIVE",
+    "OP_MULTIPLICATIVE",
+    "OP_POWER",
     "LIT",
+    "LEAF",
     "VALID_SYMBOL_TYPES",
     "EvalResult",
     "ModelResult",

@@ -378,34 +378,23 @@ class TestGrammarIsPCFG:
 
 
 class TestGrammarValidate:
-    def test_valid_tree_returns_true(self):
+    # --- round-trip: derivation-generated trees always verify ---
+
+    def test_simple_valid_tree(self):
         r = Rule("E", ["x"])
         g = Grammar([r])
         root = ParseTreeNode("E", r, [_leaf("x")])
         assert g.validate(ParseTree(root)) is True
 
-    def test_tree_with_foreign_rule_returns_false(self):
-        r_known = Rule("E", ["x"])
-        r_foreign = Rule("E", ["y"])
-        g = Grammar([r_known])
-        root = ParseTreeNode("E", r_foreign, [_leaf("y")])
-        assert g.validate(ParseTree(root)) is False
+    def test_terminal_leaf_root(self):
+        """Single terminal root with no rule applied is a valid leaf."""
+        g = Grammar([Rule("E", ["x"])])
+        assert g.validate(ParseTree(_leaf("x"))) is True
 
-    def test_same_lhs_rhs_different_weight_is_foreign(self):
-        """weight is part of the identity key (lhs, tuple(rhs), weight)."""
-        r_grammar = Rule("E", ["x"], weight=1.0)
-        r_tree = Rule("E", ["x"], weight=0.5)
-        g = Grammar([r_grammar])
-        root = ParseTreeNode("E", r_tree, [_leaf("x")])
-        assert g.validate(ParseTree(root)) is False
-
-    def test_same_lhs_rhs_weight_different_name_is_valid(self):
-        """Name is NOT part of the key; only (lhs, rhs, weight) matter."""
-        r_grammar = Rule("E", ["x"], name="grammar_name")
-        r_tree = Rule("E", ["x"], name="tree_name")
-        g = Grammar([r_grammar])
-        root = ParseTreeNode("E", r_tree, [_leaf("x")])
-        assert g.validate(ParseTree(root)) is True
+    def test_nonterminal_leaf_root_returns_false(self):
+        """A non-terminal symbol as an unexpanded leaf must be rejected."""
+        g = Grammar([Rule("E", ["x"])])
+        assert g.validate(ParseTree(ParseTreeNode("E", None))) is False
 
     def test_nested_valid_tree(self):
         r_add = Rule("E", ["E", "+", "E"])
@@ -416,7 +405,32 @@ class TestGrammarValidate:
         root = ParseTreeNode("E", r_add, [left, _leaf("+"), right])
         assert g.validate(ParseTree(root)) is True
 
-    def test_nested_tree_one_foreign_rule_returns_false(self):
+    def test_derivation_roundtrip_no_constraints(self):
+        g = Grammar([Rule("E", ["E", "+", "E"]), Rule("E", ["x"])])
+        for _ in range(10):
+            d = g.start_derivation("E")
+            d.generate()
+            assert g.validate(d.to_parse_tree()) is True
+
+    def test_derivation_roundtrip_with_constraints(self):
+        g = Grammar([Rule("E", ["E", "+", "E"]), Rule("E", ["x"]), Rule("E", ["y"])])
+        g.add_constraint(MaxDepth(3))
+        g.add_constraint(MaxOccurrences("x", 2))
+        for _ in range(15):
+            d = g.start_derivation("E")
+            d.generate(limit=500)
+            assert g.validate(d.to_parse_tree()) is True
+
+    # --- foreign / unknown rules ---
+
+    def test_foreign_rule_returns_false(self):
+        r_known = Rule("E", ["x"])
+        r_foreign = Rule("E", ["y"])
+        g = Grammar([r_known])
+        root = ParseTreeNode("E", r_foreign, [_leaf("y")])
+        assert g.validate(ParseTree(root)) is False
+
+    def test_foreign_rule_in_nested_subtree_returns_false(self):
         r_add = Rule("E", ["E", "+", "E"])
         r_x = Rule("E", ["x"])
         r_foreign = Rule("E", ["y"])
@@ -426,103 +440,87 @@ class TestGrammarValidate:
         root = ParseTreeNode("E", r_add, [left, _leaf("+"), right])
         assert g.validate(ParseTree(root)) is False
 
-    def test_leaf_only_tree_vacuously_true(self):
-        """productions_used() returns [] for a leaf → all([]) == True."""
+    def test_different_weight_is_foreign(self):
+        r_grammar = Rule("E", ["x"], weight=1.0)
+        r_tree = Rule("E", ["x"], weight=0.5)
+        g = Grammar([r_grammar])
+        root = ParseTreeNode("E", r_tree, [_leaf("x")])
+        assert g.validate(ParseTree(root)) is False
+
+    # --- structural errors ---
+
+    def test_wrong_child_count_returns_false(self):
+        """Rule says 3 RHS symbols but node has only 1 child."""
+        r_add = Rule("E", ["E", "+", "E"])
+        r_x = Rule("E", ["x"])
+        g = Grammar([r_add, r_x])
+        root = ParseTreeNode("E", r_add, [_leaf("x")])
+        assert g.validate(ParseTree(root)) is False
+
+    def test_wrong_child_symbol_returns_false(self):
+        """Child symbol does not match the corresponding RHS entry."""
+        r = Rule("E", ["x"])
+        g = Grammar([r])
+        root = ParseTreeNode("E", r, [_leaf("y")])
+        assert g.validate(ParseTree(root)) is False
+
+    def test_unexpanded_nonterminal_leaf_returns_false(self):
+        """An internal NT node with rule_applied=None (unexpanded) must be rejected."""
+        r_add = Rule("E", ["E", "+", "E"])
+        r_x = Rule("E", ["x"])
+        g = Grammar([r_add, r_x])
+        unexpanded = ParseTreeNode("E", None)
+        root = ParseTreeNode("E", r_add, [unexpanded, _leaf("+"), unexpanded])
+        assert g.validate(ParseTree(root)) is False
+
+    def test_root_symbol_not_a_nonterminal_returns_false(self):
+        """rule_applied on a root whose symbol is not in the grammar."""
         g = Grammar([Rule("E", ["x"])])
-        assert g.validate(ParseTree(_leaf("x"))) is True
+        r_bad = Rule("Z", ["x"])
+        root = ParseTreeNode("Z", r_bad, [_leaf("x")])
+        assert g.validate(ParseTree(root)) is False
 
-    def test_rule_from_different_grammar_same_signature_is_valid(self):
-        """Two separately constructed rules with identical (lhs, rhs, weight) are interchangeable."""
-        r1 = Rule("E", ["x"], weight=1.0)
-        r2 = Rule("E", ["x"], weight=1.0)
-        g = Grammar([r1])
-        root = ParseTreeNode("E", r2, [_leaf("x")])
-        assert g.validate(ParseTree(root)) is True
+    # --- constraint violations ---
 
-
-# ---------------------------------------------------------------------------
-# Grammar.check_constraints
-# ---------------------------------------------------------------------------
-
-
-class TestGrammarCheckConstraints:
-    def test_no_constraints_always_true(self):
-        g = Grammar([Rule("E", ["x"])])
-        d = g.start_derivation("E")
-        d.generate()
-        assert g.check_constraints(d.to_parse_tree()) is True
-
-    def test_constraint_consistent_tree_returns_true(self):
-        g = _simple_grammar()
-        g.add_constraint(MaxDepth(5))
-        d = g.start_derivation("E")
-        d.generate()
-        assert g.check_constraints(d.to_parse_tree()) is True
-
-    def test_constraint_violating_tree_returns_false(self):
-        """A tree with depth 1 violates MaxDepth(0)."""
+    def test_constraint_violation_returns_false(self):
         r_add = Rule("E", ["E", "+", "E"], name="E_add_+")
         r_x = Rule("E", ["x"])
         g = Grammar([r_add, r_x])
         g.add_constraint(MaxDepth(0))
-
         left = ParseTreeNode("E", r_x, [_leaf("x")])
         right = ParseTreeNode("E", r_x, [_leaf("x")])
         root = ParseTreeNode("E", r_add, [left, _leaf("+"), right])
-        assert g.check_constraints(ParseTree(root)) is False
+        assert g.validate(ParseTree(root)) is False
 
-    def test_round_trip_with_multiple_constraints(self):
-        """Any generated parse tree should satisfy the constraints that guided it."""
-        g = Grammar([Rule("E", ["E", "+", "E"]), Rule("E", ["x"]), Rule("E", ["y"])])
-        g.add_constraint(MaxDepth(3))
-        g.add_constraint(MaxOccurrences("x", 2))
-        for _ in range(15):
-            d = g.start_derivation("E")
-            d.generate(limit=500)
-            assert g.check_constraints(d.to_parse_tree()) is True
+    def test_no_constraints_does_not_short_circuit(self):
+        """Without constraints, structural and grammar checks still run."""
+        r_known = Rule("E", ["x"])
+        r_foreign = Rule("E", ["y"])
+        g = Grammar([r_known])
+        root = ParseTreeNode("E", r_foreign, [_leaf("y")])
+        assert g.validate(ParseTree(root)) is False
 
+    # --- require_start ---
 
-# ---------------------------------------------------------------------------
-# Grammar.verify
-# ---------------------------------------------------------------------------
+    def test_require_start_accepts_matching_root(self):
+        r = Rule("E", ["x"])
+        g = Grammar([r], start="E")
+        root = ParseTreeNode("E", r, [_leaf("x")])
+        assert g.validate(ParseTree(root), require_start=True) is True
 
+    def test_require_start_rejects_non_start_root(self):
+        r_e = Rule("E", ["F"])
+        r_f = Rule("F", ["x"])
+        g = Grammar([r_e, r_f], start="E")
+        root = ParseTreeNode("F", r_f, [_leaf("x")])
+        assert g.validate(ParseTree(root), require_start=True) is False
 
-class TestGrammarVerify:
-    def test_valid_and_constraint_consistent_returns_true(self):
-        g = Grammar([Rule("E", ["x"])])
-        d = g.start_derivation("E")
-        d.generate()
-        assert g.verify(d.to_parse_tree()) is True
-
-    def test_invalid_structure_short_circuits(self):
-        """validate() returns False → verify() returns False without calling check_constraints."""
-        r_foreign = Rule("E", ["z"])
-        g = Grammar([Rule("E", ["x"])])
-        g.add_constraint(MaxDepth(5))
-        root = ParseTreeNode("E", r_foreign, [_leaf("z")])
-        assert g.verify(ParseTree(root)) is False
-
-    def test_valid_structure_constraint_violation(self):
-        """Structure is valid (rules are known) but MaxDepth(0) rejects depth-1 tree."""
-        r_add = Rule("E", ["E", "+", "E"], name="E_add_+")
-        r_x = Rule("E", ["x"])
-        g = Grammar([r_add, r_x])
-        g.add_constraint(MaxDepth(0))
-
-        left = ParseTreeNode("E", r_x, [_leaf("x")])
-        right = ParseTreeNode("E", r_x, [_leaf("x")])
-        root = ParseTreeNode("E", r_add, [left, _leaf("+"), right])
-        assert g.verify(ParseTree(root)) is False
-
-    def test_verify_equals_validate_and_check(self):
-        """verify is exactly the conjunction of validate and check_constraints."""
-        g = Grammar([Rule("E", ["E", "+", "E"]), Rule("E", ["x"])])
-        g.add_constraint(MaxDepth(4))
-        for _ in range(10):
-            d = g.start_derivation("E")
-            d.generate()
-            pt = d.to_parse_tree()
-            assert g.verify(pt) == (g.validate(pt) and g.check_constraints(pt))
+    def test_require_start_raises_when_no_start_symbol(self):
+        r = Rule("E", ["x"])
+        g = Grammar([r])
+        root = ParseTreeNode("E", r, [_leaf("x")])
+        with pytest.raises(ValueError, match="no start symbol"):
+            g.validate(ParseTree(root), require_start=True)
 
 
 # ---------------------------------------------------------------------------
@@ -570,6 +568,38 @@ class TestGrammarStartDerivation:
 
 
 # ---------------------------------------------------------------------------
+# Grammar.generate_one
+# ---------------------------------------------------------------------------
+
+
+class TestGrammarGenerateOne:
+    def test_returns_token_list(self):
+        g = Grammar([Rule("E", ["x"])], start="E")
+        assert g.generate_one() == ["x"]
+
+    def test_returns_none_when_all_attempts_fail(self):
+        g = Grammar([Rule("E", ["x"])], start="E")
+        result = g.generate_one(max_steps=0, max_retries=5)
+        assert result is None
+
+    def test_retries_succeed_eventually(self):
+        """A grammar that terminates in ≤10 steps should succeed within retries."""
+        g = Grammar([Rule("E", ["x"])], start="E")
+        result = g.generate_one(max_steps=10, max_retries=3)
+        assert result == ["x"]
+
+    def test_unlimited_steps_never_raises(self):
+        g = Grammar([Rule("E", ["x"])], start="E")
+        result = g.generate_one(max_steps=-1)
+        assert result == ["x"]
+
+    def test_unknown_start_raises_value_error(self):
+        g = Grammar([Rule("E", ["x"])])
+        with pytest.raises(ValueError):
+            g.generate_one(start="Z")
+
+
+# ---------------------------------------------------------------------------
 # Grammar.from_symbol_library — hierarchy and branch coverage
 # ---------------------------------------------------------------------------
 
@@ -611,12 +641,11 @@ class TestGrammarFromSymbolLibrary:
         assert "E_add_+" in names
         assert "E_add_-" in names
 
-    def test_no_additive_ops_only_E_to_F(self):
-        """Without additive operators only E -> F is generated."""
+    def test_no_additive_ops_start_is_F(self):
+        """Without additive operators the start NT is F (no E level generated)."""
         g = Grammar.from_symbol_library(_sl("*"))
-        e_rules = g.rules_for("E")
-        assert len(e_rules) == 1
-        assert e_rules[0].name == "E_to_F"
+        assert g.start == "F"
+        assert g.rules_for("E") == []
 
     # --- F level (multiplicative operators) ---
 
@@ -629,11 +658,10 @@ class TestGrammarFromSymbolLibrary:
         assert "F_mul_*" in names
         assert "F_mul_/" in names
 
-    def test_no_multiplicative_ops_only_F_to_B(self):
+    def test_no_multiplicative_ops_no_F_level(self):
+        """Without multiplicative operators no F non-terminal is generated."""
         g = Grammar.from_symbol_library(_sl("+"))
-        f_rules = g.rules_for("F")
-        assert len(f_rules) == 1
-        assert f_rules[0].name == "F_to_B"
+        assert g.rules_for("F") == []
 
     # --- B level (power operators) ---
 
@@ -644,50 +672,62 @@ class TestGrammarFromSymbolLibrary:
         assert "B_pow_^" in names
         assert "B_to_T" in names
 
-    def test_no_power_ops_only_B_to_T(self):
+    def test_no_power_ops_no_B_level(self):
+        """Without power operators no B non-terminal is generated."""
         g = Grammar.from_symbol_library(_sl("+"))
-        b_rules = g.rules_for("B")
-        assert len(b_rules) == 1
-        assert b_rules[0].name == "B_to_T"
+        assert g.rules_for("B") == []
 
     # --- T level (leaf dispatcher) ---
 
-    def test_T_to_V_always_present(self):
+    def test_T_to_V_present_when_variables_exist(self):
         names = {r.name for r in Grammar.from_symbol_library(_sl("+")).rules_for("T")}
         assert "T_to_V" in names
 
-    def test_T_to_C_present_when_constants_exist(self):
-        """When CONST or LIT symbols are present, T -> C is added."""
-        names = {r.name for r in Grammar.from_symbol_library(_sl("+", "C")).rules_for("T")}
-        assert "T_to_C" in names
+    def test_T_to_V_absent_without_variables(self):
+        g = Grammar.from_symbol_library(_sl("C", n_vars=0))
+        t_names = {r.name for r in g.rules_for("T")}
+        assert "T_to_V" not in t_names
+        assert "T_to_K" in t_names
 
-    def test_T_to_C_absent_without_constants(self):
+    def test_T_to_K_dominant_without_variables(self):
+        """K weight should be 0.7 when variables are absent (mirrors V's usual share)."""
+        g = Grammar.from_symbol_library(_sl("C", n_vars=0))
+        rules = {r.name: r for r in g.rules_for("T")}
+        assert rules["T_to_K"].weight == pytest.approx(0.7)
+        assert rules["T_to_R"].weight == pytest.approx(0.3)
+
+    def test_T_to_K_present_when_constants_exist(self):
+        """When CONST or LIT symbols are present, T -> K is added."""
+        names = {r.name for r in Grammar.from_symbol_library(_sl("+", "C")).rules_for("T")}
+        assert "T_to_K" in names
+
+    def test_T_to_K_absent_without_constants(self):
         names = {r.name for r in Grammar.from_symbol_library(_sl("+")).rules_for("T")}
-        assert "T_to_C" not in names
+        assert "T_to_K" not in names
 
     def test_T_to_R_always_present(self):
         names = {r.name for r in Grammar.from_symbol_library(_sl("+")).rules_for("T")}
         assert "T_to_R" in names
 
-    # --- C level (constants and literals) ---
+    # --- K level (constants and literals) ---
 
-    def test_only_const_C_rule(self):
-        names = {r.name for r in Grammar.from_symbol_library(_sl("+", "C")).rules_for("C")}
-        assert "C_C" in names
+    def test_only_const_K_rule(self):
+        names = {r.name for r in Grammar.from_symbol_library(_sl("+", "C")).rules_for("K")}
+        assert "K_C" in names
 
-    def test_only_lit_C_rule(self):
-        names = {r.name for r in Grammar.from_symbol_library(_sl("+", "pi")).rules_for("C")}
-        assert "C_pi" in names
+    def test_only_lit_K_rule(self):
+        names = {r.name for r in Grammar.from_symbol_library(_sl("+", "pi")).rules_for("K")}
+        assert "K_pi" in names
 
-    def test_both_lit_and_const_C_rules(self):
+    def test_both_lit_and_const_K_rules(self):
         g = Grammar.from_symbol_library(_sl("+", "C", "pi"))
-        names = {r.name for r in g.rules_for("C")}
-        assert "C_C" in names
-        assert "C_pi" in names
+        names = {r.name for r in g.rules_for("K")}
+        assert "K_C" in names
+        assert "K_pi" in names
 
-    def test_no_constants_no_C_rules(self):
+    def test_no_constants_no_K_rules(self):
         g = Grammar.from_symbol_library(_sl("+"))
-        assert g.rules_for("C") == []
+        assert g.rules_for("K") == []
 
     # --- R level (prefix functions) ---
 
@@ -699,19 +739,20 @@ class TestGrammarFromSymbolLibrary:
         names = {r.name for r in Grammar.from_symbol_library(_sl("+")).rules_for("R")}
         assert "R_paren" in names
 
-    def test_R_to_P_present_when_postfix_exists(self):
+    def test_postfix_produces_R_postfix_rule(self):
+        """Postfix functions appear directly at R level as R_postfix_{sym}."""
         names = {r.name for r in Grammar.from_symbol_library(_sl("+", "^2")).rules_for("R")}
-        assert "R_to_P" in names
+        assert "R_postfix_^2" in names
 
-    def test_R_to_P_absent_without_postfix(self):
+    def test_no_postfix_rule_absent(self):
         names = {r.name for r in Grammar.from_symbol_library(_sl("+")).rules_for("R")}
-        assert "R_to_P" not in names
+        assert not any(n and n.startswith("R_postfix_") for n in names)
 
-    def test_no_R_fns_with_P_fns_has_R_to_P(self):
-        """No prefix functions but postfix present: R -> P and R -> (E) only."""
+    def test_no_R_fns_with_postfix_has_R_postfix_and_paren(self):
+        """No prefix functions but postfix present: R_postfix and R_paren only."""
         g = Grammar.from_symbol_library(_sl("+", "^2"))
         r_names = {r.name for r in g.rules_for("R")}
-        assert "R_to_P" in r_names
+        assert "R_postfix_^2" in r_names
         assert "R_paren" in r_names
         assert not any(n and n.startswith("R_fn_") for n in r_names)
 
@@ -720,14 +761,13 @@ class TestGrammarFromSymbolLibrary:
         r_names = {r.name for r in g.rules_for("R")}
         assert r_names == {"R_paren"}
 
-    # --- P level (postfix functions) ---
+    # --- P non-terminal (removed — postfix rules now live at R level) ---
 
-    def test_postfix_produces_P_rule(self):
-        names = {r.name for r in Grammar.from_symbol_library(_sl("+", "^2")).rules_for("P")}
-        assert "P_^2" in names
-
-    def test_no_postfix_no_P_rules(self):
-        assert Grammar.from_symbol_library(_sl("+")).rules_for("P") == []
+    def test_no_P_nonterminal(self):
+        """P is no longer a non-terminal; postfix rules are added directly to R."""
+        g = Grammar.from_symbol_library(_sl("+", "^2"))
+        assert "P" not in g.nonterminals
+        assert g.rules_for("P") == []
 
     # --- V level (variables) ---
 
@@ -738,6 +778,13 @@ class TestGrammarFromSymbolLibrary:
     def test_multiple_variables(self):
         g = Grammar.from_symbol_library(_sl("+", n_vars=3))
         assert len(g.rules_for("V")) == 3
+
+    # --- no terminal symbols ---
+
+    def test_no_terminals_raises(self):
+        """A library with only operators and no leaf symbols must raise."""
+        with pytest.raises(ValueError, match="no variables, constants, or literals"):
+            Grammar.from_symbol_library(_sl("+", n_vars=0))
 
     # --- end-to-end generation ---
 
@@ -756,83 +803,91 @@ class TestGrammarFromSymbolLibrary:
 
 class TestGrammarFromNLTK:
     def test_basic_parsing(self):
-        g = Grammar.from_grammar_string("E -> E '+' F | F\nF -> 'x'")
+        g = Grammar.from_grammar_string("E -> E '+' F | F\nF -> 'x'", start="E")
         assert sorted(g.nonterminals) == ["E", "F"]
         assert g.rules_for("F")[0].rhs == ["x"]
 
-    def test_start_defaults_to_first_lhs(self):
-        g = Grammar.from_grammar_string("E -> F\nF -> 'x'")
-        assert g.start == "E"
+    def test_missing_start_raises(self):
+        with pytest.raises(ValueError, match="[Nn]o start symbol"):
+            Grammar.from_grammar_string("E -> F\nF -> 'x'")
 
-    def test_explicit_start_overrides(self):
+    def test_explicit_start(self):
         g = Grammar.from_grammar_string("E -> F\nF -> 'x'", start="F")
         assert g.start == "F"
 
     def test_weight_parsed(self):
-        g = Grammar.from_grammar_string("E -> 'x' [0.4] | 'y' [0.6]")
+        g = Grammar.from_grammar_string("E -> 'x' [0.4] | 'y' [0.6]", start="E")
         rules = g.rules_for("E")
         assert rules[0].weight == pytest.approx(0.4)
         assert rules[1].weight == pytest.approx(0.6)
 
     def test_unweighted_defaults_to_one(self):
-        g = Grammar.from_grammar_string("E -> 'x' | 'y'")
+        g = Grammar.from_grammar_string("E -> 'x' | 'y'", start="E")
         assert all(r.weight == 1.0 for r in g.rules_for("E"))
 
-    def test_comment_lines_ignored(self):
+    def test_start_comment_parsed(self):
+        g = Grammar.from_grammar_string("# start: E\nE -> 'x'")
+        assert g.start == "E"
+        assert len(g.rules_for("E")) == 1
+
+    def test_explicit_start_overrides_comment(self):
+        g = Grammar.from_grammar_string("# start: E\nE -> 'x'\nF -> 'y'", start="F")
+        assert g.start == "F"
+
+    def test_other_comment_lines_ignored(self):
         text = "# this is a comment\nE -> 'x'"
-        g = Grammar.from_grammar_string(text)
+        g = Grammar.from_grammar_string(text, start="E")
         assert len(g.rules_for("E")) == 1
 
     def test_blank_lines_ignored(self):
-        g = Grammar.from_grammar_string("\nE -> 'x'\n\nF -> 'y'\n")
+        g = Grammar.from_grammar_string("\nE -> 'x'\n\nF -> 'y'\n", start="E")
         assert g.nonterminals == {"E", "F"}
 
-    def test_lines_without_arrow_ignored(self):
-        g = Grammar.from_grammar_string("just some text\nE -> 'x'")
-        assert len(g.rules_for("E")) == 1
+    def test_lines_without_arrow_raises(self):
+        with pytest.raises(ValueError, match="Expected '->'"):
+            Grammar.from_grammar_string("just some text\nE -> 'x'", start="E")
 
     def test_unquoted_token_is_nonterminal(self):
         """Unquoted tokens in rhs are stored as-is and become nonterminals if they have rules."""
-        g = Grammar.from_grammar_string("E -> F\nF -> 'x'")
+        g = Grammar.from_grammar_string("E -> F\nF -> 'x'", start="E")
         assert g.rules_for("E")[0].rhs == ["F"]
         assert "F" in g.nonterminals
 
     def test_quoted_terminal_stripped(self):
         """Single quotes are stripped from terminal tokens."""
-        g = Grammar.from_grammar_string("E -> 'hello world'")
+        g = Grammar.from_grammar_string("E -> 'hello world'", start="E")
         # 'hello world' is a single quoted token → one symbol with a space in it
         assert g.rules_for("E")[0].rhs == ["hello world"]
 
     def test_multiple_rules_per_line(self):
-        g = Grammar.from_grammar_string("E -> 'x' | 'y' | 'z'")
+        g = Grammar.from_grammar_string("E -> 'x' | 'y' | 'z'", start="E")
         assert len(g.rules_for("E")) == 3
 
     def test_names_are_none(self):
-        g = Grammar.from_grammar_string("E -> 'x'")
+        g = Grammar.from_grammar_string("E -> 'x'", start="E")
         assert g.rules_for("E")[0].name is None
 
-    def test_empty_text_returns_empty_grammar(self):
-        g = Grammar.from_grammar_string("")
-        assert g.nonterminals == set()
-        assert g.start is None
+    def test_empty_text_raises(self):
+        with pytest.raises(ValueError, match="No rules parsed"):
+            Grammar.from_grammar_string("", start="E")
 
     def test_invalid_weight_raises(self):
         with pytest.raises(ValueError):
-            Grammar.from_grammar_string("E -> 'x' [not_a_float]")
+            Grammar.from_grammar_string("E -> 'x' [not_a_float]", start="E")
 
     def test_multiline_same_lhs(self):
         """The same LHS can appear on multiple lines; all rules are collected."""
-        g = Grammar.from_grammar_string("E -> 'x'\nE -> 'y'")
+        g = Grammar.from_grammar_string("E -> 'x'\nE -> 'y'", start="E")
         assert len(g.rules_for("E")) == 2
 
     def test_trailing_pipe_ignored(self):
         """A trailing '|' produces an empty alternative that is silently skipped."""
-        g = Grammar.from_grammar_string("E -> 'x' | 'y' |")
+        g = Grammar.from_grammar_string("E -> 'x' | 'y' |", start="E")
         assert len(g.rules_for("E")) == 2
 
     def test_leading_pipe_ignored(self):
         """A leading '|' also produces an empty alternative that is silently skipped."""
-        g = Grammar.from_grammar_string("E -> | 'x'")
+        g = Grammar.from_grammar_string("E -> | 'x'", start="E")
         assert len(g.rules_for("E")) == 1
 
 
@@ -873,21 +928,31 @@ class TestGrammarToNLTK:
     def test_empty_grammar_returns_empty_string(self):
         assert Grammar().to_grammar_string() == ""
 
+    def test_start_header_emitted_when_start_set(self):
+        g = Grammar([Rule("E", ["x"])], start="E")
+        assert g.to_grammar_string().startswith("# start: E")
+
+    def test_no_start_header_when_start_is_none(self):
+        g = Grammar([Rule("E", ["x"])])
+        assert not g.to_grammar_string().startswith("#")
+
     def test_rhs_token_order_preserved(self):
         g = Grammar([Rule("E", ["E", "+", "F"]), Rule("F", ["x"])])
         e_line = [ln for ln in g.to_grammar_string().splitlines() if ln.startswith("E")][0]
         assert e_line == "E -> E '+' F"
 
     def test_roundtrip_cfg(self):
-        """from_nltk(to_nltk(g)) reconstructs equivalent rules (names lost, weights kept)."""
+        """Round-trip via to/from_grammar_string without passing start explicitly."""
         original = Grammar(
             [
                 Rule("E", ["E", "+", "F"], name="add"),
                 Rule("E", ["F"], name="E_to_F"),
                 Rule("F", ["x"]),
-            ]
+            ],
+            start="E",
         )
         restored = Grammar.from_grammar_string(original.to_grammar_string())
+        assert restored.start == original.start
         assert restored.nonterminals == original.nonterminals
         for nt in original.nonterminals:
             orig_rules = [(r.lhs, tuple(r.rhs), r.weight) for r in original.rules_for(nt)]
@@ -899,12 +964,136 @@ class TestGrammarToNLTK:
             [
                 Rule("E", ["x"], weight=0.4),
                 Rule("E", ["y"], weight=0.6),
-            ]
+            ],
+            start="E",
         )
         restored = Grammar.from_grammar_string(original.to_grammar_string())
+        assert restored.start == "E"
         for ro, rr in zip(original.rules_for("E"), restored.rules_for("E")):
             assert ro.weight == pytest.approx(rr.weight)
 
     def test_arrow_format(self):
         g = Grammar([Rule("E", ["x"])])
         assert " -> " in g.to_grammar_string()
+
+
+# ---------------------------------------------------------------------------
+# Rule.from_line
+# ---------------------------------------------------------------------------
+
+
+class TestRuleFromLine:
+    def test_basic(self):
+        rules = Rule.from_line("E -> 'x'")
+        assert len(rules) == 1
+        assert rules[0] == Rule("E", ["x"])
+
+    def test_multiple_alternatives(self):
+        rules = Rule.from_line("E -> E '+' F [0.4] | F [0.6]")
+        assert len(rules) == 2
+        assert rules[0].weight == pytest.approx(0.4)
+        assert rules[1].weight == pytest.approx(0.6)
+
+    def test_empty_lhs_raises(self):
+        with pytest.raises(ValueError, match="Empty left-hand side"):
+            Rule.from_line("-> 'x'")
+
+    def test_no_arrow_raises(self):
+        with pytest.raises(ValueError, match="Expected '->'"):
+            Rule.from_line("E 'x'")
+
+    def test_no_alternatives_raises(self):
+        with pytest.raises(ValueError, match="No alternatives"):
+            Rule.from_line("E -> ")
+
+
+# ---------------------------------------------------------------------------
+# Serialization: Rule
+# ---------------------------------------------------------------------------
+
+
+class TestRuleSerialization:
+    def test_to_dict_roundtrip(self):
+        r = Rule("E", ["E", "+", "F"], weight=0.4, name="E_add")
+        d = r.to_dict()
+        assert d == {"lhs": "E", "rhs": ["E", "+", "F"], "weight": 0.4, "name": "E_add"}
+        r2 = Rule.from_dict(d)
+        assert r2.lhs == r.lhs
+        assert r2.rhs == r.rhs
+        assert r2.weight == r.weight
+        assert r2.name == r.name
+
+    def test_to_dict_defaults(self):
+        r = Rule("E", ["x"])
+        d = r.to_dict()
+        assert d["weight"] == 1.0
+        assert d["name"] is None
+
+    def test_from_dict_defaults(self):
+        r = Rule.from_dict({"lhs": "E", "rhs": ["x"]})
+        assert r.weight == 1.0
+        assert r.name is None
+
+    def test_from_dict_with_name(self):
+        r = Rule.from_dict({"lhs": "F", "rhs": ["sin", "(", "E", ")"], "weight": 0.3, "name": "fn_sin"})
+        assert r.lhs == "F"
+        assert r.rhs == ["sin", "(", "E", ")"]
+        assert r.weight == pytest.approx(0.3)
+        assert r.name == "fn_sin"
+
+
+# ---------------------------------------------------------------------------
+# Serialization: Grammar.to_dict / Grammar.from_dict
+# ---------------------------------------------------------------------------
+
+
+class TestGrammarDictSerialization:
+    def test_to_dict_keys(self):
+        g = Grammar([Rule("E", ["x"], name="E_x")], start="E")
+        d = g.to_dict()
+        assert set(d.keys()) == {"start", "rules", "constraints"}
+        assert d["start"] == "E"
+        assert len(d["rules"]) == 1
+        assert d["constraints"] == []
+
+    def test_roundtrip_no_constraints(self):
+        g = Grammar(
+            [
+                Rule("E", ["E", "+", "F"], weight=0.4, name="E_add"),
+                Rule("E", ["F"], weight=0.6, name="E_to_F"),
+                Rule("F", ["x"], name="F_x"),
+            ],
+            start="E",
+        )
+        g2 = Grammar.from_dict(g.to_dict())
+        assert g2.start == "E"
+        assert len(g2._rules) == 3
+        for r1, r2 in zip(g._rules, g2._rules):
+            assert r1.lhs == r2.lhs
+            assert r1.rhs == r2.rhs
+            assert r1.weight == pytest.approx(r2.weight)
+            assert r1.name == r2.name
+
+    def test_roundtrip_with_constraints(self):
+        from SRToolkit.utils.grammar import MaxDepth, MaxNodes, MaxOccurrences, NoNested
+
+        g = Grammar([Rule("E", ["E", "+", "E"]), Rule("E", ["x"])], start="E")
+        g.add_constraint(MaxDepth(3))
+        g.add_constraint(MaxNodes(10))
+        g.add_constraint(MaxOccurrences("x", 2))
+        g.add_constraint(NoNested(["sin", "cos"]))
+        g2 = Grammar.from_dict(g.to_dict())
+        assert len(g2._constraints) == 4
+        types = [type(c).__name__ for c in g2._constraints]
+        assert types == ["MaxDepth", "MaxNodes", "MaxOccurrences", "NoNested"]
+
+    def test_roundtrip_preserves_start_none(self):
+        g = Grammar([Rule("E", ["x"])])
+        assert g.start is None
+        g2 = Grammar.from_dict(g.to_dict())
+        assert g2.start is None
+
+    def test_from_dict_empty_grammar(self):
+        g = Grammar.from_dict({"start": None, "rules": [], "constraints": []})
+        assert g._rules == []
+        assert g._constraints == []

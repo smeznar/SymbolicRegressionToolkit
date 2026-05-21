@@ -20,6 +20,22 @@ OP = "op"
 LIT = "lit"
 VALID_SYMBOL_TYPES: Set[str] = {VAR, CONST, FN, OP, LIT}
 
+# Operator precedence levels — use these when registering operators so that
+# user-defined operators at custom precedences can be inserted between levels.
+OP_ADDITIVE = 100  # +, -
+OP_MULTIPLICATIVE = 200  # *, /
+OP_POWER = 300  # ^
+
+# Precedence sentinels for functions (stored in the precedence field of "fn" symbols).
+# Values are chosen to be well outside any reasonable operator precedence range.
+FN_PREFIX = 1000  # prefix functions: sin(E), cos(E) — outranks all ops in the shunting-yard
+FN_POSTFIX = -1000  # postfix functions: E '^2' — clearly negative, distinct from get_precedence's -1 fallback
+
+# Atoms (VAR, CONST, LIT) never participate in operator precedence comparisons,
+# but storing a large value prevents accidental parenthesisation if a high-precedence
+# operator is added.
+LEAF = 1000
+
 
 class EstimationSettings(TypedDict, total=False):
     """

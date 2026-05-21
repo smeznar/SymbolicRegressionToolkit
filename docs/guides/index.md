@@ -14,3 +14,5 @@ Step-by-step guides for common tasks in SRToolkit.
 | [Running Experiments](experiments.md) | Organise multi-run experiments and collect results |
 | [Implementing a Custom Approach](custom-approach.md) | Wrap your own SR algorithm for use with SRToolkit |
 | [Creating a Custom Dataset](custom-dataset.md) | Define and register your own datasets and benchmarks |
+| [Grammar-Guided Generation](grammars.md) | Control expression structure with CFG/PCFG grammars and constraints |
+| [Sharing Custom Implementations](sharing.md) | Package and share custom approaches, constraints, samplers, and experiment bundles |

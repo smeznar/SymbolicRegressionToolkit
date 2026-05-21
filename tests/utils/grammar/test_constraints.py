@@ -570,8 +570,8 @@ class TestDCClassifyRuleNamed:
     def test_t_to_r_is_chain(self):
         assert self._classify(Rule("T", ["R"], name="T_to_R")) == ("chain", None)
 
-    def test_t_to_c_is_chain(self):
-        assert self._classify(Rule("T", ["C"], name="T_to_C")) == ("chain", None)
+    def test_t_to_k_is_chain(self):
+        assert self._classify(Rule("T", ["K"], name="T_to_K")) == ("chain", None)
 
     def test_t_to_v_is_chain(self):
         assert self._classify(Rule("T", ["V"], name="T_to_V")) == ("chain", None)
@@ -593,8 +593,8 @@ class TestDCClassifyRuleNamed:
         assert kind == "leaf"
         assert "x" in info
 
-    def test_c_leaf(self):
-        kind, info = self._classify(Rule("C", ["C_const"], name="C_C_const"))
+    def test_k_leaf(self):
+        kind, info = self._classify(Rule("K", ["C_const"], name="K_C_const"))
         assert kind == "leaf"
 
     def test_unrecognized_name_falls_to_fallback_terminal(self):
@@ -1066,3 +1066,173 @@ class TestDCIntegration:
             tokens = g.start_derivation("E").generate(limit=500)
             assert "t" not in tokens
             assert all(tok in {"v", "+"} for tok in tokens)
+
+
+# ---------------------------------------------------------------------------
+# Serialization
+# ---------------------------------------------------------------------------
+
+
+class TestConstraintBaseSerialization:
+    def test_to_dict_stores_class_path(self):
+        c = MaxDepth(5)
+        d = c.to_dict()
+        assert "constraint_class" in d
+        assert "MaxDepth" in d["constraint_class"]
+
+    def test_base_from_dict_missing_class_key_raises(self):
+        with pytest.raises(KeyError):
+            Constraint.from_dict({})
+
+
+class TestMaxDepthSerialization:
+    def test_roundtrip(self):
+        c = MaxDepth(7)
+        d = c.to_dict()
+        assert d["limit"] == 7
+        c2 = MaxDepth.from_dict(d)
+        assert c2.limit == 7
+
+    def test_constraint_class_key(self):
+        assert "MaxDepth" in MaxDepth(1).to_dict()["constraint_class"]
+
+
+class TestMaxNodesSerialization:
+    def test_roundtrip(self):
+        c = MaxNodes(15)
+        d = c.to_dict()
+        assert d["limit"] == 15
+        c2 = MaxNodes.from_dict(d)
+        assert c2.limit == 15
+
+    def test_constraint_class_key(self):
+        assert "MaxNodes" in MaxNodes(1).to_dict()["constraint_class"]
+
+
+class TestMaxOccurrencesSerialization:
+    def test_roundtrip(self):
+        c = MaxOccurrences("sin", 3)
+        d = c.to_dict()
+        assert d["symbol"] == "sin"
+        assert d["limit"] == 3
+        c2 = MaxOccurrences.from_dict(d)
+        assert c2.symbol == "sin"
+        assert c2.limit == 3
+
+    def test_constraint_class_key(self):
+        assert "MaxOccurrences" in MaxOccurrences("x", 1).to_dict()["constraint_class"]
+
+
+class TestNoNestedSerialization:
+    def test_roundtrip_list(self):
+        c = NoNested(["sin", "cos"])
+        d = c.to_dict()
+        assert set(d["symbols"]) == {"sin", "cos"}
+        c2 = NoNested.from_dict(d)
+        assert c2.symbols == frozenset({"sin", "cos"})
+
+    def test_roundtrip_single_string(self):
+        c = NoNested("sin")
+        d = c.to_dict()
+        c2 = NoNested.from_dict(d)
+        assert c2.symbols == frozenset({"sin"})
+
+    def test_constraint_class_key(self):
+        assert "NoNested" in NoNested("x").to_dict()["constraint_class"]
+
+
+class TestDimensionalConsistencySerialization:
+    def test_roundtrip(self):
+        c = DimensionalConsistency(
+            variable_units={"v": {"m": 1, "s": -1}, "t": {"s": 1}},
+            target_unit={"m": 1, "s": -1},
+            constant_units={"g": {"m": 1, "s": -2}},
+            allow_unit_polymorphic_constants=True,
+        )
+        d = c.to_dict()
+        c2 = DimensionalConsistency.from_dict(d)
+        from fractions import Fraction
+
+        assert c2._var_units == {"v": {"m": Fraction(1), "s": Fraction(-1)}, "t": {"s": Fraction(1)}}
+        assert c2._target == {"m": Fraction(1), "s": Fraction(-1)}
+        assert c2._const_units == {"g": {"m": Fraction(1), "s": Fraction(-2)}}
+        assert c2._allow_poly_const is True
+        assert c2._sl is None
+
+    def test_roundtrip_no_constant_units(self):
+        c = DimensionalConsistency(
+            variable_units={"x": {"m": 1}},
+            target_unit={"m": 1},
+        )
+        d = c.to_dict()
+        c2 = DimensionalConsistency.from_dict(d)
+        assert c2._const_units == {}
+
+    def test_fractions_serialized_as_strings(self):
+        c = DimensionalConsistency(
+            variable_units={"x": {"m": 1}},
+            target_unit={"m": 1},
+        )
+        d = c.to_dict()
+        assert d["target_unit"]["m"] == "1"
+
+    def test_constraint_class_key(self):
+        c = DimensionalConsistency(variable_units={}, target_unit={})
+        assert "DimensionalConsistency" in c.to_dict()["constraint_class"]
+
+
+class TestConstraintFromDict:
+    def test_dispatch_max_depth(self):
+        d = MaxDepth(4).to_dict()
+        c = Constraint.from_dict(d)
+        assert isinstance(c, MaxDepth)
+        assert c.limit == 4
+
+    def test_dispatch_max_nodes(self):
+        c = Constraint.from_dict(MaxNodes(20).to_dict())
+        assert isinstance(c, MaxNodes)
+        assert c.limit == 20
+
+    def test_dispatch_max_occurrences(self):
+        c = Constraint.from_dict(MaxOccurrences("cos", 2).to_dict())
+        assert isinstance(c, MaxOccurrences)
+        assert c.symbol == "cos"
+
+    def test_dispatch_no_nested(self):
+        c = Constraint.from_dict(NoNested(["sin"]).to_dict())
+        assert isinstance(c, NoNested)
+
+    def test_dispatch_dimensional_consistency(self):
+        original = DimensionalConsistency(variable_units={"x": {"m": 1}}, target_unit={"m": 1})
+        c = Constraint.from_dict(original.to_dict())
+        assert isinstance(c, DimensionalConsistency)
+
+    def test_dispatch_user_defined(self):
+        """Constraint.from_dict resolves classes via importlib, including user-defined ones."""
+
+        class _AlwaysAllow(Constraint):
+            def to_dict(self):
+                return {**super().to_dict(), "extra": 42}
+
+            @classmethod
+            def from_dict(cls, d):
+                return cls()
+
+        # Patch the class into a reachable module so importlib can find it
+        import sys
+
+        mod = sys.modules[__name__]
+        mod._AlwaysAllow = _AlwaysAllow
+        _AlwaysAllow.__module__ = __name__
+        _AlwaysAllow.__qualname__ = "_AlwaysAllow"
+
+        d = _AlwaysAllow().to_dict()
+        c = Constraint.from_dict(d)
+        assert isinstance(c, _AlwaysAllow)
+
+    def test_subclass_without_override_raises(self):
+        class _NoFromDict(Constraint):
+            pass
+
+        with pytest.raises(NotImplementedError, match="_NoFromDict"):
+            _NoFromDict.from_dict({})
