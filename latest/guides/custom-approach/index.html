@@ -320,16 +320,15 @@
       
         
       
-    
-    
-    
-      
         
+      
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
@@ -355,7 +354,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -650,6 +649,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grammar-Guided Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sharing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sharing Custom Implementations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -683,13 +738,8 @@
     
     
     
-      
-        
-        
-      
     
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -715,7 +765,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -765,8 +815,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1032,8 +1080,6 @@
     
     
     
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
@@ -1203,8 +1249,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1399,8 +1443,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1646,8 +1688,6 @@
     
     
     
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
@@ -1803,8 +1843,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -2083,17 +2121,17 @@
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">symbol_library</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>        <span class="k">while</span> <span class="ow">not</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">should_stop</span><span class="p">():</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>            <span class="n">exprs</span> <span class="o">=</span> <span class="n">generate_n_expressions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mf">1e9</span><span class="p">)))</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>        <span class="k">while</span> <span class="ow">not</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>            <span class="n">exprs</span> <span class="o">=</span> <span class="n">generate_n_expressions</span><span class="p">(</span><span class="n">sl</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>            <span class="k">for</span> <span class="n">expr</span> <span class="ow">in</span> <span class="n">exprs</span><span class="p">:</span>
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>                <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">evaluate_expr</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>                <span class="k">if</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">should_stop</span><span class="p">():</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>                <span class="k">if</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>                    <span class="k">return</span>
 </code></pre></div>
 <h3 id="key-rules-for-search">Key rules for <code>search()</code></h3>
 <ul>
 <li>Call <code>sr_evaluator.evaluate_expr(expr)</code> for every candidate expression. The evaluator handles parameter fitting, caching, and result bookkeeping.</li>
-<li>Check <code>sr_evaluator.should_stop()</code> (or <code>sr_evaluator.total_evaluations &gt;= sr_evaluator.max_evaluations</code>) regularly and return when it is <code>True</code>.</li>
+<li>Check <code>sr_evaluator.should_stop</code> (or <code>sr_evaluator.total_evaluations &gt;= sr_evaluator.max_evaluations</code>) regularly and finish search when it is <code>True</code>.</li>
 <li>Do <strong>not</strong> access target values directly — use the evaluator as the sole interface to <code>y</code>.</li>
 </ul>
 <h2 id="the-adapt-lifecycle">The <code>adapt()</code> lifecycle</h2>
@@ -2222,7 +2260,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

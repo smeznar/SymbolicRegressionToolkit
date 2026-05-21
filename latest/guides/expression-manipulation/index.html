@@ -320,16 +320,15 @@
       
         
       
-    
-    
-    
-      
         
+      
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
@@ -355,7 +354,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -666,6 +665,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grammar-Guided Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sharing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sharing Custom Implementations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -699,13 +754,8 @@
     
     
     
-      
-        
-        
-      
     
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -731,7 +781,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -781,8 +831,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1048,8 +1096,6 @@
     
     
     
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
@@ -1219,8 +1265,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1415,8 +1459,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1662,8 +1704,6 @@
     
     
     
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
@@ -1819,8 +1859,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -2171,7 +2209,7 @@
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">set_default</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>   <span class="c1"># clear when done</span>
 </code></pre></div>
-<p>The resolution order is: <strong>explicit argument → context manager → module default → <code>default_symbols()</code></strong>. Functions that parse token vocabularies (<code>tokens_to_tree</code>, <code>create_generic_pcfg</code>) raise <code>RuntimeError</code> if no library is available; all other functions fall back to <code>default_symbols()</code>.</p>
+<p>The resolution order is: <strong>explicit argument → context manager → module default → <code>default_symbols()</code></strong>. Functions that parse token vocabularies (<code>tokens_to_tree</code>, <code>expr_to_latex</code>) raise <code>RuntimeError</code> if no library is available; all other functions fall back to <code>default_symbols()</code>.</p>
 <h2 id="expression-trees">Expression trees</h2>
 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;tokens_to_tree&lt;/span&gt;" href="../../references/utils/expression_tree/#SRToolkit.utils.expression_tree.tokens_to_tree">tokens_to_tree</a> parses a token list into a binary <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt;" href="../../references/utils/expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a> tree:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">tokens_to_tree</span>
@@ -2200,12 +2238,11 @@
 </code></pre></div>
 <p><code>X</code> must have shape <code>(n_samples, n_features)</code>. <code>C</code> is a 1-D array with one entry per <code>C</code> token in the expression. Pass an empty array (<code>np.array([])</code>) when there are no constants.</p>
 <h2 id="latex-rendering">LaTeX rendering</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">tokens_to_tree</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.expression_compiler</span><span class="w"> </span><span class="kn">import</span> <span class="n">expr_to_latex</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">([</span><span class="s2">&quot;sin&quot;</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;^2&quot;</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">latex</span><span class="p">)</span>  <span class="c1"># $\sin X_{0} + X_{1}^2$</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">expr_to_latex</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">([</span><span class="s2">&quot;sin&quot;</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;^2&quot;</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">latex</span><span class="p">)</span>  <span class="c1"># $\sin X_{0} + X_{1}^2$</span>
 </code></pre></div>
 <h2 id="simplification">Simplification</h2>
 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;simplify&lt;/span&gt;" href="../../references/utils/expression_simplifier/#SRToolkit.utils.expression_simplifier.simplify">simplify</a> applies algebraic simplification followed by constant folding:</p>
@@ -2280,7 +2317,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

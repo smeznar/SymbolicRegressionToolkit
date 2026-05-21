@@ -318,16 +318,15 @@
       
         
       
-    
-    
-    
-      
         
+      
         
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -353,7 +352,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -540,6 +539,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grammar-Guided Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/sharing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sharing Custom Implementations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -575,13 +630,8 @@
     
     
     
-      
-        
-        
-      
     
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
@@ -607,7 +657,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -657,8 +707,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -924,8 +972,6 @@
     
     
     
-      
-    
     
     <li class="md-nav__item md-nav__item--nested">
       
@@ -1095,8 +1141,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1291,8 +1335,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -1539,8 +1581,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
@@ -1811,8 +1851,6 @@
       
     
     
-    
-      
     
     
     <li class="md-nav__item md-nav__item--nested">
@@ -2119,7 +2157,7 @@
   </span>
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ProGEDConfig</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;ProGED&#39;</span><span class="p">,</span> <span class="n">approach_class</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ProGEDConfig</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;ProGED&#39;</span><span class="p">,</span> <span class="n">approach_class</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2141,7 +2179,6 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">cfg</span><span class="o">.</span><span class="n">name</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">&#39;ProGED&#39;</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">d</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">ProGEDConfig</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span><span class="o">.</span><span class="n">grammar</span>
 </code></pre></div>
 
 
@@ -2182,7 +2219,7 @@
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ProGED</span><span class="p">(</span><span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ProGED</span><span class="p">(</span><span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Grammar</span><span class="p">,</span> <span class="n">SymbolLibrary</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2192,9 +2229,14 @@
 
 
         <p>A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.</p>
-<p>Randomly samples expressions from a probabilistic context-free grammar (PCFG) and evaluates
-them using the provided evaluator. The full version of the approach is available at
-https://github.com/brencej/ProGED.</p>
+<p>Randomly samples expressions from a probabilistic context-free grammar (PCFG).
+The grammar defines both which expressions are structurally valid (hard constraints via
+registered <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constraint&lt;/span&gt;" href="../../utils/grammar/#SRToolkit.utils.grammar.Constraint">Constraint</a> objects) and a probability
+distribution over them (soft constraints via production rule weights), biasing sampling
+toward shorter or domain-appropriate expressions. Providing a domain-specific grammar is
+the main strength of this approach — it encodes prior knowledge about the expected form
+of the target expression and makes the search significantly more efficient. The full
+version of the approach is available at https://github.com/brencej/ProGED.</p>
 
 
 <details class="references" open>
@@ -2208,19 +2250,20 @@ https://github.com/brencej/ProGED.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span> <span class="o">=</span> <span class="n">benchmark</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s1">&#39;I.16.6&#39;</span><span class="p">)</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">dataset</span><span class="o">.</span><span class="n">max_evaluations</span> <span class="o">=</span> <span class="mi">100</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">ProGED</span><span class="p">()</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">adapt</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">)</span> <span class="c1"># Since we don&#39;t put a custom grammar into ProGED we will need an automatically created PCFG.</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">evaluate_approach</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">num_experiments</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">initial_seed</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">dataset_name</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">&#39;I.16.6&#39;</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">approach_name</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">&#39;ProGED&#39;</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">best_expr</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="go">&#39;X_0*C&#39;</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">num_evaluated</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="go">75</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">bool</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="go">False</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Since we don&#39;t put a custom grammar into ProGED we will need an automatically created PCFG.</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">adapt</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">dataset</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">evaluate_approach</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">num_experiments</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">initial_seed</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">dataset_name</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="go">&#39;I.16.6&#39;</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">approach_name</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="go">&#39;ProGED&#39;</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">best_expr</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="go">&#39;C-X_0/C-X_0&#39;</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="o">.</span><span class="n">num_evaluated</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="go">63</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">bool</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="go">False</span>
 </code></pre></div>
 
 
@@ -2240,13 +2283,38 @@ https://github.com/brencej/ProGED.</p>
                 <code>grammar</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Union">Union</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Grammar&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Grammar&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Grammar">Grammar</a>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.SymbolLibrary&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.SymbolLibrary">SymbolLibrary</a>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Grammar used for sampling. Either a
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt;" href="../../utils/symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> (grammar is derived
-automatically) or a custom grammar string.</p>
+                <p>Grammar used for sampling. Its production rule weights define a probability
+distribution over expressions — higher-weight rules are sampled more often,
+acting as a soft prior. Registered constraints impose hard structural limits.
+Providing a carefully designed, domain-specific grammar is strongly recommended,
+as it is the primary way to incorporate prior knowledge and improve search
+efficiency. One of:</p>
+<ul>
+<li>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Grammar&lt;/span&gt;" href="../../utils/grammar/#SRToolkit.utils.grammar.Grammar">Grammar</a> object (used directly,
+  including its weights and any registered constraints).</li>
+<li>A grammar string in the notation used by
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_grammar_string&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../utils/grammar/#SRToolkit.utils.grammar.Grammar.from_grammar_string">Grammar.from_grammar_string</a>.</li>
+<li>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt;" href="../../utils/symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> — converted
+  automatically via
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_symbol_library&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../utils/grammar/#SRToolkit.utils.grammar.Grammar.from_symbol_library">Grammar.from_symbol_library</a>.</li>
+<li><code>None</code> — a generic grammar is derived automatically from the symbol library
+  via <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;adapt&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.adapt">adapt</a>, but this forgoes
+  the approach's main advantage.</li>
+</ul>
               </div>
             </td>
             <td>
@@ -2265,83 +2333,143 @@ automatically) or a custom grammar string.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/approaches/ProGED.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span>
-<span class="normal"><a href="#__codelineno-0-36">36</a></span>
-<span class="normal"><a href="#__codelineno-0-37">37</a></span>
-<span class="normal"><a href="#__codelineno-0-38">38</a></span>
-<span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span>
-<span class="normal"><a href="#__codelineno-0-42">42</a></span>
-<span class="normal"><a href="#__codelineno-0-43">43</a></span>
-<span class="normal"><a href="#__codelineno-0-44">44</a></span>
-<span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span>
-<span class="normal"><a href="#__codelineno-0-47">47</a></span>
-<span class="normal"><a href="#__codelineno-0-48">48</a></span>
-<span class="normal"><a href="#__codelineno-0-49">49</a></span>
-<span class="normal"><a href="#__codelineno-0-50">50</a></span>
-<span class="normal"><a href="#__codelineno-0-51">51</a></span>
-<span class="normal"><a href="#__codelineno-0-52">52</a></span>
-<span class="normal"><a href="#__codelineno-0-53">53</a></span>
-<span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span>
-<span class="normal"><a href="#__codelineno-0-56">56</a></span>
-<span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">    A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    Randomly samples expressions from a probabilistic context-free grammar (PCFG) and evaluates</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    them using the provided evaluator. The full version of the approach is available at</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    https://github.com/brencej/ProGED.</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="sd">    References:</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="sd">        [Brence et al. (2021)][cite-proged]</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.dataset import Feynman</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">        &gt;&gt;&gt; benchmark = Feynman()</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">        &gt;&gt;&gt; dataset = benchmark.create_dataset(&#39;I.16.6&#39;)</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">        &gt;&gt;&gt; dataset.max_evaluations = 100</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">        &gt;&gt;&gt; model = ProGED()</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">        &gt;&gt;&gt; model.adapt(dataset.X, dataset.symbol_library) # Since we don&#39;t put a custom grammar into ProGED we will need an automatically created PCFG.</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">        &gt;&gt;&gt; results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">        &gt;&gt;&gt; r = results[0]</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        &gt;&gt;&gt; r.dataset_name</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        &#39;I.16.6&#39;</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        &gt;&gt;&gt; r.approach_name</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        &#39;ProGED&#39;</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">        &gt;&gt;&gt; r.best_expr</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">        &#39;X_0*C&#39;</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">        &gt;&gt;&gt; r.num_evaluated</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">        75</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">        &gt;&gt;&gt; bool(r.success)</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">        False</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">        grammar: Grammar used for sampling. Either a</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">            [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] (grammar is derived</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">            automatically) or a custom grammar string.</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="n">grammar_str</span> <span class="o">=</span> <span class="n">grammar</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grammar</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">ProGEDConfig</span><span class="p">(</span><span class="n">grammar</span><span class="o">=</span><span class="n">grammar_str</span><span class="p">))</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SymbolLibrary</span><span class="p">]]</span> <span class="o">=</span> <span class="n">grammar</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-33"> 33</a></span>
+<span class="normal"><a href="#__codelineno-0-34"> 34</a></span>
+<span class="normal"><a href="#__codelineno-0-35"> 35</a></span>
+<span class="normal"><a href="#__codelineno-0-36"> 36</a></span>
+<span class="normal"><a href="#__codelineno-0-37"> 37</a></span>
+<span class="normal"><a href="#__codelineno-0-38"> 38</a></span>
+<span class="normal"><a href="#__codelineno-0-39"> 39</a></span>
+<span class="normal"><a href="#__codelineno-0-40"> 40</a></span>
+<span class="normal"><a href="#__codelineno-0-41"> 41</a></span>
+<span class="normal"><a href="#__codelineno-0-42"> 42</a></span>
+<span class="normal"><a href="#__codelineno-0-43"> 43</a></span>
+<span class="normal"><a href="#__codelineno-0-44"> 44</a></span>
+<span class="normal"><a href="#__codelineno-0-45"> 45</a></span>
+<span class="normal"><a href="#__codelineno-0-46"> 46</a></span>
+<span class="normal"><a href="#__codelineno-0-47"> 47</a></span>
+<span class="normal"><a href="#__codelineno-0-48"> 48</a></span>
+<span class="normal"><a href="#__codelineno-0-49"> 49</a></span>
+<span class="normal"><a href="#__codelineno-0-50"> 50</a></span>
+<span class="normal"><a href="#__codelineno-0-51"> 51</a></span>
+<span class="normal"><a href="#__codelineno-0-52"> 52</a></span>
+<span class="normal"><a href="#__codelineno-0-53"> 53</a></span>
+<span class="normal"><a href="#__codelineno-0-54"> 54</a></span>
+<span class="normal"><a href="#__codelineno-0-55"> 55</a></span>
+<span class="normal"><a href="#__codelineno-0-56"> 56</a></span>
+<span class="normal"><a href="#__codelineno-0-57"> 57</a></span>
+<span class="normal"><a href="#__codelineno-0-58"> 58</a></span>
+<span class="normal"><a href="#__codelineno-0-59"> 59</a></span>
+<span class="normal"><a href="#__codelineno-0-60"> 60</a></span>
+<span class="normal"><a href="#__codelineno-0-61"> 61</a></span>
+<span class="normal"><a href="#__codelineno-0-62"> 62</a></span>
+<span class="normal"><a href="#__codelineno-0-63"> 63</a></span>
+<span class="normal"><a href="#__codelineno-0-64"> 64</a></span>
+<span class="normal"><a href="#__codelineno-0-65"> 65</a></span>
+<span class="normal"><a href="#__codelineno-0-66"> 66</a></span>
+<span class="normal"><a href="#__codelineno-0-67"> 67</a></span>
+<span class="normal"><a href="#__codelineno-0-68"> 68</a></span>
+<span class="normal"><a href="#__codelineno-0-69"> 69</a></span>
+<span class="normal"><a href="#__codelineno-0-70"> 70</a></span>
+<span class="normal"><a href="#__codelineno-0-71"> 71</a></span>
+<span class="normal"><a href="#__codelineno-0-72"> 72</a></span>
+<span class="normal"><a href="#__codelineno-0-73"> 73</a></span>
+<span class="normal"><a href="#__codelineno-0-74"> 74</a></span>
+<span class="normal"><a href="#__codelineno-0-75"> 75</a></span>
+<span class="normal"><a href="#__codelineno-0-76"> 76</a></span>
+<span class="normal"><a href="#__codelineno-0-77"> 77</a></span>
+<span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
+<span class="normal"><a href="#__codelineno-0-79"> 79</a></span>
+<span class="normal"><a href="#__codelineno-0-80"> 80</a></span>
+<span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
+<span class="normal"><a href="#__codelineno-0-82"> 82</a></span>
+<span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
+<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
+<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
+<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
+<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
+<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
+<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
+<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
+<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
+<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
+<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
+<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Grammar</span><span class="p">,</span> <span class="n">SymbolLibrary</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="sd">    A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    Randomly samples expressions from a probabilistic context-free grammar (PCFG).</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    The grammar defines both which expressions are structurally valid (hard constraints via</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    registered [Constraint][SRToolkit.utils.grammar.Constraint] objects) and a probability</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    distribution over them (soft constraints via production rule weights), biasing sampling</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    toward shorter or domain-appropriate expressions. Providing a domain-specific grammar is</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="sd">    the main strength of this approach — it encodes prior knowledge about the expected form</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="sd">    of the target expression and makes the search significantly more efficient. The full</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">    version of the approach is available at https://github.com/brencej/ProGED.</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    References:</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">        [Brence et al. (2021)][cite-proged]</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.dataset import Feynman</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">        &gt;&gt;&gt; benchmark = Feynman()</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">        &gt;&gt;&gt; dataset = benchmark.create_dataset(&#39;I.16.6&#39;)</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">        &gt;&gt;&gt; dataset.max_evaluations = 100</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        &gt;&gt;&gt; model = ProGED()</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        &gt;&gt;&gt; # Since we don&#39;t put a custom grammar into ProGED we will need an automatically created PCFG.</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        &gt;&gt;&gt; model.adapt(dataset.X, dataset.symbol_library)</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        &gt;&gt;&gt; results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">        &gt;&gt;&gt; r = results[0]</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">        &gt;&gt;&gt; r.dataset_name</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">        &#39;I.16.6&#39;</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">        &gt;&gt;&gt; r.approach_name</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">        &#39;ProGED&#39;</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">        &gt;&gt;&gt; r.best_expr</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">        &#39;C-X_0/C-X_0&#39;</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">        &gt;&gt;&gt; r.num_evaluated</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">        63</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">        &gt;&gt;&gt; bool(r.success)</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">        False</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">        grammar: Grammar used for sampling. Its production rule weights define a probability</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">            distribution over expressions — higher-weight rules are sampled more often,</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">            acting as a soft prior. Registered constraints impose hard structural limits.</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">            Providing a carefully designed, domain-specific grammar is strongly recommended,</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="sd">            as it is the primary way to incorporate prior knowledge and improve search</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">            efficiency. One of:</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">            - A [Grammar][SRToolkit.utils.grammar.Grammar] object (used directly,</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">              including its weights and any registered constraints).</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">            - A grammar string in the notation used by</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">              [Grammar.from_grammar_string][SRToolkit.utils.grammar.Grammar.from_grammar_string].</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">            - A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] — converted</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">              automatically via</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">              [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library].</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">            - ``None`` — a generic grammar is derived automatically from the symbol library</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">              via [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt], but this forgoes</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">              the approach&#39;s main advantage.</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grammar</span><span class="p">,</span> <span class="n">Grammar</span><span class="p">):</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>        <span class="n">grammar_dict</span> <span class="o">=</span> <span class="n">grammar</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grammar</span><span class="p">,</span> <span class="n">SymbolLibrary</span><span class="p">):</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>        <span class="n">grammar</span> <span class="o">=</span> <span class="n">Grammar</span><span class="o">.</span><span class="n">from_symbol_library</span><span class="p">(</span><span class="n">grammar</span><span class="p">)</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="n">grammar_dict</span> <span class="o">=</span> <span class="n">grammar</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grammar</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="n">grammar</span> <span class="o">=</span> <span class="n">Grammar</span><span class="o">.</span><span class="n">from_grammar_string</span><span class="p">(</span><span class="n">grammar</span><span class="p">)</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>        <span class="n">grammar_dict</span> <span class="o">=</span> <span class="n">grammar</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>        <span class="n">grammar</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>        <span class="n">grammar_dict</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">ProGEDConfig</span><span class="p">(</span><span class="n">grammar</span><span class="o">=</span><span class="n">grammar_dict</span><span class="p">))</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">grammar</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Grammar</span><span class="p">]</span> <span class="o">=</span> <span class="n">grammar</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2399,21 +2527,21 @@ automatically) or a custom grammar string.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/ProGED.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">    ProGED is stateless — this method does nothing.</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">        None</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="k">pass</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    ProGED is stateless — this method does nothing.</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">        None</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2510,45 +2638,45 @@ score candidate expressions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/ProGED.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
-<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
-<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
-<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
-<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
-<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
-<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
-<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span>
-<span class="normal"><a href="#__codelineno-0-103">103</a></span>
-<span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span>
-<span class="normal"><a href="#__codelineno-0-106">106</a></span>
-<span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    Randomly sample expressions from the grammar and evaluate them until the budget is exhausted</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    or the success threshold is reached.</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">        sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">            score candidate expressions.</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">        seed: Optional random seed for reproducible sampling.</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">        None</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="k">while</span> <span class="ow">not</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grammar</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>            <span class="n">expr</span> <span class="o">=</span> <span class="n">generate_n_expressions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grammar</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>            <span class="n">_</span> <span class="o">=</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">evaluate_expr</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;ProGED.search() must be called after adapt() if grammar is not provided.&quot;</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="sd">    Randomly sample expressions from the grammar and evaluate them until the budget is exhausted</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a><span class="sd">    or the success threshold is reached.</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">        sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="sd">            score candidate expressions.</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="sd">        seed: Optional random seed for reproducible sampling.</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a><span class="sd">        None</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="k">while</span> <span class="ow">not</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">should_stop</span><span class="p">:</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grammar</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>            <span class="n">expr</span> <span class="o">=</span> <span class="n">generate_n_expressions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grammar</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>            <span class="n">_</span> <span class="o">=</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">evaluate_expr</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;ProGED.search() must be called after adapt() if grammar is not provided.&quot;</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2629,7 +2757,7 @@ score candidate expressions.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.sections", "toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
