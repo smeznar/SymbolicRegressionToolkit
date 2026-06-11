@@ -92,7 +92,7 @@ class RandomSearchConfig(ApproachConfig):
     batch_size: int = 50
 ```
 
-The config is serialised automatically when the grid is saved. To support CLI execution, also implement `from_config()`:
+The config is serialised automatically when the grid is saved. To support CLI execution, your SR_approach subclass should also implement [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]:
 
 ```python
 @classmethod
@@ -108,7 +108,7 @@ Once implemented, the approach integrates directly with the rest of the toolkit:
 from SRToolkit.dataset import Nguyen
 
 bm = Nguyen()
-dataset = bm.create_dataset("Nguyen-1")
+dataset = bm.create_dataset("NG-1")
 model = RandomSearch(batch_size=100)
 results = dataset.evaluate_approach(model, num_experiments=3)
 ```

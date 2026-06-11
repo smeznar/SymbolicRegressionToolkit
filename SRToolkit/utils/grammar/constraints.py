@@ -41,6 +41,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Generic, Iterable, Optional, TypeVar, cast
 
+from ...bundle._relocate import _auto_bind
 from ..symbol_library import SymbolLibrary
 from ..types import CONST, FN, LIT, OP, OP_ADDITIVE, VAR
 from .grammar import ParseTreeNode, Rule
@@ -221,9 +222,17 @@ class Constraint(Generic[L, G]):
             NotImplementedError: If called on a subclass that has not overridden this method.
         """
         if cls is Constraint:
+            d = _auto_bind(d)
             class_path = d["constraint_class"]
             module_path, cls_name = class_path.rsplit(".", 1)
-            resolved = getattr(importlib.import_module(module_path), cls_name)
+            try:
+                resolved = getattr(importlib.import_module(module_path), cls_name)
+            except (ImportError, AttributeError):
+                raise ImportError(
+                    f"Cannot import constraint class {class_path!r}. "
+                    "If this is a bundle class, install the bundle first. "
+                    "If the config has no '_bundle' key, call bind_config(config) manually."
+                ) from None
             return resolved.from_dict(d)
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 

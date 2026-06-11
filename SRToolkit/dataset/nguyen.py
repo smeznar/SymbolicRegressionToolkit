@@ -2,16 +2,14 @@
 Nguyen symbolic regression benchmark.
 """
 
-import os
 import warnings
 from typing import Optional
 
-from platformdirs import user_data_dir
-
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
+from .data_source import SampleSource, UrlSource
 from .sampling import UniformSampling
-from .sr_benchmark import SR_benchmark, download_benchmark_data
+from .sr_benchmark import SR_benchmark
 
 
 class Nguyen(SR_benchmark):
@@ -32,23 +30,22 @@ class Nguyen(SR_benchmark):
         10
 
     Args:
-        dataset_directory: Directory where dataset files are stored or will be downloaded to.
-            Defaults to the platform-appropriate user data directory (e.g. ``~/.local/share/SRToolkit/nguyen`` on Linux).
-        n_samples: Number of samples to generate per dataset when falling back to sampler-based
-            data generation (i.e. when the download fails or ``force_generate=True``). Defaults to ``1000``.
+        n_samples: Number of samples to generate per dataset when ``force_generate=True``
+            (sampler-based data generation). Defaults to ``10000``.
         seed: Random seed used for sampler-based data generation. Defaults to ``42``.
-        force_generate: If ``True``, skip downloading/loading pre-generated data and always
-            generate fresh data from samplers. Defaults to ``False``.
+        force_generate: If ``True``, generate fresh data from the stored samplers instead of
+            downloading the pre-generated data. Defaults to ``False``.
     """
+
+    __data_version__ = "1.0.0"
 
     def __init__(
         self,
-        dataset_directory: str = os.path.join(user_data_dir("SRToolkit"), "nguyen"),
         n_samples: int = 10000,
         seed: Optional[int] = 42,
         force_generate: bool = False,
     ):
-        super().__init__("Nguyen", dataset_directory)
+        super().__init__("Nguyen", version="1.0.0")
         self._n_samples = n_samples
         self._seed = seed
         self._force_generate = force_generate
@@ -58,14 +55,12 @@ class Nguyen(SR_benchmark):
         # fmt: off
         seed = self._seed
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/nguyen.zip"
-        if not self._force_generate:
-            try:
-                download_benchmark_data(url, self.base_dir)
-            except Exception as e:
-                warnings.warn(
-                    f"[Nguyen] Could not download benchmark data ({e}). "
-                    "Data will be generated from samplers on first access."
-                )
+        # The canonical data is downloaded once from the archive (see _ensure_data) so every
+        # machine benchmarks on identical inputs. Each dataset's own data_source is a
+        # SampleSource: a transparent, per-dataset fallback that regenerates the data from
+        # that dataset's samplers if the download is unavailable (or force_generate is set).
+        self._archive_source = UrlSource(url)
+        data_source = SampleSource(n_samples=self._n_samples, seed=seed)
         # we create a SymbolLibrary with 1 and with 2 variables
         # Each library contains +, -, *, /, sin, cos, exp, log, sqrt, ^2, ^3
         sl_1v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt", "^2", "^3"], 1)
@@ -90,218 +85,122 @@ class Nguyen(SR_benchmark):
         }
 
         # Add datasets to the benchmark
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-1",
-            ranking_function="rmse",
-            ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3"],
-            original_equation="y = x+x^2+x^3",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-1", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], original_equation="y = x+x^2+x^3",
+                         success_threshold=1e-7, seed=seed, dataset_metadata=self.metadata,
+                         samplers=[UniformSampling(0, 20)], data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-2",
-            ranking_function="rmse",
-            ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"],
-            original_equation="y = x+x^2+x^3+x^4",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-2", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"],
+                         original_equation="y = x+x^2+x^3+x^4", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-3",
-            ranking_function="rmse",
-            ground_truth=[
-                "X_0",
-                "+",
-                "X_0",
-                "^2",
-                "+",
-                "X_0",
-                "^3",
-                "+",
-                "X_0",
-                "*",
-                "X_0",
-                "^3",
-                "+",
-                "X_0",
-                "^2",
-                "*",
-                "X_0",
-                "^3",
-            ],
-            original_equation="y = x+x^2+x^3+x^4+x^5",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-3", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=[
+                             "X_0",
+                             "+",
+                             "X_0",
+                             "^2",
+                             "+",
+                             "X_0",
+                             "^3",
+                             "+",
+                             "X_0",
+                             "*",
+                             "X_0",
+                             "^3",
+                             "+",
+                             "X_0",
+                             "^2",
+                             "*",
+                             "X_0",
+                             "^3",
+                         ], original_equation="y = x+x^2+x^3+x^4+x^5", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-4",
-            ranking_function="rmse",
-            ground_truth=[
-                "X_0",
-                "+",
-                "X_0",
-                "^2",
-                "+",
-                "X_0",
-                "^3",
-                "+",
-                "X_0",
-                "*",
-                "X_0",
-                "^3",
-                "+",
-                "X_0",
-                "^2",
-                "*",
-                "X_0",
-                "^3",
-                "+",
-                "X_0",
-                "^3",
-                "*",
-                "X_0",
-                "^3",
-            ],
-            original_equation="y = x+x^2+x^3+x^4+x^5+x^6",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-4", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=[
+                             "X_0",
+                             "+",
+                             "X_0",
+                             "^2",
+                             "+",
+                             "X_0",
+                             "^3",
+                             "+",
+                             "X_0",
+                             "*",
+                             "X_0",
+                             "^3",
+                             "+",
+                             "X_0",
+                             "^2",
+                             "*",
+                             "X_0",
+                             "^3",
+                             "+",
+                             "X_0",
+                             "^3",
+                             "*",
+                             "X_0",
+                             "^3",
+                         ], original_equation="y = x+x^2+x^3+x^4+x^5+x^6", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-5",
-            ranking_function="rmse",
-            ground_truth=["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"],
-            original_equation="y = sin(x^2)*cos(x)-1",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-5", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"],
+                         original_equation="y = sin(x^2)*cos(x)-1", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-6",
-            ranking_function="rmse",
-            ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"],
-            original_equation="y = sin(x)+sin(x+x^2)",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-6", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"],
+                         original_equation="y = sin(x)+sin(x+x^2)", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-7",
-            ranking_function="rmse",
-            ground_truth=["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"],
-            original_equation="y = log(1+x)+log(1+x^2)",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(1, 100, uses_negative=False)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-7", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"],
+                         original_equation="y = log(1+x)+log(1+x^2)", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(1, 100, uses_negative=False)],
+                         data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_1v,
-            dataset_name="NG-8",
-            ranking_function="rmse",
-            ground_truth=["sqrt", "(", "X_0", ")"],
-            original_equation="y = sqrt(x)",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 100, uses_negative=False)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_1v, None, dataset_name="NG-8", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["sqrt", "(", "X_0", ")"], original_equation="y = sqrt(x)",
+                         success_threshold=1e-7, seed=seed, dataset_metadata=self.metadata,
+                         samplers=[UniformSampling(0, 100, uses_negative=False)], data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_2v,
-            dataset_name="NG-9",
-            ranking_function="rmse",
-            ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"],
-            original_equation="y = sin(x)+sin(y^2)",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_2v, None, dataset_name="NG-9", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"],
+                         original_equation="y = sin(x)+sin(y^2)", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
+                         data_source=data_source)
 
-        self.add_dataset(
-            "",
-            sl_2v,
-            dataset_name="NG-10",
-            ranking_function="rmse",
-            ground_truth=["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"],
-            original_equation="y = 2*sin(x)*cos(y)",
-            max_evaluations=100000,
-            max_expr_length=50,
-            success_threshold=1e-7,
-            dataset_metadata=self.metadata,
-            seed=seed,
-            samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
-            n_samples=self._n_samples,
-            force_generate=self._force_generate,
-        )
+        self.add_dataset(sl_2v, None, dataset_name="NG-10", ranking_function="rmse", max_evaluations=100000,
+                         ground_truth=["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"],
+                         original_equation="y = 2*sin(x)*cos(y)", success_threshold=1e-7, seed=seed,
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
+                         data_source=data_source)
 
     # fmt: on
+
+    def _ensure_data(self, dataset_name: str) -> None:
+        """Download the canonical Nguyen archive into the cache once, unless ``force_generate``.
+
+        On a cache miss the whole archive is fetched and every ``NG-*.npz`` extracted, so the
+        next ``create_dataset`` reads the same data on any machine. If the download fails we
+        warn and let each dataset's ``SampleSource`` regenerate the data locally.
+        """
+        if self._force_generate:
+            return
+        from SRToolkit.dataset import data_cache
+
+        cache_path = data_cache.dataset_path(self.benchmark_name, self.version, dataset_name)
+        if cache_path.exists():
+            return
+        try:
+            self._archive_source.materialize(cache_path, self.datasets[dataset_name])
+        except Exception as e:
+            warnings.warn(
+                f"[Nguyen] Could not download the canonical data ({e}); falling back to local "
+                f"sampling. Generated data may differ across machines.",
+                stacklevel=2,
+            )

@@ -605,6 +605,10 @@ class Grammar:
         Reconstruct a [Grammar][SRToolkit.utils.grammar.Grammar] from a dictionary
         produced by [to_dict][SRToolkit.utils.grammar.Grammar.to_dict].
 
+        If ``d`` carries ``_bundle`` metadata (added by ``pack(..., configs=[...])``),
+        every ``*_class`` path — including nested ``constraint_class`` paths — is
+        rewritten to point at the installed bundle before reconstruction.
+
         Args:
             d: Dictionary with keys ``start``, ``rules``, and ``constraints``.
 
@@ -612,8 +616,10 @@ class Grammar:
             A new [Grammar][SRToolkit.utils.grammar.Grammar] with all rules and
             constraints registered.
         """
+        from ...bundle._relocate import _auto_bind
         from .constraints import Constraint
 
+        d = _auto_bind(d)
         rules = [Rule.from_dict(r) for r in d.get("rules", [])]
         g = cls(rules, start=d.get("start"))
         for cd in d.get("constraints", []):

@@ -4,7 +4,11 @@
 - Added grammars (CFG, PCFG) and the ability to add constraints to them.
 - Added some default constraints that work as built-ins and reference implementations
 - Added guides to the documentation
-- Added tests for all scripts
+- Added some tests
+- Reworked how sharing code/benchmark works:
+  - Code is shared through bundles, which can be installed and are directly usable after
+  - Datasets/benchmarks are versioned and can be shared via .zip files, of through configs implementing DataSources
+  - Configs should be shared directly and should be run through pack, so they are directly usable
 
 ### SymbolicRegressionToolkit-1.5.0 (2026-04-14)
 - Reworked how SR_results and ResultAugmenters work

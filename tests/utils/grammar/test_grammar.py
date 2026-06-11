@@ -7,6 +7,7 @@ Coverage target: 100% of Rule, ParseTreeNode, ParseTree, and Grammar
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from SRToolkit.utils.grammar import (
@@ -406,6 +407,10 @@ class TestGrammarValidate:
         assert g.validate(ParseTree(root)) is True
 
     def test_derivation_roundtrip_no_constraints(self):
+        # E -> E + E | x is a critical branching process (mean offspring = 1.0),
+        # so derivation size is heavy-tailed and can rarely exceed the default
+        # step limit. Seed the global RNG to keep this roundtrip test deterministic.
+        np.random.seed(0)
         g = Grammar([Rule("E", ["E", "+", "E"]), Rule("E", ["x"])])
         for _ in range(10):
             d = g.start_derivation("E")

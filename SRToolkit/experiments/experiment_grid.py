@@ -44,6 +44,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Union
 
 from SRToolkit.approaches.sr_approach import SR_approach
+from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, SRCallbacks
@@ -52,17 +53,33 @@ from SRToolkit.evaluation.sr_evaluator import SR_results
 
 def _approach_from_config(config_dict: dict) -> SR_approach:
     """Reconstruct an SR_approach from a config dict that includes ``approach_class``."""
+    config_dict = _auto_bind(config_dict)
     class_path = config_dict["approach_class"]
     module_path, cls_name = class_path.rsplit(".", 1)
-    cls = getattr(importlib.import_module(module_path), cls_name)
+    try:
+        cls = getattr(importlib.import_module(module_path), cls_name)
+    except (ImportError, AttributeError):
+        raise ImportError(
+            f"Cannot import approach class {class_path!r}. "
+            "If this is a bundle class, install the bundle first. "
+            "If the config has no '_bundle' key, call bind_config(config) manually."
+        ) from None
     return cls.from_config(config_dict)
 
 
 def _callback_from_config(config_dict: dict) -> SRCallbacks:
     """Reconstruct an SRCallbacks instance from a config dict that includes ``callback_class``."""
+    config_dict = _auto_bind(config_dict)
     class_path = config_dict["callback_class"]
     module_path, cls_name = class_path.rsplit(".", 1)
-    cls = getattr(importlib.import_module(module_path), cls_name)
+    try:
+        cls = getattr(importlib.import_module(module_path), cls_name)
+    except (ImportError, AttributeError):
+        raise ImportError(
+            f"Cannot import callback class {class_path!r}. "
+            "If this is a bundle class, install the bundle first. "
+            "If the config has no '_bundle' key, call bind_config(config) manually."
+        ) from None
     return cls.from_dict(config_dict)
 
 
@@ -434,8 +451,7 @@ class ExperimentGrid:
                     f"(e.g. set ds.dataset_name = 'new_name')."
                 )
             seen_names.add(name)
-            save_dir = os.path.join(results_dir, "_datasets", name)
-            self.datasets[name] = ds.to_dict(save_dir)
+            self.datasets[name] = ds.to_dict()
 
         if isinstance(datasets, SR_benchmark):
             for name in datasets.list_datasets(verbose=False):
@@ -454,10 +470,6 @@ class ExperimentGrid:
                         f"[ExperimentGrid] Each element of datasets must be an SR_dataset "
                         f"or SR_benchmark, got {type(ds)}"
                     )
-        else:
-            raise ValueError(
-                f"[ExperimentGrid] datasets must be SR_dataset, SR_benchmark, or a list, got {type(datasets)}"
-            )
 
     def _get_adapted_state_ref_path(self, approach_name: str, dataset_name: str) -> Optional[str]:
         """Return the pickle path for an approach × dataset adapted state."""
@@ -566,9 +578,7 @@ class ExperimentGrid:
         self.save()
 
         # Derive paths from the same convention used by save()
-        ds_json_paths = {
-            name: os.path.join(self.results_dir, "_datasets", name, f"{name}.json") for name in self.datasets
-        }
+        ds_json_paths = {name: os.path.join(self.results_dir, "_datasets", f"{name}.json") for name in self.datasets}
         config_json_paths = {
             cfg["name"]: os.path.join(self.results_dir, "_approaches", f"{cfg['name']}_config.json")
             for cfg in self.approach_configs
@@ -687,7 +697,7 @@ class ExperimentGrid:
 
         # Write per-dataset JSON files
         for name, dataset in self.datasets.items():
-            ds_path = os.path.join(self.results_dir, "_datasets", name, f"{name}.json")
+            ds_path = os.path.join(self.results_dir, "_datasets", f"{name}.json")
             if not os.path.exists(ds_path):
                 os.makedirs(os.path.dirname(ds_path), exist_ok=True)
                 with open(ds_path, "w") as f:
@@ -755,7 +765,12 @@ class ExperimentGrid:
 
         grid.datasets = {}
         for name in d["dataset_names"]:
-            ds_path = os.path.join(grid.results_dir, "_datasets", name, f"{name}.json")
+            ds_path = os.path.join(grid.results_dir, "_datasets", f"{name}.json")
+            # Legacy support: also check old nested path
+            if not os.path.exists(ds_path):
+                legacy_path = os.path.join(grid.results_dir, "_datasets", name, f"{name}.json")
+                if os.path.exists(legacy_path):
+                    ds_path = legacy_path
             with open(ds_path) as f:
                 grid.datasets[name] = json.load(f)
 

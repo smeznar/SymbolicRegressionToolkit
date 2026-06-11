@@ -50,16 +50,19 @@ results = dataset.evaluate_approach(model, num_experiments=5, top_k=20, initial_
 
 ```python
 for r in results:
-    print(r.dataset_name, r.approach_name, r.best_expr, r.best_error, r.success)
+    print(r.dataset_name, r.approach_name, r.best_expr, r.min_error, r.success)
 ```
 
 ## Resampling data
 
-Each benchmark exposes `resample()` to draw a fresh sample using the same distribution as the original data:
+Pass `n_samples` (and optionally `seed`) to `create_dataset()` to draw a fresh sample using the same distribution as the original data:
 
 ```python
-X, y = bm.resample("I.16.6", n=500, seed=42)
+ds = bm.create_dataset("I.16.6", n_samples=500, seed=42)
+X, y = ds.X, ds.y
 ```
+
+The cache is not modified — only the returned `SR_dataset` instance contains the new data.
 
 For SRSD_Feynman, this uses the per-variable sampling objects (log-uniform, linear, integer) defined for each equation.
 

@@ -32,7 +32,8 @@ dependencies = [
   "editdistance",
   "tqdm",
   "typing_extensions>=4.0",
-  "platformdirs"
+  "platformdirs",
+  "packaging"
 ]
 classifiers = [
   "Intended Audience :: Information Technology",

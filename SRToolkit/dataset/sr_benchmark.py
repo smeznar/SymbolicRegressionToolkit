@@ -6,10 +6,11 @@ import copy
 import json
 import os
 import warnings
+import zipfile
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from platformdirs import user_data_dir
 from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr
@@ -17,16 +18,52 @@ from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EstimationSettings
 
+from .data_source import DataSource, SampleSource
+from .sampling import Sampler
 from .sr_dataset import SR_dataset
+
+
+def _save_arrays_to_cache(
+    benchmark: str, version: str, name: str, X: np.ndarray, y: Optional[np.ndarray] = None
+) -> None:
+    """Write ``X`` (and optional ``y``) to the dataset's ``.npz`` in the cache version dir."""
+    from SRToolkit.dataset import data_cache
+
+    cache_path = data_cache.dataset_path(benchmark, version, name)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    if y is not None:
+        np.savez(str(cache_path), X=X, y=y, allow_pickle=False)
+    else:
+        np.savez(str(cache_path), X=X, allow_pickle=False)
+
+
+def _save_gt_array_to_cache(benchmark: str, version: str, name: str, gt: np.ndarray) -> None:
+    """
+    Write an ndarray (a ``bed`` behaviour matrix) ground truth to ``<name>_gt.npy`` beside the
+    dataset ``.npz``. Such a ground truth is not JSON-safe, so the entry stores ``None`` and
+    [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] reloads it from here.
+    """
+    from SRToolkit.dataset import data_cache
+
+    cache_path = data_cache.dataset_path(benchmark, version, name)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    np.save(str(cache_path.parent / f"{name}_gt.npy"), gt)
+
+
+def _count_variables(symbol_library: SymbolLibrary) -> int:
+    """Number of variable-type symbols in ``symbol_library``, or ``-1`` if there are none."""
+    num_vars = sum(1 for sym in symbol_library.symbols.values() if sym.get("type") == "var")
+    return num_vars if num_vars > 0 else -1
 
 
 class SR_benchmark:
     def __init__(
         self,
         benchmark_name: str,
-        base_dir: str,
         datasets: Optional[List[Union[SR_dataset, Tuple[str, SR_dataset]]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        version: str = "1.0.0",
+        base_dir: Optional[str] = None,
     ):
         """
         A named, persistent collection of symbolic regression datasets.
@@ -39,11 +76,13 @@ class SR_benchmark:
 
         Args:
             benchmark_name: Name of this benchmark.
-            base_dir: Directory where dataset files are stored or will be written.
             datasets: Initial datasets to add. Each element can be an
                 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance (auto-named as
                 ``"<benchmark_name>_<index>"``) or a ``(name, SR_dataset)`` tuple.
             metadata: Optional dictionary of benchmark-level metadata (e.g. citation, description).
+            version: Version string for this benchmark. Defaults to ``"1.0.0"``.
+            base_dir: Directory where dataset files are stored or will be written.
+                Optional — if omitted, the data cache is used exclusively.
 
         Raises:
             ValueError: If any element of ``datasets`` is not an
@@ -51,6 +90,7 @@ class SR_benchmark:
         """
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
+        self.version = version
         self.datasets: Dict[str, Dict[str, Any]] = {}
         self.metadata = {} if metadata is None else metadata
         if datasets is not None:
@@ -75,7 +115,7 @@ class SR_benchmark:
             >>> dataset = benchmark.create_dataset('I.16.6')
             >>> isinstance(dataset, SR_dataset)
             True
-            >>> bm = SR_benchmark("BM", "data/bm")
+            >>> bm = SR_benchmark("BM")
             >>> bm.add_dataset_instance("I.16.6", dataset)
 
         Args:
@@ -94,8 +134,8 @@ class SR_benchmark:
 
     def add_dataset(
         self,
-        dataset: Union[str, np.ndarray, Tuple[np.ndarray, np.ndarray]],
         symbol_library: SymbolLibrary,
+        dataset: Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
         dataset_name: Optional[str] = None,
         ranking_function: str = "rmse",
         max_evaluations: int = -1,
@@ -104,255 +144,238 @@ class SR_benchmark:
         success_threshold: Optional[float] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
-        samplers: Optional[List[Any]] = None,
-        n_samples: int = 10000,
-        force_generate: bool = False,
+        samplers: Optional[List[Sampler]] = None,
+        data_source: Optional[DataSource] = None,
         **kwargs: Unpack[EstimationSettings],
     ):
         """
         Adds a dataset to the benchmark.
 
         Examples:
-            >>> from SRToolkit.dataset import Feynman
-            >>> fey_benchmark = Feynman() # Feynman is a specific instance of SR_benchmark with additional functionality
-            >>> benchmark = SR_benchmark("BM", "data/bm")
-            >>> benchmark.add_dataset(fey_benchmark.base_dir+"/I.14.3.npz", SymbolLibrary.default_symbols(3),
-            ...       dataset_name="I.14.3", ranking_function="rmse", ground_truth = ["X_0", "*", "X_1", "*", "X_2"],
-            ...       original_equation="U = m*g*z", max_evaluations=100000, max_expr_length=50,
-            ...       success_threshold=1e-7, dataset_metadata={}, constant_bounds=(-5.0, 5.0),
-            ...       seed = 42)
-            >>> len(benchmark.list_datasets(verbose=False))
+            >>> import tempfile, numpy as np
+            >>> from SRToolkit.utils import SymbolLibrary
+            >>> bm = SR_benchmark("BM")
+            >>> X = np.random.rand(10, 2)
+            >>> y = X[:, 0] + X[:, 1]
+            >>> bm.add_dataset(SymbolLibrary.default_symbols(2),(X, y),dataset_name="test_ds",ground_truth=["X_0", "+", "X_1"],original_equation="y = x0 + x1")
+            >>> len(bm.list_datasets(verbose=False))
             1
 
         Args:
-            dataset: Data used in the dataset. Can be:
-                - A string representing the path to a NumPy archive (.npz) containing the dataset. It should either
-                the absolute path to the data, path relative to the base_dir 'base_dir'/'dataset', or empty, in that
-                case the dataset will be loaded from 'base_dir'/'dataset_name'.npz. The .npz file must contain the
-                features (saved in 'X') and if 'rmse' is used as the ranking function, the target (saved in 'y').
-                - A 2d numpy array containing the features (X). If 'rmse' is used as the ranking function, ground truth
-                should also be provided to calculate the target (y). Once added, the data will be saved at
-                'base_dir'/'dataset_name'.npz.
-                - A tuple containing the features (X) and the target (y). If 'bed' is used as the ranking function,
-                the target will be ignored. Once added, the data will be saved at 'base_dir'/'dataset_name'.npz.
+            dataset: Direct data for the dataset: a 2-D numpy array (features) or a
+                ``(X, y)`` tuple. Use ``None`` together with ``data_source`` to have the
+                cache layer materialise the data instead. When ``data_source`` is provided
+                this argument is ignored. To use data from a local file, load it
+                yourself (e.g. with ``numpy.load``) and pass the arrays here.
             symbol_library: The symbol library to use.
-            dataset_name: The name of the dataset. If None, a name will be generated automatically as
-                'benchmark_name'_'index+1'.
-            ranking_function: The ranking function used during evaluation. Can be: 'rmse', 'bed'.
-            max_evaluations: The maximum number of expressions to evaluate. Less than 0 means no limit.
-            ground_truth: Ground truth expression as a token list in infix notation, a
-                [Node][SRToolkit.utils.expression_tree.Node] tree, or a numpy behavior array. Required when
-                ``ranking_function="bed"``.
-            original_equation: Human-readable string of the original equation.
-            success_threshold: Error threshold below which an expression is considered successful. If ``None``,
-                no threshold is applied.
-            seed: Random seed for reproducibility. ``None`` means no seed is set.
-            dataset_metadata: Optional dictionary of dataset-level metadata (merged with benchmark metadata).
-            samplers: Optional list of callable samplers (one per input variable). When the dataset
-                file cannot be found, these are used to generate ``n_samples`` input rows and the
-                result is saved for future use. Must support ``to_dict()`` for serialization
-                (e.g. :class:`~SRToolkit.dataset.sampling.LogUniformSampling`,
-                :class:`~SRToolkit.dataset.sampling.UniformSampling`,
-                :class:`~SRToolkit.dataset.sampling.IntegerUniformSampling`).
-            n_samples: Number of samples to generate when falling back to sampler-based data
-                generation. Only used when ``dataset`` is a string path that cannot be found (or
-                ``force_generate=True``) and ``samplers`` is provided. Defaults to ``10000``.
-            force_generate: If ``True``, skip loading an existing data file entirely and always
-                regenerate data from ``samplers``. Requires ``samplers`` to be provided.
-                Defaults to ``False``.
-            **kwargs: Optional estimation settings passed to
+            dataset_name: The name of the dataset. Auto-generated if ``None``.
+            ranking_function: ``"rmse"`` or ``"bed"``.
+            max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
+            ground_truth: Ground truth expression.
+            original_equation: Human-readable equation string.
+            success_threshold: Error threshold for success. ``None`` means no threshold.
+            seed: Random seed.
+            dataset_metadata: Optional dataset-level metadata dict.
+            samplers: Optional list of samplers (one per input variable). They define the
+                problem's input distribution and power
+                [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]; a
+                [SampleSource][SRToolkit.dataset.data_source.SampleSource] draws from them.
+            data_source: Optional [DataSource][SRToolkit.dataset.data_source.DataSource]
+                describing where the data comes from
+                ([UrlSource][SRToolkit.dataset.data_source.UrlSource] or
+                [SampleSource][SRToolkit.dataset.data_source.SampleSource]). When provided,
+                the ``dataset`` argument is ignored and the cache layer manages
+                materialisation.
+            **kwargs: Estimation settings forwarded to
                 [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
-                Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
-                ``initialization``, ``max_constants``, ``max_expr_length``, ``num_points_sampled``,
-                ``bed_X``, ``num_consts_sampled``, ``domain_bounds``.
 
         Raises:
-            ValueError: When BED ranking function is used but ground truth is not provided. When dataset is given as
-                a string (directory) that doesn't exist, is not a valid .npz file, or is a .npz file that doesn't
-                contain one array for the BED ranking function (X) or two array for the RMSE ranking function (X, y).
-                When the argument dataset is an array, ranking function RMSE and there is no ground truth or the
-                expression given as the ground truth cannot be evaluated...
+            ValueError: Various validation errors (see below).
         """
+
         if dataset_name is None:
             dataset_name = f"{self.benchmark_name}_{len(self.datasets) + 1}"
 
-        self.datasets[dataset_name] = {}
-        self.datasets[dataset_name]["format_version"] = 1
-        self.datasets[dataset_name]["dataset_name"] = dataset_name
-        self.datasets[dataset_name]["symbol_library"] = symbol_library.to_dict()
-        self.datasets[dataset_name]["ranking_function"] = ranking_function
-        self.datasets[dataset_name]["max_evaluations"] = max_evaluations
-
-        self.datasets[dataset_name]["success_threshold"] = success_threshold
-
-        self.datasets[dataset_name]["seed"] = seed
-        merged_metadata = copy.deepcopy(self.metadata)
-        if dataset_metadata:
-            merged_metadata.update(dataset_metadata)
-        self.datasets[dataset_name]["dataset_metadata"] = merged_metadata
+        # Fail fast before any cache files are written, mirroring add_dataset_instance.
+        if dataset_name in self.datasets:
+            raise ValueError(f"[SR_benchmark.add_dataset] Dataset '{dataset_name}' already exists in the benchmark.")
 
         if "bed_X" in kwargs and kwargs["bed_X"] is not None:
             kwargs["bed_X"] = kwargs["bed_X"].tolist()
 
-        self.datasets[dataset_name]["kwargs"] = kwargs
-        self.datasets[dataset_name]["original_equation"] = original_equation
-        self.datasets[dataset_name]["ground_truth"] = ground_truth
-        self.datasets[dataset_name]["samplers"] = [s.to_dict() for s in samplers] if samplers is not None else None
+        # An ndarray ('bed' behaviour matrix) ground truth is not JSON-safe: the entry
+        # stores None and the array is written to <name>_gt.npy at the end.
+        if isinstance(ground_truth, Node):
+            ground_truth_out: Optional[Union[List[str], str]] = ground_truth.to_list()
+        elif isinstance(ground_truth, np.ndarray):
+            ground_truth_out = None
+        else:
+            ground_truth_out = ground_truth
 
+        merged_metadata = copy.deepcopy(self.metadata)
+        if dataset_metadata:
+            merged_metadata.update(dataset_metadata)
+
+        entry: Dict[str, Any] = {
+            "format_version": 2,
+            "dataset_name": dataset_name,
+            "benchmark": self.benchmark_name,
+            "version": self.version,
+            "symbol_library": symbol_library.to_dict(),
+            "ranking_function": ranking_function,
+            "max_evaluations": max_evaluations,
+            "success_threshold": success_threshold,
+            "seed": seed,
+            "dataset_metadata": merged_metadata,
+            "original_equation": original_equation,
+            "kwargs": kwargs,
+            "ground_truth": ground_truth_out,
+            "samplers": [s.to_dict() for s in samplers] if samplers is not None else None,
+            # Default count: one variable per sampler, else the symbol library. The array
+            # branches below override this with the real column count when data is supplied.
+            "num_variables": len(samplers) if samplers is not None else _count_variables(symbol_library),
+        }
+
+        # Derive a human-readable equation from a token-list ground truth if absent.
         if ground_truth is None:
             if ranking_function == "bed":
-                raise ValueError("[SR_benchmark.add_dataset] For 'bed' ranking, the ground truth must be provided. ")
-            else:
-                warnings.warn(
-                    "[SR_benchmark.add_dataset] 'ground_truth' argument not provided. We recommend providing it "
-                    "for more transparent evaluation."
-                )
-        else:
-            if original_equation is None:
-                if isinstance(ground_truth, str):
-                    self.datasets[dataset_name]["original_equation"] = "y = " + ground_truth
-                elif isinstance(ground_truth, list):
-                    self.datasets[dataset_name]["original_equation"] = "y = " + "".join(ground_truth)
-
-        if isinstance(dataset, str):
-            dataset_path = None
-            if not force_generate:
-                if os.path.exists(dataset):
-                    dataset_path = dataset
-                elif dataset != "" and os.path.exists(f"{self.base_dir}/{dataset}"):
-                    dataset_path = f"{self.base_dir}/{dataset}"
-                elif os.path.exists(f"{self.base_dir}/{dataset_name}.npz"):
-                    dataset_path = f"{self.base_dir}/{dataset_name}.npz"
-
-            if dataset_path is None:
-                if samplers is None:
-                    if force_generate:
-                        raise ValueError(
-                            f"[SR_benchmark.add_dataset] force_generate=True requires samplers to be provided "
-                            f"for dataset '{dataset_name}'."
-                        )
-                    error_msg = (
-                        f"[SR_benchmark.add_dataset] Could not find the dataset file. "
-                        f"Expected locations:\n"
-                        f"- Absolute path: '{dataset}'\n"
-                        f"- Relative to base_dir: '{self.base_dir}/{dataset}'\n"
-                        f"- NPZ with the name of the dataset in base_dir: '{self.base_dir}/{dataset_name}.npz'"
-                    )
-                    raise FileNotFoundError(error_msg)
-                else:
-                    if not force_generate:
-                        warnings.warn(
-                            f"[SR_benchmark.add_dataset] Could not find dataset file for '{dataset_name}'. "
-                            f"Generating {n_samples} samples using provided samplers."
-                        )
-                    if seed is not None:
-                        np.random.seed(seed)
-                    X_gen = np.column_stack([s(n_samples) for s in samplers])
-                    if not os.path.isdir(self.base_dir):
-                        os.makedirs(self.base_dir)
-                    if ranking_function == "bed":
-                        np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, allow_pickle=False)
-                    elif ground_truth is not None and not isinstance(ground_truth, np.ndarray):
-                        try:
-                            expr = compile_expr(ground_truth, symbol_library)
-                            y_gen = expr(X_gen, None)
-                            np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, y=y_gen, allow_pickle=False)
-                        except Exception as e:
-                            raise Exception(
-                                f"[SR_benchmark.add_dataset] Could not evaluate ground truth for fallback "
-                                f"sampling of '{dataset_name}'. Original error: {e}"
-                            )
-                    else:
-                        np.savez(f"{self.base_dir}/{dataset_name}.npz", X=X_gen, allow_pickle=False)
-                    dataset_path = f"{self.base_dir}/{dataset_name}.npz"
-
-            self.datasets[dataset_name]["dataset_path"] = dataset_path
-
-            try:
-                data = np.load(self.datasets[dataset_name]["dataset_path"], allow_pickle=False)
-            except IOError as e:
-                error_msg = (
-                    f"[SR_benchmark.add_dataset] Could not load dataset from path '{self.datasets[dataset_name]}' "
-                    f"using np.load. The file may be corrupt or not a valid NumPy archive (.npz). "
-                    f"Original error: {e}"
-                )
-                raise IOError(error_msg) from e
-
-            if ranking_function == "rmse":
-                if not (isinstance(data, np.lib.npyio.NpzFile) and "X" in data and "y" in data):
-                    error_msg = (
-                        f"[SR_benchmark.add_dataset] For 'rmse' ranking, the dataset file "
-                        f"('{self.datasets[dataset_name]['dataset_path']}') must be a .npz NumPy archive containing "
-                        f"both 'X' (features) and 'y' (targets). It should be created via `np.savez(path, X=X, y=y)`."
-                    )
-                    raise ValueError(error_msg)
-
-            elif ranking_function == "bed":
-                if not (isinstance(data, np.lib.npyio.NpzFile) and "X" in data):
-                    error_msg = (
-                        f"[SR_benchmark.add_dataset] For 'bed' ranking, the dataset file "
-                        f"('{self.datasets[dataset_name]['dataset_path']}') must be a .npz NumPy archive "
-                        f"containing 'X' (features). It should be created via `np.savez(path, X=X)`."
-                    )
-                    raise ValueError(error_msg)
-
-            num_variables = data["X"].shape[1]
-
-        elif isinstance(dataset, np.ndarray):
-            if ranking_function == "rmse" and ground_truth is not None:
-                if isinstance(ground_truth, np.ndarray):
-                    raise ValueError(
-                        "[SR_benchmark.add_dataset] For 'rmse' ranking, the ground truth must be a string or a SRToolkit.utils.Node object. "
-                    )
-                try:
-                    expr = compile_expr(ground_truth, symbol_library)
-                    y = expr(dataset, None)
-                except Exception as e:
-                    raise Exception(
-                        f"[SR_benchmark.add_dataset] Could not evaluate the ground truth. Original error: {e}"
-                    )
-                if not os.path.isdir(self.base_dir):
-                    os.makedirs(self.base_dir)
-                np.savez(f"{self.base_dir}/{dataset_name}.npz", X=dataset, y=y, allow_pickle=False)
-            elif ranking_function == "rmse" and ground_truth is None:
-                raise ValueError(
-                    "[SR_benchmark.add_dataset] For 'rmse' ranking, if the dataset argument is a numpy "
-                    "array, the ground truth must be provided in order for the target values to be "
-                    "calculated."
-                )
-            elif ranking_function == "bed":
-                if not os.path.isdir(self.base_dir):
-                    os.makedirs(self.base_dir)
-                np.savez(f"{self.base_dir}/{dataset_name}.npz", X=dataset, allow_pickle=False)
-
-            self.datasets[dataset_name]["dataset_path"] = f"{self.base_dir}/{dataset_name}.npz"
-            num_variables = dataset.shape[1]
-
-        elif isinstance(dataset, tuple):
-            if not isinstance(dataset[0], np.ndarray) or not isinstance(dataset[1], np.ndarray):
-                raise ValueError(
-                    "[SR_benchmark.add_dataset] When dataset argument is provided as a tuple, both "
-                    "values must be a numpy array. The first array represents the features ('X'), "
-                    "the second array represents the targets ('y')."
-                )
-            if ranking_function == "bed":
-                warnings.warn(
-                    "[SR_benchmark.add_dataset] 'bed' ranking only utilizes the array with features. "
-                    "Array with targets will be ignored."
-                )
-            if not os.path.isdir(self.base_dir):
-                os.makedirs(self.base_dir)
-            np.savez(f"{self.base_dir}/{dataset_name}.npz", X=dataset[0], y=dataset[1], allow_pickle=False)
-            self.datasets[dataset_name]["dataset_path"] = f"{self.base_dir}/{dataset_name}.npz"
-            num_variables = dataset[0].shape[1]
-
-        else:
-            raise ValueError(
-                "[SR_benchmark.add_dataset] The dataset argument must be a string, a numpy array, "
-                "or a tuple containing two numpy arrays."
+                raise ValueError("[SR_benchmark.add_dataset] For 'bed' ranking, the ground truth must be provided.")
+            warnings.warn(
+                "[SR_benchmark.add_dataset] 'ground_truth' argument not provided. We recommend providing it "
+                "for more transparent evaluation."
             )
+        elif original_equation is None and isinstance(ground_truth, list):
+            entry["original_equation"] = "y = " + "".join(ground_truth)
 
-        self.datasets[dataset_name]["num_variables"] = num_variables
+        # Resolve the data source / write the arrays. num_variables defaults to the sampler /
+        # symbol-library count set above; the array branches override it with the real shape.
+        if data_source is not None:
+            # Lazy: the cache layer materialises X (and y) on first use; nothing written here.
+            entry["data_source"] = data_source.to_dict()
+        else:
+            entry["data_source"] = None
+            if isinstance(dataset, np.ndarray):
+                if ranking_function == "rmse":
+                    if ground_truth is None:
+                        raise ValueError(
+                            "[SR_benchmark.add_dataset] For 'rmse' ranking, if the dataset argument is a numpy "
+                            "array, the ground truth must be provided."
+                        )
+                    if isinstance(ground_truth, np.ndarray):
+                        raise ValueError(
+                            "[SR_benchmark.add_dataset] For 'rmse' ranking, the ground truth must be "
+                            "a list of tokens from the symbol library or a SRToolkit.utils.Node object."
+                        )
+                    try:
+                        y = compile_expr(ground_truth, symbol_library)(dataset, None)
+                    except Exception as e:
+                        raise Exception(
+                            f"[SR_benchmark.add_dataset] Could not evaluate the ground truth. Original error: {e}"
+                        )
+                    _save_arrays_to_cache(self.benchmark_name, self.version, dataset_name, dataset, y)
+                elif ranking_function == "bed":
+                    _save_arrays_to_cache(self.benchmark_name, self.version, dataset_name, dataset)
+
+            elif isinstance(dataset, tuple):
+                if (
+                    len(dataset) != 2
+                    or not isinstance(dataset[0], np.ndarray)
+                    or not isinstance(dataset[1], np.ndarray)
+                ):
+                    raise ValueError(
+                        "[SR_benchmark.add_dataset] When the dataset argument is a tuple, it must be (X, y) "
+                        "with both values numpy arrays."
+                    )
+                if ranking_function == "bed":
+                    warnings.warn(
+                        "[SR_benchmark.add_dataset] 'bed' ranking only utilizes the array with features. "
+                        "Array with targets will be ignored."
+                    )
+                _save_arrays_to_cache(self.benchmark_name, self.version, dataset_name, dataset[0], dataset[1])
+
+        if isinstance(ground_truth, np.ndarray):
+            _save_gt_array_to_cache(self.benchmark_name, self.version, dataset_name, ground_truth)
+
+        self.datasets[dataset_name] = entry
+
+    def add_from_samplers(
+        self,
+        ground_truth: Union[List[str], Node],
+        samplers: List[Sampler],
+        symbol_library: Optional[SymbolLibrary] = None,
+        n_samples: int = 10000,
+        seed: Optional[int] = None,
+        ranking_function: str = "rmse",
+        dataset_name: Optional[str] = None,
+        original_equation: Optional[str] = None,
+        success_threshold: Optional[float] = None,
+        max_evaluations: int = -1,
+        dataset_metadata: Optional[dict] = None,
+        **kwargs: Unpack[EstimationSettings],
+    ) -> None:
+        """
+        Add a dataset described only by a ground-truth expression and per-variable samplers.
+
+        This is the benchmark-level counterpart to
+        [SR_dataset.from_samplers][SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers]:
+        it attaches a [SampleSource][SRToolkit.dataset.data_source.SampleSource] so the data
+        is generated lazily from ``samplers`` (and, for RMSE, ``ground_truth``) the first
+        time the dataset is materialised via
+        [create_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.create_dataset].
+
+        Examples:
+            >>> from SRToolkit.dataset.sampling import UniformSampling
+            >>> bm = SR_benchmark("BM")
+            >>> bm.add_from_samplers(["X_0", "+", "X_1"],
+            ...     [UniformSampling(0, 5), UniformSampling(0, 5)], dataset_name="add",
+            ...     n_samples=100, seed=0)
+            >>> ds = bm.create_dataset("add")
+            >>> ds.X.shape
+            (100, 2)
+
+        Args:
+            ground_truth: Ground-truth expression as a token list or
+                [Node][SRToolkit.utils.expression_tree.Node].
+            samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per input variable.
+            symbol_library: Token vocabulary. Defaults to
+                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]
+                with one variable per sampler.
+            n_samples: Number of input rows to generate on materialisation. Defaults to ``10000``.
+            seed: Random seed stored on the
+                [SampleSource][SRToolkit.dataset.data_source.SampleSource].
+            ranking_function: ``"rmse"`` or ``"bed"``.
+            dataset_name: Name of the dataset. Auto-generated if ``None``.
+            original_equation: Human-readable equation string. Auto-filled from a token-list
+                ``ground_truth`` when ``None``.
+            success_threshold: Error threshold for success. ``None`` means no threshold.
+            max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
+            dataset_metadata: Optional dataset-level metadata dict.
+            **kwargs: Estimation settings forwarded to
+                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+        """
+        if symbol_library is None:
+            if not samplers:
+                raise ValueError(
+                    "[SR_benchmark.add_from_samplers] 'samplers' must be a non-empty list "
+                    "(one sampler per input variable)."
+                )
+            symbol_library = SymbolLibrary.default_symbols(len(samplers))
+
+        self.add_dataset(
+            symbol_library=symbol_library,
+            dataset=None,
+            dataset_name=dataset_name,
+            ranking_function=ranking_function,
+            max_evaluations=max_evaluations,
+            ground_truth=ground_truth,
+            original_equation=original_equation,
+            success_threshold=success_threshold,
+            seed=seed,
+            dataset_metadata=dataset_metadata,
+            samplers=samplers,
+            data_source=SampleSource(n_samples=n_samples, seed=seed),
+            **kwargs,
+        )
 
     def create_dataset(
         self,
@@ -396,29 +419,52 @@ class SR_benchmark:
             raise ValueError(f"Dataset {dataset_name} not found")
 
         if n_samples is not None:
-            info = self.datasets[dataset_name]
-            if info.get("samplers") is None:
+            config = self.datasets[dataset_name]
+            if config.get("samplers") is None:
                 raise ValueError(
                     f"[SR_benchmark.create_dataset] Cannot resample '{dataset_name}': no samplers defined."
                 )
-            dataset = SR_dataset.from_dict(info)
-            result = dataset.resample(n_samples, seed=seed)
-            if isinstance(result, tuple):
-                X_new, y_new = result
-            else:
-                X_new, y_new = result, None
-            dataset.X = X_new
-            dataset.y = y_new
-            return dataset
+            # _create_from_entry may return the benchmark's stored SR_dataset instance
+            # (for entries added via add_dataset_instance). Copy before mutating X/y so
+            # resampling never corrupts the stored dataset or aliases across callers.
+            # A fresh draw is requested, so the canonical cached data would only be loaded
+            # and immediately overwritten — skip _ensure_data and let the data_source (a
+            # SampleSource for the built-ins) materialise whatever is needed to construct.
+            dataset = copy.deepcopy(self._create_from_entry(config))
+            return dataset.resample_inplace(n_samples, seed=seed)
 
-        if "sr_dataset" in self.datasets[dataset_name]:
-            return self.datasets[dataset_name]["sr_dataset"]
+        # Loading canonical data: give subclasses a chance to prefetch it into the cache
+        # (e.g. download a benchmark archive once) before materialisation runs.
+        self._ensure_data(dataset_name)
+        return self._create_from_entry(self.datasets[dataset_name])
+
+    def _ensure_data(self, dataset_name: str) -> None:
+        """
+        Hook called before loading a dataset's canonical (non-resampled) data.
+
+        The base implementation is a no-op. Subclasses (e.g. the built-in benchmarks) may
+        override it to prefetch authoritative data into the cache — typically by downloading
+        a benchmark archive once — so that the subsequent
+        [data_cache.resolve][SRToolkit.dataset.data_cache.resolve] is a cache hit and each
+        dataset's own ``data_source`` (a fallback) is not consulted. Implementations should
+        be idempotent and degrade gracefully (warn, don't raise) when the prefetch fails, so
+        the per-dataset ``data_source`` can still serve as a fallback.
+
+        Args:
+            dataset_name: The dataset about to be loaded.
+        """
+        pass
+
+    def _create_from_entry(self, entry: dict) -> SR_dataset:
+        """Internal helper: create an SR_dataset from an entry dict."""
+        if "sr_dataset" in entry:
+            return entry["sr_dataset"]
         try:
-            return SR_dataset.from_dict(self.datasets[dataset_name])
+            return SR_dataset.from_dict(entry)
         except Exception as e:
             raise ValueError(
                 f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
-                f"given dictionary. Original error: {e}"
+                f"dictionary. Original error: {e}"
             )
 
     def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> List[str]:
@@ -444,12 +490,12 @@ class SR_benchmark:
         datasets = [
             dataset_name
             for dataset_name in self.datasets
-            if num_variables < 0 or self.datasets[dataset_name]["num_variables"] == num_variables
+            if num_variables < 0 or self.datasets[dataset_name].get("num_variables") == num_variables
         ]
         datasets = sorted(
             datasets,
             key=lambda dataset_name: (
-                self.datasets[dataset_name]["num_variables"],
+                self.datasets[dataset_name].get("num_variables", -1),
                 dataset_name,
             ),
         )
@@ -461,15 +507,16 @@ class SR_benchmark:
             max_length_1 = 0
             max_length_2 = 0
             for d in datasets:
-                if self.datasets[d]["num_variables"] == 1:
+                nv = self.datasets[d].get("num_variables", -1)
+                if nv == 1:
                     variable_str = "1 variable"
-                elif self.datasets[d]["num_variables"] < 1:
+                elif nv is None or nv < 1:
                     variable_str = "Amount of variables unknown"
                 else:
-                    variable_str = f"{self.datasets[d]['num_variables']} variables"
+                    variable_str = f"{nv} variables"
                 part1.append(d + ":")
                 part2.append(variable_str)
-                part3.append(self.datasets[d]["original_equation"])
+                part3.append(self.datasets[d].get("original_equation"))
                 if len(d) + 1 > max_length_1:
                     max_length_1 = len(d) + 1
                 if len(variable_str) > max_length_2:
@@ -479,99 +526,209 @@ class SR_benchmark:
                 print(f"{p1:<{max_length_1}} {p2:<{max_length_2}}, Expression: {p3}")
         return datasets
 
-    def save_benchmark(self):
+    def to_dict(self) -> dict:
         """
-        Saves the benchmark to ``<base_dir>/dataset_info.json``.
+        Serialise the benchmark to a pure JSON-safe dictionary.
 
-        The JSON file stores dataset metadata and paths to data files; the data arrays themselves are
-        not embedded. Use [load_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark.load_benchmark]
-        to restore the benchmark.
-
-        Examples:
-            >>> from SRToolkit.dataset import Feynman
-            >>> benchmark = Feynman() # Feynman is a specific instance of SR_benchmark with additional functionality
-            >>> benchmark.save_benchmark()
-        """
-        datasets = []
-        for dataset_name, dataset_info in self.datasets.items():
-            if "sr_dataset" in dataset_info:
-                datasets.append({"name": dataset_name, "info": dataset_info["sr_dataset"].to_dict(self.base_dir)})
-            else:
-                datasets.append({"name": dataset_name, "info": dataset_info})
-
-        output = {"datasets": datasets, "metadata": self.metadata, "name": self.benchmark_name}
-
-        with open(f"{self.base_dir}/dataset_info.json", "w") as f:
-            json.dump(output, f)
-
-    @staticmethod
-    def load_benchmark(base_dir: str) -> "SR_benchmark":
-        """
-        Loads a benchmark stored at the base directory, returning an instance of SR_benchmark.
-
-        Examples:
-            >>> from SRToolkit.dataset import Feynman
-            >>> b1 = Feynman("data/feynman") # Feynman is a specific instance of SR_benchmark with additional functionality
-            >>> b1.save_benchmark()
-            >>> b2 = SR_benchmark.load_benchmark('data/feynman')
-            >>> len(b1.list_datasets(verbose=False))
-            100
-            >>> len(b2.list_datasets(verbose=False))
-            100
-            >>> dataset_name = b2.list_datasets(verbose=False)[0]
-            >>> dataset = b2.create_dataset(dataset_name)
-            >>> rmse = dataset.create_evaluator().evaluate_expr(dataset.ground_truth)
-            >>> bool(rmse < dataset.success_threshold)
-            True
-
-        Args:
-            base_dir: Directory containing the ``dataset_info.json`` file previously written by
-                [save_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark.save_benchmark].
+        Dataset entries that have an ``sr_dataset`` key (added via
+        [add_dataset_instance][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset_instance])
+        are serialised via ``SR_dataset.to_dict()``.
 
         Returns:
-            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance with all datasets restored from the saved JSON.
-
-        Raises:
-            FileNotFoundError: If ``dataset_info.json`` does not exist in ``base_dir``.
-            json.JSONDecodeError: If the JSON file is malformed.
+            A JSON-safe dict representing the full benchmark configuration.
         """
-        with open(f"{base_dir}/dataset_info.json", "r") as f:
-            data = json.load(f)
+        datasets_out = {}
+        for name, entry in self.datasets.items():
+            if "sr_dataset" in entry:
+                datasets_out[name] = entry["sr_dataset"].to_dict()
+            else:
+                datasets_out[name] = {k: v for k, v in entry.items() if k != "sr_dataset"}
 
-        datasets = {}
-        for dataset_info in data["datasets"]:
-            datasets[dataset_info["name"]] = dataset_info["info"]
+        return {
+            "format_version": 2,
+            "type": "SR_benchmark",
+            "benchmark_name": self.benchmark_name,
+            "version": self.version,
+            "metadata": self.metadata,
+            "datasets": datasets_out,
+        }
 
-        benchmark = SR_benchmark(data["name"], base_dir, metadata=data["metadata"])
-        benchmark.datasets = datasets
-        return benchmark
+    @classmethod
+    def from_dict(cls, d: Union[dict, str, Path]) -> "SR_benchmark":
+        """
+        Reconstruct an SR_benchmark from a config dict or a saved JSON file.
 
+        To load a self-contained ``.zip`` archive (written by
+        [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]) use
+        [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive] instead.
 
-def download_benchmark_data(url: str, directory_path: str = user_data_dir("SRToolkit")) -> None:
-    """
-    Downloads and extracts a benchmark zip archive if the target directory is empty.
+        Args:
+            d: A dict produced by [to_dict][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_dict],
+                or a path to a JSON file.
 
-    Creates ``directory_path`` if it does not exist. If the directory is already non-empty,
-    the download is skipped.
+        Returns:
+            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
+        """
+        if isinstance(d, (str, Path)):
+            if str(d).endswith(".zip"):
+                raise ValueError(
+                    "[SR_benchmark.from_dict] Received a '.zip' path. Load self-contained "
+                    "archives with SR_benchmark.from_archive(path) instead."
+                )
+            with open(d) as f:
+                dd = json.load(f)
+        else:
+            dd = d
 
-    Examples:
-        >>> url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/feynman.zip"
-        >>> dataset_directory = 'data/feynman'
-        >>> download_benchmark_data(url, dataset_directory)
+        benchmark_name = dd["benchmark_name"]
+        version = dd.get("version", "1.0.0")
+        metadata = dd.get("metadata", {})
 
-    Args:
-        url: URL of the zip archive to download.
-        directory_path: Local directory where the archive will be extracted. Defaults to the
-            platform-appropriate user data directory (e.g. ``~/.local/share/SRToolkit`` on Linux).
-    """
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
+        b = cls(benchmark_name, version=version, metadata=metadata)
 
-    if not os.listdir(directory_path):
-        from io import BytesIO
+        for name, entry in dd.get("datasets", {}).items():
+            # Store the entry dict directly; materialisation is lazy via create_dataset
+            b.datasets[name] = entry
+            if "num_variables" not in entry:
+                # Try to infer
+                samplers = entry.get("samplers")
+                if samplers is not None:
+                    entry["num_variables"] = len(samplers)
+                else:
+                    entry["num_variables"] = -1
+
+        return b
+
+    def to_archive(self, path: Union[str, Path]) -> None:
+        """
+        Write the benchmark (config + data) to a ``.zip`` archive.
+
+        The archive contains:
+
+        - ``benchmark.json``: the benchmark configuration dict.
+        - ``data/<dataset_name>.npz``: the cached data for each dataset.
+        - ``data/<dataset_name>_gt.npy``: ground-truth behaviour array (if present).
+
+        Args:
+            path: Destination path for the archive.  Non-``.zip`` suffixes trigger a
+                warning but are still accepted.
+        """
+        path = Path(path)
+        if path.suffix.lower() != ".zip":
+            warnings.warn(
+                f"[SR_benchmark.to_archive] path '{path}' does not end in '.zip'. "
+                "The file will be a ZIP archive regardless of the extension.",
+                stacklevel=2,
+            )
+
+        from SRToolkit.dataset import data_cache
+
+        benchmark_json = json.dumps(self.to_dict(), indent=2)
+
+        with zipfile.ZipFile(str(path), "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("benchmark.json", benchmark_json)
+
+            for name, entry in self.datasets.items():
+                if "sr_dataset" in entry:
+                    # In-memory dataset — write its data
+                    ds = entry["sr_dataset"]
+                    cache_p = data_cache.dataset_path(self.benchmark_name, self.version, name)
+                    if not cache_p.exists():
+                        # Write directly from arrays
+                        import io
+
+                        buf = io.BytesIO()
+                        if ds.y is not None:
+                            np.savez(buf, X=ds.X, y=ds.y)
+                        else:
+                            np.savez(buf, X=ds.X)
+                        zf.writestr(f"data/{name}.npz", buf.getvalue())
+                        if isinstance(ds.ground_truth, np.ndarray):
+                            gt_buf = io.BytesIO()
+                            np.save(gt_buf, ds.ground_truth)
+                            zf.writestr(f"data/{name}_gt.npy", gt_buf.getvalue())
+                        continue
+                else:
+                    ds_name = entry.get("dataset_name", name)
+                    try:
+                        cache_p = data_cache.resolve(self.benchmark_name, self.version, ds_name, entry)
+                    except Exception as e:
+                        warnings.warn(f"[SR_benchmark.to_archive] Could not materialise '{name}': {e}. Skipping.")
+                        continue
+
+                zf.write(str(cache_p), f"data/{name}.npz")
+
+                gt_path = cache_p.parent / f"{name}_gt.npy"
+                if gt_path.exists():
+                    zf.write(str(gt_path), f"data/{name}_gt.npy")
+
+    @classmethod
+    def from_archive(cls, path: Union[str, Path]) -> "SR_benchmark":
+        """
+        Load a benchmark from a self-contained ``.zip`` archive.
+
+        This is the counterpart to
+        [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]: it reads
+        ``benchmark.json`` from the archive, extracts the bundled ``data/*.npz`` (and any
+        ``_gt.npy``) into the data cache, and returns a benchmark whose datasets read
+        from that populated cache.
+
+        Args:
+            path: Path to a ``.zip`` archive written by
+                [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].
+
+        Returns:
+            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
+        """
+        from SRToolkit.dataset import data_cache
+
+        with zipfile.ZipFile(str(path), "r") as zf:
+            benchmark_dict = json.loads(zf.read("benchmark.json"))
+
+        benchmark_name = benchmark_dict["benchmark_name"]
+        version = benchmark_dict.get("version", "1.0.0")
+
+        # Extract data into the cache
+        data_cache.import_archive(Path(path), benchmark_name, version)
+
+        b = cls(benchmark_name, version=version, metadata=benchmark_dict.get("metadata", {}))
+        for name, entry in benchmark_dict.get("datasets", {}).items():
+            b.datasets[name] = entry
+            if "num_variables" not in entry:
+                entry["num_variables"] = -1
+
+        return b
+
+    @classmethod
+    def from_url(cls, url: str) -> "SR_benchmark":
+        """
+        Download a self-contained ``.zip`` archive from a URL and load it.
+
+        This is the remote counterpart to
+        [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive]: the
+        archive is downloaded to a temporary file and then loaded exactly as
+        ``from_archive`` would. The ``url`` must point at an archive written by
+        [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive] (a
+        ``benchmark.json`` plus a ``data/`` directory) — not a bare ``.npz``/data zip
+        (that is what [UrlSource][SRToolkit.dataset.data_source.UrlSource] is for).
+
+        Args:
+            url: URL of a ``.zip`` archive written by
+                [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].
+
+        Returns:
+            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
+        """
+        import tempfile
         from urllib.request import urlopen
-        from zipfile import ZipFile
 
-        http_response = urlopen(url)
-        zipfile = ZipFile(BytesIO(http_response.read()))
-        zipfile.extractall(path=directory_path)
+        with urlopen(url) as response:
+            data = response.read()
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+        try:
+            tmp.write(data)
+            tmp.close()
+            return cls.from_archive(tmp.name)
+        finally:
+            os.unlink(tmp.name)

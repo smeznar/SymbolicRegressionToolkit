@@ -4,173 +4,302 @@ title: Sharing Custom Implementations
 
 # Sharing Custom Implementations
 
-SRToolkit's serialization model is built around a single contract: every custom class is identified by its **fully-qualified Python module path** (e.g. `meznar_pcfg_grammar.MyGrammarConstraint`). When you call `to_dict`, this path is embedded in the JSON. When another machine calls `from_dict`, it uses `importlib` to import that module and reconstruct the object. Sharing works as long as the recipient can import the class at the same path.
+SRToolkit separates three concerns that travel differently:
 
-This guide covers the best practices for structuring and naming shareable files, then walks through everything that can be shared.
+| Axis | What it is | How to share |
+|---|---|---|
+| **Code** | Custom approaches, constraints, samplers | `.srtk` bundle — install once, importable from anywhere |
+| **Data** | `.npz` arrays in a versioned cache | JSON config with a `data_source` (URL or sampler recipe) — arrays materialise on first use |
+| **Config** | Plain JSON describing a dataset or benchmark | Share the `.json` directly, or wrap data + config in one file with `to_archive()` / `from_archive()` |
 
-## Best practices
+Each axis solves a different problem. Mixing them (e.g. embedding raw arrays in a config, or shipping a whole directory) causes friction: configs become un-forwardable, imports break on other machines, or recipients have to hunt for files. Use the right channel for each axis.
 
-### Name files to avoid collisions
+!!! tip "Easiest path: `to_archive()` / `from_archive()`"
+    To hand someone a dataset or benchmark **including its data**, write a single
+    self-contained `.zip` with [`to_archive()`](#self-contained-archives) and let them
+    load it in one call with `from_archive()` — no network access, samplers, or bundle
+    install required. Reach for the finer-grained channels below only when you need them
+    (sharing a config without data, hosting data remotely, or shipping custom code).
 
-Use the convention `{author}_{descriptor}.py` — for example:
+    ```python
+    bm.to_archive("nguyen.zip")                       # sender: one file, config + data
+    bm = SR_benchmark.from_archive("nguyen.zip")      # recipient: one call
+    # SR_dataset has the same pair for a single dataset.
+    ```
 
-```
-meznar_pcfg_grammar.py
-smith_gp_approach.py
-jones_feynman_sampler.py
-```
+---
 
-The descriptor should say what the file contains, not just "custom". This ensures that when multiple contributors' files land in the same working directory they do not overwrite each other.
+## Configs and benchmarks
 
-### Use the working directory as the sharing unit
+### Serialising a benchmark
 
-Python adds `.` to `sys.path` automatically, so any `.py` file in the working directory is importable by name. The simplest sharing model is:
-
-```
-experiment/
-├── meznar_pcfg_grammar.py   # custom constraint
-├── smith_gp_approach.py     # custom approach
-├── grammar.json             # Grammar.to_dict() output
-├── dataset.json             # SR_dataset.to_dict() output
-├── approach_config.json     # ApproachConfig.to_dict() output
-└── requirements.txt         # SRToolkit version pin
-```
-
-Zip the directory and share it. The recipient unpacks and runs from inside it.
-
-### Never define shared classes in a script's `__main__` scope
-
-When a script is run directly, Python sets `__module__ = "__main__"` on every class defined in it. The path `"__main__.MyApproach"` is meaningless on any other machine. Always define classes in a named module file and import from there:
+Call `to_dict()` on any `SR_benchmark` instance to get a pure JSON-safe dict. No files are written.
 
 ```python
-# good: class lives in smith_gp_approach.py, importable by that name
-from smith_gp_approach import GeneticProgramming
+from SRToolkit.dataset import Nguyen
 
-# bad: class defined in the script being run — serializes as __main__.GeneticProgramming
-class GeneticProgramming(SR_approach): ...
+bm = Nguyen()
+config = bm.to_dict()          # plain dict — safe to json.dump
 ```
 
-### Avoid defining classes in notebooks
-
-Classes defined in Jupyter cells also get `__module__ = "__main__"`. Define the class in a `.py` file and import it into the notebook instead:
+Save to disk if you want to share it as a file:
 
 ```python
-# In your notebook:
-from meznar_pcfg_grammar import PCFGConstraint  # importable, serializable
+import json
+with open("nguyen_config.json", "w") as f:
+    json.dump(config, f, indent=2)
 ```
 
-### Verify importability before serializing
+### Reconstructing a benchmark from config
 
-After writing your module file, confirm the class is importable under the exact path that will be embedded in the JSON:
+Pass either the dict or the file path to `SR_benchmark.from_dict()`. Data is materialised lazily from the `data_source` embedded in each dataset config — the first `create_dataset()` call triggers it.
 
-```bash
-python -c "from meznar_pcfg_grammar import PCFGConstraint; print('ok')"
+```python
+from SRToolkit.dataset import SR_benchmark
+
+# From a dict in memory
+bm = SR_benchmark.from_dict(config)
+
+# Or directly from a JSON file
+bm = SR_benchmark.from_dict("nguyen_config.json")
+
+dataset = bm.create_dataset("NG-1")  # materialises data on demand
 ```
 
-If this fails, `from_dict` will fail on any other machine too.
+### Standalone dataset configs
 
-### Pin the SRToolkit version
+`SR_dataset.to_dict()` works the same way, but the instance must have its `benchmark` and `version` fields set (both are required so the cache layer can locate the data). The easiest way to get a config-only dataset is [`from_samplers`][SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers], which records a `SampleSource` for you:
 
-The serialization format and internal class paths are tied to library internals. Include the version in a `requirements.txt`:
+```python
+from SRToolkit.dataset import SR_dataset
+from SRToolkit.dataset.sampling import UniformSampling
 
+ds = SR_dataset.from_samplers(
+    ground_truth=["X_0", "^2", "+", "C"],
+    samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+    n_samples=10000,
+    seed=42,
+    dataset_name="my_eq",
+    benchmark="my_project",    # namespace — required before to_dict
+    version="1.0.0",
+)
+
+config = ds.to_dict()          # pure JSON — no arrays, no file writes
 ```
-SRToolkit==0.x.y
+
+### Sharing a recipe: regenerate by sampling
+
+`to_dict` produces the **recipe** model of sharing: the JSON carries the samplers and the
+`SampleSource`, *not* the data arrays. The recipient calls `from_dict` and the arrays are
+regenerated by sampling on the first `create_dataset()`. Build such a dataset with
+[`from_samplers`][SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers] (single dataset,
+above) or [`add_from_samplers`][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_from_samplers]
+(within a benchmark), then ship the JSON:
+
+```python
+sender_config = ds.to_dict()                 # → my_eq.json, no .npz
+recipient = SR_dataset.from_dict(sender_config)   # data regenerated by sampling here
+```
+
+For a single dataset, `from_dict` materialises immediately; within a benchmark,
+`SR_benchmark.from_dict` keeps each entry lazy and the first `create_dataset()` triggers
+the sampling.
+
+!!! warning "Reproducibility depends on the seed"
+    Regeneration reproduces the **exact** data only when the `SampleSource` carries a fixed
+    `seed`. With `seed=None` the recipient gets statistically equivalent but *different*
+    points. If everyone must evaluate on identical numbers, set a seed — or ship a
+    [self-contained archive](#self-contained-archives) so the data travels with the config.
+
+---
+
+## Data sources
+
+The `data_source` is a [DataSource][SRToolkit.dataset.data_source.DataSource] object that
+controls where the raw arrays come from. It captures the data's *origin* only; the
+problem's input distribution lives in `samplers` and stays available for resampling no
+matter which source is used.
+
+| Source | Example | When to use |
+|---|---|---|
+| [SampleSource][SRToolkit.dataset.data_source.SampleSource] | `SampleSource(n_samples=10000, seed=42)` | Generation from the stored samplers + ground truth; reproducible only with a fixed `seed` |
+| [UrlSource][SRToolkit.dataset.data_source.UrlSource] | `UrlSource("https://...")` | Public datasets served as a zip archive |
+| `None` | `None` | Data was supplied directly (arrays) and already lives in the cache; fail fast if absent |
+
+The built-in benchmarks (`Feynman`, `Nguyen`, `SRSD_Feynman`) use
+[UrlSource][SRToolkit.dataset.data_source.UrlSource] — the archive is downloaded once and
+all datasets in the benchmark are extracted to the local cache. Subsequent loads are
+instant. Need something exotic? Subclass
+[DataSource][SRToolkit.dataset.data_source.DataSource] — custom sources round-trip without
+registration and travel to other machines via bundles.
+
+---
+
+## Self-contained archives
+
+For person-to-person sharing where you want one file and no out-of-band coordination, write a self-contained `.zip`:
+
+```python
+bm.to_archive("nguyen.zip")
+```
+
+The archive contains `benchmark.json` (the config) and `data/<dataset_key>.npz` for every dataset. The recipient doesn't need network access or samplers:
+
+```python
+bm2 = SR_benchmark.from_archive("nguyen.zip")
+dataset = bm2.create_dataset("NG-1")   # data loaded directly from the zip
+```
+
+A single [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] has the same pair —
+`ds.to_archive("my_eq.zip")` and `SR_dataset.from_archive("my_eq.zip")` — writing
+`dataset.json` plus `data/<dataset_name>.npz` (and a `_gt.npy` behaviour matrix for `bed`
+datasets).
+
+If the archive is hosted somewhere, `from_url()` is the remote counterpart — it downloads
+the archive and loads it in one call (both classes):
+
+```python
+bm = SR_benchmark.from_url("https://example.org/nguyen.zip")
+ds = SR_dataset.from_url("https://example.org/my_eq.zip")
+```
+
+This differs from a [UrlSource][SRToolkit.dataset.data_source.UrlSource] in *what* it
+loads: `from_url` reconstructs the whole object from the archive (config **and** data),
+whereas `UrlSource` lives inside a config you already have and only fetches that config's
+data into the cache. The hosted zip can be the *same* `to_archive` archive either way —
+`UrlSource` understands both the `data/`-prefixed `to_archive` layout and a flat zip of
+`.npz` files at the root.
+
+The extension should be `.zip`. Using a different suffix is allowed but triggers a warning.
+Loading an archive through `from_dict()` is rejected with a message pointing you to
+`from_archive()`.
+
+---
+
+## Cache management
+
+All materialised datasets live at `<user_data_dir>/SRToolkit/data/<benchmark>/<version>/` (dots and hyphens in the version become underscores, e.g. `1.0.0` → `1_0_0`). The `SRToolkit.dataset.data_cache` module provides basic housekeeping:
+
+```python
+from SRToolkit.dataset import data_cache
+
+# List every cached dataset
+for entry in data_cache.list():
+    print(entry["benchmark"], entry["version"], entry["key"], entry["size_bytes"])
+
+# Remove all but the latest version per benchmark
+data_cache.gc()
+
+# Get the expected path for a specific entry
+p = data_cache.dataset_path("feynman", "1.0.0", "I.16.6")
+
+# Force-refresh a single dataset
+from SRToolkit.dataset.data_source import UrlSource
+data_cache.refresh("feynman", "1.0.0", "I.16.6", source=UrlSource("https://..."))
+```
+
+You can also refresh a dataset through its `SR_dataset` instance (provided `data_source` is not `None`):
+
+```python
+ds = bm.create_dataset("I.16.6")
+ds.refresh()   # re-materialises from data_source; reloads self.X / self.y
 ```
 
 ---
 
-## What can be shared
+## `.srtk` bundles (custom code)
 
-### Symbol library
+A bundle is a single `.srtk` zip archive holding your Python source files and a manifest. Use it to share custom approaches, constraints, or samplers. Configs are **not** included — code (how the model works) and configs (the settings you used) are shared separately so each can be versioned independently.
 
-[SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] is fully self-contained and has no importlib dependency — all information is stored as plain data.
+### Two artefacts, two channels
+
+| Artefact | What it is | How to share |
+|---|---|---|
+| `meznar_gp.srtk` | Python source + manifest | Email, GitHub release, file share, … |
+| `meznar_settings.srtk.json` | Annotated JSON config | Same channel, or separately |
+
+### Creating a bundle
 
 ```python
-import json
-from SRToolkit.utils import SymbolLibrary
+from SRToolkit.bundle import pack
 
-sl = SymbolLibrary.from_symbol_list(["+", "-", "*", "sin", "^2"], num_variables=2)
-
-with open("symbol_library.json", "w") as f:
-    json.dump(sl.to_dict(), f)
-
-with open("symbol_library.json") as f:
-    sl2 = SymbolLibrary.from_dict(json.load(f))
+pack(
+    files=["my_approach/approach.py", "my_approach/ops.py"],
+    out_path="meznar_gp.srtk",
+    name="meznar-gp",
+    version="0.1.0",
+    author="meznar",
+    python_deps=["torch>=2.0"],     # optional; checked at install time
+    srtk_min_version="1.5.0",       # optional
+    configs=["meznar_settings.json"],  # optional; see below
+)
 ```
 
-### Grammar
+Each file is stored under `src/` by its basename, so basenames must be unique.
 
-[Grammar][SRToolkit.utils.grammar.Grammar] serializes its rules and constraints. Built-in constraints are fully supported. Custom constraints require a `.py` file on the path (see [Custom constraints](#custom-constraints) below).
+If `configs=[...]` is given, each JSON config is copied with a `.srtk.json` suffix and two metadata keys injected — `_bundle` and `_version`. That annotated copy is what you share with the bundle; the recipient passes it straight to any `from_dict` and the class-path rewrite happens automatically.
+
+### Installing a bundle
+
+```python
+from SRToolkit.bundle import install
+
+install("meznar_gp.srtk")
+```
+
+After install, the bundle lives under
+`<user_data_dir>/SRToolkit/srtk_bundles/<safe_name>_<version_slug>/`
+and its parent is added to `sys.path`, making the bundle importable as
+`srtk_bundles.<safe_name>_<version_slug>`. The `sys.path` entry is re-added
+automatically whenever an annotated config is loaded via `from_dict`.
+
+### Using a shared config
+
+An annotated `.srtk.json` config can be passed directly to any `from_dict` — no extra step is needed. The dispatchers that handle configs containing custom classes ([`sampler_from_dict`][SRToolkit.dataset.sampling.sampler_from_dict], [`Constraint.from_dict`][SRToolkit.utils.grammar.constraints.Constraint.from_dict], [`Grammar.from_dict`][SRToolkit.utils.grammar.Grammar.from_dict], and the approach loader used by [`ExperimentGrid`][SRToolkit.experiments.ExperimentGrid]) detect the `_bundle` key and rewrite every `*_class` dotted path to the installed bundle's import prefix. Paths starting with `SRToolkit.` are left unchanged.
 
 ```python
 import json
 from SRToolkit.utils.grammar import Grammar
 
-with open("grammar.json", "w") as f:
-    json.dump(g.to_dict(), f)
-
-with open("grammar.json") as f:
-    g2 = Grammar.from_dict(json.load(f))
+raw = json.load(open("meznar_grammar.srtk.json"))
+grammar = Grammar.from_dict(raw)   # _bundle key triggers rewrite automatically
 ```
 
-### Dataset
-
-[SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] serializes its symbol library, sampling configuration, metadata, and a reference to the data files. The data itself is saved separately as `.npz` files, so `to_dict` takes a `base_path` that controls where those files are written.
+If the config wasn't annotated at pack time, or you want to bind against a specific version, call `bind_config` explicitly:
 
 ```python
-import json
-from pathlib import Path
+from SRToolkit.bundle import bind_config
 
-base = Path("my_dataset")
-base.mkdir(exist_ok=True)
-
-with open(base / "dataset.json", "w") as f:
-    json.dump(dataset.to_dict(base_path=str(base)), f)
+config = bind_config(raw, "meznar-gp")              # latest installed version
+config = bind_config(raw, "meznar-gp", version="0.1.0")
 ```
 
-Distribute the entire `my_dataset/` directory. The recipient loads it with:
+### Using bundle code directly
 
 ```python
-from SRToolkit.dataset import SR_dataset
+from SRToolkit.bundle import enable_bundle_imports
+enable_bundle_imports()   # only needed in a fresh Python session
 
-with open("my_dataset/dataset.json") as f:
-    ds = SR_dataset.from_dict(json.load(f))
+from srtk_bundles.meznar_gp_0_1_0.approach import MyApproach
+approach = MyApproach(...)
 ```
 
-Custom samplers embedded in the dataset require a `.py` file on the path (see [Custom samplers](#custom-samplers) below).
-
-### Approach configuration
-
-[ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] stores all constructor parameters plus the fully-qualified class path of the approach. The recipient needs your approach `.py` file on their path.
+### Listing and removing bundles
 
 ```python
-import json
+from SRToolkit.bundle import list_installed, uninstall
 
-with open("approach_config.json", "w") as f:
-    json.dump(my_approach.config.to_dict(), f)
+for entry in list_installed():
+    print(entry["name"], entry["version"], entry["author"])
+
+uninstall("meznar-gp", version="0.1.0")  # version omitted → latest by semver
 ```
 
-Approach configs are normally consumed by [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] rather than loaded directly — see [Sharing a complete experiment](#sharing-a-complete-experiment) below.
+---
 
-### Callbacks
+## Writing shareable custom classes
 
-[SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] subclasses serialize their constructor parameters alongside `callback_class`. Built-in callbacks ([ProgressBarCallback][SRToolkit.evaluation.callbacks.ProgressBarCallback], [EarlyStoppingCallback][SRToolkit.evaluation.callbacks.EarlyStoppingCallback], [LoggingCallback][SRToolkit.evaluation.callbacks.LoggingCallback]) require no extra files.
-
-```python
-import json
-from SRToolkit.evaluation.callbacks import EarlyStoppingCallback
-
-cb = EarlyStoppingCallback(threshold=1e-6)
-
-with open("callback.json", "w") as f:
-    json.dump(cb.to_dict(), f)
-```
-
-Callbacks are normally passed to [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] and reconstructed automatically — see [Sharing a complete experiment](#sharing-a-complete-experiment) below.
-
-### Custom constraints
-
-Provide the constraint class in a module file following the naming convention, then share the grammar JSON alongside it:
+Custom classes share via either model the same way: define the class in a `.py` file, implement `to_dict` and `from_dict`, and make sure `to_dict` embeds a fully-qualified `*_class` path.
 
 ```python
 # meznar_constraints.py
@@ -191,117 +320,14 @@ class PhysicsConstraint(Constraint):
         return cls(d["forbidden_terminals"])
 ```
 
-The recipient places `meznar_constraints.py` in their working directory; `Grammar.from_dict` resolves the class automatically.
+Custom [samplers][SRToolkit.dataset.sampling.Sampler] and [callbacks][SRToolkit.evaluation.callbacks.SRCallbacks] follow the same pattern, dispatched via `sampler_class` and `callback_class` respectively.
 
-### Custom samplers
-
-Same pattern as constraints — provide the sampler class in a module file:
-
-```python
-# meznar_samplers.py
-from SRToolkit.dataset.sampling import Sampler
-import numpy as np
-
-class GaussianSampler(Sampler):
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
-
-    def sample(self, n, rng=None):
-        rng = np.random.default_rng(rng)
-        return rng.normal(self.mean, self.std, n)
-
-    def to_dict(self):
-        return {
-            "sampler_class": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
-            "mean": self.mean,
-            "std": self.std,
-        }
-
-    @classmethod
-    def from_dict(cls, d):
-        return cls(d["mean"], d["std"])
-```
-
-`sampling_from_dict` from `SRToolkit.dataset.sampling` dispatches via the `sampler_class` key, so the recipient only needs the module file on their path.
-
-### Custom callbacks
-
-Same pattern — module file alongside the JSON:
-
-```python
-# meznar_callbacks.py
-from SRToolkit.evaluation.callbacks import SRCallbacks
-
-class BestExprCallback(SRCallbacks):
-    def __init__(self, output_file):
-        self.output_file = output_file
-
-    def on_evaluation(self, result, evaluator):
-        with open(self.output_file, "w") as f:
-            f.write(str(result.best_expr))
-
-    def to_dict(self):
-        return {**super().to_dict(), "output_file": self.output_file}
-
-    @classmethod
-    def from_dict(cls, d):
-        return cls(d["output_file"])
-```
+**Never define shared classes in `__main__` scope** — that includes scripts run directly with `python my_script.py` and Jupyter notebook cells. Python sets `__module__ = "__main__"` on classes defined there, and `"__main__.MyApproach"` is meaningless on any other machine. Define classes in a named `.py` file and import them.
 
 ---
 
 ## Sharing a complete experiment
 
-The natural unit for sharing a full experiment is an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid]. Calling `save()` (or `save_commands()`, which calls it automatically) writes a self-contained directory:
+Calling `save()` on an [`ExperimentGrid`][SRToolkit.experiments.ExperimentGrid] writes a self-contained directory with the grid spec, dataset configs, approach configs, and callback configs. Share the directory; the recipient loads it with `ExperimentGrid.load(...)`. See the [Experiments guide](experiments.md) for the full workflow.
 
-```
-results/
-├── grid.json                          # grid specification
-├── _datasets/
-│   └── velocity/
-│       ├── velocity.json              # SR_dataset.to_dict() output
-│       └── velocity.npz              # data
-├── _approaches/
-│   └── meznar_gp_config.json          # ApproachConfig.to_dict() output
-└── _callbacks.json                    # list of callback dicts (if any)
-```
-
-Share the entire `results/` directory alongside any custom `.py` files it depends on. The recipient loads with:
-
-```python
-from SRToolkit.experiments import ExperimentGrid
-
-grid = ExperimentGrid.load("results/grid.json")
-```
-
-Datasets and approaches are reconstructed lazily when jobs run, so the load is fast. To execute a single job directly:
-
-```python
-jobs = grid.create_jobs()
-jobs[0].run()
-```
-
-For HPC or parallel runs, generate a commands file and dispatch from there:
-
-```bash
-python -m SRToolkit.experiments commands \
-    --grid results/grid.json \
-    --out results/commands.txt
-
-# then dispatch each line, e.g.:
-bash results/commands.txt
-```
-
-Individual jobs can also be run via the CLI without loading the full grid:
-
-```bash
-python -m SRToolkit.experiments run_job \
-    --dataset results/_datasets/velocity/velocity.json \
-    --approach results/_approaches/meznar_gp_config.json \
-    --info    results/velocity/meznar_gp/exp_0/info.json \
-    --callbacks results/_callbacks.json
-```
-
-!!! note
-    Only include custom `.py` files that are actually needed. A standard experiment using only built-in approaches, constraints, and samplers needs no `.py` files alongside the `results/` directory — the JSON files are fully self-contained.
+Dataset configs in the grid store only the `data_source` — no `.npz` files are embedded. Each worker materialises data on demand from the shared cache. If the grid uses custom classes, install the required `.srtk` bundle(s) before loading.

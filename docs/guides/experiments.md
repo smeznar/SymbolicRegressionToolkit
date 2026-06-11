@@ -60,9 +60,9 @@ Each line is a self-contained CLI call:
 
 ```bash
 python -m SRToolkit.experiments run_job \
-    --dataset results/feynman_run/_datasets/I.12.1/I.12.1.json \
+    --dataset results/feynman_run/_datasets/I.12.1.json \
     --approach results/feynman_run/_approaches/ProGED_config.json \
-    --info    results/feynman_run/I.12.1/ProGED/exp_0/info_0.json
+    --info    results/feynman_run/I.12.1/ProGED/info_0.json
 ```
 
 Run with GNU Parallel:
@@ -98,5 +98,5 @@ I.12.2           2/5      0/5
 results = grid.load_results("I.12.1", "ProGED")
 
 for r in results:
-    print(r.best_expr, r.best_error, r.success)
+    print(r.best_expr, r.min_error, r.success)
 ```

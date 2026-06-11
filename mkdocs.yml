@@ -150,6 +150,8 @@ nav:
           - nguyen: references/dataset/nguyen.md
           - srsd_feynman: references/dataset/srsd_feynman.md
           - sampling: references/dataset/sampling.md
+          - data_source: references/dataset/data_source.md
+          - data_cache: references/dataset/data_cache.md
       - approaches:
           - references/approaches/index.md
           - sr_approach: references/approaches/sr_approach.md
@@ -158,5 +160,7 @@ nav:
       - experiments:
           - references/experiments/index.md
           - experiment_grid: references/experiments/experiment_grid.md
+      - bundle:
+          - references/bundle/index.md
   - Citations: citations.md
   - Changelog: changelog.md

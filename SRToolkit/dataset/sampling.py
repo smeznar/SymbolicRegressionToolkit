@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from SRToolkit.bundle._relocate import _auto_bind
+
 
 def log_uniform_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     """Sample from log-uniform distribution over both positive and negative ranges."""
@@ -87,7 +89,7 @@ class Sampler(ABC):
     [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] must include a ``"sampler_class"``
     key holding the fully-qualified class path (e.g.
     ``"SRToolkit.dataset.sampling.UniformSampling"``), so that
-    [sampling_from_dict][SRToolkit.dataset.sampling.sampling_from_dict] can reconstruct any
+    [sampler_from_dict][SRToolkit.dataset.sampling.sampler_from_dict] can reconstruct any
     subclass — including user-defined ones — via ``importlib`` without a central registry.
     """
 
@@ -254,7 +256,7 @@ class IntegerUniformSampling(Sampler):
         return cls(d["min_value"], d["max_value"], d["uses_positive"], d["uses_negative"])
 
 
-def sampling_from_dict(d: dict) -> Sampler:
+def sampler_from_dict(d: dict) -> Sampler:
     """
     Deserialize a sampler from a dictionary produced by its [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] method.
 
@@ -273,6 +275,15 @@ def sampling_from_dict(d: dict) -> Sampler:
         ImportError: If the module cannot be imported.
         AttributeError: If the class cannot be found in the module.
     """
-    module_path, cls_name = d["sampler_class"].rsplit(".", 1)
-    cls = getattr(importlib.import_module(module_path), cls_name)
+    d = _auto_bind(d)
+    class_path = d["sampler_class"]
+    module_path, cls_name = class_path.rsplit(".", 1)
+    try:
+        cls = getattr(importlib.import_module(module_path), cls_name)
+    except (ImportError, AttributeError):
+        raise ImportError(
+            f"Cannot import sampler class {class_path!r}. "
+            "If this is a bundle class, install the bundle first. "
+            "If the config has no '_bundle' key, call bind_config(config) manually."
+        ) from None
     return cls.from_dict(d)

@@ -390,7 +390,7 @@ class NoConstants(Constraint):
         return cls()
 ```
 
-`constraint_from_dict` dispatches via `importlib`, so any class reachable by its module path is supported automatically.
+`Constraint.from_dict` dispatches via `importlib`, so any class reachable by its module path is supported automatically.
 
 ### Scoping
 

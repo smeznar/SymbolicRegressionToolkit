@@ -4,7 +4,7 @@ title: Expression Manipulation
 
 # Expression Manipulation
 
-Expressions in SRToolkit are represented as **infix token lists** — plain Python lists of strings. This format is the common currency between the symbol library, the parser, the compiler, and the SR approaches.
+Expressions in SRToolkit are represented as **infix token lists** — plain Python lists of strings.
 
 ## Token lists
 
@@ -14,7 +14,7 @@ A token list is an ordered sequence of strings in infix notation:
 expr = ["X_0", "+", "C", "*", "sin", "(", "X_1", ")"]
 ```
 
-Token types:
+SRToolkit recognises five token types. The examples below are illustrative, not exhaustive — the full set of built-in tokens is listed in [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
 | Type | Examples | Description |
 |---|---|---|
@@ -64,10 +64,10 @@ Passing `sl` to every function call is verbose. Two alternatives let you set it 
 sl = SymbolLibrary.default_symbols(num_variables=2)
 
 with sl:
-    tree  = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
-    f     = compile_expr(["X_0", "*", "C"])
+    tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
+    f = compile_expr(["X_0", "*", "C"])
     latex = expr_to_latex(["sin", "(", "X_0", ")", "+", "X_1"])
-    d     = edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
+    d = edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
 ```
 
 **Module-level default** — persists for the whole session, useful in scripts and notebooks:
@@ -77,7 +77,7 @@ SymbolLibrary.set_default(SymbolLibrary.default_symbols(num_variables=3))
 
 # No sl argument needed anywhere below this point
 tree = tokens_to_tree(["X_0", "+", "X_1"])
-f    = compile_expr(["X_0", "*", "C"])
+f = compile_expr(["X_0", "*", "C"])
 
 SymbolLibrary.set_default(None)   # clear when done
 ```
@@ -98,14 +98,15 @@ tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"], sl)
 Convert back to a token list in any notation:
 
 ```python
-tree.to_list(sl, notation="infix")    # ['X_0', '+', 'X_1', '*', 'C']
-tree.to_list(notation="prefix")       # ['+', 'X_0', '*', 'X_1', 'C']
-tree.to_list(notation="postfix")      # ['X_0', 'X_1', 'C', '*', '+']
+with sl:
+    tree.to_list(notation="infix")    # ['X_0', '+', 'X_1', '*', 'C']
+    tree.to_list(notation="prefix")   # ['+', 'X_0', '*', 'X_1', 'C']
+    tree.to_list(notation="postfix")  # ['X_0', 'X_1', 'C', '*', '+']
 ```
 
 ## Executable functions
 
-[compile_expr][SRToolkit.utils.expression_compiler.compile_expr] compiles an expression into a fast callable `f(X, C)`:
+[compile_expr][SRToolkit.utils.expression_compiler.compile_expr] compiles an expression into a callable function `f(X, C)`:
 
 ```python
 import numpy as np
@@ -121,9 +122,11 @@ C = np.array([2.0])       # one free constant
 print(f(X, C))            # [4.  10.  16.]
 ```
 
-`X` must have shape `(n_samples, n_features)`. `C` is a 1-D array with one entry per `C` token in the expression. Pass an empty array (`np.array([])`) when there are no constants.
+`X` must have shape `(num_samples, num_variables)`. `C` is a 1-D array with one entry per `C` token in the expression. Pass an empty array (`np.array([])`) when there are no constants.
 
 ## LaTeX rendering
+
+Expressions can be compiled into a LaTeX string using the [expr_to_latex][SRToolkit.utils.compile_expr] function.
 
 ```python
 from SRToolkit.utils import SymbolLibrary, expr_to_latex
