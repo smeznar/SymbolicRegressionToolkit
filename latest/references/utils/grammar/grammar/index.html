@@ -627,6 +627,8 @@
       
         
       
+        
+      
     
     
     
@@ -1639,6 +1641,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1843,6 +1849,62 @@
     
   
     sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../dataset/data_source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../dataset/data_cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_cache
   
 
     
@@ -2114,6 +2176,71 @@
     </li>
   
 
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../bundle/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bundle
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bundle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
             
           </ul>
@@ -4920,6 +5047,9 @@ round-trip; built-in constraints are fully supported.</p>
 
         <p>Reconstruct a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Grammar&lt;/span&gt;" href="../#SRToolkit.utils.grammar.Grammar">Grammar</a> from a dictionary
 produced by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../#SRToolkit.utils.grammar.Grammar.to_dict">to_dict</a>.</p>
+<p>If <code>d</code> carries <code>_bundle</code> metadata (added by <code>pack(..., configs=[...])</code>),
+every <code>*_class</code> path — including nested <code>constraint_class</code> paths — is
+rewritten to point at the installed bundle before reconstruction.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5007,26 +5137,38 @@ produced by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;do
 <span class="normal"><a href="#__codelineno-0-618">618</a></span>
 <span class="normal"><a href="#__codelineno-0-619">619</a></span>
 <span class="normal"><a href="#__codelineno-0-620">620</a></span>
-<span class="normal"><a href="#__codelineno-0-621">621</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-602" name="__codelineno-0-602"></a><span class="nd">@classmethod</span>
+<span class="normal"><a href="#__codelineno-0-621">621</a></span>
+<span class="normal"><a href="#__codelineno-0-622">622</a></span>
+<span class="normal"><a href="#__codelineno-0-623">623</a></span>
+<span class="normal"><a href="#__codelineno-0-624">624</a></span>
+<span class="normal"><a href="#__codelineno-0-625">625</a></span>
+<span class="normal"><a href="#__codelineno-0-626">626</a></span>
+<span class="normal"><a href="#__codelineno-0-627">627</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-602" name="__codelineno-0-602"></a><span class="nd">@classmethod</span>
 <a id="__codelineno-0-603" name="__codelineno-0-603"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Grammar&quot;</span><span class="p">:</span>
 <a id="__codelineno-0-604" name="__codelineno-0-604"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <a id="__codelineno-0-605" name="__codelineno-0-605"></a><span class="sd">    Reconstruct a [Grammar][SRToolkit.utils.grammar.Grammar] from a dictionary</span>
 <a id="__codelineno-0-606" name="__codelineno-0-606"></a><span class="sd">    produced by [to_dict][SRToolkit.utils.grammar.Grammar.to_dict].</span>
 <a id="__codelineno-0-607" name="__codelineno-0-607"></a>
-<a id="__codelineno-0-608" name="__codelineno-0-608"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-609" name="__codelineno-0-609"></a><span class="sd">        d: Dictionary with keys ``start``, ``rules``, and ``constraints``.</span>
-<a id="__codelineno-0-610" name="__codelineno-0-610"></a>
-<a id="__codelineno-0-611" name="__codelineno-0-611"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-612" name="__codelineno-0-612"></a><span class="sd">        A new [Grammar][SRToolkit.utils.grammar.Grammar] with all rules and</span>
-<a id="__codelineno-0-613" name="__codelineno-0-613"></a><span class="sd">        constraints registered.</span>
-<a id="__codelineno-0-614" name="__codelineno-0-614"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-615" name="__codelineno-0-615"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">Constraint</span>
-<a id="__codelineno-0-616" name="__codelineno-0-616"></a>
-<a id="__codelineno-0-617" name="__codelineno-0-617"></a>    <span class="n">rules</span> <span class="o">=</span> <span class="p">[</span><span class="n">Rule</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rules&quot;</span><span class="p">,</span> <span class="p">[])]</span>
-<a id="__codelineno-0-618" name="__codelineno-0-618"></a>    <span class="n">g</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-619" name="__codelineno-0-619"></a>    <span class="k">for</span> <span class="n">cd</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;constraints&quot;</span><span class="p">,</span> <span class="p">[]):</span>
-<a id="__codelineno-0-620" name="__codelineno-0-620"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">Constraint</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">cd</span><span class="p">))</span>
-<a id="__codelineno-0-621" name="__codelineno-0-621"></a>    <span class="k">return</span> <span class="n">g</span>
+<a id="__codelineno-0-608" name="__codelineno-0-608"></a><span class="sd">    If ``d`` carries ``_bundle`` metadata (added by ``pack(..., configs=[...])``),</span>
+<a id="__codelineno-0-609" name="__codelineno-0-609"></a><span class="sd">    every ``*_class`` path — including nested ``constraint_class`` paths — is</span>
+<a id="__codelineno-0-610" name="__codelineno-0-610"></a><span class="sd">    rewritten to point at the installed bundle before reconstruction.</span>
+<a id="__codelineno-0-611" name="__codelineno-0-611"></a>
+<a id="__codelineno-0-612" name="__codelineno-0-612"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-613" name="__codelineno-0-613"></a><span class="sd">        d: Dictionary with keys ``start``, ``rules``, and ``constraints``.</span>
+<a id="__codelineno-0-614" name="__codelineno-0-614"></a>
+<a id="__codelineno-0-615" name="__codelineno-0-615"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-616" name="__codelineno-0-616"></a><span class="sd">        A new [Grammar][SRToolkit.utils.grammar.Grammar] with all rules and</span>
+<a id="__codelineno-0-617" name="__codelineno-0-617"></a><span class="sd">        constraints registered.</span>
+<a id="__codelineno-0-618" name="__codelineno-0-618"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-619" name="__codelineno-0-619"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">...bundle._relocate</span><span class="w"> </span><span class="kn">import</span> <span class="n">_auto_bind</span>
+<a id="__codelineno-0-620" name="__codelineno-0-620"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">Constraint</span>
+<a id="__codelineno-0-621" name="__codelineno-0-621"></a>
+<a id="__codelineno-0-622" name="__codelineno-0-622"></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">_auto_bind</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+<a id="__codelineno-0-623" name="__codelineno-0-623"></a>    <span class="n">rules</span> <span class="o">=</span> <span class="p">[</span><span class="n">Rule</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rules&quot;</span><span class="p">,</span> <span class="p">[])]</span>
+<a id="__codelineno-0-624" name="__codelineno-0-624"></a>    <span class="n">g</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-625" name="__codelineno-0-625"></a>    <span class="k">for</span> <span class="n">cd</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;constraints&quot;</span><span class="p">,</span> <span class="p">[]):</span>
+<a id="__codelineno-0-626" name="__codelineno-0-626"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">Constraint</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">cd</span><span class="p">))</span>
+<a id="__codelineno-0-627" name="__codelineno-0-627"></a>    <span class="k">return</span> <span class="n">g</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5178,13 +5320,7 @@ literals, making it impossible to generate any terminal expression.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/grammar/grammar.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-623">623</a></span>
-<span class="normal"><a href="#__codelineno-0-624">624</a></span>
-<span class="normal"><a href="#__codelineno-0-625">625</a></span>
-<span class="normal"><a href="#__codelineno-0-626">626</a></span>
-<span class="normal"><a href="#__codelineno-0-627">627</a></span>
-<span class="normal"><a href="#__codelineno-0-628">628</a></span>
-<span class="normal"><a href="#__codelineno-0-629">629</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-629">629</a></span>
 <span class="normal"><a href="#__codelineno-0-630">630</a></span>
 <span class="normal"><a href="#__codelineno-0-631">631</a></span>
 <span class="normal"><a href="#__codelineno-0-632">632</a></span>
@@ -5349,178 +5485,184 @@ literals, making it impossible to generate any terminal expression.</p>
 <span class="normal"><a href="#__codelineno-0-791">791</a></span>
 <span class="normal"><a href="#__codelineno-0-792">792</a></span>
 <span class="normal"><a href="#__codelineno-0-793">793</a></span>
-<span class="normal"><a href="#__codelineno-0-794">794</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-623" name="__codelineno-0-623"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-624" name="__codelineno-0-624"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_symbol_library</span><span class="p">(</span>
-<a id="__codelineno-0-625" name="__codelineno-0-625"></a>    <span class="bp">cls</span><span class="p">,</span>
-<a id="__codelineno-0-626" name="__codelineno-0-626"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-627" name="__codelineno-0-627"></a>    <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-628" name="__codelineno-0-628"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Grammar&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-629" name="__codelineno-0-629"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-630" name="__codelineno-0-630"></a><span class="sd">    Build a PCFG from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]</span>
-<a id="__codelineno-0-631" name="__codelineno-0-631"></a><span class="sd">    using a generic operator-precedence non-terminal hierarchy.</span>
-<a id="__codelineno-0-632" name="__codelineno-0-632"></a>
-<a id="__codelineno-0-633" name="__codelineno-0-633"></a><span class="sd">    One non-terminal is created per unique ``OP`` precedence level present in</span>
-<a id="__codelineno-0-634" name="__codelineno-0-634"></a><span class="sd">    the library.  Known precedences map to readable names; custom precedences</span>
-<a id="__codelineno-0-635" name="__codelineno-0-635"></a><span class="sd">    fall back to ``L_{p}``:</span>
-<a id="__codelineno-0-636" name="__codelineno-0-636"></a>
-<a id="__codelineno-0-637" name="__codelineno-0-637"></a><span class="sd">    - ``OP_ADDITIVE`` → ``E``</span>
-<a id="__codelineno-0-638" name="__codelineno-0-638"></a><span class="sd">    - ``OP_MULTIPLICATIVE`` → ``F``</span>
-<a id="__codelineno-0-639" name="__codelineno-0-639"></a><span class="sd">    - ``OP_POWER`` → ``B``</span>
-<a id="__codelineno-0-640" name="__codelineno-0-640"></a><span class="sd">    - custom precedence *p* → ``L_{p}``</span>
-<a id="__codelineno-0-641" name="__codelineno-0-641"></a>
-<a id="__codelineno-0-642" name="__codelineno-0-642"></a><span class="sd">    The chain runs from the lowest-precedence level (the grammar start) down</span>
-<a id="__codelineno-0-643" name="__codelineno-0-643"></a><span class="sd">    to ``T``, ``K``, ``R``, and ``V``.  Only levels that have at least one</span>
-<a id="__codelineno-0-644" name="__codelineno-0-644"></a><span class="sd">    operator are generated; there are no empty pass-through non-terminals.</span>
-<a id="__codelineno-0-645" name="__codelineno-0-645"></a>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="sd">    Heuristic weights are calibrated against empirical expression distributions</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a><span class="sd">    (e.g. Wikipedia mathematical formulae): E recursion ~30 %, F recursion ~40 %,</span>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    B recursion ~5 %, custom-level recursion ~40 %.</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a><span class="sd">        &gt;&gt;&gt; sl = SymbolLibrary.from_symbol_list([&quot;+&quot;, &quot;-&quot;, &quot;*&quot;, &quot;sin&quot;, &quot;^2&quot;], 2)</span>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="sd">        &gt;&gt;&gt; g = Grammar.from_symbol_library(sl)</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">        &gt;&gt;&gt; &quot;E&quot; in g.nonterminals and &quot;V&quot; in g.nonterminals</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="sd">        True</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a><span class="sd">        &gt;&gt;&gt; g.is_pcfg()</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a><span class="sd">        True</span>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="sd">        symbol_library: Token vocabulary.  Falls back to the active library</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="sd">            from the context manager when ``None``.</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="sd">        start: Override the name of the lowest-precedence non-terminal (and</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">            ``g.start``).  When ``None`` (default) the name is auto-inferred</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">            from the precedence constants (``&quot;E&quot;`` for standard libraries).</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">        A [Grammar][SRToolkit.utils.grammar.Grammar] with heuristic PCFG weights.</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="sd">        ValueError: If the symbol library contains no variables, constants, or</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">            literals, making it impossible to generate any terminal expression.</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a>    <span class="n">symbols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">symbols</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a>    <span class="c1"># Group operators by precedence level</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a>    <span class="n">op_groups</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span><span class="p">:</span>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a>        <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">OP</span><span class="p">:</span>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a>            <span class="n">op_groups</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;precedence&quot;</span><span class="p">],</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">])</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a>    <span class="n">sorted_precs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">op_groups</span><span class="p">)</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a>    <span class="n">R_fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;precedence&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN_PREFIX</span><span class="p">]</span>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a>    <span class="n">P_fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;precedence&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN_POSTFIX</span><span class="p">]</span>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a>    <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">VAR</span><span class="p">]</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="n">consts</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">CONST</span><span class="p">]</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="n">lits</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">LIT</span><span class="p">]</span>
+<span class="normal"><a href="#__codelineno-0-794">794</a></span>
+<span class="normal"><a href="#__codelineno-0-795">795</a></span>
+<span class="normal"><a href="#__codelineno-0-796">796</a></span>
+<span class="normal"><a href="#__codelineno-0-797">797</a></span>
+<span class="normal"><a href="#__codelineno-0-798">798</a></span>
+<span class="normal"><a href="#__codelineno-0-799">799</a></span>
+<span class="normal"><a href="#__codelineno-0-800">800</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-629" name="__codelineno-0-629"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-630" name="__codelineno-0-630"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_symbol_library</span><span class="p">(</span>
+<a id="__codelineno-0-631" name="__codelineno-0-631"></a>    <span class="bp">cls</span><span class="p">,</span>
+<a id="__codelineno-0-632" name="__codelineno-0-632"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-633" name="__codelineno-0-633"></a>    <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-634" name="__codelineno-0-634"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Grammar&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-635" name="__codelineno-0-635"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-636" name="__codelineno-0-636"></a><span class="sd">    Build a PCFG from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]</span>
+<a id="__codelineno-0-637" name="__codelineno-0-637"></a><span class="sd">    using a generic operator-precedence non-terminal hierarchy.</span>
+<a id="__codelineno-0-638" name="__codelineno-0-638"></a>
+<a id="__codelineno-0-639" name="__codelineno-0-639"></a><span class="sd">    One non-terminal is created per unique ``OP`` precedence level present in</span>
+<a id="__codelineno-0-640" name="__codelineno-0-640"></a><span class="sd">    the library.  Known precedences map to readable names; custom precedences</span>
+<a id="__codelineno-0-641" name="__codelineno-0-641"></a><span class="sd">    fall back to ``L_{p}``:</span>
+<a id="__codelineno-0-642" name="__codelineno-0-642"></a>
+<a id="__codelineno-0-643" name="__codelineno-0-643"></a><span class="sd">    - ``OP_ADDITIVE`` → ``E``</span>
+<a id="__codelineno-0-644" name="__codelineno-0-644"></a><span class="sd">    - ``OP_MULTIPLICATIVE`` → ``F``</span>
+<a id="__codelineno-0-645" name="__codelineno-0-645"></a><span class="sd">    - ``OP_POWER`` → ``B``</span>
+<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="sd">    - custom precedence *p* → ``L_{p}``</span>
+<a id="__codelineno-0-647" name="__codelineno-0-647"></a>
+<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    The chain runs from the lowest-precedence level (the grammar start) down</span>
+<a id="__codelineno-0-649" name="__codelineno-0-649"></a><span class="sd">    to ``T``, ``K``, ``R``, and ``V``.  Only levels that have at least one</span>
+<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">    operator are generated; there are no empty pass-through non-terminals.</span>
+<a id="__codelineno-0-651" name="__codelineno-0-651"></a>
+<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="sd">    Heuristic weights are calibrated against empirical expression distributions</span>
+<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">    (e.g. Wikipedia mathematical formulae): E recursion ~30 %, F recursion ~40 %,</span>
+<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="sd">    B recursion ~5 %, custom-level recursion ~40 %.</span>
+<a id="__codelineno-0-655" name="__codelineno-0-655"></a>
+<a id="__codelineno-0-656" name="__codelineno-0-656"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-657" name="__codelineno-0-657"></a><span class="sd">        &gt;&gt;&gt; sl = SymbolLibrary.from_symbol_list([&quot;+&quot;, &quot;-&quot;, &quot;*&quot;, &quot;sin&quot;, &quot;^2&quot;], 2)</span>
+<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">        &gt;&gt;&gt; g = Grammar.from_symbol_library(sl)</span>
+<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="sd">        &gt;&gt;&gt; &quot;E&quot; in g.nonterminals and &quot;V&quot; in g.nonterminals</span>
+<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="sd">        True</span>
+<a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="sd">        &gt;&gt;&gt; g.is_pcfg()</span>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">        True</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">        symbol_library: Token vocabulary.  Falls back to the active library</span>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">            from the context manager when ``None``.</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">        start: Override the name of the lowest-precedence non-terminal (and</span>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">            ``g.start``).  When ``None`` (default) the name is auto-inferred</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="sd">            from the precedence constants (``&quot;E&quot;`` for standard libraries).</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">        A [Grammar][SRToolkit.utils.grammar.Grammar] with heuristic PCFG weights.</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="sd">        ValueError: If the symbol library contains no variables, constants, or</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">            literals, making it impossible to generate any terminal expression.</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a>    <span class="n">symbols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">symbols</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a>    <span class="c1"># Group operators by precedence level</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a>    <span class="n">op_groups</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a>    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span><span class="p">:</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a>        <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">OP</span><span class="p">:</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a>            <span class="n">op_groups</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;precedence&quot;</span><span class="p">],</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">])</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="n">sorted_precs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">op_groups</span><span class="p">)</span>
 <a id="__codelineno-0-689" name="__codelineno-0-689"></a>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">variables</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">consts</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lits</span><span class="p">:</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a>            <span class="s2">&quot;Symbol library has no variables, constants, or literals; &quot;</span>
-<a id="__codelineno-0-693" name="__codelineno-0-693"></a>            <span class="s2">&quot;the grammar cannot generate any terminal expression.&quot;</span>
-<a id="__codelineno-0-694" name="__codelineno-0-694"></a>        <span class="p">)</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="n">R_fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;precedence&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN_PREFIX</span><span class="p">]</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a>    <span class="n">P_fns</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;precedence&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">FN_POSTFIX</span><span class="p">]</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">VAR</span><span class="p">]</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a>    <span class="n">consts</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">CONST</span><span class="p">]</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="n">lits</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;symbol&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symbols</span> <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">LIT</span><span class="p">]</span>
 <a id="__codelineno-0-695" name="__codelineno-0-695"></a>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="c1"># Collect terminal names so NT names can be made unique against them.</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a>    <span class="n">all_terminals</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">sym</span> <span class="k">for</span> <span class="n">ops_list</span> <span class="ow">in</span> <span class="n">op_groups</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">ops_list</span><span class="p">}</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="n">all_terminals</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">R_fns</span> <span class="o">+</span> <span class="n">P_fns</span> <span class="o">+</span> <span class="n">variables</span> <span class="o">+</span> <span class="n">consts</span> <span class="o">+</span> <span class="n">lits</span><span class="p">)</span>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a>
-<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="c1"># If the caller explicitly chose a start name that is also a terminal symbol,</span>
-<a id="__codelineno-0-701" name="__codelineno-0-701"></a>    <span class="c1"># that is an unresolvable conflict — raise immediately.</span>
-<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">all_terminals</span><span class="p">:</span>
-<a id="__codelineno-0-703" name="__codelineno-0-703"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-704" name="__codelineno-0-704"></a>            <span class="sa">f</span><span class="s2">&quot;start=</span><span class="si">{</span><span class="n">start</span><span class="si">!r}</span><span class="s2"> is also a terminal symbol in the SymbolLibrary; &quot;</span>
-<a id="__codelineno-0-705" name="__codelineno-0-705"></a>            <span class="sa">f</span><span class="s2">&quot;choose a different start symbol (e.g. </span><span class="si">{</span><span class="n">start</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="si">!r}</span><span class="s2">).&quot;</span>
-<a id="__codelineno-0-706" name="__codelineno-0-706"></a>        <span class="p">)</span>
-<a id="__codelineno-0-707" name="__codelineno-0-707"></a>
-<a id="__codelineno-0-708" name="__codelineno-0-708"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_unique_nt</span><span class="p">(</span><span class="n">base</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">taken</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-709" name="__codelineno-0-709"></a>        <span class="n">name</span> <span class="o">=</span> <span class="n">base</span>
-<a id="__codelineno-0-710" name="__codelineno-0-710"></a>        <span class="k">while</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">taken</span><span class="p">:</span>
-<a id="__codelineno-0-711" name="__codelineno-0-711"></a>            <span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;_&quot;</span>
-<a id="__codelineno-0-712" name="__codelineno-0-712"></a>        <span class="k">return</span> <span class="n">name</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">variables</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">consts</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lits</span><span class="p">:</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>            <span class="s2">&quot;Symbol library has no variables, constants, or literals; &quot;</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>            <span class="s2">&quot;the grammar cannot generate any terminal expression.&quot;</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>        <span class="p">)</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="c1"># Collect terminal names so NT names can be made unique against them.</span>
+<a id="__codelineno-0-703" name="__codelineno-0-703"></a>    <span class="n">all_terminals</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">sym</span> <span class="k">for</span> <span class="n">ops_list</span> <span class="ow">in</span> <span class="n">op_groups</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">ops_list</span><span class="p">}</span>
+<a id="__codelineno-0-704" name="__codelineno-0-704"></a>    <span class="n">all_terminals</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">R_fns</span> <span class="o">+</span> <span class="n">P_fns</span> <span class="o">+</span> <span class="n">variables</span> <span class="o">+</span> <span class="n">consts</span> <span class="o">+</span> <span class="n">lits</span><span class="p">)</span>
+<a id="__codelineno-0-705" name="__codelineno-0-705"></a>
+<a id="__codelineno-0-706" name="__codelineno-0-706"></a>    <span class="c1"># If the caller explicitly chose a start name that is also a terminal symbol,</span>
+<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="c1"># that is an unresolvable conflict — raise immediately.</span>
+<a id="__codelineno-0-708" name="__codelineno-0-708"></a>    <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">start</span> <span class="ow">in</span> <span class="n">all_terminals</span><span class="p">:</span>
+<a id="__codelineno-0-709" name="__codelineno-0-709"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-710" name="__codelineno-0-710"></a>            <span class="sa">f</span><span class="s2">&quot;start=</span><span class="si">{</span><span class="n">start</span><span class="si">!r}</span><span class="s2"> is also a terminal symbol in the SymbolLibrary; &quot;</span>
+<a id="__codelineno-0-711" name="__codelineno-0-711"></a>            <span class="sa">f</span><span class="s2">&quot;choose a different start symbol (e.g. </span><span class="si">{</span><span class="n">start</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="si">!r}</span><span class="s2">).&quot;</span>
+<a id="__codelineno-0-712" name="__codelineno-0-712"></a>        <span class="p">)</span>
 <a id="__codelineno-0-713" name="__codelineno-0-713"></a>
-<a id="__codelineno-0-714" name="__codelineno-0-714"></a>    <span class="n">level_nts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-715" name="__codelineno-0-715"></a>    <span class="k">for</span> <span class="n">prec</span> <span class="ow">in</span> <span class="n">sorted_precs</span><span class="p">:</span>
-<a id="__codelineno-0-716" name="__codelineno-0-716"></a>        <span class="n">level_nts</span><span class="p">[</span><span class="n">prec</span><span class="p">]</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="n">_level_name</span><span class="p">(</span><span class="n">prec</span><span class="p">),</span> <span class="n">all_terminals</span><span class="p">)</span>
-<a id="__codelineno-0-717" name="__codelineno-0-717"></a>
-<a id="__codelineno-0-718" name="__codelineno-0-718"></a>    <span class="n">t_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
-<a id="__codelineno-0-719" name="__codelineno-0-719"></a>    <span class="n">k_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;K&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
-<a id="__codelineno-0-720" name="__codelineno-0-720"></a>    <span class="n">r_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;R&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
-<a id="__codelineno-0-721" name="__codelineno-0-721"></a>    <span class="n">v_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;V&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
-<a id="__codelineno-0-722" name="__codelineno-0-722"></a>
-<a id="__codelineno-0-723" name="__codelineno-0-723"></a>    <span class="c1"># top_nt is the topmost level of the hierarchy; functions recurse back here.</span>
-<a id="__codelineno-0-724" name="__codelineno-0-724"></a>    <span class="n">top_nt</span> <span class="o">=</span> <span class="n">level_nts</span><span class="p">[</span><span class="n">sorted_precs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="k">if</span> <span class="n">sorted_precs</span> <span class="k">else</span> <span class="n">t_nt</span>
-<a id="__codelineno-0-725" name="__codelineno-0-725"></a>
-<a id="__codelineno-0-726" name="__codelineno-0-726"></a>    <span class="n">g</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">start</span> <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">top_nt</span><span class="p">)</span>
-<a id="__codelineno-0-727" name="__codelineno-0-727"></a>
-<a id="__codelineno-0-728" name="__codelineno-0-728"></a>    <span class="c1"># Build operator-precedence chain.  Level i expands to itself OP level i+1;</span>
-<a id="__codelineno-0-729" name="__codelineno-0-729"></a>    <span class="c1"># the highest level chains to T.</span>
-<a id="__codelineno-0-730" name="__codelineno-0-730"></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">prec</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_precs</span><span class="p">):</span>
-<a id="__codelineno-0-731" name="__codelineno-0-731"></a>        <span class="n">nt</span> <span class="o">=</span> <span class="n">level_nts</span><span class="p">[</span><span class="n">prec</span><span class="p">]</span>
-<a id="__codelineno-0-732" name="__codelineno-0-732"></a>        <span class="n">next_nt</span> <span class="o">=</span> <span class="n">level_nts</span><span class="p">[</span><span class="n">sorted_precs</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_precs</span><span class="p">)</span> <span class="k">else</span> <span class="n">t_nt</span>
-<a id="__codelineno-0-733" name="__codelineno-0-733"></a>        <span class="n">ops</span> <span class="o">=</span> <span class="n">op_groups</span><span class="p">[</span><span class="n">prec</span><span class="p">]</span>
-<a id="__codelineno-0-734" name="__codelineno-0-734"></a>        <span class="n">weight</span> <span class="o">=</span> <span class="n">_LEVEL_REC_WEIGHTS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prec</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">)</span>
-<a id="__codelineno-0-735" name="__codelineno-0-735"></a>        <span class="n">infix</span> <span class="o">=</span> <span class="n">_LEVEL_RULE_INFIXES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prec</span><span class="p">,</span> <span class="s2">&quot;op&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-736" name="__codelineno-0-736"></a>
-<a id="__codelineno-0-737" name="__codelineno-0-737"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
-<a id="__codelineno-0-738" name="__codelineno-0-738"></a>            <span class="c1"># Power is right-associative (a^b^c = a^(b^c)), so recurse on the right.</span>
-<a id="__codelineno-0-739" name="__codelineno-0-739"></a>            <span class="k">if</span> <span class="n">prec</span> <span class="o">==</span> <span class="n">OP_POWER</span><span class="p">:</span>
-<a id="__codelineno-0-740" name="__codelineno-0-740"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="p">[</span><span class="n">next_nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">ops</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">infix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-741" name="__codelineno-0-741"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-742" name="__codelineno-0-742"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="p">[</span><span class="n">nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">next_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">ops</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">infix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-743" name="__codelineno-0-743"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="p">[</span><span class="n">next_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">weight</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">next_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-744" name="__codelineno-0-744"></a>
-<a id="__codelineno-0-745" name="__codelineno-0-745"></a>    <span class="c1"># T level — leaf dispatcher; K and V branches added only when their symbols exist.</span>
-<a id="__codelineno-0-746" name="__codelineno-0-746"></a>    <span class="k">if</span> <span class="n">variables</span> <span class="ow">and</span> <span class="p">(</span><span class="n">consts</span> <span class="ow">or</span> <span class="n">lits</span><span class="p">):</span>
-<a id="__codelineno-0-747" name="__codelineno-0-747"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">r_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-748" name="__codelineno-0-748"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">k_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-749" name="__codelineno-0-749"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">v_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">v_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-750" name="__codelineno-0-750"></a>    <span class="k">elif</span> <span class="n">consts</span> <span class="ow">or</span> <span class="n">lits</span><span class="p">:</span>
-<a id="__codelineno-0-751" name="__codelineno-0-751"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">r_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-752" name="__codelineno-0-752"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">k_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-753" name="__codelineno-0-753"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-754" name="__codelineno-0-754"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">r_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-755" name="__codelineno-0-755"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">v_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">v_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-756" name="__codelineno-0-756"></a>
-<a id="__codelineno-0-757" name="__codelineno-0-757"></a>    <span class="c1"># K level — constants and literals</span>
-<a id="__codelineno-0-758" name="__codelineno-0-758"></a>    <span class="k">if</span> <span class="n">lits</span> <span class="ow">and</span> <span class="n">consts</span><span class="p">:</span>
-<a id="__codelineno-0-759" name="__codelineno-0-759"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">lits</span><span class="p">:</span>
-<a id="__codelineno-0-760" name="__codelineno-0-760"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">lits</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-761" name="__codelineno-0-761"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">consts</span><span class="p">:</span>
-<a id="__codelineno-0-762" name="__codelineno-0-762"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.8</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">consts</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-763" name="__codelineno-0-763"></a>    <span class="k">elif</span> <span class="n">lits</span><span class="p">:</span>
-<a id="__codelineno-0-764" name="__codelineno-0-764"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">lits</span><span class="p">:</span>
-<a id="__codelineno-0-765" name="__codelineno-0-765"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">lits</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-766" name="__codelineno-0-766"></a>    <span class="k">elif</span> <span class="n">consts</span><span class="p">:</span>
+<a id="__codelineno-0-714" name="__codelineno-0-714"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_unique_nt</span><span class="p">(</span><span class="n">base</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">taken</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-715" name="__codelineno-0-715"></a>        <span class="n">name</span> <span class="o">=</span> <span class="n">base</span>
+<a id="__codelineno-0-716" name="__codelineno-0-716"></a>        <span class="k">while</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">taken</span><span class="p">:</span>
+<a id="__codelineno-0-717" name="__codelineno-0-717"></a>            <span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;_&quot;</span>
+<a id="__codelineno-0-718" name="__codelineno-0-718"></a>        <span class="k">return</span> <span class="n">name</span>
+<a id="__codelineno-0-719" name="__codelineno-0-719"></a>
+<a id="__codelineno-0-720" name="__codelineno-0-720"></a>    <span class="n">level_nts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-721" name="__codelineno-0-721"></a>    <span class="k">for</span> <span class="n">prec</span> <span class="ow">in</span> <span class="n">sorted_precs</span><span class="p">:</span>
+<a id="__codelineno-0-722" name="__codelineno-0-722"></a>        <span class="n">level_nts</span><span class="p">[</span><span class="n">prec</span><span class="p">]</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="n">_level_name</span><span class="p">(</span><span class="n">prec</span><span class="p">),</span> <span class="n">all_terminals</span><span class="p">)</span>
+<a id="__codelineno-0-723" name="__codelineno-0-723"></a>
+<a id="__codelineno-0-724" name="__codelineno-0-724"></a>    <span class="n">t_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
+<a id="__codelineno-0-725" name="__codelineno-0-725"></a>    <span class="n">k_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;K&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
+<a id="__codelineno-0-726" name="__codelineno-0-726"></a>    <span class="n">r_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;R&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
+<a id="__codelineno-0-727" name="__codelineno-0-727"></a>    <span class="n">v_nt</span> <span class="o">=</span> <span class="n">_unique_nt</span><span class="p">(</span><span class="s2">&quot;V&quot;</span><span class="p">,</span> <span class="n">all_terminals</span><span class="p">)</span>
+<a id="__codelineno-0-728" name="__codelineno-0-728"></a>
+<a id="__codelineno-0-729" name="__codelineno-0-729"></a>    <span class="c1"># top_nt is the topmost level of the hierarchy; functions recurse back here.</span>
+<a id="__codelineno-0-730" name="__codelineno-0-730"></a>    <span class="n">top_nt</span> <span class="o">=</span> <span class="n">level_nts</span><span class="p">[</span><span class="n">sorted_precs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="k">if</span> <span class="n">sorted_precs</span> <span class="k">else</span> <span class="n">t_nt</span>
+<a id="__codelineno-0-731" name="__codelineno-0-731"></a>
+<a id="__codelineno-0-732" name="__codelineno-0-732"></a>    <span class="n">g</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">start</span> <span class="k">if</span> <span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">top_nt</span><span class="p">)</span>
+<a id="__codelineno-0-733" name="__codelineno-0-733"></a>
+<a id="__codelineno-0-734" name="__codelineno-0-734"></a>    <span class="c1"># Build operator-precedence chain.  Level i expands to itself OP level i+1;</span>
+<a id="__codelineno-0-735" name="__codelineno-0-735"></a>    <span class="c1"># the highest level chains to T.</span>
+<a id="__codelineno-0-736" name="__codelineno-0-736"></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">prec</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_precs</span><span class="p">):</span>
+<a id="__codelineno-0-737" name="__codelineno-0-737"></a>        <span class="n">nt</span> <span class="o">=</span> <span class="n">level_nts</span><span class="p">[</span><span class="n">prec</span><span class="p">]</span>
+<a id="__codelineno-0-738" name="__codelineno-0-738"></a>        <span class="n">next_nt</span> <span class="o">=</span> <span class="n">level_nts</span><span class="p">[</span><span class="n">sorted_precs</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_precs</span><span class="p">)</span> <span class="k">else</span> <span class="n">t_nt</span>
+<a id="__codelineno-0-739" name="__codelineno-0-739"></a>        <span class="n">ops</span> <span class="o">=</span> <span class="n">op_groups</span><span class="p">[</span><span class="n">prec</span><span class="p">]</span>
+<a id="__codelineno-0-740" name="__codelineno-0-740"></a>        <span class="n">weight</span> <span class="o">=</span> <span class="n">_LEVEL_REC_WEIGHTS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prec</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">)</span>
+<a id="__codelineno-0-741" name="__codelineno-0-741"></a>        <span class="n">infix</span> <span class="o">=</span> <span class="n">_LEVEL_RULE_INFIXES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prec</span><span class="p">,</span> <span class="s2">&quot;op&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-742" name="__codelineno-0-742"></a>
+<a id="__codelineno-0-743" name="__codelineno-0-743"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+<a id="__codelineno-0-744" name="__codelineno-0-744"></a>            <span class="c1"># Power is right-associative (a^b^c = a^(b^c)), so recurse on the right.</span>
+<a id="__codelineno-0-745" name="__codelineno-0-745"></a>            <span class="k">if</span> <span class="n">prec</span> <span class="o">==</span> <span class="n">OP_POWER</span><span class="p">:</span>
+<a id="__codelineno-0-746" name="__codelineno-0-746"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="p">[</span><span class="n">next_nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">ops</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">infix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-747" name="__codelineno-0-747"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-748" name="__codelineno-0-748"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="p">[</span><span class="n">nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">next_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="n">weight</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">ops</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">infix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-749" name="__codelineno-0-749"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="p">[</span><span class="n">next_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">weight</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">next_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-750" name="__codelineno-0-750"></a>
+<a id="__codelineno-0-751" name="__codelineno-0-751"></a>    <span class="c1"># T level — leaf dispatcher; K and V branches added only when their symbols exist.</span>
+<a id="__codelineno-0-752" name="__codelineno-0-752"></a>    <span class="k">if</span> <span class="n">variables</span> <span class="ow">and</span> <span class="p">(</span><span class="n">consts</span> <span class="ow">or</span> <span class="n">lits</span><span class="p">):</span>
+<a id="__codelineno-0-753" name="__codelineno-0-753"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">r_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-754" name="__codelineno-0-754"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">k_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-755" name="__codelineno-0-755"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">v_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">v_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-756" name="__codelineno-0-756"></a>    <span class="k">elif</span> <span class="n">consts</span> <span class="ow">or</span> <span class="n">lits</span><span class="p">:</span>
+<a id="__codelineno-0-757" name="__codelineno-0-757"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">r_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-758" name="__codelineno-0-758"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">k_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-759" name="__codelineno-0-759"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-760" name="__codelineno-0-760"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">r_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-761" name="__codelineno-0-761"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">v_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">v_nt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-762" name="__codelineno-0-762"></a>
+<a id="__codelineno-0-763" name="__codelineno-0-763"></a>    <span class="c1"># K level — constants and literals</span>
+<a id="__codelineno-0-764" name="__codelineno-0-764"></a>    <span class="k">if</span> <span class="n">lits</span> <span class="ow">and</span> <span class="n">consts</span><span class="p">:</span>
+<a id="__codelineno-0-765" name="__codelineno-0-765"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">lits</span><span class="p">:</span>
+<a id="__codelineno-0-766" name="__codelineno-0-766"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">lits</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 <a id="__codelineno-0-767" name="__codelineno-0-767"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">consts</span><span class="p">:</span>
-<a id="__codelineno-0-768" name="__codelineno-0-768"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">consts</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-769" name="__codelineno-0-769"></a>
-<a id="__codelineno-0-770" name="__codelineno-0-770"></a>    <span class="c1"># R level — prefix functions, postfix functions (top_nt sym), and parens.</span>
-<a id="__codelineno-0-771" name="__codelineno-0-771"></a>    <span class="c1"># Postfix rules live here directly (no separate P non-terminal).</span>
-<a id="__codelineno-0-772" name="__codelineno-0-772"></a>    <span class="k">if</span> <span class="n">R_fns</span><span class="p">:</span>
-<a id="__codelineno-0-773" name="__codelineno-0-773"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">R_fns</span><span class="p">:</span>
-<a id="__codelineno-0-774" name="__codelineno-0-774"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.4</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">R_fns</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_fn_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-775" name="__codelineno-0-775"></a>        <span class="k">if</span> <span class="n">P_fns</span><span class="p">:</span>
-<a id="__codelineno-0-776" name="__codelineno-0-776"></a>            <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">P_fns</span><span class="p">:</span>
-<a id="__codelineno-0-777" name="__codelineno-0-777"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">top_nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.05</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">P_fns</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_postfix_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-778" name="__codelineno-0-778"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.55</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-779" name="__codelineno-0-779"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-780" name="__codelineno-0-780"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-781" name="__codelineno-0-781"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-782" name="__codelineno-0-782"></a>        <span class="k">if</span> <span class="n">P_fns</span><span class="p">:</span>
-<a id="__codelineno-0-783" name="__codelineno-0-783"></a>            <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">P_fns</span><span class="p">:</span>
-<a id="__codelineno-0-784" name="__codelineno-0-784"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">top_nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.05</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">P_fns</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_postfix_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-785" name="__codelineno-0-785"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-786" name="__codelineno-0-786"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-787" name="__codelineno-0-787"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-788" name="__codelineno-0-788"></a>
-<a id="__codelineno-0-789" name="__codelineno-0-789"></a>    <span class="c1"># V level — variables</span>
-<a id="__codelineno-0-790" name="__codelineno-0-790"></a>    <span class="k">if</span> <span class="n">variables</span><span class="p">:</span>
-<a id="__codelineno-0-791" name="__codelineno-0-791"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">:</span>
-<a id="__codelineno-0-792" name="__codelineno-0-792"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">v_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">v_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-793" name="__codelineno-0-793"></a>
-<a id="__codelineno-0-794" name="__codelineno-0-794"></a>    <span class="k">return</span> <span class="n">g</span>
+<a id="__codelineno-0-768" name="__codelineno-0-768"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.8</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">consts</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-769" name="__codelineno-0-769"></a>    <span class="k">elif</span> <span class="n">lits</span><span class="p">:</span>
+<a id="__codelineno-0-770" name="__codelineno-0-770"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">lits</span><span class="p">:</span>
+<a id="__codelineno-0-771" name="__codelineno-0-771"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">lits</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-772" name="__codelineno-0-772"></a>    <span class="k">elif</span> <span class="n">consts</span><span class="p">:</span>
+<a id="__codelineno-0-773" name="__codelineno-0-773"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">consts</span><span class="p">:</span>
+<a id="__codelineno-0-774" name="__codelineno-0-774"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">consts</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-775" name="__codelineno-0-775"></a>
+<a id="__codelineno-0-776" name="__codelineno-0-776"></a>    <span class="c1"># R level — prefix functions, postfix functions (top_nt sym), and parens.</span>
+<a id="__codelineno-0-777" name="__codelineno-0-777"></a>    <span class="c1"># Postfix rules live here directly (no separate P non-terminal).</span>
+<a id="__codelineno-0-778" name="__codelineno-0-778"></a>    <span class="k">if</span> <span class="n">R_fns</span><span class="p">:</span>
+<a id="__codelineno-0-779" name="__codelineno-0-779"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">R_fns</span><span class="p">:</span>
+<a id="__codelineno-0-780" name="__codelineno-0-780"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.4</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">R_fns</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_fn_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-781" name="__codelineno-0-781"></a>        <span class="k">if</span> <span class="n">P_fns</span><span class="p">:</span>
+<a id="__codelineno-0-782" name="__codelineno-0-782"></a>            <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">P_fns</span><span class="p">:</span>
+<a id="__codelineno-0-783" name="__codelineno-0-783"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">top_nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.05</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">P_fns</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_postfix_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-784" name="__codelineno-0-784"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.55</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-785" name="__codelineno-0-785"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-786" name="__codelineno-0-786"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-787" name="__codelineno-0-787"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-788" name="__codelineno-0-788"></a>        <span class="k">if</span> <span class="n">P_fns</span><span class="p">:</span>
+<a id="__codelineno-0-789" name="__codelineno-0-789"></a>            <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">P_fns</span><span class="p">:</span>
+<a id="__codelineno-0-790" name="__codelineno-0-790"></a>                <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">top_nt</span><span class="p">,</span> <span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.05</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">P_fns</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_postfix_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-791" name="__codelineno-0-791"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-792" name="__codelineno-0-792"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-793" name="__codelineno-0-793"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">r_nt</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="n">top_nt</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">_paren&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-794" name="__codelineno-0-794"></a>
+<a id="__codelineno-0-795" name="__codelineno-0-795"></a>    <span class="c1"># V level — variables</span>
+<a id="__codelineno-0-796" name="__codelineno-0-796"></a>    <span class="k">if</span> <span class="n">variables</span><span class="p">:</span>
+<a id="__codelineno-0-797" name="__codelineno-0-797"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">:</span>
+<a id="__codelineno-0-798" name="__codelineno-0-798"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">v_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">v_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-799" name="__codelineno-0-799"></a>
+<a id="__codelineno-0-800" name="__codelineno-0-800"></a>    <span class="k">return</span> <span class="n">g</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5729,13 +5871,7 @@ the parameter or the <code># start:</code> comment.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/grammar/grammar.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-796">796</a></span>
-<span class="normal"><a href="#__codelineno-0-797">797</a></span>
-<span class="normal"><a href="#__codelineno-0-798">798</a></span>
-<span class="normal"><a href="#__codelineno-0-799">799</a></span>
-<span class="normal"><a href="#__codelineno-0-800">800</a></span>
-<span class="normal"><a href="#__codelineno-0-801">801</a></span>
-<span class="normal"><a href="#__codelineno-0-802">802</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-802">802</a></span>
 <span class="normal"><a href="#__codelineno-0-803">803</a></span>
 <span class="normal"><a href="#__codelineno-0-804">804</a></span>
 <span class="normal"><a href="#__codelineno-0-805">805</a></span>
@@ -5810,88 +5946,94 @@ the parameter or the <code># start:</code> comment.</p>
 <span class="normal"><a href="#__codelineno-0-874">874</a></span>
 <span class="normal"><a href="#__codelineno-0-875">875</a></span>
 <span class="normal"><a href="#__codelineno-0-876">876</a></span>
-<span class="normal"><a href="#__codelineno-0-877">877</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-796" name="__codelineno-0-796"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-797" name="__codelineno-0-797"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_grammar_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Grammar&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-798" name="__codelineno-0-798"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-799" name="__codelineno-0-799"></a><span class="sd">    Construct a [Grammar][SRToolkit.utils.grammar.Grammar] from a string in</span>
-<a id="__codelineno-0-800" name="__codelineno-0-800"></a><span class="sd">    NLTK production-rule notation.</span>
-<a id="__codelineno-0-801" name="__codelineno-0-801"></a>
-<a id="__codelineno-0-802" name="__codelineno-0-802"></a><span class="sd">    Each non-empty, non-comment line must have the form::</span>
-<a id="__codelineno-0-803" name="__codelineno-0-803"></a>
-<a id="__codelineno-0-804" name="__codelineno-0-804"></a><span class="sd">        LHS -&gt; RHS_1 | RHS_2 | ...</span>
-<a id="__codelineno-0-805" name="__codelineno-0-805"></a>
-<a id="__codelineno-0-806" name="__codelineno-0-806"></a><span class="sd">    where each alternative is a space-separated sequence of symbols.</span>
-<a id="__codelineno-0-807" name="__codelineno-0-807"></a><span class="sd">    Terminals are enclosed in single quotes (e.g. ``&#39;+&#39;``); unquoted</span>
-<a id="__codelineno-0-808" name="__codelineno-0-808"></a><span class="sd">    tokens are treated as non-terminals.  An optional weight in square</span>
-<a id="__codelineno-0-809" name="__codelineno-0-809"></a><span class="sd">    brackets at the end of an alternative is parsed as a</span>
-<a id="__codelineno-0-810" name="__codelineno-0-810"></a><span class="sd">    ``float`` (e.g. ``E &#39;+&#39; F [0.4]``); alternatives without a weight</span>
-<a id="__codelineno-0-811" name="__codelineno-0-811"></a><span class="sd">    default to ``1.0``.</span>
-<a id="__codelineno-0-812" name="__codelineno-0-812"></a>
-<a id="__codelineno-0-813" name="__codelineno-0-813"></a><span class="sd">    The start symbol may be embedded as a comment header emitted by</span>
-<a id="__codelineno-0-814" name="__codelineno-0-814"></a><span class="sd">    [to_grammar_string][SRToolkit.utils.grammar.Grammar.to_grammar_string]::</span>
-<a id="__codelineno-0-815" name="__codelineno-0-815"></a>
-<a id="__codelineno-0-816" name="__codelineno-0-816"></a><span class="sd">        # start: E</span>
-<a id="__codelineno-0-817" name="__codelineno-0-817"></a>
-<a id="__codelineno-0-818" name="__codelineno-0-818"></a><span class="sd">    The explicit ``start`` parameter takes precedence over this comment.</span>
-<a id="__codelineno-0-819" name="__codelineno-0-819"></a><span class="sd">    When ``start`` is ``None``, only the first ``# start:`` comment encountered</span>
-<a id="__codelineno-0-820" name="__codelineno-0-820"></a><span class="sd">    is used; subsequent ones are ignored along with all other comment lines.</span>
+<span class="normal"><a href="#__codelineno-0-877">877</a></span>
+<span class="normal"><a href="#__codelineno-0-878">878</a></span>
+<span class="normal"><a href="#__codelineno-0-879">879</a></span>
+<span class="normal"><a href="#__codelineno-0-880">880</a></span>
+<span class="normal"><a href="#__codelineno-0-881">881</a></span>
+<span class="normal"><a href="#__codelineno-0-882">882</a></span>
+<span class="normal"><a href="#__codelineno-0-883">883</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-802" name="__codelineno-0-802"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-803" name="__codelineno-0-803"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_grammar_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Grammar&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-804" name="__codelineno-0-804"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-805" name="__codelineno-0-805"></a><span class="sd">    Construct a [Grammar][SRToolkit.utils.grammar.Grammar] from a string in</span>
+<a id="__codelineno-0-806" name="__codelineno-0-806"></a><span class="sd">    NLTK production-rule notation.</span>
+<a id="__codelineno-0-807" name="__codelineno-0-807"></a>
+<a id="__codelineno-0-808" name="__codelineno-0-808"></a><span class="sd">    Each non-empty, non-comment line must have the form::</span>
+<a id="__codelineno-0-809" name="__codelineno-0-809"></a>
+<a id="__codelineno-0-810" name="__codelineno-0-810"></a><span class="sd">        LHS -&gt; RHS_1 | RHS_2 | ...</span>
+<a id="__codelineno-0-811" name="__codelineno-0-811"></a>
+<a id="__codelineno-0-812" name="__codelineno-0-812"></a><span class="sd">    where each alternative is a space-separated sequence of symbols.</span>
+<a id="__codelineno-0-813" name="__codelineno-0-813"></a><span class="sd">    Terminals are enclosed in single quotes (e.g. ``&#39;+&#39;``); unquoted</span>
+<a id="__codelineno-0-814" name="__codelineno-0-814"></a><span class="sd">    tokens are treated as non-terminals.  An optional weight in square</span>
+<a id="__codelineno-0-815" name="__codelineno-0-815"></a><span class="sd">    brackets at the end of an alternative is parsed as a</span>
+<a id="__codelineno-0-816" name="__codelineno-0-816"></a><span class="sd">    ``float`` (e.g. ``E &#39;+&#39; F [0.4]``); alternatives without a weight</span>
+<a id="__codelineno-0-817" name="__codelineno-0-817"></a><span class="sd">    default to ``1.0``.</span>
+<a id="__codelineno-0-818" name="__codelineno-0-818"></a>
+<a id="__codelineno-0-819" name="__codelineno-0-819"></a><span class="sd">    The start symbol may be embedded as a comment header emitted by</span>
+<a id="__codelineno-0-820" name="__codelineno-0-820"></a><span class="sd">    [to_grammar_string][SRToolkit.utils.grammar.Grammar.to_grammar_string]::</span>
 <a id="__codelineno-0-821" name="__codelineno-0-821"></a>
-<a id="__codelineno-0-822" name="__codelineno-0-822"></a><span class="sd">    Rule names are not preserved in NLTK notation and are set to ``None``</span>
-<a id="__codelineno-0-823" name="__codelineno-0-823"></a><span class="sd">    on all returned [Rule][SRToolkit.utils.grammar.Rule] objects.</span>
-<a id="__codelineno-0-824" name="__codelineno-0-824"></a>
-<a id="__codelineno-0-825" name="__codelineno-0-825"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-826" name="__codelineno-0-826"></a><span class="sd">        &gt;&gt;&gt; g = Grammar.from_grammar_string(&quot;E -&gt; E &#39;+&#39; F | F\\nF -&gt; &#39;x&#39;&quot;, start=&quot;E&quot;)</span>
-<a id="__codelineno-0-827" name="__codelineno-0-827"></a><span class="sd">        &gt;&gt;&gt; sorted(g.nonterminals)</span>
-<a id="__codelineno-0-828" name="__codelineno-0-828"></a><span class="sd">        [&#39;E&#39;, &#39;F&#39;]</span>
-<a id="__codelineno-0-829" name="__codelineno-0-829"></a><span class="sd">        &gt;&gt;&gt; g.rules_for(&quot;F&quot;)[0].rhs</span>
-<a id="__codelineno-0-830" name="__codelineno-0-830"></a><span class="sd">        [&#39;x&#39;]</span>
-<a id="__codelineno-0-831" name="__codelineno-0-831"></a><span class="sd">        &gt;&gt;&gt; g.start</span>
-<a id="__codelineno-0-832" name="__codelineno-0-832"></a><span class="sd">        &#39;E&#39;</span>
-<a id="__codelineno-0-833" name="__codelineno-0-833"></a>
-<a id="__codelineno-0-834" name="__codelineno-0-834"></a><span class="sd">        &gt;&gt;&gt; g2 = Grammar.from_grammar_string(</span>
-<a id="__codelineno-0-835" name="__codelineno-0-835"></a><span class="sd">        ...     &quot;# start: E\\nE -&gt; E &#39;+&#39; F [0.4] | F [0.6]\\nF -&gt; &#39;x&#39; [1.0]&quot;</span>
-<a id="__codelineno-0-836" name="__codelineno-0-836"></a><span class="sd">        ... )</span>
-<a id="__codelineno-0-837" name="__codelineno-0-837"></a><span class="sd">        &gt;&gt;&gt; g2.start</span>
+<a id="__codelineno-0-822" name="__codelineno-0-822"></a><span class="sd">        # start: E</span>
+<a id="__codelineno-0-823" name="__codelineno-0-823"></a>
+<a id="__codelineno-0-824" name="__codelineno-0-824"></a><span class="sd">    The explicit ``start`` parameter takes precedence over this comment.</span>
+<a id="__codelineno-0-825" name="__codelineno-0-825"></a><span class="sd">    When ``start`` is ``None``, only the first ``# start:`` comment encountered</span>
+<a id="__codelineno-0-826" name="__codelineno-0-826"></a><span class="sd">    is used; subsequent ones are ignored along with all other comment lines.</span>
+<a id="__codelineno-0-827" name="__codelineno-0-827"></a>
+<a id="__codelineno-0-828" name="__codelineno-0-828"></a><span class="sd">    Rule names are not preserved in NLTK notation and are set to ``None``</span>
+<a id="__codelineno-0-829" name="__codelineno-0-829"></a><span class="sd">    on all returned [Rule][SRToolkit.utils.grammar.Rule] objects.</span>
+<a id="__codelineno-0-830" name="__codelineno-0-830"></a>
+<a id="__codelineno-0-831" name="__codelineno-0-831"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-832" name="__codelineno-0-832"></a><span class="sd">        &gt;&gt;&gt; g = Grammar.from_grammar_string(&quot;E -&gt; E &#39;+&#39; F | F\\nF -&gt; &#39;x&#39;&quot;, start=&quot;E&quot;)</span>
+<a id="__codelineno-0-833" name="__codelineno-0-833"></a><span class="sd">        &gt;&gt;&gt; sorted(g.nonterminals)</span>
+<a id="__codelineno-0-834" name="__codelineno-0-834"></a><span class="sd">        [&#39;E&#39;, &#39;F&#39;]</span>
+<a id="__codelineno-0-835" name="__codelineno-0-835"></a><span class="sd">        &gt;&gt;&gt; g.rules_for(&quot;F&quot;)[0].rhs</span>
+<a id="__codelineno-0-836" name="__codelineno-0-836"></a><span class="sd">        [&#39;x&#39;]</span>
+<a id="__codelineno-0-837" name="__codelineno-0-837"></a><span class="sd">        &gt;&gt;&gt; g.start</span>
 <a id="__codelineno-0-838" name="__codelineno-0-838"></a><span class="sd">        &#39;E&#39;</span>
-<a id="__codelineno-0-839" name="__codelineno-0-839"></a><span class="sd">        &gt;&gt;&gt; g2.is_pcfg()</span>
-<a id="__codelineno-0-840" name="__codelineno-0-840"></a><span class="sd">        True</span>
-<a id="__codelineno-0-841" name="__codelineno-0-841"></a>
-<a id="__codelineno-0-842" name="__codelineno-0-842"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-843" name="__codelineno-0-843"></a><span class="sd">        text: Grammar specification in NLTK notation, optionally with a</span>
-<a id="__codelineno-0-844" name="__codelineno-0-844"></a><span class="sd">            ``# start: &lt;symbol&gt;`` header line.</span>
-<a id="__codelineno-0-845" name="__codelineno-0-845"></a><span class="sd">        start: Start non-terminal stored on the returned grammar.  Takes</span>
-<a id="__codelineno-0-846" name="__codelineno-0-846"></a><span class="sd">            precedence over a ``# start:`` comment in ``text``.  Required</span>
-<a id="__codelineno-0-847" name="__codelineno-0-847"></a><span class="sd">            when neither the parameter nor the comment is present.</span>
-<a id="__codelineno-0-848" name="__codelineno-0-848"></a>
-<a id="__codelineno-0-849" name="__codelineno-0-849"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-850" name="__codelineno-0-850"></a><span class="sd">        A new [Grammar][SRToolkit.utils.grammar.Grammar] populated with</span>
-<a id="__codelineno-0-851" name="__codelineno-0-851"></a><span class="sd">        the parsed rules.</span>
-<a id="__codelineno-0-852" name="__codelineno-0-852"></a>
-<a id="__codelineno-0-853" name="__codelineno-0-853"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-854" name="__codelineno-0-854"></a><span class="sd">        ValueError: If a content line contains no ``-&gt;``.</span>
-<a id="__codelineno-0-855" name="__codelineno-0-855"></a><span class="sd">        ValueError: If a weight token cannot be converted to ``float``.</span>
-<a id="__codelineno-0-856" name="__codelineno-0-856"></a><span class="sd">        ValueError: If ``text`` contains no parseable rules.</span>
-<a id="__codelineno-0-857" name="__codelineno-0-857"></a><span class="sd">        ValueError: If the start symbol cannot be determined from either</span>
-<a id="__codelineno-0-858" name="__codelineno-0-858"></a><span class="sd">            the parameter or the ``# start:`` comment.</span>
-<a id="__codelineno-0-859" name="__codelineno-0-859"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-860" name="__codelineno-0-860"></a>    <span class="n">resolved_start</span> <span class="o">=</span> <span class="n">start</span>
-<a id="__codelineno-0-861" name="__codelineno-0-861"></a>    <span class="n">rules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-862" name="__codelineno-0-862"></a>    <span class="k">for</span> <span class="n">raw_line</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
-<a id="__codelineno-0-863" name="__codelineno-0-863"></a>        <span class="n">line</span> <span class="o">=</span> <span class="n">raw_line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-864" name="__codelineno-0-864"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
-<a id="__codelineno-0-865" name="__codelineno-0-865"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-866" name="__codelineno-0-866"></a>        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-867" name="__codelineno-0-867"></a>            <span class="k">if</span> <span class="n">resolved_start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;# start:&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-868" name="__codelineno-0-868"></a>                <span class="n">resolved_start</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;# start:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-869" name="__codelineno-0-869"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-870" name="__codelineno-0-870"></a>        <span class="n">rules</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">Rule</span><span class="o">.</span><span class="n">from_line</span><span class="p">(</span><span class="n">line</span><span class="p">))</span>
-<a id="__codelineno-0-871" name="__codelineno-0-871"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">rules</span><span class="p">:</span>
-<a id="__codelineno-0-872" name="__codelineno-0-872"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No rules parsed from grammar string.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-873" name="__codelineno-0-873"></a>    <span class="k">if</span> <span class="n">resolved_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-874" name="__codelineno-0-874"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-875" name="__codelineno-0-875"></a>            <span class="s2">&quot;No start symbol found. Either pass start=&lt;nonterminal&gt; or include a &#39;# start: &lt;symbol&gt;&#39; line.&quot;</span>
-<a id="__codelineno-0-876" name="__codelineno-0-876"></a>        <span class="p">)</span>
-<a id="__codelineno-0-877" name="__codelineno-0-877"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">resolved_start</span><span class="p">)</span>
+<a id="__codelineno-0-839" name="__codelineno-0-839"></a>
+<a id="__codelineno-0-840" name="__codelineno-0-840"></a><span class="sd">        &gt;&gt;&gt; g2 = Grammar.from_grammar_string(</span>
+<a id="__codelineno-0-841" name="__codelineno-0-841"></a><span class="sd">        ...     &quot;# start: E\\nE -&gt; E &#39;+&#39; F [0.4] | F [0.6]\\nF -&gt; &#39;x&#39; [1.0]&quot;</span>
+<a id="__codelineno-0-842" name="__codelineno-0-842"></a><span class="sd">        ... )</span>
+<a id="__codelineno-0-843" name="__codelineno-0-843"></a><span class="sd">        &gt;&gt;&gt; g2.start</span>
+<a id="__codelineno-0-844" name="__codelineno-0-844"></a><span class="sd">        &#39;E&#39;</span>
+<a id="__codelineno-0-845" name="__codelineno-0-845"></a><span class="sd">        &gt;&gt;&gt; g2.is_pcfg()</span>
+<a id="__codelineno-0-846" name="__codelineno-0-846"></a><span class="sd">        True</span>
+<a id="__codelineno-0-847" name="__codelineno-0-847"></a>
+<a id="__codelineno-0-848" name="__codelineno-0-848"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-849" name="__codelineno-0-849"></a><span class="sd">        text: Grammar specification in NLTK notation, optionally with a</span>
+<a id="__codelineno-0-850" name="__codelineno-0-850"></a><span class="sd">            ``# start: &lt;symbol&gt;`` header line.</span>
+<a id="__codelineno-0-851" name="__codelineno-0-851"></a><span class="sd">        start: Start non-terminal stored on the returned grammar.  Takes</span>
+<a id="__codelineno-0-852" name="__codelineno-0-852"></a><span class="sd">            precedence over a ``# start:`` comment in ``text``.  Required</span>
+<a id="__codelineno-0-853" name="__codelineno-0-853"></a><span class="sd">            when neither the parameter nor the comment is present.</span>
+<a id="__codelineno-0-854" name="__codelineno-0-854"></a>
+<a id="__codelineno-0-855" name="__codelineno-0-855"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-856" name="__codelineno-0-856"></a><span class="sd">        A new [Grammar][SRToolkit.utils.grammar.Grammar] populated with</span>
+<a id="__codelineno-0-857" name="__codelineno-0-857"></a><span class="sd">        the parsed rules.</span>
+<a id="__codelineno-0-858" name="__codelineno-0-858"></a>
+<a id="__codelineno-0-859" name="__codelineno-0-859"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-860" name="__codelineno-0-860"></a><span class="sd">        ValueError: If a content line contains no ``-&gt;``.</span>
+<a id="__codelineno-0-861" name="__codelineno-0-861"></a><span class="sd">        ValueError: If a weight token cannot be converted to ``float``.</span>
+<a id="__codelineno-0-862" name="__codelineno-0-862"></a><span class="sd">        ValueError: If ``text`` contains no parseable rules.</span>
+<a id="__codelineno-0-863" name="__codelineno-0-863"></a><span class="sd">        ValueError: If the start symbol cannot be determined from either</span>
+<a id="__codelineno-0-864" name="__codelineno-0-864"></a><span class="sd">            the parameter or the ``# start:`` comment.</span>
+<a id="__codelineno-0-865" name="__codelineno-0-865"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-866" name="__codelineno-0-866"></a>    <span class="n">resolved_start</span> <span class="o">=</span> <span class="n">start</span>
+<a id="__codelineno-0-867" name="__codelineno-0-867"></a>    <span class="n">rules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-868" name="__codelineno-0-868"></a>    <span class="k">for</span> <span class="n">raw_line</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+<a id="__codelineno-0-869" name="__codelineno-0-869"></a>        <span class="n">line</span> <span class="o">=</span> <span class="n">raw_line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+<a id="__codelineno-0-870" name="__codelineno-0-870"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
+<a id="__codelineno-0-871" name="__codelineno-0-871"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-872" name="__codelineno-0-872"></a>        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-873" name="__codelineno-0-873"></a>            <span class="k">if</span> <span class="n">resolved_start</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;# start:&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-874" name="__codelineno-0-874"></a>                <span class="n">resolved_start</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;# start:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+<a id="__codelineno-0-875" name="__codelineno-0-875"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-876" name="__codelineno-0-876"></a>        <span class="n">rules</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">Rule</span><span class="o">.</span><span class="n">from_line</span><span class="p">(</span><span class="n">line</span><span class="p">))</span>
+<a id="__codelineno-0-877" name="__codelineno-0-877"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">rules</span><span class="p">:</span>
+<a id="__codelineno-0-878" name="__codelineno-0-878"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No rules parsed from grammar string.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-879" name="__codelineno-0-879"></a>    <span class="k">if</span> <span class="n">resolved_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-880" name="__codelineno-0-880"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-881" name="__codelineno-0-881"></a>            <span class="s2">&quot;No start symbol found. Either pass start=&lt;nonterminal&gt; or include a &#39;# start: &lt;symbol&gt;&#39; line.&quot;</span>
+<a id="__codelineno-0-882" name="__codelineno-0-882"></a>        <span class="p">)</span>
+<a id="__codelineno-0-883" name="__codelineno-0-883"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">resolved_start</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5987,13 +6129,7 @@ argument.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/grammar/grammar.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-879">879</a></span>
-<span class="normal"><a href="#__codelineno-0-880">880</a></span>
-<span class="normal"><a href="#__codelineno-0-881">881</a></span>
-<span class="normal"><a href="#__codelineno-0-882">882</a></span>
-<span class="normal"><a href="#__codelineno-0-883">883</a></span>
-<span class="normal"><a href="#__codelineno-0-884">884</a></span>
-<span class="normal"><a href="#__codelineno-0-885">885</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-885">885</a></span>
 <span class="normal"><a href="#__codelineno-0-886">886</a></span>
 <span class="normal"><a href="#__codelineno-0-887">887</a></span>
 <span class="normal"><a href="#__codelineno-0-888">888</a></span>
@@ -6044,64 +6180,70 @@ argument.</p>
 <span class="normal"><a href="#__codelineno-0-933">933</a></span>
 <span class="normal"><a href="#__codelineno-0-934">934</a></span>
 <span class="normal"><a href="#__codelineno-0-935">935</a></span>
-<span class="normal"><a href="#__codelineno-0-936">936</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-879" name="__codelineno-0-879"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_grammar_string</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-880" name="__codelineno-0-880"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-881" name="__codelineno-0-881"></a><span class="sd">    Serialise this grammar to a string in NLTK production-rule notation.</span>
-<a id="__codelineno-0-882" name="__codelineno-0-882"></a>
-<a id="__codelineno-0-883" name="__codelineno-0-883"></a><span class="sd">    All rules sharing the same left-hand side are written on a single</span>
-<a id="__codelineno-0-884" name="__codelineno-0-884"></a><span class="sd">    line, separated by `` | ``.  Symbols that are non-terminals (i.e.</span>
-<a id="__codelineno-0-885" name="__codelineno-0-885"></a><span class="sd">    appear as the ``lhs`` of at least one rule) are written unquoted;</span>
-<a id="__codelineno-0-886" name="__codelineno-0-886"></a><span class="sd">    all other symbols are enclosed in single quotes.  When</span>
-<a id="__codelineno-0-887" name="__codelineno-0-887"></a><span class="sd">    [is_pcfg][SRToolkit.utils.grammar.Grammar.is_pcfg] returns ``True``,</span>
-<a id="__codelineno-0-888" name="__codelineno-0-888"></a><span class="sd">    the probability of each alternative (its weight divided by the sum of</span>
-<a id="__codelineno-0-889" name="__codelineno-0-889"></a><span class="sd">    weights for that non-terminal) is appended in square brackets.</span>
-<a id="__codelineno-0-890" name="__codelineno-0-890"></a>
-<a id="__codelineno-0-891" name="__codelineno-0-891"></a><span class="sd">    Rule names and registered constraints are not included in the output.</span>
-<a id="__codelineno-0-892" name="__codelineno-0-892"></a><span class="sd">    When ``self.start`` is set, a ``# start: &lt;symbol&gt;`` comment is</span>
-<a id="__codelineno-0-893" name="__codelineno-0-893"></a><span class="sd">    prepended so that</span>
-<a id="__codelineno-0-894" name="__codelineno-0-894"></a><span class="sd">    [from_grammar_string][SRToolkit.utils.grammar.Grammar.from_grammar_string]</span>
-<a id="__codelineno-0-895" name="__codelineno-0-895"></a><span class="sd">    can reconstruct the grammar without requiring an explicit ``start``</span>
-<a id="__codelineno-0-896" name="__codelineno-0-896"></a><span class="sd">    argument.</span>
-<a id="__codelineno-0-897" name="__codelineno-0-897"></a>
-<a id="__codelineno-0-898" name="__codelineno-0-898"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-899" name="__codelineno-0-899"></a><span class="sd">        &gt;&gt;&gt; g = Grammar([</span>
-<a id="__codelineno-0-900" name="__codelineno-0-900"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;E&quot;, &quot;+&quot;, &quot;F&quot;]),</span>
-<a id="__codelineno-0-901" name="__codelineno-0-901"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;F&quot;]),</span>
-<a id="__codelineno-0-902" name="__codelineno-0-902"></a><span class="sd">        ...     Rule(&quot;F&quot;, [&quot;x&quot;]),</span>
-<a id="__codelineno-0-903" name="__codelineno-0-903"></a><span class="sd">        ... ], start=&quot;E&quot;)</span>
-<a id="__codelineno-0-904" name="__codelineno-0-904"></a><span class="sd">        &gt;&gt;&gt; print(g.to_grammar_string())</span>
-<a id="__codelineno-0-905" name="__codelineno-0-905"></a><span class="sd">        # start: E</span>
-<a id="__codelineno-0-906" name="__codelineno-0-906"></a><span class="sd">        E -&gt; E &#39;+&#39; F | F</span>
-<a id="__codelineno-0-907" name="__codelineno-0-907"></a><span class="sd">        F -&gt; &#39;x&#39;</span>
-<a id="__codelineno-0-908" name="__codelineno-0-908"></a>
-<a id="__codelineno-0-909" name="__codelineno-0-909"></a><span class="sd">        &gt;&gt;&gt; gp = Grammar([</span>
-<a id="__codelineno-0-910" name="__codelineno-0-910"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;x&quot;], weight=1.0),</span>
-<a id="__codelineno-0-911" name="__codelineno-0-911"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;y&quot;], weight=3.0),</span>
-<a id="__codelineno-0-912" name="__codelineno-0-912"></a><span class="sd">        ... ])</span>
-<a id="__codelineno-0-913" name="__codelineno-0-913"></a><span class="sd">        &gt;&gt;&gt; print(gp.to_grammar_string())</span>
-<a id="__codelineno-0-914" name="__codelineno-0-914"></a><span class="sd">        E -&gt; &#39;x&#39; [0.25] | &#39;y&#39; [0.75]</span>
-<a id="__codelineno-0-915" name="__codelineno-0-915"></a>
-<a id="__codelineno-0-916" name="__codelineno-0-916"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-917" name="__codelineno-0-917"></a><span class="sd">        Multi-line string in NLTK production-rule notation, optionally</span>
-<a id="__codelineno-0-918" name="__codelineno-0-918"></a><span class="sd">        preceded by a ``# start:`` header.</span>
-<a id="__codelineno-0-919" name="__codelineno-0-919"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-920" name="__codelineno-0-920"></a>    <span class="n">nts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonterminals</span>
-<a id="__codelineno-0-921" name="__codelineno-0-921"></a>    <span class="n">pcfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_pcfg</span><span class="p">()</span>
-<a id="__codelineno-0-922" name="__codelineno-0-922"></a>    <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-923" name="__codelineno-0-923"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-924" name="__codelineno-0-924"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# start: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-925" name="__codelineno-0-925"></a>    <span class="k">for</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rules</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rules_by_lhs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-926" name="__codelineno-0-926"></a>        <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-927" name="__codelineno-0-927"></a>        <span class="k">if</span> <span class="n">pcfg</span><span class="p">:</span>
-<a id="__codelineno-0-928" name="__codelineno-0-928"></a>            <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">weight</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">)</span>
-<a id="__codelineno-0-929" name="__codelineno-0-929"></a>        <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">:</span>
-<a id="__codelineno-0-930" name="__codelineno-0-930"></a>            <span class="n">rhs_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="n">sym</span> <span class="k">if</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">nts</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&#39;&quot;</span> <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span><span class="p">]</span>
-<a id="__codelineno-0-931" name="__codelineno-0-931"></a>            <span class="n">alt</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rhs_tokens</span><span class="p">)</span>
-<a id="__codelineno-0-932" name="__codelineno-0-932"></a>            <span class="k">if</span> <span class="n">pcfg</span><span class="p">:</span>
-<a id="__codelineno-0-933" name="__codelineno-0-933"></a>                <span class="n">alt</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; [</span><span class="si">{</span><span class="n">rule</span><span class="o">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">total</span><span class="si">}</span><span class="s2">]&quot;</span>
-<a id="__codelineno-0-934" name="__codelineno-0-934"></a>            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">alt</span><span class="p">)</span>
-<a id="__codelineno-0-935" name="__codelineno-0-935"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lhs</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-936" name="__codelineno-0-936"></a>    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-936">936</a></span>
+<span class="normal"><a href="#__codelineno-0-937">937</a></span>
+<span class="normal"><a href="#__codelineno-0-938">938</a></span>
+<span class="normal"><a href="#__codelineno-0-939">939</a></span>
+<span class="normal"><a href="#__codelineno-0-940">940</a></span>
+<span class="normal"><a href="#__codelineno-0-941">941</a></span>
+<span class="normal"><a href="#__codelineno-0-942">942</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-885" name="__codelineno-0-885"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_grammar_string</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-886" name="__codelineno-0-886"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-887" name="__codelineno-0-887"></a><span class="sd">    Serialise this grammar to a string in NLTK production-rule notation.</span>
+<a id="__codelineno-0-888" name="__codelineno-0-888"></a>
+<a id="__codelineno-0-889" name="__codelineno-0-889"></a><span class="sd">    All rules sharing the same left-hand side are written on a single</span>
+<a id="__codelineno-0-890" name="__codelineno-0-890"></a><span class="sd">    line, separated by `` | ``.  Symbols that are non-terminals (i.e.</span>
+<a id="__codelineno-0-891" name="__codelineno-0-891"></a><span class="sd">    appear as the ``lhs`` of at least one rule) are written unquoted;</span>
+<a id="__codelineno-0-892" name="__codelineno-0-892"></a><span class="sd">    all other symbols are enclosed in single quotes.  When</span>
+<a id="__codelineno-0-893" name="__codelineno-0-893"></a><span class="sd">    [is_pcfg][SRToolkit.utils.grammar.Grammar.is_pcfg] returns ``True``,</span>
+<a id="__codelineno-0-894" name="__codelineno-0-894"></a><span class="sd">    the probability of each alternative (its weight divided by the sum of</span>
+<a id="__codelineno-0-895" name="__codelineno-0-895"></a><span class="sd">    weights for that non-terminal) is appended in square brackets.</span>
+<a id="__codelineno-0-896" name="__codelineno-0-896"></a>
+<a id="__codelineno-0-897" name="__codelineno-0-897"></a><span class="sd">    Rule names and registered constraints are not included in the output.</span>
+<a id="__codelineno-0-898" name="__codelineno-0-898"></a><span class="sd">    When ``self.start`` is set, a ``# start: &lt;symbol&gt;`` comment is</span>
+<a id="__codelineno-0-899" name="__codelineno-0-899"></a><span class="sd">    prepended so that</span>
+<a id="__codelineno-0-900" name="__codelineno-0-900"></a><span class="sd">    [from_grammar_string][SRToolkit.utils.grammar.Grammar.from_grammar_string]</span>
+<a id="__codelineno-0-901" name="__codelineno-0-901"></a><span class="sd">    can reconstruct the grammar without requiring an explicit ``start``</span>
+<a id="__codelineno-0-902" name="__codelineno-0-902"></a><span class="sd">    argument.</span>
+<a id="__codelineno-0-903" name="__codelineno-0-903"></a>
+<a id="__codelineno-0-904" name="__codelineno-0-904"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-905" name="__codelineno-0-905"></a><span class="sd">        &gt;&gt;&gt; g = Grammar([</span>
+<a id="__codelineno-0-906" name="__codelineno-0-906"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;E&quot;, &quot;+&quot;, &quot;F&quot;]),</span>
+<a id="__codelineno-0-907" name="__codelineno-0-907"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;F&quot;]),</span>
+<a id="__codelineno-0-908" name="__codelineno-0-908"></a><span class="sd">        ...     Rule(&quot;F&quot;, [&quot;x&quot;]),</span>
+<a id="__codelineno-0-909" name="__codelineno-0-909"></a><span class="sd">        ... ], start=&quot;E&quot;)</span>
+<a id="__codelineno-0-910" name="__codelineno-0-910"></a><span class="sd">        &gt;&gt;&gt; print(g.to_grammar_string())</span>
+<a id="__codelineno-0-911" name="__codelineno-0-911"></a><span class="sd">        # start: E</span>
+<a id="__codelineno-0-912" name="__codelineno-0-912"></a><span class="sd">        E -&gt; E &#39;+&#39; F | F</span>
+<a id="__codelineno-0-913" name="__codelineno-0-913"></a><span class="sd">        F -&gt; &#39;x&#39;</span>
+<a id="__codelineno-0-914" name="__codelineno-0-914"></a>
+<a id="__codelineno-0-915" name="__codelineno-0-915"></a><span class="sd">        &gt;&gt;&gt; gp = Grammar([</span>
+<a id="__codelineno-0-916" name="__codelineno-0-916"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;x&quot;], weight=1.0),</span>
+<a id="__codelineno-0-917" name="__codelineno-0-917"></a><span class="sd">        ...     Rule(&quot;E&quot;, [&quot;y&quot;], weight=3.0),</span>
+<a id="__codelineno-0-918" name="__codelineno-0-918"></a><span class="sd">        ... ])</span>
+<a id="__codelineno-0-919" name="__codelineno-0-919"></a><span class="sd">        &gt;&gt;&gt; print(gp.to_grammar_string())</span>
+<a id="__codelineno-0-920" name="__codelineno-0-920"></a><span class="sd">        E -&gt; &#39;x&#39; [0.25] | &#39;y&#39; [0.75]</span>
+<a id="__codelineno-0-921" name="__codelineno-0-921"></a>
+<a id="__codelineno-0-922" name="__codelineno-0-922"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-923" name="__codelineno-0-923"></a><span class="sd">        Multi-line string in NLTK production-rule notation, optionally</span>
+<a id="__codelineno-0-924" name="__codelineno-0-924"></a><span class="sd">        preceded by a ``# start:`` header.</span>
+<a id="__codelineno-0-925" name="__codelineno-0-925"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-926" name="__codelineno-0-926"></a>    <span class="n">nts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nonterminals</span>
+<a id="__codelineno-0-927" name="__codelineno-0-927"></a>    <span class="n">pcfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_pcfg</span><span class="p">()</span>
+<a id="__codelineno-0-928" name="__codelineno-0-928"></a>    <span class="n">lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-929" name="__codelineno-0-929"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-930" name="__codelineno-0-930"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# start: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-931" name="__codelineno-0-931"></a>    <span class="k">for</span> <span class="n">lhs</span><span class="p">,</span> <span class="n">rules</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rules_by_lhs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-932" name="__codelineno-0-932"></a>        <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-933" name="__codelineno-0-933"></a>        <span class="k">if</span> <span class="n">pcfg</span><span class="p">:</span>
+<a id="__codelineno-0-934" name="__codelineno-0-934"></a>            <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">weight</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">)</span>
+<a id="__codelineno-0-935" name="__codelineno-0-935"></a>        <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">:</span>
+<a id="__codelineno-0-936" name="__codelineno-0-936"></a>            <span class="n">rhs_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="n">sym</span> <span class="k">if</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">nts</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">&#39;&quot;</span> <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span><span class="p">]</span>
+<a id="__codelineno-0-937" name="__codelineno-0-937"></a>            <span class="n">alt</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rhs_tokens</span><span class="p">)</span>
+<a id="__codelineno-0-938" name="__codelineno-0-938"></a>            <span class="k">if</span> <span class="n">pcfg</span><span class="p">:</span>
+<a id="__codelineno-0-939" name="__codelineno-0-939"></a>                <span class="n">alt</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; [</span><span class="si">{</span><span class="n">rule</span><span class="o">.</span><span class="n">weight</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">total</span><span class="si">}</span><span class="s2">]&quot;</span>
+<a id="__codelineno-0-940" name="__codelineno-0-940"></a>            <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">alt</span><span class="p">)</span>
+<a id="__codelineno-0-941" name="__codelineno-0-941"></a>        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lhs</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-942" name="__codelineno-0-942"></a>    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

@@ -746,6 +746,8 @@
       
         
       
+        
+      
     
     
     
@@ -1452,6 +1454,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1656,6 +1662,62 @@
     
   
     sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/dataset/data_source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/dataset/data_cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_cache
   
 
     
@@ -1937,6 +1999,71 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../references/bundle/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bundle
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bundle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2150,12 +2277,14 @@
 </code></pre></div>
 <p><code>results</code> is an <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_results&lt;/span&gt;" href="../../references/evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_results">SR_results</a> object. Inspect individual runs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">dataset_name</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">approach_name</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">best_expr</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">best_error</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">dataset_name</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">approach_name</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">best_expr</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">min_error</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="resampling-data">Resampling data</h2>
-<p>Each benchmark exposes <code>resample()</code> to draw a fresh sample using the same distribution as the original data:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s2">&quot;I.16.6&quot;</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<p>Pass <code>n_samples</code> (and optionally <code>seed</code>) to <code>create_dataset()</code> to draw a fresh sample using the same distribution as the original data:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;I.16.6&quot;</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">y</span>
 </code></pre></div>
+<p>The cache is not modified — only the returned <code>SR_dataset</code> instance contains the new data.</p>
 <p>For SRSD_Feynman, this uses the per-variable sampling objects (log-uniform, linear, integer) defined for each equation.</p>
 <h2 id="using-callbacks">Using callbacks</h2>
 <p>Callbacks attach to the evaluator and fire events during search. Pass them to <code>evaluate_approach()</code>:</p>

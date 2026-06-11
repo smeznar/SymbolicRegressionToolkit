@@ -901,6 +901,8 @@
       
         
       
+        
+      
     
     
     
@@ -1607,6 +1609,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1811,6 +1817,62 @@
     
   
     sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/dataset/data_source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/dataset/data_cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_cache
   
 
     
@@ -2082,6 +2144,71 @@
     </li>
   
 
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../references/bundle/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bundle
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bundle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
             
           </ul>
@@ -2886,7 +3013,7 @@
 <a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
 <a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">()</span>
 </code></pre></div>
-<p><code>constraint_from_dict</code> dispatches via <code>importlib</code>, so any class reachable by its module path is supported automatically.</p>
+<p><code>Constraint.from_dict</code> dispatches via <code>importlib</code>, so any class reachable by its module path is supported automatically.</p>
 <h3 id="scoping">Scoping</h3>
 <p>Set <code>nonterminals</code> and/or <code>rule_names</code> on the class to limit when <code>allows</code> is called. Slots outside scope are accepted unconditionally; <code>update</code> is always called regardless of scope so that global counters stay accurate.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DepthLimitForE</span><span class="p">(</span><span class="n">Constraint</span><span class="p">):</span>

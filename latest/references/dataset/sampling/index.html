@@ -16,7 +16,7 @@
         <link rel="prev" href="../srsd_feynman/">
       
       
-        <link rel="next" href="../../approaches/">
+        <link rel="next" href="../data_source/">
       
       
         
@@ -615,6 +615,8 @@
       
         
           
+        
+      
         
       
         
@@ -1335,6 +1337,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1869,10 +1875,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#SRToolkit.dataset.sampling.sampling_from_dict" class="md-nav__link">
+  <a href="#SRToolkit.dataset.sampling.sampler_from_dict" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;sampling_from_dict
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;sampler_from_dict
       
     </span>
   </a>
@@ -1888,6 +1894,62 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_cache
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2151,6 +2213,71 @@
     </li>
   
 
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../bundle/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bundle
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bundle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
             
           </ul>
@@ -2527,10 +2654,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#SRToolkit.dataset.sampling.sampling_from_dict" class="md-nav__link">
+  <a href="#SRToolkit.dataset.sampling.sampler_from_dict" class="md-nav__link">
     <span class="md-ellipsis">
       
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;sampling_from_dict
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;sampler_from_dict
       
     </span>
   </a>
@@ -2638,7 +2765,7 @@
   &lt;/span&gt;" href="#SRToolkit.dataset.sampling.Sampler.to_dict">to_dict</a> must include a <code>"sampler_class"</code>
 key holding the fully-qualified class path (e.g.
 <code>"SRToolkit.dataset.sampling.UniformSampling"</code>), so that
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;sampling_from_dict&lt;/span&gt;" href="#SRToolkit.dataset.sampling.sampling_from_dict">sampling_from_dict</a> can reconstruct any
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;sampler_from_dict&lt;/span&gt;" href="#SRToolkit.dataset.sampling.sampler_from_dict">sampler_from_dict</a> can reconstruct any
 subclass — including user-defined ones — via <code>importlib</code> without a central registry.</p>
 
 
@@ -2684,11 +2811,11 @@ subclass — including user-defined ones — via <code>importlib</code> without 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-94">94</a></span>
-<span class="normal"><a href="#__codelineno-0-95">95</a></span>
-<span class="normal"><a href="#__codelineno-0-96">96</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Draw ``sample_size`` samples and return them as a 1-D numpy array.&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-96">96</a></span>
+<span class="normal"><a href="#__codelineno-0-97">97</a></span>
+<span class="normal"><a href="#__codelineno-0-98">98</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="nd">@abstractmethod</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Draw ``sample_size`` samples and return them as a 1-D numpy array.&quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2719,21 +2846,21 @@ fully-qualified class path of this sampler.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-100">100</a></span>
 <span class="normal"><a href="#__codelineno-0-101">101</a></span>
 <span class="normal"><a href="#__codelineno-0-102">102</a></span>
 <span class="normal"><a href="#__codelineno-0-103">103</a></span>
 <span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    Serialize this sampler to a JSON-compatible dictionary.</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">    The returned dict **must** include ``&quot;sampler_class&quot;`` set to the</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="sd">    fully-qualified class path of this sampler.</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    &quot;&quot;&quot;</span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="nd">@abstractmethod</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">    Serialize this sampler to a JSON-compatible dictionary.</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    The returned dict **must** include ``&quot;sampler_class&quot;`` set to the</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="sd">    fully-qualified class path of this sampler.</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    &quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2768,13 +2895,13 @@ fully-qualified class path of this sampler.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Sampler&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Reconstruct a sampler from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict].&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span>
+<span class="normal"><a href="#__codelineno-0-112">112</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="nd">@abstractmethod</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Sampler&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Reconstruct a sampler from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict].&quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2899,17 +3026,17 @@ optionally drawing from positive and/or negative ranges.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-127">127</a></span>
-<span class="normal"><a href="#__codelineno-0-128">128</a></span>
-<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-129">129</a></span>
 <span class="normal"><a href="#__codelineno-0-130">130</a></span>
 <span class="normal"><a href="#__codelineno-0-131">131</a></span>
-<span class="normal"><a href="#__codelineno-0-132">132</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">uses_positive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">uses_negative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span> <span class="o">=</span> <span class="n">min_value</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span> <span class="o">=</span> <span class="n">max_value</span>
-<a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="k">assert</span> <span class="n">uses_positive</span> <span class="ow">or</span> <span class="n">uses_negative</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span> <span class="o">=</span> <span class="n">uses_positive</span>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span> <span class="o">=</span> <span class="n">uses_negative</span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">uses_positive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">uses_negative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span> <span class="o">=</span> <span class="n">min_value</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span> <span class="o">=</span> <span class="n">max_value</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="k">assert</span> <span class="n">uses_positive</span> <span class="ow">or</span> <span class="n">uses_negative</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span> <span class="o">=</span> <span class="n">uses_positive</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span> <span class="o">=</span> <span class="n">uses_negative</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2944,23 +3071,23 @@ optionally drawing from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-145">145</a></span>
-<span class="normal"><a href="#__codelineno-0-146">146</a></span>
-<span class="normal"><a href="#__codelineno-0-147">147</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-147">147</a></span>
 <span class="normal"><a href="#__codelineno-0-148">148</a></span>
 <span class="normal"><a href="#__codelineno-0-149">149</a></span>
 <span class="normal"><a href="#__codelineno-0-150">150</a></span>
 <span class="normal"><a href="#__codelineno-0-151">151</a></span>
 <span class="normal"><a href="#__codelineno-0-152">152</a></span>
-<span class="normal"><a href="#__codelineno-0-153">153</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize this sampler to a JSON-compatible dictionary.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>        <span class="s2">&quot;sampler_class&quot;</span><span class="p">:</span> <span class="s2">&quot;SRToolkit.dataset.sampling.LogUniformSampling&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="s2">&quot;min_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span><span class="p">,</span>
-<a id="__codelineno-0-150" name="__codelineno-0-150"></a>        <span class="s2">&quot;max_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span><span class="p">,</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a>        <span class="s2">&quot;uses_positive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span><span class="p">,</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a>        <span class="s2">&quot;uses_negative&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span><span class="p">,</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize this sampler to a JSON-compatible dictionary.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>        <span class="s2">&quot;sampler_class&quot;</span><span class="p">:</span> <span class="s2">&quot;SRToolkit.dataset.sampling.LogUniformSampling&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>        <span class="s2">&quot;min_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span><span class="p">,</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>        <span class="s2">&quot;max_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span><span class="p">,</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>        <span class="s2">&quot;uses_positive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span><span class="p">,</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>        <span class="s2">&quot;uses_negative&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span><span class="p">,</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2989,13 +3116,13 @@ optionally drawing from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-155">155</a></span>
-<span class="normal"><a href="#__codelineno-0-156">156</a></span>
-<span class="normal"><a href="#__codelineno-0-157">157</a></span>
-<span class="normal"><a href="#__codelineno-0-158">158</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LogUniformSampling&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Deserialize a [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.LogUniformSampling.to_dict].&quot;&quot;&quot;</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;min_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;max_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_positive&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_negative&quot;</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;LogUniformSampling&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Deserialize a [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.LogUniformSampling.to_dict].&quot;&quot;&quot;</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;min_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;max_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_positive&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_negative&quot;</span><span class="p">])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3120,17 +3247,17 @@ and/or negative ranges.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-175">175</a></span>
-<span class="normal"><a href="#__codelineno-0-176">176</a></span>
-<span class="normal"><a href="#__codelineno-0-177">177</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-177">177</a></span>
 <span class="normal"><a href="#__codelineno-0-178">178</a></span>
 <span class="normal"><a href="#__codelineno-0-179">179</a></span>
-<span class="normal"><a href="#__codelineno-0-180">180</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">uses_positive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">uses_negative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span> <span class="o">=</span> <span class="n">min_value</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span> <span class="o">=</span> <span class="n">max_value</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="k">assert</span> <span class="n">uses_positive</span> <span class="ow">or</span> <span class="n">uses_negative</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span> <span class="o">=</span> <span class="n">uses_positive</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span> <span class="o">=</span> <span class="n">uses_negative</span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">uses_positive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">uses_negative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span> <span class="o">=</span> <span class="n">min_value</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span> <span class="o">=</span> <span class="n">max_value</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="k">assert</span> <span class="n">uses_positive</span> <span class="ow">or</span> <span class="n">uses_negative</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span> <span class="o">=</span> <span class="n">uses_positive</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span> <span class="o">=</span> <span class="n">uses_negative</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3165,23 +3292,23 @@ and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-193">193</a></span>
-<span class="normal"><a href="#__codelineno-0-194">194</a></span>
-<span class="normal"><a href="#__codelineno-0-195">195</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-195">195</a></span>
 <span class="normal"><a href="#__codelineno-0-196">196</a></span>
 <span class="normal"><a href="#__codelineno-0-197">197</a></span>
 <span class="normal"><a href="#__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
-<span class="normal"><a href="#__codelineno-0-201">201</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize this sampler to a JSON-compatible dictionary.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>        <span class="s2">&quot;sampler_class&quot;</span><span class="p">:</span> <span class="s2">&quot;SRToolkit.dataset.sampling.UniformSampling&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="s2">&quot;min_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span><span class="p">,</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>        <span class="s2">&quot;max_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span><span class="p">,</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="s2">&quot;uses_positive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span><span class="p">,</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="s2">&quot;uses_negative&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span><span class="p">,</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize this sampler to a JSON-compatible dictionary.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>        <span class="s2">&quot;sampler_class&quot;</span><span class="p">:</span> <span class="s2">&quot;SRToolkit.dataset.sampling.UniformSampling&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="s2">&quot;min_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span><span class="p">,</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="s2">&quot;max_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span><span class="p">,</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>        <span class="s2">&quot;uses_positive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span><span class="p">,</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="s2">&quot;uses_negative&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span><span class="p">,</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3210,13 +3337,13 @@ and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-203">203</a></span>
-<span class="normal"><a href="#__codelineno-0-204">204</a></span>
-<span class="normal"><a href="#__codelineno-0-205">205</a></span>
-<span class="normal"><a href="#__codelineno-0-206">206</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;UniformSampling&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Deserialize a [UniformSampling][SRToolkit.dataset.sampling.UniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.UniformSampling.to_dict].&quot;&quot;&quot;</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;min_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;max_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_positive&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_negative&quot;</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-205">205</a></span>
+<span class="normal"><a href="#__codelineno-0-206">206</a></span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span>
+<span class="normal"><a href="#__codelineno-0-208">208</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;UniformSampling&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Deserialize a [UniformSampling][SRToolkit.dataset.sampling.UniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.UniformSampling.to_dict].&quot;&quot;&quot;</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;min_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;max_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_positive&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_negative&quot;</span><span class="p">])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3341,17 +3468,17 @@ from positive and/or negative ranges.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-225">225</a></span>
 <span class="normal"><a href="#__codelineno-0-226">226</a></span>
 <span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_value</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_value</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">uses_positive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">uses_negative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">min_value</span><span class="p">)</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>    <span class="k">assert</span> <span class="n">uses_positive</span> <span class="ow">or</span> <span class="n">uses_negative</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span> <span class="o">=</span> <span class="n">uses_positive</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span> <span class="o">=</span> <span class="n">uses_negative</span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">min_value</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_value</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">uses_positive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">uses_negative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">min_value</span><span class="p">)</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>    <span class="k">assert</span> <span class="n">uses_positive</span> <span class="ow">or</span> <span class="n">uses_negative</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span> <span class="o">=</span> <span class="n">uses_positive</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span> <span class="o">=</span> <span class="n">uses_negative</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3386,23 +3513,23 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-243">243</a></span>
 <span class="normal"><a href="#__codelineno-0-244">244</a></span>
 <span class="normal"><a href="#__codelineno-0-245">245</a></span>
 <span class="normal"><a href="#__codelineno-0-246">246</a></span>
 <span class="normal"><a href="#__codelineno-0-247">247</a></span>
 <span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize this sampler to a JSON-compatible dictionary.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="s2">&quot;sampler_class&quot;</span><span class="p">:</span> <span class="s2">&quot;SRToolkit.dataset.sampling.IntegerUniformSampling&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="s2">&quot;min_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span><span class="p">,</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="s2">&quot;max_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span><span class="p">,</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="s2">&quot;uses_positive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span><span class="p">,</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="s2">&quot;uses_negative&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span><span class="p">,</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Serialize this sampler to a JSON-compatible dictionary.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="s2">&quot;sampler_class&quot;</span><span class="p">:</span> <span class="s2">&quot;SRToolkit.dataset.sampling.IntegerUniformSampling&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="s2">&quot;min_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_value</span><span class="p">,</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="s2">&quot;max_value&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_value</span><span class="p">,</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="s2">&quot;uses_positive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_positive</span><span class="p">,</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="s2">&quot;uses_negative&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">uses_negative</span><span class="p">,</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3431,13 +3558,13 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#__codelineno-0-254">254</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;IntegerUniformSampling&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Deserialize a [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.IntegerUniformSampling.to_dict].&quot;&quot;&quot;</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;min_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;max_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_positive&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_negative&quot;</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;IntegerUniformSampling&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Deserialize a [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.IntegerUniformSampling.to_dict].&quot;&quot;&quot;</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;min_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;max_value&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_positive&quot;</span><span class="p">],</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;uses_negative&quot;</span><span class="p">])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3471,9 +3598,7 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-11">11</a></span>
-<span class="normal"><a href="#__codelineno-0-12">12</a></span>
-<span class="normal"><a href="#__codelineno-0-13">13</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-13">13</a></span>
 <span class="normal"><a href="#__codelineno-0-14">14</a></span>
 <span class="normal"><a href="#__codelineno-0-15">15</a></span>
 <span class="normal"><a href="#__codelineno-0-16">16</a></span>
@@ -3481,17 +3606,19 @@ from positive and/or negative ranges.</p>
 <span class="normal"><a href="#__codelineno-0-18">18</a></span>
 <span class="normal"><a href="#__codelineno-0-19">19</a></span>
 <span class="normal"><a href="#__codelineno-0-20">20</a></span>
-<span class="normal"><a href="#__codelineno-0-21">21</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">log_uniform_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">1.0e-1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0e1</span><span class="p">):</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from log-uniform distribution over both positive and negative ranges.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="n">num_positives</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14"></a>    <span class="n">num_negatives</span> <span class="o">=</span> <span class="n">sample_size</span> <span class="o">-</span> <span class="n">num_positives</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15"></a>    <span class="n">log10_min</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">min_value</span><span class="p">)</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16"></a>    <span class="n">log10_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17"></a>    <span class="n">pos_samples</span> <span class="o">=</span> <span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_positives</span><span class="p">)</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18"></a>    <span class="n">neg_samples</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_negatives</span><span class="p">))</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="n">all_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">pos_samples</span><span class="p">,</span> <span class="n">neg_samples</span><span class="p">])</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">all_samples</span><span class="p">)</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21"></a>    <span class="k">return</span> <span class="n">all_samples</span>
+<span class="normal"><a href="#__codelineno-0-21">21</a></span>
+<span class="normal"><a href="#__codelineno-0-22">22</a></span>
+<span class="normal"><a href="#__codelineno-0-23">23</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">log_uniform_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">1.0e-1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0e1</span><span class="p">):</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from log-uniform distribution over both positive and negative ranges.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15"></a>    <span class="n">num_positives</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16"></a>    <span class="n">num_negatives</span> <span class="o">=</span> <span class="n">sample_size</span> <span class="o">-</span> <span class="n">num_positives</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17"></a>    <span class="n">log10_min</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">min_value</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18"></a>    <span class="n">log10_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a>    <span class="n">pos_samples</span> <span class="o">=</span> <span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_positives</span><span class="p">)</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">neg_samples</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_negatives</span><span class="p">))</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21"></a>    <span class="n">all_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">pos_samples</span><span class="p">,</span> <span class="n">neg_samples</span><span class="p">])</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">all_samples</span><span class="p">)</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="k">return</span> <span class="n">all_samples</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3516,15 +3643,15 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-24">24</a></span>
-<span class="normal"><a href="#__codelineno-0-25">25</a></span>
-<span class="normal"><a href="#__codelineno-0-26">26</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-26">26</a></span>
 <span class="normal"><a href="#__codelineno-0-27">27</a></span>
-<span class="normal"><a href="#__codelineno-0-28">28</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="k">def</span><span class="w"> </span><span class="nf">log_uniform_positive_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">1.0e-1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0e1</span><span class="p">):</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from log-uniform distribution over the positive range.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="n">log10_min</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">min_value</span><span class="p">)</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="n">log10_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="k">return</span> <span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-28">28</a></span>
+<span class="normal"><a href="#__codelineno-0-29">29</a></span>
+<span class="normal"><a href="#__codelineno-0-30">30</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="k">def</span><span class="w"> </span><span class="nf">log_uniform_positive_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">1.0e-1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0e1</span><span class="p">):</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from log-uniform distribution over the positive range.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="n">log10_min</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">min_value</span><span class="p">)</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="n">log10_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="k">return</span> <span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3549,15 +3676,15 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-31">31</a></span>
-<span class="normal"><a href="#__codelineno-0-32">32</a></span>
-<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-33">33</a></span>
 <span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="k">def</span><span class="w"> </span><span class="nf">log_uniform_negative_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">1.0e-1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0e1</span><span class="p">):</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from log-uniform distribution over the negative range.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="n">log10_min</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">min_value</span><span class="p">))</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="n">log10_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">max_value</span><span class="p">))</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">))</span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="k">def</span><span class="w"> </span><span class="nf">log_uniform_negative_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">1.0e-1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0e1</span><span class="p">):</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from log-uniform distribution over the negative range.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="n">log10_min</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">min_value</span><span class="p">))</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="n">log10_max</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">max_value</span><span class="p">))</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="mf">10.0</span> <span class="o">**</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">log10_min</span><span class="p">,</span> <span class="n">log10_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3582,23 +3709,23 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-38">38</a></span>
-<span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
 <span class="normal"><a href="#__codelineno-0-42">42</a></span>
 <span class="normal"><a href="#__codelineno-0-43">43</a></span>
 <span class="normal"><a href="#__codelineno-0-44">44</a></span>
 <span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="k">def</span><span class="w"> </span><span class="nf">uniform_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from linear uniform distribution over both positive and negative ranges.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="n">num_positives</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="n">num_negatives</span> <span class="o">=</span> <span class="n">sample_size</span> <span class="o">-</span> <span class="n">num_positives</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="n">pos_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_positives</span><span class="p">)</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="n">neg_samples</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_negatives</span><span class="p">)</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="n">all_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">pos_samples</span><span class="p">,</span> <span class="n">neg_samples</span><span class="p">])</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">all_samples</span><span class="p">)</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="k">return</span> <span class="n">all_samples</span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="k">def</span><span class="w"> </span><span class="nf">uniform_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from linear uniform distribution over both positive and negative ranges.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="n">num_positives</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="n">num_negatives</span> <span class="o">=</span> <span class="n">sample_size</span> <span class="o">-</span> <span class="n">num_positives</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="n">pos_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_positives</span><span class="p">)</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="n">neg_samples</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_negatives</span><span class="p">)</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="n">all_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">pos_samples</span><span class="p">,</span> <span class="n">neg_samples</span><span class="p">])</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">all_samples</span><span class="p">)</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="k">return</span> <span class="n">all_samples</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3623,11 +3750,11 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-49">49</a></span>
-<span class="normal"><a href="#__codelineno-0-50">50</a></span>
-<span class="normal"><a href="#__codelineno-0-51">51</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="k">def</span><span class="w"> </span><span class="nf">uniform_positive_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from linear uniform distribution over the positive range.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="k">def</span><span class="w"> </span><span class="nf">uniform_positive_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from linear uniform distribution over the positive range.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3652,11 +3779,11 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span>
-<span class="normal"><a href="#__codelineno-0-56">56</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="k">def</span><span class="w"> </span><span class="nf">uniform_negative_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from linear uniform distribution over the negative range.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a>    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="k">def</span><span class="w"> </span><span class="nf">uniform_negative_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample from linear uniform distribution over the negative range.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3681,23 +3808,23 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-61">61</a></span>
 <span class="normal"><a href="#__codelineno-0-62">62</a></span>
 <span class="normal"><a href="#__codelineno-0-63">63</a></span>
 <span class="normal"><a href="#__codelineno-0-64">64</a></span>
 <span class="normal"><a href="#__codelineno-0-65">65</a></span>
 <span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="k">def</span><span class="w"> </span><span class="nf">integer_uniform_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample integers from both positive and negative ranges.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="n">num_positives</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="n">num_negatives</span> <span class="o">=</span> <span class="n">sample_size</span> <span class="o">-</span> <span class="n">num_positives</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">pos_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_positives</span><span class="p">)</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">neg_samples</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_negatives</span><span class="p">)</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="n">all_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">pos_samples</span><span class="p">,</span> <span class="n">neg_samples</span><span class="p">])</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">all_samples</span><span class="p">)</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="k">return</span> <span class="n">all_samples</span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="k">def</span><span class="w"> </span><span class="nf">integer_uniform_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample integers from both positive and negative ranges.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">num_positives</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">num_negatives</span> <span class="o">=</span> <span class="n">sample_size</span> <span class="o">-</span> <span class="n">num_positives</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="n">pos_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_positives</span><span class="p">)</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="n">neg_samples</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">num_negatives</span><span class="p">)</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="n">all_samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">pos_samples</span><span class="p">,</span> <span class="n">neg_samples</span><span class="p">])</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">all_samples</span><span class="p">)</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="k">return</span> <span class="n">all_samples</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3722,11 +3849,11 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="k">def</span><span class="w"> </span><span class="nf">integer_uniform_positive_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample integers from the positive range.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="k">def</span><span class="w"> </span><span class="nf">integer_uniform_positive_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample integers from the positive range.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3751,11 +3878,11 @@ from positive and/or negative ranges.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="k">def</span><span class="w"> </span><span class="nf">integer_uniform_negative_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample integers from the negative range.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="k">def</span><span class="w"> </span><span class="nf">integer_uniform_negative_sampling</span><span class="p">(</span><span class="n">sample_size</span><span class="p">,</span> <span class="n">min_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sample integers from the negative range.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">min_value</span><span class="p">,</span> <span class="n">max_value</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">sample_size</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3765,12 +3892,12 @@ from positive and/or negative ranges.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="SRToolkit.dataset.sampling.sampling_from_dict" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">sampling_from_dict</span>
+<h3 id="SRToolkit.dataset.sampling.sampler_from_dict" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">sampler_from_dict</span>
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sampling_from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sampler</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sampler_from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sampler</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3885,9 +4012,7 @@ user-defined <a class="autorefs autorefs-internal" title="&lt;code class=&quot;d
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sampling.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-259">259</a></span>
 <span class="normal"><a href="#__codelineno-0-260">260</a></span>
 <span class="normal"><a href="#__codelineno-0-261">261</a></span>
 <span class="normal"><a href="#__codelineno-0-262">262</a></span>
@@ -3906,28 +4031,48 @@ user-defined <a class="autorefs autorefs-internal" title="&lt;code class=&quot;d
 <span class="normal"><a href="#__codelineno-0-275">275</a></span>
 <span class="normal"><a href="#__codelineno-0-276">276</a></span>
 <span class="normal"><a href="#__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#__codelineno-0-278">278</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="k">def</span><span class="w"> </span><span class="nf">sampling_from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sampler</span><span class="p">:</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">    Deserialize a sampler from a dictionary produced by its [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] method.</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    Uses ``importlib`` to load the class from the ``&quot;sampler_class&quot;`` key, so any</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">    user-defined [Sampler][SRToolkit.dataset.sampling.Sampler] subclass round-trips without a central registry.</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">        d: Dictionary with a ``&quot;sampler_class&quot;`` key (fully-qualified class path, e.g.</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">            ``&quot;SRToolkit.dataset.sampling.UniformSampling&quot;``) and the sampler&#39;s parameters.</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">        A reconstructed [Sampler][SRToolkit.dataset.sampling.Sampler] instance.</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">        KeyError: If ``&quot;sampler_class&quot;`` is missing from ``d``.</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">        ImportError: If the module cannot be imported.</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">        AttributeError: If the class cannot be found in the module.</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>    <span class="n">module_path</span><span class="p">,</span> <span class="n">cls_name</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;sampler_class&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">),</span> <span class="n">cls_name</span><span class="p">)</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="k">def</span><span class="w"> </span><span class="nf">sampler_from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sampler</span><span class="p">:</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    Deserialize a sampler from a dictionary produced by its [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] method.</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">    Uses ``importlib`` to load the class from the ``&quot;sampler_class&quot;`` key, so any</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    user-defined [Sampler][SRToolkit.dataset.sampling.Sampler] subclass round-trips without a central registry.</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">        d: Dictionary with a ``&quot;sampler_class&quot;`` key (fully-qualified class path, e.g.</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">            ``&quot;SRToolkit.dataset.sampling.UniformSampling&quot;``) and the sampler&#39;s parameters.</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">        A reconstructed [Sampler][SRToolkit.dataset.sampling.Sampler] instance.</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">        KeyError: If ``&quot;sampler_class&quot;`` is missing from ``d``.</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">        ImportError: If the module cannot be imported.</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">        AttributeError: If the class cannot be found in the module.</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">_auto_bind</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">class_path</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;sampler_class&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="n">module_path</span><span class="p">,</span> <span class="n">cls_name</span> <span class="o">=</span> <span class="n">class_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="bp">cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">),</span> <span class="n">cls_name</span><span class="p">)</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="sa">f</span><span class="s2">&quot;Cannot import sampler class </span><span class="si">{</span><span class="n">class_path</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>            <span class="s2">&quot;If this is a bundle class, install the bundle first. &quot;</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="s2">&quot;If the config has no &#39;_bundle&#39; key, call bind_config(config) manually.&quot;</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

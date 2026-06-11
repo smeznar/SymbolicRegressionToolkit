@@ -623,6 +623,8 @@
       
         
       
+        
+      
     
     
     
@@ -1329,6 +1331,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1533,6 +1539,62 @@
     
   
     sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/dataset/data_source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/dataset/data_cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_cache
   
 
     
@@ -1804,6 +1866,71 @@
     </li>
   
 
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../references/bundle/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bundle
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bundle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
             
           </ul>
@@ -2125,7 +2252,11 @@
 <li>Added grammars (CFG, PCFG) and the ability to add constraints to them.</li>
 <li>Added some default constraints that work as built-ins and reference implementations</li>
 <li>Added guides to the documentation</li>
-<li>Added tests for all scripts</li>
+<li>Added some tests</li>
+<li>Reworked how sharing code/benchmark works:</li>
+<li>Code is shared through bundles, which can be installed and are directly usable after</li>
+<li>Datasets/benchmarks are versioned and can be shared via .zip files, of through configs implementing DataSources</li>
+<li>Configs should be shared directly and should be run through pack, so they are directly usable</li>
 </ul>
 <h3 id="symbolicregressiontoolkit-150-2026-04-14">SymbolicRegressionToolkit-1.5.0 (2026-04-14)</h3>
 <ul>

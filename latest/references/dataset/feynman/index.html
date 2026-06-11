@@ -627,6 +627,8 @@
       
         
       
+        
+      
     
     
     
@@ -1335,6 +1337,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1627,6 +1633,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_cache
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1895,6 +1957,71 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../bundle/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bundle
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bundle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2075,7 +2202,7 @@
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Feynman</span><span class="p">(</span><span class="n">dataset_directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">user_data_dir</span><span class="p">(</span><span class="s1">&#39;SRToolkit&#39;</span><span class="p">),</span> <span class="s1">&#39;feynman&#39;</span><span class="p">),</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span> <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Feynman</span><span class="p">(</span><span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span> <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2116,23 +2243,6 @@ samplers using <code>n_samples</code> points and the given <code>seed</code>.</p
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>dataset_directory</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Directory where dataset files are stored or will be downloaded to.
-Defaults to the platform-appropriate user data directory (e.g. <code>~/.local/share/SRToolkit/feynman</code> on Linux).</p>
-              </div>
-            </td>
-            <td>
-                  <code><span title="os.path.join">join</span>(<span title="platformdirs.user_data_dir">user_data_dir</span>(&#39;SRToolkit&#39;), &#39;feynman&#39;)</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
                 <code>n_samples</code>
             </td>
             <td>
@@ -2140,8 +2250,8 @@ Defaults to the platform-appropriate user data directory (e.g. <code>~/.local/sh
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Number of samples to generate per dataset when falling back to sampler-based
-data generation (i.e. when the download fails or <code>force_generate=True</code>). Defaults to <code>10000</code>.</p>
+                <p>Number of samples to generate per dataset when <code>force_generate=True</code>
+(sampler-based data generation). Defaults to <code>10000</code>.</p>
               </div>
             </td>
             <td>
@@ -2173,8 +2283,8 @@ data generation (i.e. when the download fails or <code>force_generate=True</code
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If <code>True</code>, skip downloading/loading pre-generated data and always
-generate fresh data from samplers. Defaults to <code>False</code>.</p>
+                <p>If <code>True</code>, generate fresh data from the stored samplers instead of
+downloading the pre-generated data. Defaults to <code>False</code>.</p>
               </div>
             </td>
             <td>
@@ -2193,7 +2303,9 @@ generate fresh data from samplers. Defaults to <code>False</code>.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/feynman.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-44">44</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
 <span class="normal"><a href="#__codelineno-0-45">45</a></span>
 <span class="normal"><a href="#__codelineno-0-46">46</a></span>
 <span class="normal"><a href="#__codelineno-0-47">47</a></span>
@@ -2201,21 +2313,17 @@ generate fresh data from samplers. Defaults to <code>False</code>.</p>
 <span class="normal"><a href="#__codelineno-0-49">49</a></span>
 <span class="normal"><a href="#__codelineno-0-50">50</a></span>
 <span class="normal"><a href="#__codelineno-0-51">51</a></span>
-<span class="normal"><a href="#__codelineno-0-52">52</a></span>
-<span class="normal"><a href="#__codelineno-0-53">53</a></span>
-<span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="n">dataset_directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">user_data_dir</span><span class="p">(</span><span class="s2">&quot;SRToolkit&quot;</span><span class="p">),</span> <span class="s2">&quot;feynman&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="p">):</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="n">dataset_directory</span><span class="p">)</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="p">):</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
