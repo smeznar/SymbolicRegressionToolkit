@@ -589,6 +589,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#saving-loading-and-sharing-a-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saving, loading, and sharing a grid
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2211,6 +2222,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#saving-loading-and-sharing-a-grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saving, loading, and sharing a grid
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2257,9 +2279,11 @@
 </code></pre></div>
 <p>Results land at <code>results_dir/{dataset}/{approach}/exp_{seed}.json</code>. Re-running never overwrites completed jobs.</p>
 <h2 id="adapting-models">Adapting models</h2>
-<p>For approaches with <code>adaptation_scope="once"</code> (like EDHiE), call <code>adapt_if_missing()</code> before creating jobs. It adapts each (approach, dataset) pair whose state file is absent and saves it to the path given in <code>adapted_states</code>:</p>
+<p>For approaches with <code>adaptation_scope="once"</code> (like EDHiE), the state must be adapted once per (approach, dataset) pair before the experiments run. For a local run, call <code>adapt_if_missing()</code> — it adapts every pair whose state file is absent and saves it to the path given in <code>adapted_states</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">adapt_if_missing</span><span class="p">()</span>
 </code></pre></div>
+<p>When several datasets share one <code>state_path</code> (as in the EDHiE example above, where adaptation is per symbol space rather than per dataset), that path is adapted <strong>once</strong> — on the first dataset listed for it — and the remaining datasets reuse the result. An informational warning lists the shared paths so an accidental collision is easy to spot; if adaptation should differ per dataset, give each dataset a distinct <code>state_path</code>.</p>
+<p>For a cluster run you don't need this: <code>save_commands</code> emits one parallel-safe adapt command per pair into a separate prepare file (see below).</p>
 <h2 id="running-jobs-locally">Running jobs locally</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">create_jobs</span><span class="p">():</span>   <span class="c1"># skips already-completed jobs by default</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">job</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
@@ -2268,16 +2292,23 @@
 <p>For larger experiments, write a commands file and run it with GNU Parallel or a SLURM array:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">save_commands</span><span class="p">(</span><span class="s2">&quot;results/feynman_run/commands.sh&quot;</span><span class="p">)</span>
 </code></pre></div>
-<p>Each line is a self-contained CLI call:</p>
+<p><code>save_commands</code> writes the grid to <code>results_dir/grid.json</code> and <strong>materialises every
+dataset's data into the cache once, in this process</strong> — so data is fetched a single time
+on the machine writing the commands (typically the only node with network access on a
+cluster), and the parallel workers only read it. It then emits one self-contained CLI call
+per job, each referencing that single file plus the identifiers needed to rebuild the job:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>-m<span class="w"> </span>SRToolkit.experiments<span class="w"> </span>run_job<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--dataset<span class="w"> </span>results/feynman_run/_datasets/I.12.1.json<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span>--approach<span class="w"> </span>results/feynman_run/_approaches/ProGED_config.json<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span>--info<span class="w">    </span>results/feynman_run/I.12.1/ProGED/info_0.json
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--grid<span class="w"> </span>results/feynman_run/grid.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span>--dataset<span class="w"> </span>I.12.1<span class="w"> </span>--approach<span class="w"> </span>ProGED<span class="w"> </span>--seed<span class="w"> </span><span class="m">0</span>
 </code></pre></div>
-<p>Run with GNU Parallel:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>cat<span class="w"> </span>results/feynman_run/commands.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>parallel<span class="w"> </span>-j<span class="w"> </span><span class="m">8</span>
+<p>If any <code>adaptation_scope="once"</code> approach still needs state, a sibling <code>prepare_commands.sh</code>
+is written too, with one independent adapt command per (approach, dataset) pair. <strong>Run the
+prepare file to completion first, then the experiments file</strong> — a platform-agnostic two
+phases, no scheduler-specific dependencies needed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>cat<span class="w"> </span>results/feynman_run/prepare_commands.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>parallel<span class="w"> </span>-j<span class="w"> </span><span class="m">8</span><span class="w">   </span><span class="c1"># only if it exists</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>cat<span class="w"> </span>results/feynman_run/commands.sh<span class="w">        </span><span class="p">|</span><span class="w"> </span>parallel<span class="w"> </span>-j<span class="w"> </span><span class="m">8</span>
 </code></pre></div>
-<p>Or submit to SLURM:</p>
+<p>Or submit each phase to SLURM (the second array depending on the first):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sbatch<span class="w"> </span>--array<span class="o">=</span><span class="m">1</span>-<span class="k">$(</span>wc<span class="w"> </span>-l<span class="w"> </span>&lt;<span class="w"> </span>commands.sh<span class="k">)</span><span class="w"> </span>run_array.sh
 </code></pre></div>
 <h2 id="tracking-progress">Tracking progress</h2>
@@ -2289,12 +2320,84 @@
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>I.12.1           5/5      3/5
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>I.12.2           2/5      0/5
 </code></pre></div>
-<h2 id="loading-results">Loading results</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">load_results</span><span class="p">(</span><span class="s2">&quot;I.12.1&quot;</span><span class="p">,</span> <span class="s2">&quot;ProGED&quot;</span><span class="p">)</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">best_expr</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">min_error</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
+<p>On a cluster you can print the same table from the shell without opening Python:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>-m<span class="w"> </span>SRToolkit.experiments<span class="w"> </span>progress<span class="w"> </span>--grid<span class="w"> </span>results/feynman_run/grid.json
 </code></pre></div>
+<h2 id="loading-results">Loading results</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">load_results</span><span class="p">(</span><span class="s2">&quot;I.12.1&quot;</span><span class="p">,</span> <span class="s2">&quot;ProGED&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">best_expr</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">min_error</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="saving-loading-and-sharing-a-grid">Saving, loading, and sharing a grid</h2>
+<p>A grid serialises three different ways, each for a different audience:</p>
+<table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Call</th>
+<th>Produces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Resume your own run in place</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.save">save</a> / <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.load">load</a></td>
+<td>one <code>results_dir/grid.json</code> (recipe + local <code>adapted_states</code>)</td>
+</tr>
+<tr>
+<td>Hand someone the recipe</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.to_dict">to_dict</a> / <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_dict">from_dict</a></td>
+<td>one JSON dict, no local paths</td>
+</tr>
+<tr>
+<td>Hand someone everything</td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;export&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.export">export</a> / <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_export&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_export">from_export</a></td>
+<td>one <code>.zip</code>: recipe + bundled code + unreachable data + <code>MANIFEST.md</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>save()</code> writes a single file and <code>load()</code> reads it back, re-anchoring <code>results_dir</code> to
+wherever the file currently lives — so a run directory can be moved or mounted elsewhere and
+still resumes correctly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>                                   <span class="c1"># → results/feynman_run/grid.json</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/feynman_run/grid.json&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>To share the <em>setup</em> without your machine-local paths or results, pass the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.to_dict">to_dict</a> recipe (a plain dict). The recipient
+needs the same datasets reachable (downloaded, regenerated from a seed, or already cached) and
+any custom <code>.srtk</code> bundles installed.</p>
+<p>To share <em>everything</em> in one file, use
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;export&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.export">export</a>, which writes a single <code>.zip</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;share/feynman_run.zip&quot;</span><span class="p">)</span>          <span class="c1"># recipe + data/ + bundles/ + MANIFEST.md</span>
+</code></pre></div>
+<p>It archives only the data the recipient can't reach on their own (<code>null</code>-source and
+seedless-<code>sample</code> datasets), best-effort packs custom classes into <code>bundles/</code>, and writes a
+<code>MANIFEST.md</code> with the exact install/load steps. The recipient loads it in one call —
+<code>from_export</code> imports the bundled data into the cache and extracts any <code>bundles/</code> next to the
+archive (defaulting <code>results_dir</code> to the archive name minus <code>.zip</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_export</span><span class="p">(</span><span class="s2">&quot;share/feynman_run.zip&quot;</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">&quot;my_results&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>If the export carried custom code, install those bundles from the extracted
+<code>&lt;results_dir&gt;/bundles/</code> before running jobs (class binding is deferred to run time, so the
+order of <code>from_export</code> and <code>install</code> doesn't matter — only that install happens first).</p>
+<p>See <a href="../sharing/#sharing-a-complete-experiment">Sharing Custom Implementations</a> for how this
+fits the code / config / data sharing model.</p>
 
 
 

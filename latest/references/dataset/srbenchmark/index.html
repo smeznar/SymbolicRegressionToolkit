@@ -4102,10 +4102,7 @@ the dataset has no samplers defined.</p>
 <span class="normal"><a href="#__codelineno-0-433">433</a></span>
 <span class="normal"><a href="#__codelineno-0-434">434</a></span>
 <span class="normal"><a href="#__codelineno-0-435">435</a></span>
-<span class="normal"><a href="#__codelineno-0-436">436</a></span>
-<span class="normal"><a href="#__codelineno-0-437">437</a></span>
-<span class="normal"><a href="#__codelineno-0-438">438</a></span>
-<span class="normal"><a href="#__codelineno-0-439">439</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_dataset</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_dataset</span><span class="p">(</span>
 <a id="__codelineno-0-381" name="__codelineno-0-381"></a>    <span class="bp">self</span><span class="p">,</span>
 <a id="__codelineno-0-382" name="__codelineno-0-382"></a>    <span class="n">dataset_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 <a id="__codelineno-0-383" name="__codelineno-0-383"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -4155,16 +4152,13 @@ the dataset has no samplers defined.</p>
 <a id="__codelineno-0-427" name="__codelineno-0-427"></a>        <span class="c1"># _create_from_entry may return the benchmark&#39;s stored SR_dataset instance</span>
 <a id="__codelineno-0-428" name="__codelineno-0-428"></a>        <span class="c1"># (for entries added via add_dataset_instance). Copy before mutating X/y so</span>
 <a id="__codelineno-0-429" name="__codelineno-0-429"></a>        <span class="c1"># resampling never corrupts the stored dataset or aliases across callers.</span>
-<a id="__codelineno-0-430" name="__codelineno-0-430"></a>        <span class="c1"># A fresh draw is requested, so the canonical cached data would only be loaded</span>
-<a id="__codelineno-0-431" name="__codelineno-0-431"></a>        <span class="c1"># and immediately overwritten — skip _ensure_data and let the data_source (a</span>
-<a id="__codelineno-0-432" name="__codelineno-0-432"></a>        <span class="c1"># SampleSource for the built-ins) materialise whatever is needed to construct.</span>
-<a id="__codelineno-0-433" name="__codelineno-0-433"></a>        <span class="n">dataset</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_from_entry</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
-<a id="__codelineno-0-434" name="__codelineno-0-434"></a>        <span class="k">return</span> <span class="n">dataset</span><span class="o">.</span><span class="n">resample_inplace</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
-<a id="__codelineno-0-435" name="__codelineno-0-435"></a>
-<a id="__codelineno-0-436" name="__codelineno-0-436"></a>    <span class="c1"># Loading canonical data: give subclasses a chance to prefetch it into the cache</span>
-<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="c1"># (e.g. download a benchmark archive once) before materialisation runs.</span>
-<a id="__codelineno-0-438" name="__codelineno-0-438"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_data</span><span class="p">(</span><span class="n">dataset_name</span><span class="p">)</span>
-<a id="__codelineno-0-439" name="__codelineno-0-439"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_from_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">])</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>        <span class="n">dataset</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_from_entry</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a>        <span class="k">return</span> <span class="n">dataset</span><span class="o">.</span><span class="n">resample_inplace</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>    <span class="c1"># Loading canonical data: materialisation is driven entirely by each dataset&#39;s</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a>    <span class="c1"># ``data_source`` — the built-ins use a FallbackSource that downloads the canonical</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a>    <span class="c1"># archive once and regenerates from samplers only if the download is unavailable.</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_from_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4270,7 +4264,27 @@ the dataset has no samplers defined.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sr_benchmark.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-470">470</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
+<span class="normal"><a href="#__codelineno-0-460">460</a></span>
+<span class="normal"><a href="#__codelineno-0-461">461</a></span>
+<span class="normal"><a href="#__codelineno-0-462">462</a></span>
+<span class="normal"><a href="#__codelineno-0-463">463</a></span>
+<span class="normal"><a href="#__codelineno-0-464">464</a></span>
+<span class="normal"><a href="#__codelineno-0-465">465</a></span>
+<span class="normal"><a href="#__codelineno-0-466">466</a></span>
+<span class="normal"><a href="#__codelineno-0-467">467</a></span>
+<span class="normal"><a href="#__codelineno-0-468">468</a></span>
+<span class="normal"><a href="#__codelineno-0-469">469</a></span>
+<span class="normal"><a href="#__codelineno-0-470">470</a></span>
 <span class="normal"><a href="#__codelineno-0-471">471</a></span>
 <span class="normal"><a href="#__codelineno-0-472">472</a></span>
 <span class="normal"><a href="#__codelineno-0-473">473</a></span>
@@ -4307,84 +4321,64 @@ the dataset has no samplers defined.</p>
 <span class="normal"><a href="#__codelineno-0-504">504</a></span>
 <span class="normal"><a href="#__codelineno-0-505">505</a></span>
 <span class="normal"><a href="#__codelineno-0-506">506</a></span>
-<span class="normal"><a href="#__codelineno-0-507">507</a></span>
-<span class="normal"><a href="#__codelineno-0-508">508</a></span>
-<span class="normal"><a href="#__codelineno-0-509">509</a></span>
-<span class="normal"><a href="#__codelineno-0-510">510</a></span>
-<span class="normal"><a href="#__codelineno-0-511">511</a></span>
-<span class="normal"><a href="#__codelineno-0-512">512</a></span>
-<span class="normal"><a href="#__codelineno-0-513">513</a></span>
-<span class="normal"><a href="#__codelineno-0-514">514</a></span>
-<span class="normal"><a href="#__codelineno-0-515">515</a></span>
-<span class="normal"><a href="#__codelineno-0-516">516</a></span>
-<span class="normal"><a href="#__codelineno-0-517">517</a></span>
-<span class="normal"><a href="#__codelineno-0-518">518</a></span>
-<span class="normal"><a href="#__codelineno-0-519">519</a></span>
-<span class="normal"><a href="#__codelineno-0-520">520</a></span>
-<span class="normal"><a href="#__codelineno-0-521">521</a></span>
-<span class="normal"><a href="#__codelineno-0-522">522</a></span>
-<span class="normal"><a href="#__codelineno-0-523">523</a></span>
-<span class="normal"><a href="#__codelineno-0-524">524</a></span>
-<span class="normal"><a href="#__codelineno-0-525">525</a></span>
-<span class="normal"><a href="#__codelineno-0-526">526</a></span>
-<span class="normal"><a href="#__codelineno-0-527">527</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">num_variables</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="sd">    Lists the available datasets.</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.dataset import Feynman</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">        &gt;&gt;&gt; benchmark = Feynman() # Feynman is a specific instance of SR_benchmark with additional functionality</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">        &gt;&gt;&gt; len(benchmark.list_datasets(num_variables=2, verbose=False))</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">        15</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">        &gt;&gt;&gt; datasets_with_8_vars = benchmark.list_datasets(num_variables=8, verbose=False)</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">        &gt;&gt;&gt; datasets_with_8_vars[0]</span>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="sd">        &#39;II.36.38&#39;</span>
+<span class="normal"><a href="#__codelineno-0-507">507</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-450" name="__codelineno-0-450"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_datasets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">num_variables</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    Lists the available datasets.</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.dataset import Feynman</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a><span class="sd">        &gt;&gt;&gt; benchmark = Feynman() # Feynman is a specific instance of SR_benchmark with additional functionality</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">        &gt;&gt;&gt; len(benchmark.list_datasets(num_variables=2, verbose=False))</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">        15</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="sd">        &gt;&gt;&gt; datasets_with_8_vars = benchmark.list_datasets(num_variables=8, verbose=False)</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">        &gt;&gt;&gt; datasets_with_8_vars[0]</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">        &#39;II.36.38&#39;</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">        verbose: If ``True``, also prints a description of each dataset.</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">        num_variables: If not ``-1``, only return datasets with this many input variables.</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="sd">        A list of dataset names.</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>    <span class="n">datasets</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>        <span class="n">dataset_name</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>        <span class="k">for</span> <span class="n">dataset_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>        <span class="k">if</span> <span class="n">num_variables</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_variables&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">num_variables</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>    <span class="p">]</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>    <span class="n">datasets</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>        <span class="n">datasets</span><span class="p">,</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a>        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="p">(</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_variables&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a>            <span class="n">dataset_name</span><span class="p">,</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a>        <span class="p">),</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a>    <span class="p">)</span>
 <a id="__codelineno-0-482" name="__codelineno-0-482"></a>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a><span class="sd">        verbose: If ``True``, also prints a description of each dataset.</span>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a><span class="sd">        num_variables: If not ``-1``, only return datasets with this many input variables.</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a><span class="sd">        A list of dataset names.</span>
-<a id="__codelineno-0-489" name="__codelineno-0-489"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-490" name="__codelineno-0-490"></a>    <span class="n">datasets</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a>        <span class="n">dataset_name</span>
-<a id="__codelineno-0-492" name="__codelineno-0-492"></a>        <span class="k">for</span> <span class="n">dataset_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span>
-<a id="__codelineno-0-493" name="__codelineno-0-493"></a>        <span class="k">if</span> <span class="n">num_variables</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_variables&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="n">num_variables</span>
-<a id="__codelineno-0-494" name="__codelineno-0-494"></a>    <span class="p">]</span>
-<a id="__codelineno-0-495" name="__codelineno-0-495"></a>    <span class="n">datasets</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-<a id="__codelineno-0-496" name="__codelineno-0-496"></a>        <span class="n">datasets</span><span class="p">,</span>
-<a id="__codelineno-0-497" name="__codelineno-0-497"></a>        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">dataset_name</span><span class="p">:</span> <span class="p">(</span>
-<a id="__codelineno-0-498" name="__codelineno-0-498"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_variables&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span>
-<a id="__codelineno-0-499" name="__codelineno-0-499"></a>            <span class="n">dataset_name</span><span class="p">,</span>
-<a id="__codelineno-0-500" name="__codelineno-0-500"></a>        <span class="p">),</span>
-<a id="__codelineno-0-501" name="__codelineno-0-501"></a>    <span class="p">)</span>
-<a id="__codelineno-0-502" name="__codelineno-0-502"></a>
-<a id="__codelineno-0-503" name="__codelineno-0-503"></a>    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-<a id="__codelineno-0-504" name="__codelineno-0-504"></a>        <span class="n">part1</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-505" name="__codelineno-0-505"></a>        <span class="n">part2</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-506" name="__codelineno-0-506"></a>        <span class="n">part3</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-507" name="__codelineno-0-507"></a>        <span class="n">max_length_1</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-0-508" name="__codelineno-0-508"></a>        <span class="n">max_length_2</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-0-509" name="__codelineno-0-509"></a>        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
-<a id="__codelineno-0-510" name="__codelineno-0-510"></a>            <span class="n">nv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_variables&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-511" name="__codelineno-0-511"></a>            <span class="k">if</span> <span class="n">nv</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-512" name="__codelineno-0-512"></a>                <span class="n">variable_str</span> <span class="o">=</span> <span class="s2">&quot;1 variable&quot;</span>
-<a id="__codelineno-0-513" name="__codelineno-0-513"></a>            <span class="k">elif</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">nv</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-514" name="__codelineno-0-514"></a>                <span class="n">variable_str</span> <span class="o">=</span> <span class="s2">&quot;Amount of variables unknown&quot;</span>
-<a id="__codelineno-0-515" name="__codelineno-0-515"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-516" name="__codelineno-0-516"></a>                <span class="n">variable_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nv</span><span class="si">}</span><span class="s2"> variables&quot;</span>
-<a id="__codelineno-0-517" name="__codelineno-0-517"></a>            <span class="n">part1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-518" name="__codelineno-0-518"></a>            <span class="n">part2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable_str</span><span class="p">)</span>
-<a id="__codelineno-0-519" name="__codelineno-0-519"></a>            <span class="n">part3</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;original_equation&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-520" name="__codelineno-0-520"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">max_length_1</span><span class="p">:</span>
-<a id="__codelineno-0-521" name="__codelineno-0-521"></a>                <span class="n">max_length_1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
-<a id="__codelineno-0-522" name="__codelineno-0-522"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable_str</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_length_2</span><span class="p">:</span>
-<a id="__codelineno-0-523" name="__codelineno-0-523"></a>                <span class="n">max_length_2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable_str</span><span class="p">)</span>
-<a id="__codelineno-0-524" name="__codelineno-0-524"></a>
-<a id="__codelineno-0-525" name="__codelineno-0-525"></a>        <span class="k">for</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">part1</span><span class="p">,</span> <span class="n">part2</span><span class="p">,</span> <span class="n">part3</span><span class="p">):</span>
-<a id="__codelineno-0-526" name="__codelineno-0-526"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">p1</span><span class="si">:</span><span class="s2">&lt;</span><span class="si">{</span><span class="n">max_length_1</span><span class="si">}}</span><span class="s2"> </span><span class="si">{</span><span class="n">p2</span><span class="si">:</span><span class="s2">&lt;</span><span class="si">{</span><span class="n">max_length_2</span><span class="si">}}</span><span class="s2">, Expression: </span><span class="si">{</span><span class="n">p3</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-527" name="__codelineno-0-527"></a>    <span class="k">return</span> <span class="n">datasets</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a>    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a>        <span class="n">part1</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a>        <span class="n">part2</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a>        <span class="n">part3</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>        <span class="n">max_length_1</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>        <span class="n">max_length_2</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>            <span class="n">nv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_variables&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>            <span class="k">if</span> <span class="n">nv</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>                <span class="n">variable_str</span> <span class="o">=</span> <span class="s2">&quot;1 variable&quot;</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a>            <span class="k">elif</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">nv</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a>                <span class="n">variable_str</span> <span class="o">=</span> <span class="s2">&quot;Amount of variables unknown&quot;</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>                <span class="n">variable_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">nv</span><span class="si">}</span><span class="s2"> variables&quot;</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>            <span class="n">part1</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span> <span class="o">+</span> <span class="s2">&quot;:&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>            <span class="n">part2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable_str</span><span class="p">)</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a>            <span class="n">part3</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;original_equation&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">max_length_1</span><span class="p">:</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>                <span class="n">max_length_1</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable_str</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_length_2</span><span class="p">:</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a>                <span class="n">max_length_2</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable_str</span><span class="p">)</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a>        <span class="k">for</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">part1</span><span class="p">,</span> <span class="n">part2</span><span class="p">,</span> <span class="n">part3</span><span class="p">):</span>
+<a id="__codelineno-0-506" name="__codelineno-0-506"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">p1</span><span class="si">:</span><span class="s2">&lt;</span><span class="si">{</span><span class="n">max_length_1</span><span class="si">}}</span><span class="s2"> </span><span class="si">{</span><span class="n">p2</span><span class="si">:</span><span class="s2">&lt;</span><span class="si">{</span><span class="n">max_length_2</span><span class="si">}}</span><span class="s2">, Expression: </span><span class="si">{</span><span class="n">p3</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a>    <span class="k">return</span> <span class="n">datasets</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4435,57 +4429,57 @@ are serialised via <code>SR_dataset.to_dict()</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sr_benchmark.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-529">529</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-509">509</a></span>
+<span class="normal"><a href="#__codelineno-0-510">510</a></span>
+<span class="normal"><a href="#__codelineno-0-511">511</a></span>
+<span class="normal"><a href="#__codelineno-0-512">512</a></span>
+<span class="normal"><a href="#__codelineno-0-513">513</a></span>
+<span class="normal"><a href="#__codelineno-0-514">514</a></span>
+<span class="normal"><a href="#__codelineno-0-515">515</a></span>
+<span class="normal"><a href="#__codelineno-0-516">516</a></span>
+<span class="normal"><a href="#__codelineno-0-517">517</a></span>
+<span class="normal"><a href="#__codelineno-0-518">518</a></span>
+<span class="normal"><a href="#__codelineno-0-519">519</a></span>
+<span class="normal"><a href="#__codelineno-0-520">520</a></span>
+<span class="normal"><a href="#__codelineno-0-521">521</a></span>
+<span class="normal"><a href="#__codelineno-0-522">522</a></span>
+<span class="normal"><a href="#__codelineno-0-523">523</a></span>
+<span class="normal"><a href="#__codelineno-0-524">524</a></span>
+<span class="normal"><a href="#__codelineno-0-525">525</a></span>
+<span class="normal"><a href="#__codelineno-0-526">526</a></span>
+<span class="normal"><a href="#__codelineno-0-527">527</a></span>
+<span class="normal"><a href="#__codelineno-0-528">528</a></span>
+<span class="normal"><a href="#__codelineno-0-529">529</a></span>
 <span class="normal"><a href="#__codelineno-0-530">530</a></span>
 <span class="normal"><a href="#__codelineno-0-531">531</a></span>
 <span class="normal"><a href="#__codelineno-0-532">532</a></span>
 <span class="normal"><a href="#__codelineno-0-533">533</a></span>
-<span class="normal"><a href="#__codelineno-0-534">534</a></span>
-<span class="normal"><a href="#__codelineno-0-535">535</a></span>
-<span class="normal"><a href="#__codelineno-0-536">536</a></span>
-<span class="normal"><a href="#__codelineno-0-537">537</a></span>
-<span class="normal"><a href="#__codelineno-0-538">538</a></span>
-<span class="normal"><a href="#__codelineno-0-539">539</a></span>
-<span class="normal"><a href="#__codelineno-0-540">540</a></span>
-<span class="normal"><a href="#__codelineno-0-541">541</a></span>
-<span class="normal"><a href="#__codelineno-0-542">542</a></span>
-<span class="normal"><a href="#__codelineno-0-543">543</a></span>
-<span class="normal"><a href="#__codelineno-0-544">544</a></span>
-<span class="normal"><a href="#__codelineno-0-545">545</a></span>
-<span class="normal"><a href="#__codelineno-0-546">546</a></span>
-<span class="normal"><a href="#__codelineno-0-547">547</a></span>
-<span class="normal"><a href="#__codelineno-0-548">548</a></span>
-<span class="normal"><a href="#__codelineno-0-549">549</a></span>
-<span class="normal"><a href="#__codelineno-0-550">550</a></span>
-<span class="normal"><a href="#__codelineno-0-551">551</a></span>
-<span class="normal"><a href="#__codelineno-0-552">552</a></span>
-<span class="normal"><a href="#__codelineno-0-553">553</a></span>
-<span class="normal"><a href="#__codelineno-0-554">554</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-529" name="__codelineno-0-529"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-530" name="__codelineno-0-530"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-531" name="__codelineno-0-531"></a><span class="sd">    Serialise the benchmark to a pure JSON-safe dictionary.</span>
-<a id="__codelineno-0-532" name="__codelineno-0-532"></a>
-<a id="__codelineno-0-533" name="__codelineno-0-533"></a><span class="sd">    Dataset entries that have an ``sr_dataset`` key (added via</span>
-<a id="__codelineno-0-534" name="__codelineno-0-534"></a><span class="sd">    [add_dataset_instance][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset_instance])</span>
-<a id="__codelineno-0-535" name="__codelineno-0-535"></a><span class="sd">    are serialised via ``SR_dataset.to_dict()``.</span>
-<a id="__codelineno-0-536" name="__codelineno-0-536"></a>
-<a id="__codelineno-0-537" name="__codelineno-0-537"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-538" name="__codelineno-0-538"></a><span class="sd">        A JSON-safe dict representing the full benchmark configuration.</span>
-<a id="__codelineno-0-539" name="__codelineno-0-539"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-540" name="__codelineno-0-540"></a>    <span class="n">datasets_out</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-541" name="__codelineno-0-541"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-542" name="__codelineno-0-542"></a>        <span class="k">if</span> <span class="s2">&quot;sr_dataset&quot;</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
-<a id="__codelineno-0-543" name="__codelineno-0-543"></a>            <span class="n">datasets_out</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;sr_dataset&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-<a id="__codelineno-0-544" name="__codelineno-0-544"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-545" name="__codelineno-0-545"></a>            <span class="n">datasets_out</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">entry</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;sr_dataset&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-546" name="__codelineno-0-546"></a>
-<a id="__codelineno-0-547" name="__codelineno-0-547"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-548" name="__codelineno-0-548"></a>        <span class="s2">&quot;format_version&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-0-549" name="__codelineno-0-549"></a>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-550" name="__codelineno-0-550"></a>        <span class="s2">&quot;benchmark_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">benchmark_name</span><span class="p">,</span>
-<a id="__codelineno-0-551" name="__codelineno-0-551"></a>        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
-<a id="__codelineno-0-552" name="__codelineno-0-552"></a>        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
-<a id="__codelineno-0-553" name="__codelineno-0-553"></a>        <span class="s2">&quot;datasets&quot;</span><span class="p">:</span> <span class="n">datasets_out</span><span class="p">,</span>
-<a id="__codelineno-0-554" name="__codelineno-0-554"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-534">534</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-509" name="__codelineno-0-509"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-511" name="__codelineno-0-511"></a><span class="sd">    Serialise the benchmark to a pure JSON-safe dictionary.</span>
+<a id="__codelineno-0-512" name="__codelineno-0-512"></a>
+<a id="__codelineno-0-513" name="__codelineno-0-513"></a><span class="sd">    Dataset entries that have an ``sr_dataset`` key (added via</span>
+<a id="__codelineno-0-514" name="__codelineno-0-514"></a><span class="sd">    [add_dataset_instance][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset_instance])</span>
+<a id="__codelineno-0-515" name="__codelineno-0-515"></a><span class="sd">    are serialised via ``SR_dataset.to_dict()``.</span>
+<a id="__codelineno-0-516" name="__codelineno-0-516"></a>
+<a id="__codelineno-0-517" name="__codelineno-0-517"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-518" name="__codelineno-0-518"></a><span class="sd">        A JSON-safe dict representing the full benchmark configuration.</span>
+<a id="__codelineno-0-519" name="__codelineno-0-519"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-520" name="__codelineno-0-520"></a>    <span class="n">datasets_out</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-521" name="__codelineno-0-521"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-522" name="__codelineno-0-522"></a>        <span class="k">if</span> <span class="s2">&quot;sr_dataset&quot;</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
+<a id="__codelineno-0-523" name="__codelineno-0-523"></a>            <span class="n">datasets_out</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;sr_dataset&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<a id="__codelineno-0-524" name="__codelineno-0-524"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-525" name="__codelineno-0-525"></a>            <span class="n">datasets_out</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">entry</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;sr_dataset&quot;</span><span class="p">}</span>
+<a id="__codelineno-0-526" name="__codelineno-0-526"></a>
+<a id="__codelineno-0-527" name="__codelineno-0-527"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-528" name="__codelineno-0-528"></a>        <span class="s2">&quot;format_version&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-0-529" name="__codelineno-0-529"></a>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-530" name="__codelineno-0-530"></a>        <span class="s2">&quot;benchmark_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">benchmark_name</span><span class="p">,</span>
+<a id="__codelineno-0-531" name="__codelineno-0-531"></a>        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+<a id="__codelineno-0-532" name="__codelineno-0-532"></a>        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+<a id="__codelineno-0-533" name="__codelineno-0-533"></a>        <span class="s2">&quot;datasets&quot;</span><span class="p">:</span> <span class="n">datasets_out</span><span class="p">,</span>
+<a id="__codelineno-0-534" name="__codelineno-0-534"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4577,7 +4571,27 @@ or a path to a JSON file.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sr_benchmark.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-556">556</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-536">536</a></span>
+<span class="normal"><a href="#__codelineno-0-537">537</a></span>
+<span class="normal"><a href="#__codelineno-0-538">538</a></span>
+<span class="normal"><a href="#__codelineno-0-539">539</a></span>
+<span class="normal"><a href="#__codelineno-0-540">540</a></span>
+<span class="normal"><a href="#__codelineno-0-541">541</a></span>
+<span class="normal"><a href="#__codelineno-0-542">542</a></span>
+<span class="normal"><a href="#__codelineno-0-543">543</a></span>
+<span class="normal"><a href="#__codelineno-0-544">544</a></span>
+<span class="normal"><a href="#__codelineno-0-545">545</a></span>
+<span class="normal"><a href="#__codelineno-0-546">546</a></span>
+<span class="normal"><a href="#__codelineno-0-547">547</a></span>
+<span class="normal"><a href="#__codelineno-0-548">548</a></span>
+<span class="normal"><a href="#__codelineno-0-549">549</a></span>
+<span class="normal"><a href="#__codelineno-0-550">550</a></span>
+<span class="normal"><a href="#__codelineno-0-551">551</a></span>
+<span class="normal"><a href="#__codelineno-0-552">552</a></span>
+<span class="normal"><a href="#__codelineno-0-553">553</a></span>
+<span class="normal"><a href="#__codelineno-0-554">554</a></span>
+<span class="normal"><a href="#__codelineno-0-555">555</a></span>
+<span class="normal"><a href="#__codelineno-0-556">556</a></span>
 <span class="normal"><a href="#__codelineno-0-557">557</a></span>
 <span class="normal"><a href="#__codelineno-0-558">558</a></span>
 <span class="normal"><a href="#__codelineno-0-559">559</a></span>
@@ -4601,71 +4615,51 @@ or a path to a JSON file.</p>
 <span class="normal"><a href="#__codelineno-0-577">577</a></span>
 <span class="normal"><a href="#__codelineno-0-578">578</a></span>
 <span class="normal"><a href="#__codelineno-0-579">579</a></span>
-<span class="normal"><a href="#__codelineno-0-580">580</a></span>
-<span class="normal"><a href="#__codelineno-0-581">581</a></span>
-<span class="normal"><a href="#__codelineno-0-582">582</a></span>
-<span class="normal"><a href="#__codelineno-0-583">583</a></span>
-<span class="normal"><a href="#__codelineno-0-584">584</a></span>
-<span class="normal"><a href="#__codelineno-0-585">585</a></span>
-<span class="normal"><a href="#__codelineno-0-586">586</a></span>
-<span class="normal"><a href="#__codelineno-0-587">587</a></span>
-<span class="normal"><a href="#__codelineno-0-588">588</a></span>
-<span class="normal"><a href="#__codelineno-0-589">589</a></span>
-<span class="normal"><a href="#__codelineno-0-590">590</a></span>
-<span class="normal"><a href="#__codelineno-0-591">591</a></span>
-<span class="normal"><a href="#__codelineno-0-592">592</a></span>
-<span class="normal"><a href="#__codelineno-0-593">593</a></span>
-<span class="normal"><a href="#__codelineno-0-594">594</a></span>
-<span class="normal"><a href="#__codelineno-0-595">595</a></span>
-<span class="normal"><a href="#__codelineno-0-596">596</a></span>
-<span class="normal"><a href="#__codelineno-0-597">597</a></span>
-<span class="normal"><a href="#__codelineno-0-598">598</a></span>
-<span class="normal"><a href="#__codelineno-0-599">599</a></span>
-<span class="normal"><a href="#__codelineno-0-600">600</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-556" name="__codelineno-0-556"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-557" name="__codelineno-0-557"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-558" name="__codelineno-0-558"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-559" name="__codelineno-0-559"></a><span class="sd">    Reconstruct an SR_benchmark from a config dict or a saved JSON file.</span>
-<a id="__codelineno-0-560" name="__codelineno-0-560"></a>
-<a id="__codelineno-0-561" name="__codelineno-0-561"></a><span class="sd">    To load a self-contained ``.zip`` archive (written by</span>
-<a id="__codelineno-0-562" name="__codelineno-0-562"></a><span class="sd">    [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]) use</span>
-<a id="__codelineno-0-563" name="__codelineno-0-563"></a><span class="sd">    [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive] instead.</span>
-<a id="__codelineno-0-564" name="__codelineno-0-564"></a>
-<a id="__codelineno-0-565" name="__codelineno-0-565"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-566" name="__codelineno-0-566"></a><span class="sd">        d: A dict produced by [to_dict][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_dict],</span>
-<a id="__codelineno-0-567" name="__codelineno-0-567"></a><span class="sd">            or a path to a JSON file.</span>
+<span class="normal"><a href="#__codelineno-0-580">580</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-536" name="__codelineno-0-536"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-537" name="__codelineno-0-537"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-538" name="__codelineno-0-538"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-539" name="__codelineno-0-539"></a><span class="sd">    Reconstruct an SR_benchmark from a config dict or a saved JSON file.</span>
+<a id="__codelineno-0-540" name="__codelineno-0-540"></a>
+<a id="__codelineno-0-541" name="__codelineno-0-541"></a><span class="sd">    To load a self-contained ``.zip`` archive (written by</span>
+<a id="__codelineno-0-542" name="__codelineno-0-542"></a><span class="sd">    [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]) use</span>
+<a id="__codelineno-0-543" name="__codelineno-0-543"></a><span class="sd">    [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive] instead.</span>
+<a id="__codelineno-0-544" name="__codelineno-0-544"></a>
+<a id="__codelineno-0-545" name="__codelineno-0-545"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="sd">        d: A dict produced by [to_dict][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_dict],</span>
+<a id="__codelineno-0-547" name="__codelineno-0-547"></a><span class="sd">            or a path to a JSON file.</span>
+<a id="__codelineno-0-548" name="__codelineno-0-548"></a>
+<a id="__codelineno-0-549" name="__codelineno-0-549"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-550" name="__codelineno-0-550"></a><span class="sd">        An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.</span>
+<a id="__codelineno-0-551" name="__codelineno-0-551"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-552" name="__codelineno-0-552"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
+<a id="__codelineno-0-553" name="__codelineno-0-553"></a>        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.zip&quot;</span><span class="p">):</span>
+<a id="__codelineno-0-554" name="__codelineno-0-554"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-555" name="__codelineno-0-555"></a>                <span class="s2">&quot;[SR_benchmark.from_dict] Received a &#39;.zip&#39; path. Load self-contained &quot;</span>
+<a id="__codelineno-0-556" name="__codelineno-0-556"></a>                <span class="s2">&quot;archives with SR_benchmark.from_archive(path) instead.&quot;</span>
+<a id="__codelineno-0-557" name="__codelineno-0-557"></a>            <span class="p">)</span>
+<a id="__codelineno-0-558" name="__codelineno-0-558"></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-0-559" name="__codelineno-0-559"></a>            <span class="n">dd</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<a id="__codelineno-0-560" name="__codelineno-0-560"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-561" name="__codelineno-0-561"></a>        <span class="n">dd</span> <span class="o">=</span> <span class="n">d</span>
+<a id="__codelineno-0-562" name="__codelineno-0-562"></a>
+<a id="__codelineno-0-563" name="__codelineno-0-563"></a>    <span class="n">benchmark_name</span> <span class="o">=</span> <span class="n">dd</span><span class="p">[</span><span class="s2">&quot;benchmark_name&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-564" name="__codelineno-0-564"></a>    <span class="n">version</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-565" name="__codelineno-0-565"></a>    <span class="n">metadata</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-566" name="__codelineno-0-566"></a>
+<a id="__codelineno-0-567" name="__codelineno-0-567"></a>    <span class="n">b</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
 <a id="__codelineno-0-568" name="__codelineno-0-568"></a>
-<a id="__codelineno-0-569" name="__codelineno-0-569"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-570" name="__codelineno-0-570"></a><span class="sd">        An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.</span>
-<a id="__codelineno-0-571" name="__codelineno-0-571"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-572" name="__codelineno-0-572"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
-<a id="__codelineno-0-573" name="__codelineno-0-573"></a>        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.zip&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-574" name="__codelineno-0-574"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-575" name="__codelineno-0-575"></a>                <span class="s2">&quot;[SR_benchmark.from_dict] Received a &#39;.zip&#39; path. Load self-contained &quot;</span>
-<a id="__codelineno-0-576" name="__codelineno-0-576"></a>                <span class="s2">&quot;archives with SR_benchmark.from_archive(path) instead.&quot;</span>
-<a id="__codelineno-0-577" name="__codelineno-0-577"></a>            <span class="p">)</span>
-<a id="__codelineno-0-578" name="__codelineno-0-578"></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-<a id="__codelineno-0-579" name="__codelineno-0-579"></a>            <span class="n">dd</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-<a id="__codelineno-0-580" name="__codelineno-0-580"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-581" name="__codelineno-0-581"></a>        <span class="n">dd</span> <span class="o">=</span> <span class="n">d</span>
-<a id="__codelineno-0-582" name="__codelineno-0-582"></a>
-<a id="__codelineno-0-583" name="__codelineno-0-583"></a>    <span class="n">benchmark_name</span> <span class="o">=</span> <span class="n">dd</span><span class="p">[</span><span class="s2">&quot;benchmark_name&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-584" name="__codelineno-0-584"></a>    <span class="n">version</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-585" name="__codelineno-0-585"></a>    <span class="n">metadata</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span>
-<a id="__codelineno-0-586" name="__codelineno-0-586"></a>
-<a id="__codelineno-0-587" name="__codelineno-0-587"></a>    <span class="n">b</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">)</span>
-<a id="__codelineno-0-588" name="__codelineno-0-588"></a>
-<a id="__codelineno-0-589" name="__codelineno-0-589"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">dd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;datasets&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-590" name="__codelineno-0-590"></a>        <span class="c1"># Store the entry dict directly; materialisation is lazy via create_dataset</span>
-<a id="__codelineno-0-591" name="__codelineno-0-591"></a>        <span class="n">b</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
-<a id="__codelineno-0-592" name="__codelineno-0-592"></a>        <span class="k">if</span> <span class="s2">&quot;num_variables&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
-<a id="__codelineno-0-593" name="__codelineno-0-593"></a>            <span class="c1"># Try to infer</span>
-<a id="__codelineno-0-594" name="__codelineno-0-594"></a>            <span class="n">samplers</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;samplers&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-595" name="__codelineno-0-595"></a>            <span class="k">if</span> <span class="n">samplers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-596" name="__codelineno-0-596"></a>                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;num_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">samplers</span><span class="p">)</span>
-<a id="__codelineno-0-597" name="__codelineno-0-597"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-598" name="__codelineno-0-598"></a>                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;num_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-<a id="__codelineno-0-599" name="__codelineno-0-599"></a>
-<a id="__codelineno-0-600" name="__codelineno-0-600"></a>    <span class="k">return</span> <span class="n">b</span>
+<a id="__codelineno-0-569" name="__codelineno-0-569"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">dd</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;datasets&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-570" name="__codelineno-0-570"></a>        <span class="c1"># Store the entry dict directly; materialisation is lazy via create_dataset</span>
+<a id="__codelineno-0-571" name="__codelineno-0-571"></a>        <span class="n">b</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+<a id="__codelineno-0-572" name="__codelineno-0-572"></a>        <span class="k">if</span> <span class="s2">&quot;num_variables&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
+<a id="__codelineno-0-573" name="__codelineno-0-573"></a>            <span class="c1"># Try to infer</span>
+<a id="__codelineno-0-574" name="__codelineno-0-574"></a>            <span class="n">samplers</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;samplers&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-575" name="__codelineno-0-575"></a>            <span class="k">if</span> <span class="n">samplers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-576" name="__codelineno-0-576"></a>                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;num_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">samplers</span><span class="p">)</span>
+<a id="__codelineno-0-577" name="__codelineno-0-577"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-578" name="__codelineno-0-578"></a>                <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;num_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+<a id="__codelineno-0-579" name="__codelineno-0-579"></a>
+<a id="__codelineno-0-580" name="__codelineno-0-580"></a>    <span class="k">return</span> <span class="n">b</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4728,7 +4722,27 @@ warning but are still accepted.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sr_benchmark.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-602">602</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-582">582</a></span>
+<span class="normal"><a href="#__codelineno-0-583">583</a></span>
+<span class="normal"><a href="#__codelineno-0-584">584</a></span>
+<span class="normal"><a href="#__codelineno-0-585">585</a></span>
+<span class="normal"><a href="#__codelineno-0-586">586</a></span>
+<span class="normal"><a href="#__codelineno-0-587">587</a></span>
+<span class="normal"><a href="#__codelineno-0-588">588</a></span>
+<span class="normal"><a href="#__codelineno-0-589">589</a></span>
+<span class="normal"><a href="#__codelineno-0-590">590</a></span>
+<span class="normal"><a href="#__codelineno-0-591">591</a></span>
+<span class="normal"><a href="#__codelineno-0-592">592</a></span>
+<span class="normal"><a href="#__codelineno-0-593">593</a></span>
+<span class="normal"><a href="#__codelineno-0-594">594</a></span>
+<span class="normal"><a href="#__codelineno-0-595">595</a></span>
+<span class="normal"><a href="#__codelineno-0-596">596</a></span>
+<span class="normal"><a href="#__codelineno-0-597">597</a></span>
+<span class="normal"><a href="#__codelineno-0-598">598</a></span>
+<span class="normal"><a href="#__codelineno-0-599">599</a></span>
+<span class="normal"><a href="#__codelineno-0-600">600</a></span>
+<span class="normal"><a href="#__codelineno-0-601">601</a></span>
+<span class="normal"><a href="#__codelineno-0-602">602</a></span>
 <span class="normal"><a href="#__codelineno-0-603">603</a></span>
 <span class="normal"><a href="#__codelineno-0-604">604</a></span>
 <span class="normal"><a href="#__codelineno-0-605">605</a></span>
@@ -4765,92 +4779,64 @@ warning but are still accepted.</p>
 <span class="normal"><a href="#__codelineno-0-636">636</a></span>
 <span class="normal"><a href="#__codelineno-0-637">637</a></span>
 <span class="normal"><a href="#__codelineno-0-638">638</a></span>
-<span class="normal"><a href="#__codelineno-0-639">639</a></span>
-<span class="normal"><a href="#__codelineno-0-640">640</a></span>
-<span class="normal"><a href="#__codelineno-0-641">641</a></span>
-<span class="normal"><a href="#__codelineno-0-642">642</a></span>
-<span class="normal"><a href="#__codelineno-0-643">643</a></span>
-<span class="normal"><a href="#__codelineno-0-644">644</a></span>
-<span class="normal"><a href="#__codelineno-0-645">645</a></span>
-<span class="normal"><a href="#__codelineno-0-646">646</a></span>
-<span class="normal"><a href="#__codelineno-0-647">647</a></span>
-<span class="normal"><a href="#__codelineno-0-648">648</a></span>
-<span class="normal"><a href="#__codelineno-0-649">649</a></span>
-<span class="normal"><a href="#__codelineno-0-650">650</a></span>
-<span class="normal"><a href="#__codelineno-0-651">651</a></span>
-<span class="normal"><a href="#__codelineno-0-652">652</a></span>
-<span class="normal"><a href="#__codelineno-0-653">653</a></span>
-<span class="normal"><a href="#__codelineno-0-654">654</a></span>
-<span class="normal"><a href="#__codelineno-0-655">655</a></span>
-<span class="normal"><a href="#__codelineno-0-656">656</a></span>
-<span class="normal"><a href="#__codelineno-0-657">657</a></span>
-<span class="normal"><a href="#__codelineno-0-658">658</a></span>
-<span class="normal"><a href="#__codelineno-0-659">659</a></span>
-<span class="normal"><a href="#__codelineno-0-660">660</a></span>
-<span class="normal"><a href="#__codelineno-0-661">661</a></span>
-<span class="normal"><a href="#__codelineno-0-662">662</a></span>
-<span class="normal"><a href="#__codelineno-0-663">663</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-602" name="__codelineno-0-602"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_archive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-603" name="__codelineno-0-603"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-604" name="__codelineno-0-604"></a><span class="sd">    Write the benchmark (config + data) to a ``.zip`` archive.</span>
+<span class="normal"><a href="#__codelineno-0-639">639</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-582" name="__codelineno-0-582"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_archive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-583" name="__codelineno-0-583"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-584" name="__codelineno-0-584"></a><span class="sd">    Write the benchmark (config + data) to a ``.zip`` archive.</span>
+<a id="__codelineno-0-585" name="__codelineno-0-585"></a>
+<a id="__codelineno-0-586" name="__codelineno-0-586"></a><span class="sd">    The archive contains:</span>
+<a id="__codelineno-0-587" name="__codelineno-0-587"></a>
+<a id="__codelineno-0-588" name="__codelineno-0-588"></a><span class="sd">    - ``benchmark.json``: the benchmark configuration dict.</span>
+<a id="__codelineno-0-589" name="__codelineno-0-589"></a><span class="sd">    - ``data/&lt;dataset_name&gt;.npz``: the cached data for each dataset.</span>
+<a id="__codelineno-0-590" name="__codelineno-0-590"></a><span class="sd">    - ``data/&lt;dataset_name&gt;_gt.npy``: ground-truth behaviour array (if present).</span>
+<a id="__codelineno-0-591" name="__codelineno-0-591"></a>
+<a id="__codelineno-0-592" name="__codelineno-0-592"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-593" name="__codelineno-0-593"></a><span class="sd">        path: Destination path for the archive.  Non-``.zip`` suffixes trigger a</span>
+<a id="__codelineno-0-594" name="__codelineno-0-594"></a><span class="sd">            warning but are still accepted.</span>
+<a id="__codelineno-0-595" name="__codelineno-0-595"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-596" name="__codelineno-0-596"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-597" name="__codelineno-0-597"></a>    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;.zip&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-598" name="__codelineno-0-598"></a>        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+<a id="__codelineno-0-599" name="__codelineno-0-599"></a>            <span class="sa">f</span><span class="s2">&quot;[SR_benchmark.to_archive] path &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39; does not end in &#39;.zip&#39;. &quot;</span>
+<a id="__codelineno-0-600" name="__codelineno-0-600"></a>            <span class="s2">&quot;The file will be a ZIP archive regardless of the extension.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-601" name="__codelineno-0-601"></a>            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-0-602" name="__codelineno-0-602"></a>        <span class="p">)</span>
+<a id="__codelineno-0-603" name="__codelineno-0-603"></a>
+<a id="__codelineno-0-604" name="__codelineno-0-604"></a>    <span class="n">benchmark_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <a id="__codelineno-0-605" name="__codelineno-0-605"></a>
-<a id="__codelineno-0-606" name="__codelineno-0-606"></a><span class="sd">    The archive contains:</span>
-<a id="__codelineno-0-607" name="__codelineno-0-607"></a>
-<a id="__codelineno-0-608" name="__codelineno-0-608"></a><span class="sd">    - ``benchmark.json``: the benchmark configuration dict.</span>
-<a id="__codelineno-0-609" name="__codelineno-0-609"></a><span class="sd">    - ``data/&lt;dataset_name&gt;.npz``: the cached data for each dataset.</span>
-<a id="__codelineno-0-610" name="__codelineno-0-610"></a><span class="sd">    - ``data/&lt;dataset_name&gt;_gt.npy``: ground-truth behaviour array (if present).</span>
-<a id="__codelineno-0-611" name="__codelineno-0-611"></a>
-<a id="__codelineno-0-612" name="__codelineno-0-612"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-613" name="__codelineno-0-613"></a><span class="sd">        path: Destination path for the archive.  Non-``.zip`` suffixes trigger a</span>
-<a id="__codelineno-0-614" name="__codelineno-0-614"></a><span class="sd">            warning but are still accepted.</span>
-<a id="__codelineno-0-615" name="__codelineno-0-615"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-616" name="__codelineno-0-616"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-617" name="__codelineno-0-617"></a>    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;.zip&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-618" name="__codelineno-0-618"></a>        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-<a id="__codelineno-0-619" name="__codelineno-0-619"></a>            <span class="sa">f</span><span class="s2">&quot;[SR_benchmark.to_archive] path &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39; does not end in &#39;.zip&#39;. &quot;</span>
-<a id="__codelineno-0-620" name="__codelineno-0-620"></a>            <span class="s2">&quot;The file will be a ZIP archive regardless of the extension.&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-621" name="__codelineno-0-621"></a>            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-0-622" name="__codelineno-0-622"></a>        <span class="p">)</span>
-<a id="__codelineno-0-623" name="__codelineno-0-623"></a>
-<a id="__codelineno-0-624" name="__codelineno-0-624"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_cache</span>
-<a id="__codelineno-0-625" name="__codelineno-0-625"></a>
-<a id="__codelineno-0-626" name="__codelineno-0-626"></a>    <span class="n">benchmark_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-0-627" name="__codelineno-0-627"></a>
-<a id="__codelineno-0-628" name="__codelineno-0-628"></a>    <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="n">zipfile</span><span class="o">.</span><span class="n">ZIP_DEFLATED</span><span class="p">)</span> <span class="k">as</span> <span class="n">zf</span><span class="p">:</span>
-<a id="__codelineno-0-629" name="__codelineno-0-629"></a>        <span class="n">zf</span><span class="o">.</span><span class="n">writestr</span><span class="p">(</span><span class="s2">&quot;benchmark.json&quot;</span><span class="p">,</span> <span class="n">benchmark_json</span><span class="p">)</span>
-<a id="__codelineno-0-630" name="__codelineno-0-630"></a>
-<a id="__codelineno-0-631" name="__codelineno-0-631"></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-632" name="__codelineno-0-632"></a>            <span class="k">if</span> <span class="s2">&quot;sr_dataset&quot;</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
-<a id="__codelineno-0-633" name="__codelineno-0-633"></a>                <span class="c1"># In-memory dataset — write its data</span>
-<a id="__codelineno-0-634" name="__codelineno-0-634"></a>                <span class="n">ds</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;sr_dataset&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-635" name="__codelineno-0-635"></a>                <span class="n">cache_p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">dataset_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-636" name="__codelineno-0-636"></a>                <span class="k">if</span> <span class="ow">not</span> <span class="n">cache_p</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-<a id="__codelineno-0-637" name="__codelineno-0-637"></a>                    <span class="c1"># Write directly from arrays</span>
-<a id="__codelineno-0-638" name="__codelineno-0-638"></a>                    <span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
-<a id="__codelineno-0-639" name="__codelineno-0-639"></a>
-<a id="__codelineno-0-640" name="__codelineno-0-640"></a>                    <span class="n">buf</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
-<a id="__codelineno-0-641" name="__codelineno-0-641"></a>                    <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">y</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-642" name="__codelineno-0-642"></a>                        <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
-<a id="__codelineno-0-643" name="__codelineno-0-643"></a>                    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-644" name="__codelineno-0-644"></a>                        <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
-<a id="__codelineno-0-645" name="__codelineno-0-645"></a>                    <span class="n">zf</span><span class="o">.</span><span class="n">writestr</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">,</span> <span class="n">buf</span><span class="o">.</span><span class="n">getvalue</span><span class="p">())</span>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a>                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">ground_truth</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a>                        <span class="n">gt_buf</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a>                        <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">gt_buf</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">ground_truth</span><span class="p">)</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a>                        <span class="n">zf</span><span class="o">.</span><span class="n">writestr</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_gt.npy&quot;</span><span class="p">,</span> <span class="n">gt_buf</span><span class="o">.</span><span class="n">getvalue</span><span class="p">())</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a>                    <span class="k">continue</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a>                <span class="n">ds_name</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dataset_name&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a>                <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a>                    <span class="n">cache_p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">ds_name</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[SR_benchmark.to_archive] Could not materialise &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Skipping.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a>                    <span class="k">continue</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a>            <span class="n">zf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cache_p</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a>            <span class="n">gt_path</span> <span class="o">=</span> <span class="n">cache_p</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_gt.npy&quot;</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a>            <span class="k">if</span> <span class="n">gt_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a>                <span class="n">zf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">gt_path</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_gt.npy&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-606" name="__codelineno-0-606"></a>    <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="n">zipfile</span><span class="o">.</span><span class="n">ZIP_DEFLATED</span><span class="p">)</span> <span class="k">as</span> <span class="n">zf</span><span class="p">:</span>
+<a id="__codelineno-0-607" name="__codelineno-0-607"></a>        <span class="n">zf</span><span class="o">.</span><span class="n">writestr</span><span class="p">(</span><span class="s2">&quot;benchmark.json&quot;</span><span class="p">,</span> <span class="n">benchmark_json</span><span class="p">)</span>
+<a id="__codelineno-0-608" name="__codelineno-0-608"></a>
+<a id="__codelineno-0-609" name="__codelineno-0-609"></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-610" name="__codelineno-0-610"></a>            <span class="k">if</span> <span class="s2">&quot;sr_dataset&quot;</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
+<a id="__codelineno-0-611" name="__codelineno-0-611"></a>                <span class="c1"># In-memory dataset — write its data</span>
+<a id="__codelineno-0-612" name="__codelineno-0-612"></a>                <span class="n">ds</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;sr_dataset&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-613" name="__codelineno-0-613"></a>                <span class="n">cache_p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">dataset_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-614" name="__codelineno-0-614"></a>                <span class="k">if</span> <span class="ow">not</span> <span class="n">cache_p</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-615" name="__codelineno-0-615"></a>                    <span class="c1"># Write directly from arrays</span>
+<a id="__codelineno-0-616" name="__codelineno-0-616"></a>                    <span class="n">buf</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+<a id="__codelineno-0-617" name="__codelineno-0-617"></a>                    <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">y</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-618" name="__codelineno-0-618"></a>                        <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
+<a id="__codelineno-0-619" name="__codelineno-0-619"></a>                    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-620" name="__codelineno-0-620"></a>                        <span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">X</span><span class="p">)</span>
+<a id="__codelineno-0-621" name="__codelineno-0-621"></a>                    <span class="n">zf</span><span class="o">.</span><span class="n">writestr</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">,</span> <span class="n">buf</span><span class="o">.</span><span class="n">getvalue</span><span class="p">())</span>
+<a id="__codelineno-0-622" name="__codelineno-0-622"></a>                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">ground_truth</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<a id="__codelineno-0-623" name="__codelineno-0-623"></a>                        <span class="n">gt_buf</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+<a id="__codelineno-0-624" name="__codelineno-0-624"></a>                        <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">gt_buf</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">ground_truth</span><span class="p">)</span>
+<a id="__codelineno-0-625" name="__codelineno-0-625"></a>                        <span class="n">zf</span><span class="o">.</span><span class="n">writestr</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_gt.npy&quot;</span><span class="p">,</span> <span class="n">gt_buf</span><span class="o">.</span><span class="n">getvalue</span><span class="p">())</span>
+<a id="__codelineno-0-626" name="__codelineno-0-626"></a>                    <span class="k">continue</span>
+<a id="__codelineno-0-627" name="__codelineno-0-627"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-628" name="__codelineno-0-628"></a>                <span class="n">ds_name</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dataset_name&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-629" name="__codelineno-0-629"></a>                <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-630" name="__codelineno-0-630"></a>                    <span class="n">cache_p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">ds_name</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
+<a id="__codelineno-0-631" name="__codelineno-0-631"></a>                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-0-632" name="__codelineno-0-632"></a>                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[SR_benchmark.to_archive] Could not materialise &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">. Skipping.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-633" name="__codelineno-0-633"></a>                    <span class="k">continue</span>
+<a id="__codelineno-0-634" name="__codelineno-0-634"></a>
+<a id="__codelineno-0-635" name="__codelineno-0-635"></a>            <span class="n">zf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cache_p</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.npz&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-636" name="__codelineno-0-636"></a>
+<a id="__codelineno-0-637" name="__codelineno-0-637"></a>            <span class="n">gt_path</span> <span class="o">=</span> <span class="n">cache_p</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_gt.npy&quot;</span>
+<a id="__codelineno-0-638" name="__codelineno-0-638"></a>            <span class="k">if</span> <span class="n">gt_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-639" name="__codelineno-0-639"></a>                <span class="n">zf</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">gt_path</span><span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;data/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_gt.npy&quot;</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4939,7 +4925,31 @@ from that populated cache.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sr_benchmark.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-665">665</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-641">641</a></span>
+<span class="normal"><a href="#__codelineno-0-642">642</a></span>
+<span class="normal"><a href="#__codelineno-0-643">643</a></span>
+<span class="normal"><a href="#__codelineno-0-644">644</a></span>
+<span class="normal"><a href="#__codelineno-0-645">645</a></span>
+<span class="normal"><a href="#__codelineno-0-646">646</a></span>
+<span class="normal"><a href="#__codelineno-0-647">647</a></span>
+<span class="normal"><a href="#__codelineno-0-648">648</a></span>
+<span class="normal"><a href="#__codelineno-0-649">649</a></span>
+<span class="normal"><a href="#__codelineno-0-650">650</a></span>
+<span class="normal"><a href="#__codelineno-0-651">651</a></span>
+<span class="normal"><a href="#__codelineno-0-652">652</a></span>
+<span class="normal"><a href="#__codelineno-0-653">653</a></span>
+<span class="normal"><a href="#__codelineno-0-654">654</a></span>
+<span class="normal"><a href="#__codelineno-0-655">655</a></span>
+<span class="normal"><a href="#__codelineno-0-656">656</a></span>
+<span class="normal"><a href="#__codelineno-0-657">657</a></span>
+<span class="normal"><a href="#__codelineno-0-658">658</a></span>
+<span class="normal"><a href="#__codelineno-0-659">659</a></span>
+<span class="normal"><a href="#__codelineno-0-660">660</a></span>
+<span class="normal"><a href="#__codelineno-0-661">661</a></span>
+<span class="normal"><a href="#__codelineno-0-662">662</a></span>
+<span class="normal"><a href="#__codelineno-0-663">663</a></span>
+<span class="normal"><a href="#__codelineno-0-664">664</a></span>
+<span class="normal"><a href="#__codelineno-0-665">665</a></span>
 <span class="normal"><a href="#__codelineno-0-666">666</a></span>
 <span class="normal"><a href="#__codelineno-0-667">667</a></span>
 <span class="normal"><a href="#__codelineno-0-668">668</a></span>
@@ -4948,68 +4958,40 @@ from that populated cache.</p>
 <span class="normal"><a href="#__codelineno-0-671">671</a></span>
 <span class="normal"><a href="#__codelineno-0-672">672</a></span>
 <span class="normal"><a href="#__codelineno-0-673">673</a></span>
-<span class="normal"><a href="#__codelineno-0-674">674</a></span>
-<span class="normal"><a href="#__codelineno-0-675">675</a></span>
-<span class="normal"><a href="#__codelineno-0-676">676</a></span>
-<span class="normal"><a href="#__codelineno-0-677">677</a></span>
-<span class="normal"><a href="#__codelineno-0-678">678</a></span>
-<span class="normal"><a href="#__codelineno-0-679">679</a></span>
-<span class="normal"><a href="#__codelineno-0-680">680</a></span>
-<span class="normal"><a href="#__codelineno-0-681">681</a></span>
-<span class="normal"><a href="#__codelineno-0-682">682</a></span>
-<span class="normal"><a href="#__codelineno-0-683">683</a></span>
-<span class="normal"><a href="#__codelineno-0-684">684</a></span>
-<span class="normal"><a href="#__codelineno-0-685">685</a></span>
-<span class="normal"><a href="#__codelineno-0-686">686</a></span>
-<span class="normal"><a href="#__codelineno-0-687">687</a></span>
-<span class="normal"><a href="#__codelineno-0-688">688</a></span>
-<span class="normal"><a href="#__codelineno-0-689">689</a></span>
-<span class="normal"><a href="#__codelineno-0-690">690</a></span>
-<span class="normal"><a href="#__codelineno-0-691">691</a></span>
-<span class="normal"><a href="#__codelineno-0-692">692</a></span>
-<span class="normal"><a href="#__codelineno-0-693">693</a></span>
-<span class="normal"><a href="#__codelineno-0-694">694</a></span>
-<span class="normal"><a href="#__codelineno-0-695">695</a></span>
-<span class="normal"><a href="#__codelineno-0-696">696</a></span>
-<span class="normal"><a href="#__codelineno-0-697">697</a></span>
-<span class="normal"><a href="#__codelineno-0-698">698</a></span>
-<span class="normal"><a href="#__codelineno-0-699">699</a></span>
-<span class="normal"><a href="#__codelineno-0-700">700</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_archive</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">    Load a benchmark from a self-contained ``.zip`` archive.</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">    This is the counterpart to</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]: it reads</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">    ``benchmark.json`` from the archive, extracts the bundled ``data/*.npz`` (and any</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">    ``_gt.npy``) into the data cache, and returns a benchmark whose datasets read</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a><span class="sd">    from that populated cache.</span>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">        path: Path to a ``.zip`` archive written by</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">            [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">        An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_cache</span>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a>    <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zf</span><span class="p">:</span>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a>        <span class="n">benchmark_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">zf</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;benchmark.json&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="n">benchmark_name</span> <span class="o">=</span> <span class="n">benchmark_dict</span><span class="p">[</span><span class="s2">&quot;benchmark_name&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a>    <span class="n">version</span> <span class="o">=</span> <span class="n">benchmark_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>    <span class="c1"># Extract data into the cache</span>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="n">data_cache</span><span class="o">.</span><span class="n">import_archive</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">benchmark_name</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
-<a id="__codelineno-0-693" name="__codelineno-0-693"></a>
-<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="n">b</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">benchmark_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{}))</span>
-<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">benchmark_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;datasets&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a>        <span class="n">b</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a>        <span class="k">if</span> <span class="s2">&quot;num_variables&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a>            <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;num_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a>
-<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="k">return</span> <span class="n">b</span>
+<span class="normal"><a href="#__codelineno-0-674">674</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-641" name="__codelineno-0-641"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-642" name="__codelineno-0-642"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_archive</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-643" name="__codelineno-0-643"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-644" name="__codelineno-0-644"></a><span class="sd">    Load a benchmark from a self-contained ``.zip`` archive.</span>
+<a id="__codelineno-0-645" name="__codelineno-0-645"></a>
+<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="sd">    This is the counterpart to</span>
+<a id="__codelineno-0-647" name="__codelineno-0-647"></a><span class="sd">    [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]: it reads</span>
+<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    ``benchmark.json`` from the archive, extracts the bundled ``data/*.npz`` (and any</span>
+<a id="__codelineno-0-649" name="__codelineno-0-649"></a><span class="sd">    ``_gt.npy``) into the data cache, and returns a benchmark whose datasets read</span>
+<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">    from that populated cache.</span>
+<a id="__codelineno-0-651" name="__codelineno-0-651"></a>
+<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">        path: Path to a ``.zip`` archive written by</span>
+<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="sd">            [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].</span>
+<a id="__codelineno-0-655" name="__codelineno-0-655"></a>
+<a id="__codelineno-0-656" name="__codelineno-0-656"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-657" name="__codelineno-0-657"></a><span class="sd">        An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.</span>
+<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-659" name="__codelineno-0-659"></a>    <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">zf</span><span class="p">:</span>
+<a id="__codelineno-0-660" name="__codelineno-0-660"></a>        <span class="n">benchmark_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">zf</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;benchmark.json&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-661" name="__codelineno-0-661"></a>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a>    <span class="n">benchmark_name</span> <span class="o">=</span> <span class="n">benchmark_dict</span><span class="p">[</span><span class="s2">&quot;benchmark_name&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a>    <span class="n">version</span> <span class="o">=</span> <span class="n">benchmark_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a>    <span class="c1"># Extract data into the cache</span>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a>    <span class="n">data_cache</span><span class="o">.</span><span class="n">import_archive</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">benchmark_name</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a>    <span class="n">b</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">benchmark_name</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="n">version</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">benchmark_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{}))</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">benchmark_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;datasets&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>        <span class="n">b</span><span class="o">.</span><span class="n">datasets</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry</span>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a>        <span class="k">if</span> <span class="s2">&quot;num_variables&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">:</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a>            <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;num_variables&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>    <span class="k">return</span> <span class="n">b</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5105,71 +5087,65 @@ archive is downloaded to a temporary file and then loaded exactly as
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/dataset/sr_benchmark.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-702">702</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-676">676</a></span>
+<span class="normal"><a href="#__codelineno-0-677">677</a></span>
+<span class="normal"><a href="#__codelineno-0-678">678</a></span>
+<span class="normal"><a href="#__codelineno-0-679">679</a></span>
+<span class="normal"><a href="#__codelineno-0-680">680</a></span>
+<span class="normal"><a href="#__codelineno-0-681">681</a></span>
+<span class="normal"><a href="#__codelineno-0-682">682</a></span>
+<span class="normal"><a href="#__codelineno-0-683">683</a></span>
+<span class="normal"><a href="#__codelineno-0-684">684</a></span>
+<span class="normal"><a href="#__codelineno-0-685">685</a></span>
+<span class="normal"><a href="#__codelineno-0-686">686</a></span>
+<span class="normal"><a href="#__codelineno-0-687">687</a></span>
+<span class="normal"><a href="#__codelineno-0-688">688</a></span>
+<span class="normal"><a href="#__codelineno-0-689">689</a></span>
+<span class="normal"><a href="#__codelineno-0-690">690</a></span>
+<span class="normal"><a href="#__codelineno-0-691">691</a></span>
+<span class="normal"><a href="#__codelineno-0-692">692</a></span>
+<span class="normal"><a href="#__codelineno-0-693">693</a></span>
+<span class="normal"><a href="#__codelineno-0-694">694</a></span>
+<span class="normal"><a href="#__codelineno-0-695">695</a></span>
+<span class="normal"><a href="#__codelineno-0-696">696</a></span>
+<span class="normal"><a href="#__codelineno-0-697">697</a></span>
+<span class="normal"><a href="#__codelineno-0-698">698</a></span>
+<span class="normal"><a href="#__codelineno-0-699">699</a></span>
+<span class="normal"><a href="#__codelineno-0-700">700</a></span>
+<span class="normal"><a href="#__codelineno-0-701">701</a></span>
+<span class="normal"><a href="#__codelineno-0-702">702</a></span>
 <span class="normal"><a href="#__codelineno-0-703">703</a></span>
 <span class="normal"><a href="#__codelineno-0-704">704</a></span>
-<span class="normal"><a href="#__codelineno-0-705">705</a></span>
-<span class="normal"><a href="#__codelineno-0-706">706</a></span>
-<span class="normal"><a href="#__codelineno-0-707">707</a></span>
-<span class="normal"><a href="#__codelineno-0-708">708</a></span>
-<span class="normal"><a href="#__codelineno-0-709">709</a></span>
-<span class="normal"><a href="#__codelineno-0-710">710</a></span>
-<span class="normal"><a href="#__codelineno-0-711">711</a></span>
-<span class="normal"><a href="#__codelineno-0-712">712</a></span>
-<span class="normal"><a href="#__codelineno-0-713">713</a></span>
-<span class="normal"><a href="#__codelineno-0-714">714</a></span>
-<span class="normal"><a href="#__codelineno-0-715">715</a></span>
-<span class="normal"><a href="#__codelineno-0-716">716</a></span>
-<span class="normal"><a href="#__codelineno-0-717">717</a></span>
-<span class="normal"><a href="#__codelineno-0-718">718</a></span>
-<span class="normal"><a href="#__codelineno-0-719">719</a></span>
-<span class="normal"><a href="#__codelineno-0-720">720</a></span>
-<span class="normal"><a href="#__codelineno-0-721">721</a></span>
-<span class="normal"><a href="#__codelineno-0-722">722</a></span>
-<span class="normal"><a href="#__codelineno-0-723">723</a></span>
-<span class="normal"><a href="#__codelineno-0-724">724</a></span>
-<span class="normal"><a href="#__codelineno-0-725">725</a></span>
-<span class="normal"><a href="#__codelineno-0-726">726</a></span>
-<span class="normal"><a href="#__codelineno-0-727">727</a></span>
-<span class="normal"><a href="#__codelineno-0-728">728</a></span>
-<span class="normal"><a href="#__codelineno-0-729">729</a></span>
-<span class="normal"><a href="#__codelineno-0-730">730</a></span>
-<span class="normal"><a href="#__codelineno-0-731">731</a></span>
-<span class="normal"><a href="#__codelineno-0-732">732</a></span>
-<span class="normal"><a href="#__codelineno-0-733">733</a></span>
-<span class="normal"><a href="#__codelineno-0-734">734</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-702" name="__codelineno-0-702"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-703" name="__codelineno-0-703"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-704" name="__codelineno-0-704"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-705" name="__codelineno-0-705"></a><span class="sd">    Download a self-contained ``.zip`` archive from a URL and load it.</span>
-<a id="__codelineno-0-706" name="__codelineno-0-706"></a>
-<a id="__codelineno-0-707" name="__codelineno-0-707"></a><span class="sd">    This is the remote counterpart to</span>
-<a id="__codelineno-0-708" name="__codelineno-0-708"></a><span class="sd">    [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive]: the</span>
-<a id="__codelineno-0-709" name="__codelineno-0-709"></a><span class="sd">    archive is downloaded to a temporary file and then loaded exactly as</span>
-<a id="__codelineno-0-710" name="__codelineno-0-710"></a><span class="sd">    ``from_archive`` would. The ``url`` must point at an archive written by</span>
-<a id="__codelineno-0-711" name="__codelineno-0-711"></a><span class="sd">    [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive] (a</span>
-<a id="__codelineno-0-712" name="__codelineno-0-712"></a><span class="sd">    ``benchmark.json`` plus a ``data/`` directory) — not a bare ``.npz``/data zip</span>
-<a id="__codelineno-0-713" name="__codelineno-0-713"></a><span class="sd">    (that is what [UrlSource][SRToolkit.dataset.data_source.UrlSource] is for).</span>
-<a id="__codelineno-0-714" name="__codelineno-0-714"></a>
-<a id="__codelineno-0-715" name="__codelineno-0-715"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-716" name="__codelineno-0-716"></a><span class="sd">        url: URL of a ``.zip`` archive written by</span>
-<a id="__codelineno-0-717" name="__codelineno-0-717"></a><span class="sd">            [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].</span>
-<a id="__codelineno-0-718" name="__codelineno-0-718"></a>
-<a id="__codelineno-0-719" name="__codelineno-0-719"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-720" name="__codelineno-0-720"></a><span class="sd">        An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.</span>
-<a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-722" name="__codelineno-0-722"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
-<a id="__codelineno-0-723" name="__codelineno-0-723"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.request</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlopen</span>
-<a id="__codelineno-0-724" name="__codelineno-0-724"></a>
-<a id="__codelineno-0-725" name="__codelineno-0-725"></a>    <span class="k">with</span> <span class="n">urlopen</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="k">as</span> <span class="n">response</span><span class="p">:</span>
-<a id="__codelineno-0-726" name="__codelineno-0-726"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-<a id="__codelineno-0-727" name="__codelineno-0-727"></a>
-<a id="__codelineno-0-728" name="__codelineno-0-728"></a>    <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.zip&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-729" name="__codelineno-0-729"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-730" name="__codelineno-0-730"></a>        <span class="n">tmp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-0-731" name="__codelineno-0-731"></a>        <span class="n">tmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<a id="__codelineno-0-732" name="__codelineno-0-732"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_archive</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-733" name="__codelineno-0-733"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-734" name="__codelineno-0-734"></a>        <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-705">705</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_url</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_benchmark&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a><span class="sd">    Download a self-contained ``.zip`` archive from a URL and load it.</span>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    This is the remote counterpart to</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive]: the</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">    archive is downloaded to a temporary file and then loaded exactly as</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">    ``from_archive`` would. The ``url`` must point at an archive written by</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">    [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive] (a</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">    ``benchmark.json`` plus a ``data/`` directory) — not a bare ``.npz``/data zip</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a><span class="sd">    (that is what [UrlSource][SRToolkit.dataset.data_source.UrlSource] is for).</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a><span class="sd">        url: URL of a ``.zip`` archive written by</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="sd">            [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a><span class="sd">        An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="k">with</span> <span class="n">urlopen</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="k">as</span> <span class="n">response</span><span class="p">:</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>    <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.zip&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>        <span class="n">tmp</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>        <span class="n">tmp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<a id="__codelineno-0-703" name="__codelineno-0-703"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_archive</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-704" name="__codelineno-0-704"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-705" name="__codelineno-0-705"></a>        <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

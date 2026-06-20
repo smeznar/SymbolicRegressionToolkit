@@ -1929,6 +1929,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#SRToolkit.approaches.sr_approach.SR_approach.from_config_dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;from_config_dict
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2448,6 +2459,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#SRToolkit.approaches.sr_approach.SR_approach.from_config_dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;from_config_dict
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2629,21 +2651,21 @@ config dict self-sufficient for reconstruction without any additional metadata.<
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-70">70</a></span>
 <span class="normal"><a href="#__codelineno-0-71">71</a></span>
 <span class="normal"><a href="#__codelineno-0-72">72</a></span>
 <span class="normal"><a href="#__codelineno-0-73">73</a></span>
 <span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    Serialise this config to a JSON-safe dictionary.</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">        A dictionary representation with all values converted to JSON-compatible types.</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="k">return</span> <span class="n">_to_json_safe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">    Serialise this config to a JSON-safe dictionary.</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="sd">        A dictionary representation with all values converted to JSON-compatible types.</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="k">return</span> <span class="n">_to_json_safe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2732,9 +2754,7 @@ config dict self-sufficient for reconstruction without any additional metadata.<
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-79">79</a></span>
 <span class="normal"><a href="#__codelineno-0-80">80</a></span>
 <span class="normal"><a href="#__codelineno-0-81">81</a></span>
 <span class="normal"><a href="#__codelineno-0-82">82</a></span>
@@ -2744,19 +2764,21 @@ config dict self-sufficient for reconstruction without any additional metadata.<
 <span class="normal"><a href="#__codelineno-0-86">86</a></span>
 <span class="normal"><a href="#__codelineno-0-87">87</a></span>
 <span class="normal"><a href="#__codelineno-0-88">88</a></span>
-<span class="normal"><a href="#__codelineno-0-89">89</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ApproachConfig&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    Restore a config from a dictionary produced by</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">        d: Dictionary representation of the config.</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">        A new instance of this config class populated with the values from ``d``.</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">_from_json_safe</span><span class="p">(</span><span class="n">d</span><span class="p">))</span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ApproachConfig&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    Restore a config from a dictionary produced by</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">        d: Dictionary representation of the config.</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">        A new instance of this config class populated with the values from ``d``.</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">_from_json_safe</span><span class="p">(</span><span class="n">d</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2790,12 +2812,7 @@ config dict self-sufficient for reconstruction without any additional metadata.<
 
 
         <p>Abstract base class for all symbolic regression approaches.</p>
-<p>Subclasses must implement <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;prepare&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-abstractmethod&quot;&gt;&lt;code&gt;abstractmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="#SRToolkit.approaches.sr_approach.SR_approach.prepare">prepare</a>
+<p>Subclasses must implement <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;prepare&lt;/span&gt;" href="#SRToolkit.approaches.sr_approach.SR_approach.prepare">prepare</a>
 and <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;search&lt;/span&gt;
 
 
@@ -2900,9 +2917,7 @@ and passes an instance here from its own <code>__init__</code>.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
-<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
 <span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
 <span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
 <span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
@@ -2925,32 +2940,34 @@ and passes an instance here from its own <code>__init__</code>.</p>
 <span class="normal"><a href="#__codelineno-0-115">115</a></span>
 <span class="normal"><a href="#__codelineno-0-116">116</a></span>
 <span class="normal"><a href="#__codelineno-0-117">117</a></span>
-<span class="normal"><a href="#__codelineno-0-118">118</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ApproachConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    Abstract base class for all symbolic regression approaches.</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    Subclasses must implement [prepare][SRToolkit.approaches.sr_approach.SR_approach.prepare]</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">    and [search][SRToolkit.approaches.sr_approach.SR_approach.search], and optionally override</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt],</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state], and</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state]</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    according to their [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope].</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="sd">    The ``config.approach_class`` field is set automatically to the fully-qualified class path</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    of the concrete subclass, so the config dict alone is sufficient to reconstruct the approach.</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">        config: Configuration dataclass for the approach. Every concrete approach defines its</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">            own [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] subclass</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="sd">            and passes an instance here from its own ``__init__``.</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="sd">    Attributes:</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="sd">        name: Name of this approach, read from ``config.name``.</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="sd">        config: The approach configuration.</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a>    <span class="n">config</span><span class="o">.</span><span class="n">approach_class</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__qualname__</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ApproachConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    Abstract base class for all symbolic regression approaches.</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    Subclasses must implement [prepare][SRToolkit.approaches.sr_approach.SR_approach.prepare]</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    and [search][SRToolkit.approaches.sr_approach.SR_approach.search], and optionally override</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt],</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state], and</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">    [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state]</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="sd">    according to their [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope].</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="sd">    The ``config.approach_class`` field is set automatically to the fully-qualified class path</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    of the concrete subclass, so the config dict alone is sufficient to reconstruct the approach.</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="sd">        config: Configuration dataclass for the approach. Every concrete approach defines its</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a><span class="sd">            own [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] subclass</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="sd">            and passes an instance here from its own ``__init__``.</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="sd">    Attributes:</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a><span class="sd">        name: Name of this approach, read from ``config.name``.</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a><span class="sd">        config: The approach configuration.</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="n">config</span><span class="o">.</span><span class="n">approach_class</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__qualname__</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3130,10 +3147,6 @@ Ignored for <code>"never"</code> and <code>"once"</code> scopes (the latter alwa
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">prepare</span>
 
 
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
-  </span>
-
 </h4>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
@@ -3156,9 +3169,7 @@ before the next one starts.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-164">164</a></span>
-<span class="normal"><a href="#__codelineno-0-165">165</a></span>
-<span class="normal"><a href="#__codelineno-0-166">166</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-166">166</a></span>
 <span class="normal"><a href="#__codelineno-0-167">167</a></span>
 <span class="normal"><a href="#__codelineno-0-168">168</a></span>
 <span class="normal"><a href="#__codelineno-0-169">169</a></span>
@@ -3173,24 +3184,24 @@ before the next one starts.</p>
 <span class="normal"><a href="#__codelineno-0-178">178</a></span>
 <span class="normal"><a href="#__codelineno-0-179">179</a></span>
 <span class="normal"><a href="#__codelineno-0-180">180</a></span>
-<span class="normal"><a href="#__codelineno-0-181">181</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    Reset the approach&#39;s per-experiment state in preparation for a new run.</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    Called by the framework before ``adapt()`` and ``search()`` for every</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    experiment, so any state accumulated during a previous run is cleared</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    before the next one starts.</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">    Three cases:</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    - **Stateless** (e.g. random sampling): implement as ``pass``.</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    - **Stateful search** (e.g. GP): reset the population or any other</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">      mutable search state to its initial configuration.</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">    - **Pretrained weights + per-run search state** (e.g. neural): reset</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">      only the search state; leave pretrained weights untouched.</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    Reset the approach&#39;s per-experiment state in preparation for a new run.</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    Called by the framework before ``adapt()`` and ``search()`` for every</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    experiment, so any state accumulated during a previous run is cleared</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    before the next one starts.</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    Three cases:</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    - **Stateless** (e.g. random sampling): implement as ``pass``.</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    - **Stateful search** (e.g. GP): reset the population or any other</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">      mutable search state to its initial configuration.</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">    - **Pretrained weights + per-run search state** (e.g. neural): reset</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">      only the search state; leave pretrained weights untouched.</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3268,8 +3279,7 @@ only the points from the domain and the symbol library may be used.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-184">184</a></span>
 <span class="normal"><a href="#__codelineno-0-185">185</a></span>
 <span class="normal"><a href="#__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#__codelineno-0-187">187</a></span>
@@ -3284,23 +3294,24 @@ only the points from the domain and the symbol library may be used.</p>
 <span class="normal"><a href="#__codelineno-0-196">196</a></span>
 <span class="normal"><a href="#__codelineno-0-197">197</a></span>
 <span class="normal"><a href="#__codelineno-0-198">198</a></span>
-<span class="normal"><a href="#__codelineno-0-199">199</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="k">def</span><span class="w"> </span><span class="nf">adapt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">    Adapt the approach to the target dataset&#39;s input space and symbols in the symbol library.</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    Called by the framework after ``prepare()`` and before ``search()``, according</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    to ``adaptation_scope``. This method must NOT access target values (y) or evaluate</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    expressions (e.g. by calling ``sr_evaluator.evaluate_expr()``) during adaptation —</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    only the points from the domain and the symbol library may be used.</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    The default implementation does nothing. Override when ``adaptation_scope`` is</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">    ``&quot;once&quot;`` or ``&quot;experiment&quot;``.</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">        X: input variables from the domain, shape ``(n_samples, n_variables)``.</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        symbol_library: The symbol library defining the available symbols/tokens.</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="k">pass</span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="k">def</span><span class="w"> </span><span class="nf">adapt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">    Adapt the approach to the target dataset&#39;s input space and symbols in the symbol library.</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    Called by the framework after ``prepare()`` and before ``search()``, according</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    to ``adaptation_scope``. This method must NOT access target values (y) or evaluate</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    expressions (e.g. by calling ``sr_evaluator.evaluate_expr()``) during adaptation —</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">    only the points from the domain and the symbol library may be used.</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">    The default implementation does nothing. Override when ``adaptation_scope`` is</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    ``&quot;once&quot;`` or ``&quot;experiment&quot;``.</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        X: input variables from the domain, shape ``(n_samples, n_variables)``.</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        symbol_library: The symbol library defining the available symbols/tokens.</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>    <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3414,8 +3425,7 @@ stored inside this object.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-201">201</a></span>
-<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-202">202</a></span>
 <span class="normal"><a href="#__codelineno-0-203">203</a></span>
 <span class="normal"><a href="#__codelineno-0-204">204</a></span>
 <span class="normal"><a href="#__codelineno-0-205">205</a></span>
@@ -3439,32 +3449,33 @@ stored inside this object.</p>
 <span class="normal"><a href="#__codelineno-0-223">223</a></span>
 <span class="normal"><a href="#__codelineno-0-224">224</a></span>
 <span class="normal"><a href="#__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#__codelineno-0-226">226</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="nd">@abstractmethod</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">    Run the symbolic regression search.</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">    Implementations must call ``sr_evaluator.evaluate_expr(expr)`` to score</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    candidate expressions. The evaluator accumulates all results internally;</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">    do not call ``sr_evaluator.get_results()`` — that is handled by the</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">    framework after ``search`` finishes.</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    Stop conditions to respect:</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">        - ``sr_evaluator.total_evaluations &gt;= sr_evaluator.max_evaluations``</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">          (when ``max_evaluations &gt; 0``)</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">        - The current best error has dropped below ``sr_evaluator.success_threshold``</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    The symbol library is available in ``sr_evaluator.symbol_library``.</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">        sr_evaluator: Evaluator used to score expressions. All results are</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">            stored inside this object.</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">        seed: Optional random seed for reproducible expression generation.</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">        None</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="nd">@abstractmethod</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    Run the symbolic regression search.</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    Implementations must call ``sr_evaluator.evaluate_expr(expr)`` to score</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">    candidate expressions. The evaluator accumulates all results internally;</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">    do not call ``sr_evaluator.get_results()`` — that is handled by the</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    framework after ``search`` finishes.</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    Stop conditions to respect:</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">        - ``sr_evaluator.total_evaluations &gt;= sr_evaluator.max_evaluations``</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">          (when ``max_evaluations &gt; 0``)</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">        - The current best error has dropped below ``sr_evaluator.success_threshold``</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">    The symbol library is available in ``sr_evaluator.symbol_library``.</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">        sr_evaluator: Evaluator used to score expressions. All results are</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">            stored inside this object.</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">        seed: Optional random seed for reproducible expression generation.</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">        None</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3528,8 +3539,7 @@ without an extension; the approach may append its own extension (e.g.
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-229">229</a></span>
 <span class="normal"><a href="#__codelineno-0-230">230</a></span>
 <span class="normal"><a href="#__codelineno-0-231">231</a></span>
 <span class="normal"><a href="#__codelineno-0-232">232</a></span>
@@ -3546,25 +3556,26 @@ without an extension; the approach may append its own extension (e.g.
 <span class="normal"><a href="#__codelineno-0-243">243</a></span>
 <span class="normal"><a href="#__codelineno-0-244">244</a></span>
 <span class="normal"><a href="#__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#__codelineno-0-246">246</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    Save the adapted model/approach state to ``path``.</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    The approach is free to choose any serialization format (e.g. ``torch.save``,</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    ``numpy.save``, JSON, pickle).  The framework passes ``path`` as a base path</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    without an extension; the approach may append its own extension (e.g.</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">    ``path + &quot;.pt&quot;``), but must be consistent between ``save_adapted_state`` and</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    ``load_adapted_state``.</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    Must be implemented when ``adaptation_scope == &quot;once&quot;``, or when</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    ``adaptation_scope == &quot;experiment&quot;`` and ``save_adapted_model`` is ``True``.</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">        path: Base file path to save the adapted state to.</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    Save the adapted model/approach state to ``path``.</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    The approach is free to choose any serialization format (e.g. ``torch.save``,</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    ``numpy.save``, JSON, pickle).  The framework passes ``path`` as a base path</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">    without an extension; the approach may append its own extension (e.g.</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    ``path + &quot;.pt&quot;``), but must be consistent between ``save_adapted_state`` and</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    ``load_adapted_state``.</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    Must be implemented when ``adaptation_scope == &quot;once&quot;``, or when</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    ``adaptation_scope == &quot;experiment&quot;`` and ``save_adapted_model`` is ``True``.</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">        path: Base file path to save the adapted state to.</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3622,8 +3633,7 @@ without an extension; the approach may append its own extension (e.g.
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-249">249</a></span>
 <span class="normal"><a href="#__codelineno-0-250">250</a></span>
 <span class="normal"><a href="#__codelineno-0-251">251</a></span>
 <span class="normal"><a href="#__codelineno-0-252">252</a></span>
@@ -3633,18 +3643,19 @@ without an extension; the approach may append its own extension (e.g.
 <span class="normal"><a href="#__codelineno-0-256">256</a></span>
 <span class="normal"><a href="#__codelineno-0-257">257</a></span>
 <span class="normal"><a href="#__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#__codelineno-0-259">259</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-248" name="__codelineno-0-248"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a><span class="sd">    Restore the previously saved adapted state from ``path``.</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="sd">    Must be implemented when ``adaptation_scope == &quot;once&quot;``.</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">        path: Base file path previously passed to ``save_adapted_state()``.</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="sd">    Restore the previously saved adapted state from ``path``.</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">    Must be implemented when ``adaptation_scope == &quot;once&quot;``.</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">        path: Base file path previously passed to ``save_adapted_state()``.</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3772,8 +3783,7 @@ or any JSON-serialisable dict describing the approach's hyperparameters.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-262">262</a></span>
 <span class="normal"><a href="#__codelineno-0-263">263</a></span>
 <span class="normal"><a href="#__codelineno-0-264">264</a></span>
 <span class="normal"><a href="#__codelineno-0-265">265</a></span>
@@ -3806,41 +3816,245 @@ or any JSON-serialisable dict describing the approach's hyperparameters.</p>
 <span class="normal"><a href="#__codelineno-0-292">292</a></span>
 <span class="normal"><a href="#__codelineno-0-293">293</a></span>
 <span class="normal"><a href="#__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#__codelineno-0-295">295</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_approach&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    Reconstruct an approach instance from a configuration dictionary.</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">    This classmethod is the counterpart to saving an</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] via</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].  It is used by</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] when loading an approach from a</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    ``grid.json`` manifest for CLI or HPC execution.</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">    The default raises ``NotImplementedError``.  Override this classmethod in subclasses</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">    that need to support CLI/grid loading.</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">    Examples:</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">        &gt;&gt;&gt; class MyApproach(SR_approach):</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">        ...     @classmethod</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">        ...     def from_config(cls, config: dict) -&gt; &quot;MyApproach&quot;:</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">        ...         return cls(param=config[&quot;param&quot;])</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">        config: Dictionary previously produced by</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">            or any JSON-serialisable dict describing the approach&#39;s hyperparameters.</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">        A new instance of this approach class.</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">        NotImplementedError: If the subclass has not implemented this method.</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>        <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">] from_config() is not implemented. &quot;</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="s2">&quot;Override this classmethod to support loading from a grid manifest (CLI/HPC use).&quot;</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_approach&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">    Reconstruct an approach instance from a configuration dictionary.</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    This classmethod is the counterpart to saving an</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">    [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] via</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].  It is used by</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] when loading an approach from a</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">    ``grid.json`` manifest for CLI or HPC execution.</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">    The default raises ``NotImplementedError``.  Override this classmethod in subclasses</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">    that need to support CLI/grid loading.</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">        &gt;&gt;&gt; class MyApproach(SR_approach):</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">        ...     @classmethod</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">        ...     def from_config(cls, config: dict) -&gt; &quot;MyApproach&quot;:</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">        ...         return cls(param=config[&quot;param&quot;])</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">        config: Dictionary previously produced by</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">            or any JSON-serialisable dict describing the approach&#39;s hyperparameters.</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">        A new instance of this approach class.</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        NotImplementedError: If the subclass has not implemented this method.</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">] from_config() is not implemented. &quot;</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="s2">&quot;Override this classmethod to support loading from a grid manifest (CLI/HPC use).&quot;</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="SRToolkit.approaches.sr_approach.SR_approach.from_config_dict" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">from_config_dict</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_config_dict</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SR_approach</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Reconstruct an approach from a config dict that includes an <code>approach_class</code> path.</p>
+<p>This is the self-dispatching counterpart to
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_config&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.approaches.sr_approach.SR_approach.from_config">from_config</a>: it binds the
+config to any installed <code>.srtk</code> bundle, resolves the concrete approach class named
+by <code>approach_class</code>, and delegates to that class's
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_config&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.approaches.sr_approach.SR_approach.from_config">from_config</a>. Mirrors
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.from_dict">SR_dataset.from_dict</a>, which
+resolves its own class the same way.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>config</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A serialised approach config containing an <code>approach_class</code> key, as
+produced by
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="#SRToolkit.approaches.sr_approach.ApproachConfig.to_dict">ApproachConfig.to_dict</a>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_approach&lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.SR_approach&lt;/code&gt;)" href="#SRToolkit.approaches.sr_approach.SR_approach">SR_approach</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A new instance of the concrete approach class.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ImportError">ImportError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>approach_class</code> cannot be imported (e.g. its <code>.srtk</code> bundle
+is not installed, or the config has no <code>_bundle</code> key and was never bound).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_config_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SR_approach&quot;</span><span class="p">:</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    Reconstruct an approach from a config dict that includes an ``approach_class`` path.</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">    This is the self-dispatching counterpart to</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]: it binds the</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">    config to any installed ``.srtk`` bundle, resolves the concrete approach class named</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    by ``approach_class``, and delegates to that class&#39;s</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]. Mirrors</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], which</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    resolves its own class the same way.</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        config: A serialised approach config containing an ``approach_class`` key, as</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">            produced by</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">        A new instance of the concrete approach class.</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">        ImportError: If ``approach_class`` cannot be imported (e.g. its ``.srtk`` bundle</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">            is not installed, or the config has no ``_bundle`` key and was never bound).</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">_auto_bind</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="n">class_path</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;approach_class&quot;</span><span class="p">]</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="n">module_path</span><span class="p">,</span> <span class="n">cls_name</span> <span class="o">=</span> <span class="n">class_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="n">target_cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">),</span> <span class="n">cls_name</span><span class="p">)</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>            <span class="sa">f</span><span class="s2">&quot;Cannot import approach class </span><span class="si">{</span><span class="n">class_path</span><span class="si">!r}</span><span class="s2">. &quot;</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>            <span class="s2">&quot;If this is a bundle class, install the bundle first. &quot;</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>            <span class="s2">&quot;If the config has no &#39;_bundle&#39; key, call bind_config(config) manually.&quot;</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="k">return</span> <span class="n">target_cls</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3928,9 +4142,7 @@ or any JSON-serialisable dict describing the approach's hyperparameters.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-16">16</a></span>
-<span class="normal"><a href="#__codelineno-0-17">17</a></span>
-<span class="normal"><a href="#__codelineno-0-18">18</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-18">18</a></span>
 <span class="normal"><a href="#__codelineno-0-19">19</a></span>
 <span class="normal"><a href="#__codelineno-0-20">20</a></span>
 <span class="normal"><a href="#__codelineno-0-21">21</a></span>
@@ -3953,32 +4165,34 @@ or any JSON-serialisable dict describing the approach's hyperparameters.</p>
 <span class="normal"><a href="#__codelineno-0-38">38</a></span>
 <span class="normal"><a href="#__codelineno-0-39">39</a></span>
 <span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="n">packages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="sd">    Verify that optional heavy dependencies are installed, raising a descriptive error if not.</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19"></a>
-<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">        packages: Names of packages to check. Recognised values: ``&quot;pytorch&quot;``, ``&quot;pymoo&quot;``.</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22"></a>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="sd">        ImportError: If any requested package cannot be imported.</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="k">if</span> <span class="s2">&quot;pytorch&quot;</span> <span class="ow">in</span> <span class="n">packages</span><span class="p">:</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a>            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>  <span class="c1"># noqa: F401</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a>        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a>                <span class="s2">&quot;This approach requires PyTorch. Install dependencies either manually or with &quot;</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a>                <span class="s2">&quot;the command: pip install &#39;symbolic-regression-toolkit[approaches]&#39;&quot;</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a>            <span class="p">)</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="k">if</span> <span class="s2">&quot;pymoo&quot;</span> <span class="ow">in</span> <span class="n">packages</span><span class="p">:</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>            <span class="kn">import</span><span class="w"> </span><span class="nn">pymoo</span>  <span class="c1"># noqa: F401</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>                <span class="s2">&quot;This approach requires pymoo. Install dependencies either manually or with &quot;</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>                <span class="s2">&quot;the command: pip install &#39;symbolic-regression-toolkit[approaches]&#39;&quot;</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>            <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_dependencies</span><span class="p">(</span><span class="n">packages</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">    Verify that optional heavy dependencies are installed, raising a descriptive error if not.</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21"></a>
+<a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="sd">        packages: Names of packages to check. Recognised values: ``&quot;pytorch&quot;``, ``&quot;pymoo&quot;``.</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24"></a>
+<a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="sd">        ImportError: If any requested package cannot be imported.</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="k">if</span> <span class="s2">&quot;pytorch&quot;</span> <span class="ow">in</span> <span class="n">packages</span><span class="p">:</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a>            <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>  <span class="c1"># noqa: F401</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a>        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a>                <span class="s2">&quot;This approach requires PyTorch. Install dependencies either manually or with &quot;</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a>                <span class="s2">&quot;the command: pip install &#39;symbolic-regression-toolkit[approaches]&#39;&quot;</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>            <span class="p">)</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">if</span> <span class="s2">&quot;pymoo&quot;</span> <span class="ow">in</span> <span class="n">packages</span><span class="p">:</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a>            <span class="kn">import</span><span class="w"> </span><span class="nn">pymoo</span>  <span class="c1"># noqa: F401</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a>        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>                <span class="s2">&quot;This approach requires pymoo. Install dependencies either manually or with &quot;</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>                <span class="s2">&quot;the command: pip install &#39;symbolic-regression-toolkit[approaches]&#39;&quot;</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>            <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
