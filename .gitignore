@@ -134,3 +134,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.zed/settings.json
+data/example_ds/*
+docs/other/*
+examples/commands.sh
+notes.txt

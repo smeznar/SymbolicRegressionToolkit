@@ -3,7 +3,7 @@ Distance and similarity measures between symbolic expressions: edit distance,
 tree edit distance, and Behavioral Embedding Distance (BED).
 """
 
-from typing import List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import editdistance
 import numpy as np
@@ -394,3 +394,142 @@ def bed(
         wds[i] = _custom_wasserstein(e1[i][~np.isnan(e1[i])], e2[i][~np.isnan(e2[i])])
 
     return float(np.sum(wds) / n)
+
+
+# ---------------------------------------------------------------------------
+# Regression error metrics
+#
+# These compare a model's predictions against target values, in contrast to the
+# expression-vs-expression measures above. Every metric shares the signature
+# ``metric(predict, X, y) -> float``, where ``predict`` is a callable
+# ``predict(X) -> y_pred`` with the model's fitted constants already bound in.
+# Passing ``predict`` (rather than a precomputed ``y_pred``) lets a metric
+# evaluate the model away from ``X`` too — e.g. at perturbed or held-out points
+# for smoothness, extrapolation, or symmetry measures.
+#
+# They are consumed by
+# [SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric],
+# which builds ``predict`` from a cached, already-evaluated expression. Custom
+# user metrics use this exact signature, so a built-in and a user callable are
+# interchangeable.
+# ---------------------------------------------------------------------------
+
+# Type alias for a constants-bound prediction function ``predict(X) -> y_pred``.
+PredictFn = Callable[[np.ndarray], np.ndarray]
+
+
+def mse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
+    """
+    Mean squared error between predictions and targets.
+
+    Examples:
+        >>> f = compile_expr(["X_0", "+", "C"])
+        >>> predict = lambda X: f(X, np.array([1.0]))
+        >>> X = np.array([[1.0], [2.0], [3.0]])
+        >>> y = np.array([2.0, 3.0, 4.0])
+        >>> mse(predict, X, y)
+        0.0
+
+    Args:
+        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        X: Input data of shape ``(n_samples, n_features)``.
+        y: Target values of shape ``(n_samples,)``.
+
+    Returns:
+        The mean squared error as a float.
+    """
+    return float(np.mean((predict(X) - y) ** 2))
+
+
+def mae(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
+    """
+    Mean absolute error between predictions and targets.
+
+    Examples:
+        >>> f = compile_expr(["X_0", "+", "C"])
+        >>> predict = lambda X: f(X, np.array([1.0]))
+        >>> X = np.array([[1.0], [2.0], [3.0]])
+        >>> y = np.array([2.0, 3.0, 4.0])
+        >>> mae(predict, X, y)
+        0.0
+
+    Args:
+        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        X: Input data of shape ``(n_samples, n_features)``.
+        y: Target values of shape ``(n_samples,)``.
+
+    Returns:
+        The mean absolute error as a float.
+    """
+    return float(np.mean(np.abs(predict(X) - y)))
+
+
+def r2(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
+    """
+    Coefficient of determination R², ``1 - SS_res / SS_tot``.
+
+    Returns ``NaN`` when the targets have zero variance (``SS_tot == 0``), as R²
+    is undefined there.
+
+    Examples:
+        >>> f = compile_expr(["X_0", "+", "C"])
+        >>> predict = lambda X: f(X, np.array([1.0]))
+        >>> X = np.array([[1.0], [2.0], [3.0]])
+        >>> y = np.array([2.0, 3.0, 4.0])
+        >>> r2(predict, X, y)
+        1.0
+
+    Args:
+        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        X: Input data of shape ``(n_samples, n_features)``.
+        y: Target values of shape ``(n_samples,)``.
+
+    Returns:
+        R² as a float, or ``NaN`` if the targets have zero variance.
+    """
+    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
+    if ss_tot == 0:
+        return float("nan")
+    return float(1 - np.sum((y - predict(X)) ** 2) / ss_tot)
+
+
+def nrmse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
+    """
+    Normalized root-mean-square error, ``RMSE / std(y)`` (population standard
+    deviation, ``ddof=0``).
+
+    Returns ``NaN`` when the targets have zero standard deviation, as the
+    normalization is undefined there.
+
+    Examples:
+        >>> f = compile_expr(["X_0", "+", "C"])
+        >>> predict = lambda X: f(X, np.array([1.0]))
+        >>> X = np.array([[1.0], [2.0], [3.0]])
+        >>> y = np.array([2.0, 3.0, 4.0])
+        >>> nrmse(predict, X, y)
+        0.0
+
+    Args:
+        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        X: Input data of shape ``(n_samples, n_features)``.
+        y: Target values of shape ``(n_samples,)``.
+
+    Returns:
+        NRMSE as a float, or ``NaN`` if the targets have zero standard deviation.
+    """
+    std = float(np.std(y))
+    if std == 0:
+        return float("nan")
+    return float(np.sqrt(np.mean((y - predict(X)) ** 2)) / std)
+
+
+# Built-in regression metrics keyed by name. Used by
+# [SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric]
+# to resolve a string ``metric`` argument. This registry is fixed by the library:
+# callers pick a name from it but cannot redefine which metric a name maps to.
+REGRESSION_METRICS: Dict[str, Callable[[PredictFn, np.ndarray, np.ndarray], float]] = {
+    "mse": mse,
+    "mae": mae,
+    "r2": r2,
+    "nrmse": nrmse,
+}

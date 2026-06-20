@@ -3,12 +3,15 @@ Benchmark collection for symbolic regression datasets.
 """
 
 import copy
+import io
 import json
 import os
+import tempfile
 import warnings
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.request import urlopen
 
 import numpy as np
 from typing_extensions import Unpack
@@ -18,6 +21,7 @@ from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EstimationSettings
 
+from . import data_cache
 from .data_source import DataSource, SampleSource
 from .sampling import Sampler
 from .sr_dataset import SR_dataset
@@ -27,8 +31,6 @@ def _save_arrays_to_cache(
     benchmark: str, version: str, name: str, X: np.ndarray, y: Optional[np.ndarray] = None
 ) -> None:
     """Write ``X`` (and optional ``y``) to the dataset's ``.npz`` in the cache version dir."""
-    from SRToolkit.dataset import data_cache
-
     cache_path = data_cache.dataset_path(benchmark, version, name)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if y is not None:
@@ -43,8 +45,6 @@ def _save_gt_array_to_cache(benchmark: str, version: str, name: str, gt: np.ndar
     dataset ``.npz``. Such a ground truth is not JSON-safe, so the entry stores ``None`` and
     [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] reloads it from here.
     """
-    from SRToolkit.dataset import data_cache
-
     cache_path = data_cache.dataset_path(benchmark, version, name)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     np.save(str(cache_path.parent / f"{name}_gt.npy"), gt)
@@ -427,33 +427,13 @@ class SR_benchmark:
             # _create_from_entry may return the benchmark's stored SR_dataset instance
             # (for entries added via add_dataset_instance). Copy before mutating X/y so
             # resampling never corrupts the stored dataset or aliases across callers.
-            # A fresh draw is requested, so the canonical cached data would only be loaded
-            # and immediately overwritten — skip _ensure_data and let the data_source (a
-            # SampleSource for the built-ins) materialise whatever is needed to construct.
             dataset = copy.deepcopy(self._create_from_entry(config))
             return dataset.resample_inplace(n_samples, seed=seed)
 
-        # Loading canonical data: give subclasses a chance to prefetch it into the cache
-        # (e.g. download a benchmark archive once) before materialisation runs.
-        self._ensure_data(dataset_name)
+        # Loading canonical data: materialisation is driven entirely by each dataset's
+        # ``data_source`` — the built-ins use a FallbackSource that downloads the canonical
+        # archive once and regenerates from samplers only if the download is unavailable.
         return self._create_from_entry(self.datasets[dataset_name])
-
-    def _ensure_data(self, dataset_name: str) -> None:
-        """
-        Hook called before loading a dataset's canonical (non-resampled) data.
-
-        The base implementation is a no-op. Subclasses (e.g. the built-in benchmarks) may
-        override it to prefetch authoritative data into the cache — typically by downloading
-        a benchmark archive once — so that the subsequent
-        [data_cache.resolve][SRToolkit.dataset.data_cache.resolve] is a cache hit and each
-        dataset's own ``data_source`` (a fallback) is not consulted. Implementations should
-        be idempotent and degrade gracefully (warn, don't raise) when the prefetch fails, so
-        the per-dataset ``data_source`` can still serve as a fallback.
-
-        Args:
-            dataset_name: The dataset about to be loaded.
-        """
-        pass
 
     def _create_from_entry(self, entry: dict) -> SR_dataset:
         """Internal helper: create an SR_dataset from an entry dict."""
@@ -621,8 +601,6 @@ class SR_benchmark:
                 stacklevel=2,
             )
 
-        from SRToolkit.dataset import data_cache
-
         benchmark_json = json.dumps(self.to_dict(), indent=2)
 
         with zipfile.ZipFile(str(path), "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -635,8 +613,6 @@ class SR_benchmark:
                     cache_p = data_cache.dataset_path(self.benchmark_name, self.version, name)
                     if not cache_p.exists():
                         # Write directly from arrays
-                        import io
-
                         buf = io.BytesIO()
                         if ds.y is not None:
                             np.savez(buf, X=ds.X, y=ds.y)
@@ -680,8 +656,6 @@ class SR_benchmark:
         Returns:
             An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
         """
-        from SRToolkit.dataset import data_cache
-
         with zipfile.ZipFile(str(path), "r") as zf:
             benchmark_dict = json.loads(zf.read("benchmark.json"))
 
@@ -719,9 +693,6 @@ class SR_benchmark:
         Returns:
             An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
         """
-        import tempfile
-        from urllib.request import urlopen
-
         with urlopen(url) as response:
             data = response.read()
 

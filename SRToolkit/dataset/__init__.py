@@ -27,10 +27,10 @@ Modules:
 """
 
 from . import data_cache
-from .data_source import DataSource, SampleSource, UrlSource, source_from_dict
+from .data_source import DataSource, FallbackSource, SampleSource, UrlSource
 from .feynman import Feynman
 from .nguyen import Nguyen
-from .sampling import IntegerUniformSampling, LogUniformSampling, Sampler, UniformSampling, sampler_from_dict
+from .sampling import IntegerUniformSampling, LogUniformSampling, Sampler, UniformSampling
 from .sr_benchmark import SR_benchmark
 from .sr_dataset import SR_dataset
 from .srsd_feynman import SRSD_Feynman
@@ -45,10 +45,9 @@ __all__ = [
     "LogUniformSampling",
     "UniformSampling",
     "IntegerUniformSampling",
-    "sampler_from_dict",
     "DataSource",
     "UrlSource",
     "SampleSource",
-    "source_from_dict",
+    "FallbackSource",
     "data_cache",
 ]

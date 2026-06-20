@@ -7,10 +7,17 @@ a [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for ma
 and built-in implementations for progress display, early stopping, and logging.
 """
 
+import importlib
+import os
+import time
 from abc import ABC
 from dataclasses import dataclass
-from typing import List, Optional
+from datetime import timedelta
+from typing import List, Optional, Union
 
+from tqdm import tqdm
+
+from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.utils import EvalResult
 
 
@@ -169,6 +176,44 @@ class SRCallbacks(ABC):
         """
         return cls()
 
+    @classmethod
+    def from_config_dict(cls, config: dict) -> "SRCallbacks":
+        """
+        Reconstruct a callback from a config dict that includes a ``callback_class`` path.
+
+        This is the self-dispatching counterpart to
+        [from_dict][SRToolkit.evaluation.callbacks.SRCallbacks.from_dict]: it binds the
+        config to any installed ``.srtk`` bundle, resolves the concrete callback class named
+        by ``callback_class``, and delegates to that class's
+        [from_dict][SRToolkit.evaluation.callbacks.SRCallbacks.from_dict]. Mirrors
+        [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], which
+        resolves its own class the same way.
+
+        Args:
+            config: A serialised callback config containing a ``callback_class`` key, as
+                produced by
+                [to_dict][SRToolkit.evaluation.callbacks.SRCallbacks.to_dict].
+
+        Returns:
+            A new instance of the concrete callback class.
+
+        Raises:
+            ImportError: If ``callback_class`` cannot be imported (e.g. its ``.srtk`` bundle
+                is not installed, or the config has no ``_bundle`` key and was never bound).
+        """
+        config = _auto_bind(config)
+        class_path = config["callback_class"]
+        module_path, cls_name = class_path.rsplit(".", 1)
+        try:
+            target_cls = getattr(importlib.import_module(module_path), cls_name)
+        except (ImportError, AttributeError):
+            raise ImportError(
+                f"Cannot import callback class {class_path!r}. "
+                "If this is a bundle class, install the bundle first. "
+                "If the config has no '_bundle' key, call bind_config(config) manually."
+            ) from None
+        return target_cls.from_dict(config)
+
 
 class CallbackDispatcher:
     """
@@ -299,8 +344,6 @@ class ProgressBarCallback(SRCallbacks):
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
         desc = self.desc or f"{event.approach_name} on {event.dataset_name}"
-        from tqdm import tqdm
-
         if event.max_evaluations is not None:
             self.pbar = tqdm(total=event.max_evaluations, desc=desc, unit=" expr")
         else:
@@ -368,6 +411,61 @@ class EarlyStoppingCallback(SRCallbacks):
         return cls(threshold=d.get("threshold"), max_evaluations=d.get("max_evaluations"))
 
 
+class TimeLimitCallback(SRCallbacks):
+    """
+    Stops the search once a wall-clock time limit has elapsed.
+
+    The timer starts when the experiment begins
+    ([on_experiment_start][SRToolkit.evaluation.callbacks.SRCallbacks.on_experiment_start])
+    and uses [time.monotonic][] so it is unaffected by system clock adjustments. The stop
+    request is issued from the next expression evaluation after the limit is exceeded, so the
+    search may run slightly past ``time_limit`` depending on how long a single evaluation takes.
+
+    Examples:
+        >>> cb = TimeLimitCallback(time_limit=60.0)
+        >>> cb.time_limit
+        60.0
+        >>> from datetime import timedelta
+        >>> TimeLimitCallback(time_limit=timedelta(minutes=2)).time_limit
+        120.0
+    """
+
+    def __init__(self, time_limit: Union[float, timedelta]):
+        """
+        Args:
+            time_limit: Maximum wall-clock duration before the search is stopped at the next
+                expression evaluation. Either a number of seconds or a
+                [datetime.timedelta][], which is converted to seconds and stored as a float.
+                Must be strictly positive.
+
+        Raises:
+            ValueError: If ``time_limit`` is not strictly positive.
+        """
+
+        if isinstance(time_limit, timedelta):
+            time_limit = time_limit.total_seconds()
+        if time_limit <= 0:
+            raise ValueError(f"time_limit must be strictly positive, got {time_limit}.")
+        self.time_limit: float = time_limit
+        self._start_time: Optional[float] = None
+
+    def on_experiment_start(self, event: ExperimentEvent) -> None:
+        self._start_time = time.monotonic()
+
+    def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
+        if self._start_time is not None:
+            if time.monotonic() - self._start_time >= self.time_limit:
+                return False
+        return True
+
+    def to_dict(self) -> dict:
+        return {**super().to_dict(), "time_limit": self.time_limit}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "TimeLimitCallback":
+        return cls(time_limit=d["time_limit"])
+
+
 class LoggingCallback(SRCallbacks):
     """
     Logs each new best expression to stdout or a file.
@@ -418,8 +516,6 @@ class LoggingCallback(SRCallbacks):
     def on_best_expression(self, event: BestExpressionFound) -> None:
         log_msg = f"[Experiment {event.experiment_id}] New best: {event.expression} (error={event.error:.6e})\n"
         if self._resolved_log_file is not None:
-            import os
-
             os.makedirs(os.path.dirname(os.path.abspath(self._resolved_log_file)), exist_ok=True)
             with open(self._resolved_log_file, "a") as f:
                 try:

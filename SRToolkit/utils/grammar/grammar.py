@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
+from ...bundle._relocate import _auto_bind
 from ..symbol_library import SymbolLibrary
 from ..types import CONST, FN, FN_POSTFIX, FN_PREFIX, LIT, OP, OP_ADDITIVE, OP_MULTIPLICATIVE, OP_POWER, VAR
 
@@ -616,7 +617,6 @@ class Grammar:
             A new [Grammar][SRToolkit.utils.grammar.Grammar] with all rules and
             constraints registered.
         """
-        from ...bundle._relocate import _auto_bind
         from .constraints import Constraint
 
         d = _auto_bind(d)

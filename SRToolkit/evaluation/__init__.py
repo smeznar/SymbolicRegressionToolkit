@@ -22,6 +22,7 @@ from .callbacks import (
     LoggingCallback,
     ProgressBarCallback,
     SRCallbacks,
+    TimeLimitCallback,
 )
 from .parameter_estimator import ParameterEstimator
 from .result_augmentation import (
@@ -52,6 +53,7 @@ __all__ = [
     "EarlyStoppingCallback",
     "ProgressBarCallback",
     "LoggingCallback",
+    "TimeLimitCallback",
     "ExperimentEvent",
     "BestExpressionFound",
     "ExprEvaluated",

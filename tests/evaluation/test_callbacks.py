@@ -317,7 +317,7 @@ class TestProgressBarCallbackOnExperimentStart:
     def test_creates_bounded_pbar_when_max_evaluations_set(self):
         cb = ProgressBarCallback()
         event = _make_experiment_event(max_evaluations=200)
-        with patch("tqdm.tqdm") as mock_tqdm:
+        with patch("SRToolkit.evaluation.callbacks.tqdm") as mock_tqdm:
             cb.on_experiment_start(event)
             mock_tqdm.assert_called_once()
             _, kwargs = mock_tqdm.call_args
@@ -326,7 +326,7 @@ class TestProgressBarCallbackOnExperimentStart:
     def test_creates_unbounded_pbar_when_max_evaluations_none(self):
         cb = ProgressBarCallback()
         event = _make_experiment_event(max_evaluations=None)
-        with patch("tqdm.tqdm") as mock_tqdm:
+        with patch("SRToolkit.evaluation.callbacks.tqdm") as mock_tqdm:
             cb.on_experiment_start(event)
             mock_tqdm.assert_called_once()
             _, kwargs = mock_tqdm.call_args
@@ -334,7 +334,7 @@ class TestProgressBarCallbackOnExperimentStart:
 
     def test_uses_custom_desc(self):
         cb = ProgressBarCallback(desc="custom")
-        with patch("tqdm.tqdm") as mock_tqdm:
+        with patch("SRToolkit.evaluation.callbacks.tqdm") as mock_tqdm:
             cb.on_experiment_start(_make_experiment_event())
             _, kwargs = mock_tqdm.call_args
             assert kwargs["desc"] == "custom"
@@ -342,7 +342,7 @@ class TestProgressBarCallbackOnExperimentStart:
     def test_auto_generates_desc_from_event(self):
         cb = ProgressBarCallback()
         event = _make_experiment_event(approach_name="ProGED", dataset_name="Feynman")
-        with patch("tqdm.tqdm") as mock_tqdm:
+        with patch("SRToolkit.evaluation.callbacks.tqdm") as mock_tqdm:
             cb.on_experiment_start(event)
             _, kwargs = mock_tqdm.call_args
             assert kwargs["desc"] == "ProGED on Feynman"

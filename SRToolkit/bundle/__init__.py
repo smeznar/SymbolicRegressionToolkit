@@ -62,7 +62,7 @@ uninstall("meznar-gp", version="0.1.0")
 ```
 """
 
-from ._install import install, list_installed, uninstall
+from ._install import install, list_installed, read_manifest, uninstall
 from ._pack import pack
 from ._relocate import bind_config
 from ._store import enable_bundle_imports
@@ -72,6 +72,7 @@ __all__ = [
     "install",
     "uninstall",
     "list_installed",
+    "read_manifest",
     "bind_config",
     "enable_bundle_imports",
 ]

@@ -89,7 +89,7 @@ class Sampler(ABC):
     [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] must include a ``"sampler_class"``
     key holding the fully-qualified class path (e.g.
     ``"SRToolkit.dataset.sampling.UniformSampling"``), so that
-    [sampler_from_dict][SRToolkit.dataset.sampling.sampler_from_dict] can reconstruct any
+    [Sampler.from_dict][SRToolkit.dataset.sampling.Sampler.from_dict] can reconstruct any
     subclass — including user-defined ones — via ``importlib`` without a central registry.
     """
 
@@ -107,9 +107,43 @@ class Sampler(ABC):
         """
 
     @classmethod
-    @abstractmethod
     def from_dict(cls, d: dict) -> "Sampler":
-        """Reconstruct a sampler from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict]."""
+        """
+        Reconstruct a sampler from a dictionary produced by
+        [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict].
+
+        When called on the base [Sampler][SRToolkit.dataset.sampling.Sampler] class,
+        dispatches to the concrete subclass named by the ``"sampler_class"`` key using
+        ``importlib`` — both built-in and user-defined subclasses round-trip without a
+        central registry. When called on a concrete subclass, that subclass must override
+        this method.
+
+        Args:
+            d: Dictionary with a ``"sampler_class"`` key (fully-qualified class path, e.g.
+                ``"SRToolkit.dataset.sampling.UniformSampling"``) and the sampler's parameters.
+
+        Returns:
+            A reconstructed [Sampler][SRToolkit.dataset.sampling.Sampler] instance.
+
+        Raises:
+            KeyError: If ``"sampler_class"`` is missing from ``d`` (dispatch path).
+            ImportError: If the class cannot be imported (dispatch path).
+            NotImplementedError: If called on a subclass that has not overridden this method.
+        """
+        if cls is Sampler:
+            d = _auto_bind(d)
+            class_path = d["sampler_class"]
+            module_path, cls_name = class_path.rsplit(".", 1)
+            try:
+                resolved = getattr(importlib.import_module(module_path), cls_name)
+            except (ImportError, AttributeError):
+                raise ImportError(
+                    f"Cannot import sampler class {class_path!r}. "
+                    "If this is a bundle class, install the bundle first. "
+                    "If the config has no '_bundle' key, call bind_config(config) manually."
+                ) from None
+            return resolved.from_dict(d)
+        raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 
 
 class LogUniformSampling(Sampler):
@@ -254,36 +288,3 @@ class IntegerUniformSampling(Sampler):
     def from_dict(cls, d: dict) -> "IntegerUniformSampling":
         """Deserialize a [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.IntegerUniformSampling.to_dict]."""
         return cls(d["min_value"], d["max_value"], d["uses_positive"], d["uses_negative"])
-
-
-def sampler_from_dict(d: dict) -> Sampler:
-    """
-    Deserialize a sampler from a dictionary produced by its [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] method.
-
-    Uses ``importlib`` to load the class from the ``"sampler_class"`` key, so any
-    user-defined [Sampler][SRToolkit.dataset.sampling.Sampler] subclass round-trips without a central registry.
-
-    Args:
-        d: Dictionary with a ``"sampler_class"`` key (fully-qualified class path, e.g.
-            ``"SRToolkit.dataset.sampling.UniformSampling"``) and the sampler's parameters.
-
-    Returns:
-        A reconstructed [Sampler][SRToolkit.dataset.sampling.Sampler] instance.
-
-    Raises:
-        KeyError: If ``"sampler_class"`` is missing from ``d``.
-        ImportError: If the module cannot be imported.
-        AttributeError: If the class cannot be found in the module.
-    """
-    d = _auto_bind(d)
-    class_path = d["sampler_class"]
-    module_path, cls_name = class_path.rsplit(".", 1)
-    try:
-        cls = getattr(importlib.import_module(module_path), cls_name)
-    except (ImportError, AttributeError):
-        raise ImportError(
-            f"Cannot import sampler class {class_path!r}. "
-            "If this is a bundle class, install the bundle first. "
-            "If the config has no '_bundle' key, call bind_config(config) manually."
-        ) from None
-    return cls.from_dict(d)

@@ -6,8 +6,38 @@ from __future__ import annotations
 
 import ast
 import os
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from . import _store
+
+
+def bundle_class_index(srtk_path: str | os.PathLike) -> Dict[str, List[str]]:
+    """Return ``{class_name: [module_stem, ...]}`` for a ``.srtk`` without installing it.
+
+    Reads the bundle's ``src/*.py`` entries straight from the archive and parses them
+    with ``ast`` (no source is extracted, imported, or executed). Mirrors
+    [_scan_classes][SRToolkit.bundle._relocate._scan_classes] — the same index
+    [bind_config][SRToolkit.bundle.bind_config] resolves against at load time — so a
+    caller can tell which classes a supplied bundle provides before shipping it.
+    """
+    index: Dict[str, List[str]] = {}
+    with zipfile.ZipFile(srtk_path) as zf:
+        for entry in zf.namelist():
+            if not entry.startswith("src/") or not entry.endswith(".py"):
+                continue
+            stem = Path(entry).stem
+            if stem == "__init__":
+                continue
+            try:
+                tree = ast.parse(zf.read(entry).decode("utf-8"))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+            for node in tree.body:
+                if isinstance(node, ast.ClassDef):
+                    index.setdefault(node.name, []).append(stem)
+    return index
 
 
 def _scan_classes(base_dir_path: Path) -> Dict[str, List[str]]:
@@ -155,8 +185,6 @@ def bind_config(
         LookupError: If a ``*_class`` value references a class that cannot be
             found in the installed bundle.
     """
-    from . import _store
-
     resolved_name = bundle_name or config.get("_bundle")
     if not resolved_name:
         raise ValueError(

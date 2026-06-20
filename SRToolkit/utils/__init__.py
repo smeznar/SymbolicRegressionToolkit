@@ -40,7 +40,17 @@ from .grammar import (
     ParseTreeNode,
     Rule,
 )
-from .measures import bed, create_behavior_matrix, edit_distance, tree_edit_distance
+from .measures import (
+    REGRESSION_METRICS,
+    bed,
+    create_behavior_matrix,
+    edit_distance,
+    mae,
+    mse,
+    nrmse,
+    r2,
+    tree_edit_distance,
+)
 from .symbol_library import SymbolLibrary
 from .types import (
     CONST,
@@ -86,6 +96,11 @@ __all__ = [
     "create_behavior_matrix",
     "edit_distance",
     "tree_edit_distance",
+    "mse",
+    "mae",
+    "r2",
+    "nrmse",
+    "REGRESSION_METRICS",
     "expr_to_latex",
     "EstimationSettings",
     "VAR",

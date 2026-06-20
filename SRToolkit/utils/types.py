@@ -245,6 +245,9 @@ class EvalResult:
         success: Whether ``min_error`` is below the configured ``success_threshold``.
         dataset_name: Name of the dataset. ``None`` if not provided.
         metadata: Arbitrary metadata dict associated with the dataset. ``None`` if not provided.
+        wall_time: Wall-clock duration in seconds of the approach's search for this
+            experiment, measured around ``search()`` by the experiment runner. ``None`` if
+            the result was not produced by a runner that records timing.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
             [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
@@ -260,6 +263,7 @@ class EvalResult:
     success: bool
     dataset_name: Optional[str] = None
     metadata: Optional[dict] = None
+    wall_time: Optional[float] = None
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
@@ -335,6 +339,7 @@ class EvalResult:
             "success": bool(self.success),
             "dataset_name": self.dataset_name,
             "metadata": self.metadata,
+            "wall_time": self.wall_time,
             "augmentations": _to_json_safe(self.augmentations),
         }
 
@@ -376,5 +381,6 @@ class EvalResult:
             success=data["success"],
             dataset_name=data.get("dataset_name"),
             metadata=data.get("metadata"),
+            wall_time=data.get("wall_time"),
             augmentations=_from_json_safe(data["augmentations"]),
         )

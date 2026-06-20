@@ -1,14 +1,20 @@
 import numpy as np
 import pytest
 
+from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.measures import (
+    REGRESSION_METRICS,
     _custom_wasserstein,
     _expr_to_zss,
     _vectorized_wasserstein_batch,
     bed,
     create_behavior_matrix,
     edit_distance,
+    mae,
+    mse,
+    nrmse,
+    r2,
     tree_edit_distance,
 )
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -332,3 +338,50 @@ class TestContextFallback:
         with sl:
             result = bed(["X_0", "+", "X_1"], ["X_0", "+", "X_1"], X)
         assert result == pytest.approx(0.0)
+
+
+class TestRegressionMetrics:
+    def setup_method(self):
+        self.sl = SymbolLibrary.default_symbols(num_variables=1)
+        self.X = np.array([[1.0], [2.0], [3.0], [4.0]])
+        self.y = np.array([2.0, 3.0, 4.0, 5.0])  # y = X_0 + 1
+
+    def _predict(self, tokens, params):
+        f = compile_expr(tokens, self.sl)
+        return lambda X: f(X, np.array(params))
+
+    def test_perfect_fit(self):
+        predict = self._predict(["X_0", "+", "C"], [1.0])
+        assert mse(predict, self.X, self.y) == pytest.approx(0.0)
+        assert mae(predict, self.X, self.y) == pytest.approx(0.0)
+        assert r2(predict, self.X, self.y) == pytest.approx(1.0)
+        assert nrmse(predict, self.X, self.y) == pytest.approx(0.0)
+
+    def test_mse_and_mae_known_values(self):
+        # Constant offset of +1 from the perfect fit: residual is 1 everywhere.
+        predict = self._predict(["X_0", "+", "C"], [2.0])
+        assert mse(predict, self.X, self.y) == pytest.approx(1.0)
+        assert mae(predict, self.X, self.y) == pytest.approx(1.0)
+
+    def test_r2_zero_for_mean_predictor(self):
+        # Predicting the mean of y gives R^2 == 0.
+        mean_y = float(np.mean(self.y))
+        predict = lambda X: np.full(X.shape[0], mean_y)  # noqa: E731
+        assert r2(predict, self.X, self.y) == pytest.approx(0.0)
+
+    def test_r2_nan_when_targets_constant(self):
+        y_const = np.full(4, 5.0)
+        predict = lambda X: np.full(X.shape[0], 5.0)  # noqa: E731
+        assert np.isnan(r2(predict, self.X, y_const))
+
+    def test_nrmse_nan_when_targets_constant(self):
+        y_const = np.full(4, 5.0)
+        predict = lambda X: np.full(X.shape[0], 4.0)  # noqa: E731
+        assert np.isnan(nrmse(predict, self.X, y_const))
+
+    def test_nrmse_normalized_by_std(self):
+        predict = self._predict(["X_0", "+", "C"], [2.0])  # residual 1 everywhere -> rmse 1
+        assert nrmse(predict, self.X, self.y) == pytest.approx(1.0 / np.std(self.y))
+
+    def test_registry_maps_names_to_functions(self):
+        assert REGRESSION_METRICS == {"mse": mse, "mae": mae, "r2": r2, "nrmse": nrmse}

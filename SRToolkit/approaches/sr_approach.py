@@ -2,12 +2,14 @@
 Abstract base class and configuration dataclass for symbolic regression approaches.
 """
 
+import importlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
 import numpy as np
 
+from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import SymbolLibrary
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
@@ -161,7 +163,6 @@ class SR_approach(ABC):
         """
         return False
 
-    @abstractmethod
     def prepare(self) -> None:
         """
         Reset the approach's per-experiment state in preparation for a new run.
@@ -178,7 +179,7 @@ class SR_approach(ABC):
         - **Pretrained weights + per-run search state** (e.g. neural): reset
           only the search state; leave pretrained weights untouched.
         """
-        raise NotImplementedError
+        pass
 
     def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary) -> None:
         """
@@ -293,3 +294,41 @@ class SR_approach(ABC):
             f"[{cls.__name__}] from_config() is not implemented. "
             "Override this classmethod to support loading from a grid manifest (CLI/HPC use)."
         )
+
+    @classmethod
+    def from_config_dict(cls, config: dict) -> "SR_approach":
+        """
+        Reconstruct an approach from a config dict that includes an ``approach_class`` path.
+
+        This is the self-dispatching counterpart to
+        [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]: it binds the
+        config to any installed ``.srtk`` bundle, resolves the concrete approach class named
+        by ``approach_class``, and delegates to that class's
+        [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]. Mirrors
+        [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], which
+        resolves its own class the same way.
+
+        Args:
+            config: A serialised approach config containing an ``approach_class`` key, as
+                produced by
+                [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].
+
+        Returns:
+            A new instance of the concrete approach class.
+
+        Raises:
+            ImportError: If ``approach_class`` cannot be imported (e.g. its ``.srtk`` bundle
+                is not installed, or the config has no ``_bundle`` key and was never bound).
+        """
+        config = _auto_bind(config)
+        class_path = config["approach_class"]
+        module_path, cls_name = class_path.rsplit(".", 1)
+        try:
+            target_cls = getattr(importlib.import_module(module_path), cls_name)
+        except (ImportError, AttributeError):
+            raise ImportError(
+                f"Cannot import approach class {class_path!r}. "
+                "If this is a bundle class, install the bundle first. "
+                "If the config has no '_bundle' key, call bind_config(config) manually."
+            ) from None
+        return target_cls.from_config(config)

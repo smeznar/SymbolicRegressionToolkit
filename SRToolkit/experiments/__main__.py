@@ -1,59 +1,75 @@
 """
 CLI entry point for the SRToolkit runner.
 
-Three subcommands:
+Four subcommands:
 
-    run_job   -- Execute a single experiment given three JSON file paths.
-    adapt     -- Pre-adapt all "once"-scope approaches where state is missing.
+    run_job   -- Execute one experiment identified by (grid, dataset, approach, seed).
+    adapt     -- Pre-adapt "once"-scope approaches: all missing pairs, or a single
+                 (dataset, approach) pair when both --dataset and --approach are given.
+                 Add --force to re-adapt and overwrite an existing state (single pair only).
     commands  -- Write a commands file of run_job calls for HPC/terminal use.
+    progress  -- Print a dataset × approach table of completed experiments.
 
 Usage examples::
 
     python -m SRToolkit.experiments run_job \\
-        --dataset /out/run1/_datasets/NG-1/NG-1.json \\
-        --approach /out/run1/_approaches/ProGED_config.json \\
-        --info /out/run1/NG-1/ProGED/exp_42/info.json \\
-        --callbacks /out/run1/_callbacks.json
+        --grid /out/run1/grid.json --dataset NG-1 --approach ProGED --seed 42
 
-    python -m SRToolkit.experiments adapt --grid /out/run1/grid.json
+    python -m SRToolkit.experiments adapt --grid /out/run1/grid.json            # all pairs
+    python -m SRToolkit.experiments adapt \\
+        --grid /out/run1/grid.json --dataset NG-1 --approach ProGED             # one pair
+    python -m SRToolkit.experiments adapt \\
+        --grid /out/run1/grid.json --dataset NG-1 --approach ProGED --force     # re-adapt one pair
 
     python -m SRToolkit.experiments commands \\
         --grid /out/run1/grid.json \\
         --out /out/run1/commands.txt \\
         --python python3
+
+    python -m SRToolkit.experiments progress --grid /out/run1/grid.json
 """
 
 import argparse
-import json
 
-from .experiment_grid import ExperimentGrid, ExperimentJob, _callback_from_config
+from .experiment_grid import ExperimentGrid
 
 
 def _cmd_run_job(args: argparse.Namespace) -> None:
-    callbacks = None
-    if args.callbacks is not None:
-        with open(args.callbacks) as f:
-            callbacks = [_callback_from_config(d) for d in json.load(f)]
-    job = ExperimentJob(args.dataset, args.approach, args.info, callbacks=callbacks)
+    grid = ExperimentGrid.load(args.grid)
+    job = grid.build_job(args.dataset, args.approach, args.seed)
     job.run()
     print(f"[run_job] Saved result to {job.result_path}")
 
 
 def _cmd_adapt(args: argparse.Namespace) -> None:
+    if (args.dataset is None) != (args.approach is None):
+        raise SystemExit("[adapt] --dataset and --approach must be given together (or neither).")
+    if args.force and args.dataset is None:
+        raise SystemExit("[adapt] --force requires --dataset and --approach (it only applies to a single pair).")
     grid = ExperimentGrid.load(args.grid)
-    grid.adapt_if_missing()
-    print("[adapt] Finished adapting all approaches.")
+    if args.dataset is not None:
+        grid.adapt_one(args.approach, args.dataset, force=args.force)
+        print(f"[adapt] Finished adapting {args.approach!r} on {args.dataset!r}.")
+    else:
+        grid.adapt_if_missing()
+        print("[adapt] Finished adapting all approaches.")
 
 
 def _cmd_commands(args: argparse.Namespace) -> None:
     grid = ExperimentGrid.load(args.grid)
     skip = not args.all
-    grid.save_commands(
+    prepare_path = grid.save_commands(
         path=args.out,
         python_executable=args.python,
         skip_completed=skip,
     )
-    print(f"[commands] Commands file written to {args.out}")
+    if prepare_path is not None:
+        print(f"[commands] Prepare commands written to {prepare_path} — run them to completion FIRST.")
+    print(f"[commands] Experiment commands written to {args.out}")
+
+
+def _cmd_progress(args: argparse.Namespace) -> None:
+    ExperimentGrid.load(args.grid).progress()
 
 
 def main() -> None:
@@ -66,24 +82,26 @@ def main() -> None:
     # ---- run_job ----
     p_run = subparsers.add_parser(
         "run_job",
-        help="Execute a single experiment from three JSON file paths.",
+        help="Execute a single experiment identified by (grid, dataset, approach, seed).",
     )
-    p_run.add_argument("--dataset", required=True, metavar="PATH", help="Path to SR_dataset.to_dict() JSON file.")
-    p_run.add_argument("--approach", required=True, metavar="PATH", help="Path to ApproachConfig.to_dict() JSON file.")
-    p_run.add_argument("--info", required=True, metavar="PATH", help="Path to ExperimentInfo.to_dict() JSON file.")
-    p_run.add_argument(
-        "--callbacks",
-        default=None,
-        metavar="PATH",
-        help="Optional path to a _callbacks.json file produced by ExperimentGrid.save().",
-    )
+    p_run.add_argument("--grid", required=True, metavar="PATH", help="Path to the grid.json file.")
+    p_run.add_argument("--dataset", required=True, metavar="NAME", help="Dataset name within the grid.")
+    p_run.add_argument("--approach", required=True, metavar="NAME", help="Approach name within the grid.")
+    p_run.add_argument("--seed", required=True, type=int, metavar="N", help="Random seed for this run.")
 
     # ---- adapt ----
     p_adapt = subparsers.add_parser(
         "adapt",
-        help='Pre-adapt all "once"-scope approaches where state files are missing.',
+        help='Pre-adapt "once"-scope approaches (all missing pairs, or one --dataset/--approach pair).',
     )
     p_adapt.add_argument("--grid", required=True, metavar="PATH", help="Path to the grid.json file.")
+    p_adapt.add_argument("--dataset", metavar="NAME", help="Adapt only this dataset (requires --approach).")
+    p_adapt.add_argument("--approach", metavar="NAME", help="Adapt only this approach (requires --dataset).")
+    p_adapt.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-adapt and overwrite even if the state file exists (single --dataset/--approach pair only).",
+    )
 
     # ---- commands ----
     p_cmds = subparsers.add_parser(
@@ -100,6 +118,13 @@ def main() -> None:
     )
     p_cmds.add_argument("--all", action="store_true", help="Include already-completed jobs (default: skip them).")
 
+    # ---- progress ----
+    p_prog = subparsers.add_parser(
+        "progress",
+        help="Print a dataset × approach table of completed experiments.",
+    )
+    p_prog.add_argument("--grid", required=True, metavar="PATH", help="Path to the grid.json file.")
+
     args = parser.parse_args()
 
     if args.subcommand == "run_job":
@@ -108,6 +133,8 @@ def main() -> None:
         _cmd_adapt(args)
     elif args.subcommand == "commands":
         _cmd_commands(args)
+    elif args.subcommand == "progress":
+        _cmd_progress(args)
 
 
 if __name__ == "__main__":

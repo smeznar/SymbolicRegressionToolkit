@@ -78,6 +78,8 @@ def register(manifest: BundleManifest, install_path: Path) -> None:
         "name": manifest.name,
         "version": manifest.version,
         "author": manifest.author,
+        "srtk_min_version": manifest.srtk_min_version,
+        "python_deps": manifest.python_deps,
         "path": str(install_path),
         "import_prefix": manifest.import_prefix,
     }

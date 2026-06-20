@@ -18,7 +18,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Union
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
@@ -32,9 +32,10 @@ from SRToolkit.evaluation.callbacks import (
     SRCallbacks,
 )
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import Node
-from SRToolkit.utils.measures import bed, create_behavior_matrix
+from SRToolkit.utils.measures import REGRESSION_METRICS, bed, create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EstimationSettings, EvalResult, ModelResult
 
@@ -617,6 +618,118 @@ class SR_evaluator:
 
                 return error
 
+    def get_metric(
+        self,
+        expr: Union[List[str], Node],
+        metric: Union[str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]] = "r2",
+    ) -> float:
+        """
+        Compute an alternative, read-only metric for an already-evaluated expression.
+
+        Unlike [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
+        this does **not** count toward the evaluation budget, does not affect ranking,
+        success, caching, or callbacks, and never changes the canonical ranking function.
+        It exists so an approach can structure its search around a measure other than the
+        ranking error (e.g. R² or NRMSE) without re-running the (budgeted) evaluation and
+        without being given direct access to ``X``/``y`` as attributes.
+
+        The expression **must already have been evaluated** via ``evaluate_expr`` so its
+        constants are fitted and cached — otherwise a ``ValueError`` is raised. This is the
+        guard that keeps the budget meaningful: a custom ``metric`` callable cannot be used to
+        score un-evaluated expressions for free.
+
+        The ``metric`` is computed from a constants-bound prediction function
+        ``predict(X) -> y_pred`` built from the cached fit. Built-in string metrics and
+        custom callables share the signature ``metric(predict, X, y) -> float``; passing
+        ``predict`` (rather than a precomputed ``y_pred``) lets a metric also evaluate the
+        model away from ``X`` (e.g. for smoothness or extrapolation measures).
+
+        Only available in ``ranking_function="rmse"`` mode. In BED mode (no ``y``,
+        no fitted constants), and for invalid expressions, this returns ``NaN``.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y, seed=42)
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> print(se.get_metric(["C", "*", "X_1", "-", "X_0"], "r2") > 0.999)
+            True
+            >>> # A custom measure: worst-case absolute residual.
+            >>> def max_abs_residual(predict, X, y):
+            ...     return float(np.max(np.abs(predict(X) - y)))
+            >>> print(se.get_metric(["C", "*", "X_1", "-", "X_0"], max_abs_residual) < 1e-6)
+            True
+
+        Args:
+            expr: Expression as a token list in infix notation or a
+                [Node][SRToolkit.utils.expression_tree.Node] tree. Must already have been
+                passed to ``evaluate_expr``.
+            metric: Either the name of a built-in metric in
+                [REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS]
+                (``"mse"``, ``"mae"``, ``"r2"``, ``"nrmse"``), or a callable with the
+                signature ``metric(predict, X, y) -> float`` where ``predict(X) -> y_pred``
+                has the fitted constants bound in. Default ``"r2"``.
+
+        Returns:
+            The metric value as a float. Returns ``NaN`` in BED mode, for invalid
+            expressions, or if the metric raises during computation.
+
+        Raises:
+            ValueError: If ``expr`` has not been evaluated yet, or if ``metric`` is a
+                string that is not a known built-in metric.
+            TypeError: If ``metric`` is neither a string nor a callable.
+        """
+        if isinstance(expr, Node):
+            expr_list = expr.to_list(symbol_library=self.symbol_library)
+        else:
+            expr_list = expr
+        expr_str = "".join(expr_list)
+
+        if expr_str not in self.models:
+            raise ValueError(
+                f"[SR_evaluator.get_metric] Expression '{expr_str}' has not been evaluated yet. "
+                "Call evaluate_expr() on it first so its constants are fitted and cached."
+            )
+
+        # Resolve the metric up front so unknown names raise regardless of mode.
+        if isinstance(metric, str):
+            if metric not in REGRESSION_METRICS:
+                raise ValueError(
+                    f"[SR_evaluator.get_metric] Unknown metric '{metric}'. Available built-in metrics: "
+                    f"{sorted(REGRESSION_METRICS)}. Alternatively pass a callable with signature "
+                    "metric(predict, X, y) -> float."
+                )
+            metric_fn = REGRESSION_METRICS[metric]
+        elif callable(metric):
+            metric_fn = metric
+        else:
+            raise TypeError(
+                f"[SR_evaluator.get_metric] metric must be a string or a callable, got {type(metric).__name__}."
+            )
+
+        model = self.models[expr_str]
+
+        # Prediction-based metrics need targets and a fitted model: undefined in BED mode
+        # and for invalid expressions.
+        if self.ranking_function != "rmse" or self.y is None:
+            return float("nan")
+        if expr_str in self.invalid or np.isnan(model.error):
+            return float("nan")
+
+        backend = str(self.parameter_estimator.estimation_settings["backend"])
+        raw = compile_expr(expr_list, self.symbol_library, backend=backend)
+        params = model.parameters if model.parameters is not None else np.array([])
+
+        def predict(X: np.ndarray) -> np.ndarray:
+            return raw(X, params)
+
+        try:
+            with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
+                return float(metric_fn(predict, self.X, self.y))
+        except Exception as e:
+            warnings.warn(f"[SR_evaluator.get_metric] Error computing metric for '{expr_str}': {e}")
+            return float("nan")
+
     def get_results(
         self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None
     ) -> "SR_results":
@@ -932,6 +1045,8 @@ class SR_results:
         print(
             f"Evaluated: {result.num_evaluated} expressions | Calls: {result.evaluation_calls} | Success: {result.success}"
         )
+        if result.wall_time is not None:
+            print(f"Wall time: {result.wall_time:.3f}s")
         if result.metadata is not None and len(result.metadata) > 0:
             print("Metadata:")
             for key, value in result.metadata.items():

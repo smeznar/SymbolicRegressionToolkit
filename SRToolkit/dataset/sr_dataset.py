@@ -2,23 +2,31 @@
 Dataset wrapper for a single symbolic regression problem.
 """
 
+import io
 import json
 import os
+import tempfile
+import time
+import warnings
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.request import urlopen
 
 import numpy as np
 from typing_extensions import Unpack
 
 from SRToolkit.approaches.sr_approach import SR_approach
+from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.types import EstimationSettings
 
-from .data_source import DataSource, SampleSource, source_from_dict
-from .sampling import Sampler, sampler_from_dict
+from . import data_cache
+from .data_source import DataSource, SampleSource
+from .sampling import Sampler
 
 
 class SR_dataset:
@@ -207,8 +215,12 @@ class SR_dataset:
             evaluator = self.create_evaluator(seed=seed)
             evaluator._experiment_id = f"{dataset_name}_{sr_approach.name}_{seed}"
             evaluator.register_callbacks(callbacks)
+            start_time = time.monotonic()
             sr_approach.search(evaluator, seed)
-            results += evaluator.get_results(sr_approach.name, top_k)
+            elapsed = time.monotonic() - start_time
+            experiment_results = evaluator.get_results(sr_approach.name, top_k)
+            experiment_results.results[-1].wall_time = elapsed
+            results += experiment_results
 
             if callbacks is not None:
                 callbacks.on_experiment_end(event, results.results[-1])
@@ -394,8 +406,6 @@ class SR_dataset:
 
         Requires ``benchmark`` and ``version`` to be set (the caller validates this).
         """
-        from SRToolkit.dataset import data_cache
-
         assert self.benchmark is not None and self.version is not None, (
             "_persist_to_cache requires benchmark/version to be set; the caller must validate this."
         )
@@ -547,8 +557,6 @@ class SR_dataset:
             dd = dict(d)
 
         # Apply bundle relocation if needed
-        from SRToolkit.bundle._relocate import _auto_bind
-
         dd = _auto_bind(dd)
 
         fmt = dd.get("format_version", 1)
@@ -557,8 +565,6 @@ class SR_dataset:
             return cls._from_dict_v1(dd)
         if fmt != 2:
             raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2.")
-
-        from SRToolkit.dataset import data_cache
 
         benchmark = dd["benchmark"]
         version = dd["version"]
@@ -583,7 +589,7 @@ class SR_dataset:
 
         samplers = None
         if dd.get("samplers") is not None:
-            samplers = [sampler_from_dict(s) for s in dd["samplers"]]
+            samplers = [Sampler.from_dict(s) for s in dd["samplers"]]
 
         dataset = cls(
             X,
@@ -602,7 +608,7 @@ class SR_dataset:
             version=version,
             **kwargs,
         )
-        dataset.data_source = source_from_dict(dd.get("data_source"))
+        dataset.data_source = DataSource.from_dict(dd.get("data_source"))
         return dataset
 
     def to_archive(self, path: "Union[str, Path]") -> None:
@@ -633,10 +639,6 @@ class SR_dataset:
                 so the cache layer can locate the data on load — raised by
                 [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]).
         """
-        import io
-        import warnings
-        import zipfile
-
         path = Path(path)
         if path.suffix.lower() != ".zip":
             warnings.warn(
@@ -683,10 +685,6 @@ class SR_dataset:
         Returns:
             A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance.
         """
-        import zipfile
-
-        from SRToolkit.dataset import data_cache
-
         with zipfile.ZipFile(str(path), "r") as zf:
             d = json.loads(zf.read("dataset.json"))
 
@@ -720,9 +718,6 @@ class SR_dataset:
         Returns:
             A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance.
         """
-        import tempfile
-        from urllib.request import urlopen
-
         with urlopen(url) as response:
             data = response.read()
 
@@ -862,7 +857,7 @@ class SR_dataset:
 
         samplers = None
         if d.get("samplers") is not None:
-            samplers = [sampler_from_dict(s) for s in d["samplers"]]
+            samplers = [Sampler.from_dict(s) for s in d["samplers"]]
 
         return cls(
             X,
@@ -897,8 +892,6 @@ class SR_dataset:
             )
         if self.benchmark is None or self.version is None:
             raise ValueError("[SR_dataset.refresh] Cannot refresh: 'benchmark' or 'version' is None.")
-
-        from SRToolkit.dataset import data_cache
 
         data_cache.resolve(
             self.benchmark,

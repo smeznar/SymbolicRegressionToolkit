@@ -2,12 +2,11 @@
 SRSD Feynman symbolic regression benchmark.
 """
 
-import warnings
 from typing import Optional
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
-from .data_source import SampleSource, UrlSource
+from .data_source import FallbackSource, SampleSource, UrlSource
 from .sampling import IntegerUniformSampling, LogUniformSampling, UniformSampling
 from .sr_benchmark import SR_benchmark
 
@@ -86,12 +85,18 @@ class SRSD_Feynman(SR_benchmark):
         seed = None
         url = "https://raw.githubusercontent.com/smeznar/SymbolicRegressionToolkit/master/data/srsd.zip"
 
-        # The canonical data is downloaded once from the archive (see _ensure_data) so every
-        # machine benchmarks on identical inputs. Each dataset's own data_source is a
-        # SampleSource: a transparent, per-dataset fallback that regenerates the data from
-        # that dataset's samplers if the download is unavailable (or force_generate is set).
-        self._archive_source = UrlSource(url)
-        data_source = SampleSource(n_samples=self._n_samples, seed=seed)
+        # Each dataset's data_source prefers the canonical archive (so every machine
+        # benchmarks on identical inputs) and falls back to regenerating from that dataset's
+        # samplers if the download is unavailable. The chain is serialised in the config, so
+        # the preference travels to grid recipes, exports, and cold workers. SRSD sampling is
+        # seedless (seed=None), so the canonical download matters most here. With
+        # force_generate it is sampling-only — the canonical archive is never consulted.
+        if self._force_generate:
+            data_source = SampleSource(n_samples=self._n_samples, seed=seed)
+        else:
+            data_source = FallbackSource(
+                [UrlSource(url), SampleSource(n_samples=self._n_samples, seed=seed)]
+            )
 
         self.metadata = {
             "description": "SRSD Feynman benchmark containing 120 physics equations with per-variable "
@@ -1168,26 +1173,3 @@ class SRSD_Feynman(SR_benchmark):
             ], data_source=data_source)
 
     # fmt: on
-
-    def _ensure_data(self, dataset_name: str) -> None:
-        """Download the canonical SRSD archive into the cache once, unless ``force_generate``.
-
-        On a cache miss the whole archive is fetched and every dataset's ``.npz`` extracted, so
-        the next ``create_dataset`` reads the same data on any machine. If the download fails we
-        warn and let each dataset's ``SampleSource`` regenerate the data locally.
-        """
-        if self._force_generate:
-            return
-        from SRToolkit.dataset import data_cache
-
-        cache_path = data_cache.dataset_path(self.benchmark_name, self.version, dataset_name)
-        if cache_path.exists():
-            return
-        try:
-            self._archive_source.materialize(cache_path, self.datasets[dataset_name])
-        except Exception as e:
-            warnings.warn(
-                f"[SRSD_Feynman] Could not download the canonical data ({e}); falling back to "
-                f"local sampling. Generated data may differ across machines.",
-                stacklevel=2,
-            )

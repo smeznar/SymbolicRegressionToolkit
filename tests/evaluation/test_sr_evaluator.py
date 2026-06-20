@@ -11,7 +11,7 @@ from SRToolkit.evaluation.callbacks import (
     SRCallbacks,
 )
 from SRToolkit.evaluation.sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
-from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.measures import create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EvalResult, ModelResult
@@ -444,6 +444,106 @@ class TestEvaluateExprBed:
         self.se.register_callbacks(cb)
         self.se.evaluate_expr(["C", "+", "X_0"])
         assert self.se.should_stop is True
+
+
+# ── SR_evaluator.get_metric ───────────────────────────────────────────────────
+
+
+class TestGetMetric:
+    _BEST = ["C", "*", "X_1", "-", "X_0"]  # exact fit for _y
+
+    def test_builtin_r2_for_exact_fit(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        assert se.get_metric(self._BEST, "r2") > 0.999
+
+    def test_builtin_mse_matches_squared_rmse(self):
+        se = _make_se()
+        rmse = se.evaluate_expr(self._BEST)
+        assert se.get_metric(self._BEST, "mse") == pytest.approx(rmse**2, abs=1e-9)
+
+    def test_all_builtin_metrics_callable_by_name(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        for name in ("mse", "mae", "r2", "nrmse"):
+            assert np.isfinite(se.get_metric(self._BEST, name))
+
+    def test_default_metric_is_r2(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        assert se.get_metric(self._BEST) == se.get_metric(self._BEST, "r2")
+
+    def test_node_input_accepted(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        tree = tokens_to_tree(self._BEST, se.symbol_library)
+        assert se.get_metric(tree, "r2") > 0.999
+
+    def test_custom_callable_receives_predict_X_y(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        seen = {}
+
+        def metric(predict, X, y):
+            seen["pred"] = predict(X)
+            seen["X"] = X
+            seen["y"] = y
+            return float(np.max(np.abs(predict(X) - y)))
+
+        result = se.get_metric(self._BEST, metric)
+        assert result < 1e-6
+        assert seen["X"] is se.X and seen["y"] is se.y
+        assert seen["pred"].shape == _y.shape
+
+    def test_custom_callable_can_probe_off_dataset_points(self):
+        # The predict callable enables evaluating the model away from X.
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+
+        def reaches_far_point(predict, X, y):
+            return float(predict(np.array([[0.0, 100.0]]))[0])  # 2*100 - 0 = 200
+
+        assert se.get_metric(self._BEST, reaches_far_point) == pytest.approx(200.0, abs=1e-6)
+
+    def test_unevaluated_expression_raises(self):
+        se = _make_se()
+        with pytest.raises(ValueError, match="has not been evaluated"):
+            se.get_metric(["X_0", "+", "X_1"], "r2")
+
+    def test_unknown_string_metric_raises(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        with pytest.raises(ValueError, match="Unknown metric"):
+            se.get_metric(self._BEST, "not_a_metric")
+
+    def test_non_string_non_callable_raises(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        with pytest.raises(TypeError):
+            se.get_metric(self._BEST, 123)
+
+    def test_invalid_expression_returns_nan(self):
+        se = _make_se()
+        se.evaluate_expr(["C", "*", "X_1", "X_0"])  # invalid
+        assert np.isnan(se.get_metric(["C", "*", "X_1", "X_0"], "r2"))
+
+    def test_bed_mode_returns_nan(self):
+        se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0)
+        se.evaluate_expr(["C", "+", "X_0"])
+        assert np.isnan(se.get_metric(["C", "+", "X_0"], "r2"))
+
+    def test_constant_free_expression(self):
+        se = _make_se()
+        expr = ["X_1", "-", "X_0"]  # no free constants
+        se.evaluate_expr(expr)
+        assert np.isfinite(se.get_metric(expr, "mae"))
+
+    def test_does_not_count_toward_budget(self):
+        se = _make_se()
+        se.evaluate_expr(self._BEST)
+        before = se.total_evaluations
+        se.get_metric(self._BEST, "r2")
+        assert se.total_evaluations == before
 
 
 # ── SR_evaluator.get_results ──────────────────────────────────────────────────

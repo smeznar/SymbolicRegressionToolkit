@@ -20,7 +20,7 @@ already lives in the cache; nothing needs to be materialised.
 
 Sources serialize via a ``"source_class"`` key holding the fully-qualified class path,
 mirroring other custom classes, e.g., [Sampler][SRToolkit.dataset.sampling.Sampler]. As a result
-[source_from_dict][SRToolkit.dataset.data_source.source_from_dict] can reconstruct any
+[DataSource.from_dict][SRToolkit.dataset.data_source.DataSource.from_dict] can reconstruct any
 subclass — **including user-defined ones** — via ``importlib`` without a central
 registry: subclass [DataSource][SRToolkit.dataset.data_source.DataSource], implement
 ``to_dict`` / ``from_dict`` / ``materialize``, and it round-trips. Custom sources only
@@ -32,13 +32,21 @@ configs you trust.
 from __future__ import annotations
 
 import importlib
+import json
+import warnings
 from abc import ABC, abstractmethod
+from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
+from urllib.request import urlopen
+from zipfile import ZipFile
 
 import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind
+from SRToolkit.dataset.sampling import Sampler
+from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
 class DataSource(ABC):
@@ -51,7 +59,7 @@ class DataSource(ABC):
     [materialize][SRToolkit.dataset.data_source.DataSource.materialize]. The dict produced
     by ``to_dict`` must include a ``"source_class"`` key holding the fully-qualified class
     path (e.g. ``"SRToolkit.dataset.data_source.UrlSource"``) so that
-    [source_from_dict][SRToolkit.dataset.data_source.source_from_dict] can reconstruct it
+    [DataSource.from_dict][SRToolkit.dataset.data_source.DataSource.from_dict] can reconstruct it
     via ``importlib`` without a central registry.
 
     The cache layer stores a hash of every source's ``data_source`` + ``samplers`` config
@@ -78,9 +86,46 @@ class DataSource(ABC):
         """
 
     @classmethod
-    @abstractmethod
-    def from_dict(cls, d: dict) -> "DataSource":
-        """Reconstruct a source from a dict produced by [to_dict][SRToolkit.dataset.data_source.DataSource.to_dict]."""
+    def from_dict(cls, d: Optional[dict]) -> Optional["DataSource"]:
+        """
+        Reconstruct a source from a dict produced by
+        [to_dict][SRToolkit.dataset.data_source.DataSource.to_dict].
+
+        When called on the base [DataSource][SRToolkit.dataset.data_source.DataSource]
+        class, dispatches to the concrete subclass named by the ``"source_class"`` key
+        using ``importlib`` — both built-in and user-defined subclasses round-trip without
+        a central registry. When called on a concrete subclass, that subclass must override
+        this method.
+
+        Args:
+            d: Dictionary with a ``"source_class"`` key (fully-qualified class path) and the
+                source's parameters, or ``None`` (data is already cached / supplied directly).
+
+        Returns:
+            A reconstructed [DataSource][SRToolkit.dataset.data_source.DataSource] instance,
+            or ``None`` if ``d`` is ``None``.
+
+        Raises:
+            KeyError: If ``"source_class"`` is missing from ``d`` (dispatch path).
+            ImportError: If the class cannot be imported (dispatch path).
+            NotImplementedError: If called on a subclass that has not overridden this method.
+        """
+        if cls is DataSource:
+            if d is None:
+                return None
+            d = _auto_bind(d)
+            class_path = d["source_class"]
+            module_path, cls_name = class_path.rsplit(".", 1)
+            try:
+                resolved = getattr(importlib.import_module(module_path), cls_name)
+            except (ImportError, AttributeError):
+                raise ImportError(
+                    f"Cannot import data source class {class_path!r}. "
+                    "If this is a bundle class, install the bundle first. "
+                    "If the config has no '_bundle' key, call bind_config(config) manually."
+                ) from None
+            return resolved.from_dict(d)
+        raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 
     @abstractmethod
     def materialize(self, cache_path: Path, config: dict) -> None:
@@ -123,16 +168,14 @@ class UrlSource(DataSource):
         return {"source_class": "SRToolkit.dataset.data_source.UrlSource", "url": self.url}
 
     @classmethod
-    def from_dict(cls, d: dict) -> "UrlSource":
+    def from_dict(cls, d: Optional[dict]) -> "UrlSource":
         """Deserialize a [UrlSource][SRToolkit.dataset.data_source.UrlSource] from a dictionary."""
+        if d is None:
+            raise ValueError("[UrlSource.from_dict] requires a dictionary, got None.")
         return cls(d["url"])
 
     def materialize(self, cache_path: Path, config: dict) -> None:
         """Download the archive and extract its data files into the version directory."""
-        from io import BytesIO
-        from urllib.request import urlopen
-        from zipfile import ZipFile
-
         from SRToolkit.dataset import data_cache
 
         version_dir = cache_path.parent
@@ -183,16 +226,14 @@ class SampleSource(DataSource):
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "SampleSource":
+    def from_dict(cls, d: Optional[dict]) -> "SampleSource":
         """Deserialize a [SampleSource][SRToolkit.dataset.data_source.SampleSource] from a dictionary."""
+        if d is None:
+            raise ValueError("[SampleSource.from_dict] requires a dictionary, got None.")
         return cls(n_samples=d.get("n_samples", 10000), seed=d.get("seed"))
 
     def materialize(self, cache_path: Path, config: dict) -> None:
         """Generate ``X`` (and ``y`` for RMSE) from the dataset's samplers and save them."""
-        from SRToolkit.dataset.sampling import sampler_from_dict
-        from SRToolkit.utils.expression_compiler import compile_expr
-        from SRToolkit.utils.symbol_library import SymbolLibrary
-
         samplers_raw = config.get("samplers")
         if not samplers_raw:
             raise ValueError(
@@ -203,7 +244,7 @@ class SampleSource(DataSource):
         if self.seed is not None:
             np.random.seed(self.seed)
 
-        samplers = [sampler_from_dict(s) for s in samplers_raw]
+        samplers = [Sampler.from_dict(s) for s in samplers_raw]
         X = np.column_stack([s(self.n_samples) for s in samplers])
 
         ranking_function = config.get("ranking_function", "rmse")
@@ -241,38 +282,75 @@ class SampleSource(DataSource):
             np.savez(str(cache_path), X=X)
 
 
-def source_from_dict(d: Optional[dict]) -> Optional[DataSource]:
+class FallbackSource(DataSource):
     """
-    Deserialize a [DataSource][SRToolkit.dataset.data_source.DataSource] from a dictionary
-    produced by its [to_dict][SRToolkit.dataset.data_source.DataSource.to_dict] method.
+    A chain of data sources tried in order until one succeeds.
 
-    Uses ``importlib`` to load the class from the ``"source_class"`` key, so any
-    user-defined [DataSource][SRToolkit.dataset.data_source.DataSource] subclass round-trips
-    without a central registry.
+    [materialize][SRToolkit.dataset.data_source.FallbackSource.materialize] attempts each
+    source's ``materialize`` in turn; if one raises, a warning is emitted and the next is
+    tried. The first to succeed wins; if all fail, a ``RuntimeError`` chaining the last
+    error is raised.
+
+    The built-in benchmarks use this to prefer canonical downloaded data while keeping a
+    network-free fallback —
+    ``FallbackSource([UrlSource(archive), SampleSource(seed=...)])`` downloads the
+    authoritative archive when reachable and regenerates from the dataset's samplers
+    otherwise. Because the whole chain is serialised in the config, the preference
+    **travels**: a grid recipe, an [export][SRToolkit.experiments.ExperimentGrid.export], or
+    a cold worker each download the canonical data first and only sample if it is
+    unavailable — unlike a bare ``SampleSource``, which would always regenerate.
 
     Args:
-        d: Dictionary with a ``"source_class"`` key (fully-qualified class path) and the
-            source's parameters, or ``None`` (data is already cached / supplied directly).
-
-    Returns:
-        A reconstructed [DataSource][SRToolkit.dataset.data_source.DataSource] instance, or
-        ``None`` if ``d`` is ``None``.
-
-    Raises:
-        KeyError: If ``"source_class"`` is missing from ``d``.
-        ImportError: If the class cannot be imported.
+        sources: Ordered, non-empty list of
+            [DataSource][SRToolkit.dataset.data_source.DataSource] to try.
     """
-    if d is None:
-        return None
-    d = _auto_bind(d)
-    class_path = d["source_class"]
-    module_path, cls_name = class_path.rsplit(".", 1)
-    try:
-        cls = getattr(importlib.import_module(module_path), cls_name)
-    except (ImportError, AttributeError):
-        raise ImportError(
-            f"Cannot import data source class {class_path!r}. "
-            "If this is a bundle class, install the bundle first. "
-            "If the config has no '_bundle' key, call bind_config(config) manually."
-        ) from None
-    return cls.from_dict(d)
+
+    def __init__(self, sources: List[DataSource]):
+        if not sources:
+            raise ValueError("[FallbackSource] requires at least one source.")
+        self.sources = list(sources)
+        # ``True`` if any source in the chain is volatile (e.g. a ``SampleSource``).
+        self.is_volatile = any(s.is_volatile for s in self.sources)
+
+    def to_dict(self) -> dict:
+        """Serialize this source and its whole chain to a JSON-compatible dictionary."""
+        return {
+            "source_class": "SRToolkit.dataset.data_source.FallbackSource",
+            "sources": [s.to_dict() for s in self.sources],
+        }
+
+    @classmethod
+    def from_dict(cls, d: Optional[dict]) -> "FallbackSource":
+        """Deserialize a [FallbackSource][SRToolkit.dataset.data_source.FallbackSource], reconstructing each child source."""
+        if d is None:
+            raise ValueError("[FallbackSource.from_dict] requires a dictionary, got None.")
+        sources = []
+        for s in d["sources"]:
+            ds = DataSource.from_dict(s)
+            if ds is not None:
+                sources.append(ds)
+        if len(sources) > 0:
+            return cls(sources)
+        else:
+            raise ValueError(
+                f"[FallbackSource.from_dict] Could not construct at least one DataSource for dictionary: {json.dumps(d)}"
+            )
+
+    def materialize(self, cache_path: Path, config: dict) -> None:
+        """Try each source in order; warn and continue on failure, re-raising if all fail."""
+        last_exc: Optional[Exception] = None
+        for i, source in enumerate(self.sources):
+            try:
+                source.materialize(cache_path, config)
+                return
+            except Exception as exc:  # noqa: BLE001 - fall through to the next source in the chain
+                last_exc = exc
+                if i + 1 < len(self.sources):
+                    warnings.warn(
+                        f"[FallbackSource] {type(source).__name__} failed to materialise "
+                        f"({exc}); trying the next fallback.",
+                        stacklevel=2,
+                    )
+        raise RuntimeError(
+            f"[FallbackSource] All {len(self.sources)} sources failed to materialise; last error: {last_exc}"
+        ) from last_exc

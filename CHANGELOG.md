@@ -2,6 +2,8 @@
 - New backends for expression evaluations (about 1.5x speedup for parameter estimation)
 - SymbolLibrary can now be as a global default or used with the ContextManager (with SymbolLibrary()...:)
 - Added grammars (CFG, PCFG) and the ability to add constraints to them.
+- Added a TimeLimitCallback
+- Added wallclock time to experiment
 - Added some default constraints that work as built-ins and reference implementations
 - Added guides to the documentation
 - Added some tests
@@ -9,6 +11,7 @@
   - Code is shared through bundles, which can be installed and are directly usable after
   - Datasets/benchmarks are versioned and can be shared via .zip files, of through configs implementing DataSources
   - Configs should be shared directly and should be run through pack, so they are directly usable
+  - ExperimentGrid can now be exported together with all the bundles and data it needs. Custom code is shipped only via re-packed installed bundles or explicit `.srtk` files passed to `export(additional_bundles=...)` (no more guessing a bundle from a loose source file); uncovered classes warn, or raise with `export(strict=True)`
 
 ### SymbolicRegressionToolkit-1.5.0 (2026-04-14)
 - Reworked how SR_results and ResultAugmenters work

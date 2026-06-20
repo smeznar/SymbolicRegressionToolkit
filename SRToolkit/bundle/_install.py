@@ -47,6 +47,37 @@ def _check_deps(python_deps: List[str]) -> List[str]:
     return missing
 
 
+def read_manifest(srtk_path: Path) -> BundleManifest:
+    """
+    Read a ``.srtk`` bundle's manifest without installing it.
+
+    Reads only the ``manifest.json`` entry from the archive — the bundle's source files
+    are not extracted, no checksums are verified, and the global bundle store is not
+    touched. Use this to inspect a not-yet-installed bundle's ``name`` / ``version`` /
+    ``import_prefix`` (e.g. to match referenced class paths against a bundle a user
+    supplied to [ExperimentGrid.export][SRToolkit.experiments.ExperimentGrid.export]).
+
+    Args:
+        srtk_path: Path to the ``.srtk`` archive.
+
+    Returns:
+        The bundle's [BundleManifest][SRToolkit.bundle._manifest.BundleManifest].
+
+    Raises:
+        FileNotFoundError: If ``srtk_path`` does not exist.
+        ValueError: If the archive is not a valid bundle (no ``manifest.json``).
+    """
+    srtk_path = Path(srtk_path)
+    if not srtk_path.is_file():
+        raise FileNotFoundError(f"No bundle archive at {str(srtk_path)!r}.")
+    try:
+        with zipfile.ZipFile(srtk_path) as zf:
+            raw = zf.read("manifest.json")
+    except KeyError as exc:
+        raise ValueError(f"{str(srtk_path)!r} is not a valid .srtk bundle (no manifest.json).") from exc
+    return BundleManifest.from_dict(json.loads(raw.decode("utf-8")))
+
+
 def _extract_and_verify(srtk_path: Path, tmp_dir: Path) -> BundleManifest:
     with zipfile.ZipFile(srtk_path) as zf:
         zf.extractall(tmp_dir)
@@ -137,7 +168,50 @@ def list_installed() -> list:
     """
     Return a list of all installed bundle index entries.
 
-    Each entry is a dict with keys ``name``, ``version``, ``author``, ``path``,
-    and ``import_prefix``.
+    Each entry is a dict with keys ``name``, ``version``, ``author``,
+    ``srtk_min_version``, ``python_deps``, ``path``, and ``import_prefix``.
     """
     return _store.all_entries()
+
+
+def _repack(name: str, version: Optional[str], out_path: Path) -> Path:
+    """
+    Rebuild a ``.srtk`` archive from an already-installed bundle.
+
+    The original ``.srtk`` is not retained at install time, so re-shipping a bundle's code
+    (e.g. from [ExperimentGrid.export][SRToolkit.experiments.ExperimentGrid.export]) means
+    reconstructing it from the installed source files plus the index metadata. Keeping the
+    install-layout details (which files to include, which manifest fields to carry) here
+    means callers don't reach into bundle internals.
+
+    Args:
+        name: Installed bundle name.
+        version: Version to re-pack. ``None`` selects the latest installed.
+        out_path: Destination ``.srtk`` path (parent directories are created).
+
+    Returns:
+        ``out_path``.
+
+    Raises:
+        KeyError: If the bundle (or requested version) is not installed.
+        ValueError: If the installed bundle directory has no source files.
+    """
+    from ._pack import pack
+
+    entry = _store.lookup(name, version)
+    src_dir = Path(entry["path"])
+    py_files = [p for p in src_dir.glob("*.py") if p.name != "__init__.py"]
+    if not py_files:
+        raise ValueError(f"Installed bundle {name!r} has no source files at {src_dir}.")
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    pack(
+        files=py_files,
+        out_path=out_path,
+        name=entry["name"],
+        version=entry["version"],
+        author=entry.get("author", ""),
+        python_deps=entry.get("python_deps", []),
+        srtk_min_version=entry.get("srtk_min_version", ""),
+    )
+    return out_path

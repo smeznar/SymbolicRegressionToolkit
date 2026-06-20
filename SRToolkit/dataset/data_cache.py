@@ -12,15 +12,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import warnings
+import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from packaging.version import Version as PkgVersion
 from platformdirs import user_data_dir
 
 if TYPE_CHECKING:
-    import zipfile
-
     from SRToolkit.dataset.data_source import DataSource
 
 
@@ -103,7 +104,7 @@ def resolve(
     it first if necessary.
 
     The data source is reconstructed from ``config["data_source"]`` via
-    [source_from_dict][SRToolkit.dataset.data_source.source_from_dict]. Passing
+    [DataSource.from_dict][SRToolkit.dataset.data_source.DataSource.from_dict]. Passing
     ``config=None`` (or a config whose ``"data_source"`` is ``None``) is valid only when
     the cache entry already exists — it asserts presence without triggering
     materialisation.
@@ -131,10 +132,10 @@ def resolve(
     Raises:
         FileNotFoundError: If the cache entry is absent and no source is available.
     """
-    from SRToolkit.dataset.data_source import source_from_dict
+    from SRToolkit.dataset.data_source import DataSource
 
     source_dict = config.get("data_source") if config is not None else None
-    source = source_from_dict(source_dict)
+    source = DataSource.from_dict(source_dict)
     cache_path = dataset_path(benchmark, version, key)
 
     if cache_path.exists() and not force:
@@ -234,8 +235,6 @@ def import_archive(archive_path: Path, benchmark: str, version: str) -> None:
         benchmark: Benchmark name used to determine the cache directory.
         version: Version string used to determine the cache directory.
     """
-    import zipfile
-
     slug = _version_slug(version)
     version_dir = data_root() / benchmark / slug
     version_dir.mkdir(parents=True, exist_ok=True)
@@ -294,10 +293,6 @@ def gc(keep_latest: bool = True) -> List[Path]:
     Returns:
         A list of ``Path`` objects that were removed.
     """
-    import shutil
-
-    from packaging.version import Version as PkgVersion
-
     root = data_root()
     removed: List[Path] = []
     if not root.exists():
@@ -357,8 +352,6 @@ def remove(benchmark: str, version: Optional[str] = None, key: Optional[str] = N
     Returns:
         List of paths that were removed.
     """
-    import shutil
-
     removed: List[Path] = []
     root = data_root()
     if not root.exists():
