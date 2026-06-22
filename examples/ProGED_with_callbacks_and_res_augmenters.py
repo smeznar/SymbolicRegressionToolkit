@@ -18,8 +18,9 @@ if __name__ == "__main__":
     # Evaluate the approach on the dataset
     results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=1, callbacks=[es, lc, pb])
 
-    # Resample the I.16.6 dataset which will be as a test set
-    X, y = benchmark.resample("I.16.6", 1000)
+    # Draw a fresh I.16.6 dataset to use as a test set (does not touch the cached canonical data)
+    test_dataset = benchmark.create_dataset("I.16.6", n_samples=1000, seed=2)
+    X, y = test_dataset.X, test_dataset.y
     # Define an augmenter that computes the RMSE on the test set (only on the top 20 expressions)
     rmse_augmenter = RMSE(SR_evaluator(X, y))
     # Augment top expressions with test RMSE

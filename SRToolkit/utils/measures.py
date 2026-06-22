@@ -523,13 +523,16 @@ def nrmse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
     return float(np.sqrt(np.mean((y - predict(X)) ** 2)) / std)
 
 
-# Built-in regression metrics keyed by name. Used by
-# [SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric]
-# to resolve a string ``metric`` argument. This registry is fixed by the library:
-# callers pick a name from it but cannot redefine which metric a name maps to.
 REGRESSION_METRICS: Dict[str, Callable[[PredictFn, np.ndarray, np.ndarray], float]] = {
     "mse": mse,
     "mae": mae,
     "r2": r2,
     "nrmse": nrmse,
 }
+"""Built-in regression metrics keyed by name.
+
+Used by
+[SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric]
+to resolve a string ``metric`` argument. This registry is fixed by the library:
+callers pick a name from it but cannot redefine which metric a name maps to.
+"""

@@ -60,7 +60,7 @@ if __name__ == "__main__":
     grid = ExperimentGrid(
         datasets=dataset,
         approaches=[RandomSearch(), ProGED()],
-        num_experiments=10,
+        num_experiments=3,
         results_dir="results/",
     )
 

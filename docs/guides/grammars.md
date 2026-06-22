@@ -239,6 +239,14 @@ g.add_constraint(NoNested("exp"))           # no exp(exp(x))
 
 ## Dimensional consistency
 
+!!! warning "Experimental"
+    `DimensionalConsistency` is experimental and currently **unsound for multiplication and
+    division**: it does not constrain the units of `*`/`/` operands, so an expression routed
+    through a multiplication or division can violate the target unit. It is reliable only for
+    grammars limited to leaves, additive operators (`+`/`-`), transcendental functions, and
+    postfix powers (`^2`, `^3`, …) — which excludes most `from_symbol_library` grammars. Do
+    not rely on the unit guarantee until this is fixed.
+
 [DimensionalConsistency][SRToolkit.utils.grammar.DimensionalConsistency] enforces physical units during generation. It tracks the required unit at each open slot and rejects rules whose output unit would conflict.
 
 Units are represented as `dict[str, int | Fraction]` mapping base dimension names to exponents. Dimensionless is `{}`.

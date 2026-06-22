@@ -104,6 +104,24 @@ with sl:
     tree.to_list(notation="postfix")  # ['X_0', 'X_1', 'C', '*', '+']
 ```
 
+`tokens_to_tree` is the inverse of `to_list`: pass `notation="prefix"` or
+`notation="postfix"` to parse a token list written in that notation. Infix lists are
+parsed with the shunting-yard algorithm; prefix and postfix lists with a single stack
+pass. All three reconstruct the same tree, so an expression survives a round trip through
+any notation:
+
+```python
+with sl:
+    infix   = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])                  # notation="infix" (default)
+    prefix  = tokens_to_tree(["+", "X_0", "*", "X_1", "C"], notation="prefix")
+    postfix = tokens_to_tree(["X_0", "X_1", "C", "*", "+"], notation="postfix")
+
+    infix.to_list() == prefix.to_list() == postfix.to_list()   # True
+```
+
+Prefix/postfix parsing reads each token's arity from the symbol library (`op` is binary,
+`fn` is unary, everything else is a leaf), so no parentheses are needed.
+
 ## Executable functions
 
 [compile_expr][SRToolkit.utils.expression_compiler.compile_expr] compiles an expression into a callable function `f(X, C)`:

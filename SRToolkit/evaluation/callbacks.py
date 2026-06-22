@@ -417,7 +417,7 @@ class TimeLimitCallback(SRCallbacks):
 
     The timer starts when the experiment begins
     ([on_experiment_start][SRToolkit.evaluation.callbacks.SRCallbacks.on_experiment_start])
-    and uses [time.monotonic][] so it is unaffected by system clock adjustments. The stop
+    and uses `time.monotonic` so it is unaffected by system clock adjustments. The stop
     request is issued from the next expression evaluation after the limit is exceeded, so the
     search may run slightly past ``time_limit`` depending on how long a single evaluation takes.
 
@@ -435,7 +435,7 @@ class TimeLimitCallback(SRCallbacks):
         Args:
             time_limit: Maximum wall-clock duration before the search is stopped at the next
                 expression evaluation. Either a number of seconds or a
-                [datetime.timedelta][], which is converted to seconds and stored as a float.
+                `datetime.timedelta`, which is converted to seconds and stored as a float.
                 Must be strictly positive.
 
         Raises:

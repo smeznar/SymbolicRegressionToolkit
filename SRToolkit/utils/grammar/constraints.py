@@ -589,6 +589,17 @@ class DimensionalConsistency(Constraint[Optional[Unit], None]):
     Stateful constraint that enforces dimensional analysis during expression
     generation.
 
+    .. warning::
+        **Experimental — currently unsound for multiplication and division.**
+        The units of ``*`` / ``/`` operands are not constrained (their child
+        units are left underdetermined), so an expression routed through a
+        multiplication or division can violate ``target_unit``. The constraint
+        is reliable only for grammars limited to leaves, additive operators
+        (``+`` / ``-``), transcendental functions, and postfix powers
+        (``^2``, ``^3``, …) — which excludes most grammars built with
+        [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library].
+        Do not rely on the unit guarantee until this is fixed.
+
     Local state at each slot is the required unit (``Optional[Unit]``).
     ``None`` means "any unit is acceptable here" — used for the children of
     multiplicative operators, whose individual units are underdetermined.

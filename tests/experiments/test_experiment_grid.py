@@ -23,7 +23,7 @@ from SRToolkit.experiments.experiment_grid import (
 def _make_dataset(name="ds1", benchmark="unit_test", version="1.0.0", max_evaluations=-1):
     """A small, network-free sample-source dataset (no arrays embedded in config)."""
     return SR_dataset.from_samplers(
-        ground_truth=["X_0", "*", "C"],
+        ground_truth=["X_0", "*", "X_0"],
         samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
         n_samples=64,
         seed=1,
@@ -598,7 +598,7 @@ def test_custom_class_paths():
 def _export_grid(results_dir, benchmark):
     """Grid with one archived (seedless) and one referenced (seeded) dataset."""
     archived = SR_dataset.from_samplers(
-        ground_truth=["X_0", "*", "C"],
+        ground_truth=["X_0", "*", "X_0"],
         samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
         n_samples=16,
         seed=None,
@@ -607,7 +607,7 @@ def _export_grid(results_dir, benchmark):
         version="1.0.0",
     )
     referenced = SR_dataset.from_samplers(
-        ground_truth=["X_0", "+", "C"],
+        ground_truth=["X_0", "+", "X_0"],
         samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
         n_samples=16,
         seed=5,

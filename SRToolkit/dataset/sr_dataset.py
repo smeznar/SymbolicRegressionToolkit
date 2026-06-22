@@ -362,6 +362,24 @@ class SR_dataset:
                 f"[SR_dataset.resample] Dataset '{self.dataset_name}' has no token-list ground truth — "
                 "cannot evaluate y. ground_truth must be a list of tokens or a Node."
             )
+
+        # Generating y requires a fully specified ground truth: a free constant ("const"
+        # token, e.g. "C") has no value to evaluate against. Reject it with a clear error
+        # rather than passing an empty constant array (which the compiled Cython backend
+        # would read out of bounds, silently producing garbage y values).
+        if isinstance(self.ground_truth, list):
+            tokens = self.ground_truth
+        else:
+            tokens = self.ground_truth.to_list(self.symbol_library)
+        const_symbols = set(self.symbol_library.get_symbols_of_type("const"))
+        if any(tok in const_symbols for tok in tokens):
+            raise ValueError(
+                f"[SR_dataset.resample] Dataset '{self.dataset_name}' ground truth contains a free "
+                f"constant ({', '.join(sorted(const_symbols))}), which has no value to evaluate. "
+                "Sampler-based generation requires a fully specified ground truth — replace the "
+                "free constant with a concrete value (e.g. a literal) or a sub-expression."
+            )
+
         f = compile_expr(self.ground_truth, self.symbol_library)
         y = f(X, np.array([]))
         return X, y

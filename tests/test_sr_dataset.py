@@ -157,3 +157,15 @@ class TestSRDatasetResample:
     def test_resample_no_samplers_raises(self, simple_dataset):
         with pytest.raises(ValueError, match="samplers"):
             simple_dataset.resample(10)
+
+    def test_resample_free_constant_raises(self):
+        # A free constant ("C") has no value to evaluate against during generation.
+        # This must raise clearly rather than pass an empty constant array (which the
+        # compiled Cython backend would read out of bounds, silently producing garbage).
+        with pytest.raises(ValueError, match="free constant"):
+            SR_dataset.from_samplers(
+                ground_truth=["X_0", "*", "C"],
+                samplers=[UniformSampling(0.5, 5.0)],
+                n_samples=16,
+                seed=1,
+            )

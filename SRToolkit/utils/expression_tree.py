@@ -333,20 +333,67 @@ def is_float(element: Any) -> bool:
         return False
 
 
-def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None) -> Node:
+def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notation: str = "infix") -> Node:
     """
-    Parse a token list into an expression tree using the shunting-yard algorithm.
+    Parse a token list into an expression tree.
+
+    Infix token lists are parsed with the shunting-yard algorithm; prefix and
+    postfix lists are parsed with a single stack pass using the arity implied by
+    each token's type (``"op"`` is binary, ``"fn"`` is unary, and variables,
+    constants, literals, and numeric literals are leaves). This is the inverse of
+    [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], so a tree
+    survives a round trip through any of the three notations.
 
     Examples:
         >>> tree = tokens_to_tree(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())
         >>> len(tree)
         3
+        >>> tree = tokens_to_tree(["+", "1", "X_0"], SymbolLibrary.default_symbols(), notation="prefix")
+        >>> tree.to_list(SymbolLibrary.default_symbols())
+        ['1', '+', 'X_0']
+        >>> tree = tokens_to_tree(["X_0", "X_1", "*", "1", "+"], SymbolLibrary.default_symbols(), notation="postfix")
+        >>> tree.to_list(SymbolLibrary.default_symbols())
+        ['X_0', '*', 'X_1', '+', '1']
+        >>> tree = tokens_to_tree(["sin", "X_0"], SymbolLibrary.default_symbols(), notation="prefix")
+        >>> tree.to_list(SymbolLibrary.default_symbols())
+        ['sin', '(', 'X_0', ')']
 
     Args:
-        tokens: Token list in infix notation.
+        tokens: Token list in the notation given by ``notation``.
         sl: Symbol library used to resolve token types and precedences. If None,
             falls back to the currently active library set via
             'with SymbolLibrary(...) as sl:'. Defaults to None.
+        notation: Notation of ``tokens``: ``"infix"``, ``"prefix"``, or
+            ``"postfix"``. Default ``"infix"``.
+
+    Returns:
+        Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
+
+    Raises:
+        Exception: If ``notation`` is not one of the accepted values, if a token is
+            absent from ``sl``, or if the expression is syntactically invalid (e.g.
+            an operator lacks operands or tokens remain unconsumed).
+    """
+    if sl is None:
+        sl = SymbolLibrary.get_active()
+
+    if notation == "infix":
+        return _infix_to_tree(tokens, sl)
+    elif notation in ("prefix", "postfix"):
+        return _prefix_postfix_to_tree(tokens, sl, notation)
+    else:
+        raise Exception(
+            "Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix')."
+        )
+
+
+def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
+    """
+    Parse an infix token list into an expression tree using the shunting-yard algorithm.
+
+    Args:
+        tokens: Token list in infix notation.
+        sl: Symbol library used to resolve token types and precedences.
 
     Returns:
         Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
@@ -355,8 +402,6 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None) -> Nod
         Exception: If a token is absent from ``sl``, or if the expression is
             syntactically invalid.
     """
-    if sl is None:
-        sl = SymbolLibrary.get_active()
     num_tokens = len([t for t in tokens if t != "(" and t != ")"])
     expr_str = "".join(tokens)
     tokens = ["("] + tokens + [")"]
@@ -403,6 +448,65 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None) -> Nod
         raise Exception(f"Error while parsing expression {expr_str}.")
 
 
+def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str) -> Node:
+    """
+    Parse a prefix or postfix token list into an expression tree with a single stack pass.
+
+    Prefix and postfix are *mirror images* of each other, not reverses: operands keep
+    their left-to-right order in both notations and only the operator moves, so postfix
+    is **not** ``reversed(prefix)`` (e.g. ``(X_0 - X_1) - X_2`` is ``- - X_0 X_1 X_2`` in
+    prefix but ``X_0 X_1 - X_2 -`` in postfix). The single pass handles both by flipping
+    two things together:
+
+    * **scan direction** — prefix is scanned right-to-left, postfix left-to-right, so that
+      a token's operands have always been pushed by the time the token is reached;
+    * **operand pop-order** — for a binary operator, prefix pops ``left`` then ``right``
+      while postfix pops ``right`` then ``left``.
+
+    That operand-order flip is what keeps non-commutative operators (``-``, ``/``, ``^``)
+    correct; reversing the token list alone would silently swap their operands.
+
+    Args:
+        tokens: Token list in prefix or postfix notation.
+        sl: Symbol library used to resolve token types.
+        notation: Either ``"prefix"`` or ``"postfix"``.
+
+    Returns:
+        Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
+
+    Raises:
+        Exception: If a token is absent from ``sl``, or if the expression is
+            syntactically invalid (an operator/function without enough operands, or
+            more than one subtree left on the stack at the end).
+    """
+    expr_str = "".join(tokens)
+    out_stack: List[Node] = []
+    for token in reversed(tokens) if notation == "prefix" else tokens:
+        if sl.get_type(token) in ["var", "const", "lit"] or is_float(token):
+            out_stack.append(Node(token))
+        elif sl.get_type(token) == "fn":
+            if len(out_stack) < 1:
+                raise Exception(f"Error while parsing expression {expr_str}: function '{token}' is missing an operand.")
+            out_stack.append(Node(token, left=out_stack.pop()))
+        elif sl.get_type(token) == "op":
+            if len(out_stack) < 2:
+                raise Exception(f"Error while parsing expression {expr_str}: operator '{token}' is missing an operand.")
+            if notation == "prefix":
+                left = out_stack.pop()
+                right = out_stack.pop()
+            else:
+                right = out_stack.pop()
+                left = out_stack.pop()
+            out_stack.append(Node(token, right=right, left=left))
+        else:
+            raise Exception(
+                f'Invalid symbol "{token}" in expression {expr_str}. Did you add token "{token}" to the symbol library?'
+            )
+    if len(out_stack) != 1:
+        raise Exception(f"Error while parsing expression {expr_str}.")
+    return out_stack[0]
+
+
 def expr_to_latex(expr: Union[Node, List[str]], symbol_library: Optional[SymbolLibrary] = None) -> str:
     """
     Convert an expression to a LaTeX string.
@@ -437,6 +541,3 @@ def expr_to_latex(expr: Union[Node, List[str]], symbol_library: Optional[SymbolL
     except Exception as e:
         print(f"Error while converting expression {str(expr)} to LaTeX: {str(e)}")
         return ""
-
-
-# TODO: function transforming list of symbols to/from a given notation
