@@ -4893,7 +4893,7 @@ is auto-generated as <code>"&lt;approach&gt; on &lt;dataset&gt;"</code> when the
         <p>Stops the search once a wall-clock time limit has elapsed.</p>
 <p>The timer starts when the experiment begins
 (<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;on_experiment_start&lt;/span&gt;" href="#SRToolkit.evaluation.callbacks.SRCallbacks.on_experiment_start">on_experiment_start</a>)
-and uses [time.monotonic][] so it is unaffected by system clock adjustments. The stop
+and uses <code>time.monotonic</code> so it is unaffected by system clock adjustments. The stop
 request is issued from the next expression evaluation after the limit is exceeded, so the
 search may run slightly past <code>time_limit</code> depending on how long a single evaluation takes.</p>
 
@@ -4931,7 +4931,7 @@ search may run slightly past <code>time_limit</code> depending on how long a sin
               <div class="doc-md-description">
                 <p>Maximum wall-clock duration before the search is stopped at the next
 expression evaluation. Either a number of seconds or a
-[datetime.timedelta][], which is converted to seconds and stored as a float.
+<code>datetime.timedelta</code>, which is converted to seconds and stored as a float.
 Must be strictly positive.</p>
               </div>
             </td>
@@ -4996,7 +4996,7 @@ Must be strictly positive.</p>
 <a id="__codelineno-0-435" name="__codelineno-0-435"></a><span class="sd">    Args:</span>
 <a id="__codelineno-0-436" name="__codelineno-0-436"></a><span class="sd">        time_limit: Maximum wall-clock duration before the search is stopped at the next</span>
 <a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="sd">            expression evaluation. Either a number of seconds or a</span>
-<a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">            [datetime.timedelta][], which is converted to seconds and stored as a float.</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">            `datetime.timedelta`, which is converted to seconds and stored as a float.</span>
 <a id="__codelineno-0-439" name="__codelineno-0-439"></a><span class="sd">            Must be strictly positive.</span>
 <a id="__codelineno-0-440" name="__codelineno-0-440"></a>
 <a id="__codelineno-0-441" name="__codelineno-0-441"></a><span class="sd">    Raises:</span>

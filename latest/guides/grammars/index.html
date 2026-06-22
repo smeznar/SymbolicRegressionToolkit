@@ -2839,6 +2839,15 @@
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">NoNested</span><span class="p">(</span><span class="s2">&quot;exp&quot;</span><span class="p">))</span>           <span class="c1"># no exp(exp(x))</span>
 </code></pre></div>
 <h2 id="dimensional-consistency">Dimensional consistency</h2>
+<div class="admonition warning">
+<p class="admonition-title">Experimental</p>
+<p><code>DimensionalConsistency</code> is experimental and currently <strong>unsound for multiplication and
+division</strong>: it does not constrain the units of <code>*</code>/<code>/</code> operands, so an expression routed
+through a multiplication or division can violate the target unit. It is reliable only for
+grammars limited to leaves, additive operators (<code>+</code>/<code>-</code>), transcendental functions, and
+postfix powers (<code>^2</code>, <code>^3</code>, …) — which excludes most <code>from_symbol_library</code> grammars. Do
+not rely on the unit guarantee until this is fixed.</p>
+</div>
 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DimensionalConsistency&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.DimensionalConsistency">DimensionalConsistency</a> enforces physical units during generation. It tracks the required unit at each open slot and rejects rules whose output unit would conflict.</p>
 <p>Units are represented as <code>dict[str, int | Fraction]</code> mapping base dimension names to exponents. Dimensionless is <code>{}</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">DimensionalConsistency</span>

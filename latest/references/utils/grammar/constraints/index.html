@@ -4345,6 +4345,21 @@ that form the nesting group.</p>
 
         <p>Stateful constraint that enforces dimensional analysis during expression
 generation.</p>
+<p>.. warning::
+    <strong>Experimental — currently unsound for multiplication and division.</strong>
+    The units of <code>*</code> / <code>/</code> operands are not constrained (their child
+    units are left underdetermined), so an expression routed through a
+    multiplication or division can violate <code>target_unit</code>. The constraint
+    is reliable only for grammars limited to leaves, additive operators
+    (<code>+</code> / <code>-</code>), transcendental functions, and postfix powers
+    (<code>^2</code>, <code>^3</code>, …) — which excludes most grammars built with
+    <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_symbol_library&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../#SRToolkit.utils.grammar.Grammar.from_symbol_library">Grammar.from_symbol_library</a>.
+    Do not rely on the unit guarantee until this is fixed.</p>
 <p>Local state at each slot is the required unit (<code>Optional[Unit]</code>).
 <code>None</code> means "any unit is acceptable here" — used for the children of
 multiplicative operators, whose individual units are underdetermined.</p>
@@ -4492,31 +4507,31 @@ whatever unit their slot requires.  Default <code>False</code>.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/utils/grammar/constraints.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-641">641</a></span>
-<span class="normal"><a href="#__codelineno-0-642">642</a></span>
-<span class="normal"><a href="#__codelineno-0-643">643</a></span>
-<span class="normal"><a href="#__codelineno-0-644">644</a></span>
-<span class="normal"><a href="#__codelineno-0-645">645</a></span>
-<span class="normal"><a href="#__codelineno-0-646">646</a></span>
-<span class="normal"><a href="#__codelineno-0-647">647</a></span>
-<span class="normal"><a href="#__codelineno-0-648">648</a></span>
-<span class="normal"><a href="#__codelineno-0-649">649</a></span>
-<span class="normal"><a href="#__codelineno-0-650">650</a></span>
-<span class="normal"><a href="#__codelineno-0-651">651</a></span>
-<span class="normal"><a href="#__codelineno-0-652">652</a></span>
-<span class="normal"><a href="#__codelineno-0-653">653</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-641" name="__codelineno-0-641"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-642" name="__codelineno-0-642"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-643" name="__codelineno-0-643"></a>    <span class="n">variable_units</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span>
-<a id="__codelineno-0-644" name="__codelineno-0-644"></a>    <span class="n">target_unit</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
-<a id="__codelineno-0-645" name="__codelineno-0-645"></a>    <span class="n">constant_units</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a>    <span class="n">allow_unit_polymorphic_constants</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_var_units</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_to_unit</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable_units</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_target</span><span class="p">:</span> <span class="n">Unit</span> <span class="o">=</span> <span class="n">_to_unit</span><span class="p">(</span><span class="n">target_unit</span><span class="p">)</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_const_units</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_to_unit</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">constant_units</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_sl</span> <span class="o">=</span> <span class="n">symbol_library</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_allow_poly_const</span> <span class="o">=</span> <span class="n">allow_unit_polymorphic_constants</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-652">652</a></span>
+<span class="normal"><a href="#__codelineno-0-653">653</a></span>
+<span class="normal"><a href="#__codelineno-0-654">654</a></span>
+<span class="normal"><a href="#__codelineno-0-655">655</a></span>
+<span class="normal"><a href="#__codelineno-0-656">656</a></span>
+<span class="normal"><a href="#__codelineno-0-657">657</a></span>
+<span class="normal"><a href="#__codelineno-0-658">658</a></span>
+<span class="normal"><a href="#__codelineno-0-659">659</a></span>
+<span class="normal"><a href="#__codelineno-0-660">660</a></span>
+<span class="normal"><a href="#__codelineno-0-661">661</a></span>
+<span class="normal"><a href="#__codelineno-0-662">662</a></span>
+<span class="normal"><a href="#__codelineno-0-663">663</a></span>
+<span class="normal"><a href="#__codelineno-0-664">664</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-653" name="__codelineno-0-653"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-654" name="__codelineno-0-654"></a>    <span class="n">variable_units</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span>
+<a id="__codelineno-0-655" name="__codelineno-0-655"></a>    <span class="n">target_unit</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+<a id="__codelineno-0-656" name="__codelineno-0-656"></a>    <span class="n">constant_units</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-658" name="__codelineno-0-658"></a>    <span class="n">allow_unit_polymorphic_constants</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-660" name="__codelineno-0-660"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_var_units</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_to_unit</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variable_units</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+<a id="__codelineno-0-661" name="__codelineno-0-661"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_target</span><span class="p">:</span> <span class="n">Unit</span> <span class="o">=</span> <span class="n">_to_unit</span><span class="p">(</span><span class="n">target_unit</span><span class="p">)</span>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_const_units</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_to_unit</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">constant_units</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_sl</span> <span class="o">=</span> <span class="n">symbol_library</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_allow_poly_const</span> <span class="o">=</span> <span class="n">allow_unit_polymorphic_constants</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 

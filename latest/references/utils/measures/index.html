@@ -977,6 +977,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#SRToolkit.utils.measures.REGRESSION_METRICS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;REGRESSION_METRICS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#SRToolkit.utils.measures.edit_distance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2199,6 +2210,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#SRToolkit.utils.measures.REGRESSION_METRICS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;REGRESSION_METRICS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#SRToolkit.utils.measures.edit_distance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2345,6 +2367,34 @@ tree edit distance, and Behavioral Embedding Distance (BED).</p>
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="SRToolkit.utils.measures.REGRESSION_METRICS" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">REGRESSION_METRICS</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">REGRESSION_METRICS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">PredictFn</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">ndarray</span><span class="p">],</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;mse&#39;</span><span class="p">:</span> <span class="n">mse</span><span class="p">,</span> <span class="s1">&#39;mae&#39;</span><span class="p">:</span> <span class="n">mae</span><span class="p">,</span> <span class="s1">&#39;r2&#39;</span><span class="p">:</span> <span class="n">r2</span><span class="p">,</span> <span class="s1">&#39;nrmse&#39;</span><span class="p">:</span> <span class="n">nrmse</span><span class="p">}</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Built-in regression metrics keyed by name.</p>
+<p>Used by
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_metric&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric">SR_evaluator.get_metric</a>
+to resolve a string <code>metric</code> argument. This registry is fixed by the library:
+callers pick a name from it but cannot redefine which metric a name maps to.</p>
+
+    </div>
+
+</div>
 
 
 
