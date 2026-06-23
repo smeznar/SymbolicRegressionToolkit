@@ -1,0 +1,33 @@
+/* docs/css/main.css - A more aggressive override */
+
+.md-content .doc-object > h4 {
+    /* Set the heading size */
+    font-size: 1.6em !important;
+    font-weight: 700 !important;
+    color: var(--md-typeset-color) !important;
+
+    /* Remove any border applied by the previous attempt */
+    /*border-bottom: none !important;*/
+}
+
+/* 2. Target the H3 heading (contains the object name and type) */
+.md-content .doc-object > h3 {
+    /* Set the heading size */
+    font-size: 1.6em !important;
+    font-weight: 700 !important;
+    color: var(--md-typeset-color) !important;
+
+    /* Remove any border applied by the previous attempt */
+    /*border-bottom: none !important;*/
+}
+
+.md-content .doc-object > h2 {
+    /* Set the heading size */
+    font-size: 1.6em !important;
+    font-weight: 700 !important;
+    color: var(--md-typeset-color) !important;
+
+    /* Remove any border applied by the previous attempt */
+    /*border-bottom: none !important;*/
+}
+
