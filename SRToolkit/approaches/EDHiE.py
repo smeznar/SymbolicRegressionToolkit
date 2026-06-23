@@ -1,5 +1,9 @@
 """
 EDHiE approach — equation discovery with hierarchical variational autoencoders by Mežnar et al.
+
+Requires the optional ``approaches`` extra (PyTorch and pymoo). Install with::
+
+    pip install 'symbolic-regression-toolkit[approaches]'
 """
 
 import random
@@ -23,7 +27,10 @@ try:
     from pymoo.core.termination import Termination
     from pymoo.optimize import minimize
 except ImportError:
-    raise ImportError("pymoo is not installed.")
+    raise ImportError(
+        "EDHiE requires pymoo. Install dependencies either manually or with "
+        "the command: pip install 'symbolic-regression-toolkit[approaches]'"
+    )
 
 try:
     import numpy as np
@@ -34,7 +41,10 @@ try:
     from torch.optim import Adam
     from torch.utils.data import Dataset, Sampler
 except ImportError:
-    raise ImportError("PyTorch is not installed.")
+    raise ImportError(
+        "EDHiE requires PyTorch. Install dependencies either manually or with "
+        "the command: pip install 'symbolic-regression-toolkit[approaches]'"
+    )
 
 
 @dataclass

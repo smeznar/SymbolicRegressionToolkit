@@ -24,7 +24,7 @@ _bundles_parent = str(_bundles_root().parent)
 if _bundles_parent not in _sys.path:
     _sys.path.insert(0, _bundles_parent)
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 __license__ = "GPL-3.0 License"
 __author__ = "Sebastian Mežnar, Jure Brence"
 __credits__ = "Jožef Stefan Institute"

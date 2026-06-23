@@ -81,6 +81,22 @@ def load_adapted_state(self, path: str):
     self._model.load_state_dict(torch.load(path + ".pt"))
 ```
 
+!!! note "Heavy dependencies"
+    If your approach needs heavy libraries (e.g. PyTorch, like the built-in
+    [EDHiE][SRToolkit.approaches.EDHiE.EDHiE]), do not make them hard dependencies of the toolkit.
+    Declare them in an optional extra and guard the import so users without the extra get a clear
+    message instead of an opaque `ImportError`:
+
+    ```python
+    try:
+        import torch
+    except ImportError:
+        raise ImportError(
+            "MyApproach requires PyTorch. Install it manually or with "
+            "pip install 'symbolic-regression-toolkit[approaches]'"
+        )
+    ```
+
 ## Configuration with ApproachConfig
 
 Subclass [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] to make your approach serialisable. This enables saving/loading grids and running jobs from the command line:

@@ -12,8 +12,8 @@
 
 ## What is SRToolkit?
 
-The **SRToolkit** is a **comprehensive Python toolkit** designed to accelerate research and development in 
-**Symbolic Regression (SR)** / **Equation Discovery (ED)**. It provides a robust, easy-to-use framework for 
+The **SRToolkit** is a **comprehensive Python toolkit** designed to accelerate research and development in
+**Symbolic Regression (SR)** / **Equation Discovery (ED)**. It provides a robust, easy-to-use framework for
 **benchmarking, rapid prototyping, and mathematical expression manipulation**.
 
 ## Core Features
@@ -39,6 +39,12 @@ SRToolkit provides a straightforward interface for:
 To install the latest stable release of the package, run the following command in your terminal:
 ```
 pip install symbolic-regression-toolkit
+```
+
+Some built-in approaches (currently **EDHiE**) require extra dependencies (**PyTorch** and **pymoo**).
+To install them alongside the package, use the `approaches` extra:
+```
+pip install 'symbolic-regression-toolkit[approaches]'
 ```
 
 Alternatively, you can install the latest build directly from the repository with the command (Recommended):
@@ -131,7 +137,7 @@ jobs = eg.create_jobs(skip_completed=True)
 for job in jobs:
     job.run()
 
-# See how many jobs are completed 
+# See how many jobs are completed
 eg.progress()
 
 ```
@@ -146,7 +152,7 @@ In future releases, our primary focus will:
 
 * **Result Visualization:** Implement a robust visualization and result aggregation framework for SR results.
 
-* **Simplification:** Implement a better (more accurate, efficient, and stable) simplification system for expressions. 
+* **Simplification:** Implement a better (more accurate, efficient, and stable) simplification system for expressions.
 
 * **Constraints:** Implement more robust expression generation constraints using techniques like attribute grammars.
 
@@ -156,7 +162,7 @@ In future releases, our primary focus will:
 
 ## Contributing 🤝
 
-We welcome contributions! Whether you're adding a new benchmark, implementing an SR approach, fixing a bug, or improving the documentation, please feel free to 
+We welcome contributions! Whether you're adding a new benchmark, implementing an SR approach, fixing a bug, or improving the documentation, please feel free to
 open a issue on the Github page or submit a **Pull Request (PR)** with a clear description of your changes.
 
 We are especially looking for contributions of:

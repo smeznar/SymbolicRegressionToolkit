@@ -1,4 +1,4 @@
-### SymbolicRegressionToolkit-1.6.0 (TBD)
+### SymbolicRegressionToolkit-1.6.0 (2026-06-23)
 - New backends for expression evaluations (about 1.5x speedup for parameter estimation)
 - SymbolLibrary can now be as a global default or used with the ContextManager (with SymbolLibrary()...:)
 - Added grammars (CFG, PCFG) and the ability to add constraints to them.
