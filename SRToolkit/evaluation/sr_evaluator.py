@@ -18,7 +18,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Union
 
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
@@ -1201,6 +1201,25 @@ class SR_results:
         assert isinstance(item, int), "[SR_Results.__getitem__] Item must be an integer."
         assert 0 <= item < len(self.results), "[SR_Results.__getitem__] Item out of bounds."
         return self.results[item]
+
+    def __iter__(self) -> Iterator[EvalResult]:
+        """
+        Iterates over the results stored in the results object, in the order they were added. Usually, each result corresponds to a single experiment.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> results = se.get_results(top_k=1)
+            >>> for r in results:
+            ...     print(r.best_expr)
+            C*X_1-X_0
+
+        Returns:
+            An iterator over the [EvalResult][SRToolkit.utils.types.EvalResult] objects stored in the results object.
+        """
+        return iter(self.results)
 
     def __len__(self) -> int:
         """
