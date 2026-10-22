@@ -42,7 +42,7 @@ datasets = [bm.create_dataset(ds_names[0]), bm.create_dataset(ds_names[1])]
 # EDHiE trains a VAE once per symbol space; reuse the same weights for both datasets
 # since they share the same number of variables
 adapted_states = {
-    "EDHiE": {ds_names[0]: "state_2v.pt", ds_names[1]: "state_2v.pt"}
+    "EDHiE": {ds_names[0]: "edhie_2v.pt", ds_names[1]: "edhie_2v.pt"}
 }
 
 grid = ExperimentGrid(

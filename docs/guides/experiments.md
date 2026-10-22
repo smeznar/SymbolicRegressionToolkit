@@ -18,7 +18,7 @@ datasets = [bm.create_dataset(n) for n in bm.list_datasets(num_variables=2, verb
 
 # EDHiE adapts once per symbol space; map each dataset to a shared weights file
 adapted_states = {
-    "EDHiE": {ds.dataset_name: "states/edhie_2v.pt" for ds in datasets}
+    "EDHiE": {ds.dataset_name: "edhie_2v.pt" for ds in datasets}
 }
 
 grid = ExperimentGrid(
