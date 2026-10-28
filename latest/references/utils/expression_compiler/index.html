@@ -893,6 +893,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;CYTHON_AVAILABLE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#SRToolkit.utils.expression_compiler.compile_expr" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2193,6 +2204,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;CYTHON_AVAILABLE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#SRToolkit.utils.expression_compiler.compile_expr" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2265,7 +2287,17 @@
 <p>Both accept a <code>backend</code> parameter that selects the evaluation engine:</p>
 <ul>
 <li><code>"stack"</code> (default): postfix stack-machine evaluator backed by Cython; falls
-  back to pure-Python automatically when the compiled extension is unavailable.</li>
+  back to pure-Python automatically when the compiled extension is unavailable
+  (e.g. installed from source without a C compiler). The fallback is about as fast
+  as <code>"codegen"</code> and up to about 2x slower than the compiled extension, mostly on
+  small datasets; a warning is issued the first time it is used, and
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;CYTHON_AVAILABLE&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE">CYTHON_AVAILABLE</a> tells
+  which one is in use.</li>
 <li><code>"codegen"</code>: generates Python/NumPy source code via <code>exec()</code>. Compatible
   with any custom symbol library and requires no compiled extensions.</li>
 <li><code>"stack_py"</code>: pure-Python stack-machine evaluator; avoids the Cython→Python
@@ -2294,6 +2326,30 @@ single vectorised NumPy function with less per-instruction dispatch overhead.</p
 
 
 
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">CYTHON_AVAILABLE</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">CYTHON_AVAILABLE</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">str</span><span class="p">(</span><span class="n">_eval</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">'.py'</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether the compiled Cython extension is used by the <code>"stack"</code> backend.</p>
+
+    </div>
+
+</div>
 
 
 
@@ -2482,33 +2538,7 @@ Defaults to <a class="autorefs autorefs-internal" title="&lt;code class=&quot;do
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/expression_compiler.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-774">774</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-775">775</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-776">776</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-777">777</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-778">778</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-779">779</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-780">780</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-781">781</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-782">782</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-783">783</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-784">784</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-785">785</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-786">786</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-787">787</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-788">788</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-789">789</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-790">790</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-791">791</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-792">792</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-793">793</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-794">794</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-795">795</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-796">796</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-797">797</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-798">798</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-799">799</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-800">800</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-800">800</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-801">801</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-802">802</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-803">803</a></span>
@@ -2532,57 +2562,85 @@ Defaults to <a class="autorefs autorefs-internal" title="&lt;code class=&quot;do
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-821">821</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-822">822</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-823">823</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-824">824</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-774" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-774"></a><span class="k">def</span><span class="w"> </span><span class="nf">compile_expr</span><span class="p">(</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-775" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-775"></a>    <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">],</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-776" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-776"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-777" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-777"></a>    <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"stack"</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-778" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-778"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-779" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-779"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-780" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-780"></a><span class="sd">    Compile an expression into a callable ``f(X, C) → np.ndarray``.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-781" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-781"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-782" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-782"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-783" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-783"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr(["X_0", "+", "1"])</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-784" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-784"></a><span class="sd">        &gt;&gt;&gt; f(np.array([[1.0], [2.0], [3.0]]), None)</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-785" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-785"></a><span class="sd">        array([2., 3., 4.])</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-786" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-786"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr(["X_0", "+", "1"], backend="codegen")</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-787" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-787"></a><span class="sd">        &gt;&gt;&gt; f(np.array([[1], [2], [3]]), np.array([]))</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-788" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-788"></a><span class="sd">        array([2, 3, 4])</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-789" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-789"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-790" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-790"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-791" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-791"></a><span class="sd">        expr: Expression as a token list in infix notation or a</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-792" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-792"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-793" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-793"></a><span class="sd">        symbol_library: Symbol library used to look up token types.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-794" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-794"></a><span class="sd">            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-795" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-795"></a><span class="sd">        backend: Evaluation backend. One of:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-796" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-796"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-797" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-797"></a><span class="sd">            - ``"stack"`` (default): postfix stack-machine evaluator backed by</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-798" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-798"></a><span class="sd">              Cython; falls back to pure-Python when the compiled extension is</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-799" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-799"></a><span class="sd">              unavailable.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-800" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-800"></a><span class="sd">            - ``"codegen"``: generates Python/NumPy source via ``exec()``;</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-801" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-801"></a><span class="sd">              compatible with any custom symbol library.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-802" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-802"></a><span class="sd">            - ``"stack_py"``: pure-Python stack-machine evaluator; avoids the</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-803" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-803"></a><span class="sd">              Cython→Python boundary overhead when the library contains many</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-804" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-804"></a><span class="sd">              custom symbols.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-805" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-805"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-806" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-806"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-807" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-807"></a><span class="sd">        A callable ``f(X, C)`` where ``X`` is a 2-D array of shape</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-808" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-808"></a><span class="sd">        ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-809" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-809"></a><span class="sd">        (pass ``None`` or an empty array for constant-free expressions).</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-810" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-810"></a><span class="sd">        Returns a 1-D output array of shape ``(n_samples,)``.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-811" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-811"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-812" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-812"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-813" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-813"></a><span class="sd">        ValueError: If ``backend`` is not one of the supported values.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-814" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-814"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-815" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-815"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-816" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-816"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-817" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-817"></a>    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-818" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-818"></a>        <span class="k">return</span> <span class="n">_expr_to_cython_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-819" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-819"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"codegen"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-820" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-820"></a>        <span class="k">return</span> <span class="n">_expr_to_executable_function</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-821" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-821"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack_py"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-822" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-822"></a>        <span class="k">return</span> <span class="n">_expr_to_python_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-823" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-823"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-824" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-824"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown backend '</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">'. Must be one of: 'stack', 'codegen', 'stack_py'."</span><span class="p">)</span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-824">824</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-825">825</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-826">826</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-827">827</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-828">828</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-829">829</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-830">830</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-831">831</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-832">832</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-833">833</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-834">834</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-835">835</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-836">836</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-837">837</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-838">838</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-839">839</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-840">840</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-841">841</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-842">842</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-843">843</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-844">844</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-845">845</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-846">846</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-847">847</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-848">848</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-849">849</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-850">850</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-851">851</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-800" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-800"></a><span class="k">def</span><span class="w"> </span><span class="nf">compile_expr</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-801" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-801"></a>    <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">],</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-802" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-802"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-803" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-803"></a>    <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"stack"</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-804" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-804"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-805" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-805"></a><span class="w">    </span><span class="sd">"""</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-806" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-806"></a><span class="sd">    Compile an expression into a callable ``f(X, C) → np.ndarray``.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-807" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-807"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-808" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-808"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-809" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-809"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr(["X_0", "+", "1"])</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-810" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-810"></a><span class="sd">        &gt;&gt;&gt; f(np.array([[1.0], [2.0], [3.0]]), None)</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-811" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-811"></a><span class="sd">        array([2., 3., 4.])</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-812" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-812"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr(["X_0", "+", "1"], backend="codegen")</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-813" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-813"></a><span class="sd">        &gt;&gt;&gt; f(np.array([[1], [2], [3]]), np.array([]))</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-814" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-814"></a><span class="sd">        array([2, 3, 4])</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-815" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-815"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-816" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-816"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-817" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-817"></a><span class="sd">        expr: Expression as a token list in infix notation or a</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-818" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-818"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-819" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-819"></a><span class="sd">        symbol_library: Symbol library used to look up token types.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-820" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-820"></a><span class="sd">            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-821" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-821"></a><span class="sd">        backend: Evaluation backend. One of:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-822" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-822"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-823" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-823"></a><span class="sd">            - ``"stack"`` (default): postfix stack-machine evaluator backed by</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-824" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-824"></a><span class="sd">              Cython; falls back to pure-Python when the compiled extension is</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-825" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-825"></a><span class="sd">              unavailable.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-826" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-826"></a><span class="sd">            - ``"codegen"``: generates Python/NumPy source via ``exec()``;</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-827" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-827"></a><span class="sd">              compatible with any custom symbol library.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-828" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-828"></a><span class="sd">            - ``"stack_py"``: pure-Python stack-machine evaluator; avoids the</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-829" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-829"></a><span class="sd">              Cython→Python boundary overhead when the library contains many</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-830" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-830"></a><span class="sd">              custom symbols.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-831" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-831"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-832" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-832"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-833" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-833"></a><span class="sd">        A callable ``f(X, C)`` where ``X`` is a 2-D array of shape</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-834" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-834"></a><span class="sd">        ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-835" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-835"></a><span class="sd">        (pass ``None`` or an empty array for constant-free expressions).</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-836" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-836"></a><span class="sd">        Returns a 1-D output array of shape ``(n_samples,)``.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-837" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-837"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-838" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-838"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-839" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-839"></a><span class="sd">        ValueError: If ``backend`` is not one of the supported values.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-840" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-840"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-841" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-841"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-842" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-842"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-843" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-843"></a>    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-844" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-844"></a>        <span class="n">_warn_if_no_cython</span><span class="p">()</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-845" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-845"></a>        <span class="k">return</span> <span class="n">_expr_to_cython_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-846" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-846"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"codegen"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-847" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-847"></a>        <span class="k">return</span> <span class="n">_expr_to_executable_function</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-848" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-848"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack_py"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-849" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-849"></a>        <span class="k">return</span> <span class="n">_expr_to_python_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-850" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-850"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-851" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-851"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown backend '</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">'. Must be one of: 'stack', 'codegen', 'stack_py'."</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2763,34 +2821,7 @@ speedup when the same <em>X</em> is reused across many calls with varying <em>C<
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/expression_compiler.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-827">827</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-828">828</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-829">829</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-830">830</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-831">831</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-832">832</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-833">833</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-834">834</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-835">835</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-836">836</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-837">837</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-838">838</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-839">839</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-840">840</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-841">841</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-842">842</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-843">843</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-844">844</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-845">845</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-846">846</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-847">847</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-848">848</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-849">849</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-850">850</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-851">851</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-852">852</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-853">853</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-854">854</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-854">854</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-855">855</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-856">856</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-857">857</a></span>
@@ -2817,61 +2848,90 @@ speedup when the same <em>X</em> is reused across many calls with varying <em>C<
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-878">878</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-879">879</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-880">880</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-881">881</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-827" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-827"></a><span class="k">def</span><span class="w"> </span><span class="nf">compile_expr_rmse</span><span class="p">(</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-828" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-828"></a>    <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">],</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-829" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-829"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-830" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-830"></a>    <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"stack"</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-831" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-831"></a>    <span class="n">X</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-832" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-832"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">float</span><span class="p">]:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-833" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-833"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-834" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-834"></a><span class="sd">    Compile an expression into an RMSE callable ``f(X, C, y) → float``.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-835" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-835"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-836" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-836"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-837" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-837"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr_rmse(["X_0", "+", "1"])</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-838" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-838"></a><span class="sd">        &gt;&gt;&gt; f(np.array([[1.0], [2.0], [3.0]]), np.array([]), np.array([2.0, 3.0, 4.0]))</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-839" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-839"></a><span class="sd">        0.0</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-840" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-840"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr_rmse(["X_0", "+", "1"], backend="codegen")</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-841" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-841"></a><span class="sd">        &gt;&gt;&gt; print(float(f(np.array([[1], [2], [3]]), np.array([]), np.array([2, 3, 4]))))</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-842" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-842"></a><span class="sd">        0.0</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-843" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-843"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-844" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-844"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-845" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-845"></a><span class="sd">        expr: Expression as a token list in infix notation or a</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-846" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-846"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-847" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-847"></a><span class="sd">        symbol_library: Symbol library used to look up token types.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-848" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-848"></a><span class="sd">            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-849" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-849"></a><span class="sd">        backend: Evaluation backend. One of:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-850" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-850"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-851" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-851"></a><span class="sd">            - ``"stack"`` (default): postfix stack-machine evaluator backed by</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-852" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-852"></a><span class="sd">              Cython; RMSE is computed in C without an intermediate output array.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-853" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-853"></a><span class="sd">              Falls back to pure-Python when the compiled extension is unavailable.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-854" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-854"></a><span class="sd">            - ``"codegen"``: generates Python/NumPy source via ``exec()``;</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-855" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-855"></a><span class="sd">              compatible with any custom symbol library.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-856" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-856"></a><span class="sd">            - ``"stack_py"``: pure-Python stack-machine evaluator; avoids the</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-857" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-857"></a><span class="sd">              Cython→Python boundary overhead when the library contains many</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-858" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-858"></a><span class="sd">              custom symbols.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-859" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-859"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-860" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-860"></a><span class="sd">        X: Optional input data of shape ``(n_samples, n_features)``. When provided</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-861" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-861"></a><span class="sd">            with ``backend="stack"`` or ``backend="stack_py"``, all constant-free</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-862" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-862"></a><span class="sd">            subtrees are pre-evaluated against *X* at compile time — a significant</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-863" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-863"></a><span class="sd">            speedup when the same *X* is reused across many calls with varying *C*</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-864" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-864"></a><span class="sd">            (e.g. inside an optimiser loop). Ignored for ``backend="codegen"``.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-865" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-865"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-866" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-866"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-867" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-867"></a><span class="sd">        A callable ``f(X, C, y)`` returning the scalar RMSE as a float.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-868" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-868"></a>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-869" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-869"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-870" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-870"></a><span class="sd">        ValueError: If ``backend`` is not one of the supported values.</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-871" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-871"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-872" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-872"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-873" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-873"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-874" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-874"></a>    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-875" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-875"></a>        <span class="k">return</span> <span class="n">_expr_to_cython_error_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-876" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-876"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"codegen"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-877" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-877"></a>        <span class="k">return</span> <span class="n">_expr_to_error_function</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-878" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-878"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack_py"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-879" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-879"></a>        <span class="k">return</span> <span class="n">_expr_to_python_stack_error_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-880" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-880"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-881" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-881"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown backend '</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">'. Must be one of: 'stack', 'codegen', 'stack_py'."</span><span class="p">)</span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-881">881</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-882">882</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-883">883</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-884">884</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-885">885</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-886">886</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-887">887</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-888">888</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-889">889</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-890">890</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-891">891</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-892">892</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-893">893</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-894">894</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-895">895</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-896">896</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-897">897</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-898">898</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-899">899</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-900">900</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-901">901</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-902">902</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-903">903</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-904">904</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-905">905</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-906">906</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-907">907</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-908">908</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-909">909</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-854" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-854"></a><span class="k">def</span><span class="w"> </span><span class="nf">compile_expr_rmse</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-855" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-855"></a>    <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">],</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-856" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-856"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-857" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-857"></a>    <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"stack"</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-858" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-858"></a>    <span class="n">X</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-859" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-859"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">float</span><span class="p">]:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-860" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-860"></a><span class="w">    </span><span class="sd">"""</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-861" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-861"></a><span class="sd">    Compile an expression into an RMSE callable ``f(X, C, y) → float``.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-862" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-862"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-863" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-863"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-864" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-864"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr_rmse(["X_0", "+", "1"])</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-865" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-865"></a><span class="sd">        &gt;&gt;&gt; f(np.array([[1.0], [2.0], [3.0]]), np.array([]), np.array([2.0, 3.0, 4.0]))</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-866" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-866"></a><span class="sd">        0.0</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-867" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-867"></a><span class="sd">        &gt;&gt;&gt; f = compile_expr_rmse(["X_0", "+", "1"], backend="codegen")</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-868" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-868"></a><span class="sd">        &gt;&gt;&gt; print(float(f(np.array([[1], [2], [3]]), np.array([]), np.array([2, 3, 4]))))</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-869" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-869"></a><span class="sd">        0.0</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-870" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-870"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-871" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-871"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-872" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-872"></a><span class="sd">        expr: Expression as a token list in infix notation or a</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-873" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-873"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-874" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-874"></a><span class="sd">        symbol_library: Symbol library used to look up token types.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-875" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-875"></a><span class="sd">            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-876" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-876"></a><span class="sd">        backend: Evaluation backend. One of:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-877" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-877"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-878" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-878"></a><span class="sd">            - ``"stack"`` (default): postfix stack-machine evaluator backed by</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-879" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-879"></a><span class="sd">              Cython; RMSE is computed in C without an intermediate output array.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-880" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-880"></a><span class="sd">              Falls back to pure-Python when the compiled extension is unavailable.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-881" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-881"></a><span class="sd">            - ``"codegen"``: generates Python/NumPy source via ``exec()``;</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-882" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-882"></a><span class="sd">              compatible with any custom symbol library.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-883" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-883"></a><span class="sd">            - ``"stack_py"``: pure-Python stack-machine evaluator; avoids the</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-884" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-884"></a><span class="sd">              Cython→Python boundary overhead when the library contains many</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-885" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-885"></a><span class="sd">              custom symbols.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-886" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-886"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-887" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-887"></a><span class="sd">        X: Optional input data of shape ``(n_samples, n_features)``. When provided</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-888" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-888"></a><span class="sd">            with ``backend="stack"`` or ``backend="stack_py"``, all constant-free</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-889" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-889"></a><span class="sd">            subtrees are pre-evaluated against *X* at compile time — a significant</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-890" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-890"></a><span class="sd">            speedup when the same *X* is reused across many calls with varying *C*</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-891" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-891"></a><span class="sd">            (e.g. inside an optimiser loop). Ignored for ``backend="codegen"``.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-892" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-892"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-893" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-893"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-894" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-894"></a><span class="sd">        A callable ``f(X, C, y)`` returning the scalar RMSE as a float.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-895" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-895"></a>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-896" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-896"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-897" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-897"></a><span class="sd">        ValueError: If ``backend`` is not one of the supported values.</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-898" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-898"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-899" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-899"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-900" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-900"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-901" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-901"></a>    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-902" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-902"></a>        <span class="n">_warn_if_no_cython</span><span class="p">()</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-903" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-903"></a>        <span class="k">return</span> <span class="n">_expr_to_cython_error_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-904" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-904"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"codegen"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-905" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-905"></a>        <span class="k">return</span> <span class="n">_expr_to_error_function</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-906" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-906"></a>    <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"stack_py"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-907" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-907"></a>        <span class="k">return</span> <span class="n">_expr_to_python_stack_error_callable</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-908" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-908"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-909" name="SRToolkit.utils.expression_compiler.compile_expr_rmse--source--__codelineno-0-909"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown backend '</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">'. Must be one of: 'stack', 'codegen', 'stack_py'."</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

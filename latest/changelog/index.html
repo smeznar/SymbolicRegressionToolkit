@@ -2337,6 +2337,10 @@
 <li>can rank expressions against the observed targets <code>y</code> when no ground-truth expression is given;</li>
 <li>is fixed per dataset by default (<code>ranking_seed</code>, the dataset's seed), so every run on a dataset is scored by the same objective; <code>bed_resample=True</code> resamples it per run.</li>
 <li>Added an <code>rmse</code> regression metric.</li>
+<li>Python 3.14 support: wheels are built for 3.10–3.14, and CI tests all five versions.</li>
+<li>Removed the <code>editdistance</code> dependency (no wheels for Python ≥ 3.13); <code>edit_distance</code> now uses a pure-Python Levenshtein implementation.</li>
+<li>Installing from source without a C compiler now works as documented: the Cython extension is skipped and the pure-Python evaluator is used. A <code>RuntimeWarning</code> is issued the first time the <code>"stack"</code> backend falls back, and <code>SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE</code> tells which evaluator is in use. Set <code>SRTOOLKIT_REQUIRE_CYTHON=1</code> to make a failed build an error.</li>
+<li><code>SR_results</code> can be iterated over directly (<code>for result in results:</code>); previously such a loop ended with an <code>AssertionError</code> (#5).</li>
 </ul>
 <p><strong>Breaking changes:</strong>
 - Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
@@ -2350,7 +2354,8 @@
 - A dataset with custom <code>constant_bounds</code> scored every expression with a constant as NaN after a JSON round trip (<code>from_dict</code>, <code>from_archive</code>, <code>ExperimentGrid</code>).
 - A <code>Node</code> ground truth is now serialised with the dataset's own symbol library.
 - <code>SR_dataset.refresh()</code> regenerates the test and aux data too, and <code>data_cache.remove</code> deletes them.
-- <code>SR_dataset</code> now describes BED datasets correctly.</p>
+- <code>SR_dataset</code> now describes BED datasets correctly.
+- Fixed examples in the benchmarking, grammars, quickstart and experiments guides and the README (a wrong benchmark, a derivation that never finished, inconsistent file names) (#5).</p>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>
 <li>New backends for expression evaluations (about 1.5x speedup for parameter estimation)</li>
