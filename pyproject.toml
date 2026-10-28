@@ -29,7 +29,6 @@ dependencies = [
   "scipy",
   "sympy",
   "zss",
-  "editdistance",
   "tqdm",
   "typing_extensions>=4.0",
   "platformdirs",

@@ -7,6 +7,10 @@
   - can rank expressions against the observed targets `y` when no ground-truth expression is given;
   - is fixed per dataset by default (`ranking_seed`, the dataset's seed), so every run on a dataset is scored by the same objective; `bed_resample=True` resamples it per run.
 - Added an `rmse` regression metric.
+- Python 3.14 support: wheels are built for 3.10–3.14, and CI tests all five versions.
+- Removed the `editdistance` dependency (no wheels for Python ≥ 3.13); `edit_distance` now uses a pure-Python Levenshtein implementation.
+- Installing from source without a C compiler now works as documented: the Cython extension is skipped and the pure-Python evaluator is used. A `RuntimeWarning` is issued the first time the `"stack"` backend falls back, and `SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE` tells which evaluator is in use. Set `SRTOOLKIT_REQUIRE_CYTHON=1` to make a failed build an error.
+- `SR_results` can be iterated over directly (`for result in results:`); previously such a loop ended with an `AssertionError` (#5).
 
 **Breaking changes:**
 - Removed the `RMSE`, `BED` and `R2` augmenters; use `HoldoutMetric`.
@@ -22,6 +26,7 @@
 - A `Node` ground truth is now serialised with the dataset's own symbol library.
 - `SR_dataset.refresh()` regenerates the test and aux data too, and `data_cache.remove` deletes them.
 - `SR_dataset` now describes BED datasets correctly.
+- Fixed examples in the benchmarking, grammars, quickstart and experiments guides and the README (a wrong benchmark, a derivation that never finished, inconsistent file names) (#5).
 
 ### SymbolicRegressionToolkit-1.6.0 (2026-06-23)
 - New backends for expression evaluations (about 1.5x speedup for parameter estimation)

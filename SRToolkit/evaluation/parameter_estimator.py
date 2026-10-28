@@ -2,7 +2,7 @@
 Constant parameter estimation for symbolic regression expressions using numerical optimization.
 """
 
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.optimize import minimize
@@ -14,7 +14,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import RankingSettings
 
 # The settings ParameterEstimator reads, with their defaults. Any other keys passed in are ignored.
-DEFAULT_ESTIMATION_SETTINGS = {
+DEFAULT_ESTIMATION_SETTINGS: Dict[str, Any] = {
     "method": "L-BFGS-B",
     "tol": 1e-6,
     "gtol": 1e-3,

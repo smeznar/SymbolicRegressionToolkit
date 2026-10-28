@@ -324,7 +324,7 @@ class SR_evaluator:
         # The ranking function owns all of its data-derived state (parameter estimator for RMSE,
         # behaviour matrix + evaluation points bed_X for BED); the evaluator just calls score().
         self.ranking: RankingFunction = build_ranking(ranking_function)
-        self.ranking.setup(X, y, ground_truth, symbol_library, seed, kwargs)
+        self.ranking.setup(X, y, ground_truth, symbol_library, seed, dict(kwargs))
 
         if self.success_threshold is None:
             self.success_threshold = self.ranking.default_success_threshold()

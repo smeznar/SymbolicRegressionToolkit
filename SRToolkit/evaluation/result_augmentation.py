@@ -436,11 +436,11 @@ class HoldoutMetric(ResultAugmenter):
         self.ranking_settings: Dict[str, Any] = dict(ranking_settings or {})
         self._estimator: Optional[ParameterEstimator] = None
 
-        if hasattr(data, "arrays"):  # DataSplit (duck-typed to avoid an import cycle)
-            self._X, self._y = data.X, data.y
-        elif isinstance(data, tuple):
+        if isinstance(data, tuple):
             self._X = data[0]
             self._y = data[1] if len(data) > 1 else None
+        elif hasattr(data, "arrays"):  # DataSplit (duck-typed to avoid an import cycle)
+            self._X, self._y = data.X, data.y
         else:
             raise TypeError(
                 f"[HoldoutMetric] data must be a DataSplit or an (X[, y]) tuple, got {type(data).__name__}."
@@ -481,7 +481,7 @@ class HoldoutMetric(ResultAugmenter):
 
     def _value(self, model: ModelResult) -> float:
         expr = model.expr
-        if self._ranking_mode:
+        if isinstance(self.metric, RankingFunction):  # same as self._ranking_mode; narrows the type
             # Match the NaN-on-failure contract of the reuse-params branch (evaluate_metric): a
             # single expression that raises must not abort the whole augmentation.
             try:
@@ -683,7 +683,7 @@ class HoldoutMetric(ResultAugmenter):
         symbol_library = SymbolLibrary.from_dict(data["symbol_library"]) if data.get("symbol_library") else None
         ranking_settings = _from_json_safe(data.get("ranking_settings") or {})
         return HoldoutMetric(
-            (X, y),
+            (X,) if y is None else (X, y),
             metric=data["metric"],
             scope=data["scope"],
             symbol_library=symbol_library,

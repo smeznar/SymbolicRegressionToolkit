@@ -11,7 +11,12 @@ The primary interface are two functions:
 Both accept a ``backend`` parameter that selects the evaluation engine:
 
 - ``"stack"`` (default): postfix stack-machine evaluator backed by Cython; falls
-  back to pure-Python automatically when the compiled extension is unavailable.
+  back to pure-Python automatically when the compiled extension is unavailable
+  (e.g. installed from source without a C compiler). The fallback is about as fast
+  as ``"codegen"`` and up to about 2x slower than the compiled extension, mostly on
+  small datasets; a warning is issued the first time it is used, and
+  [CYTHON_AVAILABLE][SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE] tells
+  which one is in use.
 - ``"codegen"``: generates Python/NumPy source code via ``exec()``. Compatible
   with any custom symbol library and requires no compiled extensions.
 - ``"stack_py"``: pure-Python stack-machine evaluator; avoids the Cython→Python
@@ -31,6 +36,7 @@ single vectorised NumPy function with less per-instruction dispatch overhead.
 # overhead for expressions with many custom (non-default) symbols.
 import importlib.util as _ilu
 import pathlib as _pl
+import warnings
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -42,6 +48,26 @@ import numpy as np
 from SRToolkit.utils import _eval_cython as _eval  # type: ignore[attr-defined]
 from SRToolkit.utils.expression_tree import Node, is_float, tokens_to_tree
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+CYTHON_AVAILABLE: bool = not str(_eval.__file__).endswith(".py")
+"""Whether the compiled Cython extension is used by the ``"stack"`` backend."""
+
+_fallback_warned = False
+
+
+def _warn_if_no_cython() -> None:
+    """Warn once that the ``"stack"`` backend runs on the pure-Python fallback."""
+    global _fallback_warned
+    if not CYTHON_AVAILABLE and not _fallback_warned:
+        _fallback_warned = True
+        warnings.warn(
+            "SRToolkit's compiled Cython extension is not available, so the 'stack' backend uses the slower "
+            "pure-Python evaluator (up to about 2x slower parameter fitting). Reinstall with a C compiler available "
+            "(or from a prebuilt wheel) to fix this.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
 
 _eval_py_spec = _ilu.spec_from_file_location(
     "_eval_cython_py",
@@ -815,6 +841,7 @@ def compile_expr(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     if backend == "stack":
+        _warn_if_no_cython()
         return _expr_to_cython_callable(expr, symbol_library)
     elif backend == "codegen":
         return _expr_to_executable_function(expr, symbol_library)
@@ -872,6 +899,7 @@ def compile_expr_rmse(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     if backend == "stack":
+        _warn_if_no_cython()
         return _expr_to_cython_error_callable(expr, symbol_library, X)
     elif backend == "codegen":
         return _expr_to_error_function(expr, symbol_library)

@@ -32,7 +32,7 @@ from .sampling import Sampler
 
 
 class SR_dataset:
-    def __init__(
+    def __init__(  # type: ignore[misc]
         self,
         X: np.ndarray,
         symbol_library: SymbolLibrary,
@@ -609,7 +609,7 @@ class SR_dataset:
                 continue
             cache_path = data_cache.dataset_path(self.benchmark, self.version, key)
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            np.savez(str(cache_path), **split.arrays)
+            np.savez(str(cache_path), **split.arrays)  # type: ignore[arg-type]  #
 
     def to_dict(self) -> dict:
         r"""
@@ -860,7 +860,7 @@ class SR_dataset:
 
             for key, split in self._splits():
                 buf = io.BytesIO()
-                np.savez(buf, **split.arrays)
+                np.savez(buf, **split.arrays)  # type: ignore[arg-type]
                 zf.writestr(f"data/{key}.npz", buf.getvalue())
 
     @classmethod
@@ -931,7 +931,7 @@ class SR_dataset:
             os.unlink(tmp.name)
 
     @classmethod
-    def from_samplers(
+    def from_samplers(  # type: ignore[misc]
         cls,
         ground_truth: Union[List[str], Node],
         samplers: List[Sampler],

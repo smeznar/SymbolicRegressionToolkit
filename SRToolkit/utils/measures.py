@@ -5,7 +5,6 @@ tree edit distance, and Behavioral Embedding Distance (BED).
 
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import editdistance
 import numpy as np
 import zss
 from scipy.stats.qmc import LatinHypercube
@@ -13,6 +12,19 @@ from scipy.stats.qmc import LatinHypercube
 from .expression_compiler import compile_expr
 from .expression_tree import Node, tokens_to_tree
 from .symbol_library import SymbolLibrary
+
+
+def _levenshtein(a: List[str], b: List[str]) -> int:
+    """Levenshtein distance between two token sequences, computed row by row in O(len(a) * len(b)) time."""
+    if len(a) < len(b):
+        a, b = b, a
+    prev = list(range(len(b) + 1))
+    for i, ta in enumerate(a, 1):
+        cur = [i]
+        for j, tb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ta != tb)))
+        prev = cur
+    return prev[-1]
 
 
 def edit_distance(
@@ -59,7 +71,7 @@ def edit_distance(
     elif isinstance(expr2, list):
         expr2 = tokens_to_tree(expr2, symbol_library).to_list(symbol_library=symbol_library, notation=notation)
 
-    return editdistance.eval(expr1, expr2)
+    return _levenshtein(expr1, expr2)
 
 
 def _expr_to_zss(expr: Node) -> zss.Node:

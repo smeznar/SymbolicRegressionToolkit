@@ -349,11 +349,12 @@ class BEDRanking(RankingFunction):
         # The behaviour to compare against, in order: a precomputed bed_gt matrix, the ground-truth
         # expression, or the observed targets y (a deterministic behaviour).
         bed_gt = settings.get("bed_gt", None)
+        row_behavior: Optional[np.ndarray] = None
         if bed_gt is not None:
-            row_behavior: Optional[np.ndarray] = np.asarray(bed_gt)
+            row_behavior = np.asarray(bed_gt)
             self._validate_bed_gt(row_behavior, X)
         elif ground_truth is not None:
-            row_behavior = None
+            pass  # behaviour is computed from the expression below
         elif y is not None:
             y = np.asarray(y)
             if y.ndim != 1 or y.shape[0] != X.shape[0]:
@@ -399,6 +400,8 @@ class BEDRanking(RankingFunction):
         else:
             self.bed_X = X[self._subsample_rows(X.shape[0]), :]
 
+        # row_behavior is None only when the ground-truth branch above was taken.
+        assert ground_truth is not None
         self.gt_behavior = create_behavior_matrix(
             ground_truth,
             self.bed_X,

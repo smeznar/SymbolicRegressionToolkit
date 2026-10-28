@@ -121,7 +121,7 @@ class SR_benchmark:
         self.datasets[dataset_name]["sr_dataset"] = dataset
         self.datasets[dataset_name]["num_variables"] = dataset.X.shape[1]
 
-    def add_dataset(
+    def add_dataset(  # type: ignore[misc]
         self,
         symbol_library: SymbolLibrary,
         dataset: Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
@@ -280,7 +280,7 @@ class SR_benchmark:
 
         self.datasets[dataset_name] = entry
 
-    def add_from_samplers(
+    def add_from_samplers(  # type: ignore[misc]
         self,
         ground_truth: Union[List[str], Node],
         samplers: List[Sampler],
