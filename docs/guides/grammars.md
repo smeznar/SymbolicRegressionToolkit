@@ -87,7 +87,7 @@ tokens = d.generate()                # default limit=1000
 # Option B — manual: inspect and apply rules yourself
 d2 = g.start_derivation("E")
 while not d2.complete:
-    rule = d2.options()[0]           # or pick by weight via d2.sample()
+    rule = d2.options()[1]           # or pick by weight via d2.sample()
     d2.apply(rule)
 tokens = d2.to_token_list()          # flat token list from completed derivation
 tree   = d2.to_parse_tree()          # ParseTree for structural analysis

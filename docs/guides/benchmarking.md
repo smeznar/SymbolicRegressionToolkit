@@ -58,6 +58,8 @@ for r in results:
 Pass `n_samples` (and optionally `seed`) to `create_dataset()` to draw a fresh sample using the same distribution as the original data:
 
 ```python
+bm = Feynman()
+
 ds = bm.create_dataset("I.16.6", n_samples=500, seed=42)
 X, y = ds.X, ds.y
 ```

@@ -1062,6 +1062,27 @@ class TestSRResultsAugment:
 
 
 class TestSRResultsContainerOps:
+    def test_for_loop_visits_every_result(self):
+        combined = _single_result() + _single_result()
+        seen = [r for r in combined]
+        assert len(seen) == 2
+
+    def test_iteration_matches_indexing(self):
+        combined = _single_result() + _single_result()
+        for i, r in enumerate(combined):
+            assert r is combined[i]
+
+    def test_iteration_yields_eval_results(self):
+        combined = _single_result() + _single_result()
+        assert all(isinstance(r, EvalResult) for r in combined)
+
+    def test_iteration_over_empty_results(self):
+        assert list(SR_results()) == []
+
+    def test_can_iterate_more_than_once(self):
+        combined = _single_result() + _single_result()
+        assert len(list(combined)) == len(list(combined)) == 2
+
     def test_len(self):
         assert len(_single_result()) == 1
 

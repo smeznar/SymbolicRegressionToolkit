@@ -108,7 +108,7 @@ proged = ProGED()
 # Map each (approach, dataset) pair to a file where the adapted model state will
 # be saved. Both datasets reuse the same file here because they share the same
 # number of variables, so one adapted state covers both.
-adapted_states = {edhie.name: {ds_names[0]: "adapted_state_2_vars.pt", ds_names[1]: "adapted_state_2_vars.pt"}}
+adapted_states = {edhie.name: {ds_names[0]: "edhie_2v.pt", ds_names[1]: "edhie_2v.pt"}}
 
 # Build the experiment grid: every combination of approach × dataset will be run
 # num_experiments times (with different random seeds). Results are written under
@@ -117,7 +117,7 @@ eg = ExperimentGrid(
     approaches=[proged, edhie],
     datasets=[dataset1, dataset2],
     num_experiments=2,
-    results_dir="../results/",
+    results_dir="results",
     adapted_states=adapted_states,
 )
 
