@@ -158,6 +158,23 @@ class TestResolveSample:
         assert data["X"].shape[1] == 2
         assert data["X"].shape[0] == 20  # n_samples
 
+    def test_free_constant_raises(self, tmp_path, monkeypatch):
+        # A free constant has no value to evaluate, so y cannot be generated (issue #4: the Cython
+        # backend used to read past the empty constant array and return garbage y).
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        config = {**_simple_dataset_config(), "ground_truth": ["X_0", "*", "C"]}
+        with pytest.raises(ValueError, match="free constant"):
+            data_cache.resolve("test_bench", "1.0.0", "test_ds", config)
+
+    def test_free_constant_allowed_for_bed(self, tmp_path, monkeypatch):
+        # BED samples the constants itself and needs no y, so a free constant is fine.
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        config = {**_simple_dataset_config(), "ground_truth": ["X_0", "*", "C"], "ranking_function": "bed"}
+        path = data_cache.resolve("test_bench", "1.0.0", "test_ds", config)
+        with np.load(path) as data:
+            assert "X" in data
+            assert "y" not in data
+
 
 # ---------------------------------------------------------------------------
 # resolve — no config with no cache

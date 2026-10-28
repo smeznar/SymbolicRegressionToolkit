@@ -781,3 +781,40 @@ class TestCompileExprRmse:
         tree = Node("+", left=Node("X_0"), right=Node("X_1"))
         f = compile_expr_rmse(tree, self.sl, backend="stack")
         assert f(self.X, np.array([]), self.y_exact) == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Too few constants in C (issue #4)
+# ---------------------------------------------------------------------------
+
+
+class TestTooFewConstants:
+    """Every backend raises the same error when C is shorter than the expression's constants.
+
+    The Cython evaluator does not bounds-check C, so without the check it read past the array.
+    """
+
+    def setup_method(self):
+        self.sl = _sl(1)
+        self.X = _X([1.0], [2.0], [3.0])
+        self.y = np.array([2.0, 4.0, 6.0])
+        self.expr = ["X_0", "*", "C", "+", "C"]
+
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    @pytest.mark.parametrize("C", [np.array([]), np.array([1.0]), None])
+    def test_compile_expr_raises(self, backend, C):
+        f = compile_expr(self.expr, self.sl, backend=backend)
+        with pytest.raises(ValueError, match="2 free constant"):
+            f(self.X, C)
+
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    @pytest.mark.parametrize("cache_X", [False, True])
+    def test_compile_expr_rmse_raises(self, backend, cache_X):
+        f = compile_expr_rmse(self.expr, self.sl, backend=backend, X=self.X if cache_X else None)
+        with pytest.raises(ValueError, match="2 free constant"):
+            f(self.X, np.array([1.0]), self.y)
+
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    def test_enough_constants_evaluates(self, backend):
+        f = compile_expr(self.expr, self.sl, backend=backend)
+        np.testing.assert_allclose(f(self.X, np.array([2.0, 0.0])), [2.0, 4.0, 6.0])
