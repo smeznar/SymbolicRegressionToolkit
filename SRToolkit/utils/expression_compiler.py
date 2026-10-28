@@ -69,6 +69,17 @@ def _warn_if_no_cython() -> None:
         )
 
 
+def _check_num_constants(C: Optional[np.ndarray], num_constants: int) -> None:
+    """Raise if *C* holds fewer values than the expression has free constants.
+
+    Every backend calls this, so they fail the same way; the Cython evaluator does not
+    bounds-check ``C`` and would otherwise read past the end of the array.
+    """
+    given = 0 if C is None else len(C)
+    if given < num_constants:
+        raise ValueError(f"The expression has {num_constants} free constant(s), but C holds only {given} value(s).")
+
+
 _eval_py_spec = _ilu.spec_from_file_location(
     "_eval_cython_py",
     _pl.Path(__file__).parent / "_eval_cython.py",
@@ -137,22 +148,24 @@ def _expr_to_executable_function(
         tree = tokens_to_tree(expr, symbol_library)
     else:
         tree = expr
-    code, symbol, _, _ = _tree_to_function_rec(tree, symbol_library)
+    code, symbol, _, num_constants = _tree_to_function_rec(tree, symbol_library)
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C):\n"
+    if num_constants > 0:
+        fun_string += f"\t_check_num_constants(C, {num_constants})\n"
     for c in code:
         fun_string += "\t" + c + "\n"
     fun_string += "\treturn " + symbol
 
     fun_assignment_dict: Dict[str, Callable] = {}
-    exec(fun_string, {"np": np}, fun_assignment_dict)
+    exec(fun_string, {"np": np, "_check_num_constants": _check_num_constants}, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
 
 def _expr_to_error_function(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
-) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
+) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
     """
     Compile an expression into a callable that computes the RMSE against target values.
 
@@ -199,15 +212,17 @@ def _expr_to_error_function(
         tree = tokens_to_tree(expr, symbol_library)
     else:
         tree = expr
-    code, symbol, _, _ = _tree_to_function_rec(tree, symbol_library)
+    code, symbol, _, num_constants = _tree_to_function_rec(tree, symbol_library)
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C, y):\n"
+    if num_constants > 0:
+        fun_string += f"\t_check_num_constants(C, {num_constants})\n"
     for c in code:
         fun_string += "\t" + c + "\n"
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
 
     fun_assignment_dict: Dict[str, Callable] = {}
-    exec(fun_string, {"np": np}, fun_assignment_dict)
+    exec(fun_string, {"np": np, "_check_num_constants": _check_num_constants}, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
 
@@ -628,8 +643,11 @@ def _expr_to_cython_callable(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
+        if num_constants > 0:
+            _check_num_constants(C, num_constants)
         if C is None:
             C = np.array([], dtype=np.float64)
         X = np.ascontiguousarray(X, dtype=np.float64)
@@ -643,7 +661,7 @@ def _expr_to_cython_error_callable(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
     X: Optional[np.ndarray] = None,
-) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
+) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
     """
     Compile an expression into a fast RMSE callable backed by the Cython evaluator.
 
@@ -682,8 +700,11 @@ def _expr_to_cython_error_callable(
         )
     else:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
 
-    def _callable_(X: np.ndarray, C: np.ndarray, y: np.ndarray) -> float:
+    def _callable_(X: np.ndarray, C: Optional[np.ndarray], y: np.ndarray) -> float:
+        if num_constants > 0:
+            _check_num_constants(C, num_constants)
         if C is None:
             C = np.array([], dtype=np.float64)
         X = np.ascontiguousarray(X, dtype=np.float64)
@@ -731,8 +752,11 @@ def _expr_to_python_callable(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
+        if num_constants > 0:
+            _check_num_constants(C, num_constants)
         if C is None:
             C = np.array([], dtype=np.float64)
         return _eval_py.execute(X, C, token_ids, arities, extra_int, float_vals, python_ops)
@@ -744,7 +768,7 @@ def _expr_to_python_stack_error_callable(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
     X: Optional[np.ndarray] = None,
-) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
+) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
     """
     Compile an expression into an RMSE callable backed by the pure-Python evaluator.
 
@@ -785,8 +809,11 @@ def _expr_to_python_stack_error_callable(
         )
     else:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
 
-    def _callable_(X: np.ndarray, C: np.ndarray, y: np.ndarray) -> float:
+    def _callable_(X: np.ndarray, C: Optional[np.ndarray], y: np.ndarray) -> float:
+        if num_constants > 0:
+            _check_num_constants(C, num_constants)
         if C is None:
             C = np.array([], dtype=np.float64)
         return _eval_py.execute_error(X, C, y, token_ids, arities, extra_int, float_vals, python_ops)
@@ -856,7 +883,7 @@ def compile_expr_rmse(
     symbol_library: Optional[SymbolLibrary] = None,
     backend: str = "stack",
     X: Optional[np.ndarray] = None,
-) -> Callable[[np.ndarray, np.ndarray, np.ndarray], float]:
+) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
     """
     Compile an expression into an RMSE callable ``f(X, C, y) → float``.
 
@@ -891,7 +918,9 @@ def compile_expr_rmse(
             (e.g. inside an optimiser loop). Ignored for ``backend="codegen"``.
 
     Returns:
-        A callable ``f(X, C, y)`` returning the scalar RMSE as a float.
+        A callable ``f(X, C, y)`` returning the scalar RMSE as a float. ``C`` is a 1-D
+        array of constant values (pass ``None`` or an empty array for constant-free
+        expressions).
 
     Raises:
         ValueError: If ``backend`` is not one of the supported values.

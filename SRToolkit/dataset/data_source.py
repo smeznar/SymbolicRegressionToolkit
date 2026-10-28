@@ -37,7 +37,7 @@ import warnings
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 from urllib.request import urlopen
 from zipfile import ZipFile
 
@@ -46,7 +46,33 @@ import numpy as np
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.dataset.sampling import Sampler
 from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+
+def _check_no_free_constants(ground_truth: Union[List[str], Node], symbol_library: SymbolLibrary, context: str) -> None:
+    """
+    Raise if *ground_truth* contains a free constant, which leaves ``y`` undefined.
+
+    Generating ``y`` requires a fully specified ground truth: a free constant ("const" token,
+    e.g. ``C``) has no value to evaluate.
+
+    Args:
+        ground_truth: Ground-truth expression as a token list or a Node tree.
+        symbol_library: Symbol library that defines which tokens are constants.
+        context: Start of the error message, naming the caller and dataset.
+
+    Raises:
+        ValueError: If the ground truth contains a free constant.
+    """
+    tokens = ground_truth if isinstance(ground_truth, list) else ground_truth.to_list(symbol_library)
+    const_symbols = set(symbol_library.get_symbols_of_type("const"))
+    if any(tok in const_symbols for tok in tokens):
+        raise ValueError(
+            f"{context} ground truth contains a free constant ({', '.join(sorted(const_symbols))}), which has "
+            "no value to evaluate. Sampler-based generation requires a fully specified ground truth — replace "
+            "the free constant with a concrete value (e.g. a literal) or a sub-expression."
+        )
 
 
 class DataSource(ABC):
@@ -308,6 +334,9 @@ class SampleSource(DataSource):
                 sl = SymbolLibrary.from_dict(sl_dict)
             else:
                 sl = SymbolLibrary.default_symbols(X.shape[1])
+            _check_no_free_constants(
+                ground_truth, sl, f"[SampleSource.materialize] Dataset '{config.get('dataset_name', 'unnamed')}'"
+            )
             f = compile_expr(ground_truth, sl)
             y = f(X, np.array([]))
 

@@ -26,6 +26,7 @@
 - A `Node` ground truth is now serialised with the dataset's own symbol library.
 - `SR_dataset.refresh()` regenerates the test and aux data too, and `data_cache.remove` deletes them.
 - `SR_dataset` now describes BED datasets correctly.
+- Compiled expressions given fewer constants than they use raise a `ValueError` on every backend. The default `"stack"` backend used to read past the end of the array and return garbage values. A `SampleSource` whose ground truth has a free constant (`C`) now fails with a clear error, as `SR_dataset.resample` already did, instead of generating a dataset with garbage `y`; the custom-dataset guide example that used one is fixed (#4).
 - Fixed examples in the benchmarking, grammars, quickstart and experiments guides and the README (a wrong benchmark, a derivation that never finished, inconsistent file names) (#5).
 
 ### SymbolicRegressionToolkit-1.6.0 (2026-06-23)
