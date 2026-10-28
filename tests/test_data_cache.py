@@ -21,9 +21,9 @@ _SYMBOL_LIST = ["+", "-", "*", "/", "u-", "sqrt", "sin", "cos", "exp", "ln", "C"
 
 
 def _simple_dataset_config(name: str = "test_ds", benchmark: str = "test_bench", version: str = "1.0.0") -> dict:
-    """Return a minimal format_version=2 dataset config for use in tests."""
+    """Return a minimal format_version=3 dataset config for use in tests."""
     return {
-        "format_version": 2,
+        "format_version": 3,
         "dataset_name": name,
         "benchmark": benchmark,
         "version": version,

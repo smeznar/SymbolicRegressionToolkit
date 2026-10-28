@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation.callbacks import (
     CallbackDispatcher,
     EarlyStoppingCallback,
@@ -130,9 +131,17 @@ class TestSREvaluatorInitRmse:
         se = SR_evaluator(_X, _y, symbol_library=sl, seed=0)
         assert se.symbol_library is sl
 
-    def test_rmse_requires_y(self):
-        with pytest.raises(ValueError, match="Target values must be provided"):
+    def test_rmse_requires_y_or_ground_truth(self):
+        with pytest.raises(ValueError, match="either target values y or a ground truth"):
             SR_evaluator(_X, ranking_function="rmse")
+
+    def test_rmse_derives_y_from_ground_truth(self):
+        se = SR_evaluator(_X, ground_truth=["X_0", "+", "X_1"], ranking_function="rmse", seed=0)
+        assert se.evaluate_expr(["X_0", "+", "X_1"]) == pytest.approx(0.0)
+
+    def test_rmse_ground_truth_with_free_constant_rejected(self):
+        with pytest.raises(ValueError, match="free constant"):
+            SR_evaluator(_X, ground_truth=["X_0", "+", "C"], ranking_function="rmse", seed=0)
 
     def test_rmse_default_success_threshold_is_1e7(self):
         se = SR_evaluator(_X, _y, seed=0, success_threshold=None)
@@ -148,8 +157,8 @@ class TestSREvaluatorInitRmse:
         assert se.ranking_function == "rmse"
 
     def test_num_points_sampled_minus_one_uses_x_row_count(self):
-        se = SR_evaluator(_X, _y, seed=0, num_points_sampled=-1)
-        assert se.bed_evaluation_parameters["num_points_sampled"] == _X.shape[0]
+        se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0, num_points_sampled=-1)
+        assert se.ranking.bed_X.shape[0] == _X_BED.shape[0]
 
     def test_callbacks_dispatcher_with_early_stopping_created(self):
         se = _make_se()
@@ -161,46 +170,71 @@ class TestSREvaluatorInitRmse:
 
 
 class TestSREvaluatorInitBed:
-    def test_bed_requires_ground_truth(self):
-        with pytest.raises(ValueError, match="Ground truth must be provided"):
+    def test_bed_requires_ground_truth_bed_gt_or_y(self):
+        with pytest.raises(ValueError, match="a ground truth .* a precomputed bed_gt .* or target values y"):
             SR_evaluator(_X_BED, ranking_function="bed")
 
     def test_bed_list_ground_truth_creates_behavior_matrix(self):
         se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0)
-        assert se.gt_behavior is not None
-        assert isinstance(se.gt_behavior, np.ndarray)
+        assert se.ranking.gt_behavior is not None
+        assert isinstance(se.ranking.gt_behavior, np.ndarray)
 
-    def test_bed_ndarray_ground_truth_used_directly(self):
+    def test_bed_ndarray_ground_truth_rejected(self):
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(
-            _X_BED,
-            ground_truth=gt,
-            ranking_function="bed",
-            seed=0,
-            num_points_sampled=_X_BED.shape[0],
-            num_consts_sampled=4,
-            bed_X=_X_BED,
-        )
-        assert se.gt_behavior is gt
+        with pytest.raises(ValueError, match="list of tokens or a Node object"):
+            SR_evaluator(
+                _X_BED,
+                ground_truth=gt,
+                ranking_function="bed",
+                seed=0,
+                num_points_sampled=_X_BED.shape[0],
+                num_consts_sampled=4,
+            )
 
     def test_bed_invalid_ground_truth_type_raises(self):
         with pytest.raises(ValueError):
             SR_evaluator(_X_BED, ground_truth="not_valid", ranking_function="bed", seed=0)
 
-    def test_bed_domain_bounds_samples_bed_X(self):
+    def test_bed_samplers_generate_bed_X(self):
+        samplers = [UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)]
         se = SR_evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
-            domain_bounds=[(-1.0, 1.0), (-1.0, 1.0)],
+            samplers=samplers,
+            num_points_sampled=15,
             seed=0,
         )
-        bed_X = se.bed_evaluation_parameters["bed_X"]
-        assert bed_X is not None
-        assert bed_X.shape[1] == _X_BED.shape[1]
-        assert np.all(bed_X >= -1.0) and np.all(bed_X <= 1.0)
+        bed_X = se.ranking.bed_X
+        assert bed_X.shape == (15, _X_BED.shape[1])
+        assert np.all(np.abs(bed_X) <= 1.0)
 
-    def test_bed_no_domain_bounds_subsamples_X(self):
+    def test_bed_samplers_seeded_reproducible(self):
+        def build():
+            return SR_evaluator(
+                _X_BED,
+                ground_truth=["C", "+", "X_0"],
+                ranking_function="bed",
+                samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
+                num_points_sampled=15,
+                seed=7,
+            )
+
+        assert np.array_equal(build().ranking.bed_X, build().ranking.bed_X)
+
+    def test_bed_samplers_reject_use_all_points(self):
+        samplers = [UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)]
+        with pytest.raises(ValueError, match="not valid together with samplers"):
+            SR_evaluator(
+                _X_BED,
+                ground_truth=["C", "+", "X_0"],
+                ranking_function="bed",
+                samplers=samplers,
+                num_points_sampled=-1,
+                seed=0,
+            )
+
+    def test_bed_subsamples_X_without_replacement(self):
         se = SR_evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
@@ -208,10 +242,105 @@ class TestSREvaluatorInitBed:
             seed=0,
             num_points_sampled=10,
         )
-        bed_X = se.bed_evaluation_parameters["bed_X"]
+        bed_X = se.ranking.bed_X
         assert bed_X.shape == (10, _X_BED.shape[1])
         for row in bed_X:
             assert any(np.allclose(row, x_row) for x_row in _X_BED)
+        # Without replacement: all sampled rows are distinct.
+        assert len({tuple(row) for row in bed_X}) == 10
+
+    def test_bed_num_points_minus_one_uses_all_X(self):
+        se = SR_evaluator(
+            _X_BED,
+            ground_truth=["C", "+", "X_0"],
+            ranking_function="bed",
+            seed=0,
+            num_points_sampled=-1,
+        )
+        assert se.ranking.bed_X.shape == _X_BED.shape
+
+    def test_bed_precomputed_bed_gt_used(self):
+        points = _X_BED[:8]
+        gt = create_behavior_matrix(["X_0", "+", "C"], points, num_consts_sampled=4, seed=0)
+        se = SR_evaluator(
+            points,
+            ground_truth=["X_0", "+", "C"],
+            ranking_function="bed",
+            bed_gt=gt,
+            num_consts_sampled=4,
+            seed=0,
+        )
+        np.testing.assert_array_equal(se.ranking.gt_behavior, gt)
+
+    def test_bed_gt_subsampled_jointly_with_X(self):
+        # The matrix is tied to the rows of X, so subsampling keeps the same rows of both.
+        gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
+        se = SR_evaluator(_X_BED, ranking_function="bed", bed_gt=gt, num_consts_sampled=4, num_points_sampled=5, seed=0)
+        assert se.ranking.bed_X.shape == (5, _X_BED.shape[1])
+        rows = [int(np.flatnonzero((_X_BED == row).all(axis=1))[0]) for row in se.ranking.bed_X]
+        np.testing.assert_array_equal(se.ranking.gt_behavior, gt[rows])
+
+    def test_bed_gt_column_mismatch_rejected(self):
+        gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
+        with pytest.raises(ValueError, match="4 columns but num_consts_sampled is 32"):
+            SR_evaluator(_X_BED, ranking_function="bed", bed_gt=gt, seed=0)
+
+    def test_bed_gt_one_dimensional_rejected(self):
+        with pytest.raises(ValueError, match="2-D behaviour matrix"):
+            SR_evaluator(_X_BED, ranking_function="bed", bed_gt=np.zeros(_X_BED.shape[0]), seed=0)
+
+    def test_bed_gt_with_samplers_ignored(self):
+        gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
+        with pytest.warns(UserWarning, match="samplers are ignored"):
+            se = SR_evaluator(
+                _X_BED,
+                ranking_function="bed",
+                bed_gt=gt,
+                num_consts_sampled=4,
+                samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
+                seed=0,
+            )
+        np.testing.assert_array_equal(se.ranking.bed_X, _X_BED)
+
+    def test_bed_gt_row_mismatch_rejected(self):
+        gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED[:5], num_consts_sampled=4, seed=0)
+        with pytest.raises(ValueError, match="X it was computed on"):
+            SR_evaluator(
+                _X_BED[:8],
+                ground_truth=["X_0", "+", "C"],
+                ranking_function="bed",
+                bed_gt=gt,
+                seed=0,
+            )
+
+    def test_bed_gt_without_ground_truth_works(self):
+        points = _X_BED[:8]
+        gt = create_behavior_matrix(["X_0", "+", "C"], points, num_consts_sampled=4, seed=0)
+        se = SR_evaluator(
+            points,
+            ranking_function="bed",
+            bed_gt=gt,
+            num_consts_sampled=4,
+            success_threshold=-1,
+            seed=0,
+        )
+        assert se.ranking.ground_truth is None
+        np.testing.assert_array_equal(se.ranking.gt_behavior, gt)
+        # Candidates can still be scored against the precomputed behaviour.
+        assert se.evaluate_expr(["X_0", "+", "C"]) < 1
+
+    def test_bed_gt_without_ground_truth_has_no_default_threshold(self):
+        points = _X_BED[:8]
+        gt = create_behavior_matrix(["X_0", "+", "C"], points, num_consts_sampled=4, seed=0)
+        se = SR_evaluator(
+            points,
+            ranking_function="bed",
+            bed_gt=gt,
+            num_consts_sampled=4,
+            success_threshold=None,
+            seed=0,
+        )
+        assert se.success_threshold is None
 
     def test_bed_auto_success_threshold_computed(self):
         se = SR_evaluator(
@@ -233,6 +362,70 @@ class TestSREvaluatorInitBed:
             success_threshold=0.5,
         )
         assert se.success_threshold == 0.5
+
+    def test_bed_auto_success_threshold_reproducible_with_seed(self):
+        def build():
+            return SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=3)
+
+        assert build().success_threshold == build().success_threshold
+
+    def test_bed_y_used_as_deterministic_behavior(self):
+        y = _X_BED[:, 0]
+        se = SR_evaluator(_X_BED, y, ranking_function="bed", num_points_sampled=-1, success_threshold=-1, seed=0)
+        np.testing.assert_array_equal(se.ranking.gt_behavior, np.repeat(y[:, None], 32, axis=1))
+        assert se.evaluate_expr(["X_0"]) == 0.0
+        assert se.evaluate_expr(["X_1"]) > 0.0
+
+    def test_bed_y_subsampled_jointly_with_X(self):
+        y = _X_BED[:, 0] * 2.0
+        se = SR_evaluator(_X_BED, y, ranking_function="bed", num_points_sampled=6, success_threshold=-1, seed=0)
+        np.testing.assert_allclose(se.ranking.gt_behavior[:, 0], se.ranking.bed_X[:, 0] * 2.0)
+
+    def test_bed_ground_truth_takes_precedence_over_y(self):
+        y = np.zeros(_X_BED.shape[0])
+        se = SR_evaluator(_X_BED, y, ground_truth=["X_0"], ranking_function="bed", num_points_sampled=-1, seed=0)
+        np.testing.assert_array_equal(se.ranking.gt_behavior[:, 0], _X_BED[:, 0])
+
+    def test_bed_y_with_samplers_ignored(self):
+        with pytest.warns(UserWarning, match="samplers are ignored"):
+            se = SR_evaluator(
+                _X_BED,
+                _X_BED[:, 0],
+                ranking_function="bed",
+                samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
+                seed=0,
+            )
+        np.testing.assert_array_equal(se.ranking.bed_X, _X_BED)
+
+    def test_bed_y_has_no_default_threshold(self):
+        se = SR_evaluator(_X_BED, _X_BED[:, 0], ranking_function="bed", seed=0)
+        assert se.success_threshold is None
+
+    def test_bed_sampler_count_must_match_variables(self):
+        with pytest.raises(ValueError, match="1 samplers for 2 variables"):
+            SR_evaluator(
+                _X_BED,
+                ground_truth=["C", "+", "X_0"],
+                ranking_function="bed",
+                samplers=[UniformSampling(0.0, 1.0)],
+                seed=0,
+            )
+
+    def test_bed_ranking_seed_overrides_evaluator_seed(self):
+        def build(seed):
+            return SR_evaluator(
+                _X_BED,
+                ground_truth=["C", "+", "X_0"],
+                ranking_function="bed",
+                num_points_sampled=10,
+                success_threshold=-1,
+                seed=seed,
+                ranking_seed=5,
+            )
+
+        a, b = build(1), build(2)
+        np.testing.assert_array_equal(a.ranking.bed_X, b.ranking.bed_X)
+        assert a.evaluate_expr(["X_0", "*", "C"]) == b.evaluate_expr(["X_0", "*", "C"])
 
 
 # ── SR_evaluator.set_callbacks ────────────────────────────────────────────────
@@ -397,12 +590,12 @@ class TestEvaluateExprRmse:
         se = _make_se()
         se.evaluate_expr(["C", "*", "X_1", "X_0"], verbose=1)
 
-    def test_evaluate_expr_unsupported_ranking_function_raises(self):
-        # Covers line 616: ranking_function bypasses __init__ check
+    def test_ranking_function_is_read_only(self):
+        # ranking_function now reflects the active RankingFunction instance and cannot be reassigned;
+        # the old string-dispatch branch in evaluate_expr no longer exists.
         se = _make_se()
-        se.ranking_function = "invalid"
-        with pytest.raises(ValueError):
-            se.evaluate_expr(["X_0"])
+        with pytest.raises(AttributeError):
+            se.ranking_function = "invalid"
 
 
 # ── SR_evaluator.evaluate_expr — BED ──────────────────────────────────────────
@@ -602,129 +795,6 @@ class TestGetResults:
         assert r.metadata is None
 
 
-# ── SR_evaluator.to_dict / from_dict ─────────────────────────────────────────
-
-
-class TestSREvaluatorSerialization:
-    def test_to_dict_creates_base_path_if_missing(self, tmp_path):
-        se = _make_se()
-        subdir = str(tmp_path / "new_subdir")
-        d = se.to_dict(subdir, "test")
-        assert os.path.isdir(subdir)
-        assert os.path.isfile(d["X"])
-
-    def test_to_dict_saves_X_and_y_as_npy(self, tmp_path):
-        se = _make_se()
-        d = se.to_dict(str(tmp_path), "test")
-        assert os.path.isfile(d["X"])
-        assert os.path.isfile(d["y"])
-
-    def test_to_dict_y_none_stored_as_none(self, tmp_path):
-        se = SR_evaluator(
-            _X_BED,
-            ground_truth=["C", "+", "X_0"],
-            ranking_function="bed",
-            seed=0,
-            success_threshold=-1,
-        )
-        d = se.to_dict(str(tmp_path), "test")
-        assert d["y"] is None
-
-    def test_to_dict_list_ground_truth_stored_directly(self, tmp_path):
-        se = SR_evaluator(
-            _X_BED,
-            ground_truth=["C", "+", "X_0"],
-            ranking_function="bed",
-            seed=0,
-            success_threshold=-1,
-        )
-        d = se.to_dict(str(tmp_path), "test")
-        assert isinstance(d["ground_truth"], list)
-
-    def test_to_dict_node_ground_truth_converted_to_list(self, tmp_path):
-        gt_node = Node("+", left=Node("C"), right=Node("X_0"))
-        se = SR_evaluator(
-            _X_BED,
-            ground_truth=gt_node,
-            ranking_function="bed",
-            seed=0,
-            success_threshold=-1,
-        )
-        d = se.to_dict(str(tmp_path), "test")
-        assert isinstance(d["ground_truth"], list)
-
-    def test_to_dict_ndarray_ground_truth_saved_as_npy(self, tmp_path):
-        gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(
-            _X_BED,
-            ground_truth=gt,
-            ranking_function="bed",
-            seed=0,
-            success_threshold=-1,
-            num_points_sampled=_X_BED.shape[0],
-            num_consts_sampled=4,
-            bed_X=_X_BED,
-        )
-        d = se.to_dict(str(tmp_path), "test")
-        assert isinstance(d["ground_truth"], str)
-        assert d["ground_truth"].endswith(".npy")
-
-    def test_from_dict_round_trip_bed_list_ground_truth(self, tmp_path):
-        se = SR_evaluator(
-            _X_BED,
-            ground_truth=["C", "+", "X_0"],
-            ranking_function="bed",
-            seed=0,
-            success_threshold=-1,
-        )
-        d = se.to_dict(str(tmp_path), "bed")
-        restored = SR_evaluator.from_dict(d)
-        assert restored.y is None
-        assert restored.ranking_function == "bed"
-        np.testing.assert_array_equal(restored.X, se.X)
-
-    def test_from_dict_round_trip_bed_ndarray_ground_truth(self, tmp_path):
-        gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(
-            _X_BED,
-            ground_truth=gt,
-            ranking_function="bed",
-            seed=0,
-            success_threshold=-1,
-            num_points_sampled=_X_BED.shape[0],
-            num_consts_sampled=4,
-            bed_X=_X_BED,
-        )
-        d = se.to_dict(str(tmp_path), "bed_ndarray")
-        restored = SR_evaluator.from_dict(d)
-        assert restored.ranking_function == "bed"
-        np.testing.assert_array_equal(restored.X, se.X)
-
-    def test_from_dict_round_trip_rmse(self, tmp_path):
-        se = _make_se()
-        d = se.to_dict(str(tmp_path), "test")
-        restored = SR_evaluator.from_dict(d)
-        np.testing.assert_array_equal(restored.X, se.X)
-        np.testing.assert_array_equal(restored.y, se.y)
-        assert restored.max_evaluations == se.max_evaluations
-        assert restored.ranking_function == se.ranking_function
-        assert restored.success_threshold == se.success_threshold
-
-    def test_from_dict_invalid_format_version_raises(self, tmp_path):
-        se = _make_se()
-        d = se.to_dict(str(tmp_path), "test")
-        d["format_version"] = 99
-        with pytest.raises(ValueError, match="Unsupported format_version"):
-            SR_evaluator.from_dict(d)
-
-    def test_from_dict_missing_file_raises(self, tmp_path):
-        se = _make_se()
-        d = se.to_dict(str(tmp_path), "test")
-        os.remove(d["X"])
-        with pytest.raises(ValueError):
-            SR_evaluator.from_dict(d)
-
-
 # ── ModelResult / EvalResult augmentation ────────────────────────────────────
 
 
@@ -907,26 +977,26 @@ class TestSRResultsPrintResults:
         assert "skip" not in out
 
     def test_model_augmentation_resolved_prints_line(self, capsys):
-        from SRToolkit.evaluation.result_augmentation import RMSE as RMSEAugmenter
+        from SRToolkit.evaluation.result_augmentation import HoldoutMetric
 
         se = _make_se()
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         results = se.get_results(top_k=1)
-        results.augment([RMSEAugmenter(se)])
+        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", symbol_library=se.symbol_library)])
         results.print_results(detailed=True)
         capsys.readouterr()  # discard
 
     def test_model_augmentation_filter_applied(self, capsys):
         # Covers line 984: augmentations_filter is applied to model-level augmentation keys
-        from SRToolkit.evaluation.result_augmentation import RMSE as RMSEAugmenter
+        from SRToolkit.evaluation.result_augmentation import HoldoutMetric
 
         se = _make_se()
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         results = se.get_results(top_k=1)
-        results.augment([RMSEAugmenter(se)])
-        results.print_results(detailed=True, augmentations=["RMSE"])
+        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", symbol_library=se.symbol_library)])
+        results.print_results(detailed=True, augmentations=["HoldoutMetric"])
         out = capsys.readouterr().out
-        assert "RMSE" in out
+        assert "HoldoutMetric" in out
 
     def test_augmentation_resolved_to_result_augmenter_class(self, capsys):
         # Use a real augmenter whose _type is importable
@@ -1124,21 +1194,21 @@ class TestSRResultsSaveLoad:
         orig = results[0].augmentations["ExpressionToLatex"]["best_expr_latex"]
         assert loaded[0].augmentations["ExpressionToLatex"]["best_expr_latex"] == orig
 
-    def test_save_load_rmse_augmentation_round_trip(self, tmp_path):
-        from SRToolkit.evaluation.result_augmentation import RMSE as RMSEAugmenter
+    def test_save_load_holdout_augmentation_round_trip(self, tmp_path):
+        from SRToolkit.evaluation.result_augmentation import HoldoutMetric
 
         se = _make_se()
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         se.evaluate_expr(["X_0", "+", "X_1"])
         results = se.get_results(top_k=2)
-        results.augment([RMSEAugmenter(se)])
+        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", symbol_library=se.symbol_library)])
         results.save(str(tmp_path))
         loaded = SR_results.load(str(tmp_path))
-        orig_aug = results[0].augmentations["RMSE"]
-        rest_aug = loaded[0].augmentations["RMSE"]
-        assert rest_aug["_type"] == "SRToolkit.evaluation.result_augmentation.RMSE"
-        assert abs(rest_aug["min_error"] - orig_aug["min_error"]) < 1e-12
-        # model-level parameters survive the JSON round-trip
-        orig_params = results[0].top_models[0].augmentations["RMSE"]["parameters"]
-        rest_params = loaded[0].top_models[0].augmentations["RMSE"]["parameters"]
-        np.testing.assert_array_almost_equal(rest_params, orig_params)
+        orig_aug = results[0].augmentations["HoldoutMetric"]
+        rest_aug = loaded[0].augmentations["HoldoutMetric"]
+        assert rest_aug["_type"] == "SRToolkit.evaluation.result_augmentation.HoldoutMetric"
+        assert abs(rest_aug["best_value"] - orig_aug["best_value"]) < 1e-12
+        # model-level values survive the JSON round-trip
+        orig_value = results[0].top_models[0].augmentations["HoldoutMetric"]["value"]
+        rest_value = loaded[0].top_models[0].augmentations["HoldoutMetric"]["value"]
+        assert abs(rest_value - orig_value) < 1e-12

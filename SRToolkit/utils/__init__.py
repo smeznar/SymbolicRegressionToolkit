@@ -49,6 +49,7 @@ from .measures import (
     mse,
     nrmse,
     r2,
+    rmse,
     tree_edit_distance,
 )
 from .symbol_library import SymbolLibrary
@@ -65,9 +66,9 @@ from .types import (
     OP_POWER,
     VALID_SYMBOL_TYPES,
     VAR,
-    EstimationSettings,
     EvalResult,
     ModelResult,
+    RankingSettings,
 )
 
 __all__ = [
@@ -97,12 +98,13 @@ __all__ = [
     "edit_distance",
     "tree_edit_distance",
     "mse",
+    "rmse",
     "mae",
     "r2",
     "nrmse",
     "REGRESSION_METRICS",
     "expr_to_latex",
-    "EstimationSettings",
+    "RankingSettings",
     "VAR",
     "CONST",
     "FN",

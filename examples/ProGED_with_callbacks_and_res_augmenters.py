@@ -1,6 +1,6 @@
 from SRToolkit.approaches import ProGED
 from SRToolkit.dataset import Feynman
-from SRToolkit.evaluation import RMSE, EarlyStoppingCallback, LoggingCallback, ProgressBarCallback, SR_evaluator
+from SRToolkit.evaluation import EarlyStoppingCallback, HoldoutMetric, LoggingCallback, ProgressBarCallback
 
 if __name__ == "__main__":
     # Create the feynman benchmark
@@ -20,9 +20,11 @@ if __name__ == "__main__":
 
     # Draw a fresh I.16.6 dataset to use as a test set (does not touch the cached canonical data)
     test_dataset = benchmark.create_dataset("I.16.6", n_samples=1000, seed=2)
-    X, y = test_dataset.X, test_dataset.y
-    # Define an augmenter that computes the RMSE on the test set (only on the top 20 expressions)
-    rmse_augmenter = RMSE(SR_evaluator(X, y))
+    # Define an augmenter that computes the test RMSE by reusing each model's train-fitted
+    # parameters (no refitting) on the held-out data — only on the top expressions.
+    rmse_augmenter = HoldoutMetric(
+        (test_dataset.X, test_dataset.y), metric="rmse", symbol_library=dataset.symbol_library
+    )
     # Augment top expressions with test RMSE
     results.augment(rmse_augmenter)
 

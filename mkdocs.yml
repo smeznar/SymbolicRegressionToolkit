@@ -75,6 +75,9 @@ plugins:
             show_submodules: false
 
             # Docstrings
+            # Overrides without a docstring of their own show the base method's docstring.
+            extensions:
+              - griffe_inherited_docstrings
             docstring_style: google
             docstring_section_style: table
             merge_init_into_class: true
@@ -140,6 +143,7 @@ nav:
           - references/evaluation/index.md
           - parameter_estimator: references/evaluation/parameter_estimator.md
           - sr_evaluator: references/evaluation/sr_evaluator.md
+          - ranking: references/evaluation/ranking.md
           - result_augmentation: references/evaluation/result_augmentation.md
           - callbacks: references/evaluation/callbacks.md
       - dataset:
@@ -151,6 +155,7 @@ nav:
           - srsd_feynman: references/dataset/srsd_feynman.md
           - sampling: references/dataset/sampling.md
           - data_source: references/dataset/data_source.md
+          - data_split: references/dataset/data_split.md
           - data_cache: references/dataset/data_cache.md
       - approaches:
           - references/approaches/index.md

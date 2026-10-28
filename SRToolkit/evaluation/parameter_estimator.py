@@ -11,7 +11,20 @@ from typing_extensions import Unpack
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EstimationSettings
+from SRToolkit.utils.types import RankingSettings
+
+# The settings ParameterEstimator reads, with their defaults. Any other keys passed in are ignored.
+DEFAULT_ESTIMATION_SETTINGS = {
+    "method": "L-BFGS-B",
+    "tol": 1e-6,
+    "gtol": 1e-3,
+    "max_iter": 100,
+    "constant_bounds": (-5, 5),
+    "initialization": "random",  # random, mean
+    "max_constants": 8,
+    "max_expr_length": -1,
+    "backend": "stack",
+}
 
 
 class ParameterEstimator:
@@ -21,7 +34,7 @@ class ParameterEstimator:
         y: np.ndarray,
         symbol_library: Optional[SymbolLibrary] = None,
         seed: Optional[int] = None,
-        **kwargs: Unpack[EstimationSettings],
+        **kwargs: Unpack[RankingSettings],
     ) -> None:
         """
         Fits free constants in symbolic expressions by minimizing RMSE against target values.
@@ -43,7 +56,7 @@ class ParameterEstimator:
                 Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
             seed: Random seed for reproducible constant initialization. Default ``None``.
             **kwargs: Optional estimation settings from
-                [EstimationSettings][SRToolkit.utils.types.EstimationSettings].
+                [RankingSettings][SRToolkit.utils.types.RankingSettings].
                 Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
                 ``constant_bounds``, ``initialization``, ``max_constants``,
                 ``max_expr_length``, ``backend``.
@@ -62,22 +75,17 @@ class ParameterEstimator:
         self.y = y
         self.seed = seed
 
-        self.estimation_settings = {
-            "method": "L-BFGS-B",
-            "tol": 1e-6,
-            "gtol": 1e-3,
-            "max_iter": 100,
-            "constant_bounds": (-5, 5),
-            "initialization": "random",  # random, mean
-            "max_constants": 8,
-            "max_expr_length": -1,
-            "backend": "stack",
-        }
+        self.estimation_settings = dict(DEFAULT_ESTIMATION_SETTINGS)
 
         if kwargs:
             for k in self.estimation_settings.keys():
                 if k in kwargs:
                     self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
+
+        bounds = self.estimation_settings["constant_bounds"]
+        if not (isinstance(bounds, (tuple, list, np.ndarray)) and len(bounds) == 2):
+            raise ValueError(f"constant_bounds must be a (lower, upper) pair, got {bounds!r}")
+        self.estimation_settings["constant_bounds"] = (bounds[0], bounds[1])
 
         if self.estimation_settings["backend"] not in ("stack", "codegen", "stack_py"):
             raise ValueError(
@@ -156,11 +164,6 @@ class ParameterEstimator:
             A 2-tuple ``(rmse, parameters)`` — the achieved minimum RMSE and the
             corresponding optimized constant vector.
         """
-        if not (
-            isinstance(self.estimation_settings["constant_bounds"], tuple)
-            and len(self.estimation_settings["constant_bounds"]) == 2
-        ):
-            raise ValueError("constant_bounds must be a tuple of two elements")
         if self.estimation_settings["initialization"] == "random":
             x0 = (
                 self._rng.random(num_constants)

@@ -223,7 +223,7 @@ class EDHiE(SR_approach):
         """
         Restore a previously trained HVAE model from disk.
 
-        Reconstructs the [HVAE][SRToolkit.approaches.EDHiE.HVAE] from the architecture
+        Reconstructs the ``HVAE`` from the architecture
         metadata saved alongside the weights, so no prior call to
         [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] is required.
 

@@ -237,7 +237,15 @@ class Constraint(Generic[L, G]):
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 
     def initial_local(self, start: str) -> L:
-        """Return the initial local state for the constraint."""
+        """
+        Return the initial local state for the constraint.
+
+        Args:
+            start: The non-terminal the derivation starts from.
+
+        Returns:
+            The local state of the start slot (``None`` by default).
+        """
         return None  # type: ignore[return-value]
 
     def initial_global(self) -> G:

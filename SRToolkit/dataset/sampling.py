@@ -10,7 +10,7 @@ import numpy as np
 from SRToolkit.bundle._relocate import _auto_bind
 
 
-def log_uniform_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
+def _log_uniform_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     """Sample from log-uniform distribution over both positive and negative ranges."""
     num_positives = sum(np.random.uniform(0.0, 1.0, size=sample_size) > 0.5)
     num_negatives = sample_size - num_positives
@@ -23,21 +23,21 @@ def log_uniform_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     return all_samples
 
 
-def log_uniform_positive_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
+def _log_uniform_positive_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     """Sample from log-uniform distribution over the positive range."""
     log10_min = np.log10(min_value)
     log10_max = np.log10(max_value)
     return 10.0 ** np.random.uniform(log10_min, log10_max, size=sample_size)
 
 
-def log_uniform_negative_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
+def _log_uniform_negative_sampling(sample_size, min_value=1.0e-1, max_value=1.0e1):
     """Sample from log-uniform distribution over the negative range."""
     log10_min = np.log10(abs(min_value))
     log10_max = np.log10(abs(max_value))
     return -(10.0 ** np.random.uniform(log10_min, log10_max, size=sample_size))
 
 
-def uniform_sampling(sample_size, min_value=0.0, max_value=1.0):
+def _uniform_sampling(sample_size, min_value=0.0, max_value=1.0):
     """Sample from linear uniform distribution over both positive and negative ranges."""
     num_positives = sum(np.random.uniform(0.0, 1.0, size=sample_size) > 0.5)
     num_negatives = sample_size - num_positives
@@ -48,17 +48,17 @@ def uniform_sampling(sample_size, min_value=0.0, max_value=1.0):
     return all_samples
 
 
-def uniform_positive_sampling(sample_size, min_value=0.0, max_value=1.0):
+def _uniform_positive_sampling(sample_size, min_value=0.0, max_value=1.0):
     """Sample from linear uniform distribution over the positive range."""
     return np.random.uniform(min_value, max_value, size=sample_size)
 
 
-def uniform_negative_sampling(sample_size, min_value=0.0, max_value=1.0):
+def _uniform_negative_sampling(sample_size, min_value=0.0, max_value=1.0):
     """Sample from linear uniform distribution over the negative range."""
     return -np.random.uniform(min_value, max_value, size=sample_size)
 
 
-def integer_uniform_sampling(sample_size, min_value=1, max_value=100):
+def _integer_uniform_sampling(sample_size, min_value=1, max_value=100):
     """Sample integers from both positive and negative ranges."""
     num_positives = sum(np.random.uniform(0.0, 1.0, size=sample_size) > 0.5)
     num_negatives = sample_size - num_positives
@@ -69,12 +69,12 @@ def integer_uniform_sampling(sample_size, min_value=1, max_value=100):
     return all_samples
 
 
-def integer_uniform_positive_sampling(sample_size, min_value=1, max_value=100):
+def _integer_uniform_positive_sampling(sample_size, min_value=1, max_value=100):
     """Sample integers from the positive range."""
     return np.random.randint(min_value, max_value, size=sample_size)
 
 
-def integer_uniform_negative_sampling(sample_size, min_value=1, max_value=100):
+def _integer_uniform_negative_sampling(sample_size, min_value=1, max_value=100):
     """Sample integers from the negative range."""
     return -np.random.randint(min_value, max_value, size=sample_size)
 
@@ -169,11 +169,11 @@ class LogUniformSampling(Sampler):
 
     def __call__(self, sample_size):
         if self.uses_positive and self.uses_negative:
-            return log_uniform_sampling(sample_size, self.min_value, self.max_value)
+            return _log_uniform_sampling(sample_size, self.min_value, self.max_value)
         elif self.uses_positive:
-            return log_uniform_positive_sampling(sample_size, self.min_value, self.max_value)
+            return _log_uniform_positive_sampling(sample_size, self.min_value, self.max_value)
         elif self.uses_negative:
-            return log_uniform_negative_sampling(sample_size, self.min_value, self.max_value)
+            return _log_uniform_negative_sampling(sample_size, self.min_value, self.max_value)
         raise AttributeError(
             f"Either uses_positive ({self.uses_positive}) or uses_negative ({self.uses_negative}) must be True"
         )
@@ -190,7 +190,17 @@ class LogUniformSampling(Sampler):
 
     @classmethod
     def from_dict(cls, d: dict) -> "LogUniformSampling":
-        """Deserialize a [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.LogUniformSampling.to_dict]."""
+        """
+        Deserialize a [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling] from a dictionary produced by
+        [to_dict][SRToolkit.dataset.sampling.LogUniformSampling.to_dict].
+
+        Args:
+            d: The serialized sampler (``min_value``, ``max_value``, ``uses_positive``,
+                ``uses_negative``).
+
+        Returns:
+            The reconstructed sampler.
+        """
         return cls(d["min_value"], d["max_value"], d["uses_positive"], d["uses_negative"])
 
 
@@ -217,11 +227,11 @@ class UniformSampling(Sampler):
 
     def __call__(self, sample_size):
         if self.uses_positive and self.uses_negative:
-            return uniform_sampling(sample_size, self.min_value, self.max_value)
+            return _uniform_sampling(sample_size, self.min_value, self.max_value)
         elif self.uses_positive:
-            return uniform_positive_sampling(sample_size, self.min_value, self.max_value)
+            return _uniform_positive_sampling(sample_size, self.min_value, self.max_value)
         elif self.uses_negative:
-            return uniform_negative_sampling(sample_size, self.min_value, self.max_value)
+            return _uniform_negative_sampling(sample_size, self.min_value, self.max_value)
         raise AttributeError(
             f"Either uses_positive ({self.uses_positive}) or uses_negative ({self.uses_negative}) must be True"
         )
@@ -238,7 +248,17 @@ class UniformSampling(Sampler):
 
     @classmethod
     def from_dict(cls, d: dict) -> "UniformSampling":
-        """Deserialize a [UniformSampling][SRToolkit.dataset.sampling.UniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.UniformSampling.to_dict]."""
+        """
+        Deserialize a [UniformSampling][SRToolkit.dataset.sampling.UniformSampling] from a dictionary produced by
+        [to_dict][SRToolkit.dataset.sampling.UniformSampling.to_dict].
+
+        Args:
+            d: The serialized sampler (``min_value``, ``max_value``, ``uses_positive``,
+                ``uses_negative``).
+
+        Returns:
+            The reconstructed sampler.
+        """
         return cls(d["min_value"], d["max_value"], d["uses_positive"], d["uses_negative"])
 
 
@@ -265,11 +285,11 @@ class IntegerUniformSampling(Sampler):
 
     def __call__(self, sample_size):
         if self.uses_positive and self.uses_negative:
-            return integer_uniform_sampling(sample_size, self.min_value, self.max_value)
+            return _integer_uniform_sampling(sample_size, self.min_value, self.max_value)
         elif self.uses_positive:
-            return integer_uniform_positive_sampling(sample_size, self.min_value, self.max_value)
+            return _integer_uniform_positive_sampling(sample_size, self.min_value, self.max_value)
         elif self.uses_negative:
-            return integer_uniform_negative_sampling(sample_size, self.min_value, self.max_value)
+            return _integer_uniform_negative_sampling(sample_size, self.min_value, self.max_value)
         raise AttributeError(
             f"Either uses_positive ({self.uses_positive}) or uses_negative ({self.uses_negative}) must be True"
         )
@@ -286,5 +306,15 @@ class IntegerUniformSampling(Sampler):
 
     @classmethod
     def from_dict(cls, d: dict) -> "IntegerUniformSampling":
-        """Deserialize a [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] from a dictionary produced by [to_dict][SRToolkit.dataset.sampling.IntegerUniformSampling.to_dict]."""
+        """
+        Deserialize a [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] from a dictionary produced by
+        [to_dict][SRToolkit.dataset.sampling.IntegerUniformSampling.to_dict].
+
+        Args:
+            d: The serialized sampler (``min_value``, ``max_value``, ``uses_positive``,
+                ``uses_negative``).
+
+        Returns:
+            The reconstructed sampler.
+        """
         return cls(d["min_value"], d["max_value"], d["uses_positive"], d["uses_negative"])

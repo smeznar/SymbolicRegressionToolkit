@@ -169,13 +169,31 @@ class UrlSource(DataSource):
 
     @classmethod
     def from_dict(cls, d: Optional[dict]) -> "UrlSource":
-        """Deserialize a [UrlSource][SRToolkit.dataset.data_source.UrlSource] from a dictionary."""
+        """
+        Deserialize a [UrlSource][SRToolkit.dataset.data_source.UrlSource] from a dictionary produced by its ``to_dict``.
+
+        Args:
+            d: The serialized source (its ``url``).
+
+        Returns:
+            The reconstructed source.
+
+        Raises:
+            ValueError: If ``d`` is ``None``.
+        """
         if d is None:
             raise ValueError("[UrlSource.from_dict] requires a dictionary, got None.")
         return cls(d["url"])
 
     def materialize(self, cache_path: Path, config: dict) -> None:
-        """Download the archive and extract its data files into the version directory."""
+        """
+        Download the archive and extract its data files into the version directory.
+
+        Args:
+            cache_path: Target ``.npz`` path inside the data cache; the archive is extracted into
+                its version directory.
+            config: The dataset's config dict (unused).
+        """
         from SRToolkit.dataset import data_cache
 
         version_dir = cache_path.parent
@@ -227,13 +245,31 @@ class SampleSource(DataSource):
 
     @classmethod
     def from_dict(cls, d: Optional[dict]) -> "SampleSource":
-        """Deserialize a [SampleSource][SRToolkit.dataset.data_source.SampleSource] from a dictionary."""
+        """
+        Deserialize a [SampleSource][SRToolkit.dataset.data_source.SampleSource] from a dictionary produced by its ``to_dict``.
+
+        Args:
+            d: The serialized source (its ``n_samples`` and ``seed``).
+
+        Returns:
+            The reconstructed source.
+
+        Raises:
+            ValueError: If ``d`` is ``None``.
+        """
         if d is None:
             raise ValueError("[SampleSource.from_dict] requires a dictionary, got None.")
         return cls(n_samples=d.get("n_samples", 10000), seed=d.get("seed"))
 
     def materialize(self, cache_path: Path, config: dict) -> None:
-        """Generate ``X`` (and ``y`` for RMSE) from the dataset's samplers and save them."""
+        """
+        Generate ``X`` (and ``y`` for RMSE) from the dataset's samplers and save them.
+
+        Args:
+            cache_path: Target ``.npz`` path inside the data cache.
+            config: The dataset's config dict; its ``samplers``, ``ranking_function``,
+                ``ground_truth`` and ``symbol_library`` are used to generate the data.
+        """
         samplers_raw = config.get("samplers")
         if not samplers_raw:
             raise ValueError(
@@ -321,7 +357,18 @@ class FallbackSource(DataSource):
 
     @classmethod
     def from_dict(cls, d: Optional[dict]) -> "FallbackSource":
-        """Deserialize a [FallbackSource][SRToolkit.dataset.data_source.FallbackSource], reconstructing each child source."""
+        """
+        Deserialize a [FallbackSource][SRToolkit.dataset.data_source.FallbackSource] from a dictionary produced by its ``to_dict``.
+
+        Args:
+            d: The serialized source (its list of ``sources``, each reconstructed in turn).
+
+        Returns:
+            The reconstructed source.
+
+        Raises:
+            ValueError: If ``d`` is ``None``.
+        """
         if d is None:
             raise ValueError("[FallbackSource.from_dict] requires a dictionary, got None.")
         sources = []
@@ -337,7 +384,13 @@ class FallbackSource(DataSource):
             )
 
     def materialize(self, cache_path: Path, config: dict) -> None:
-        """Try each source in order; warn and continue on failure, re-raising if all fail."""
+        """
+        Try each source in order; warn and continue on failure, re-raising if all fail.
+
+        Args:
+            cache_path: Target ``.npz`` path inside the data cache.
+            config: The dataset's config dict, passed to each source.
+        """
         last_exc: Optional[Exception] = None
         for i, source in enumerate(self.sources):
             try:

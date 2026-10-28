@@ -382,7 +382,11 @@ class EarlyStoppingCallback(SRCallbacks):
     def __init__(self, threshold: Optional[float], max_evaluations: Optional[int] = None):
         """
         Args:
-            threshold: Error value below which the search is stopped.
+            threshold: Error value below which the search is stopped. If ``None``, the
+                experiment's ``success_threshold`` is used when the experiment starts.
+            max_evaluations: Number of evaluations after which the search is stopped. If
+                ``None``, the experiment's ``max_evaluations`` is used when the experiment starts
+                (if it has one).
         """
         self.threshold = threshold
         self.max_evaluations = max_evaluations

@@ -88,10 +88,26 @@ class Rule:
     name: Optional[str] = None
 
     def to_dict(self) -> dict:
+        """
+        Serialize this rule to a JSON-safe dictionary.
+
+        Returns:
+            A dictionary with ``lhs``, ``rhs``, ``weight`` and ``name``.
+        """
         return {"lhs": self.lhs, "rhs": self.rhs, "weight": self.weight, "name": self.name}
 
     @classmethod
     def from_dict(cls, d: dict) -> "Rule":
+        """
+        Reconstruct a rule from a dictionary produced by
+        [to_dict][SRToolkit.utils.grammar.grammar.Rule.to_dict].
+
+        Args:
+            d: The serialized rule. ``weight`` defaults to ``1.0`` and ``name`` to ``None``.
+
+        Returns:
+            The reconstructed rule.
+        """
         return cls(lhs=d["lhs"], rhs=d["rhs"], weight=d.get("weight", 1.0), name=d.get("name"))
 
     @classmethod
@@ -192,6 +208,9 @@ class ParseTree:
         ['x']
         >>> pt.productions_used()
         [Rule(lhs='E', rhs=['x'], weight=1.0, name=None)]
+
+    Args:
+        root: The root node of the parse tree.
 
     Attributes:
         root: The root node of the parse tree.
