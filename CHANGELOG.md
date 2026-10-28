@@ -1,3 +1,28 @@
+### SymbolicRegressionToolkit (unreleased)
+- Ranking functions are now pluggable: `RankingFunction` with the built-in `RMSERanking` and `BEDRanking`. `SR_evaluator` and `SR_dataset` accept a built-in name (`"rmse"`, `"bed"`) or the import path of a custom ranking.
+- Datasets can carry a held-out test set (`test_X` / `test_y`, `dataset.test`) and extra data for your own measures (`aux_data`), stored as `DataSplit`s. Both are saved, cached and shared with the dataset, and can be regenerated from their own data source.
+- New `HoldoutMetric` augmenter scores results on held-out data. It reuses the constants fitted during the search by default; `refit_constants=True` refits them on the held-out data instead.
+- BED:
+  - takes its evaluation points from the dataset's samplers when the dataset has them, otherwise from `X`;
+  - can rank expressions against the observed targets `y` when no ground-truth expression is given;
+  - is fixed per dataset by default (`ranking_seed`, the dataset's seed), so every run on a dataset is scored by the same objective; `bed_resample=True` resamples it per run.
+- Added an `rmse` regression metric.
+
+**Breaking changes:**
+- Removed the `RMSE`, `BED` and `R2` augmenters; use `HoldoutMetric`.
+- `EstimationSettings` is renamed to `RankingSettings`.
+- Removed the `bed_X` and `domain_bounds` settings; pass the points as `X` with `num_points_sampled=-1`, or give samplers.
+- `ground_truth` must be an expression (token list or `Node`); a precomputed behavior matrix goes in the `bed_gt` setting.
+- Removed `SR_evaluator.to_dict` / `from_dict`; serialise the dataset instead.
+- Datasets are saved with `format_version: 3`; loading `format_version: 1` configs is no longer supported (version 2 still loads).
+- The module-level sampling helpers in `SRToolkit.dataset.sampling` (`uniform_sampling`, `log_uniform_sampling`, …) are now private; use the `UniformSampling`, `LogUniformSampling` and `IntegerUniformSampling` classes.
+
+**Fixes:**
+- A dataset with custom `constant_bounds` scored every expression with a constant as NaN after a JSON round trip (`from_dict`, `from_archive`, `ExperimentGrid`).
+- A `Node` ground truth is now serialised with the dataset's own symbol library.
+- `SR_dataset.refresh()` regenerates the test and aux data too, and `data_cache.remove` deletes them.
+- `SR_dataset` now describes BED datasets correctly.
+
 ### SymbolicRegressionToolkit-1.6.0 (2026-06-23)
 - New backends for expression evaluations (about 1.5x speedup for parameter estimation)
 - SymbolLibrary can now be as a global default or used with the ContextManager (with SymbolLibrary()...:)

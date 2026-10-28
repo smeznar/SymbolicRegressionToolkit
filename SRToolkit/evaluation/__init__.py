@@ -7,7 +7,7 @@ Modules:
     sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] and
         [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] — expression evaluation and result management.
     result_augmentation: [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] implementations
-        that post-process results with LaTeX, simplified forms, RMSE, BED, and R² scores.
+        that post-process results with LaTeX, simplified forms, and held-out metrics.
     callbacks: [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] and
         [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] — event-driven hooks
         for monitoring and early stopping during evaluation.
@@ -26,15 +26,11 @@ from .callbacks import (
 )
 from .parameter_estimator import ParameterEstimator
 from .result_augmentation import (
-    BED,
-    R2,
-    RMSE,
-    EvalResult,
     ExpressionSimplifier,
     ExpressionToLatex,
-    ModelResult,
+    HoldoutMetric,
 )
-from .sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
+from .sr_evaluator import EvalResult, ModelResult, ResultAugmenter, SR_evaluator, SR_results, evaluate_metric
 
 __all__ = [
     "ParameterEstimator",
@@ -43,10 +39,9 @@ __all__ = [
     "EvalResult",
     "ModelResult",
     "ResultAugmenter",
+    "evaluate_metric",
     "ExpressionSimplifier",
-    "RMSE",
-    "R2",
-    "BED",
+    "HoldoutMetric",
     "ExpressionToLatex",
     "SRCallbacks",
     "CallbackDispatcher",

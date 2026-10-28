@@ -19,13 +19,15 @@ from typing_extensions import Unpack
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
+from SRToolkit.evaluation.ranking import build_ranking
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.expression_compiler import compile_expr
-from SRToolkit.utils.types import EstimationSettings
+from SRToolkit.utils.types import RankingSettings
 
 from . import data_cache
 from .data_source import DataSource, SampleSource
+from .data_split import DataSplit
 from .sampling import Sampler
 
 
@@ -37,7 +39,7 @@ class SR_dataset:
         ranking_function: str = "rmse",
         y: Optional[np.ndarray] = None,
         max_evaluations: int = -1,
-        ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
+        ground_truth: Optional[Union[List[str], Node]] = None,
         original_equation: Optional[str] = None,
         success_threshold: Optional[float] = None,
         seed: Optional[int] = None,
@@ -46,7 +48,10 @@ class SR_dataset:
         samplers: Optional[List[Sampler]] = None,
         benchmark: Optional[str] = None,
         version: Optional[str] = None,
-        **kwargs: Unpack[EstimationSettings],
+        test_X: Optional[np.ndarray] = None,
+        test_y: Optional[np.ndarray] = None,
+        aux_data: Optional[Dict[str, Union[Dict[str, np.ndarray], DataSplit]]] = None,
+        **kwargs: Unpack[RankingSettings],
     ) -> None:
         """
         Wraps input data and evaluation settings for a single symbolic regression problem.
@@ -61,19 +66,34 @@ class SR_dataset:
             >>> bool(evaluator.evaluate_expr(["u-", "C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold)
             True
 
+            A held-out test set travels with the dataset and is scored after the search:
+
+            >>> from SRToolkit.evaluation import HoldoutMetric
+            >>> X_test = np.array([[2, 1], [4, 0]])
+            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]),
+            ...     test_X=X_test, test_y=X_test.sum(axis=1), success_threshold=1e-6)
+            >>> evaluator = dataset.create_evaluator()
+            >>> _ = evaluator.evaluate_expr(["X_0", "+", "X_1"])
+            >>> results = evaluator.get_results(top_k=1)
+            >>> results.augment(HoldoutMetric(dataset.test, symbol_library=dataset.symbol_library))
+            >>> bool(results[0].augmentations["HoldoutMetric"]["best_value"] < 1e-9)
+            True
+
         Args:
-            X: Input data of shape ``(num_samples, num_variables)`` used to evaluate expressions.
+            X: Input data of shape ``(num_samples, num_variables)`` that the search runs on.
             symbol_library: The symbol library defining the tokens used for the discovery task.
-            ranking_function: Ranking function to use. ``"rmse"`` calculates the RMSE between ground truth
-                values and expression outputs with fitted free parameters. ``"bed"`` is a stochastic measure of
-                behavioral distance between expressions; it is less sensitive to overfitting and focuses more on
-                structure identification (see [bed][SRToolkit.utils.measures.bed] for more details).
-            y: Target values used for parameter estimation when ``ranking_function="rmse"``.
+            ranking_function: Ranking function to use: ``"rmse"``, ``"bed"``, or the import path of a
+                custom [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]. ``"rmse"``
+                calculates the RMSE between the targets and the expression's outputs with fitted free
+                parameters. ``"bed"`` is a stochastic measure of behavioral dissimilarity between
+                expressions; it is less sensitive to overfitting and focuses more on structure
+                identification (see [BEDRanking][SRToolkit.evaluation.ranking.BEDRanking]).
+            y: Target values of shape ``(num_samples,)``. The ``"rmse"`` ranking fits constants against
+                them; ``"bed"`` uses them as the target behavior when no ground truth is given.
             max_evaluations: Maximum number of expressions to evaluate. Values less than 0 mean no limit.
-            ground_truth: The ground truth expression, as a list of tokens in infix notation, a
-                [Node][SRToolkit.utils.expression_tree.Node] tree, or a numpy array of behavior matrix
-                (see [create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]).
-                Numpy array is only applicable when ``ranking_function="bed"``.
+            ground_truth: The ground truth expression, as a list of tokens in infix notation or a
+                [Node][SRToolkit.utils.expression_tree.Node] tree. A precomputed BED behavior matrix
+                goes in the ``bed_gt`` setting instead.
             original_equation: Human-readable string of the original equation (e.g. ``"z = x + y"``).
             success_threshold: Error threshold below which an expression is considered successful. If ``None``,
                 no threshold is applied.
@@ -85,26 +105,94 @@ class SR_dataset:
                 [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling],
                 [UniformSampling][SRToolkit.dataset.sampling.UniformSampling], and
                 [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling]
-                implement this interface.
+                implement this interface. They define the dataset's input domain: besides powering
+                [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample], they are handed to the
+                ranking function, so ``"bed"`` draws its evaluation points from them (unless
+                ``num_points_sampled=-1`` or a precomputed ``bed_gt`` is given, which use ``X``).
             benchmark: Optional benchmark name (e.g. ``"feynman"``). Required for serialisation
                 via [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict].
             version: Optional version string (e.g. ``"1.0.0"``). Required for serialisation.
-            **kwargs: Optional estimation settings passed to
-                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
-                Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
-                ``initialization``, ``max_constants``, ``max_expr_length``, ``num_points_sampled``,
-                ``bed_X``, ``num_consts_sampled``, ``domain_bounds``.
+            test_X: Optional held-out inputs. The search never sees them; use them to score results
+                afterwards, e.g. with
+                [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric]
+                (``HoldoutMetric(dataset.test)``).
+            test_y: Optional held-out targets for ``test_X``.
+            aux_data: Optional extra data for your own measures, as ``{key: {array_name: array}}``
+                (e.g. ``{"grid": {"X": grid_points}}``), or with a
+                [DataSplit][SRToolkit.dataset.data_split.DataSplit] as the value to give it a
+                ``data_source`` it is regenerated from. It is saved and shared with the dataset, but
+                nothing in the toolkit reads it; access it with ``dataset.aux_data[key]``. Each key
+                becomes a file name in the data cache, so it must be a valid one: not empty, ``.``
+                or ``..``, and without ``/ \\ : * ? " < > |``.
+            **kwargs: Optional ranking settings passed to
+                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] (see
+                [RankingSettings][SRToolkit.utils.types.RankingSettings]). Supported keys:
+                ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
+                ``initialization``, ``max_constants``, ``max_expr_length``, ``backend``,
+                ``num_points_sampled``, ``num_consts_sampled``, ``bed_gt``, ``ranking_seed``,
+                ``bed_resample``. The ``samplers`` setting is taken from the ``samplers`` argument
+                above.
+
+        Attributes:
+            X: Input data the search runs on.
+            y: Target values the search runs on, or ``None``.
+            test: The held-out test data as a [DataSplit][SRToolkit.dataset.data_split.DataSplit]
+                (``X``, ``y`` and its ``data_source``), or ``None``. Pass it to
+                [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] to score
+                results on it.
+            test_X: Shortcut to ``test.X``, or ``None``.
+            test_y: Shortcut to ``test.y``, or ``None``.
+            aux_data: The extra data, as ``{key: DataSplit}``. You may add entries; they are saved
+                with the dataset like the rest.
+            data_source: Where ``X`` / ``y`` come from (e.g. a
+                [SampleSource][SRToolkit.dataset.data_source.SampleSource]), or ``None`` if ``X`` /
+                ``y`` were given directly. Used to regenerate the data when the dataset is loaded.
+            contains_constants: Whether the symbol library has a free-constant symbol.
+            kwargs: The ranking settings passed as ``**kwargs``, forwarded to the evaluator.
+            symbol_library: The symbol library, as given.
+            ranking_function: The ranking function name or import path, as given.
+            max_evaluations: The evaluation budget, as given.
+            success_threshold: The success threshold, as given.
+            ground_truth: The ground truth expression, as given.
+            original_equation: The human-readable equation, as given.
+            seed: The random seed, as given.
+            dataset_metadata: The metadata dictionary, as given.
+            dataset_name: The dataset's name, as given.
+            samplers: The per-variable samplers, as given.
+            benchmark: The benchmark name, as given.
+            version: The version string, as given.
         """
-        self.X = X
         self.symbol_library = symbol_library
-        self.y = y
         self.max_evaluations = max_evaluations
         self.success_threshold = success_threshold
         self.ranking_function = ranking_function
+        if isinstance(ground_truth, np.ndarray):
+            raise ValueError(
+                "[SR_dataset] An ndarray ground_truth (a precomputed BED behaviour matrix) is no longer "
+                "supported on SR_dataset; provide a symbolic ground truth (a token list or a Node). A "
+                "precomputed behaviour matrix is ranking-owned state — pass it to the BED ranking instead."
+            )
         self.ground_truth = ground_truth
         self.original_equation = original_equation
         self.kwargs = kwargs
         self.dataset_name = dataset_name
+
+        # The data lives in DataSplits: the train split (X / y, the data the search runs on), an
+        # optional held-out test split, and optional extra splits for the user's own measures.
+        train_arrays: Dict[str, np.ndarray] = {"X": X}
+        if y is not None:
+            train_arrays["y"] = y
+        self._train = DataSplit(train_arrays)
+        self.test: Optional[DataSplit] = None
+        if test_X is not None:
+            test_arrays: Dict[str, np.ndarray] = {"X": test_X}
+            if test_y is not None:
+                test_arrays["y"] = test_y
+            self.test = DataSplit(test_arrays)
+        self.aux_data: Dict[str, DataSplit] = {}
+        for key, value in (aux_data or {}).items():
+            self._validate_aux_key(key)
+            self.aux_data[key] = value if isinstance(value, DataSplit) else DataSplit(dict(value))
 
         # See if symbols contain a symbol for constants
         symbols_metadata = self.symbol_library.symbols.values()
@@ -120,7 +208,82 @@ class SR_dataset:
         # Origin of the cached data (UrlSource / SampleSource / None). Not a constructor
         # argument: it is set by the factory methods (from_dict, from_samplers) and by
         # SR_benchmark.add_dataset. End users select an origin through those entry points.
-        self.data_source: Optional[DataSource] = None
+        # data_source is a view over the train split's source (see the property below).
+        self.data_source = None
+
+    # ── Data accessors ───────────────────────────────────────────────────────
+    # X / y / test_X / test_y are shortcuts to the splits' arrays, and data_source is the train
+    # split's origin, so all `self.X` / `self.data_source` uses work on the splits directly.
+
+    # Characters that are not allowed in file names on at least one supported OS.
+    _FORBIDDEN_KEY_CHARS = '/\\:*?"<>|'
+
+    @classmethod
+    def _validate_aux_key(cls, key: str) -> None:
+        """An aux key becomes a file name in the data cache, so it must be a valid one."""
+        if (
+            not isinstance(key, str)
+            or key in ("", ".", "..")
+            or any(c in cls._FORBIDDEN_KEY_CHARS for c in key)
+            or any(ord(c) < 32 for c in key)
+        ):
+            raise ValueError(
+                f"[SR_dataset] Invalid aux data key {key!r}: aux keys become file names in the data "
+                f"cache, so a key must be a non-empty string other than '.' or '..', without any of "
+                f"{' '.join(cls._FORBIDDEN_KEY_CHARS)}."
+            )
+
+    def _splits(self) -> List[Tuple[str, DataSplit]]:
+        """Every split with its cache key: ``<name>`` for the train split, ``<name>/test`` for the
+        test split, and ``<name>/aux/<key>`` for each aux split."""
+        splits = [(self.dataset_name, self._train)]
+        if self.test is not None:
+            splits.append((f"{self.dataset_name}/test", self.test))
+        for key, split in self.aux_data.items():
+            # aux_data is a plain dict the user may add to, so check entries here too.
+            self._validate_aux_key(key)
+            splits.append((f"{self.dataset_name}/aux/{key}", split))
+        return splits
+
+    @property
+    def X(self) -> np.ndarray:
+        """Input data the search runs on."""
+        return self._train.arrays["X"]
+
+    @X.setter
+    def X(self, value: np.ndarray) -> None:
+        self._train.arrays["X"] = value
+
+    @property
+    def y(self) -> Optional[np.ndarray]:
+        """Target values the search runs on, or ``None`` if the dataset has no targets."""
+        return self._train.arrays.get("y")
+
+    @y.setter
+    def y(self, value: Optional[np.ndarray]) -> None:
+        if value is None:
+            self._train.arrays.pop("y", None)
+        else:
+            self._train.arrays["y"] = value
+
+    @property
+    def test_X(self) -> Optional[np.ndarray]:
+        """Inputs of the held-out test split, or ``None`` if there is none."""
+        return self.test.X if self.test is not None else None
+
+    @property
+    def test_y(self) -> Optional[np.ndarray]:
+        """Targets of the held-out test split, or ``None`` if there are none."""
+        return self.test.y if self.test is not None else None
+
+    @property
+    def data_source(self) -> Optional[DataSource]:
+        """Origin of the data the search runs on (``SampleSource`` / ``UrlSource`` / ``None``)."""
+        return self._train.data_source
+
+    @data_source.setter
+    def data_source(self, value: Optional[DataSource]) -> None:
+        self._train.data_source = value
 
     def evaluate_approach(
         self,
@@ -261,6 +424,24 @@ class SR_dataset:
         if seed is None:
             seed = self.seed
 
+        # The dataset's samplers define its input domain, so hand them to the ranking: BED draws its
+        # evaluation points from them when its behaviour comes from the ground-truth expression.
+        # Not forwarded with num_points_sampled=-1 ("use all of X"), a precomputed bed_gt, or no
+        # ground truth (BED then uses y), whose behaviour exists only at the rows of X. Rankings
+        # ignore settings they do not read.
+        settings = dict(self.kwargs)
+        if (
+            self.samplers is not None
+            and self.ground_truth is not None
+            and settings.get("num_points_sampled") != -1
+            and settings.get("bed_gt") is None
+        ):
+            settings["samplers"] = self.samplers
+        # Fix the ranking's randomness per dataset, so every run is scored by the same objective,
+        # unless the user asked for it to be resampled each run.
+        if not settings.get("bed_resample", False):
+            settings.setdefault("ranking_seed", self.seed if self.seed is not None else 0)
+
         return SR_evaluator(
             X=self.X,
             y=self.y,
@@ -271,7 +452,7 @@ class SR_dataset:
             symbol_library=self.symbol_library,
             seed=seed,
             metadata=metadata,
-            **self.kwargs,
+            **settings,
         )
 
     def __str__(self) -> str:
@@ -293,7 +474,7 @@ class SR_dataset:
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
             ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
             >>> str(dataset)
-            'Dataset for target expression z = x + y. When evaluating your model on this dataset, you should limit your generative model to only produce expressions using the following symbols: +, -, *, /, ^, u-, sqrt, sin, cos, exp, tan, arcsin, arccos, arctan, sinh, cosh, tanh, floor, ceil, ln, log, ^-1, ^2, ^3, ^4, ^5, pi, e, C, X_0, X_1.\nExpressions will be ranked based on the RMSE ranking function.\nExpressions are deemed successful if the root mean squared error is less than 1e-06. However, we advise that you check the best performing expressions manually to ensure they are correct.\nDataset uses the default limitations (extra arguments) from the SR_evaluator.The expressions in the dataset can contain constants/free parameters.\nFor other metadata, please refer to the attribute self.dataset_metadata.'
+            'Dataset for target expression z = x + y. When evaluating your model on this dataset, you should limit your generative model to only produce expressions using the following symbols: +, -, *, /, ^, u-, sqrt, sin, cos, exp, tan, arcsin, arccos, arctan, sinh, cosh, tanh, floor, ceil, ln, log, ^-1, ^2, ^3, ^4, ^5, pi, e, C, X_0, X_1.\nExpressions are ranked based on the RMSE ranking function.\nExpressions are deemed successful if the root mean squared error is less than 1e-06. However, we advise that you check the best performing expressions manually to ensure they are correct.\nDataset uses the default limitations (extra arguments) from the SR_evaluator.The expressions in the dataset can contain constants/free parameters.\nFor other metadata, please refer to the attribute self.dataset_metadata.'
 
         Returns:
             A string describing this dataset.
@@ -301,16 +482,12 @@ class SR_dataset:
         description = f"Dataset for target expression {self.original_equation}."
         description += (
             f" When evaluating your model on this dataset, you should limit your generative model to only "
-            f"produce expressions using the following symbols: {str(self.symbol_library)}.\nExpressions will be "
-            f"ranked based on the {self.ranking_function.upper()} ranking function.\n"
+            f"produce expressions using the following symbols: {str(self.symbol_library)}.\n"
         )
-
-        if self.success_threshold is not None:
-            description += (
-                "Expressions are deemed successful if the root mean squared error is less than "
-                f"{self.success_threshold}. However, we advise that you check the best performing "
-                f"expressions manually to ensure they are correct.\n"
-            )
+        # Each ranking describes itself (and its success rule); no setup() is needed for that.
+        description += build_ranking(self.ranking_function).describe(self.success_threshold)
+        if not description.endswith("\n"):
+            description += "\n"
 
         if len(self.kwargs) == 0:
             description += "Dataset uses the default limitations (extra arguments) from the SR_evaluator."
@@ -412,15 +589,14 @@ class SR_dataset:
 
     def _persist_to_cache(self) -> None:
         """
-        Write this dataset's in-memory arrays into the data cache version directory.
+        Write this dataset's in-memory data splits into the data cache version directory.
 
-        Used by [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict] when
-        ``data_source`` is ``None`` — in that case the in-memory arrays are the only
-        copy of the data, so they must be written to
-        ``<benchmark>/<version>/<dataset_name>.npz`` for
-        [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] to be able to
-        reload them. An array-shaped ground truth (a ``bed`` behaviour matrix) is
-        written to the sibling ``<dataset_name>_gt.npy``.
+        Each [DataSplit][SRToolkit.dataset.data_split.DataSplit] **without** a ``data_source`` is
+        the only copy of its arrays, so it is written to its cache key (``<dataset_name>.npz`` for
+        the train split, ``<dataset_name>/test.npz`` for the test split,
+        ``<dataset_name>/aux/<key>.npz`` for aux splits) for
+        [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] to reload. Splits backed by
+        a ``data_source`` are regenerated on load and are not written here.
 
         Requires ``benchmark`` and ``version`` to be set (the caller validates this).
         """
@@ -428,14 +604,12 @@ class SR_dataset:
             "_persist_to_cache requires benchmark/version to be set; the caller must validate this."
         )
 
-        cache_path = data_cache.dataset_path(self.benchmark, self.version, self.dataset_name)
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        if self.y is not None:
-            np.savez(str(cache_path), X=self.X, y=self.y)
-        else:
-            np.savez(str(cache_path), X=self.X)
-        if isinstance(self.ground_truth, np.ndarray):
-            np.save(str(cache_path.parent / f"{self.dataset_name}_gt.npy"), self.ground_truth)
+        for key, split in self._splits():
+            if split.data_source is not None:
+                continue
+            cache_path = data_cache.dataset_path(self.benchmark, self.version, key)
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            np.savez(str(cache_path), **split.arrays)
 
     def to_dict(self) -> dict:
         r"""
@@ -461,7 +635,7 @@ class SR_dataset:
             ...     success_threshold=1e-6, benchmark="test", version="1.0.0")
             >>> d = dataset.to_dict()
             >>> d["format_version"]
-            2
+            3
             >>> d["benchmark"]
             'test'
 
@@ -478,12 +652,10 @@ class SR_dataset:
         if self.version is None:
             raise ValueError("[SR_dataset.to_dict] 'version' is None. Set self.version before serialising.")
 
-        # When there is no DataSource, the in-memory arrays are the only copy of the
-        # data. Persist them into the cache so the returned config is actually
-        # reloadable by from_dict (which materialises from the cache). For sample/url
-        # sources there are no arrays to write, so to_dict stays side-effect-free.
-        if self.data_source is None and self.X is not None:
-            self._persist_to_cache()
+        # Persist any data split whose arrays are the only copy (no data_source) into the
+        # cache so the returned config is reloadable by from_dict. Source-backed splits are
+        # regenerated on load, so _persist_to_cache skips them and this stays side-effect-free.
+        self._persist_to_cache()
 
         # Serialise kwargs, converting ndarray values
         kwargs_out = {}
@@ -493,21 +665,27 @@ class SR_dataset:
             else:
                 kwargs_out[k] = v
 
-        # Serialise ground truth
+        # Serialise ground truth (symbolic only — ndarray behaviour matrices are rejected at
+        # construction and belong to the ranking function instead).
         if self.ground_truth is None:
             ground_truth_out = None
         elif isinstance(self.ground_truth, list):
             ground_truth_out = self.ground_truth
         elif isinstance(self.ground_truth, Node):
-            ground_truth_out = self.ground_truth.to_list()
-        elif isinstance(self.ground_truth, np.ndarray):
-            # ndarray ground truth lives in the cache as a separate file
-            ground_truth_out = None
+            ground_truth_out = self.ground_truth.to_list(symbol_library=self.symbol_library)
         else:
-            raise ValueError("[SR_dataset.to_dict] Ground truth must be either a list, a Node, or a numpy array")
+            raise ValueError("[SR_dataset.to_dict] Ground truth must be either a list or a Node")
+
+        # The test and aux splits: which arrays each holds and where it comes from (the train
+        # split's source is carried top-level as `data_source`).
+        def split_entry(split: DataSplit) -> dict:
+            return {
+                "arrays": list(split.arrays.keys()),
+                "data_source": split.data_source.to_dict() if split.data_source is not None else None,
+            }
 
         return {
-            "format_version": 2,
+            "format_version": 3,
             "dataset_name": self.dataset_name,
             "benchmark": self.benchmark,
             "version": self.version,
@@ -522,6 +700,8 @@ class SR_dataset:
             "samplers": [s.to_dict() for s in self.samplers] if self.samplers is not None else None,
             "ground_truth": ground_truth_out,
             "data_source": self.data_source.to_dict() if self.data_source is not None else None,
+            "test": split_entry(self.test) if self.test is not None else None,
+            "aux": {key: split_entry(split) for key, split in self.aux_data.items()},
         }
 
     @classmethod
@@ -559,8 +739,8 @@ class SR_dataset:
             A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance.
 
         Raises:
-            ValueError: If the ``format_version`` is not 2.
-            FileNotFoundError: If the cached data file does not exist and ``data_source`` is
+            ValueError: If the ``format_version`` is not 2 or 3.
+            FileNotFoundError: If a cached data file does not exist and its ``data_source`` is
                 ``None``.
         """
         if isinstance(d, (str, Path)):
@@ -577,45 +757,47 @@ class SR_dataset:
         # Apply bundle relocation if needed
         dd = _auto_bind(dd)
 
-        fmt = dd.get("format_version", 1)
-        if fmt == 1:
-            # Legacy format — delegate to old-style loading
-            return cls._from_dict_v1(dd)
-        if fmt != 2:
-            raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2.")
+        # Accept the current v3 layout and the previous release's v2 configs. A v2 dict has no
+        # "test" / "aux" entries, so only the train split loads; its cache key is the dataset name in
+        # both versions, and symbolic ground truth still loads from dd["ground_truth"]. (v2 datasets
+        # that stored an ndarray ground truth in a separate _gt.npy are not migrated — ndarray ground
+        # truth is no longer supported; provide a symbolic ground truth or rebuild such datasets.)
+        fmt = dd.get("format_version")
+        if fmt not in (2, 3):
+            raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2 or 3.")
 
         benchmark = dd["benchmark"]
         version = dd["version"]
         dataset_name = dd["dataset_name"]
 
-        cache_path = data_cache.resolve(benchmark, version, dataset_name, dd)
+        def load_split(key: str, source_dict: Optional[dict]) -> DataSplit:
+            # Resolve from the cache, materialising from the split's own source if needed. The
+            # config slice keeps the dataset's samplers / ground truth, which a SampleSource needs.
+            path = data_cache.resolve(benchmark, version, key, {**dd, "data_source": source_dict})
+            data = np.load(str(path))
+            return DataSplit({k: data[k] for k in data.files}, data_source=DataSource.from_dict(source_dict))
 
-        data = np.load(str(cache_path))
-        X = data["X"]
-        y = data["y"] if "y" in data else None
-
-        # Check for separate ground-truth array file
-        gt_path = cache_path.parent / f"{dataset_name}_gt.npy"
-        if gt_path.exists():
-            ground_truth = np.load(str(gt_path))
-        else:
-            ground_truth = dd.get("ground_truth")
+        train = load_split(dataset_name, dd.get("data_source"))
+        test_entry = dd.get("test")
+        test = load_split(f"{dataset_name}/test", test_entry.get("data_source")) if test_entry else None
+        aux = {}
+        for key, entry in (dd.get("aux") or {}).items():
+            cls._validate_aux_key(key)
+            aux[key] = load_split(f"{dataset_name}/aux/{key}", entry.get("data_source"))
 
         kwargs = dict(dd.get("kwargs") or {})
-        if "bed_X" in kwargs and kwargs["bed_X"] is not None:
-            kwargs["bed_X"] = np.array(kwargs["bed_X"])
 
         samplers = None
         if dd.get("samplers") is not None:
             samplers = [Sampler.from_dict(s) for s in dd["samplers"]]
 
         dataset = cls(
-            X,
+            train.X,
             SymbolLibrary.from_dict(dd["symbol_library"]),
             ranking_function=dd["ranking_function"],
-            y=y,
+            y=train.y,
             max_evaluations=dd["max_evaluations"],
-            ground_truth=ground_truth,
+            ground_truth=dd.get("ground_truth"),
             original_equation=dd["original_equation"],
             success_threshold=dd["success_threshold"],
             seed=dd["seed"],
@@ -626,7 +808,10 @@ class SR_dataset:
             version=version,
             **kwargs,
         )
-        dataset.data_source = DataSource.from_dict(dd.get("data_source"))
+        # Attach the loaded splits whole, so every array and each split's source is kept.
+        dataset._train = train
+        dataset.test = test
+        dataset.aux_data = aux
         return dataset
 
     def to_archive(self, path: "Union[str, Path]") -> None:
@@ -639,9 +824,11 @@ class SR_dataset:
 
         - ``dataset.json``: this dataset's configuration dict (see
           [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]).
-        - ``data/<dataset_name>.npz``: the ``X`` (and ``y`` for RMSE) arrays.
-        - ``data/<dataset_name>_gt.npy``: ground-truth behaviour array, only when
-          ``ground_truth`` is a numpy array (a ``bed`` behaviour matrix).
+        - ``data/<dataset_name>.npz``: the data the search runs on, plus
+          ``data/<dataset_name>/test.npz`` for the test split and
+          ``data/<dataset_name>/aux/<key>.npz`` for each aux split. All splits are bundled —
+          even source-backed ones — so the archive file is self-contained and never needs to
+          regenerate or download on load.
 
         Load it back with
         [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive], or
@@ -667,22 +854,14 @@ class SR_dataset:
 
         # to_dict validates that benchmark/version are set.
         dataset_json = json.dumps(self.to_dict(), indent=2)
-        name = self.dataset_name
 
         with zipfile.ZipFile(str(path), "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("dataset.json", dataset_json)
 
-            buf = io.BytesIO()
-            if self.y is not None:
-                np.savez(buf, X=self.X, y=self.y)
-            else:
-                np.savez(buf, X=self.X)
-            zf.writestr(f"data/{name}.npz", buf.getvalue())
-
-            if isinstance(self.ground_truth, np.ndarray):
-                gt_buf = io.BytesIO()
-                np.save(gt_buf, self.ground_truth)
-                zf.writestr(f"data/{name}_gt.npy", gt_buf.getvalue())
+            for key, split in self._splits():
+                buf = io.BytesIO()
+                np.savez(buf, **split.arrays)
+                zf.writestr(f"data/{key}.npz", buf.getvalue())
 
     @classmethod
     def from_archive(cls, path: "Union[str, Path]") -> "SR_dataset":
@@ -691,8 +870,8 @@ class SR_dataset:
 
         This is the counterpart to
         [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive]: it reads
-        ``dataset.json`` from the archive, extracts the bundled ``data/*.npz`` (and any
-        ``_gt.npy``) into the data cache, and reconstructs the dataset from them. Unlike
+        ``dataset.json`` from the archive, extracts the bundled data files (one per data split)
+        into the data cache, and reconstructs the dataset from them. Unlike
         [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], no
         ``data_source`` materialisation is needed — the data travels inside the archive.
 
@@ -709,11 +888,15 @@ class SR_dataset:
         benchmark = d["benchmark"]
         version = d["version"]
 
-        # Extract data/*.npz (and any _gt.npy) into the cache version directory.
+        # Extract every data file into the cache version directory.
         data_cache.import_archive(Path(path), benchmark, version)
 
-        # The cache is now populated, so no source needs to materialise it.
+        # The cache is now fully populated, so no split needs to materialise from a source.
         d["data_source"] = None
+        if d.get("test"):
+            d["test"]["data_source"] = None
+        for entry in (d.get("aux") or {}).values():
+            entry["data_source"] = None
         return cls.from_dict(d)
 
     @classmethod
@@ -755,6 +938,7 @@ class SR_dataset:
         symbol_library: Optional[SymbolLibrary] = None,
         n_samples: int = 10000,
         seed: Optional[int] = None,
+        n_test: Optional[int] = None,
         ranking_function: str = "rmse",
         original_equation: Optional[str] = None,
         success_threshold: Optional[float] = None,
@@ -763,7 +947,7 @@ class SR_dataset:
         dataset_metadata: Optional[dict] = None,
         benchmark: Optional[str] = None,
         version: Optional[str] = None,
-        **kwargs: Unpack[EstimationSettings],
+        **kwargs: Unpack[RankingSettings],
     ) -> "SR_dataset":
         r"""
         Build a dataset from just a ground-truth expression and per-variable samplers.
@@ -801,6 +985,10 @@ class SR_dataset:
             seed: Random seed for the generation (stored on the
                 [SampleSource][SRToolkit.dataset.data_source.SampleSource]). ``None`` means
                 no seed is set.
+            n_test: If given, also generate a held-out test split of this many rows from
+                the same samplers and ground truth, backed by its own
+                [SampleSource][SRToolkit.dataset.data_source.SampleSource] (seeded at
+                ``seed + 1`` when ``seed`` is set). ``None`` (default) creates no test split.
             ranking_function: ``"rmse"`` or ``"bed"``.
             original_equation: Human-readable equation string. If ``None`` and
                 ``ground_truth`` is a token list, it is auto-filled as ``"y = <tokens>"``.
@@ -849,56 +1037,27 @@ class SR_dataset:
         dataset.data_source = SampleSource(n_samples=n_samples, seed=seed)
 
         # Reuse the canonical generation path (handles rmse/bed and its validation).
-        return dataset.resample_inplace(n_samples, seed=seed)
+        dataset.resample_inplace(n_samples, seed=seed)
 
-    @classmethod
-    def _from_dict_v1(cls, d: dict) -> "SR_dataset":
-        """Load a format_version=1 dict (legacy path)."""
-        try:
-            data = np.load(d["dataset_path"])
-            X = data["X"]
-            y = data["y"] if "y" in data else None
-        except Exception:
-            raise Exception(f"[SR_dataset.from_dict] Could not load dataset from {d['dataset_path']}")
+        # Optional held-out test split: same samplers + ground truth, its own source/seed.
+        if n_test is not None:
+            test_seed = None if seed is None else seed + 1
+            test_result = dataset.resample(n_test, seed=test_seed)
+            if isinstance(test_result, tuple):
+                test_arrays: Dict[str, np.ndarray] = {"X": test_result[0], "y": test_result[1]}
+            else:
+                test_arrays = {"X": test_result}
+            dataset.test = DataSplit(test_arrays, data_source=SampleSource(n_samples=n_test, seed=test_seed))
 
-        if "ground_truth" in d and (isinstance(d["ground_truth"], list) or d["ground_truth"] is None):
-            ground_truth = d["ground_truth"]
-        else:
-            try:
-                ground_truth = np.load(d["ground_truth"])
-            except Exception:
-                raise Exception(f"[SR_dataset.from_dict] Could not load ground truth from {d['ground_truth']}")
-
-        kwargs = dict(d.get("kwargs") or {})
-        if "bed_X" in kwargs and kwargs["bed_X"] is not None:
-            kwargs["bed_X"] = np.array(kwargs["bed_X"])
-
-        samplers = None
-        if d.get("samplers") is not None:
-            samplers = [Sampler.from_dict(s) for s in d["samplers"]]
-
-        return cls(
-            X,
-            SymbolLibrary.from_dict(d["symbol_library"]),
-            ranking_function=d["ranking_function"],
-            y=y,
-            max_evaluations=d["max_evaluations"],
-            ground_truth=ground_truth,
-            original_equation=d["original_equation"],
-            success_threshold=d["success_threshold"],
-            seed=d["seed"],
-            dataset_metadata=d.get("dataset_metadata"),
-            dataset_name=d["dataset_name"],
-            samplers=samplers,
-            **kwargs,
-        )
+        return dataset
 
     def refresh(self) -> None:
         """
         Force-refresh the cached data for this dataset by re-materialising it
         from ``data_source``.
 
-        After refreshing, ``self.X`` and ``self.y`` are reloaded from the new cache.
+        Every split with a ``data_source`` is regenerated (the train data, and the test and aux
+        splits that have their own source) and reloaded from the new cache.
 
         Raises:
             ValueError: If ``data_source``, ``benchmark``, or ``version`` is ``None``.
@@ -911,16 +1070,16 @@ class SR_dataset:
         if self.benchmark is None or self.version is None:
             raise ValueError("[SR_dataset.refresh] Cannot refresh: 'benchmark' or 'version' is None.")
 
-        data_cache.resolve(
-            self.benchmark,
-            self.version,
-            self.dataset_name,
-            self.to_dict(),
-            force=True,
-        )
-
-        cache_path = data_cache.dataset_path(self.benchmark, self.version, self.dataset_name)
-        data = np.load(str(cache_path))
-        self.X = data["X"]
-        if "y" in data:
-            self.y = data["y"]
+        config = self.to_dict()
+        for key, split in self._splits():
+            if split.data_source is None:
+                continue
+            cache_path = data_cache.resolve(
+                self.benchmark,
+                self.version,
+                key,
+                {**config, "data_source": split.data_source.to_dict()},
+                force=True,
+            )
+            data = np.load(str(cache_path))
+            split.arrays = {k: data[k] for k in data.files}

@@ -21,7 +21,6 @@ from contextlib import nullcontext
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Union
 
 import numpy as np
-from scipy.stats.qmc import LatinHypercube
 from typing_extensions import Literal, Unpack
 
 from SRToolkit.evaluation.callbacks import (
@@ -31,15 +30,85 @@ from SRToolkit.evaluation.callbacks import (
     ExprEvaluated,
     SRCallbacks,
 )
-from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.evaluation.ranking import RankingFunction, RankingResult, build_ranking
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import Node
-from SRToolkit.utils.measures import REGRESSION_METRICS, bed, create_behavior_matrix
+from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EstimationSettings, EvalResult, ModelResult
+from SRToolkit.utils.types import EvalResult, ModelResult, RankingSettings
 
 logger = logging.getLogger(__name__)
+
+
+def evaluate_metric(
+    expr: Union[List[str], Node],
+    parameters: Optional[np.ndarray],
+    X: np.ndarray,
+    y: np.ndarray,
+    metric: Union[str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]] = "r2",
+    symbol_library: Optional[SymbolLibrary] = None,
+    backend: str = "stack",
+) -> float:
+    """
+    Score an expression on ``(X, y)`` by reusing already-fitted ``parameters`` — no refitting.
+
+    Builds a constants-bound prediction function ``predict(X) -> y_pred`` from ``expr`` and
+    ``parameters`` and applies ``metric``. This is the shared scoring core behind
+    [SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric] (train
+    data) and [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] (held-out
+    data) — the same call against different arrays.
+
+    Args:
+        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].
+        parameters: Fitted constants to bind in. ``None`` is treated as an empty array.
+        X: Inputs of shape ``(n_samples, n_features)`` to score on.
+        y: Targets of shape ``(n_samples,)`` to score against.
+        metric: A built-in name in
+            [REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS]
+            (``"mse"``, ``"rmse"``, ``"mae"``, ``"r2"``, ``"nrmse"``) or a callable
+            ``metric(predict, X, y) -> float``.
+        symbol_library: Symbol library used to compile ``expr``. Defaults to the package default.
+        backend: Compilation backend forwarded to
+            [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]. Default ``"stack"``.
+
+    Returns:
+        The metric value as a float, or ``NaN`` if the metric raises during computation.
+
+    Raises:
+        ValueError: If ``metric`` is a string that is not a known built-in metric.
+        TypeError: If ``metric`` is neither a string nor a callable.
+    """
+    if isinstance(metric, str):
+        if metric not in REGRESSION_METRICS:
+            raise ValueError(
+                f"[evaluate_metric] Unknown metric '{metric}'. Available built-in metrics: "
+                f"{sorted(REGRESSION_METRICS)}. Alternatively pass a callable with signature "
+                "metric(predict, X, y) -> float."
+            )
+        metric_fn = REGRESSION_METRICS[metric]
+    elif callable(metric):
+        metric_fn = metric
+    else:
+        raise TypeError(f"[evaluate_metric] metric must be a string or a callable, got {type(metric).__name__}.")
+
+    if isinstance(expr, Node):
+        expr_list = expr.to_list(symbol_library=symbol_library)
+    else:
+        expr_list = expr
+
+    raw = compile_expr(expr_list, symbol_library, backend=backend)
+    params = parameters if parameters is not None else np.array([])
+
+    def predict(X_in: np.ndarray) -> np.ndarray:
+        return raw(X_in, params)
+
+    try:
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
+            return float(metric_fn(predict, X, y))
+    except Exception as e:
+        warnings.warn(f"[evaluate_metric] Error computing metric for '{''.join(expr_list)}': {e}")
+        return float("nan")
 
 
 class ResultAugmenter(ABC):
@@ -162,11 +231,11 @@ class SR_evaluator:
         symbol_library: Optional[SymbolLibrary] = None,
         max_evaluations: int = -1,
         success_threshold: Optional[float] = None,
-        ranking_function: str = "rmse",
-        ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
+        ranking_function: Union[str, RankingFunction] = "rmse",
+        ground_truth: Optional[Union[List[str], Node]] = None,
         seed: Optional[int] = None,
         metadata: Optional[dict] = None,
-        **kwargs: Unpack[EstimationSettings],
+        **kwargs: Unpack[RankingSettings],
     ):
         """
         Evaluates symbolic regression expressions and ranks them by RMSE or Behavioral Expression Distance (BED).
@@ -202,37 +271,34 @@ class SR_evaluator:
                 ``max(distances) * 1.1``. If less than 0, no threshold is used.
             ranking_function: ``"rmse"`` or ``"bed"``. Default ``"rmse"``.
             ground_truth: Required when ``ranking_function="bed"``. The target expression as a
-                token list, a [Node][SRToolkit.utils.expression_tree.Node] tree, or a pre-computed
-                behavior matrix (see
-                [create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]).
+                token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
             seed: Random seed for reproducible sampling. Default ``None``.
             metadata: Optional dict with information about this evaluation (e.g. dataset name,
                 seed). If a ``"dataset_name"`` key is present it is extracted into
                 [EvalResult][SRToolkit.utils.types.EvalResult] ``dataset_name``.
             **kwargs: Optional settings from
-                [EstimationSettings][SRToolkit.utils.types.EstimationSettings].
+                [RankingSettings][SRToolkit.utils.types.RankingSettings].
                 Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
                 ``constant_bounds``, ``initialization``, ``max_constants``,
-                ``max_expr_length``, ``num_points_sampled``, ``bed_X``,
-                ``num_consts_sampled``, ``domain_bounds``.
+                ``max_expr_length``, ``num_points_sampled``, ``samplers``,
+                ``bed_gt``, ``num_consts_sampled``.
 
         Attributes:
             models: Cached [ModelResult][SRToolkit.utils.types.ModelResult] for every evaluated expression,
                 keyed by the concatenated token string.
             invalid: Token strings of expressions that raised an exception during evaluation.
             ground_truth: The target expression passed at construction (BED mode).
-            gt_behavior: Pre-computed behavior matrix for the ground truth (BED mode).
             max_evaluations: Maximum number of expressions to evaluate.
-            bed_evaluation_parameters: Active BED evaluation settings dict.
             metadata: Metadata dict passed at construction.
             symbol_library: The symbol library used.
             total_evaluations: Number of times
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
                 has been called, including cache hits.
             seed: Random seed.
-            parameter_estimator: [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
-                instance used in RMSE mode.
-            ranking_function: Active ranking function (``"rmse"`` or ``"bed"``).
+            ranking: The active [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]
+                instance. Owns all ranking-specific state — the
+                [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
+                (RMSE) or the behaviour matrix and evaluation points ``bed_X`` (BED).
             success_threshold: Error threshold for determining success.
         """
         self.kwargs = kwargs
@@ -241,24 +307,10 @@ class SR_evaluator:
         self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
-        self.gt_behavior = None
         self._callbacks: Optional[Union[CallbackDispatcher, SRCallbacks]] = None
         self._experiment_id: str = ""
         self.should_stop = False
         self._current_best_error = float("inf")
-        self.bed_evaluation_parameters: Dict[str, Any] = {
-            "bed_X": None,
-            "num_consts_sampled": 32,
-            "num_points_sampled": 64,
-            "domain_bounds": None,
-            "constant_bounds": (-5, 5),
-        }
-        if kwargs:
-            for k in self.bed_evaluation_parameters.keys():
-                if k in kwargs:
-                    self.bed_evaluation_parameters[k] = kwargs[k]  # type: ignore[literal-required]
-        if self.bed_evaluation_parameters["num_points_sampled"] == -1:
-            self.bed_evaluation_parameters["num_points_sampled"] = X.shape[0]
 
         if symbol_library is None:
             symbol_library = SymbolLibrary.get_or_default()
@@ -269,86 +321,31 @@ class SR_evaluator:
         if seed is not None:
             np.random.seed(seed)
 
-        if ranking_function not in ["rmse", "bed"]:
-            warnings.warn(f"ranking_function '{ranking_function}' not supported. Using rmse instead.")
-            ranking_function = "rmse"
-        self.ranking_function = ranking_function
+        # The ranking function owns all of its data-derived state (parameter estimator for RMSE,
+        # behaviour matrix + evaluation points bed_X for BED); the evaluator just calls score().
+        self.ranking: RankingFunction = build_ranking(ranking_function)
+        self.ranking.setup(X, y, ground_truth, symbol_library, seed, kwargs)
 
-        if ranking_function == "rmse":
-            if y is None:
-                raise ValueError("Target values must be provided for RMSE ranking function.")
-            self.parameter_estimator = ParameterEstimator(X, y, symbol_library=symbol_library, seed=seed, **kwargs)
-
-            if self.success_threshold is None:
-                self.success_threshold = 1e-7
-
-        elif ranking_function == "bed":
-            if ground_truth is None:
-                raise ValueError(
-                    "Ground truth must be provided for bed ranking function. The ground truth must be "
-                    "provided as a list of tokens, a Node object, or a numpy array representing behavior. "
-                    "The behavior matrix is a matrix representing the distribution of outputs of an "
-                    "expression with free parameters at different points in the domain. This matrix "
-                    "should be of size (num_points_sampled, num_consts_sampled). See "
-                    "SRToolkit.utils.create_behavior_matrix for more details."
-                )
-            else:
-                if self.bed_evaluation_parameters["bed_X"] is None:
-                    if self.bed_evaluation_parameters["domain_bounds"] is not None:
-                        db = self.bed_evaluation_parameters["domain_bounds"]
-                        assert isinstance(db, List), "Domain bounds should be a list of tuples."
-                        interval_length = np.array([ub - lb for (lb, ub) in db])
-                        lower_bound = np.array([lb for (lb, ub) in db])
-                        lho = LatinHypercube(len(db), optimization="random-cd", rng=seed)
-                        self.bed_evaluation_parameters["bed_X"] = (
-                            lho.random(self.bed_evaluation_parameters["num_points_sampled"]) * interval_length
-                            + lower_bound
-                        )
-                    else:
-                        indices = np.random.choice(
-                            X.shape[0],
-                            size=self.bed_evaluation_parameters["num_points_sampled"],
-                        )
-                        self.bed_evaluation_parameters["bed_X"] = X[indices, :]
-
-            if isinstance(ground_truth, (list, Node)):
-                self.gt_behavior = create_behavior_matrix(
-                    ground_truth,
-                    self.bed_evaluation_parameters["bed_X"],
-                    num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
-                    consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
-                    symbol_library=self.symbol_library,
-                    seed=self.seed,
-                )
-            elif isinstance(ground_truth, np.ndarray):
-                self.gt_behavior = ground_truth
-            else:
-                raise ValueError(
-                    "Ground truth must be provided as a list of tokens, a Node object, or a numpy array representing behavior."
-                )
-
-            if self.success_threshold is None:
-                assert self.ground_truth is not None, "Ground truth must be provided for BED ranking function."
-                distances = [
-                    bed(
-                        self.ground_truth,
-                        self.gt_behavior,
-                        self.bed_evaluation_parameters["bed_X"],
-                        num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
-                        num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
-                        domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
-                        consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
-                        symbol_library=self.symbol_library,
-                    )
-                    for i in range(100)
-                ]
-                self.success_threshold = np.max(distances) * 1.1
+        if self.success_threshold is None:
+            self.success_threshold = self.ranking.default_success_threshold()
 
         self._callbacks = CallbackDispatcher(
             callbacks=[EarlyStoppingCallback(threshold=self.success_threshold, max_evaluations=max_evaluations)]
         )
         self.X = X
         self.y = y
+
+    @property
+    def ranking_function(self) -> str:
+        """The name of the active [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]
+        (e.g. ``"rmse"``, ``"bed"``)."""
+        return self.ranking.name
+
+    @property
+    def parameter_estimator(self) -> Any:
+        """The [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
+        owned by the ranking function, or ``None`` if the active ranking fits no constants."""
+        return getattr(self.ranking, "parameter_estimator", None)
 
     def register_callbacks(self, callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None) -> None:
         """
@@ -432,8 +429,10 @@ class SR_evaluator:
             >>> # ground truth. Because of stochasticity of BED, error might be high even when expressions match exactly.
             >>> print(se.evaluate_expr(["C", "+", "X_0"]) < 0.2)
             True
-            >>> # X can also be sampled from a domain by providing domain_bounds
-            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", domain_bounds=[(-1, 1), (-1, 1)], seed=42)
+            >>> # A custom evaluation domain can be provided via per-feature samplers
+            >>> from SRToolkit.dataset.sampling import UniformSampling
+            >>> samplers = [UniformSampling(-1, 1), UniformSampling(-1, 1)]
+            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", samplers=samplers, seed=42)
             >>> print(se.evaluate_expr(["C", "+", "X_0"]) < 0.2)
             True
 
@@ -489,132 +488,59 @@ class SR_evaluator:
                 return self.models[expr_str].error
 
             else:
-                if self.ranking_function == "rmse":
-                    try:
-                        with (
-                            np.errstate(
-                                divide="ignore",
-                                invalid="ignore",
-                                over="ignore",
-                                under="ignore",
-                            )
-                            if verbose < 2
-                            else nullcontext()
-                        ):
-                            error, parameters = self.parameter_estimator.estimate_parameters(expr)
+                try:
+                    with (
+                        np.errstate(
+                            divide="ignore",
+                            invalid="ignore",
+                            over="ignore",
+                            under="ignore",
+                        )
+                        if verbose < 2
+                        else nullcontext()
+                    ):
+                        result = self.ranking.score(expr)
 
-                        if verbose > 0:
-                            if parameters.size > 0:
-                                parameter_string = (
-                                    f" Best parameters found are [{', '.join([str(round(p, 3)) for p in parameters])}]"
-                                )
-                            else:
-                                parameter_string = ""
-                            logger.debug("Evaluated expression %s with RMSE: %s.%s", expr_str, error, parameter_string)
+                    if verbose > 0:
+                        logger.debug("Evaluated expression %s with error: %s.", expr_str, result.score)
 
-                    except Exception as e:
-                        if verbose > 0:
-                            logger.debug("Error evaluating expression %s: %s", expr_str, e)
+                except Exception as e:
+                    if verbose > 0:
+                        logger.debug("Error evaluating expression %s: %s", expr_str, e)
 
-                        self.invalid.append(expr_str)
-                        error, parameters = np.nan, np.array([])
+                    self.invalid.append(expr_str)
+                    result = RankingResult(score=np.nan)
 
-                    self.models[expr_str] = ModelResult(
-                        expr=expr_list,
+                error = result.score
+                self.models[expr_str] = ModelResult(
+                    expr=expr_list,
+                    error=error,
+                    parameters=result.parameters,
+                    ranking_data=result.extra,
+                )
+
+                if self._callbacks is not None:
+                    is_new_best = error < self._current_best_error
+                    if is_new_best:
+                        self._current_best_error = error
+                    event = ExprEvaluated(
+                        expression=expr_str,
                         error=error,
-                        parameters=parameters,
+                        evaluation_number=self.total_evaluations,
+                        experiment_id=self._experiment_id,
+                        is_new_best=is_new_best,
                     )
-
-                    if self._callbacks is not None:
-                        is_new_best = error < self._current_best_error
-                        if is_new_best:
-                            self._current_best_error = error
-                        event = ExprEvaluated(
+                    if not self._callbacks.on_expr_evaluated(event):
+                        self.should_stop = True
+                    if is_new_best:
+                        best_event = BestExpressionFound(
+                            experiment_id=self._experiment_id,
                             expression=expr_str,
                             error=error,
                             evaluation_number=self.total_evaluations,
-                            experiment_id=self._experiment_id,
-                            is_new_best=is_new_best,
                         )
-                        if not self._callbacks.on_expr_evaluated(event):
+                        if not self._callbacks.on_best_expression(best_event):
                             self.should_stop = True
-                        if is_new_best:
-                            best_event = BestExpressionFound(
-                                experiment_id=self._experiment_id,
-                                expression=expr_str,
-                                error=error,
-                                evaluation_number=self.total_evaluations,
-                            )
-                            if not self._callbacks.on_best_expression(best_event):
-                                self.should_stop = True
-
-                elif self.ranking_function == "bed":
-                    try:
-                        with (
-                            np.errstate(
-                                divide="ignore",
-                                invalid="ignore",
-                                over="ignore",
-                                under="ignore",
-                            )
-                            if verbose < 2
-                            else nullcontext()
-                        ):
-                            assert self.gt_behavior is not None, (
-                                "Ground truth must be provided for BED ranking function."
-                            )
-                            error = bed(
-                                expr,
-                                self.gt_behavior,
-                                self.bed_evaluation_parameters["bed_X"],
-                                num_consts_sampled=self.bed_evaluation_parameters["num_consts_sampled"],
-                                num_points_sampled=self.bed_evaluation_parameters["num_points_sampled"],
-                                domain_bounds=self.bed_evaluation_parameters["domain_bounds"],
-                                consts_bounds=self.bed_evaluation_parameters["constant_bounds"],
-                                symbol_library=self.symbol_library,
-                                seed=self.seed,
-                            )
-
-                            if verbose > 0:
-                                logger.debug("Evaluated expression %s with BED: %s.", expr_str, error)
-
-                    except Exception as e:
-                        if verbose > 0:
-                            logger.debug("Error evaluating expression %s: %s", expr_str, e)
-
-                        self.invalid.append(expr_str)
-                        error = np.nan
-
-                    self.models[expr_str] = ModelResult(
-                        expr=expr_list,
-                        error=error,
-                    )
-
-                    if self._callbacks is not None:
-                        is_new_best = error < self._current_best_error
-                        if is_new_best:
-                            self._current_best_error = error
-                        event = ExprEvaluated(
-                            expression=expr_str,
-                            error=error,
-                            evaluation_number=self.total_evaluations,
-                            experiment_id=self._experiment_id,
-                            is_new_best=is_new_best,
-                        )
-                        if not self._callbacks.on_expr_evaluated(event):
-                            self.should_stop = True
-                        if is_new_best:
-                            best_event = BestExpressionFound(
-                                experiment_id=self._experiment_id,
-                                expression=expr_str,
-                                error=error,
-                                evaluation_number=self.total_evaluations,
-                            )
-                            if not self._callbacks.on_best_expression(best_event):
-                                self.should_stop = True
-
-                else:
-                    raise ValueError(f"Ranking function {self.ranking_function} not supported.")
 
                 return error
 
@@ -666,7 +592,7 @@ class SR_evaluator:
                 passed to ``evaluate_expr``.
             metric: Either the name of a built-in metric in
                 [REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS]
-                (``"mse"``, ``"mae"``, ``"r2"``, ``"nrmse"``), or a callable with the
+                (``"mse"``, ``"rmse"``, ``"mae"``, ``"r2"``, ``"nrmse"``), or a callable with the
                 signature ``metric(predict, X, y) -> float`` where ``predict(X) -> y_pred``
                 has the fitted constants bound in. Default ``"r2"``.
 
@@ -691,7 +617,7 @@ class SR_evaluator:
                 "Call evaluate_expr() on it first so its constants are fitted and cached."
             )
 
-        # Resolve the metric up front so unknown names raise regardless of mode.
+        # Validate the metric up front so unknown names raise regardless of mode.
         if isinstance(metric, str):
             if metric not in REGRESSION_METRICS:
                 raise ValueError(
@@ -699,10 +625,7 @@ class SR_evaluator:
                     f"{sorted(REGRESSION_METRICS)}. Alternatively pass a callable with signature "
                     "metric(predict, X, y) -> float."
                 )
-            metric_fn = REGRESSION_METRICS[metric]
-        elif callable(metric):
-            metric_fn = metric
-        else:
+        elif not callable(metric):
             raise TypeError(
                 f"[SR_evaluator.get_metric] metric must be a string or a callable, got {type(metric).__name__}."
             )
@@ -717,18 +640,9 @@ class SR_evaluator:
             return float("nan")
 
         backend = str(self.parameter_estimator.estimation_settings["backend"])
-        raw = compile_expr(expr_list, self.symbol_library, backend=backend)
-        params = model.parameters if model.parameters is not None else np.array([])
-
-        def predict(X: np.ndarray) -> np.ndarray:
-            return raw(X, params)
-
-        try:
-            with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
-                return float(metric_fn(predict, self.X, self.y))
-        except Exception as e:
-            warnings.warn(f"[SR_evaluator.get_metric] Error computing metric for '{expr_str}': {e}")
-            return float("nan")
+        return evaluate_metric(
+            expr_list, model.parameters, self.X, self.y, metric, self.symbol_library, backend=backend
+        )
 
     def get_results(
         self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None
@@ -782,111 +696,6 @@ class SR_evaluator:
         )
 
         return results
-
-    def to_dict(self, base_path: str, name: str) -> dict:
-        """
-        Creates a dictionary representation of the SR_evaluator.
-
-        Args:
-            base_path: Used to save the data of the evaluator to disk.
-            name: Used to save the data of the evaluator to disk.
-
-        Returns:
-            A dictionary containing the necessary information to recreate the evaluator from disk.
-        """
-        output = {
-            "format_version": 1,
-            "type": "SR_evaluator",
-            "metadata": self.metadata,
-            "symbol_library": self.symbol_library.to_dict(),
-            "max_evaluations": self.max_evaluations,
-            "success_threshold": self.success_threshold,
-            "ranking_function": self.ranking_function,
-            "seed": self.seed,
-            "kwargs": self.kwargs,
-        }
-
-        if not os.path.isdir(base_path):
-            os.makedirs(base_path)
-
-        X_path = f"{base_path}/{name}_X.npy"
-        np.save(X_path, self.X)
-        output["X"] = X_path
-
-        if self.y is not None:
-            y_path = f"{base_path}/{name}_y.npy"
-            np.save(y_path, self.y)
-            output["y"] = y_path
-        else:
-            output["y"] = None
-
-        if self.ground_truth is None:
-            output["ground_truth"] = None
-        else:
-            if isinstance(self.ground_truth, list):
-                output["ground_truth"] = self.ground_truth
-            elif isinstance(self.ground_truth, Node):
-                output["ground_truth"] = self.ground_truth.to_list(self.symbol_library)
-            else:
-                gt_path = f"{base_path}/{name}_gt.npy"
-                np.save(gt_path, self.ground_truth)
-                output["ground_truth"] = gt_path
-
-        return output
-
-    @staticmethod
-    def from_dict(data: dict) -> "SR_evaluator":
-        """
-        Reconstruct an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] from a
-        dictionary produced by [to_dict][SRToolkit.evaluation.sr_evaluator.SR_evaluator.to_dict].
-
-        Args:
-            data: Dictionary representation of the evaluator, as produced by
-                [to_dict][SRToolkit.evaluation.sr_evaluator.SR_evaluator.to_dict].
-
-        Returns:
-            The reconstructed [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
-
-        Raises:
-            ValueError: If ``data["format_version"]`` is not ``1`` or if the numpy arrays
-                for ``X``, ``y``, or ``ground_truth`` cannot be loaded from disk.
-        """
-        if data.get("format_version", 1) != 1:
-            raise ValueError(
-                f"[SR_evaluator.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
-            )
-
-        try:
-            X = np.load(data["X"])
-
-            if data["y"] is not None:
-                y = np.load(data["y"])
-            else:
-                y = None
-
-            if data["ground_truth"] is None:
-                gt = None
-            else:
-                if isinstance(data["ground_truth"], list):
-                    gt = data["ground_truth"]
-                else:
-                    gt = np.load(data["ground_truth"])
-        except Exception as e:
-            raise ValueError(f"[SR_evaluator.from_dict] Unable to load data for X/y/ground truth due to {e}")
-
-        symbol_library = SymbolLibrary.from_dict(data["symbol_library"])
-        return SR_evaluator(
-            X,
-            y=y,
-            ground_truth=gt,
-            symbol_library=symbol_library,
-            max_evaluations=data["max_evaluations"],
-            success_threshold=data["success_threshold"],
-            ranking_function=data["ranking_function"],
-            seed=data["seed"],
-            metadata=data["metadata"],
-            **data["kwargs"],
-        )
 
 
 class SR_results:

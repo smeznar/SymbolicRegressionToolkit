@@ -13,9 +13,9 @@ from SRToolkit.utils.types import (
     OP_POWER,
     VALID_SYMBOL_TYPES,
     VAR,
-    EstimationSettings,
     EvalResult,
     ModelResult,
+    RankingSettings,
 )
 
 
@@ -59,7 +59,7 @@ class TestPrecedenceConstants:
         assert FN_PREFIX == LEAF
 
 
-class TestEstimationSettings:
+class TestRankingSettings:
     EXPECTED_FIELDS = {
         "method",
         "tol",
@@ -70,21 +70,23 @@ class TestEstimationSettings:
         "max_constants",
         "max_expr_length",
         "num_points_sampled",
-        "bed_X",
+        "samplers",
+        "bed_gt",
+        "ranking_seed",
+        "bed_resample",
         "num_consts_sampled",
-        "domain_bounds",
         "backend",
     }
 
     def test_all_fields_in_annotations(self):
-        assert self.EXPECTED_FIELDS == set(EstimationSettings.__annotations__.keys())
+        assert self.EXPECTED_FIELDS == set(RankingSettings.__annotations__.keys())
 
     def test_all_fields_optional(self):
-        assert EstimationSettings.__required_keys__ == frozenset()
-        assert self.EXPECTED_FIELDS == set(EstimationSettings.__optional_keys__)
+        assert RankingSettings.__required_keys__ == frozenset()
+        assert self.EXPECTED_FIELDS == set(RankingSettings.__optional_keys__)
 
     def test_dict_interface(self):
-        settings: EstimationSettings = {"method": "L-BFGS-B", "max_iter": 200}
+        settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
         assert settings.get("method") == "L-BFGS-B"
         assert settings.get("tol", 1e-6) == 1e-6
 

@@ -2,8 +2,8 @@
 Shared type definitions, constants, and result dataclasses for the SRToolkit package.
 
 Defines symbol-type constants (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``),
-``EstimationSettings`` for parameter estimation configuration, and ``ModelResult`` /
-``EvalResult`` for representing SR experiment outcomes.
+``RankingSettings`` for ranking-function and parameter-estimation configuration, and
+``ModelResult`` / ``EvalResult`` for representing SR experiment outcomes.
 """
 
 from dataclasses import dataclass, field
@@ -37,15 +37,21 @@ FN_POSTFIX = -1000  # postfix functions: E '^2' — clearly negative, distinct f
 LEAF = 1000
 
 
-class EstimationSettings(TypedDict, total=False):
+class RankingSettings(TypedDict, total=False):
     """
-    Shared settings for parameter estimation and BED evaluation.
+    Settings consumed by the ranking functions (and the RMSE ranking's parameter estimator).
 
-    Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and
-    ``ParameterEstimator``. All fields are optional.
+    Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and ``ParameterEstimator``, then
+    handed to the active ranking's [setup][SRToolkit.evaluation.ranking.RankingFunction.setup] as a
+    plain ``dict``. All fields are optional.
+
+    These are the keys the built-in rankings understand. A custom
+    [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] may read *additional* keys from
+    the settings dict at runtime — passing them through works, but a type checker will not know
+    about them, so extend this ``TypedDict`` (or silence the call site) if you want them checked.
 
     Examples:
-        >>> settings: EstimationSettings = {"method": "L-BFGS-B", "max_iter": 200}
+        >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
         >>> settings.get("method")
         'L-BFGS-B'
         >>> settings.get("tol", 1e-6)
@@ -73,12 +79,22 @@ class EstimationSettings(TypedDict, total=False):
             ``"stack"`` when the symbol library contains many custom symbols).
         num_points_sampled: Number of domain points used when evaluating expression
             behavior for BED. ``-1`` uses all points in ``X``. Default: ``64``.
-        bed_X: Fixed evaluation points for BED. If ``None``, points are sampled from
-            ``domain_bounds`` or selected randomly from ``X``. Default: ``None``.
+        samplers: Per-feature list of [Sampler][SRToolkit.dataset.sampling.Sampler] that draw
+            the BED evaluation points (``num_points_sampled`` of them). Takes precedence over
+            subsampling ``X``. Default: ``None``.
+        bed_gt: Precomputed ground-truth behavior matrix for BED, one row per row of ``X`` and
+            ``num_consts_sampled`` columns (so ``X`` must be the points it was computed on;
+            ``samplers`` are ignored with it). If ``None``, the behavior is computed from the ground
+            truth, or taken from ``y``. Default: ``None``.
+        ranking_seed: Seed for the ranking's own randomness (BED points, behavior matrices,
+            threshold), overriding the evaluator's seed. Set by
+            [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]
+            to the dataset's seed. Read only by BED. Default: ``None``.
+        bed_resample: Read by [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]. ``False``
+            fixes the BED objective per dataset (``ranking_seed`` = dataset seed, ``0`` if unset);
+            ``True`` resamples it every run from the run's seed. Default: ``False``.
         num_consts_sampled: Number of constant vectors sampled per expression for
             BED. Default: ``32``.
-        domain_bounds: Per-variable ``(lower, upper)`` bounds used to sample
-            ``bed_X`` when it is ``None``. Default: ``None``.
     """
 
     method: str
@@ -91,9 +107,11 @@ class EstimationSettings(TypedDict, total=False):
     max_expr_length: int
     backend: str
     num_points_sampled: int
-    bed_X: Optional[np.ndarray]
+    samplers: Optional[List[Any]]
+    bed_gt: Optional[np.ndarray]
+    ranking_seed: Optional[int]
+    bed_resample: bool
     num_consts_sampled: int
-    domain_bounds: Optional[List[Tuple[float, float]]]
 
 
 @dataclass
@@ -114,6 +132,10 @@ class ModelResult:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
         error: Numeric error under the ranking function (RMSE or BED).
         parameters: Fitted constant values. Present for RMSE ranking only, ``None`` otherwise.
+        ranking_data: Freeform payload carried over from the
+            [RankingResult][SRToolkit.evaluation.ranking.RankingResult] ``extra`` dict of the
+            ranking function that scored this expression. Empty for rankings that emit nothing
+            beyond ``score``/``parameters``.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
             [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.ModelResult.add_augmentation].
@@ -122,6 +144,7 @@ class ModelResult:
     expr: List[str]
     error: float
     parameters: Optional["np.ndarray"] = None
+    ranking_data: Dict[str, Any] = field(default_factory=dict)
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
@@ -179,6 +202,7 @@ class ModelResult:
             "expr": self.expr,
             "error": float(self.error),
             "parameters": _to_json_safe(self.parameters),
+            "ranking_data": _to_json_safe(self.ranking_data),
             "augmentations": _to_json_safe(self.augmentations),
         }
 
@@ -206,6 +230,7 @@ class ModelResult:
             expr=data["expr"],
             error=data["error"],
             parameters=_from_json_safe(data["parameters"]),
+            ranking_data=_from_json_safe(data.get("ranking_data", {})),
             augmentations=_from_json_safe(data["augmentations"]),
         )
 

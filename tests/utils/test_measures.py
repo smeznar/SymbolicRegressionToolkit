@@ -15,6 +15,7 @@ from SRToolkit.utils.measures import (
     mse,
     nrmse,
     r2,
+    rmse,
     tree_edit_distance,
 )
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -384,4 +385,4 @@ class TestRegressionMetrics:
         assert nrmse(predict, self.X, self.y) == pytest.approx(1.0 / np.std(self.y))
 
     def test_registry_maps_names_to_functions(self):
-        assert REGRESSION_METRICS == {"mse": mse, "mae": mae, "r2": r2, "nrmse": nrmse}
+        assert REGRESSION_METRICS == {"mse": mse, "rmse": rmse, "mae": mae, "r2": r2, "nrmse": nrmse}

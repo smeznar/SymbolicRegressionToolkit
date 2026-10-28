@@ -149,15 +149,20 @@ class TestEstimateParametersGuards:
 
 
 class TestOptimizeParameters:
-    def test_invalid_constant_bounds_not_tuple_raises(self):
-        pe = ParameterEstimator(_X, _y_linear, constant_bounds=5)
+    def test_invalid_constant_bounds_not_pair_raises(self):
         with pytest.raises(ValueError, match="constant_bounds"):
-            pe.estimate_parameters(["C", "*", "X_0"])
+            ParameterEstimator(_X, _y_linear, constant_bounds=5)
 
     def test_invalid_constant_bounds_wrong_length_raises(self):
-        pe = ParameterEstimator(_X, _y_linear, constant_bounds=(1, 2, 3))
         with pytest.raises(ValueError, match="constant_bounds"):
-            pe.estimate_parameters(["C", "*", "X_0"])
+            ParameterEstimator(_X, _y_linear, constant_bounds=(1, 2, 3))
+
+    def test_constant_bounds_list_accepted(self):
+        # A JSON round trip turns the tuple into a list; it must still fit.
+        pe = ParameterEstimator(_X, _y_linear, constant_bounds=[-5, 5])
+        assert pe.estimation_settings["constant_bounds"] == (-5, 5)
+        rmse, params = pe.estimate_parameters(["C", "*", "X_0"])
+        assert rmse < 1e-4
 
     def test_mean_initialization_converges(self):
         pe = ParameterEstimator(_X, _y_linear, initialization="mean")

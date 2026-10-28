@@ -441,6 +441,29 @@ def mse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
     return float(np.mean((predict(X) - y) ** 2))
 
 
+def rmse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
+    """
+    Root-mean-square error between predictions and targets.
+
+    Examples:
+        >>> f = compile_expr(["X_0", "+", "C"])
+        >>> predict = lambda X: f(X, np.array([1.0]))
+        >>> X = np.array([[1.0], [2.0], [3.0]])
+        >>> y = np.array([2.0, 3.0, 4.0])
+        >>> rmse(predict, X, y)
+        0.0
+
+    Args:
+        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        X: Input data of shape ``(n_samples, n_features)``.
+        y: Target values of shape ``(n_samples,)``.
+
+    Returns:
+        The root-mean-square error as a float.
+    """
+    return float(np.sqrt(np.mean((predict(X) - y) ** 2)))
+
+
 def mae(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
     """
     Mean absolute error between predictions and targets.
@@ -525,6 +548,7 @@ def nrmse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
 
 REGRESSION_METRICS: Dict[str, Callable[[PredictFn, np.ndarray, np.ndarray], float]] = {
     "mse": mse,
+    "rmse": rmse,
     "mae": mae,
     "r2": r2,
     "nrmse": nrmse,

@@ -61,6 +61,10 @@ class Derivation:
     Obtain a [Derivation][SRToolkit.utils.grammar.derivation.Derivation] via
     [Grammar.start_derivation][SRToolkit.utils.grammar.Grammar.start_derivation].
 
+    Args:
+        grammar: The grammar whose rules and constraints the derivation follows.
+        start: The non-terminal the derivation starts from.
+
     Examples:
         >>> from SRToolkit.utils.grammar import Grammar, Rule
         >>> g = Grammar()

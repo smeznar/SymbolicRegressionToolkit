@@ -138,4 +138,17 @@ dmypy.json
 data/example_ds/*
 docs/other/*
 examples/commands.sh
-notes.txt
+
+# Personal notes and reference documents (not part of the package)
+notes/
+
+# Personal and throwaway scripts (shareable ones go in scripts/)
+scratch/
+
+# Local experiment output and example scratch files
+/results/
+examples/results/
+examples/my_benchmark.json
+examples/shared_demo.json
+examples/shared_demo.zip
+examples/single_eq.zip

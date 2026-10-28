@@ -22,12 +22,15 @@ Modules:
         types [UrlSource][SRToolkit.dataset.data_source.UrlSource] and
         [SampleSource][SRToolkit.dataset.data_source.SampleSource] — describe where a
         dataset's cached data originates.
+    data_split: [DataSplit][SRToolkit.dataset.data_split.DataSplit] — named arrays (e.g. a
+        dataset's held-out test data) with an optional data source.
     data_cache: dataset cache management — list, gc, remove, refresh, dataset_path —
         plus the materialisation engine used internally by the dataset machinery.
 """
 
 from . import data_cache
 from .data_source import DataSource, FallbackSource, SampleSource, UrlSource
+from .data_split import DataSplit
 from .feynman import Feynman
 from .nguyen import Nguyen
 from .sampling import IntegerUniformSampling, LogUniformSampling, Sampler, UniformSampling
@@ -49,5 +52,6 @@ __all__ = [
     "UrlSource",
     "SampleSource",
     "FallbackSource",
+    "DataSplit",
     "data_cache",
 ]

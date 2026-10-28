@@ -19,7 +19,7 @@ from typing_extensions import Unpack
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EstimationSettings
+from SRToolkit.utils.types import RankingSettings
 
 from . import data_cache
 from .data_source import DataSource, SampleSource
@@ -37,17 +37,6 @@ def _save_arrays_to_cache(
         np.savez(str(cache_path), X=X, y=y, allow_pickle=False)
     else:
         np.savez(str(cache_path), X=X, allow_pickle=False)
-
-
-def _save_gt_array_to_cache(benchmark: str, version: str, name: str, gt: np.ndarray) -> None:
-    """
-    Write an ndarray (a ``bed`` behaviour matrix) ground truth to ``<name>_gt.npy`` beside the
-    dataset ``.npz``. Such a ground truth is not JSON-safe, so the entry stores ``None`` and
-    [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] reloads it from here.
-    """
-    cache_path = data_cache.dataset_path(benchmark, version, name)
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(str(cache_path.parent / f"{name}_gt.npy"), gt)
 
 
 def _count_variables(symbol_library: SymbolLibrary) -> int:
@@ -139,14 +128,14 @@ class SR_benchmark:
         dataset_name: Optional[str] = None,
         ranking_function: str = "rmse",
         max_evaluations: int = -1,
-        ground_truth: Optional[Union[List[str], Node, np.ndarray]] = None,
+        ground_truth: Optional[Union[List[str], Node]] = None,
         original_equation: Optional[str] = None,
         success_threshold: Optional[float] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
         samplers: Optional[List[Sampler]] = None,
         data_source: Optional[DataSource] = None,
-        **kwargs: Unpack[EstimationSettings],
+        **kwargs: Unpack[RankingSettings],
     ):
         """
         Adds a dataset to the benchmark.
@@ -179,7 +168,8 @@ class SR_benchmark:
             samplers: Optional list of samplers (one per input variable). They define the
                 problem's input distribution and power
                 [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]; a
-                [SampleSource][SRToolkit.dataset.data_source.SampleSource] draws from them.
+                [SampleSource][SRToolkit.dataset.data_source.SampleSource] draws from them, and a
+                ``"bed"`` ranking draws its evaluation points from them.
             data_source: Optional [DataSource][SRToolkit.dataset.data_source.DataSource]
                 describing where the data comes from
                 ([UrlSource][SRToolkit.dataset.data_source.UrlSource] or
@@ -200,15 +190,15 @@ class SR_benchmark:
         if dataset_name in self.datasets:
             raise ValueError(f"[SR_benchmark.add_dataset] Dataset '{dataset_name}' already exists in the benchmark.")
 
-        if "bed_X" in kwargs and kwargs["bed_X"] is not None:
-            kwargs["bed_X"] = kwargs["bed_X"].tolist()
-
-        # An ndarray ('bed' behaviour matrix) ground truth is not JSON-safe: the entry
-        # stores None and the array is written to <name>_gt.npy at the end.
+        # Ground truth is symbolic only (token list / Node). A precomputed ndarray behaviour
+        # matrix is ranking-owned state, not a dataset ground truth — reject it here.
+        if isinstance(ground_truth, np.ndarray):
+            raise ValueError(
+                "[SR_benchmark.add_dataset] An ndarray ground_truth (a precomputed BED behaviour matrix) is "
+                "not supported; provide a symbolic ground truth (a token list or a Node)."
+            )
         if isinstance(ground_truth, Node):
-            ground_truth_out: Optional[Union[List[str], str]] = ground_truth.to_list()
-        elif isinstance(ground_truth, np.ndarray):
-            ground_truth_out = None
+            ground_truth_out: Optional[Union[List[str], str]] = ground_truth.to_list(symbol_library=symbol_library)
         else:
             ground_truth_out = ground_truth
 
@@ -217,7 +207,7 @@ class SR_benchmark:
             merged_metadata.update(dataset_metadata)
 
         entry: Dict[str, Any] = {
-            "format_version": 2,
+            "format_version": 3,
             "dataset_name": dataset_name,
             "benchmark": self.benchmark_name,
             "version": self.version,
@@ -261,11 +251,6 @@ class SR_benchmark:
                             "[SR_benchmark.add_dataset] For 'rmse' ranking, if the dataset argument is a numpy "
                             "array, the ground truth must be provided."
                         )
-                    if isinstance(ground_truth, np.ndarray):
-                        raise ValueError(
-                            "[SR_benchmark.add_dataset] For 'rmse' ranking, the ground truth must be "
-                            "a list of tokens from the symbol library or a SRToolkit.utils.Node object."
-                        )
                     try:
                         y = compile_expr(ground_truth, symbol_library)(dataset, None)
                     except Exception as e:
@@ -293,9 +278,6 @@ class SR_benchmark:
                     )
                 _save_arrays_to_cache(self.benchmark_name, self.version, dataset_name, dataset[0], dataset[1])
 
-        if isinstance(ground_truth, np.ndarray):
-            _save_gt_array_to_cache(self.benchmark_name, self.version, dataset_name, ground_truth)
-
         self.datasets[dataset_name] = entry
 
     def add_from_samplers(
@@ -311,7 +293,7 @@ class SR_benchmark:
         success_threshold: Optional[float] = None,
         max_evaluations: int = -1,
         dataset_metadata: Optional[dict] = None,
-        **kwargs: Unpack[EstimationSettings],
+        **kwargs: Unpack[RankingSettings],
     ) -> None:
         """
         Add a dataset described only by a ground-truth expression and per-variable samplers.
@@ -587,7 +569,6 @@ class SR_benchmark:
 
         - ``benchmark.json``: the benchmark configuration dict.
         - ``data/<dataset_name>.npz``: the cached data for each dataset.
-        - ``data/<dataset_name>_gt.npy``: ground-truth behaviour array (if present).
 
         Args:
             path: Destination path for the archive.  Non-``.zip`` suffixes trigger a
@@ -619,10 +600,6 @@ class SR_benchmark:
                         else:
                             np.savez(buf, X=ds.X)
                         zf.writestr(f"data/{name}.npz", buf.getvalue())
-                        if isinstance(ds.ground_truth, np.ndarray):
-                            gt_buf = io.BytesIO()
-                            np.save(gt_buf, ds.ground_truth)
-                            zf.writestr(f"data/{name}_gt.npy", gt_buf.getvalue())
                         continue
                 else:
                     ds_name = entry.get("dataset_name", name)
@@ -634,10 +611,6 @@ class SR_benchmark:
 
                 zf.write(str(cache_p), f"data/{name}.npz")
 
-                gt_path = cache_p.parent / f"{name}_gt.npy"
-                if gt_path.exists():
-                    zf.write(str(gt_path), f"data/{name}_gt.npy")
-
     @classmethod
     def from_archive(cls, path: Union[str, Path]) -> "SR_benchmark":
         """
@@ -645,9 +618,8 @@ class SR_benchmark:
 
         This is the counterpart to
         [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]: it reads
-        ``benchmark.json`` from the archive, extracts the bundled ``data/*.npz`` (and any
-        ``_gt.npy``) into the data cache, and returns a benchmark whose datasets read
-        from that populated cache.
+        ``benchmark.json`` from the archive, extracts the bundled ``data/*.npz`` into the data
+        cache, and returns a benchmark whose datasets read from that populated cache.
 
         Args:
             path: Path to a ``.zip`` archive written by

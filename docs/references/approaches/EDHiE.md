@@ -1,5 +1,5 @@
 ---
-title: EDHiE 
+title: EDHiE
 ---
 
 # EDHiE
@@ -7,3 +7,6 @@ title: EDHiE
 ::: SRToolkit.approaches.EDHiE
     options:
         heading_level: 2
+        members:
+          - EDHiE
+          - EDHiEConfig

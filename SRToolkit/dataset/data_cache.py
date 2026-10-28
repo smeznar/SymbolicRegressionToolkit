@@ -172,8 +172,8 @@ def extract_zip_into_version_dir(zf: zipfile.ZipFile, version_dir: Path, *, flat
 
     - **``to_archive`` layout**: data files live under a ``data/`` prefix (alongside a
       ``benchmark.json`` / ``dataset.json`` that is *not* a data file). The ``data/``
-      prefix is stripped so the ``.npz`` (and ``_gt.npy``) files land directly in the
-      version directory; non-``data/`` members are ignored.
+      prefix is stripped so the ``.npz`` files land in the version directory (a dataset's test
+      and aux data in its own subfolder); non-``data/`` members are ignored.
     - **flat layout**: the ``.npz`` files sit at the archive root (as served by the
       built-in benchmarks). When ``flat_fallback`` is ``True`` (the default) and no
       ``data/``-prefixed member is present, the whole archive is extracted as-is.
@@ -247,7 +247,8 @@ def list() -> List[Dict[str, Any]]:
     """
     List all datasets currently stored in the cache.
 
-    Walks ``data_root()`` and returns one dict per cached ``.npz``.
+    Walks ``data_root()`` and returns one dict per cached dataset (its main ``.npz``; a
+    dataset's test and aux data in its subfolder are not listed separately).
 
     Returns:
         A list of dicts, each with keys ``benchmark``, ``version``, ``key``,
@@ -338,8 +339,9 @@ def remove(benchmark: str, version: Optional[str] = None, key: Optional[str] = N
 
     - ``remove("feynman")`` — delete every cached version of the benchmark.
     - ``remove("feynman", "1.0.0")`` — delete just that version directory.
-    - ``remove("feynman", "1.0.0", "I.16.6")`` — delete a single dataset's ``.npz`` plus
-      its ``_gt.npy`` and ``.meta.json`` sidecars.
+    - ``remove("feynman", "1.0.0", "I.16.6")`` — delete a single dataset: its ``.npz``, its
+      ``.meta.json`` sidecar, and its folder holding the test and aux data (plus a ``_gt.npy``
+      left by older versions).
 
     Targeting something that is not in the cache is a no-op (returns an empty list);
     nothing is raised.
@@ -379,6 +381,11 @@ def remove(benchmark: str, version: Optional[str] = None, key: Optional[str] = N
             if target.exists():
                 target.unlink()
                 removed.append(target)
+        # The dataset's test and aux data live in a folder named after it.
+        splits_dir = version_dir / key
+        if splits_dir.is_dir():
+            shutil.rmtree(splits_dir)
+            removed.append(splits_dir)
 
     return removed
 

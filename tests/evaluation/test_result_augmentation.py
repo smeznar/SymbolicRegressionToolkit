@@ -1,16 +1,17 @@
+import json
+import os
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
+from SRToolkit.evaluation.ranking import BEDRanking, RMSERanking
 from SRToolkit.evaluation.result_augmentation import (
-    BED,
-    R2,
-    RMSE,
     ExpressionSimplifier,
     ExpressionToLatex,
+    HoldoutMetric,
 )
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.evaluation.sr_evaluator import ModelResult, SR_evaluator, SR_results
 from SRToolkit.utils import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -452,405 +453,284 @@ class TestExpressionSimplifierSerialization:
             ExpressionSimplifier.from_dict(d)
 
 
-# ── RMSE.__init__ ─────────────────────────────────────────────────────────────
+# ── HoldoutMetric ─────────────────────────────────────────────────────────────
+
+# Held-out data drawn from the same function as the training set (y = 2*X_1 - X_0).
+_X_TEST = np.array([[2.0, 3.0], [4.0, 1.0], [0.0, 5.0], [6.0, 2.0]])
+_y_TEST = 2.0 * _X_TEST[:, 1] - _X_TEST[:, 0]
 
 
-class TestRMSEInit:
-    def test_stores_evaluator_scope_name(self):
-        se = _rmse_se()
-        aug = RMSE(se, scope="best", name="myRMSE")
-        assert aug.evaluator is se
+class TestHoldoutMetricInit:
+    def test_stores_scope_and_name(self):
+        aug = HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", scope="best", symbol_library=_sl, name="myH")
         assert aug.scope == "best"
-        assert aug.name == "myRMSE"
+        assert aug.name == "myH"
 
     def test_defaults(self):
-        se = _rmse_se()
-        aug = RMSE(se)
+        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl)
         assert aug.scope == "top"
-        assert aug.name == "RMSE"
+        assert aug.name == "HoldoutMetric"
 
     def test_invalid_scope_raises(self):
-        with pytest.raises(Exception, match="scope"):
-            RMSE(_rmse_se(), scope="invalid")
+        with pytest.raises(ValueError, match="scope"):
+            HoldoutMetric((_X_TEST, _y_TEST), scope="invalid", symbol_library=_sl)
 
-    def test_wrong_ranking_function_raises(self):
-        se = _bed_se()
-        with pytest.raises(Exception, match="rmse"):
-            RMSE(se)
+    def test_invalid_data_type_raises(self):
+        with pytest.raises(TypeError, match="DataSplit"):
+            HoldoutMetric("not_data", symbol_library=_sl)
 
-    def test_none_y_raises(self):
-        mock_se = MagicMock()
-        mock_se.ranking_function = "rmse"
-        mock_se.y = None
-        with pytest.raises(Exception, match="y"):
-            RMSE(mock_se)
+    def test_invalid_metric_type_raises(self):
+        with pytest.raises(TypeError, match="metric must be"):
+            HoldoutMetric((_X_TEST, _y_TEST), metric=123, symbol_library=_sl)
+
+    def test_accepts_data_split(self):
+        from SRToolkit.dataset.data_split import DataSplit
+
+        aug = HoldoutMetric(DataSplit({"X": _X_TEST, "y": _y_TEST}), symbol_library=_sl)
+        np.testing.assert_array_equal(aug._X, _X_TEST)
+        np.testing.assert_array_equal(aug._y, _y_TEST)
 
 
-# ── RMSE.write_results ────────────────────────────────────────────────────────
-
-
-class TestRMSEWriteResults:
-    def test_writes_min_error_to_eval_result(self):
+class TestHoldoutMetricReuseParams:
+    def test_best_scope_writes_best_value_to_eval_result(self):
         se, result = _one_model_result()
-        RMSE(se, scope="best").write_results(result)
-        assert "min_error" in result.augmentations["RMSE"]
-        assert result.augmentations["RMSE"]["min_error"] < 1e-6
+        HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", scope="best", symbol_library=_sl).write_results(result)
+        aug = result.augmentations["HoldoutMetric"]
+        assert "best_value" in aug
+        assert aug["metric"] == "rmse"
+        assert aug["best_value"] < 1e-6  # perfect expr generalises
 
     def test_best_scope_does_not_write_to_models(self):
         se, result = _one_model_result()
-        RMSE(se, scope="best").write_results(result)
-        assert "RMSE" not in result.top_models[0].augmentations
+        HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl).write_results(result)
+        assert "HoldoutMetric" not in result.top_models[0].augmentations
 
-    def test_top_scope_writes_error_and_params_to_top_models(self):
+    def test_top_scope_writes_value_to_top_models(self):
         se, result = _one_model_result()
-        RMSE(se, scope="top").write_results(result)
-        model_aug = result.top_models[0].augmentations["RMSE"]
-        assert "error" in model_aug
-        assert "parameters" in model_aug
+        HoldoutMetric((_X_TEST, _y_TEST), scope="top", symbol_library=_sl).write_results(result)
+        assert result.top_models[0].augmentations["HoldoutMetric"]["value"] < 1e-6
 
     def test_all_scope_writes_to_all_models(self):
         se, result = _two_model_result()
-        RMSE(se, scope="all").write_results(result)
-        assert "RMSE" in result.all_models[1].augmentations
-        assert "error" in result.all_models[1].augmentations["RMSE"]
+        HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl).write_results(result)
+        assert "HoldoutMetric" in result.all_models[1].augmentations
 
+    def test_reuses_train_params_no_refit(self):
+        # The reported value must equal scoring with the EvalResult's *stored* (train-fitted)
+        # parameters — i.e. no refit on the held-out data.
+        from SRToolkit.evaluation.sr_evaluator import evaluate_metric
 
-# ── RMSE.format_eval_result ───────────────────────────────────────────────────
+        se, result = _one_model_result()
+        HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", scope="top", symbol_library=_sl).write_results(result)
+        model = result.top_models[0]
+        expected = evaluate_metric(model.expr, model.parameters, _X_TEST, _y_TEST, "rmse", _sl)
+        assert model.augmentations["HoldoutMetric"]["value"] == pytest.approx(expected)
 
+    def test_r2_metric_on_holdout(self):
+        se, result = _one_model_result()
+        HoldoutMetric((_X_TEST, _y_TEST), metric="r2", scope="best", symbol_library=_sl).write_results(result)
+        assert result.augmentations["HoldoutMetric"]["best_value"] == pytest.approx(1.0, abs=1e-4)
 
-class TestRMSEFormatEvalResult:
-    def test_returns_string_when_min_error_present(self):
-        out = RMSE.format_eval_result({"min_error": 0.05})
-        assert "0.05" in out
-        assert out != ""
-
-    def test_returns_empty_when_min_error_absent(self):
-        assert RMSE.format_eval_result({}) == ""
-
-
-# ── RMSE.format_model_result ──────────────────────────────────────────────────
-
-
-class TestRMSEFormatModelResult:
-    def test_returns_rmse_with_params(self):
-        out = RMSE.format_model_result({"error": 0.5, "parameters": np.array([2.0])})
-        assert "RMSE=" in out
-        assert "params=" in out
-
-    def test_returns_rmse_without_params_when_none(self):
-        out = RMSE.format_model_result({"error": 0.5, "parameters": None})
-        assert "RMSE=" in out
-        assert "params=" not in out
-
-    def test_returns_rmse_without_params_when_key_absent(self):
-        out = RMSE.format_model_result({"error": 0.5})
-        assert "RMSE=" in out
-        assert "params=" not in out
-
-
-# ── RMSE.to_dict / from_dict ──────────────────────────────────────────────────
-
-
-class TestRMSESerialization:
-    def test_to_dict_has_expected_keys(self, tmp_path):
+    def test_invalid_expression_scores_nan_without_aborting(self):
+        # An unparseable expression (recorded invalid, parameters=None) evaluated *first* must score
+        # NaN and not stop the models after it from being augmented.
         se = _rmse_se()
-        aug = RMSE(se, scope="best", name="R")
-        d = aug.to_dict(str(tmp_path), "test")
-        assert d["format_version"] == 1
-        assert d["type"] == "RMSE"
-        assert d["scope"] == "best"
-        assert d["name"] == "R"
-        assert "evaluator" in d
-
-    def test_from_dict_round_trip(self, tmp_path):
-        se = _rmse_se()
-        aug = RMSE(se, scope="best", name="myR")
-        d = aug.to_dict(str(tmp_path), "test")
-        restored = RMSE.from_dict(d)
-        assert restored.scope == "best"
-        assert restored.name == "myR"
-        np.testing.assert_array_equal(restored.evaluator.X, _X)
-
-    def test_from_dict_invalid_format_version_raises(self, tmp_path):
-        d = RMSE(_rmse_se()).to_dict(str(tmp_path), "test")
-        d["format_version"] = 99
-        with pytest.raises(ValueError, match="format_version"):
-            RMSE.from_dict(d)
-
-
-# ── BED.__init__ ──────────────────────────────────────────────────────────────
-
-
-class TestBEDInit:
-    def test_stores_evaluator_scope_name(self):
-        se = _bed_se()
-        aug = BED(se, scope="best", name="myBED")
-        assert aug.evaluator is se
-        assert aug.scope == "best"
-        assert aug.name == "myBED"
-
-    def test_defaults(self):
-        aug = BED(_bed_se())
-        assert aug.scope == "top"
-        assert aug.name == "BED"
-
-    def test_invalid_scope_raises(self):
-        with pytest.raises(Exception, match="scope"):
-            BED(_bed_se(), scope="invalid")
-
-    def test_wrong_ranking_function_raises(self):
-        with pytest.raises(Exception, match="bed"):
-            BED(_rmse_se())
-
-
-# ── BED.write_results ─────────────────────────────────────────────────────────
-
-
-class TestBEDWriteResults:
-    def test_writes_best_expr_bed_to_eval_result(self):
-        se = _bed_se()
+        se.evaluate_expr(["C", "*", "X_1", "X_0"])
         se.evaluate_expr(_BEST_EXPR)
         result = se.get_results(top_k=1)[0]
-        BED(se, scope="best").write_results(result)
-        assert "best_expr_bed" in result.augmentations["BED"]
+        HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl).write_results(result)
+        values = {"".join(m.expr): m.augmentations["HoldoutMetric"]["value"] for m in result.all_models}
+        assert np.isnan(values["C*X_1X_0"])
+        assert values["C*X_1-X_0"] < 1e-6
 
-    def test_best_scope_does_not_write_to_models(self):
-        se = _bed_se()
-        se.evaluate_expr(_BEST_EXPR)
-        result = se.get_results(top_k=1)[0]
-        BED(se, scope="best").write_results(result)
-        assert "BED" not in result.top_models[0].augmentations
+    def test_symbol_library_defaults_when_none(self):
+        aug = HoldoutMetric((_X_TEST, _y_TEST))
+        assert isinstance(aug.symbol_library, SymbolLibrary)
 
-    def test_top_scope_writes_bed_to_top_models(self):
-        se = _bed_se()
+    def test_model_rejected_by_search_scores_nan(self):
+        # Over max_constants in the search: error NaN, parameters []. It must not be refit and
+        # scored on the holdout as if it were a candidate answer.
+        se = _rmse_se(max_constants=1)
+        se.evaluate_expr(["C", "*", "X_1", "+", "C", "*", "X_0"])
         se.evaluate_expr(_BEST_EXPR)
-        result = se.get_results(top_k=1)[0]
-        BED(se, scope="top").write_results(result)
-        assert "BED" in result.top_models[0].augmentations
-        assert "bed" in result.top_models[0].augmentations["BED"]
+        result = se.get_results(top_k=2)[0]
+        HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl).write_results(result)
+        values = {"".join(m.expr): m.augmentations["HoldoutMetric"]["value"] for m in result.all_models}
+        assert np.isnan(values["C*X_1+C*X_0"])
+        assert values["C*X_1-X_0"] < 1e-6
 
-    def test_all_scope_writes_to_all_models(self):
+    def test_constant_free_model_not_refit(self):
+        se, result = _one_model_result()
+        se.evaluate_expr(_OTHER_EXPR)
+        result = se.get_results(top_k=2)[0]
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl)
+        with patch.object(aug, "_fit_parameters") as fit:
+            aug.write_results(result)
+        fit.assert_not_called()
+
+    def test_constant_free_model_without_parameters_not_fit(self):
+        # BED results carry parameters=None even for constant-free expressions; there is nothing to fit.
         se = _bed_se()
-        se.evaluate_expr(_BEST_EXPR)
         se.evaluate_expr(_OTHER_EXPR)
         result = se.get_results(top_k=1)[0]
-        BED(se, scope="all").write_results(result)
-        assert "BED" in result.all_models[1].augmentations
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl)
+        with patch.object(aug, "_fit_parameters") as fit:
+            aug.write_results(result)
+        fit.assert_not_called()
+        assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
 
-
-# ── BED.format_eval_result ────────────────────────────────────────────────────
-
-
-class TestBEDFormatEvalResult:
-    def test_returns_string_when_bed_present(self):
-        out = BED.format_eval_result({"best_expr_bed": 0.1})
-        assert "0.1" in out
-        assert out != ""
-
-    def test_returns_empty_when_key_absent(self):
-        assert BED.format_eval_result({}) == ""
-
-
-# ── BED.format_model_result ───────────────────────────────────────────────────
-
-
-class TestBEDFormatModelResult:
-    def test_returns_string_when_bed_present(self):
-        out = BED.format_model_result({"bed": 0.2})
-        assert "0.2" in out
-        assert out != ""
-
-    def test_returns_empty_when_key_absent(self):
-        assert BED.format_model_result({}) == ""
-
-    def test_returns_empty_when_value_is_empty_string(self):
-        assert BED.format_model_result({"bed": ""}) == ""
-
-
-# ── BED.to_dict / from_dict ───────────────────────────────────────────────────
-
-
-class TestBEDSerialization:
-    def test_to_dict_has_expected_keys(self, tmp_path):
-        se = _bed_se()
-        aug = BED(se, scope="all", name="B")
-        d = aug.to_dict(str(tmp_path), "test")
-        assert d["format_version"] == 1
-        assert d["type"] == "BED"
-        assert d["scope"] == "all"
-        assert d["name"] == "B"
-
-    def test_from_dict_round_trip(self, tmp_path):
-        se = _bed_se()
-        aug = BED(se, scope="all", name="myB")
-        d = aug.to_dict(str(tmp_path), "test")
-        restored = BED.from_dict(d)
-        assert restored.scope == "all"
-        assert restored.name == "myB"
-
-    def test_from_dict_invalid_format_version_raises(self, tmp_path):
-        d = BED(_bed_se()).to_dict(str(tmp_path), "test")
-        d["format_version"] = 99
-        with pytest.raises(ValueError, match="format_version"):
-            BED.from_dict(d)
-
-
-# ── R2.__init__ ───────────────────────────────────────────────────────────────
-
-
-class TestR2Init:
-    def test_stores_evaluator_scope_name(self):
-        se = _rmse_se()
-        aug = R2(se, scope="best", name="myR2")
-        assert aug.evaluator is se
-        assert aug.scope == "best"
-        assert aug.name == "myR2"
-
-    def test_defaults(self):
-        aug = R2(_rmse_se())
-        assert aug.scope == "top"
-        assert aug.name == "R2"
-
-    def test_invalid_scope_raises(self):
-        with pytest.raises(Exception, match="scope"):
-            R2(_rmse_se(), scope="invalid")
-
-    def test_wrong_ranking_function_raises(self):
-        with pytest.raises(Exception, match="rmse"):
-            R2(_bed_se())
-
-    def test_none_y_raises(self):
-        mock_se = MagicMock()
-        mock_se.ranking_function = "rmse"
-        mock_se.y = None
-        with pytest.raises(Exception, match="y"):
-            R2(mock_se)
-
-    def test_ss_tot_computed(self):
-        se = _rmse_se()
-        aug = R2(se)
-        expected = np.sum((_y - np.mean(_y)) ** 2)
-        assert abs(aug.ss_tot - expected) < 1e-12
-
-
-# ── R2._compute_r2 ────────────────────────────────────────────────────────────
-
-
-class TestR2ComputeR2:
-    def test_perfect_fit_returns_one(self):
-        se, result = _one_model_result()
-        aug = R2(se)
-        r2_val = aug._compute_r2(result.top_models[0])
-        assert r2_val == pytest.approx(1.0, abs=1e-4)
-
-    def test_clamped_to_zero_when_ss_res_exceeds_ss_tot(self):
-        # Near-constant y → small ss_tot; X_0 far from y → ss_res >> ss_tot
-        X_bad = np.array([[100.0], [200.0], [300.0], [400.0]])
-        y_bad = np.array([1.0, 1.1, 1.2, 1.3])
-        se = SR_evaluator(X_bad, y_bad, seed=42)
-        se.evaluate_expr(["X_0"])
-        result = se.get_results(top_k=1)[0]
-        aug = R2(se)
-        r2_val = aug._compute_r2(result.top_models[0])
-        assert r2_val == 0.0
-
-
-# ── R2.write_results ──────────────────────────────────────────────────────────
-
-
-class TestR2WriteResults:
-    def test_writes_best_expr_r2_to_eval_result(self):
-        se, result = _one_model_result()
-        R2(se, scope="best").write_results(result)
-        assert "best_expr_r^2" in result.augmentations["R2"]
-
-    def test_perfect_fit_r2_near_one(self):
-        se, result = _one_model_result()
-        R2(se).write_results(result)
-        assert result.augmentations["R2"]["best_expr_r^2"] == pytest.approx(1.0, abs=1e-4)
-
-    def test_bad_expr_r2_less_than_one(self):
-        se = _rmse_se()
-        se.evaluate_expr(_OTHER_EXPR)
-        result = se.get_results(top_k=1)[0]
-        R2(se).write_results(result)
-        assert result.augmentations["R2"]["best_expr_r^2"] < 1.0
-
-    def test_best_scope_does_not_write_to_models(self):
-        se, result = _one_model_result()
-        R2(se, scope="best").write_results(result)
-        assert "R2" not in result.top_models[0].augmentations
-
-    def test_top_scope_writes_r2_and_params_to_top_models(self):
-        se, result = _one_model_result()
-        R2(se, scope="top").write_results(result)
-        model_aug = result.top_models[0].augmentations["R2"]
-        assert "r^2" in model_aug
-        assert "parameters_r^2" in model_aug
-
-    def test_all_scope_writes_to_all_models(self):
+    def test_each_model_scored_once(self):
+        # top_models and all_models share their ModelResult objects.
         se, result = _two_model_result()
-        R2(se, scope="all").write_results(result)
-        assert "R2" in result.all_models[1].augmentations
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl)
+        with patch.object(aug, "_value", wraps=aug._value) as value:
+            aug.write_results(result)
+        assert value.call_count == len(result.all_models)
+
+    def test_holdout_fit_uses_ranking_settings(self):
+        # BED results carry no parameters, so constants are fit on the holdout, under the given
+        # settings: with max_constants=0 an expression with a constant is rejected (NaN).
+        se = _bed_se()
+        se.evaluate_expr(["C", "+", "X_0"])
+        result = se.get_results(top_k=1)[0]
+        HoldoutMetric(
+            (_X_TEST, _y_TEST), scope="best", symbol_library=_sl, ranking_settings={"max_constants": 0}
+        ).write_results(result)
+        assert np.isnan(result.augmentations["HoldoutMetric"]["best_value"])
 
 
-# ── R2.format_eval_result ─────────────────────────────────────────────────────
+class TestHoldoutMetricRefitConstants:
+    def test_refit_constants_ignores_train_parameters(self):
+        se, result = _one_model_result()
+        model = result.top_models[0]
+        model.parameters = np.array([5.0])  # deliberately wrong (the true constant is 2)
+        reuse = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl)
+        refit = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl, refit_constants=True)
+        assert reuse._value(model) > 1.0
+        assert refit._value(model) < 1e-6
+
+    def test_refit_constants_keeps_rejected_models_nan(self):
+        se = _rmse_se(max_constants=1)
+        se.evaluate_expr(["C", "*", "X_1", "+", "C", "*", "X_0"])
+        result = se.get_results(top_k=1)[0]
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl, refit_constants=True)
+        aug.write_results(result)
+        assert np.isnan(result.augmentations["HoldoutMetric"]["best_value"])
+
+    def test_refit_constants_recorded_in_augmentation(self):
+        se, result = _one_model_result()
+        HoldoutMetric((_X_TEST, _y_TEST), scope="top", symbol_library=_sl, refit_constants=True).write_results(result)
+        assert result.augmentations["HoldoutMetric"]["refit_constants"] is True
+        assert result.top_models[0].augmentations["HoldoutMetric"]["refit_constants"] is True
+
+    def test_refit_constants_with_ranking_function_raises(self):
+        with pytest.raises(ValueError, match="refit_constants applies to string/callable metrics only"):
+            HoldoutMetric((_X_TEST, _y_TEST), metric=RMSERanking(), symbol_library=_sl, refit_constants=True)
 
 
-class TestR2FormatEvalResult:
-    def test_returns_string_when_r2_present(self):
-        out = R2.format_eval_result({"best_expr_r^2": 0.95})
-        assert "0.95" in out
-        assert out != ""
+class TestHoldoutMetricRefit:
+    def test_refit_ranking_writes_finite_value(self):
+        se = _bed_se()
+        se.evaluate_expr(_BEST_EXPR)
+        result = se.get_results(top_k=1)[0]
+        aug = HoldoutMetric(
+            (_X_BED,),
+            metric=BEDRanking(),
+            scope="best",
+            symbol_library=_sl,
+            ground_truth=["C", "+", "X_0"],
+            ranking_settings={"num_consts_sampled": 8, "num_points_sampled": _X_BED.shape[0]},
+        )
+        aug.write_results(result)
+        assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
+        assert result.augmentations["HoldoutMetric"]["metric"] == "bed"
 
-    def test_returns_empty_when_key_absent(self):
-        assert R2.format_eval_result({}) == ""
-
-
-# ── R2.format_model_result ────────────────────────────────────────────────────
-
-
-class TestR2FormatModelResult:
-    def test_returns_r2_with_params(self):
-        out = R2.format_model_result({"r^2": 0.9, "parameters_r^2": np.array([1.0])})
-        assert "R²=" in out
-        assert "params=" in out
-
-    def test_returns_r2_without_params_when_none(self):
-        out = R2.format_model_result({"r^2": 0.9, "parameters_r^2": None})
-        assert "R²=" in out
-        assert "params=" not in out
-
-    def test_returns_r2_without_params_when_key_absent(self):
-        out = R2.format_model_result({"r^2": 0.9})
-        assert "R²=" in out
-        assert "params=" not in out
+    def test_refit_rmse_without_symbol_library_generates_targets(self):
+        # RMSERanking.setup builds y from the ground truth through the symbol library, so a None
+        # library must be resolved before setup.
+        aug = HoldoutMetric((_X_TEST,), metric=RMSERanking(), ground_truth=["X_0", "+", "X_1"])
+        assert aug._value(ModelResult(expr=["X_0", "+", "X_1"], error=0.0)) < 1e-6
 
 
-# ── R2.to_dict / from_dict ────────────────────────────────────────────────────
+class TestHoldoutMetricFormat:
+    def test_format_eval_result(self):
+        out = HoldoutMetric.format_eval_result({"best_value": 0.05, "metric": "rmse"})
+        assert "0.05" in out and "rmse" in out
+
+    def test_format_eval_result_empty(self):
+        assert HoldoutMetric.format_eval_result({}) == ""
+
+    def test_format_model_result(self):
+        out = HoldoutMetric.format_model_result({"value": 0.1, "metric": "rmse"})
+        assert "0.1" in out and "rmse" in out
+
+    def test_format_model_result_empty(self):
+        assert HoldoutMetric.format_model_result({}) == ""
+
+    def test_format_marks_refit_values(self):
+        data = {"value": 0.1, "best_value": 0.1, "metric": "rmse", "refit_constants": True}
+        assert "rmse (refit)" in HoldoutMetric.format_model_result(data)
+        assert "rmse (refit)" in HoldoutMetric.format_eval_result(data)
 
 
-class TestR2Serialization:
-    def test_to_dict_has_expected_keys(self, tmp_path):
-        se = _rmse_se()
-        aug = R2(se, scope="all", name="myR2")
-        d = aug.to_dict(str(tmp_path), "test")
-        assert d["format_version"] == 1
-        assert d["type"] == "R2"
+class TestHoldoutMetricSerialization:
+    def test_to_dict_from_dict_round_trip(self, tmp_path):
+        aug = HoldoutMetric((_X_TEST, _y_TEST), metric="r2", scope="all", symbol_library=_sl, name="myH")
+        d = aug.to_dict(str(tmp_path), "t")
+        assert d["type"] == "HoldoutMetric"
+        assert d["metric"] == "r2"
         assert d["scope"] == "all"
-        assert d["name"] == "myR2"
-
-    def test_from_dict_round_trip(self, tmp_path):
-        se = _rmse_se()
-        aug = R2(se, scope="all", name="myR2")
-        d = aug.to_dict(str(tmp_path), "test")
-        restored = R2.from_dict(d)
+        restored = HoldoutMetric.from_dict(d)
         assert restored.scope == "all"
-        assert restored.name == "myR2"
-        np.testing.assert_array_equal(restored.evaluator.X, _X)
+        assert restored.name == "myH"
+        np.testing.assert_array_equal(restored._X, _X_TEST)
+        np.testing.assert_array_equal(restored._y, _y_TEST)
+
+    def test_refit_constants_round_trip(self, tmp_path):
+        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, refit_constants=True)
+        assert HoldoutMetric.from_dict(aug.to_dict(str(tmp_path), "t")).refit_constants is True
+
+    def test_seed_and_ranking_settings_round_trip(self, tmp_path):
+        settings = {"constant_bounds": (-2, 2), "max_constants": 3}
+        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, ranking_settings=settings, seed=7)
+        restored = HoldoutMetric.from_dict(json.loads(json.dumps(aug.to_dict(str(tmp_path), "t"))))
+        assert restored.seed == 7
+        assert restored.ranking_settings["max_constants"] == 3
+        assert list(restored.ranking_settings["constant_bounds"]) == [-2, 2]
+        assert restored._fit_parameters(_BEST_EXPR)[0] < 1e-6  # the list bounds still fit
+
+    def test_to_dict_is_json_safe_with_ranking_only_settings(self, tmp_path):
+        from SRToolkit.dataset.sampling import UniformSampling
+
+        settings = {"samplers": [UniformSampling(0, 1)], "max_constants": 3}
+        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, ranking_settings=settings)
+        d = json.loads(json.dumps(aug.to_dict(str(tmp_path), "t")))
+        assert d["ranking_settings"] == {"max_constants": 3}
+
+    def test_to_dict_stores_absolute_data_path(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        d = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl).to_dict("relative_dir", "t")
+        assert os.path.isabs(d["data"])
+
+    def test_loaded_results_scored_once_per_expression(self, tmp_path):
+        # After SR_results.load, top_models and all_models are separate copies of the same models.
+        se = _rmse_se()
+        se.evaluate_expr(_BEST_EXPR)
+        se.evaluate_expr(_OTHER_EXPR)
+        se.get_results(top_k=1).save(str(tmp_path / "r.json"))
+        result = SR_results.load(str(tmp_path / "r.json"))[0]
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl)
+        with patch.object(aug, "_value", wraps=aug._value) as value:
+            aug.write_results(result)
+        assert value.call_count == 2
+
+    def test_callable_metric_not_serialisable(self, tmp_path):
+        aug = HoldoutMetric((_X_TEST, _y_TEST), metric=lambda predict, X, y: 0.0, symbol_library=_sl)
+        with pytest.raises(NotImplementedError):
+            aug.to_dict(str(tmp_path), "t")
 
     def test_from_dict_invalid_format_version_raises(self, tmp_path):
-        d = R2(_rmse_se()).to_dict(str(tmp_path), "test")
+        d = HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", symbol_library=_sl).to_dict(str(tmp_path), "t")
         d["format_version"] = 99
         with pytest.raises(ValueError, match="format_version"):
-            R2.from_dict(d)
+            HoldoutMetric.from_dict(d)
