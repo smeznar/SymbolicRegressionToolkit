@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -29,10 +29,10 @@
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1278,6 +1278,8 @@
       
         
       
+        
+      
     
     
     
@@ -1390,6 +1392,34 @@
   
   
     <li class="md-nav__item">
+      <a href="references/evaluation/ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="references/evaluation/result_augmentation/" class="md-nav__link">
         
   
@@ -1458,6 +1488,8 @@
       
         
           
+        
+      
         
       
         
@@ -1708,6 +1740,34 @@
     
   
     data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="references/dataset/data_split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_split
   
 
     
@@ -2333,7 +2393,7 @@
 </code></pre></div></p>
 <p>Some built-in approaches (currently <strong>EDHiE</strong>) require extra dependencies (<strong>PyTorch</strong> and <strong>pymoo</strong>).
 To install them alongside the package, use the <code>approaches</code> extra:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip install &#39;symbolic-regression-toolkit[approaches]&#39;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip install 'symbolic-regression-toolkit[approaches]'
 </code></pre></div></p>
 <p>Alternatively, you can install the latest build directly from the repository with the command (Recommended):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip install git+https://github.com/smeznar/SymbolicRegressionToolkit
@@ -2345,21 +2405,21 @@ To install them alongside the package, use the <code>approaches</code> extra:
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">compile_expr</span><span class="p">,</span> <span class="n">tokens_to_tree</span><span class="p">,</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">expr_to_latex</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Create an executable function from the expression</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">expr</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">])</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">expr</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Calculate the output at two points (1, 2) and (2, 5) with C=3</span>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">data_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">]])</span>
 <a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">]</span>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">output</span> <span class="o">=</span> <span class="n">expr</span><span class="p">(</span><span class="n">data_points</span><span class="p">,</span> <span class="n">constants</span><span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Variable &quot;output&quot; should now contain np.array([7, 17])</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Variable "output" should now contain np.array([7, 17])</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Use a SymbolLibrary as a context manager to avoid passing it to every call</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">with</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="k">as</span> <span class="n">sl</span><span class="p">:</span>
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="c1"># Create an expression tree from the token list</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">expr_tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">])</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">expr_tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
 <a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>
 <a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="c1"># Transform the expression into a list of symbols in postfix notation</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">postfix_expr</span> <span class="o">=</span> <span class="n">expr_tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">&quot;postfix&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">postfix_expr</span> <span class="o">=</span> <span class="n">expr_tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">"postfix"</span><span class="p">)</span>
 <a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
 <a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="c1"># Create a LaTeX string of the expression for clear presentation</span>
 <a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">expr_latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">(</span><span class="n">expr_tree</span><span class="p">)</span>
@@ -2385,22 +2445,22 @@ To install them alongside the package, use the <code>approaches</code> extra:
 <a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="c1"># Map each (approach, dataset) pair to a file where the adapted model state will</span>
 <a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1"># be saved. Both datasets reuse the same file here because they share the same</span>
 <a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="c1"># number of variables, so one adapted state covers both.</span>
-<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="n">adapted_states</span> <span class="o">=</span> <span class="p">{</span><span class="n">edhie</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">{</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="s2">&quot;adapted_state_2_vars.pt&quot;</span><span class="p">,</span> <span class="n">ds_names</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s2">&quot;adapted_state_2_vars.pt&quot;</span><span class="p">}}</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="n">adapted_states</span> <span class="o">=</span> <span class="p">{</span><span class="n">edhie</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">{</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="s2">"adapted_state_2_vars.pt"</span><span class="p">,</span> <span class="n">ds_names</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s2">"adapted_state_2_vars.pt"</span><span class="p">}}</span>
 <a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>
 <a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="c1"># Build the experiment grid: every combination of approach × dataset will be run</span>
 <a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="c1"># num_experiments times (with different random seeds). Results are written under</span>
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="c1"># results_dir, specifically to &quot;results_dir/{dataset}/{approach}/exp_{seed}.json&quot;.</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="c1"># results_dir, specifically to "results_dir/{dataset}/{approach}/exp_{seed}.json".</span>
 <a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="n">eg</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="p">(</span>
 <a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>    <span class="n">approaches</span><span class="o">=</span><span class="p">[</span><span class="n">proged</span><span class="p">,</span> <span class="n">edhie</span><span class="p">],</span>
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>    <span class="n">datasets</span><span class="o">=</span><span class="p">[</span><span class="n">dataset1</span><span class="p">,</span> <span class="n">dataset2</span><span class="p">],</span>
 <a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>    <span class="n">num_experiments</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>    <span class="n">results_dir</span><span class="o">=</span><span class="s2">&quot;../results/&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>    <span class="n">results_dir</span><span class="o">=</span><span class="s2">"../results/"</span><span class="p">,</span>
 <a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>    <span class="n">adapted_states</span><span class="o">=</span><span class="n">adapted_states</span><span class="p">,</span>
 <a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="p">)</span>
 <a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>
 <a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="c1"># Write a shell script of CLI commands that can be executed in parallel, e.g.:</span>
 <a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="c1">#   cat commands.sh | parallel -j 4</span>
-<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="n">eg</span><span class="o">.</span><span class="n">save_commands</span><span class="p">(</span><span class="s2">&quot;commands.sh&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="n">eg</span><span class="o">.</span><span class="n">save_commands</span><span class="p">(</span><span class="s2">"commands.sh"</span><span class="p">)</span>
 <a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>
 <a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="c1"># Run adaptation for any approach/dataset pair whose adapted state file is missing.</span>
 <a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="c1"># This is a no-op if all state files already exist.</span>
@@ -2511,10 +2571,10 @@ open a issue on the Github page or submit a <strong>Pull Request (PR)</strong> w
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

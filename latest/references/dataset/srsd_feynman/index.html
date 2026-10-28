@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1141,6 +1141,8 @@
       
         
       
+        
+      
     
     
     
@@ -1253,6 +1255,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../evaluation/ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../evaluation/result_augmentation/" class="md-nav__link">
         
   
@@ -1323,6 +1353,8 @@
       
         
           
+        
+      
         
       
         
@@ -1648,6 +1680,34 @@
     
   
     data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data_split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_split
   
 
     
@@ -2292,6 +2352,138 @@ downloading the pre-generated data. Defaults to <code>False</code>.</p>
       </tbody>
     </table>
 
+        <p>A named, persistent collection of symbolic regression datasets.</p>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feynman</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">benchmark</span> <span class="o">=</span> <span class="n">Feynman</span><span class="p">()</span> <span class="c1"># Feynman is a specific instance of SR_benchmark with additional functionality</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">benchmark</span><span class="o">.</span><span class="n">list_datasets</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">100</span>
+</code></pre></div>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>benchmark_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of this benchmark.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>datasets</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<span title="typing.Union">Union</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt; (&lt;code&gt;SRToolkit.dataset.sr_dataset.SR_dataset&lt;/code&gt;)" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>, <span title="typing.Tuple">Tuple</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt; (&lt;code&gt;SRToolkit.dataset.sr_dataset.SR_dataset&lt;/code&gt;)" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>]]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Initial datasets to add. Each element can be an
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a> instance (auto-named as
+<code>"&lt;benchmark_name&gt;_&lt;index&gt;"</code>) or a <code>(name, SR_dataset)</code> tuple.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metadata</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional dictionary of benchmark-level metadata (e.g. citation, description).</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>version</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Version string for this benchmark. Defaults to <code>"1.0.0"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;1.0.0&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_dir</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directory where dataset files are stored or will be written.
+Optional — if omitted, the data cache is used exclusively.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If any element of <code>datasets</code> is not an
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a> or a valid <code>(name, SR_dataset)</code> tuple.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
 
 
 
@@ -2301,27 +2493,27 @@ downloading the pre-generated data. Defaults to <code>False</code>.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/srsd_feynman.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="p">):</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;SRSD_Feynman&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-81">81</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-71" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-71"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-72" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-72"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-73" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-73"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-74" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-74"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-75" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-75"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-76" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-76"></a><span class="p">):</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-77" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-77"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"SRSD_Feynman"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.0"</span><span class="p">)</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-78" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-78"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-79" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-79"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-80" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-80"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-81" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-81"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -2412,10 +2604,10 @@ downloading the pre-generated data. Defaults to <code>False</code>.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1432,6 +1432,8 @@
       
         
       
+        
+      
     
     
     
@@ -1544,6 +1546,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../references/evaluation/ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../references/evaluation/result_augmentation/" class="md-nav__link">
         
   
@@ -1612,6 +1642,8 @@
       
         
           
+        
+      
         
       
         
@@ -1862,6 +1894,34 @@
     
   
     data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/dataset/data_split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_split
   
 
     
@@ -2633,14 +2693,14 @@ so each can be versioned on its own.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">pack</span><span class="p">(</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;my_approach/approach.py&quot;</span><span class="p">,</span> <span class="s2">&quot;my_approach/ops.py&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">out_path</span><span class="o">=</span><span class="s2">&quot;meznar_gp.srtk&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;meznar-gp&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">author</span><span class="o">=</span><span class="s2">&quot;meznar&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">python_deps</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;torch&gt;=2.0&quot;</span><span class="p">],</span>        <span class="c1"># optional; checked at install time</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">srtk_min_version</span><span class="o">=</span><span class="s2">&quot;1.5.0&quot;</span><span class="p">,</span>          <span class="c1"># optional</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">configs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;meznar_settings.json&quot;</span><span class="p">],</span>  <span class="c1"># optional; see &quot;Using a shared config&quot;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="s2">"my_approach/approach.py"</span><span class="p">,</span> <span class="s2">"my_approach/ops.py"</span><span class="p">],</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">out_path</span><span class="o">=</span><span class="s2">"meznar_gp.srtk"</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"meznar-gp"</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">version</span><span class="o">=</span><span class="s2">"0.1.0"</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">author</span><span class="o">=</span><span class="s2">"meznar"</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">python_deps</span><span class="o">=</span><span class="p">[</span><span class="s2">"torch&gt;=2.0"</span><span class="p">],</span>        <span class="c1"># optional; checked at install time</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">srtk_min_version</span><span class="o">=</span><span class="s2">"1.5.0"</span><span class="p">,</span>          <span class="c1"># optional</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">configs</span><span class="o">=</span><span class="p">[</span><span class="s2">"meznar_settings.json"</span><span class="p">],</span>  <span class="c1"># optional; see "Using a shared config"</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
 </code></pre></div>
 <p>Each file is stored under <code>src/</code> by its basename, so basenames must be unique.</p>
@@ -2663,7 +2723,7 @@ annotated copy is what you ship with the bundle; the recipient passes it straigh
 <h3 id="installing-a-bundle">Installing a bundle</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">install</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">install</span><span class="p">(</span><span class="s2">&quot;meznar_gp.srtk&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">install</span><span class="p">(</span><span class="s2">"meznar_gp.srtk"</span><span class="p">)</span>
 </code></pre></div>
 <p>After install, the bundle lives under
 <code>&lt;user_data_dir&gt;/SRToolkit/srtk_bundles/&lt;safe_name&gt;_&lt;version_slug&gt;/</code> and its parent is added
@@ -2703,15 +2763,15 @@ starting with <code>SRToolkit.</code> are left unchanged.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">Grammar</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s2">&quot;meznar_grammar.srtk.json&quot;</span><span class="p">))</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s2">"meznar_grammar.srtk.json"</span><span class="p">))</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">grammar</span> <span class="o">=</span> <span class="n">Grammar</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>   <span class="c1"># _bundle key triggers the rewrite automatically</span>
 </code></pre></div>
 <p>If the config wasn't annotated at pack time, or you want to bind against a specific version,
 call <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;bind_config&lt;/span&gt;" href="../../references/bundle/#SRToolkit.bundle.bind_config"><code>bind_config</code></a> explicitly:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">bind_config</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">bind_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="s2">&quot;meznar-gp&quot;</span><span class="p">)</span>               <span class="c1"># latest installed version</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">bind_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="s2">&quot;meznar-gp&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">&quot;0.1.0&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">bind_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="s2">"meznar-gp"</span><span class="p">)</span>               <span class="c1"># latest installed version</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">config</span> <span class="o">=</span> <span class="n">bind_config</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="s2">"meznar-gp"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"0.1.0"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="using-bundle-code-directly">Using bundle code directly</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">enable_bundle_imports</span>
@@ -2724,9 +2784,9 @@ call <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbo
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">list_installed</span><span class="p">,</span> <span class="n">uninstall</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">list_installed</span><span class="p">():</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;author&quot;</span><span class="p">])</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"version"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"author"</span><span class="p">])</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">uninstall</span><span class="p">(</span><span class="s2">&quot;meznar-gp&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">&quot;0.1.0&quot;</span><span class="p">)</span>   <span class="c1"># version omitted → latest by semver</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">uninstall</span><span class="p">(</span><span class="s2">"meznar-gp"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"0.1.0"</span><span class="p">)</span>   <span class="c1"># version omitted → latest by semver</span>
 </code></pre></div>
 <h3 id="writing-shareable-custom-classes">Writing shareable custom classes</h3>
 <p>Every shareable class follows the same recipe: define it in a named <code>.py</code> file, implement
@@ -2743,11 +2803,11 @@ the matching dispatcher can reconstruct it via <code>importlib</code> — no cen
 <a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span><span class="o">.</span><span class="n">isdisjoint</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
 <a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
 <a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="s2">&quot;forbidden_terminals&quot;</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span><span class="p">)}</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="s2">"forbidden_terminals"</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span><span class="p">)}</span>
 <a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>
 <a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="nd">@classmethod</span>
 <a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;forbidden_terminals&quot;</span><span class="p">])</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"forbidden_terminals"</span><span class="p">])</span>
 </code></pre></div>
 <p>Custom <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Sampler&lt;/span&gt;" href="../../references/dataset/sampling/#SRToolkit.dataset.sampling.Sampler">samplers</a>,
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SRCallbacks&lt;/span&gt;" href="../../references/evaluation/callbacks/#SRToolkit.evaluation.callbacks.SRCallbacks">callbacks</a>, and
@@ -2783,7 +2843,7 @@ downloaded on first use. To make the data travel <em>with</em> the config instea
 </code></pre></div>
 <p>Save it to disk to share as a file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;nguyen_config.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"nguyen_config.json"</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="reconstructing-a-benchmark-from-config">Reconstructing a benchmark from config</h3>
@@ -2793,9 +2853,9 @@ called.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_benchmark</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>            <span class="c1"># from a dict in memory</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">&quot;nguyen_config.json&quot;</span><span class="p">)</span>   <span class="c1"># or directly from a JSON file</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">"nguyen_config.json"</span><span class="p">)</span>   <span class="c1"># or directly from a JSON file</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;NG-1&quot;</span><span class="p">)</span>            <span class="c1"># materialises this dataset&#39;s data on demand</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"NG-1"</span><span class="p">)</span>            <span class="c1"># materialises this dataset's data on demand</span>
 </code></pre></div>
 <h3 id="standalone-dataset-configs">Standalone dataset configs</h3>
 <p><code>SR_dataset.to_dict()</code> works the same way, but the instance must have its <code>benchmark</code> and
@@ -2812,13 +2872,13 @@ way to get a config-only dataset is
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.sampling</span><span class="w"> </span><span class="kn">import</span> <span class="n">UniformSampling</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="o">.</span><span class="n">from_samplers</span><span class="p">(</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">ground_truth</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;^2&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">ground_truth</span><span class="o">=</span><span class="p">[</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">],</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">samplers</span><span class="o">=</span><span class="p">[</span><span class="n">UniformSampling</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="n">uses_negative</span><span class="o">=</span><span class="kc">False</span><span class="p">)],</span>
 <a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
 <a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">dataset_name</span><span class="o">=</span><span class="s2">&quot;my_eq&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">benchmark</span><span class="o">=</span><span class="s2">&quot;my_project&quot;</span><span class="p">,</span>    <span class="c1"># namespace — required before to_dict</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">dataset_name</span><span class="o">=</span><span class="s2">"my_eq"</span><span class="p">,</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">benchmark</span><span class="o">=</span><span class="s2">"my_project"</span><span class="p">,</span>    <span class="c1"># namespace — required before to_dict</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.0"</span><span class="p">,</span>
 <a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="p">)</span>
 <a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>
 <a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="n">config</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>          <span class="c1"># pure JSON — no arrays embedded</span>
@@ -2929,12 +2989,12 @@ install required. Reach for the <a href="#configs">config</a>-only or
 </div>
 <p>For person-to-person sharing where you want one file and no out-of-band coordination, write a
 self-contained <code>.zip</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">bm</span><span class="o">.</span><span class="n">to_archive</span><span class="p">(</span><span class="s2">&quot;nguyen.zip&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">bm</span><span class="o">.</span><span class="n">to_archive</span><span class="p">(</span><span class="s2">"nguyen.zip"</span><span class="p">)</span>
 </code></pre></div>
 <p>The archive holds <code>benchmark.json</code> (the config) plus <code>data/&lt;dataset_key&gt;.npz</code> for every
 dataset. The recipient needs no network access and no samplers:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">bm2</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_archive</span><span class="p">(</span><span class="s2">&quot;nguyen.zip&quot;</span><span class="p">)</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm2</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;NG-1&quot;</span><span class="p">)</span>   <span class="c1"># data extracted from the zip into the cache</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">bm2</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_archive</span><span class="p">(</span><span class="s2">"nguyen.zip"</span><span class="p">)</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm2</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"NG-1"</span><span class="p">)</span>   <span class="c1"># data extracted from the zip into the cache</span>
 </code></pre></div>
 <p>A single <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../references/dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a> has the same pair —
 <code>ds.to_archive("my_eq.zip")</code> and <code>SR_dataset.from_archive("my_eq.zip")</code> — writing
@@ -2942,8 +3002,8 @@ dataset. The recipient needs no network access and no samplers:</p>
 matrix for <code>bed</code> datasets).</p>
 <p>If the archive is hosted somewhere, <code>from_url()</code> is the remote counterpart — it downloads the
 archive and loads it in one call (both classes):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="s2">&quot;https://example.org/nguyen.zip&quot;</span><span class="p">)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="s2">&quot;https://example.org/my_eq.zip&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="s2">"https://example.org/nguyen.zip"</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="s2">"https://example.org/my_eq.zip"</span><span class="p">)</span>
 </code></pre></div>
 <p>This differs from a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;UrlSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.UrlSource">UrlSource</a> in <em>what</em> it loads:
 <code>from_url</code> reconstructs the whole object from the archive (config <strong>and</strong> data), whereas
@@ -2960,15 +3020,15 @@ materialised <code>.npz</code> files (the version directory uses underscores: <c
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
 <a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># List every cached dataset</span>
 <a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">list</span><span class="p">():</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;benchmark&quot;</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;key&quot;</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;size_bytes&quot;</span><span class="p">])</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"benchmark"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"version"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"key"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"size_bytes"</span><span class="p">])</span>
 <a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
 <a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Get the expected path for a specific entry (may not exist yet)</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="n">p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">dataset_path</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span> <span class="s2">&quot;I.16.6&quot;</span><span class="p">)</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="n">p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">dataset_path</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">)</span>
 <a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
 <a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="c1"># Remove a single dataset, a whole version, or an entire benchmark</span>
-<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span> <span class="s2">&quot;I.16.6&quot;</span><span class="p">)</span>   <span class="c1"># one dataset (+ its _gt.npy / .meta.json)</span>
-<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>             <span class="c1"># one version</span>
-<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">)</span>                      <span class="c1"># the whole benchmark</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">)</span>   <span class="c1"># one dataset (+ its _gt.npy / .meta.json)</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">)</span>             <span class="c1"># one version</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">)</span>                      <span class="c1"># the whole benchmark</span>
 <a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>
 <a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="c1"># Garbage-collect: keep only the latest version per benchmark (or wipe everything)</span>
 <a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">gc</span><span class="p">()</span>                  <span class="c1"># drop all but the latest version of each benchmark</span>
@@ -2976,11 +3036,11 @@ materialised <code>.npz</code> files (the version directory uses underscores: <c
 <a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>
 <a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="c1"># Force-refresh a single dataset from a URL source</span>
 <a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">UrlSource</span>
-<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="s2">&quot;feynman&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span> <span class="s2">&quot;I.16.6&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">UrlSource</span><span class="p">(</span><span class="s2">&quot;https://...&quot;</span><span class="p">))</span>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">UrlSource</span><span class="p">(</span><span class="s2">"https://..."</span><span class="p">))</span>
 </code></pre></div>
 <p>You can also refresh through the <code>SR_dataset</code> instance (required for a <code>SampleSource</code>, which
 needs the dataset's samplers, and the only option when <code>data_source</code> is set):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;I.16.6&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"I.16.6"</span><span class="p">)</span>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">ds</span><span class="o">.</span><span class="n">refresh</span><span class="p">()</span>   <span class="c1"># re-materialises from data_source; reloads self.X / self.y</span>
 </code></pre></div>
 <hr />
@@ -3005,7 +3065,7 @@ worker reaches its data through the dataset's <code>data_source</code> (download
 seed, or already cached). This is the lightweight channel: the recipient must have the data
 reachable and any custom <code>.srtk</code> bundles installed.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">config</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>                       <span class="c1"># plain JSON — email it, commit it</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">&quot;my_results&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="local-persistence-save-load">Local persistence — <code>save</code> / <code>load</code></h3>
 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.save"><code>save()</code></a> writes the recipe (plus your local
@@ -3023,7 +3083,7 @@ after moving or re-mounting the directory — not for handing to someone else.</
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;export&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.export"><code>export()</code></a> gathers everything into one <code>.zip</code>
 whose entries are:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>grid.json            # the recipe
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>data/&lt;name&gt;.zip      # only datasets the recipient can&#39;t reach on their own
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>data/&lt;name&gt;.zip      # only datasets the recipient can't reach on their own
 <a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>bundles/&lt;name&gt;.srtk  # custom code (re-packed installed bundles + additional_bundles)
 <a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>MANIFEST.md          # inventory + exact install/load steps
 </code></pre></div>
@@ -3044,13 +3104,13 @@ it is covered by one of two sources:</p>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack</span>
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="c1"># Pack any custom code that isn&#39;t installed as a bundle, listing every file it needs.</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="n">pack</span><span class="p">(</span><span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;approach.py&quot;</span><span class="p">,</span> <span class="s2">&quot;ops.py&quot;</span><span class="p">],</span> <span class="n">out_path</span><span class="o">=</span><span class="s2">&quot;my_ap.srtk&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;my-ap&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="c1"># Pack any custom code that isn't installed as a bundle, listing every file it needs.</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="n">pack</span><span class="p">(</span><span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="s2">"approach.py"</span><span class="p">,</span> <span class="s2">"ops.py"</span><span class="p">],</span> <span class="n">out_path</span><span class="o">=</span><span class="s2">"my_ap.srtk"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my-ap"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.0"</span><span class="p">)</span>
 <a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
 <a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">grid</span><span class="o">.</span><span class="n">export</span><span class="p">(</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="s2">&quot;share/my_run.zip&quot;</span><span class="p">,</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">additional_bundles</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;my_ap.srtk&quot;</span><span class="p">],</span>        <span class="c1"># custom code the recipient must import</span>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">include_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                     <span class="c1"># optional: ship the run&#39;s outputs too</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="s2">"share/my_run.zip"</span><span class="p">,</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">additional_bundles</span><span class="o">=</span><span class="p">[</span><span class="s2">"my_ap.srtk"</span><span class="p">],</span>        <span class="c1"># custom code the recipient must import</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">include_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                     <span class="c1"># optional: ship the run's outputs too</span>
 <a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="p">)</span>
 </code></pre></div>
 <div class="admonition warning">
@@ -3076,12 +3136,12 @@ file, and lists them under a "handle manually" section of <code>MANIFEST.md</cod
   &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_export"><code>from_export()</code></a> imports the bundled data
 into their cache, extracts <code>bundles/</code> + <code>MANIFEST.md</code> into <code>results_dir</code> (defaulting to the
 archive name minus <code>.zip</code>), and rebuilds the grid:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_export</span><span class="p">(</span><span class="s2">&quot;share/my_run.zip&quot;</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">&quot;my_results&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_export</span><span class="p">(</span><span class="s2">"share/my_run.zip"</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
 </code></pre></div>
 <p>Then install any bundles <code>MANIFEST.md</code> lists, from the extracted folder, before running jobs
 (class binding is deferred to run time, so <code>from_export</code> first then <code>install</code> is fine):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">install</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">install</span><span class="p">(</span><span class="s2">&quot;my_results/bundles/my_approach.srtk&quot;</span><span class="p">)</span>   <span class="c1"># if MANIFEST.md lists any</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">install</span><span class="p">(</span><span class="s2">"my_results/bundles/my_approach.srtk"</span><span class="p">)</span>   <span class="c1"># if MANIFEST.md lists any</span>
 </code></pre></div>
 <p>See the <a href="../experiments/#saving-loading-and-sharing-a-grid">Experiments guide</a> for the full
 runner workflow.</p>
@@ -3143,10 +3203,10 @@ runner workflow.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

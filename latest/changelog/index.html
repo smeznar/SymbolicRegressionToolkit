@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -29,10 +29,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#symbolicregressiontoolkit-160-2026-06-23" class="md-skip">
+        <a href="#symbolicregressiontoolkit-unreleased" class="md-skip">
           Skip to content
         </a>
       
@@ -1137,6 +1137,8 @@
       
         
       
+        
+      
     
     
     
@@ -1249,6 +1251,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../references/evaluation/ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../references/evaluation/result_augmentation/" class="md-nav__link">
         
   
@@ -1317,6 +1347,8 @@
       
         
           
+        
+      
         
       
         
@@ -1567,6 +1599,34 @@
     
   
     data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/dataset/data_split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_split
   
 
     
@@ -2038,6 +2098,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#symbolicregressiontoolkit-unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SymbolicRegressionToolkit (unreleased)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#symbolicregressiontoolkit-160-2026-06-23" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2147,6 +2218,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#symbolicregressiontoolkit-unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SymbolicRegressionToolkit (unreleased)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#symbolicregressiontoolkit-160-2026-06-23" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2245,6 +2327,30 @@
 
   <h1>Changelog</h1>
 
+<h3 id="symbolicregressiontoolkit-unreleased">SymbolicRegressionToolkit (unreleased)</h3>
+<ul>
+<li>Ranking functions are now pluggable: <code>RankingFunction</code> with the built-in <code>RMSERanking</code> and <code>BEDRanking</code>. <code>SR_evaluator</code> and <code>SR_dataset</code> accept a built-in name (<code>"rmse"</code>, <code>"bed"</code>) or the import path of a custom ranking.</li>
+<li>Datasets can carry a held-out test set (<code>test_X</code> / <code>test_y</code>, <code>dataset.test</code>) and extra data for your own measures (<code>aux_data</code>), stored as <code>DataSplit</code>s. Both are saved, cached and shared with the dataset, and can be regenerated from their own data source.</li>
+<li>New <code>HoldoutMetric</code> augmenter scores results on held-out data. It reuses the constants fitted during the search by default; <code>refit_constants=True</code> refits them on the held-out data instead.</li>
+<li>BED:</li>
+<li>takes its evaluation points from the dataset's samplers when the dataset has them, otherwise from <code>X</code>;</li>
+<li>can rank expressions against the observed targets <code>y</code> when no ground-truth expression is given;</li>
+<li>is fixed per dataset by default (<code>ranking_seed</code>, the dataset's seed), so every run on a dataset is scored by the same objective; <code>bed_resample=True</code> resamples it per run.</li>
+<li>Added an <code>rmse</code> regression metric.</li>
+</ul>
+<p><strong>Breaking changes:</strong>
+- Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
+- <code>EstimationSettings</code> is renamed to <code>RankingSettings</code>.
+- Removed the <code>bed_X</code> and <code>domain_bounds</code> settings; pass the points as <code>X</code> with <code>num_points_sampled=-1</code>, or give samplers.
+- <code>ground_truth</code> must be an expression (token list or <code>Node</code>); a precomputed behavior matrix goes in the <code>bed_gt</code> setting.
+- Removed <code>SR_evaluator.to_dict</code> / <code>from_dict</code>; serialise the dataset instead.
+- Datasets are saved with <code>format_version: 3</code>; loading <code>format_version: 1</code> configs is no longer supported (version 2 still loads).
+- The module-level sampling helpers in <code>SRToolkit.dataset.sampling</code> (<code>uniform_sampling</code>, <code>log_uniform_sampling</code>, …) are now private; use the <code>UniformSampling</code>, <code>LogUniformSampling</code> and <code>IntegerUniformSampling</code> classes.</p>
+<p><strong>Fixes:</strong>
+- A dataset with custom <code>constant_bounds</code> scored every expression with a constant as NaN after a JSON round trip (<code>from_dict</code>, <code>from_archive</code>, <code>ExperimentGrid</code>).
+- A <code>Node</code> ground truth is now serialised with the dataset's own symbol library.
+- <code>SR_dataset.refresh()</code> regenerates the test and aux data too, and <code>data_cache.remove</code> deletes them.
+- <code>SR_dataset</code> now describes BED datasets correctly.</p>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>
 <li>New backends for expression evaluations (about 1.5x speedup for parameter estimation)</li>
@@ -2394,10 +2500,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

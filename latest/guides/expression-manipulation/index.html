@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1265,6 +1265,8 @@
       
         
       
+        
+      
     
     
     
@@ -1377,6 +1379,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../references/evaluation/ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../references/evaluation/result_augmentation/" class="md-nav__link">
         
   
@@ -1445,6 +1475,8 @@
       
         
           
+        
+      
         
       
         
@@ -1695,6 +1727,34 @@
     
   
     data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/dataset/data_split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_split
   
 
     
@@ -2257,7 +2317,7 @@
 <p>Expressions in SRToolkit are represented as <strong>infix token lists</strong> — plain Python lists of strings.</p>
 <h2 id="token-lists">Token lists</h2>
 <p>A token list is an ordered sequence of strings in infix notation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">expr</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;sin&quot;</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">expr</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"sin"</span><span class="p">,</span> <span class="s2">"("</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">")"</span><span class="p">]</span>
 </code></pre></div>
 <p>SRToolkit recognises five token types. The examples below are illustrative, not exhaustive — the full set of built-in tokens is listed in <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;default_symbols&lt;/span&gt;
 
@@ -2302,7 +2362,7 @@
 </tbody>
 </table>
 <p>Postfix power tokens (<code>^2</code>, <code>^3</code>, <code>^4</code>, <code>^5</code>, <code>^-1</code>) are written after their operand:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">[</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;^2&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;^3&quot;</span><span class="p">]</span>   <span class="c1"># x0² + x1³</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">[</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"^3"</span><span class="p">]</span>   <span class="c1"># x0² + x1³</span>
 </code></pre></div>
 <h2 id="symbol-library">Symbol library</h2>
 <p>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt;" href="../../references/utils/symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> defines which tokens are valid in an expression and how they compile to NumPy. Most use cases are covered by the two factory methods:</p>
@@ -2313,13 +2373,13 @@
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Restrict to a specific subset</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">from_symbol_list</span><span class="p">(</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;sin&quot;</span><span class="p">,</span> <span class="s2">&quot;cos&quot;</span><span class="p">,</span> <span class="s2">&quot;exp&quot;</span><span class="p">,</span> <span class="s2">&quot;sqrt&quot;</span><span class="p">,</span> <span class="s2">&quot;^2&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">[</span><span class="s2">"+"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"/"</span><span class="p">,</span> <span class="s2">"sin"</span><span class="p">,</span> <span class="s2">"cos"</span><span class="p">,</span> <span class="s2">"exp"</span><span class="p">,</span> <span class="s2">"sqrt"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">],</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">num_variables</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
 </code></pre></div>
 <p>Custom symbols can be added for non-standard backends:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="p">(</span><span class="n">preamble</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;import numpy as np&quot;</span><span class="p">,</span> <span class="s2">&quot;import scipy.special as sp&quot;</span><span class="p">])</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">sl</span><span class="o">.</span><span class="n">add_symbol</span><span class="p">(</span><span class="s2">&quot;erf&quot;</span><span class="p">,</span> <span class="s2">&quot;fn&quot;</span><span class="p">,</span> <span class="n">precedence</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">np_fn</span><span class="o">=</span><span class="s2">&quot;sp.erf(</span><span class="si">{}</span><span class="s2">)&quot;</span><span class="p">,</span> <span class="n">latex_str</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;\mathrm</span><span class="si">{erf}</span><span class="s2">\,</span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="p">(</span><span class="n">preamble</span><span class="o">=</span><span class="p">[</span><span class="s2">"import numpy as np"</span><span class="p">,</span> <span class="s2">"import scipy.special as sp"</span><span class="p">])</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">sl</span><span class="o">.</span><span class="n">add_symbol</span><span class="p">(</span><span class="s2">"erf"</span><span class="p">,</span> <span class="s2">"fn"</span><span class="p">,</span> <span class="n">precedence</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">np_fn</span><span class="o">=</span><span class="s2">"sp.erf(</span><span class="si">{}</span><span class="s2">)"</span><span class="p">,</span> <span class="n">latex_str</span><span class="o">=</span><span class="sa">r</span><span class="s2">"\mathrm</span><span class="si">{erf}</span><span class="s2">\,</span><span class="si">{}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="symbol-library-context">Symbol library context</h2>
 <p>Passing <code>sl</code> to every function call is verbose. Two alternatives let you set it once.</p>
@@ -2327,17 +2387,17 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">with</span> <span class="n">sl</span><span class="p">:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">])</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">f</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">])</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">([</span><span class="s2">&quot;sin&quot;</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">])</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">edit_distance</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">])</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">f</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">([</span><span class="s2">"sin"</span><span class="p">,</span> <span class="s2">"("</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">")"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">])</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">edit_distance</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">],</span> <span class="p">[</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">])</span>
 </code></pre></div>
 <p><strong>Module-level default</strong> — persists for the whole session, useful in scripts and notebooks:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">set_default</span><span class="p">(</span><span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># No sl argument needed anywhere below this point</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">])</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">f</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">])</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">])</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">f</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">set_default</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>   <span class="c1"># clear when done</span>
 </code></pre></div>
@@ -2347,13 +2407,13 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">tokens_to_tree</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
 </code></pre></div>
 <p>Convert back to a token list in any notation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">with</span> <span class="n">sl</span><span class="p">:</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">&quot;infix&quot;</span><span class="p">)</span>    <span class="c1"># [&#39;X_0&#39;, &#39;+&#39;, &#39;X_1&#39;, &#39;*&#39;, &#39;C&#39;]</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">&quot;prefix&quot;</span><span class="p">)</span>   <span class="c1"># [&#39;+&#39;, &#39;X_0&#39;, &#39;*&#39;, &#39;X_1&#39;, &#39;C&#39;]</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">&quot;postfix&quot;</span><span class="p">)</span>  <span class="c1"># [&#39;X_0&#39;, &#39;X_1&#39;, &#39;C&#39;, &#39;*&#39;, &#39;+&#39;]</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">"infix"</span><span class="p">)</span>    <span class="c1"># ['X_0', '+', 'X_1', '*', 'C']</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">"prefix"</span><span class="p">)</span>   <span class="c1"># ['+', 'X_0', '*', 'X_1', 'C']</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">"postfix"</span><span class="p">)</span>  <span class="c1"># ['X_0', 'X_1', 'C', '*', '+']</span>
 </code></pre></div>
 <p><code>tokens_to_tree</code> is the inverse of <code>to_list</code>: pass <code>notation="prefix"</code> or
 <code>notation="postfix"</code> to parse a token list written in that notation. Infix lists are
@@ -2361,9 +2421,9 @@ parsed with the shunting-yard algorithm; prefix and postfix lists with a single 
 pass. All three reconstruct the same tree, so an expression survives a round trip through
 any notation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">with</span> <span class="n">sl</span><span class="p">:</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">infix</span>   <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">])</span>                  <span class="c1"># notation=&quot;infix&quot; (default)</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">prefix</span>  <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">notation</span><span class="o">=</span><span class="s2">&quot;prefix&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">postfix</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">],</span> <span class="n">notation</span><span class="o">=</span><span class="s2">&quot;postfix&quot;</span><span class="p">)</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">infix</span>   <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>                  <span class="c1"># notation="infix" (default)</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">prefix</span>  <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">],</span> <span class="n">notation</span><span class="o">=</span><span class="s2">"prefix"</span><span class="p">)</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">postfix</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">],</span> <span class="n">notation</span><span class="o">=</span><span class="s2">"postfix"</span><span class="p">)</span>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">infix</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span> <span class="o">==</span> <span class="n">prefix</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span> <span class="o">==</span> <span class="n">postfix</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>   <span class="c1"># True</span>
 </code></pre></div>
@@ -2374,7 +2434,7 @@ any notation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">compile_expr</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">f</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">])</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">f</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">])</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span>
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>              <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">],</span>
@@ -2389,7 +2449,7 @@ any notation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">expr_to_latex</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">([</span><span class="s2">&quot;sin&quot;</span><span class="p">,</span> <span class="s2">&quot;(&quot;</span><span class="p">,</span> <span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;)&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;^2&quot;</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">([</span><span class="s2">"sin"</span><span class="p">,</span> <span class="s2">"("</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">")"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">latex</span><span class="p">)</span>  <span class="c1"># $\sin X_{0} + X_{1}^2$</span>
 </code></pre></div>
 <h2 id="simplification">Simplification</h2>
@@ -2400,8 +2460,8 @@ any notation:</p>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="c1"># Algebraic reduction + constant folding</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">simplified</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">([</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="s2">&quot;X_0&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span> <span class="s2">&quot;X_1&quot;</span><span class="p">,</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="s2">&quot;X_0&quot;</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">simplified</span><span class="p">)</span>  <span class="c1"># [&#39;C&#39;, &#39;+&#39;, &#39;X_1&#39;]</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">simplified</span> <span class="o">=</span> <span class="n">simplify</span><span class="p">([</span><span class="s2">"C"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"/"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">],</span> <span class="n">sl</span><span class="p">)</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">simplified</span><span class="p">)</span>  <span class="c1"># ['C', '+', 'X_1']</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -2465,10 +2525,10 @@ any notation:</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>

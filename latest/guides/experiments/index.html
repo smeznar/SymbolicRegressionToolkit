@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1265,6 +1265,8 @@
       
         
       
+        
+      
     
     
     
@@ -1377,6 +1379,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../references/evaluation/ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../references/evaluation/result_augmentation/" class="md-nav__link">
         
   
@@ -1445,6 +1475,8 @@
       
         
           
+        
+      
         
       
         
@@ -1695,6 +1727,34 @@
     
   
     data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/dataset/data_split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_split
   
 
     
@@ -2265,14 +2325,14 @@
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># EDHiE adapts once per symbol space; map each dataset to a shared weights file</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">adapted_states</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s2">&quot;EDHiE&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">ds</span><span class="o">.</span><span class="n">dataset_name</span><span class="p">:</span> <span class="s2">&quot;states/edhie_2v.pt&quot;</span> <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">}</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s2">"EDHiE"</span><span class="p">:</span> <span class="p">{</span><span class="n">ds</span><span class="o">.</span><span class="n">dataset_name</span><span class="p">:</span> <span class="s2">"states/edhie_2v.pt"</span> <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">}</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="p">(</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">datasets</span><span class="o">=</span><span class="n">datasets</span><span class="p">,</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">approaches</span><span class="o">=</span><span class="p">[</span><span class="n">ProGED</span><span class="p">(),</span> <span class="n">EDHiE</span><span class="p">()],</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">num_experiments</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">results_dir</span><span class="o">=</span><span class="s2">&quot;results/feynman_run&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">results_dir</span><span class="o">=</span><span class="s2">"results/feynman_run"</span><span class="p">,</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">initial_seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">adapted_states</span><span class="o">=</span><span class="n">adapted_states</span><span class="p">,</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="p">)</span>
@@ -2290,7 +2350,7 @@
 </code></pre></div>
 <h2 id="generating-commands-for-parallel-execution">Generating commands for parallel execution</h2>
 <p>For larger experiments, write a commands file and run it with GNU Parallel or a SLURM array:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">save_commands</span><span class="p">(</span><span class="s2">&quot;results/feynman_run/commands.sh&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">save_commands</span><span class="p">(</span><span class="s2">"results/feynman_run/commands.sh"</span><span class="p">)</span>
 </code></pre></div>
 <p><code>save_commands</code> writes the grid to <code>results_dir/grid.json</code> and <strong>materialises every
 dataset's data into the cache once, in this process</strong> — so data is fetched a single time
@@ -2324,7 +2384,7 @@ phases, no scheduler-specific dependencies needed:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>-m<span class="w"> </span>SRToolkit.experiments<span class="w"> </span>progress<span class="w"> </span>--grid<span class="w"> </span>results/feynman_run/grid.json
 </code></pre></div>
 <h2 id="loading-results">Loading results</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">load_results</span><span class="p">(</span><span class="s2">&quot;I.12.1&quot;</span><span class="p">,</span> <span class="s2">&quot;ProGED&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">load_results</span><span class="p">(</span><span class="s2">"I.12.1"</span><span class="p">,</span> <span class="s2">"ProGED"</span><span class="p">)</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">best_expr</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">min_error</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
@@ -2376,7 +2436,7 @@ phases, no scheduler-specific dependencies needed:</p>
 wherever the file currently lives — so a run directory can be moved or mounted elsewhere and
 still resumes correctly:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>                                   <span class="c1"># → results/feynman_run/grid.json</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;results/feynman_run/grid.json&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"results/feynman_run/grid.json"</span><span class="p">)</span>
 </code></pre></div>
 <p>To share the <em>setup</em> without your machine-local paths or results, pass the
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.to_dict">to_dict</a> recipe (a plain dict). The recipient
@@ -2384,14 +2444,14 @@ needs the same datasets reachable (downloaded, regenerated from a seed, or alrea
 any custom <code>.srtk</code> bundles installed.</p>
 <p>To share <em>everything</em> in one file, use
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;export&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.export">export</a>, which writes a single <code>.zip</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">&quot;share/feynman_run.zip&quot;</span><span class="p">)</span>          <span class="c1"># recipe + data/ + bundles/ + MANIFEST.md</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"share/feynman_run.zip"</span><span class="p">)</span>          <span class="c1"># recipe + data/ + bundles/ + MANIFEST.md</span>
 </code></pre></div>
 <p>It archives only the data the recipient can't reach on their own (<code>null</code>-source and
 seedless-<code>sample</code> datasets), best-effort packs custom classes into <code>bundles/</code>, and writes a
 <code>MANIFEST.md</code> with the exact install/load steps. The recipient loads it in one call —
 <code>from_export</code> imports the bundled data into the cache and extracts any <code>bundles/</code> next to the
 archive (defaulting <code>results_dir</code> to the archive name minus <code>.zip</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_export</span><span class="p">(</span><span class="s2">&quot;share/feynman_run.zip&quot;</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">&quot;my_results&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_export</span><span class="p">(</span><span class="s2">"share/feynman_run.zip"</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
 </code></pre></div>
 <p>If the export carried custom code, install those bundles from the extracted
 <code>&lt;results_dir&gt;/bundles/</code> before running jobs (class binding is deferred to run time, so the
@@ -2456,10 +2516,10 @@ fits the code / config / data sharing model.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>
