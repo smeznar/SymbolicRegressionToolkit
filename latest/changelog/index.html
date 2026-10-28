@@ -2355,6 +2355,7 @@
 - A <code>Node</code> ground truth is now serialised with the dataset's own symbol library.
 - <code>SR_dataset.refresh()</code> regenerates the test and aux data too, and <code>data_cache.remove</code> deletes them.
 - <code>SR_dataset</code> now describes BED datasets correctly.
+- Compiled expressions given fewer constants than they use raise a <code>ValueError</code> on every backend. The default <code>"stack"</code> backend used to read past the end of the array and return garbage values. A <code>SampleSource</code> whose ground truth has a free constant (<code>C</code>) now fails with a clear error, as <code>SR_dataset.resample</code> already did, instead of generating a dataset with garbage <code>y</code>; the custom-dataset guide example that used one is fixed (#4).
 - Fixed examples in the benchmarking, grammars, quickstart and experiments guides and the README (a wrong benchmark, a derivation that never finished, inconsistent file names) (#5).</p>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>
