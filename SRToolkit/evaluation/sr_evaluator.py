@@ -6,6 +6,59 @@ post-processing results, [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_eva
 evaluator that ranks expressions by RMSE or BED, and
 [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] — a container for experiment results.
 
+## Evaluation trace
+
+The evaluator records every counted call to
+[evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] in order, and each
+[EvalResult][SRToolkit.utils.types.EvalResult] carries this record as ``trace``: ``trace[k]`` is the
+index into ``all_models`` of the expression requested by call ``k + 1``. Cache hits appear as
+repeated indices, since they count toward ``max_evaluations``; calls made after evaluation stopped
+are not recorded. Three methods derive the usual fixed-target and fixed-budget quantities from it:
+
+- [best_so_far][SRToolkit.utils.types.EvalResult.best_so_far]: the calls at which the best error
+  strictly improved;
+- [calls_to_threshold][SRToolkit.utils.types.EvalResult.calls_to_threshold]: the number of calls
+  needed to first reach an error below a threshold (``success_threshold`` by default), or ``None``;
+- [best_error_within][SRToolkit.utils.types.EvalResult.best_error_within]: the best error within each
+  of the given numbers of calls.
+
+A run that never reaches the threshold is censored, not missing: it shows that more than
+``evaluation_calls`` calls were needed. Keep such runs when aggregating, for example as the
+fraction of runs solved within each budget:
+
+```python
+import numpy as np
+from SRToolkit.experiments import ExperimentGrid
+
+grid = ExperimentGrid.load("results/grid.json")
+results = grid.load_results("Nguyen-1", "ProGED")
+
+budgets = np.array([100, 1_000, 10_000])  # at most the experiment's max_evaluations
+needed = [r.calls_to_threshold() for r in results]
+solved = [np.mean([n is not None and n <= b for n in needed]) for b in budgets]
+
+curves = np.stack([r.best_error_within(budgets) for r in results])
+median_curve = np.nanmedian(curves, axis=0)
+```
+
+### Limitations
+
+A result does not record ``max_evaluations`` or why its search stopped: reaching the
+threshold, using up the budget, or something else (a time limit, an approach that ran out of
+candidates). This affects both methods for runs that end before the budget:
+
+- [best_error_within][SRToolkit.utils.types.EvalResult.best_error_within] gives a budget beyond
+  a run's last call the run's final best error. That value is exact for a run that reached the
+  threshold, since a run stops as soon as it succeeds. For a run stopped early for another
+  reason, it is only an upper bound. Keep ``budgets`` at or below ``max_evaluations``, since
+  no run got more calls than that.
+- [calls_to_threshold][SRToolkit.utils.types.EvalResult.calls_to_threshold] returns ``None`` both
+  for a run that used its whole budget and for one stopped early, which is censored at fewer
+  calls. Counting both as unsolved at every budget, as above, is conservative.
+
+If your runs can stop early, for example because the experiment uses a time limit, check
+``evaluation_calls`` against the budget before comparing approaches.
+
 Note:
     [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] is defined here rather than
     in ``result_augmentation`` to avoid circular imports.
@@ -285,15 +338,19 @@ class SR_evaluator:
 
         Attributes:
             models: Cached [ModelResult][SRToolkit.utils.types.ModelResult] for every evaluated expression,
-                keyed by the concatenated token string.
+                in the order the expressions were first evaluated.
+            trace: The evaluation trace: one entry per counted call to
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+                (cache hits included, calls after stopping excluded), holding the index into
+                ``models`` of the requested expression.
             invalid: Token strings of expressions that raised an exception during evaluation.
             ground_truth: The target expression passed at construction (BED mode).
             max_evaluations: Maximum number of expressions to evaluate.
             metadata: Metadata dict passed at construction.
             symbol_library: The symbol library used.
-            total_evaluations: Number of times
-                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
-                has been called, including cache hits.
+            total_evaluations: Number of counted calls to
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
+                including cache hits; equal to ``len(trace)``.
             seed: Random seed.
             ranking: The active [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]
                 instance. Owns all ranking-specific state — the
@@ -302,7 +359,9 @@ class SR_evaluator:
             success_threshold: Error threshold for determining success.
         """
         self.kwargs = kwargs
-        self.models: Dict[str, ModelResult] = dict()
+        self.models: List[ModelResult] = list()
+        self._model_index: Dict[str, int] = dict()
+        self.trace: List[int] = list()
         self.invalid: List[str] = list()
         self.success_threshold = success_threshold
         self.metadata = metadata
@@ -316,7 +375,6 @@ class SR_evaluator:
             symbol_library = SymbolLibrary.get_or_default()
         self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
-        self.total_evaluations = 0
         self.seed = seed
         if seed is not None:
             np.random.seed(seed)
@@ -334,6 +392,13 @@ class SR_evaluator:
         )
         self.X = X
         self.y = y
+
+    @property
+    def total_evaluations(self) -> int:
+        """Number of counted calls to
+        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr], including
+        cache hits but not calls made after evaluation was stopped. Equal to ``len(trace)``."""
+        return len(self.trace)
 
     @property
     def ranking_function(self) -> str:
@@ -411,9 +476,9 @@ class SR_evaluator:
             >>> rmse = se.evaluate_expr(["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
             >>> print(rmse < 1e-6)
             True
-            >>> list(se.models.keys())[0]
+            >>> "".join(se.models[0].expr)
             'C+X_1'
-            >>> print(0.99 < se.models["C+X_1"].parameters[0] < 1.01)
+            >>> print(0.99 < se.models[0].parameters[0] < 1.01)
             True
             >>> # Evaluating invalid expression returns nan and adds it to invalid list
             >>> print(se.evaluate_expr(["C", "*", "X_1", "X_0"]))
@@ -447,9 +512,10 @@ class SR_evaluator:
 
         Returns:
             The error of the expression under the active ranking function: RMSE when ``ranking_function="rmse"``, BED when ``ranking_function="bed"``. Returns ``NaN`` if the expression is invalid or ``max_evaluations`` has been reached (a warning is emitted in the latter case). If the expression was already evaluated, the cached value is returned immediately.
-        """
-        self.total_evaluations += 1
 
+            Every call except those made after evaluation was stopped is appended to ``trace``
+            and counts toward ``max_evaluations``, cache hits included.
+        """
         if self.should_stop:
             warnings.warn(
                 f"Evaluation stopped because max_evaluations ({self.max_evaluations}) reached or an expression with error lower than success_threshold ({self.success_threshold}) was found. "
@@ -472,20 +538,22 @@ class SR_evaluator:
                 expr_list = expr
 
             expr_str = "".join(expr_list)
-            if expr_str in self.models:
+            index = self._model_index.get(expr_str)
+            if index is not None:
                 if verbose > 0:
                     logger.debug("Already evaluated %s", expr_str)
+                self.trace.append(index)
                 if self._callbacks is not None:
                     event = ExprEvaluated(
                         expression=expr_str,
-                        error=self.models[expr_str].error,
+                        error=self.models[index].error,
                         evaluation_number=self.total_evaluations,
                         experiment_id=self._experiment_id,
                         is_new_best=False,
                     )
                     if not self._callbacks.on_expr_evaluated(event):
                         self.should_stop = True
-                return self.models[expr_str].error
+                return self.models[index].error
 
             else:
                 try:
@@ -512,11 +580,15 @@ class SR_evaluator:
                     result = RankingResult(score=np.nan)
 
                 error = result.score
-                self.models[expr_str] = ModelResult(
-                    expr=expr_list,
-                    error=error,
-                    parameters=result.parameters,
-                    ranking_data=result.extra,
+                self._model_index[expr_str] = len(self.models)
+                self.trace.append(len(self.models))
+                self.models.append(
+                    ModelResult(
+                        expr=expr_list,
+                        error=error,
+                        parameters=result.parameters,
+                        ranking_data=result.extra,
+                    )
                 )
 
                 if self._callbacks is not None:
@@ -611,7 +683,8 @@ class SR_evaluator:
             expr_list = expr
         expr_str = "".join(expr_list)
 
-        if expr_str not in self.models:
+        index = self._model_index.get(expr_str)
+        if index is None:
             raise ValueError(
                 f"[SR_evaluator.get_metric] Expression '{expr_str}' has not been evaluated yet. "
                 "Call evaluate_expr() on it first so its constants are fitted and cached."
@@ -630,7 +703,7 @@ class SR_evaluator:
                 f"[SR_evaluator.get_metric] metric must be a string or a callable, got {type(metric).__name__}."
             )
 
-        model = self.models[expr_str]
+        model = self.models[index]
 
         # Prediction-based metrics need targets and a fitted model: undefined in BED mode
         # and for invalid expressions.
@@ -664,7 +737,7 @@ class SR_evaluator:
             C*X_1-X_0
             >>> print(results[0].min_error < 1e-6)
             True
-            >>> print(1.99 < results[0].top_models[0].parameters[0] < 2.01)
+            >>> print(1.99 < results[0].top_models()[0].parameters[0] < 2.01)
             True
 
         Args:
@@ -680,16 +753,13 @@ class SR_evaluator:
         Returns:
             An instance of the SR_results object with the results of the evaluation.
         """
-        if top_k > len(self.models) or top_k < 0:
-            top_k = len(self.models)
-
         if results is None:
             results = SR_results()
 
         results.add_results(
             self.models,
+            self.trace,
             top_k,
-            self.total_evaluations,
             self.success_threshold,
             approach_name,
             self.metadata,
@@ -725,9 +795,9 @@ class SR_results:
 
     def add_results(
         self,
-        models: Dict[str, ModelResult],
+        models: List[ModelResult],
+        trace: List[int],
         top_k: int,
-        total_evaluations: int,
         success_threshold: Optional[float],
         approach_name: str,
         metadata: Optional[dict] = None,
@@ -736,17 +806,13 @@ class SR_results:
         Adds the results of an evaluation to the results object.
 
         Args:
-            models: A dictionary mapping expressions to their evaluation results.
-            top_k: The number of top results to include in the output.
-            total_evaluations: The total number of evaluations performed during the evaluation.
+            models: Evaluated models in the order they were first evaluated.
+            trace: The evaluation trace: the index into ``models`` requested by each counted call.
+            top_k: Default number of models returned by ``top_models()``. Negative means all.
             success_threshold: The success threshold used to determine whether the evaluation was successful.
             approach_name: The name of the approach used to discover the equations.
             metadata: A dictionary containing additional metadata about the evaluation.
         """
-        models_list = list(models.values())
-        sorted_indices = np.argsort([v.error for v in models_list])
-        sorted_models = [models_list[i] for i in sorted_indices]
-
         dataset_name = None
         remaining_metadata = None
         if metadata is not None and "dataset_name" in metadata:
@@ -757,17 +823,12 @@ class SR_results:
         elif metadata is not None:
             remaining_metadata = metadata
 
-        success = success_threshold is not None and sorted_models[0].error < success_threshold
-
         results_obj = EvalResult(
-            min_error=sorted_models[0].error,
-            best_expr="".join(sorted_models[0].expr),
-            num_evaluated=len(models_list),
-            evaluation_calls=total_evaluations,
-            top_models=sorted_models[:top_k],
-            all_models=models_list,
+            all_models=list(models),
+            trace=list(trace),
             approach_name=approach_name,
-            success=success,
+            success_threshold=success_threshold,
+            top_k=top_k,
             dataset_name=dataset_name,
             metadata=remaining_metadata,
         )
@@ -886,9 +947,9 @@ class SR_results:
         if detailed:
             # Pick model list based on scope
             if model_scope == "best":
-                models = result.top_models[:1]
+                models = result.top_models(1)
             elif model_scope == "top":
-                models = result.top_models
+                models = result.top_models()
             else:
                 models = result.all_models
 

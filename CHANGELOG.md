@@ -11,6 +11,7 @@
 - Removed the `editdistance` dependency (no wheels for Python ≥ 3.13); `edit_distance` now uses a pure-Python Levenshtein implementation.
 - Installing from source without a C compiler now works as documented: the Cython extension is skipped and the pure-Python evaluator is used. A `RuntimeWarning` is issued the first time the `"stack"` backend falls back, and `SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE` tells which evaluator is in use. Set `SRTOOLKIT_REQUIRE_CYTHON=1` to make a failed build an error.
 - `SR_results` can be iterated over directly (`for result in results:`); previously such a loop ended with an `AssertionError` (#5).
+- Results record the evaluation trace: `EvalResult.trace` lists, for every counted `evaluate_expr` call, the index into `all_models` of the requested expression (cache hits included). New `EvalResult.best_so_far()`, `calls_to_threshold(threshold=None)` and `best_error_within(budgets)` compute the incumbent history, the number of calls needed to reach a threshold, and the best error within given budgets.
 
 **Breaking changes:**
 - Removed the `RMSE`, `BED` and `R2` augmenters; use `HoldoutMetric`.
@@ -19,6 +20,9 @@
 - `ground_truth` must be an expression (token list or `Node`); a precomputed behavior matrix goes in the `bed_gt` setting.
 - Removed `SR_evaluator.to_dict` / `from_dict`; serialise the dataset instead.
 - Datasets are saved with `format_version: 3`; loading `format_version: 1` configs is no longer supported (version 2 still loads).
+- `EvalResult` stores `all_models` (in first-seen order), `trace`, `success_threshold` and `top_k`; `min_error`, `best_expr`, `success`, `num_evaluated` and `evaluation_calls` are now read-only properties derived from them, so the constructor no longer takes them. `top_models` is now a method, `top_models(k=None)`, returning the `k` best models (default `top_k`); it returns the same objects as `all_models`, breaks ties in error by expression length (shorter first) and then by first-seen order, and is no longer written to JSON. Results are saved with `format_version: 2`; results saved by earlier versions cannot be loaded and raise a `ValueError` saying so.
+- `SR_evaluator.models` is a list in first-seen order instead of a dict keyed by the expression string, and `total_evaluations` is a read-only property (`len(trace)`).
+- Calls to `evaluate_expr` after evaluation has stopped are no longer counted in `total_evaluations` / `evaluation_calls`.
 - The module-level sampling helpers in `SRToolkit.dataset.sampling` (`uniform_sampling`, `log_uniform_sampling`, …) are now private; use the `UniformSampling`, `LogUniformSampling` and `IntegerUniformSampling` classes.
 
 **Fixes:**
@@ -27,6 +31,7 @@
 - `SR_dataset.refresh()` regenerates the test and aux data too, and `data_cache.remove` deletes them.
 - `SR_dataset` now describes BED datasets correctly.
 - Compiled expressions given fewer constants than they use raise a `ValueError` on every backend. The default `"stack"` backend used to read past the end of the array and return garbage values. A `SampleSource` whose ground truth has a free constant (`C`) now fails with a clear error, as `SR_dataset.resample` already did, instead of generating a dataset with garbage `y`; the custom-dataset guide example that used one is fixed (#4).
+- Augmenters with `scope="all"` annotated the top models twice (e.g. `ExpressionToLatex` and `ExpressionToLatex_1`).
 - Fixed examples in the benchmarking, grammars, quickstart and experiments guides and the README (a wrong benchmark, a derivation that never finished, inconsistent file names) (#5).
 
 ### SymbolicRegressionToolkit-1.6.0 (2026-06-23)

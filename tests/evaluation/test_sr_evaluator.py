@@ -511,7 +511,8 @@ class TestEvaluateExprRmse:
         with pytest.warns(UserWarning):
             result = se.evaluate_expr(["X_0"])
         assert np.isnan(result)
-        assert se.total_evaluations == 1
+        assert se.total_evaluations == 0
+        assert se.trace == []
 
     def test_max_evaluations_triggers_stop(self):
         se = _make_se(max_evaluations=1, success_threshold=-1)
@@ -553,7 +554,7 @@ class TestEvaluateExprRmse:
             ["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"],
             simplify_expr=True,
         )
-        assert "C+X_1" in se.models
+        assert [m.expr for m in se.models] == [["C", "+", "X_1"]]
 
     def test_simplify_expr_failure_warns_and_continues(self):
         se = _make_se()
@@ -599,6 +600,84 @@ class TestEvaluateExprRmse:
 
 
 # ── SR_evaluator.evaluate_expr — BED ──────────────────────────────────────────
+
+
+class TestEvaluationTrace:
+    def test_trace_records_misses_and_cache_hits(self):
+        se = _make_se()
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["X_1"])
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["X_0"])
+        assert se.trace == [0, 1, 0, 0]
+        assert [m.expr for m in se.models] == [["X_0"], ["X_1"]]
+        assert se.total_evaluations == 4
+
+    def test_invalid_expressions_enter_trace(self):
+        se = _make_se()
+        se.evaluate_expr(["C", "*", "X_1", "X_0"])
+        se.evaluate_expr(["C", "*", "X_1", "X_0"])
+        assert se.trace == [0, 0]
+        assert np.isnan(se.models[0].error)
+
+    def test_calls_after_stop_not_recorded(self):
+        se = _make_se(max_evaluations=2)
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["X_1"])
+        with pytest.warns(UserWarning):
+            se.evaluate_expr(["X_0"])
+        assert se.trace == [0, 1]
+        assert se.total_evaluations == 2
+
+    def test_event_evaluation_number_matches_trace_length(self):
+        se = _make_se()
+        numbers = []
+
+        class _Recorder(SRCallbacks):
+            def on_expr_evaluated(self, event):
+                numbers.append((event.evaluation_number, len(se.trace)))
+
+        se.register_callbacks(_Recorder())
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["X_1"])
+        assert numbers == [(1, 1), (2, 2), (3, 3)]
+
+    def test_get_results_carries_trace(self):
+        se = _make_se()
+        se.evaluate_expr(["X_0", "+", "X_1"])
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        se.evaluate_expr(["X_0", "+", "X_1"])
+        r = se.get_results(top_k=1)[0]
+        assert r.trace == [0, 1, 0]
+        assert r.evaluation_calls == 3
+        assert r.num_evaluated == 2
+        assert r.best_so_far() == [(1, 0), (2, 1)]
+        assert r.calls_to_threshold(threshold=1e-6) == 2
+
+    def test_get_results_copies_trace(self):
+        se = _make_se()
+        se.evaluate_expr(["X_0"])
+        r = se.get_results()[0]
+        se.evaluate_expr(["X_1"])
+        assert r.trace == [0]
+        assert r.num_evaluated == 1
+
+    def test_trace_survives_save_load(self, tmp_path):
+        se = _make_se(success_threshold=1e-6)
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])  # success: stops evaluation
+        results = se.get_results(top_k=1)
+        path = str(tmp_path / "r.json")
+        results.save(path)
+        loaded = SR_results.load(path)[0]
+        assert loaded.trace == [0, 0, 1]
+        assert loaded.calls_to_threshold() == 3
+        assert loaded.success_threshold == 1e-6
+        assert loaded.top_k == 1
+        assert loaded.success is True
+        assert loaded.best_expr == "C*X_1-X_0"
 
 
 class TestEvaluateExprBed:
@@ -757,7 +836,7 @@ class TestGetResults:
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         se.evaluate_expr(["X_0", "+", "X_1"])
         r = se.get_results(top_k=1)[0]
-        assert len(r.top_models) == 1
+        assert len(r.top_models()) == 1
         assert len(r.all_models) == 2
 
     def test_top_k_negative_includes_all(self):
@@ -765,13 +844,13 @@ class TestGetResults:
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         se.evaluate_expr(["X_0", "+", "X_1"])
         r = se.get_results(top_k=-1)[0]
-        assert len(r.top_models) == 2
+        assert len(r.top_models()) == 2
 
     def test_top_k_exceeds_total_capped(self):
         se = _make_se()
         se.evaluate_expr(["X_0"])
         r = se.get_results(top_k=100)[0]
-        assert len(r.top_models) == 1
+        assert len(r.top_models()) == 1
 
     def test_appends_to_existing_sr_results(self):
         se = _make_se()
@@ -816,16 +895,7 @@ class TestModelResultAugmentation:
 
 class TestEvalResultAugmentation:
     def test_add_augmentation_stores_data(self):
-        er = EvalResult(
-            min_error=0.1,
-            best_expr="X_0",
-            num_evaluated=1,
-            evaluation_calls=1,
-            top_models=[],
-            all_models=[],
-            approach_name="",
-            success=False,
-        )
+        er = EvalResult(all_models=[], trace=[], approach_name="")
         er.add_augmentation("test", {"value": 42}, "T")
         assert "test" in er.augmentations
         assert er.augmentations["test"]["value"] == 42
@@ -954,7 +1024,7 @@ class TestSRResultsPrintResults:
 
     def test_model_augmentation_printed_fallback(self, capsys):
         results = _single_result()
-        results[0].top_models[0].add_augmentation("aug", {"x": 5}, "NonExistent.Class")
+        results[0].top_models()[0].add_augmentation("aug", {"x": 5}, "NonExistent.Class")
         results.print_results(detailed=True)
         out = capsys.readouterr().out
         assert "x=5" in out
@@ -962,7 +1032,7 @@ class TestSRResultsPrintResults:
     def test_model_augmentation_only_type_not_printed(self, capsys):
         # When augmentation data has only _type, parts=[] so nothing printed for that aug
         results = _single_result()
-        results[0].top_models[0].add_augmentation("empty_aug", {}, "NonExistent.Class")
+        results[0].top_models()[0].add_augmentation("empty_aug", {}, "NonExistent.Class")
         results.print_results(detailed=True)
         out = capsys.readouterr().out
         assert "empty_aug" not in out
@@ -1180,8 +1250,10 @@ class TestSRResultsSaveLoad:
         assert loaded[0].best_expr == results[0].best_expr
         assert abs(loaded[0].min_error - results[0].min_error) < 1e-12
         assert loaded[0].num_evaluated == results[0].num_evaluated
-        assert len(loaded[0].top_models) == len(results[0].top_models)
-        np.testing.assert_array_almost_equal(loaded[0].top_models[0].parameters, results[0].top_models[0].parameters)
+        assert len(loaded[0].top_models()) == len(results[0].top_models())
+        np.testing.assert_array_almost_equal(
+            loaded[0].top_models()[0].parameters, results[0].top_models()[0].parameters
+        )
 
     def test_save_load_multiple_experiments(self, tmp_path):
         r1 = _single_result()
@@ -1230,6 +1302,6 @@ class TestSRResultsSaveLoad:
         assert rest_aug["_type"] == "SRToolkit.evaluation.result_augmentation.HoldoutMetric"
         assert abs(rest_aug["best_value"] - orig_aug["best_value"]) < 1e-12
         # model-level values survive the JSON round-trip
-        orig_value = results[0].top_models[0].augmentations["HoldoutMetric"]["value"]
-        rest_value = loaded[0].top_models[0].augmentations["HoldoutMetric"]["value"]
+        orig_value = results[0].top_models()[0].augmentations["HoldoutMetric"]["value"]
+        rest_value = loaded[0].top_models()[0].augmentations["HoldoutMetric"]["value"]
         assert abs(rest_value - orig_value) < 1e-12

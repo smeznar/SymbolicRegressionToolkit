@@ -44,16 +44,7 @@ def _make_experiment_event(**kwargs):
 
 def _make_eval_result():
     model = ModelResult(expr=["X_0"], error=0.05)
-    return EvalResult(
-        min_error=0.05,
-        best_expr="X_0",
-        num_evaluated=100,
-        evaluation_calls=120,
-        top_models=[model],
-        all_models=[model],
-        approach_name="ap",
-        success=True,
-    )
+    return EvalResult(all_models=[model], trace=[0], approach_name="ap", success_threshold=0.1)
 
 
 # ── ExprEvaluated ──────────────────────────────────────────────────────────────

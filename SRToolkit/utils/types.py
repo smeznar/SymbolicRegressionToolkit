@@ -6,8 +6,9 @@ Defines symbol-type constants (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``),
 ``ModelResult`` / ``EvalResult`` for representing SR experiment outcomes.
 """
 
+import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple, TypedDict
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypedDict
 
 import numpy as np
 
@@ -117,7 +118,7 @@ class RankingSettings(TypedDict, total=False):
 @dataclass
 class ModelResult:
     """
-    A single model entry in ``EvalResult.top_models`` and ``EvalResult.all_models``.
+    A single model entry in ``EvalResult.all_models`` (and so in ``EvalResult.top_models()``).
 
     Examples:
         >>> result = ModelResult(expr=["C", "*", "X_0"], error=0.42)
@@ -235,39 +236,51 @@ class ModelResult:
         )
 
 
+def _ranking_key(model: ModelResult) -> Tuple[bool, float, int]:
+    # NaN compares false with everything, so it gets its own leading flag to sort last; its error
+    # slot is a placeholder. Among equal errors, shorter expressions come first.
+    is_nan = math.isnan(model.error)
+    return is_nan, 0.0 if is_nan else model.error, len(model.expr)
+
+
 @dataclass
 class EvalResult:
     """
     Result for a single SR experiment, as returned by ``SR_results[i]``.
 
+    The stored data is the list of evaluated models and the evaluation trace; summary values
+    such as ``min_error``, ``best_expr``, ``success`` and ``top_models()`` are derived from them.
+
     Examples:
-        >>> model = ModelResult(expr=["X_0"], error=0.05)
+        >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["C", "*", "X_0"], error=0.05)]
         >>> result = EvalResult(
-        ...     min_error=0.05,
-        ...     best_expr="X_0",
-        ...     num_evaluated=500,
-        ...     evaluation_calls=612,
-        ...     top_models=[model],
-        ...     all_models=[model],
+        ...     all_models=models,
+        ...     trace=[0, 1, 0],
         ...     approach_name="MyApproach",
-        ...     success=True,
+        ...     success_threshold=0.1,
         ... )
+        >>> result.best_expr
+        'C*X_0'
         >>> result.min_error
         0.05
         >>> result.success
         True
+        >>> result.num_evaluated, result.evaluation_calls
+        (2, 3)
         >>> result.dataset_name is None
         True
 
     Attributes:
-        min_error: Lowest error achieved across all evaluated expressions.
-        best_expr: String representation of the best expression found.
-        num_evaluated: Number of unique expressions evaluated.
-        evaluation_calls: Number of times ``evaluate_expr`` was called (includes cache hits).
-        top_models: Top-*k* models sorted by error.
-        all_models: All evaluated models sorted by error.
+        all_models: All evaluated models, in the order they were first evaluated. ``trace``
+            indexes into this list.
+        trace: The evaluation trace. ``trace[k]`` is the index into ``all_models`` of the
+            expression requested by the ``(k+1)``-th counted call to ``evaluate_expr``. Cache
+            hits appear as repeated indices; calls made after evaluation was stopped are not
+            recorded.
         approach_name: Name of the SR approach, or empty string if not provided.
-        success: Whether ``min_error`` is below the configured ``success_threshold``.
+        success_threshold: Error threshold below which the experiment counts as a success.
+            ``None`` if not set.
+        top_k: Default number of models returned by ``top_models()``. Negative means all models.
         dataset_name: Name of the dataset. ``None`` if not provided.
         metadata: Arbitrary metadata dict associated with the dataset. ``None`` if not provided.
         wall_time: Wall-clock duration in seconds of the approach's search for this
@@ -278,18 +291,185 @@ class EvalResult:
             [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
     """
 
-    min_error: float
-    best_expr: str
-    num_evaluated: int
-    evaluation_calls: int
-    top_models: List[ModelResult]
     all_models: List[ModelResult]
+    trace: List[int]
     approach_name: str
-    success: bool
+    success_threshold: Optional[float] = None
+    top_k: int = 20
     dataset_name: Optional[str] = None
     metadata: Optional[dict] = None
     wall_time: Optional[float] = None
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    _ranking_cache: Optional[List[int]] = field(default=None, init=False, repr=False, compare=False)
+
+    def _ranking(self) -> List[int]:
+        # Indices into all_models from best to worst. The sort is stable, so models that tie on
+        # error and length keep their first-seen order.
+        if self._ranking_cache is None or len(self._ranking_cache) != len(self.all_models):
+            self._ranking_cache = sorted(range(len(self.all_models)), key=lambda i: _ranking_key(self.all_models[i]))
+        return self._ranking_cache
+
+    @property
+    def num_evaluated(self) -> int:
+        """Number of unique expressions evaluated."""
+        return len(self.all_models)
+
+    @property
+    def evaluation_calls(self) -> int:
+        """Number of counted calls to ``evaluate_expr``, including cache hits."""
+        return len(self.trace)
+
+    def top_models(self, k: Optional[int] = None) -> List[ModelResult]:
+        """
+        The ``k`` best models, sorted by error with ``NaN`` last.
+
+        Models with equal error are ordered by length (number of tokens), shorter first, and
+        then by the order in which they were first evaluated. These are the same objects as in
+        ``all_models``, not copies.
+
+        Examples:
+            >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["X_1"], error=0.1)]
+            >>> result = EvalResult(all_models=models, trace=[0, 1], approach_name="", top_k=1)
+            >>> [m.expr for m in result.top_models()]
+            [['X_1']]
+            >>> [m.expr for m in result.top_models(k=-1)]
+            [['X_1'], ['X_0']]
+            >>> result.top_models()[0] is result.all_models[1]
+            True
+            >>> long, short = ModelResult(["X_0", "+", "0"], 0.1), ModelResult(["X_0"], 0.1)
+            >>> EvalResult(all_models=[long, short], trace=[0, 1], approach_name="").best_expr
+            'X_0'
+
+        Args:
+            k: Number of models to return. Defaults to ``top_k``; a negative value or one larger
+                than the number of models returns all of them.
+
+        Returns:
+            The best ``k`` models, best first.
+        """
+        if k is None:
+            k = self.top_k
+        ranking = self._ranking()
+        if 0 <= k < len(ranking):
+            ranking = ranking[:k]
+        return [self.all_models[i] for i in ranking]
+
+    @property
+    def min_error(self) -> float:
+        """Lowest error across all evaluated models. ``NaN`` if there are none or all are ``NaN``."""
+        ranking = self._ranking()
+        return self.all_models[ranking[0]].error if ranking else float("nan")
+
+    @property
+    def best_expr(self) -> str:
+        """The best expression as a string. Empty if no expression was evaluated."""
+        ranking = self._ranking()
+        return "".join(self.all_models[ranking[0]].expr) if ranking else ""
+
+    @property
+    def success(self) -> bool:
+        """Whether ``min_error`` is below ``success_threshold``. ``False`` if no threshold is set."""
+        return self.success_threshold is not None and bool(self.min_error < self.success_threshold)
+
+    def best_so_far(self) -> List[Tuple[int, int]]:
+        """
+        The incumbent history: each point in the trace where the best error so far strictly improved.
+
+        ``NaN`` errors never become the incumbent.
+
+        Examples:
+            >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["X_1"], float("nan")), ModelResult(["C"], 0.1)]
+            >>> result = EvalResult(all_models=models, trace=[1, 0, 0, 2], approach_name="")
+            >>> result.best_so_far()
+            [(2, 0), (4, 2)]
+
+        Returns:
+            A list of ``(call_number, model_index)`` pairs, where ``call_number`` is 1-based and
+            ``model_index`` indexes into ``all_models``.
+        """
+        history: List[Tuple[int, int]] = []
+        best = None
+        for call, index in enumerate(self.trace, start=1):
+            error = self.all_models[index].error
+            if not np.isnan(error) and (best is None or error < best):
+                best = error
+                history.append((call, index))
+        return history
+
+    def calls_to_threshold(self, threshold: Optional[float] = None) -> Optional[int]:
+        """
+        Number of calls needed to first reach an error below ``threshold``.
+
+        Examples:
+            >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["C"], 0.01)]
+            >>> result = EvalResult(all_models=models, trace=[0, 0, 1], approach_name="", success_threshold=0.1)
+            >>> result.calls_to_threshold()
+            3
+            >>> result.calls_to_threshold(threshold=0.001) is None
+            True
+
+        Args:
+            threshold: Error threshold. Defaults to ``success_threshold``.
+
+        Returns:
+            The 1-based call number at which an expression with error below ``threshold`` was first
+            requested, or ``None`` if that never happened. When aggregating over runs, treat
+            ``None`` as censored at ``evaluation_calls`` (more calls were needed) rather than
+            dropping the run. A run that was stopped before using its whole budget (e.g. by a
+            time limit) is censored at fewer calls than the budget; the result cannot tell such
+            a run apart from one that used its budget.
+
+        Raises:
+            ValueError: If ``threshold`` is not given and ``success_threshold`` is ``None``.
+        """
+        if threshold is None:
+            threshold = self.success_threshold
+        if threshold is None:
+            raise ValueError("[EvalResult.calls_to_threshold] No threshold given and success_threshold is None.")
+        for call, index in enumerate(self.trace, start=1):
+            if self.all_models[index].error < threshold:
+                return call
+        return None
+
+    def best_error_within(self, budgets: Sequence[int]) -> np.ndarray:
+        """
+        Best error found within each of the given numbers of counted calls.
+
+        A result does not record why its search stopped. For a budget larger than
+        ``evaluation_calls``, the run's final best error is returned, as if the run had
+        continued without finding anything better. How far to trust that depends on why the
+        run stopped:
+
+        - It reached ``success_threshold``: the value is exact, since a run stops as soon
+          as it succeeds.
+        - It stopped early for another reason, such as a time limit or an approach that ran
+          out of candidates: the value is only an upper bound, because the run might have
+          improved with more calls.
+
+        Keep budgets at or below the experiment's ``max_evaluations``. No run got more calls
+        than that, so larger budgets don't measure anything.
+
+        Examples:
+            >>> models = [ModelResult(["X_0"], float("nan")), ModelResult(["X_1"], 0.5), ModelResult(["C"], 0.1)]
+            >>> result = EvalResult(all_models=models, trace=[0, 1, 2], approach_name="")
+            >>> result.best_error_within([0, 1, 2, 3, 10])
+            array([nan, nan, 0.5, 0.1, 0.1])
+
+        Args:
+            budgets: Numbers of calls. Budgets beyond ``evaluation_calls`` give the final best
+                error (see above).
+
+        Returns:
+            An array with the best non-``NaN`` error within each budget, or ``NaN`` where no valid
+            expression had been evaluated yet.
+        """
+        errors = np.array([self.all_models[i].error for i in self.trace], dtype=float)
+        running = np.fmin.accumulate(errors) if len(errors) > 0 else errors
+        curve = np.full(len(budgets), np.nan)
+        for j, budget in enumerate(budgets):
+            if budget > 0 and len(running) > 0:
+                curve[j] = running[min(budget, len(running)) - 1]
+        return curve
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
         """
@@ -299,12 +479,7 @@ class EvalResult:
         appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.
 
         Examples:
-            >>> model = ModelResult(expr=["X_0"], error=0.05)
-            >>> result = EvalResult(
-            ...     min_error=0.05, best_expr="X_0", num_evaluated=10,
-            ...     evaluation_calls=10, top_models=[model], all_models=[model],
-            ...     approach_name="MyApproach", success=True,
-            ... )
+            >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0], approach_name="MyApproach")
             >>> result.add_augmentation("complexity", {"value": 3}, "ComplexityAugmenter")
             >>> result.augmentations["complexity"]["value"]
             3
@@ -333,39 +508,40 @@ class EvalResult:
 
         NumPy arrays and scalars within nested [ModelResult][SRToolkit.utils.types.ModelResult] entries are
         converted to native Python types so the result can be passed directly
-        to ``json.dump``.
+        to ``json.dump``. Besides the stored fields, the dictionary contains the derived summary
+        values (``min_error``, ``best_expr``, ``success``, ``num_evaluated``, ``evaluation_calls``)
+        for reading the file directly; [from_dict][SRToolkit.utils.types.EvalResult.from_dict]
+        ignores them.
 
         Examples:
-            >>> model = ModelResult(expr=["X_0"], error=0.05)
-            >>> result = EvalResult(
-            ...     min_error=0.05, best_expr="X_0", num_evaluated=10,
-            ...     evaluation_calls=10, top_models=[model], all_models=[model],
-            ...     approach_name="MyApproach", success=True,
-            ... )
+            >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0, 0], approach_name="MyApproach")
             >>> d = result.to_dict()
             >>> d["min_error"]
             0.05
+            >>> d["trace"]
+            [0, 0]
             >>> d["approach_name"]
             'MyApproach'
-            >>> len(d["top_models"])
-            1
 
         Returns:
             A JSON-safe dictionary suitable for passing to [from_dict][SRToolkit.utils.types.EvalResult.from_dict].
         """
         return {
+            "format_version": 2,
             "min_error": float(self.min_error),
             "best_expr": self.best_expr,
-            "num_evaluated": int(self.num_evaluated),
-            "evaluation_calls": int(self.evaluation_calls),
-            "top_models": [m.to_dict() for m in self.top_models],
-            "all_models": [m.to_dict() for m in self.all_models],
+            "success": self.success,
+            "num_evaluated": self.num_evaluated,
+            "evaluation_calls": self.evaluation_calls,
             "approach_name": self.approach_name,
-            "success": bool(self.success),
             "dataset_name": self.dataset_name,
+            "success_threshold": None if self.success_threshold is None else float(self.success_threshold),
+            "top_k": int(self.top_k),
             "metadata": self.metadata,
             "wall_time": self.wall_time,
             "augmentations": _to_json_safe(self.augmentations),
+            "trace": [int(i) for i in self.trace],
+            "all_models": [m.to_dict() for m in self.all_models],
         }
 
     @staticmethod
@@ -374,19 +550,14 @@ class EvalResult:
         Reconstruct an [EvalResult][SRToolkit.utils.types.EvalResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict].
 
         Examples:
-            >>> model = ModelResult(expr=["X_0"], error=0.05)
-            >>> result = EvalResult(
-            ...     min_error=0.05, best_expr="X_0", num_evaluated=10,
-            ...     evaluation_calls=10, top_models=[model], all_models=[model],
-            ...     approach_name="MyApproach", success=True,
-            ... )
+            >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0], approach_name="MyApproach")
             >>> result2 = EvalResult.from_dict(result.to_dict())
             >>> result2.min_error
             0.05
             >>> result2.best_expr
             'X_0'
-            >>> len(result2.top_models)
-            1
+            >>> result2.trace
+            [0]
 
         Args:
             data: Dictionary representation of an [EvalResult][SRToolkit.utils.types.EvalResult], as produced
@@ -394,16 +565,26 @@ class EvalResult:
 
         Returns:
             The reconstructed [EvalResult][SRToolkit.utils.types.EvalResult].
+
+        Raises:
+            ValueError: If ``format_version`` is not ``2``. Results saved before the evaluation
+                trace was recorded have no ``format_version`` and cannot be loaded.
         """
+        fmt = data.get("format_version")
+        if fmt != 2:
+            if fmt is None:
+                raise ValueError(
+                    "[EvalResult.from_dict] These results were saved by an older SRToolkit version, without "
+                    "an evaluation trace, and cannot be loaded. Rerun the experiment; with ExperimentGrid, "
+                    "delete the old result files first, since existing files count as completed jobs."
+                )
+            raise ValueError(f"[EvalResult.from_dict] Unsupported format_version: {fmt!r}. Expected 2.")
         return EvalResult(
-            min_error=data["min_error"],
-            best_expr=data["best_expr"],
-            num_evaluated=data["num_evaluated"],
-            evaluation_calls=data["evaluation_calls"],
-            top_models=[ModelResult.from_dict(m) for m in data["top_models"]],
             all_models=[ModelResult.from_dict(m) for m in data["all_models"]],
+            trace=list(data["trace"]),
             approach_name=data["approach_name"],
-            success=data["success"],
+            success_threshold=data.get("success_threshold"),
+            top_k=data.get("top_k", 20),
             dataset_name=data.get("dataset_name"),
             metadata=data.get("metadata"),
             wall_time=data.get("wall_time"),

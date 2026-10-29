@@ -105,13 +105,13 @@ class TestExpressionToLatexWriteResults:
     def test_best_scope_does_not_write_to_models(self):
         _, result = _one_model_result()
         ExpressionToLatex(_sl, scope="best").write_results(result)
-        assert "ExpressionToLatex" not in result.top_models[0].augmentations
+        assert "ExpressionToLatex" not in result.top_models()[0].augmentations
 
     def test_top_scope_writes_to_top_models(self):
         _, result = _two_model_result()
         ExpressionToLatex(_sl, scope="top").write_results(result)
-        assert "ExpressionToLatex" in result.top_models[0].augmentations
-        assert "expr_latex" in result.top_models[0].augmentations["ExpressionToLatex"]
+        assert "ExpressionToLatex" in result.top_models()[0].augmentations
+        assert "expr_latex" in result.top_models()[0].augmentations["ExpressionToLatex"]
 
     def test_top_scope_does_not_write_to_non_top_models(self):
         _, result = _two_model_result()
@@ -165,18 +165,24 @@ class TestExpressionToLatexWriteResults:
         mock_warn.assert_not_called()
 
     def test_all_scope_model_failure_verbose_warns(self):
-        # Covers lines 100-102: exception in the all_models loop with verbose=True
+        # Exception in the all_models loop with verbose=True
         _, result = _two_model_result()
         aug = ExpressionToLatex(_sl, scope="all", verbose=True)
         mock_tree = MagicMock()
         mock_tree.to_latex.return_value = "$X_0$"
-        # calls: best_expr, top_models[0], all_models[0], all_models[1] (fails)
+        # calls: best_expr, all_models[0], all_models[1] (fails)
         with patch(
             "SRToolkit.evaluation.result_augmentation.tokens_to_tree",
-            side_effect=[mock_tree, mock_tree, mock_tree, ValueError("all fail")],
+            side_effect=[mock_tree, mock_tree, ValueError("all fail")],
         ):
             with pytest.warns(UserWarning):
                 aug.write_results(result)
+
+    def test_all_scope_annotates_each_model_once(self):
+        _, result = _two_model_result()
+        ExpressionToLatex(_sl, scope="all").write_results(result)
+        for model in result.all_models:
+            assert list(model.augmentations) == ["ExpressionToLatex"]
 
 
 # ── ExpressionToLatex.format_eval_result ─────────────────────────────────────
@@ -277,12 +283,12 @@ class TestExpressionSimplifierWriteResults:
     def test_best_scope_does_not_write_to_models(self):
         _, result = _one_model_result()
         ExpressionSimplifier(_sl, scope="best").write_results(result)
-        assert "ExpressionSimplifier" not in result.top_models[0].augmentations
+        assert "ExpressionSimplifier" not in result.top_models()[0].augmentations
 
     def test_top_scope_writes_simplified_expr_to_top_models(self):
         _, result = _one_model_result()
         ExpressionSimplifier(_sl, scope="top").write_results(result)
-        assert "ExpressionSimplifier" in result.top_models[0].augmentations
+        assert "ExpressionSimplifier" in result.top_models()[0].augmentations
 
     def test_all_scope_writes_to_all_models(self):
         _, result = _two_model_result()
@@ -356,7 +362,7 @@ class TestExpressionSimplifierWriteResults:
         ):
             aug.write_results(result)
         mock_node.to_list.assert_called_once_with(_sl)
-        assert result.top_models[0].augmentations["ExpressionSimplifier"]["simplified_expr"] == "X_1"
+        assert result.top_models()[0].augmentations["ExpressionSimplifier"]["simplified_expr"] == "X_1"
 
     def test_top_model_invalid_return_warns_verbose(self):
         # Covers lines 244-245: else raise in top_models loop
@@ -370,26 +376,26 @@ class TestExpressionSimplifierWriteResults:
                 aug.write_results(result)
 
     def test_all_model_node_return_uses_to_list(self):
-        # Covers lines 258-259: Node branch in the all_models loop
+        # Node branch in the all_models loop
         _, result = _two_model_result()
         aug = ExpressionSimplifier(_sl, scope="all")
         mock_node = MagicMock(spec=Node)
         mock_node.to_list.return_value = ["X", "_", "1"]
-        # calls: best_expr, top_models[0], all_models[0], all_models[1] (Node)
+        # calls: best_expr, all_models[0], all_models[1] (Node)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X_0"], ["X_0"], ["X_0"], mock_node],
+            side_effect=[["X_0"], ["X_0"], mock_node],
         ):
             aug.write_results(result)
         assert result.all_models[1].augmentations["ExpressionSimplifier"]["simplified_expr"] == "X_1"
 
     def test_all_model_invalid_return_warns_verbose(self):
-        # Covers lines 260-264: else raise and verbose warn in the all_models loop
+        # Else raise and verbose warn in the all_models loop
         _, result = _two_model_result()
         aug = ExpressionSimplifier(_sl, scope="all", verbose=True)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X_0"], ["X_0"], ["X_0"], 42],
+            side_effect=[["X_0"], ["X_0"], 42],
         ):
             with pytest.warns(UserWarning):
                 aug.write_results(result)
@@ -503,12 +509,12 @@ class TestHoldoutMetricReuseParams:
     def test_best_scope_does_not_write_to_models(self):
         se, result = _one_model_result()
         HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl).write_results(result)
-        assert "HoldoutMetric" not in result.top_models[0].augmentations
+        assert "HoldoutMetric" not in result.top_models()[0].augmentations
 
     def test_top_scope_writes_value_to_top_models(self):
         se, result = _one_model_result()
         HoldoutMetric((_X_TEST, _y_TEST), scope="top", symbol_library=_sl).write_results(result)
-        assert result.top_models[0].augmentations["HoldoutMetric"]["value"] < 1e-6
+        assert result.top_models()[0].augmentations["HoldoutMetric"]["value"] < 1e-6
 
     def test_all_scope_writes_to_all_models(self):
         se, result = _two_model_result()
@@ -522,7 +528,7 @@ class TestHoldoutMetricReuseParams:
 
         se, result = _one_model_result()
         HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", scope="top", symbol_library=_sl).write_results(result)
-        model = result.top_models[0]
+        model = result.top_models()[0]
         expected = evaluate_metric(model.expr, model.parameters, _X_TEST, _y_TEST, "rmse", _sl)
         assert model.augmentations["HoldoutMetric"]["value"] == pytest.approx(expected)
 
@@ -580,7 +586,7 @@ class TestHoldoutMetricReuseParams:
         assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
 
     def test_each_model_scored_once(self):
-        # top_models and all_models share their ModelResult objects.
+        # top_models() returns the ModelResult objects in all_models.
         se, result = _two_model_result()
         aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl)
         with patch.object(aug, "_value", wraps=aug._value) as value:
@@ -602,7 +608,7 @@ class TestHoldoutMetricReuseParams:
 class TestHoldoutMetricRefitConstants:
     def test_refit_constants_ignores_train_parameters(self):
         se, result = _one_model_result()
-        model = result.top_models[0]
+        model = result.top_models()[0]
         model.parameters = np.array([5.0])  # deliberately wrong (the true constant is 2)
         reuse = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl)
         refit = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl, refit_constants=True)
@@ -621,7 +627,7 @@ class TestHoldoutMetricRefitConstants:
         se, result = _one_model_result()
         HoldoutMetric((_X_TEST, _y_TEST), scope="top", symbol_library=_sl, refit_constants=True).write_results(result)
         assert result.augmentations["HoldoutMetric"]["refit_constants"] is True
-        assert result.top_models[0].augmentations["HoldoutMetric"]["refit_constants"] is True
+        assert result.top_models()[0].augmentations["HoldoutMetric"]["refit_constants"] is True
 
     def test_refit_constants_with_ranking_function_raises(self):
         with pytest.raises(ValueError, match="refit_constants applies to string/callable metrics only"):
@@ -713,7 +719,7 @@ class TestHoldoutMetricSerialization:
         assert os.path.isabs(d["data"])
 
     def test_loaded_results_scored_once_per_expression(self, tmp_path):
-        # After SR_results.load, top_models and all_models are separate copies of the same models.
+        # After SR_results.load, top_models() still returns the objects in all_models.
         se = _rmse_se()
         se.evaluate_expr(_BEST_EXPR)
         se.evaluate_expr(_OTHER_EXPR)

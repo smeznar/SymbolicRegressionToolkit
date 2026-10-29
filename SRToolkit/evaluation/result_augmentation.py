@@ -74,7 +74,7 @@ class ExpressionToLatex(ResultAugmenter):
         """
         eval_data: Dict[str, Any] = {}
         try:
-            eval_data["best_expr_latex"] = tokens_to_tree(results.top_models[0].expr, self.symbol_library).to_latex(
+            eval_data["best_expr_latex"] = tokens_to_tree(results.top_models(1)[0].expr, self.symbol_library).to_latex(
                 self.symbol_library
             )
         except Exception as e:
@@ -82,29 +82,17 @@ class ExpressionToLatex(ResultAugmenter):
                 warnings.warn(f"Unable to convert best expression to LaTeX: {e}")
         results.add_augmentation(self.name, eval_data, self._type)
 
-        if self.scope == "top" or self.scope == "all":
-            for model in results.top_models:
-                try:
-                    model.add_augmentation(
-                        self.name,
-                        {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
-                        self._type,
-                    )
-                except Exception as e:
-                    if self.verbose:
-                        warnings.warn(f"Unable to convert expression {''.join(model.expr)} to LaTeX: {e}")
-
-        if self.scope == "all":
-            for model in results.all_models:
-                try:
-                    model.add_augmentation(
-                        self.name,
-                        {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
-                        self._type,
-                    )
-                except Exception as e:
-                    if self.verbose:
-                        warnings.warn(f"Unable to convert expression {''.join(model.expr)} to LaTeX: {e}")
+        scoped = results.all_models if self.scope == "all" else results.top_models() if self.scope == "top" else []
+        for model in scoped:
+            try:
+                model.add_augmentation(
+                    self.name,
+                    {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
+                    self._type,
+                )
+            except Exception as e:
+                if self.verbose:
+                    warnings.warn(f"Unable to convert expression {''.join(model.expr)} to LaTeX: {e}")
 
     @classmethod
     def format_eval_result(cls, data: Dict[str, Any]) -> str:
@@ -225,7 +213,7 @@ class ExpressionSimplifier(ResultAugmenter):
         """
         eval_data: Dict[str, Any] = {}
         try:
-            simplified_expr = simplify(results.top_models[0].expr, self.symbol_library)
+            simplified_expr = simplify(results.top_models(1)[0].expr, self.symbol_library)
             if isinstance(simplified_expr, list):
                 eval_data["simplified_best_expr"] = "".join(simplified_expr)
             elif isinstance(simplified_expr, Node):
@@ -237,37 +225,21 @@ class ExpressionSimplifier(ResultAugmenter):
                 warnings.warn(f"Unable to simplify {results.best_expr}: {e}")
         results.add_augmentation(self.name, eval_data, self._type)
 
-        if self.scope == "top" or self.scope == "all":
-            for model in results.top_models:
-                top_model_data: Dict[str, Any] = {}
-                try:
-                    simplified_expr = simplify(model.expr, self.symbol_library)
-                    if isinstance(simplified_expr, list):
-                        top_model_data["simplified_expr"] = "".join(simplified_expr)
-                    elif isinstance(simplified_expr, Node):
-                        top_model_data["simplified_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
-                    else:
-                        raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
-                except Exception as e:
-                    if self.verbose:
-                        warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
-                model.add_augmentation(self.name, top_model_data, self._type)
-
-        if self.scope == "all":
-            for model in results.all_models:
-                all_model_data: Dict[str, Any] = {}
-                try:
-                    simplified_expr = simplify(model.expr, self.symbol_library)
-                    if isinstance(simplified_expr, list):
-                        all_model_data["simplified_expr"] = "".join(simplified_expr)
-                    elif isinstance(simplified_expr, Node):
-                        all_model_data["simplified_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
-                    else:
-                        raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
-                except Exception as e:
-                    if self.verbose:
-                        warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
-                model.add_augmentation(self.name, all_model_data, self._type)
+        scoped = results.all_models if self.scope == "all" else results.top_models() if self.scope == "top" else []
+        for model in scoped:
+            model_data: Dict[str, Any] = {}
+            try:
+                simplified_expr = simplify(model.expr, self.symbol_library)
+                if isinstance(simplified_expr, list):
+                    model_data["simplified_expr"] = "".join(simplified_expr)
+                elif isinstance(simplified_expr, Node):
+                    model_data["simplified_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
+                else:
+                    raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
+            except Exception as e:
+                if self.verbose:
+                    warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
+            model.add_augmentation(self.name, model_data, self._type)
 
     @classmethod
     def format_eval_result(cls, data: Dict[str, Any]) -> str:
@@ -543,9 +515,8 @@ class HoldoutMetric(ResultAugmenter):
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
         """
-        # top_models and all_models list the same models (as shared objects, or as copies after
-        # SR_results.load), so score each expression once: rescoring would cost a fit each time and,
-        # with a refit, could overwrite a value with a different one.
+        # The best model is also in the scoped models, so score each expression once: rescoring would
+        # cost a fit each time and, with a refit, could give a different value.
         values: Dict[str, float] = {}
 
         def value(model: ModelResult) -> float:
@@ -554,18 +525,14 @@ class HoldoutMetric(ResultAugmenter):
                 values[key] = self._value(model)
             return values[key]
 
-        best = results.top_models[0]
+        best = results.top_models(1)[0]
         results.add_augmentation(
             self.name,
             {"best_value": value(best), "metric": self._metric_label, "refit_constants": self.refit_constants},
             self._type,
         )
 
-        scoped = []
-        if self.scope in ("top", "all"):
-            scoped += results.top_models
-        if self.scope == "all":
-            scoped += results.all_models
+        scoped = results.all_models if self.scope == "all" else results.top_models() if self.scope == "top" else []
         for model in scoped:
             model.add_augmentation(
                 self.name,
