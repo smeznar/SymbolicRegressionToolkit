@@ -881,6 +881,10 @@ class SR_results:
                 ``"all"`` shows all evaluated models.
             augmentations: Filter which augmenters to display by name.
                 If None, all augmentations present in the data are shown.
+
+        Raises:
+            TypeError: If ``experiment_number`` is not an integer.
+            IndexError: If ``experiment_number`` is out of range. Negative numbers count from the end.
         """
         if experiment_number is None:
             for i, result in enumerate(self.results):
@@ -888,8 +892,7 @@ class SR_results:
                 SR_results._print_result_(result, detailed, model_scope, augmentations)
                 print()
         else:
-            assert experiment_number < len(self.results), "[SR_results.print_results] experiment number out of bounds"
-            SR_results._print_result_(self.results[experiment_number], detailed, model_scope, augmentations)
+            SR_results._print_result_(self[experiment_number], detailed, model_scope, augmentations)
 
     @staticmethod
     def _print_result_(
@@ -1062,14 +1065,19 @@ class SR_results:
             >>> result_of_first_experiment = results[0]
 
         Args:
-            item: the index of the experiment.
+            item: the index of the experiment. Negative indices count from the end, as for a list.
 
         Returns:
             The results of the experiment with the given index.
 
+        Raises:
+            TypeError: If ``item`` is not an integer.
+            IndexError: If ``item`` is out of range.
         """
-        assert isinstance(item, int), "[SR_Results.__getitem__] Item must be an integer."
-        assert 0 <= item < len(self.results), "[SR_Results.__getitem__] Item out of bounds."
+        if not isinstance(item, int):
+            raise TypeError(f"[SR_results.__getitem__] Index must be an integer, got {type(item).__name__}.")
+        if not -len(self.results) <= item < len(self.results):
+            raise IndexError(f"[SR_results.__getitem__] Index {item} out of range for {len(self.results)} results.")
         return self.results[item]
 
     def __iter__(self) -> Iterator[EvalResult]:

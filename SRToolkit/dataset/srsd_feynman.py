@@ -40,6 +40,20 @@ class SRSD_Feynman(SR_benchmark):
     per-variable sampling strategies (log-uniform, linear, or integer with sign constraints).
     Data is generated on first instantiation and cached as .npz files for subsequent use.
 
+    Warning:
+        Eight datasets currently have a known data problem, both in the downloaded data and
+        with ``force_generate=True``:
+
+        - ``SRSD II.24.17``, ``SRSD Bonus 4``, ``SRSD Bonus 6`` and ``SRSD Bonus 7``: for part
+          of the sampled points (about 25–85%) the ground truth takes the square root of a
+          negative number, so ``y`` contains NaN. The ground truth itself then scores NaN, so
+          no approach can be counted as solving these datasets.
+        - ``SRSD II.6.15a``, ``SRSD II.6.15b``, ``SRSD III.19.51`` and ``SRSD Bonus 12``:
+          ``y`` reaches 1e16 to 1e24, so rounding alone gives the ground truth an RMSE between
+          about 1e-3 and 3e6. Whether it counts as a success depends on ``success_threshold``.
+
+        Leave these datasets out, or read their results with care, until this is fixed.
+
     References:
         [Matsubara et al. (2024)][cite-srsd-feynman]
 

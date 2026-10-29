@@ -976,8 +976,13 @@ class TestSRResultsPrintResults:
 
     def test_out_of_bounds_experiment_number_raises(self):
         results = _single_result()
-        with pytest.raises(AssertionError):
+        with pytest.raises(IndexError):
             results.print_results(experiment_number=99)
+
+    def test_negative_experiment_number_prints_from_end(self, capsys):
+        results = _single_result()
+        results.print_results(experiment_number=-1)
+        assert "Best expression" in capsys.readouterr().out
 
     def test_prints_dataset_and_approach_when_set(self, capsys):
         se = SR_evaluator(_X, _y, metadata={"dataset_name": "MyDS"}, seed=0)
@@ -1160,8 +1165,21 @@ class TestSRResultsContainerOps:
         assert isinstance(_single_result()[0], EvalResult)
 
     def test_getitem_out_of_bounds_raises(self):
-        with pytest.raises(AssertionError):
+        with pytest.raises(IndexError):
             _single_result()[99]
+
+    def test_getitem_negative_index(self):
+        results = _single_result() + _single_result()
+        assert results[-1] is results.results[1]
+        assert results[-2] is results.results[0]
+
+    def test_getitem_negative_out_of_bounds_raises(self):
+        with pytest.raises(IndexError):
+            _single_result()[-2]
+
+    def test_getitem_non_int_raises(self):
+        with pytest.raises(TypeError):
+            _single_result()["0"]
 
     def test_add_creates_new_object_without_mutating_operands(self):
         r1 = _single_result()
