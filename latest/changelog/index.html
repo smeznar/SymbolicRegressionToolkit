@@ -2341,6 +2341,7 @@
 <li>Removed the <code>editdistance</code> dependency (no wheels for Python ≥ 3.13); <code>edit_distance</code> now uses a pure-Python Levenshtein implementation.</li>
 <li>Installing from source without a C compiler now works as documented: the Cython extension is skipped and the pure-Python evaluator is used. A <code>RuntimeWarning</code> is issued the first time the <code>"stack"</code> backend falls back, and <code>SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE</code> tells which evaluator is in use. Set <code>SRTOOLKIT_REQUIRE_CYTHON=1</code> to make a failed build an error.</li>
 <li><code>SR_results</code> can be iterated over directly (<code>for result in results:</code>); previously such a loop ended with an <code>AssertionError</code> (#5).</li>
+<li>Results record the evaluation trace: <code>EvalResult.trace</code> lists, for every counted <code>evaluate_expr</code> call, the index into <code>all_models</code> of the requested expression (cache hits included). New <code>EvalResult.best_so_far()</code>, <code>calls_to_threshold(threshold=None)</code> and <code>best_error_within(budgets)</code> compute the incumbent history, the number of calls needed to reach a threshold, and the best error within given budgets.</li>
 </ul>
 <p><strong>Breaking changes:</strong>
 - Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
@@ -2349,6 +2350,9 @@
 - <code>ground_truth</code> must be an expression (token list or <code>Node</code>); a precomputed behavior matrix goes in the <code>bed_gt</code> setting.
 - Removed <code>SR_evaluator.to_dict</code> / <code>from_dict</code>; serialise the dataset instead.
 - Datasets are saved with <code>format_version: 3</code>; loading <code>format_version: 1</code> configs is no longer supported (version 2 still loads).
+- <code>EvalResult</code> stores <code>all_models</code> (in first-seen order), <code>trace</code>, <code>success_threshold</code> and <code>top_k</code>; <code>min_error</code>, <code>best_expr</code>, <code>success</code>, <code>num_evaluated</code> and <code>evaluation_calls</code> are now read-only properties derived from them, so the constructor no longer takes them. <code>top_models</code> is now a method, <code>top_models(k=None)</code>, returning the <code>k</code> best models (default <code>top_k</code>); it returns the same objects as <code>all_models</code>, breaks ties in error by expression length (shorter first) and then by first-seen order, and is no longer written to JSON. Results are saved with <code>format_version: 2</code>; results saved by earlier versions cannot be loaded and raise a <code>ValueError</code> saying so.
+- <code>SR_evaluator.models</code> is a list in first-seen order instead of a dict keyed by the expression string, and <code>total_evaluations</code> is a read-only property (<code>len(trace)</code>).
+- Calls to <code>evaluate_expr</code> after evaluation has stopped are no longer counted in <code>total_evaluations</code> / <code>evaluation_calls</code>.
 - The module-level sampling helpers in <code>SRToolkit.dataset.sampling</code> (<code>uniform_sampling</code>, <code>log_uniform_sampling</code>, …) are now private; use the <code>UniformSampling</code>, <code>LogUniformSampling</code> and <code>IntegerUniformSampling</code> classes.</p>
 <p><strong>Fixes:</strong>
 - A dataset with custom <code>constant_bounds</code> scored every expression with a constant as NaN after a JSON round trip (<code>from_dict</code>, <code>from_archive</code>, <code>ExperimentGrid</code>).
@@ -2356,6 +2360,7 @@
 - <code>SR_dataset.refresh()</code> regenerates the test and aux data too, and <code>data_cache.remove</code> deletes them.
 - <code>SR_dataset</code> now describes BED datasets correctly.
 - Compiled expressions given fewer constants than they use raise a <code>ValueError</code> on every backend. The default <code>"stack"</code> backend used to read past the end of the array and return garbage values. A <code>SampleSource</code> whose ground truth has a free constant (<code>C</code>) now fails with a clear error, as <code>SR_dataset.resample</code> already did, instead of generating a dataset with garbage <code>y</code>; the custom-dataset guide example that used one is fixed (#4).
+- Augmenters with <code>scope="all"</code> annotated the top models twice (e.g. <code>ExpressionToLatex</code> and <code>ExpressionToLatex_1</code>).
 - Fixed examples in the benchmarking, grammars, quickstart and experiments guides and the README (a wrong benchmark, a derivation that never finished, inconsistent file names) (#5).</p>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>
