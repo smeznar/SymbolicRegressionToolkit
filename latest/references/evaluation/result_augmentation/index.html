@@ -4346,8 +4346,13 @@ it adds the score of the best model to the
 <li><strong>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RankingFunction&lt;/span&gt;" href="../ranking/#SRToolkit.evaluation.ranking.RankingFunction">RankingFunction</a></strong>: the ranking is
   set up on the held-out data and scores each model, e.g. BED on the held-out <code>X</code>.</li>
 </ul>
-<p>Models the search could not score (invalid, or rejected e.g. for exceeding
-<code>max_constants</code>) get <code>NaN</code>.</p>
+<p>With a metric name or a callable, models the search could not score (any
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;Status&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.Status">status</a> other than <code>"ok"</code>) get <code>NaN</code>.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
@@ -4761,8 +4766,8 @@ held-out data without <code>y</code>, or if <code>refit_constants=True</code> is
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-347" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-347"></a><span class="sd">    - **A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]**: the ranking is</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-348" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-348"></a><span class="sd">      set up on the held-out data and scores each model, e.g. BED on the held-out ``X``.</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-349" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-349"></a>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-350" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-350"></a><span class="sd">    Models the search could not score (invalid, or rejected e.g. for exceeding</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-351" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-351"></a><span class="sd">    ``max_constants``) get ``NaN``.</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-350" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-350"></a><span class="sd">    With a metric name or a callable, models the search could not score (any</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-351" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-351"></a><span class="sd">    [status][SRToolkit.utils.types.Status] other than ``"ok"``) get ``NaN``.</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-352" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-352"></a>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-353" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-353"></a><span class="sd">    Examples:</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-354" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-354"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.evaluation import SR_evaluator</span>
