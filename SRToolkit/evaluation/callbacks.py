@@ -35,6 +35,7 @@ class ExprEvaluated:
             calls made so far, including cache hits.
         experiment_id: Identifier of the current experiment.
         is_new_best: ``True`` if this expression achieved a lower error than all previous ones.
+        status: How the evaluation ended; see [Status][SRToolkit.utils.types.Status].
     """
 
     expression: str
@@ -42,6 +43,7 @@ class ExprEvaluated:
     evaluation_number: int
     experiment_id: str
     is_new_best: bool
+    status: str = "ok"
 
 
 @dataclass

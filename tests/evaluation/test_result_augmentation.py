@@ -554,8 +554,8 @@ class TestHoldoutMetricReuseParams:
         assert isinstance(aug.symbol_library, SymbolLibrary)
 
     def test_model_rejected_by_search_scores_nan(self):
-        # Over max_constants in the search: error NaN, parameters []. It must not be refit and
-        # scored on the holdout as if it were a candidate answer.
+        # Over max_constants in the search: status "rejected", no parameters. It must not be refit
+        # and scored on the holdout as if it were a candidate answer.
         se = _rmse_se(max_constants=1)
         se.evaluate_expr(["C", "*", "X_1", "+", "C", "*", "X_0"])
         se.evaluate_expr(_BEST_EXPR)

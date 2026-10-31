@@ -14,6 +14,7 @@ from SRToolkit.utils.types import (
     OP_ADDITIVE,
     OP_MULTIPLICATIVE,
     OP_POWER,
+    STATUSES,
     VALID_SYMBOL_TYPES,
     VAR,
     EvalResult,
@@ -171,6 +172,17 @@ class TestModelResultFromDict:
         assert restored.augmentations["latex"]["value"] == "$C X_0$"
         assert restored.augmentations["latex"]["_type"] == "LaTeXAugmenter"
 
+    def test_round_trip_status(self):
+        original = ModelResult(expr=["X_0", "X_1"], error=np.inf, status="invalid", status_detail="bad")
+        restored = ModelResult.from_dict(json.loads(json.dumps(original.to_dict())))
+        assert (restored.status, restored.status_detail, restored.error) == ("invalid", "bad", np.inf)
+
+    def test_missing_status_raises(self):
+        data = ModelResult(expr=["X_0"], error=0.1).to_dict()
+        del data["status"]
+        with pytest.raises(ValueError, match="without an evaluation status"):
+            ModelResult.from_dict(data)
+
 
 def _make_eval_result(**kwargs):
     model = ModelResult(expr=["X_0"], error=0.05)
@@ -285,9 +297,9 @@ class TestEvalResultTrace:
         result = _make_eval_result(all_models=_models(np.nan, 0.5, 0.5, 0.1), trace=[0, 1, 2, 1, 3, 0])
         assert result.best_so_far() == [(2, 1), (5, 3)]
 
-    def test_best_so_far_first_valid_error_is_incumbent_even_if_inf(self):
+    def test_best_so_far_skips_inf(self):
         result = _make_eval_result(all_models=_models(np.inf, 1.0), trace=[0, 1])
-        assert result.best_so_far() == [(1, 0), (2, 1)]
+        assert result.best_so_far() == [(2, 1)]
 
     def test_best_so_far_empty(self):
         assert _make_eval_result(all_models=[], trace=[]).best_so_far() == []
@@ -314,6 +326,71 @@ class TestEvalResultTrace:
     def test_best_error_within_empty_trace(self):
         curve = _make_eval_result(all_models=[], trace=[]).best_error_within([1, 5])
         assert np.all(np.isnan(curve))
+
+
+def _status_models(*statuses):
+    return [
+        ModelResult(expr=[f"X_{i}"], error=0.1 * (i + 1) if st == "ok" else np.inf, status=st)
+        for i, st in enumerate(statuses)
+    ]
+
+
+class TestEvalResultStatuses:
+    def test_status_counts_unique_and_call(self):
+        result = _make_eval_result(all_models=_status_models("ok", "invalid", "error"), trace=[0, 1, 1, 2])
+        assert result.status_counts() == {"ok": 1, "invalid": 1, "rejected": 0, "undefined": 0, "error": 1}
+        assert result.status_counts(per="call") == {"ok": 1, "invalid": 2, "rejected": 0, "undefined": 0, "error": 1}
+        assert list(result.status_counts()) == list(STATUSES)
+
+    def test_status_counts_bad_per_raises(self):
+        with pytest.raises(ValueError, match="per must be"):
+            _make_eval_result().status_counts(per="model")  # type: ignore[arg-type]
+
+    # Tests for EvalResult.validity_rate, which is commented out in SRToolkit/utils/types.py.
+    #
+    # def test_validity_rate_counts_rejected_and_undefined_as_valid(self):
+    #     result = _make_eval_result(
+    #         all_models=_status_models("ok", "rejected", "undefined", "invalid"), trace=[0, 1, 2, 3]
+    #     )
+    #     assert result.validity_rate() == 0.75
+    #
+    # def test_validity_rate_excludes_error(self):
+    #     result = _make_eval_result(all_models=_status_models("ok", "invalid", "error", "error"), trace=[0, 1, 2, 3])
+    #     assert result.validity_rate() == 0.5
+    #
+    # def test_validity_rate_per_call(self):
+    #     result = _make_eval_result(all_models=_status_models("ok", "invalid"), trace=[0, 1, 1, 1])
+    #     assert result.validity_rate(per="call") == 0.25
+    #
+    # def test_validity_rate_nan_without_countable_models(self):
+    #     assert np.isnan(_make_eval_result(all_models=[], trace=[]).validity_rate())
+    #     assert np.isnan(_make_eval_result(all_models=_status_models("error"), trace=[0]).validity_rate())
+
+    def test_failed_models_rank_last(self):
+        models = _status_models("invalid", "ok", "undefined", "ok")
+        result = _make_eval_result(all_models=models, trace=[0, 1, 2, 3])
+        assert [m.status for m in result.top_models(k=-1)] == ["ok", "ok", "invalid", "undefined"]
+        assert result.best_expr == "X_1"
+
+    def test_inf_and_nan_rank_after_finite(self):
+        result = _make_eval_result(all_models=_models(np.nan, np.inf, 0.3), trace=[0, 1, 2])
+        assert result.top_models(k=-1)[0].error == 0.3
+
+    def test_min_error_inf_when_all_failed(self):
+        result = _make_eval_result(all_models=_status_models("invalid", "rejected"), trace=[0, 1])
+        assert result.min_error == np.inf
+        assert result.success is False
+
+    def test_best_error_within_ignores_inf(self):
+        result = _make_eval_result(all_models=_models(np.inf, 0.5), trace=[0, 1])
+        assert np.isnan(result.best_error_within([1])[0])
+        assert result.best_error_within([2])[0] == 0.5
+
+    def test_to_dict_contains_status_counts(self):
+        result = _make_eval_result(all_models=_status_models("ok", "invalid"), trace=[0, 1])
+        d = result.to_dict()
+        assert d["status_counts"]["invalid"] == 1
+        assert EvalResult.from_dict(json.loads(json.dumps(d))).all_models[1].status == "invalid"
 
 
 class TestEvalResultAddAugmentation:

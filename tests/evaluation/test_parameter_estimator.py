@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
-from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 # ── Shared data ─────────────────────────────────────────────────────────────────
@@ -146,6 +146,81 @@ class TestEstimateParametersGuards:
 
 
 # ── ParameterEstimator._optimize_parameters (via estimate_parameters) ──────────
+
+
+_X_SQRT = np.linspace(0.5, 1.5, 50).reshape(-1, 1)
+_y_SQRT = np.sqrt(2 - _X_SQRT[:, 0])  # sqrt(C - X_0) with C = 2; undefined for C < 1.5
+_SQRT_EXPR = ["sqrt", "(", "C", "-", "X_0", ")"]
+
+
+class TestLimitsMatchEvaluator:
+    def test_node_length_counts_tokens_with_brackets(self):
+        # (X_0 + X_1) * X_0 is 7 infix tokens but only 5 tree nodes.
+        tokens = ["(", "X_0", "+", "X_1", ")", "*", "X_0"]
+        pe = ParameterEstimator(_X, _y_exact, max_expr_length=6)
+        assert np.isnan(pe.estimate_parameters(tokens)[0])
+        assert np.isnan(pe.estimate_parameters(tokens_to_tree(tokens, pe.symbol_library))[0])
+
+
+class TestEstimateParametersWithInfo:
+    def test_converged_fit(self):
+        # Seeded: from about 1 in 10 random starts L-BFGS-B reports an abnormal end even at the
+        # exact optimum (see test_exact_fit_can_report_not_converged).
+        pe = ParameterEstimator(_X, _y_linear, seed=0)
+        rmse, params, info = pe.estimate_parameters_with_info(["C", "*", "X_0"])
+        assert rmse < 1e-6
+        assert info["converged"] is True and "message" not in info
+        assert info["evaluations"] >= info["iterations"] >= 1
+
+    def test_exact_fit_can_report_not_converged(self):
+        # RMSE has no gradient at a perfect fit, so the line search can fail right at the optimum.
+        pe = ParameterEstimator(_X, _y_linear, seed=26)
+        rmse, params, info = pe.estimate_parameters_with_info(["C", "*", "X_0"])
+        assert rmse < 1e-6
+        assert params[0] == pytest.approx(2.0)
+        assert info["converged"] is False
+
+    def test_no_optimizer_run_gives_empty_info(self):
+        pe = ParameterEstimator(_X, _y_exact, max_constants=0)
+        assert pe.estimate_parameters_with_info(["X_0", "+", "X_1"])[2] == {}
+        assert pe.estimate_parameters_with_info(["C", "*", "X_0"])[2] == {}
+
+    def test_estimate_parameters_matches_with_info(self):
+        info_pe = ParameterEstimator(_X, _y_linear, seed=3)
+        plain_pe = ParameterEstimator(_X, _y_linear, seed=3)
+        rmse, params, _ = info_pe.estimate_parameters_with_info(["C", "*", "X_0", "+", "C"])
+        rmse2, params2 = plain_pe.estimate_parameters(["C", "*", "X_0", "+", "C"])
+        assert rmse == rmse2 and np.array_equal(params, params2)
+
+    @pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
+    def test_aborted_fit_keeps_best_finite_value(self):
+        # Starting at C = 4 the fit improves towards C = 2, then a step lands below 1.5, where the
+        # expression is undefined, and L-BFGS-B aborts reporting NaN.
+        pe = ParameterEstimator(
+            _X_SQRT,
+            _y_SQRT,
+            symbol_library=SymbolLibrary.default_symbols(1),
+            initialization="mean",
+            constant_bounds=(-2, 10),
+        )
+        rmse, params, info = pe.estimate_parameters_with_info(_SQRT_EXPR)
+        assert np.isfinite(rmse) and rmse < 0.5
+        assert params[0] > 1.5
+        expected = np.sqrt(np.mean((np.sqrt(params[0] - _X_SQRT[:, 0]) - _y_SQRT) ** 2))
+        assert rmse == pytest.approx(expected)
+        assert info["converged"] is False
+        assert "message" in info
+
+    @pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
+    def test_never_finite_returns_non_finite(self):
+        # Midpoint start C = 0 lies where the expression is undefined; nothing finite is found.
+        pe = ParameterEstimator(
+            _X_SQRT, _y_SQRT, symbol_library=SymbolLibrary.default_symbols(1), initialization="mean"
+        )
+        rmse, params, info = pe.estimate_parameters_with_info(_SQRT_EXPR)
+        assert not np.isfinite(rmse)
+        assert params.size == 1
+        assert info["converged"] is False
 
 
 class TestOptimizeParameters:

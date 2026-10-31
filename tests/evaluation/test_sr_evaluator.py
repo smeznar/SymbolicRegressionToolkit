@@ -11,6 +11,7 @@ from SRToolkit.evaluation.callbacks import (
     EarlyStoppingCallback,
     SRCallbacks,
 )
+from SRToolkit.evaluation.ranking import RankingFunction, RankingResult
 from SRToolkit.evaluation.sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.measures import create_behavior_matrix
@@ -496,9 +497,10 @@ class TestEvaluateExprRmse:
         se.evaluate_expr(["X_0"])  # cache hit
         cb.on_expr_evaluated.assert_called_once()
 
-    def test_invalid_expression_returns_nan(self):
+    def test_invalid_expression_returns_inf(self):
         se = _make_se()
-        assert np.isnan(se.evaluate_expr(["C", "*", "X_1", "X_0"]))
+        assert se.evaluate_expr(["C", "*", "X_1", "X_0"]) == np.inf
+        assert se.models[0].status == "invalid"
 
     def test_invalid_expression_added_to_invalid_list(self):
         se = _make_se()
@@ -618,7 +620,8 @@ class TestEvaluationTrace:
         se.evaluate_expr(["C", "*", "X_1", "X_0"])
         se.evaluate_expr(["C", "*", "X_1", "X_0"])
         assert se.trace == [0, 0]
-        assert np.isnan(se.models[0].error)
+        assert se.models[0].error == np.inf
+        assert se.models[0].status == "invalid"
 
     def test_calls_after_stop_not_recorded(self):
         se = _make_se(max_evaluations=2)
@@ -680,6 +683,198 @@ class TestEvaluationTrace:
         assert loaded.best_expr == "C*X_1-X_0"
 
 
+class _FixedRanking(RankingFunction):
+    """Returns a fixed RankingResult, or raises if it is an exception."""
+
+    name = "fixed"
+
+    def __init__(self, outcome):
+        self.outcome = outcome
+
+    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+        pass
+
+    def score(self, expr):
+        if isinstance(self.outcome, Exception):
+            raise self.outcome
+        return self.outcome
+
+
+# Each case: expression, status under RMSE, status under BED. BED tolerates NaN for some sampled
+# constants and gives inf only when a point has no finite value, so its "undefined" set differs.
+_STATUS_CASES = [
+    (["C", "*", "X_1", "-", "X_0"], "ok", "ok"),
+    (["C", "*", "X_1", "X_0"], "invalid", "invalid"),
+    (["X_0", "+", "foo"], "invalid", "invalid"),
+    (["(", "X_0", "+", "X_1"], "invalid", "invalid"),
+    (["X_0", "(", ")"], "invalid", "invalid"),
+    (["sqrt", "(", "X_0", "-", "100", ")"], "undefined", "undefined"),
+    (["log", "(", "X_0", "-", "X_0", ")"], "undefined", "undefined"),
+    (["X_0", "/", "(", "X_0", "-", "X_0", ")"], "undefined", "undefined"),
+    (["C"] + ["+", "C"] * 8, "rejected", "rejected"),
+]
+
+
+class TestEvaluationStatus:
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    @pytest.mark.parametrize("ranking", ["rmse", "bed"])
+    def test_classification(self, backend, ranking):
+        if ranking == "rmse":
+            se = _make_se(backend=backend)
+        else:
+            se = SR_evaluator(
+                _X_BED, ground_truth=["C", "*", "X_0"], ranking_function="bed", seed=0, success_threshold=-1
+            )
+        for expr, rmse_status, bed_status in _STATUS_CASES:
+            expected = rmse_status if ranking == "rmse" else bed_status
+            error = se.evaluate_expr(expr)
+            model = se.models[-1]
+            assert model.status == expected, "".join(expr)
+            if expected == "ok":
+                assert np.isfinite(error) and model.status_detail is None
+            else:
+                assert error == np.inf and model.error == np.inf
+                assert model.status_detail
+
+    def test_status_details(self):
+        se = _make_se()
+        se.evaluate_expr(["(", "X_0"])
+        se.evaluate_expr(["C"] + ["+", "C"] * 8)
+        se.evaluate_expr(["log", "(", "X_0", "-", "X_0", ")"])
+        details = [m.status_detail for m in se.models]
+        assert "unclosed '('" in details[0]
+        assert details[1] == "9 constants exceed max_constants=8"
+        assert details[2] == "rmse score is inf"
+
+    def test_max_expr_length_rejects(self):
+        se = _make_se(max_expr_length=3)
+        assert se.evaluate_expr(["X_0", "+", "X_1", "+", "X_0"]) == np.inf
+        assert se.models[0].status == "rejected"
+        assert se.models[0].status_detail == "5 tokens exceed max_expr_length=3"
+        assert np.isfinite(se.evaluate_expr(["X_0", "+", "X_1"]))
+
+    def test_max_constants_negative_disables_limit(self):
+        se = _make_se(max_constants=-1)
+        se.evaluate_expr(["C"] + ["+", "C"] * 8)
+        assert se.models[0].status == "ok"
+
+    def test_bed_enforces_max_constants(self):
+        se = SR_evaluator(
+            _X_BED,
+            ground_truth=["C", "*", "X_0"],
+            ranking_function="bed",
+            seed=0,
+            success_threshold=-1,
+            max_constants=1,
+        )
+        se.evaluate_expr(["C", "*", "X_0", "+", "C"])
+        assert se.models[0].status == "rejected"
+
+    def test_ranking_exception_gives_error_with_warning(self):
+        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(RuntimeError("boom")), success_threshold=-1)
+        with pytest.warns(UserWarning, match="boom"):
+            assert se.evaluate_expr(["X_0"]) == np.inf
+        assert se.models[0].status == "error"
+        assert se.models[0].status_detail == "RuntimeError: boom"
+        assert se.invalid == []
+
+    def test_ranking_status_is_respected(self):
+        outcome = RankingResult(score=0.3, status="rejected", status_detail="not physical")
+        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        assert se.evaluate_expr(["X_0"]) == np.inf
+        assert (se.models[0].status, se.models[0].status_detail) == ("rejected", "not physical")
+
+    def test_ranking_rejection_without_detail(self):
+        outcome = RankingResult(score=np.inf, status="rejected")
+        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        se.evaluate_expr(["X_0"])
+        assert (se.models[0].status, se.models[0].status_detail) == ("rejected", "rejected by the ranking")
+
+    def test_non_finite_score_is_undefined(self):
+        outcome = RankingResult(score=np.nan)
+        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        assert se.evaluate_expr(["X_0"]) == np.inf
+        assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "fixed score is nan")
+
+    @pytest.mark.parametrize("status", ["ok", "invalid", "error", "weird"])
+    def test_disallowed_ranking_status_gives_error(self, status):
+        outcome = RankingResult(score=0.3, status=status)  # type: ignore[arg-type]
+        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        with pytest.warns(UserWarning, match="status it may not set"):
+            se.evaluate_expr(["X_0"])
+        assert se.models[0].status == "error"
+        assert se.models[0].error == np.inf
+
+    def test_ranking_undefined_with_finite_score(self):
+        outcome = RankingResult(score=0.3, status="undefined", status_detail="no finite behaviour")
+        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        assert se.evaluate_expr(["X_0"]) == np.inf
+        assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "no finite behaviour")
+
+    def test_invalid_property_lists_only_invalid(self):
+        se = _make_se()
+        se.evaluate_expr(["X_0", "X_1"])
+        se.evaluate_expr(["log", "(", "X_0", "-", "X_0", ")"])
+        se.evaluate_expr(["X_1", "X_0"])
+        assert se.invalid == ["X_0X_1", "X_1X_0"]
+
+    def test_node_input_is_classified(self):
+        se = _make_se()
+        tree = tokens_to_tree(["log", "(", "X_0", "-", "X_0", ")"], se.symbol_library)
+        se.evaluate_expr(tree)
+        assert se.models[0].status == "undefined"
+
+    def test_failed_models_never_become_best(self):
+        cb = MagicMock(spec=SRCallbacks)
+        cb.on_expr_evaluated.return_value = True
+        cb.on_best_expression.return_value = True
+        se = _make_se()
+        se.register_callbacks(cb)
+        se.evaluate_expr(["X_0", "X_1"])
+        se.evaluate_expr(["X_0"])
+        events = [c.args[0] for c in cb.on_expr_evaluated.call_args_list]
+        assert [(e.status, e.is_new_best) for e in events] == [("invalid", False), ("ok", True)]
+        assert cb.on_best_expression.call_count == 1
+
+    def test_cache_hit_event_carries_status(self):
+        cb = MagicMock(spec=SRCallbacks)
+        cb.on_expr_evaluated.return_value = True
+        se = _make_se()
+        se.register_callbacks(cb)
+        se.evaluate_expr(["X_0", "X_1"])
+        se.evaluate_expr(["X_0", "X_1"])
+        assert cb.on_expr_evaluated.call_args_list[-1].args[0].status == "invalid"
+
+    def test_rmse_records_optimizer_outcome(self):
+        se = _make_se()
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        se.evaluate_expr(["X_1", "-", "X_0"])
+        assert set(se.models[0].ranking_data) == {"converged", "evaluations", "iterations"}
+        assert se.models[1].ranking_data == {}
+
+    def test_get_metric_nan_for_undefined(self):
+        se = _make_se()
+        expr = ["log", "(", "X_0", "-", "X_0", ")"]
+        se.evaluate_expr(expr)
+        assert np.isnan(se.get_metric(expr, "r2"))
+
+    def test_results_carry_statuses(self, tmp_path):
+        se = _make_se()
+        se.evaluate_expr(["X_0", "X_1"])
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        se.evaluate_expr(["X_0", "X_1"])
+        result = se.get_results()[0]
+        assert result.best_expr == "C*X_1-X_0"
+        assert result.status_counts(per="call")["invalid"] == 2
+        assert result.status_counts() == {"ok": 1, "invalid": 1, "rejected": 0, "undefined": 0, "error": 0}
+        path = tmp_path / "result.json"
+        path.write_text(json.dumps(result.to_dict()))
+        loaded = EvalResult.from_dict(json.loads(path.read_text()))
+        assert [m.status for m in loaded.all_models] == ["invalid", "ok"]
+        assert loaded.all_models[0].error == np.inf
+        assert loaded.all_models[0].status_detail == se.models[0].status_detail
+
+
 class TestEvaluateExprBed:
     def setup_method(self):
         self.se = SR_evaluator(
@@ -699,9 +894,9 @@ class TestEvaluateExprBed:
         err_other = self.se.evaluate_expr(["C", "+", "X_1"])
         assert err_match < err_other
 
-    def test_bed_invalid_expression_returns_nan_and_appends_invalid(self):
+    def test_bed_invalid_expression_returns_inf_and_appends_invalid(self):
         result = self.se.evaluate_expr(["C", "*", "X_1", "X_0"])
-        assert np.isnan(result)
+        assert result == np.inf
         assert "C*X_1X_0" in self.se.invalid
 
     def test_bed_verbose_1_covers_logging(self):

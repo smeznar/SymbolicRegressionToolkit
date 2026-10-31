@@ -97,6 +97,17 @@ class TestSymbolLibraryAddSymbol:
         assert len(lib) == 1
 
 
+class TestSymbolLibraryAddSymbolPrecedence:
+    def test_negative_operator_precedence_raises(self):
+        with pytest.raises(ValueError, match="precedence >= 0"):
+            SymbolLibrary().add_symbol("%", "op", -1, "np.mod({}, {})")
+
+    def test_negative_function_precedence_allowed(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("!", "fn", -1000, "{}")
+        assert lib.get_precedence("!") == -1000
+
+
 class TestSymbolLibraryRemoveSymbol:
     def test_removes_existing_symbol(self):
         lib = SymbolLibrary()

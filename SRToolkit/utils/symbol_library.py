@@ -130,8 +130,10 @@ class SymbolLibrary:
                 For ``"op"`` symbols use the named constants
                 ``OP_ADDITIVE`` (100), ``OP_MULTIPLICATIVE`` (200), or ``OP_POWER`` (300) —
                 or any integer between them for custom operators.
+                Operator precedences must be non-negative.
                 For ``"fn"`` symbols use ``FN_PREFIX`` (1000) for prefix functions such as
-                ``sin`` and ``FN_POSTFIX`` (-1000) for postfix functions such as ``^2``.
+                ``sin`` and ``FN_POSTFIX`` (-1000) for postfix functions such as ``^2``; any
+                positive value makes a function prefix, zero or a negative value postfix.
                 For ``"var"``, ``"const"``, and ``"lit"`` use ``LEAF`` (1000).
             np_fn: Python/NumPy expression string used in compiled callables
                 (e.g. ``"np.sin({})"``). For ``"var"`` type, passing ``None``
@@ -147,10 +149,13 @@ class SymbolLibrary:
                 [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
         Raises:
-            ValueError: If ``symbol_type`` is not one of the valid types.
+            ValueError: If ``symbol_type`` is not one of the valid types, or if an operator has a
+                negative precedence (infix reconstruction would then never bracket its operands).
         """
         if symbol_type not in VALID_SYMBOL_TYPES:
             raise ValueError(f"Invalid symbol type '{symbol_type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
+        if symbol_type == "op" and precedence < 0:
+            raise ValueError(f"Operator '{symbol}' has precedence {precedence}; operators need a precedence >= 0.")
 
         if latex_str is None:
             if symbol_type == "op":

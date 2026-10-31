@@ -1,8 +1,9 @@
+import re
 from copy import copy
 
 import pytest
 
-from SRToolkit.utils.expression_tree import Node, expr_to_latex, is_float, tokens_to_tree
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, tokens_to_tree
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
@@ -82,6 +83,88 @@ class TestTokensToTree:
         # Two leaves with no operator produce disconnected output nodes
         with pytest.raises(Exception, match="Error while parsing"):
             tokens_to_tree(["X_0", "X_1"], self.sl)
+
+    @pytest.mark.parametrize(
+        "tokens, reason",
+        [
+            ("( X_0 + X_1", "unclosed '('"),
+            ("( ( X_0", "unclosed '('"),
+            ("X_0 + X_1 )", "unmatched ')'"),
+            (") X_0 (", "missing operand before ')'"),
+            ("( ) X_0", "missing operand before ')'"),
+            ("X_0 + ( )", "missing operand before ')'"),
+            ("X_0 ( ) + X_1", "'(' cannot follow an operand"),
+            ("X_0 X_1", "operand 'X_1' cannot follow an operand"),
+            ("X_0 sin ( X_1 )", "function 'sin' cannot follow an operand"),
+            ("^2 X_0", "function '^2' is missing an operand"),
+            ("+ X_0", "operator '+' is missing an operand"),
+            ("X_0 +", "missing operand at the end"),
+            ("sin", "missing operand at the end"),
+            ("", "the expression is empty"),
+        ],
+    )
+    def test_malformed_infix_raises_parse_error(self, tokens, reason):
+        with pytest.raises(ExpressionParseError, match=re.escape(reason)):
+            tokens_to_tree(tokens.split(), self.sl)
+
+    def test_parse_error_is_value_error(self):
+        with pytest.raises(ValueError):
+            tokens_to_tree(["X_0", "???"], self.sl)
+
+    @pytest.mark.parametrize("notation", ["prefix", "postfix"])
+    def test_prefix_postfix_errors_are_parse_errors(self, notation):
+        with pytest.raises(ExpressionParseError):
+            tokens_to_tree(["X_0", "X_1"], self.sl, notation=notation)
+        with pytest.raises(ExpressionParseError):
+            tokens_to_tree(["+"], self.sl, notation=notation)
+
+    def test_prefix_fn_without_brackets_binds_to_next_operand(self):
+        # u- X_0 * X_1 is (-X_0) * X_1, as in the bundled Feynman ground truths
+        tree = tokens_to_tree(["u-", "X_0", "*", "X_1"], self.sl)
+        assert tree.symbol == "*"
+        assert tree.left.symbol == "u-"
+        # A postfix function binds tighter: u- X_0 ^2 is -(X_0^2)
+        tree = tokens_to_tree(["u-", "X_0", "^2"], self.sl)
+        assert tree.symbol == "u-"
+        assert tree.left.symbol == "^2"
+
+    def test_redundant_brackets_accepted(self):
+        tree = tokens_to_tree(["(", "(", "X_0", ")", ")", "+", "(", "X_1", ")"], self.sl)
+        assert tree.to_list(self.sl) == ["X_0", "+", "X_1"]
+
+    def test_round_trip_of_to_list(self):
+        tokens = ["sin", "(", "X_0", ")", "*", "cos", "(", "X_1", "+", "C", ")", "-", "2.5", "/", "X_0", "^", "X_2"]
+        tree = tokens_to_tree(tokens, self.sl)
+        assert tokens_to_tree(tree.to_list(self.sl), self.sl).to_list(self.sl) == tree.to_list(self.sl)
+
+    @pytest.mark.parametrize("notation", ["infix", "prefix", "postfix"])
+    def test_nan_literal_rejected(self, notation):
+        tokens = {"infix": ["X_0", "+", "nan"], "prefix": ["+", "X_0", "nan"], "postfix": ["X_0", "nan", "+"]}
+        with pytest.raises(ExpressionParseError, match="'nan' is not a number"):
+            tokens_to_tree(tokens[notation], self.sl, notation=notation)
+
+    def test_infinite_literals_accepted(self):
+        tree = tokens_to_tree(["X_0", "^", "-inf"], self.sl)
+        assert tree.right.symbol == "-inf"
+
+    def test_left_associative_power(self):
+        tree = tokens_to_tree(["X_0", "^", "X_1", "^", "X_2"], self.sl)
+        assert tree.left.symbol == "^"
+
+    def test_postfix_detected_by_precedence(self):
+        # A postfix function whose name does not start with "^"
+        self.sl.add_symbol("!", "fn", -1000, "{}", "{}!")
+        tree = tokens_to_tree(["X_0", "!", "+", "X_1"], self.sl)
+        assert tree.symbol == "+"
+        assert tree.left.symbol == "!"
+        assert tree.to_list(self.sl) == ["X_0", "!", "+", "X_1"]
+
+    def test_prefix_fn_binds_tightly_whatever_its_precedence(self):
+        # sin registered with precedence 5, below every operator
+        self.sl.add_symbol("f", "fn", 5, "np.sin({})", r"f {}")
+        tree = tokens_to_tree(["f", "X_0", "+", "X_1"], self.sl)
+        assert tree.symbol == "+"
+        assert tree.left.symbol == "f"
 
 
 class TestNodeInit:
@@ -212,6 +295,32 @@ class TestNodeToLatex:
         # right child lower precedence → right wrapped
         node2 = Node("*", right=inner, left=Node("X_2"))
         assert node2.to_latex(self.sl) == r"$X_{2} \cdot (X_{1} + X_{0})$"
+
+    @pytest.mark.parametrize(
+        "tokens, latex",
+        [
+            # equal precedence on the right is bracketed; on the left it is not
+            ("X_0 - ( X_1 + X_2 )", r"$X_{0} - (X_{1} + X_{2})$"),
+            ("X_0 - ( X_1 - X_2 )", r"$X_{0} - (X_{1} - X_{2})$"),
+            ("X_0 - X_1 - X_2", r"$X_{0} - X_{1} - X_{2}$"),
+            # a non-atomic base of a superscript is bracketed
+            ("( X_0 ^ X_1 ) ^ X_2", r"$(X_{0}^{X_{1}})^{X_{2}}$"),
+            ("u- X_0 ^ 2", r"$(- X_{0})^{2}$"),
+            ("sin ( X_0 ) ^ 2", r"$(\sin X_{0})^{2}$"),
+            ("( X_0 ^2 ) ^ X_1", r"$(X_{0}^2)^{X_{1}}$"),
+            ("-1.5 ^ 2", r"$(-1.5)^{2}$"),
+            ("u- X_0 ^2", r"$- (X_{0}^2)$"),
+            # operands the template groups in braces are not bracketed
+            ("X_0 ^ ( X_1 ^ X_2 )", r"$X_{0}^{X_{1}^{X_{2}}}$"),
+            ("X_0 / ( X_1 * X_2 )", r"$\frac{X_{0}}{X_{1} \cdot X_{2}}$"),
+            ("sqrt ( X_0 + X_1 )", r"$\sqrt {X_{0} + X_{1}}$"),
+            ("exp ( X_0 * X_1 )", r"$e^{X_{0} \cdot X_{1}}$"),
+            # a negative number on the right of an operator
+            ("X_0 - -1.5", r"$X_{0} - (-1.5)$"),
+        ],
+    )
+    def test_brackets(self, tokens, latex):
+        assert tokens_to_tree(tokens.split(), self.sl).to_latex(self.sl) == latex
 
     def test_invalid_symbol_raises(self):
         with pytest.raises(Exception, match="Invalid symbol type"):

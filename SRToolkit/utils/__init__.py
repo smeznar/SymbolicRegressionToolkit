@@ -24,7 +24,7 @@ Modules:
 from .expression_compiler import compile_expr, compile_expr_rmse
 from .expression_generator import generate_n_expressions
 from .expression_simplifier import simplify
-from .expression_tree import Node, expr_to_latex, is_float, tokens_to_tree
+from .expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, tokens_to_tree
 from .grammar import (
     AncestorInfo,
     Constraint,
@@ -64,11 +64,13 @@ from .types import (
     OP_ADDITIVE,
     OP_MULTIPLICATIVE,
     OP_POWER,
+    STATUSES,
     VALID_SYMBOL_TYPES,
     VAR,
     EvalResult,
     ModelResult,
     RankingSettings,
+    Status,
 )
 
 __all__ = [
@@ -88,6 +90,7 @@ __all__ = [
     "SymbolLibrary",
     "Node",
     "tokens_to_tree",
+    "ExpressionParseError",
     "is_float",
     "compile_expr",
     "compile_expr_rmse",
@@ -119,4 +122,6 @@ __all__ = [
     "VALID_SYMBOL_TYPES",
     "EvalResult",
     "ModelResult",
+    "Status",
+    "STATUSES",
 ]

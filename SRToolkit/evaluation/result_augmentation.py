@@ -347,8 +347,8 @@ class HoldoutMetric(ResultAugmenter):
         - **A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]**: the ranking is
           set up on the held-out data and scores each model, e.g. BED on the held-out ``X``.
 
-        Models the search could not score (invalid, or rejected e.g. for exceeding
-        ``max_constants``) get ``NaN``.
+        With a metric name or a callable, models the search could not score (any
+        [status][SRToolkit.utils.types.Status] other than ``"ok"``) get ``NaN``.
 
         Examples:
             >>> from SRToolkit.evaluation import SR_evaluator
@@ -461,9 +461,9 @@ class HoldoutMetric(ResultAugmenter):
             except Exception as e:
                 warnings.warn(f"[HoldoutMetric] Error scoring expression '{''.join(expr)}': {e}")
                 return float("nan")
-        # A model the search could not score (invalid, or rejected e.g. for max_constants) has no
+        # A model the search could not score (invalid, rejected e.g. for max_constants, ...) has no
         # usable parameters; scoring it here would make a rejected expression look like an answer.
-        if np.isnan(model.error):
+        if model.status != "ok":
             return float("nan")
         # Reuse the model's fitted parameters when it has them (true generalization; an empty array
         # is a valid fit of a constant-free expression). When it has none — results from a ranking

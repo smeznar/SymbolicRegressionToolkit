@@ -3,11 +3,32 @@ Binary expression tree ([Node][SRToolkit.utils.expression_tree.Node]) and conver
 lists, trees, and LaTeX strings.
 """
 
+import math
+import string
 import warnings
 from copy import copy
+from functools import lru_cache
 from typing import Any, List, Optional, Tuple, Union
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+
+class ExpressionParseError(ValueError):
+    """
+    Raised by [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree] when a token list
+    is not a well-formed expression: an unknown token, a missing operand, two adjacent operands,
+    or unbalanced or empty brackets.
+
+    [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] marks expressions that raise it
+    as ``invalid``.
+
+    Examples:
+        >>> try:
+        ...     tokens_to_tree(["(", "X_0", "+", "X_1"], SymbolLibrary.default_symbols())
+        ... except ExpressionParseError as e:
+        ...     print(e)
+        Error while parsing expression (X_0+X_1: unclosed '('.
+    """
 
 
 class Node:
@@ -205,25 +226,50 @@ class Node:
         elif symbol_library.get_type(self.symbol) in ["var", "lit"]:
             return symbol_library.get_latex_str(self.symbol), num_const
         elif symbol_library.get_type(self.symbol) == "fn":
-            if self.left is not None and symbol_library.get_type(self.left.symbol) in ["fn", "op"]:
+            template = symbol_library.get_latex_str(self.symbol)
+            grouped, _ = (_latex_placeholders(template) or ((False, False),))[0]
+            if self.left is not None and not grouped and not _is_latex_atom(self.left, symbol_library):
                 left = f"({left})"
-            return symbol_library.get_latex_str(self.symbol).format(left), num_const
+            return template.format(left), num_const
         elif symbol_library.get_type(self.symbol) == "op":
-            if (
-                self.left is not None
-                and not is_float(self.left.symbol)
-                and -1 < symbol_library.get_precedence(self.left.symbol) < symbol_library.get_precedence(self.symbol)
+            template = symbol_library.get_latex_str(self.symbol)
+            placeholders = _latex_placeholders(template) + ((False, False),) * 2
+            precedence = symbol_library.get_precedence(self.symbol)
+            if self.left is not None and self._latex_needs_brackets(
+                self.left, placeholders[0], precedence, False, symbol_library
             ):
                 left = f"({left})"
-            if (
-                self.right is not None
-                and not is_float(self.right.symbol)
-                and -1 < symbol_library.get_precedence(self.right.symbol) < symbol_library.get_precedence(self.symbol)
+            if self.right is not None and self._latex_needs_brackets(
+                self.right, placeholders[1], precedence, True, symbol_library
             ):
                 right = f"({right})"
-            return symbol_library.get_latex_str(self.symbol).format(left, right), num_const
+            return template.format(left, right), num_const
         else:
             raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+
+    @staticmethod
+    def _latex_needs_brackets(
+        child: "Node",
+        placeholder: Tuple[bool, bool],
+        precedence: int,
+        is_right: bool,
+        symbol_library: SymbolLibrary,
+    ) -> bool:
+        grouped, is_base = placeholder
+        if grouped:
+            # The template already groups this operand in braces (\frac{..}{..}, ^{..}).
+            return False
+        if is_base:
+            # Anything but an atom must be bracketed as the base of a super- or subscript.
+            return not _is_latex_atom(child, symbol_library)
+        if is_float(child.symbol):
+            return is_right and str(child.symbol).startswith("-")
+        if symbol_library.get_type(child.symbol) != "op":
+            return False
+        child_precedence = symbol_library.get_precedence(child.symbol)
+        # Operators are left-associative, so an operand of equal precedence on the right was
+        # grouped explicitly: a - (b + c).
+        return child_precedence < precedence or (is_right and child_precedence == precedence)
 
     def height(self) -> int:
         """
@@ -302,6 +348,30 @@ class Node:
         return Node(copy(self.symbol), left=left, right=right)
 
 
+@lru_cache(maxsize=None)
+def _latex_placeholders(template: str) -> Tuple[Tuple[bool, bool], ...]:
+    # For each {} placeholder in a LaTeX template, in order: whether the template wraps it in
+    # braces (so it is already grouped), and whether it is the base of a super- or subscript.
+    # Cached, since each symbol has one fixed template; a tuple, so callers cannot change it.
+    # Formatter.parse splits the literal text at every escaped brace, so join it back up:
+    # texts[i] is the text before placeholder i and texts[i + 1] the text after it.
+    texts = [""]
+    for literal, field, _, _ in string.Formatter().parse(template):
+        texts[-1] += literal
+        if field is not None:
+            texts.append("")
+    return tuple(
+        (texts[i].endswith("{") and texts[i + 1].startswith("}"), texts[i + 1].lstrip().startswith(("^", "_")))
+        for i in range(len(texts) - 1)
+    )
+
+
+def _is_latex_atom(node: Node, symbol_library: SymbolLibrary) -> bool:
+    if is_float(node.symbol):
+        return not str(node.symbol).startswith("-")
+    return symbol_library.get_type(node.symbol) in ["var", "const", "lit"]
+
+
 def is_float(element: Any) -> bool:
     """
     Return ``True`` if ``element`` can be interpreted as a floating-point number.
@@ -358,6 +428,22 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notati
         >>> tree.to_list(SymbolLibrary.default_symbols())
         ['sin', '(', 'X_0', ')']
 
+    Infix conventions, some of which differ from usual mathematical notation:
+
+    - A function with positive precedence is prefix (``sin ( X_0 )``); one with zero or negative
+      precedence is postfix (``X_0 ^2``), as in
+      [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list].
+    - A prefix function written without brackets applies to the operand that follows it, more
+      tightly than any binary operator: ``u- X_0 * X_1`` is ``(-X_0) * X_1``, and ``u- X_0 ^ 2``
+      is ``(-X_0)^2``, not ``-(X_0^2)`` as in mathematics. A postfix function binds more tightly
+      still: ``u- X_0 ^2`` is ``-(X_0^2)``.
+    - Binary operators are left-associative, ``^`` included: ``X_0 ^ X_1 ^ X_2`` is
+      ``(X_0^X_1)^X_2``, whereas mathematics reads it as ``X_0^(X_1^X_2)``.
+    - Numbers are any token ``float()`` accepts (``1.5``, ``-2``, ``1e-3``, ``inf``), except
+      ``nan``.
+
+    Write brackets where these conventions differ from what you mean.
+
     Args:
         tokens: Token list in the notation given by ``notation``.
         sl: Symbol library used to resolve token types and precedences. If None,
@@ -370,9 +456,10 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notati
         Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
 
     Raises:
-        Exception: If ``notation`` is not one of the accepted values, if a token is
-            absent from ``sl``, or if the expression is syntactically invalid (e.g.
-            an operator lacks operands or tokens remain unconsumed).
+        ExpressionParseError: If a token is absent from ``sl``, or if the expression is not
+            well-formed (e.g. an operator lacks operands, brackets are unbalanced or empty, or
+            tokens remain unconsumed).
+        Exception: If ``notation`` is not one of the accepted values.
     """
     if sl is None:
         sl = SymbolLibrary.get_active()
@@ -391,6 +478,11 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
     """
     Parse an infix token list into an expression tree using the shunting-yard algorithm.
 
+    The parser tracks whether an operand or an operator comes next, so malformed input is
+    rejected rather than silently repaired: brackets must be balanced and non-empty, and an
+    operand cannot directly follow another operand. See
+    [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree] for the conventions.
+
     Args:
         tokens: Token list in infix notation.
         sl: Symbol library used to resolve token types and precedences.
@@ -399,53 +491,93 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
 
     Raises:
-        Exception: If a token is absent from ``sl``, or if the expression is
-            syntactically invalid.
+        ExpressionParseError: If a token is absent from ``sl``, or if the expression is not
+            well-formed.
     """
-    num_tokens = len([t for t in tokens if t != "(" and t != ")"])
     expr_str = "".join(tokens)
-    tokens = ["("] + tokens + [")"]
-    operator_stack = []
-    out_stack = []
+
+    def error(reason: str) -> ExpressionParseError:
+        return ExpressionParseError(f"Error while parsing expression {expr_str}: {reason}.")
+
+    operator_stack: List[str] = []
+    out_stack: List[Node] = []
+
+    def reduce() -> None:
+        # The state checks below guarantee that the operands are on the stack.
+        symbol = operator_stack.pop()
+        if sl.get_type(symbol) == "fn":
+            out_stack.append(Node(symbol, left=out_stack.pop()))
+        else:
+            right = out_stack.pop()
+            out_stack.append(Node(symbol, right=right, left=out_stack.pop()))
+
+    expect_operand = True
+
+    def push_operand(token: str) -> None:
+        nonlocal expect_operand
+        if not expect_operand:
+            raise error(f"operand '{token}' cannot follow an operand")
+        out_stack.append(Node(token))
+        expect_operand = False
+
     for token in tokens:
+        token_type = sl.get_type(token)
         if token == "(":
+            if not expect_operand:
+                raise error("'(' cannot follow an operand")
             operator_stack.append(token)
-        elif sl.get_type(token) in ["var", "const", "lit"] or is_float(token):
-            out_stack.append(Node(token))
-        elif sl.get_type(token) == "fn":
-            if token[0] == "^":
-                out_stack.append(Node(token, left=out_stack.pop()))
-            else:
-                operator_stack.append(token)
-        elif sl.get_type(token) == "op":
+        elif token == ")":
+            if expect_operand:
+                raise error("missing operand before ')'")
+            while len(operator_stack) > 0 and operator_stack[-1] != "(":
+                reduce()
+            if len(operator_stack) == 0:
+                raise error("unmatched ')'")
+            operator_stack.pop()
+            if len(operator_stack) > 0 and sl.get_type(operator_stack[-1]) == "fn":
+                reduce()
+        elif token_type in ["var", "const", "lit"]:
+            push_operand(token)
+        elif is_float(token):
+            if math.isnan(float(token)):
+                raise error(f"'{token}' is not a number")
+            push_operand(token)
+        elif token_type == "fn" and sl.get_precedence(token) <= 0:
+            if expect_operand:
+                raise error(f"function '{token}' is missing an operand")
+            out_stack.append(Node(token, left=out_stack.pop()))
+        elif token_type == "fn":
+            if not expect_operand:
+                raise error(f"function '{token}' cannot follow an operand")
+            operator_stack.append(token)
+        elif token_type == "op":
+            if expect_operand:
+                raise error(f"operator '{token}' is missing an operand")
+            # A prefix function on the stack has its operand complete, and binds more tightly than
+            # any binary operator regardless of its precedence value.
             while (
                 len(operator_stack) > 0
                 and operator_stack[-1] != "("
-                and sl.get_precedence(operator_stack[-1]) >= sl.get_precedence(token)
-            ):
-                if sl.get_type(operator_stack[-1]) == "fn":
-                    out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
-                else:
-                    out_stack.append(Node(operator_stack.pop(), out_stack.pop(), out_stack.pop()))
-            operator_stack.append(token)
-        else:
-            if token != ")":
-                raise Exception(
-                    f'Invalid symbol "{token}" in expression {expr_str}. Did you add token "{token}" to the symbol library?'
+                and (
+                    sl.get_type(operator_stack[-1]) == "fn"
+                    or sl.get_precedence(operator_stack[-1]) >= sl.get_precedence(token)
                 )
+            ):
+                reduce()
+            operator_stack.append(token)
+            expect_operand = True
+        else:
+            raise ExpressionParseError(
+                f'Invalid symbol "{token}" in expression {expr_str}. Did you add token "{token}" to the symbol library?'
+            )
 
-            while len(operator_stack) > 0 and operator_stack[-1] != "(":
-                if sl.get_type(operator_stack[-1]) == "fn":
-                    out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
-                else:
-                    out_stack.append(Node(operator_stack.pop(), out_stack.pop(), out_stack.pop()))
-            operator_stack.pop()
-            if len(operator_stack) > 0 and sl.get_type(operator_stack[-1]) == "fn":
-                out_stack.append(Node(operator_stack.pop(), left=out_stack.pop()))
-    if len(out_stack[-1]) == num_tokens:
-        return out_stack[-1]
-    else:
-        raise Exception(f"Error while parsing expression {expr_str}.")
+    if expect_operand:
+        raise error("the expression is empty" if len(tokens) == 0 else "missing operand at the end")
+    while len(operator_stack) > 0:
+        if operator_stack[-1] == "(":
+            raise error("unclosed '('")
+        reduce()
+    return out_stack[0]
 
 
 def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str) -> Node:
@@ -475,22 +607,30 @@ def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str)
         Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
 
     Raises:
-        Exception: If a token is absent from ``sl``, or if the expression is
+        ExpressionParseError: If a token is absent from ``sl``, or if the expression is
             syntactically invalid (an operator/function without enough operands, or
             more than one subtree left on the stack at the end).
     """
     expr_str = "".join(tokens)
     out_stack: List[Node] = []
     for token in reversed(tokens) if notation == "prefix" else tokens:
-        if sl.get_type(token) in ["var", "const", "lit"] or is_float(token):
+        if sl.get_type(token) in ["var", "const", "lit"]:
+            out_stack.append(Node(token))
+        elif is_float(token):
+            if math.isnan(float(token)):
+                raise ExpressionParseError(f"Error while parsing expression {expr_str}: '{token}' is not a number.")
             out_stack.append(Node(token))
         elif sl.get_type(token) == "fn":
             if len(out_stack) < 1:
-                raise Exception(f"Error while parsing expression {expr_str}: function '{token}' is missing an operand.")
+                raise ExpressionParseError(
+                    f"Error while parsing expression {expr_str}: function '{token}' is missing an operand."
+                )
             out_stack.append(Node(token, left=out_stack.pop()))
         elif sl.get_type(token) == "op":
             if len(out_stack) < 2:
-                raise Exception(f"Error while parsing expression {expr_str}: operator '{token}' is missing an operand.")
+                raise ExpressionParseError(
+                    f"Error while parsing expression {expr_str}: operator '{token}' is missing an operand."
+                )
             if notation == "prefix":
                 left = out_stack.pop()
                 right = out_stack.pop()
@@ -499,11 +639,11 @@ def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str)
                 left = out_stack.pop()
             out_stack.append(Node(token, right=right, left=left))
         else:
-            raise Exception(
+            raise ExpressionParseError(
                 f'Invalid symbol "{token}" in expression {expr_str}. Did you add token "{token}" to the symbol library?'
             )
     if len(out_stack) != 1:
-        raise Exception(f"Error while parsing expression {expr_str}.")
+        raise ExpressionParseError(f"Error while parsing expression {expr_str}.")
     return out_stack[0]
 
 

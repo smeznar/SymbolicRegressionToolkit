@@ -59,6 +59,37 @@ candidates). This affects both methods for runs that end before the budget:
 If your runs can stop early, for example because the experiment uses a time limit, check
 ``evaluation_calls`` against the budget before comparing approaches.
 
+## Evaluation statuses
+
+Each evaluated expression gets a [Status][SRToolkit.utils.types.Status] that records how its
+evaluation ended, and a ``status_detail`` saying why when it is not ``"ok"``. The evaluator checks
+in this order:
+
+1. ``"invalid"``: the expression is not well-formed, i.e. the parser raises an
+   [ExpressionParseError][SRToolkit.utils.expression_tree.ExpressionParseError] (unknown token,
+   missing operand, unbalanced brackets).
+2. ``"rejected"``: it has more free constants than ``max_constants`` (default 8) or more tokens
+   than ``max_expr_length`` (default unlimited). These limits apply to every ranking function.
+3. ``"error"``: the ranking function raised an exception. The evaluator also emits a warning,
+   since this usually points at a bug rather than at the expression.
+4. ``"undefined"``: the ranking function returned a non-finite error, e.g. for ``sqrt`` of a
+   negative number, ``log(0)``, a division by zero, or an overflow. Under RMSE this describes the
+   fitted model: other values of the constants might have given a finite error.
+5. ``"ok"``: otherwise.
+
+Every status except ``"ok"`` gets the error ``+inf``, so an approach never receives ``NaN`` and
+failed models rank after every scored one. Every call still counts toward ``max_evaluations``.
+
+The statuses are saved with the results, so validity can be measured after the run from
+[status_counts][SRToolkit.utils.types.EvalResult.status_counts]. Count every well-formed
+expression as valid, including rejected and undefined ones, and leave ``"error"`` out entirely,
+because those failures belong to the evaluation, not to the approach:
+
+```python
+counts = result.status_counts()  # per unique expression; per="call" counts every call
+validity_rate = 1 - counts["invalid"] / (sum(counts.values()) - counts["error"])
+```
+
 Note:
     [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] is defined here rather than
     in ``result_augmentation`` to avoid circular imports.
@@ -83,13 +114,14 @@ from SRToolkit.evaluation.callbacks import (
     ExprEvaluated,
     SRCallbacks,
 )
-from SRToolkit.evaluation.ranking import RankingFunction, RankingResult, build_ranking
+from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
+from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_simplifier import simplify
-from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
 from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EvalResult, ModelResult, RankingSettings
+from SRToolkit.utils.types import EvalResult, ModelResult, RankingSettings, Status
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +375,6 @@ class SR_evaluator:
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
                 (cache hits included, calls after stopping excluded), holding the index into
                 ``models`` of the requested expression.
-            invalid: Token strings of expressions that raised an exception during evaluation.
             ground_truth: The target expression passed at construction (BED mode).
             max_evaluations: Maximum number of expressions to evaluate.
             metadata: Metadata dict passed at construction.
@@ -362,7 +393,6 @@ class SR_evaluator:
         self.models: List[ModelResult] = list()
         self._model_index: Dict[str, int] = dict()
         self.trace: List[int] = list()
-        self.invalid: List[str] = list()
         self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
@@ -399,6 +429,12 @@ class SR_evaluator:
         [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr], including
         cache hits but not calls made after evaluation was stopped. Equal to ``len(trace)``."""
         return len(self.trace)
+
+    @property
+    def invalid(self) -> List[str]:
+        """Strings of the evaluated expressions with status ``"invalid"`` (not well-formed), in
+        the order they were first evaluated."""
+        return ["".join(m.expr) for m in self.models if m.status == "invalid"]
 
     @property
     def ranking_function(self) -> str:
@@ -480,11 +516,11 @@ class SR_evaluator:
             'C+X_1'
             >>> print(0.99 < se.models[0].parameters[0] < 1.01)
             True
-            >>> # Evaluating invalid expression returns nan and adds it to invalid list
+            >>> # A malformed expression scores inf and gets the status "invalid"
             >>> print(se.evaluate_expr(["C", "*", "X_1", "X_0"]))
-            nan
-            >>> se.invalid
-            ['C*X_1X_0']
+            inf
+            >>> se.models[-1].status, se.invalid
+            ('invalid', ['C*X_1X_0'])
             >>> X = np.random.rand(10, 2) - 0.5
             >>> gt = ["X_0", "+", "C"]
             >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", seed=42)
@@ -511,10 +547,10 @@ class SR_evaluator:
                 ``2`` — also surfaces NumPy warnings during evaluation. Default ``0``.
 
         Returns:
-            The error of the expression under the active ranking function: RMSE when ``ranking_function="rmse"``, BED when ``ranking_function="bed"``. Returns ``NaN`` if the expression is invalid or ``max_evaluations`` has been reached (a warning is emitted in the latter case). If the expression was already evaluated, the cached value is returned immediately.
+            The error of the expression under the active ranking function: RMSE when ``ranking_function="rmse"``, BED when ``ranking_function="bed"``. Returns ``+inf`` if the expression could not be scored (see the evaluation statuses in the module description), and ``NaN`` if evaluation was stopped, e.g. because ``max_evaluations`` was reached (a warning is emitted). If the expression was already evaluated, the cached value is returned immediately.
 
             Every call except those made after evaluation was stopped is appended to ``trace``
-            and counts toward ``max_evaluations``, cache hits included.
+            and counts toward ``max_evaluations``, cache hits and failed expressions included.
         """
         if self.should_stop:
             warnings.warn(
@@ -550,46 +586,18 @@ class SR_evaluator:
                         evaluation_number=self.total_evaluations,
                         experiment_id=self._experiment_id,
                         is_new_best=False,
+                        status=self.models[index].status,
                     )
                     if not self._callbacks.on_expr_evaluated(event):
                         self.should_stop = True
                 return self.models[index].error
 
             else:
-                try:
-                    with (
-                        np.errstate(
-                            divide="ignore",
-                            invalid="ignore",
-                            over="ignore",
-                            under="ignore",
-                        )
-                        if verbose < 2
-                        else nullcontext()
-                    ):
-                        result = self.ranking.score(expr)
-
-                    if verbose > 0:
-                        logger.debug("Evaluated expression %s with error: %s.", expr_str, result.score)
-
-                except Exception as e:
-                    if verbose > 0:
-                        logger.debug("Error evaluating expression %s: %s", expr_str, e)
-
-                    self.invalid.append(expr_str)
-                    result = RankingResult(score=np.nan)
-
-                error = result.score
+                model = self._evaluate_new(expr, expr_list, expr_str, verbose)
+                error = model.error
                 self._model_index[expr_str] = len(self.models)
                 self.trace.append(len(self.models))
-                self.models.append(
-                    ModelResult(
-                        expr=expr_list,
-                        error=error,
-                        parameters=result.parameters,
-                        ranking_data=result.extra,
-                    )
-                )
+                self.models.append(model)
 
                 if self._callbacks is not None:
                     is_new_best = error < self._current_best_error
@@ -601,6 +609,7 @@ class SR_evaluator:
                         evaluation_number=self.total_evaluations,
                         experiment_id=self._experiment_id,
                         is_new_best=is_new_best,
+                        status=model.status,
                     )
                     if not self._callbacks.on_expr_evaluated(event):
                         self.should_stop = True
@@ -615,6 +624,80 @@ class SR_evaluator:
                             self.should_stop = True
 
                 return error
+
+    def _evaluate_new(
+        self, expr: Union[List[str], Node], expr_list: List[str], expr_str: str, verbose: int
+    ) -> ModelResult:
+        # Parse and check the limits before scoring, so that each failure gets its own status.
+        try:
+            tokens_to_tree(expr_list, self.symbol_library)
+        except ExpressionParseError as e:
+            if verbose > 0:
+                logger.debug("Invalid expression %s: %s", expr_str, e)
+            return ModelResult(expr=expr_list, error=np.inf, status="invalid", status_detail=str(e))
+
+        violation = self._limit_violation(expr_list)
+        if violation is not None:
+            if verbose > 0:
+                logger.debug("Rejected expression %s: %s", expr_str, violation)
+            return ModelResult(expr=expr_list, error=np.inf, status="rejected", status_detail=violation)
+
+        try:
+            with (
+                np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore")
+                if verbose < 2
+                else nullcontext()
+            ):
+                result = self.ranking.score(expr)
+        except Exception as e:
+            # The expression is well-formed, so this is a failure of the evaluation; warn, since it
+            # usually points at a bug rather than at the expression.
+            message = f"{type(e).__name__}: {e}"
+            warnings.warn(f"[SR_evaluator] Error scoring expression {expr_str}: {message}")
+            return ModelResult(expr=expr_list, error=np.inf, status="error", status_detail=message)
+
+        score = float(result.score)
+        detail = result.status_detail
+        if result.status not in (None, "undefined", "rejected"):
+            # Only "rejected" and "undefined" may come from a ranking; see RankingResult.status.
+            message = f"the {self.ranking.name} ranking returned a status it may not set: {result.status!r}"
+            warnings.warn(f"[SR_evaluator] Error scoring expression {expr_str}: {message}")
+            return ModelResult(expr=expr_list, error=np.inf, status="error", status_detail=message)
+        status: Status
+        if result.status == "rejected":
+            status = "rejected"
+        elif result.status == "undefined" or not np.isfinite(score):
+            status = "undefined"
+        else:
+            status = "ok"
+
+        if status == "ok":
+            detail = None
+        elif detail is None:
+            detail = f"{self.ranking.name} score is {score}" if status == "undefined" else "rejected by the ranking"
+
+        if verbose > 0:
+            logger.debug("Evaluated expression %s with error: %s (%s).", expr_str, score, status)
+
+        return ModelResult(
+            expr=expr_list,
+            error=score if status == "ok" else np.inf,
+            parameters=result.parameters,
+            ranking_data=result.extra,
+            status=status,
+            status_detail=detail,
+        )
+
+    def _limit_violation(self, expr_list: List[str]) -> Optional[str]:
+        max_constants = self.kwargs.get("max_constants", DEFAULT_ESTIMATION_SETTINGS["max_constants"])
+        max_expr_length = self.kwargs.get("max_expr_length", DEFAULT_ESTIMATION_SETTINGS["max_expr_length"])
+        if isinstance(max_constants, int) and max_constants >= 0:
+            num_constants = sum(1 for t in expr_list if self.symbol_library.get_type(t) == "const")
+            if num_constants > max_constants:
+                return f"{num_constants} constants exceed max_constants={max_constants}"
+        if isinstance(max_expr_length, int) and 0 <= max_expr_length < len(expr_list):
+            return f"{len(expr_list)} tokens exceed max_expr_length={max_expr_length}"
+        return None
 
     def get_metric(
         self,
@@ -643,7 +726,8 @@ class SR_evaluator:
         model away from ``X`` (e.g. for smoothness or extrapolation measures).
 
         Only available in ``ranking_function="rmse"`` mode. In BED mode (no ``y``,
-        no fitted constants), and for invalid expressions, this returns ``NaN``.
+        no fitted constants), and for models that could not be scored (status other than
+        ``"ok"``), this returns ``NaN``.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -669,8 +753,8 @@ class SR_evaluator:
                 has the fitted constants bound in. Default ``"r2"``.
 
         Returns:
-            The metric value as a float. Returns ``NaN`` in BED mode, for invalid
-            expressions, or if the metric raises during computation.
+            The metric value as a float. Returns ``NaN`` in BED mode, for models that could
+            not be scored, or if the metric raises during computation.
 
         Raises:
             ValueError: If ``expr`` has not been evaluated yet, or if ``metric`` is a
@@ -706,10 +790,10 @@ class SR_evaluator:
         model = self.models[index]
 
         # Prediction-based metrics need targets and a fitted model: undefined in BED mode
-        # and for invalid expressions.
+        # and for models that could not be scored.
         if self.ranking_function != "rmse" or self.y is None:
             return float("nan")
-        if expr_str in self.invalid or np.isnan(model.error):
+        if model.status != "ok":
             return float("nan")
 
         backend = str(self.parameter_estimator.estimation_settings["backend"])

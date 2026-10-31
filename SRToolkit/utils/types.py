@@ -8,7 +8,7 @@ Defines symbol-type constants (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``),
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, TypedDict
+from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Tuple, TypedDict
 
 import numpy as np
 
@@ -36,6 +36,26 @@ FN_POSTFIX = -1000  # postfix functions: E '^2' — clearly negative, distinct f
 # but storing a large value prevents accidental parenthesisation if a high-precedence
 # operator is added.
 LEAF = 1000
+
+Status = Literal["ok", "invalid", "rejected", "undefined", "error"]
+"""
+Outcome of evaluating one expression, stored as [ModelResult.status][SRToolkit.utils.types.ModelResult].
+
+- ``"ok"``: scored, with a finite error.
+- ``"invalid"``: not a well-formed expression; the parser raised an
+  [ExpressionParseError][SRToolkit.utils.expression_tree.ExpressionParseError].
+- ``"rejected"``: well-formed, but it violates a limit of the task (``max_constants``,
+  ``max_expr_length``), so it was not scored.
+- ``"undefined"``: scored, but the ranking function gave a non-finite error, e.g. because the
+  expression is undefined at some inputs (``sqrt`` of a negative number, ``log(0)``) or
+  overflows. For RMSE this describes the fitted model: other constants might have been fine.
+- ``"error"``: the ranking function raised an exception for a well-formed expression. This is a
+  failure of the evaluation, not of the expression.
+
+Every status except ``"ok"`` gets the error ``+inf``.
+"""
+
+STATUSES: Tuple[str, ...] = ("ok", "invalid", "rejected", "undefined", "error")
 
 
 class RankingSettings(TypedDict, total=False):
@@ -128,11 +148,19 @@ class ModelResult:
         0.42
         >>> result.parameters is None
         True
+        >>> result.status
+        'ok'
+        >>> ModelResult(expr=["X_0", "X_1"], error=float("inf"), status="invalid").status_detail is None
+        True
 
     Attributes:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
-        error: Numeric error under the ranking function (RMSE or BED).
+        error: Numeric error under the ranking function (RMSE or BED). ``+inf`` unless ``status``
+            is ``"ok"``.
         parameters: Fitted constant values. Present for RMSE ranking only, ``None`` otherwise.
+        status: How the evaluation ended; see [Status][SRToolkit.utils.types.Status].
+        status_detail: Why the status is not ``"ok"``: the parse error, the violated limit, the
+            exception, or the non-finite score. ``None`` for ``"ok"``.
         ranking_data: Freeform payload carried over from the
             [RankingResult][SRToolkit.evaluation.ranking.RankingResult] ``extra`` dict of the
             ranking function that scored this expression. Empty for rankings that emit nothing
@@ -147,6 +175,8 @@ class ModelResult:
     parameters: Optional["np.ndarray"] = None
     ranking_data: Dict[str, Any] = field(default_factory=dict)
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    status: Status = "ok"
+    status_detail: Optional[str] = None
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
         """
@@ -205,6 +235,8 @@ class ModelResult:
             "parameters": _to_json_safe(self.parameters),
             "ranking_data": _to_json_safe(self.ranking_data),
             "augmentations": _to_json_safe(self.augmentations),
+            "status": self.status,
+            "status_detail": self.status_detail,
         }
 
     @staticmethod
@@ -226,21 +258,33 @@ class ModelResult:
 
         Returns:
             The reconstructed :class:`ModelResult`.
+
+        Raises:
+            ValueError: If ``data`` has no ``status``, i.e. it was saved before statuses were
+                recorded.
         """
+        if "status" not in data:
+            raise ValueError(
+                "[ModelResult.from_dict] This model was saved by an older SRToolkit version, without an "
+                "evaluation status, and cannot be loaded. Rerun the experiment."
+            )
         return ModelResult(
             expr=data["expr"],
             error=data["error"],
             parameters=_from_json_safe(data["parameters"]),
             ranking_data=_from_json_safe(data.get("ranking_data", {})),
             augmentations=_from_json_safe(data["augmentations"]),
+            status=data["status"],
+            status_detail=data.get("status_detail"),
         )
 
 
 def _ranking_key(model: ModelResult) -> Tuple[bool, float, int]:
-    # NaN compares false with everything, so it gets its own leading flag to sort last; its error
-    # slot is a placeholder. Among equal errors, shorter expressions come first.
-    is_nan = math.isnan(model.error)
-    return is_nan, 0.0 if is_nan else model.error, len(model.expr)
+    # Non-finite errors (failed models, or NaN in hand-built results) sort after every finite one;
+    # NaN compares false with everything, so the flag leads and the error slot is a placeholder.
+    # Among equal errors, shorter expressions come first.
+    failed = not math.isfinite(model.error)
+    return failed, 0.0 if failed else model.error, len(model.expr)
 
 
 @dataclass
@@ -321,7 +365,8 @@ class EvalResult:
 
     def top_models(self, k: Optional[int] = None) -> List[ModelResult]:
         """
-        The ``k`` best models, sorted by error with ``NaN`` last.
+        The ``k`` best models, sorted by error, with models whose error is not finite (every
+        status except ``"ok"``) last.
 
         Models with equal error are ordered by length (number of tokens), shorter first, and
         then by the order in which they were first evaluated. These are the same objects as in
@@ -356,7 +401,8 @@ class EvalResult:
 
     @property
     def min_error(self) -> float:
-        """Lowest error across all evaluated models. ``NaN`` if there are none or all are ``NaN``."""
+        """Lowest error across all evaluated models. ``NaN`` if there are none, and ``+inf`` if
+        every model failed."""
         ranking = self._ranking()
         return self.all_models[ranking[0]].error if ranking else float("nan")
 
@@ -375,10 +421,11 @@ class EvalResult:
         """
         The incumbent history: each point in the trace where the best error so far strictly improved.
 
-        ``NaN`` errors never become the incumbent.
+        Failed models (non-finite error) never become the incumbent.
 
         Examples:
-            >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["X_1"], float("nan")), ModelResult(["C"], 0.1)]
+            >>> failed = ModelResult(["X_1", "X_0"], float("inf"), status="invalid")
+            >>> models = [ModelResult(["X_0"], 0.5), failed, ModelResult(["C"], 0.1)]
             >>> result = EvalResult(all_models=models, trace=[1, 0, 0, 2], approach_name="")
             >>> result.best_so_far()
             [(2, 0), (4, 2)]
@@ -391,7 +438,7 @@ class EvalResult:
         best = None
         for call, index in enumerate(self.trace, start=1):
             error = self.all_models[index].error
-            if not np.isnan(error) and (best is None or error < best):
+            if math.isfinite(error) and (best is None or error < best):
                 best = error
                 history.append((call, index))
         return history
@@ -450,7 +497,8 @@ class EvalResult:
         than that, so larger budgets don't measure anything.
 
         Examples:
-            >>> models = [ModelResult(["X_0"], float("nan")), ModelResult(["X_1"], 0.5), ModelResult(["C"], 0.1)]
+            >>> failed = ModelResult(["X_0", "X_1"], float("inf"), status="invalid")
+            >>> models = [failed, ModelResult(["X_1"], 0.5), ModelResult(["C"], 0.1)]
             >>> result = EvalResult(all_models=models, trace=[0, 1, 2], approach_name="")
             >>> result.best_error_within([0, 1, 2, 3, 10])
             array([nan, nan, 0.5, 0.1, 0.1])
@@ -460,16 +508,76 @@ class EvalResult:
                 error (see above).
 
         Returns:
-            An array with the best non-``NaN`` error within each budget, or ``NaN`` where no valid
-            expression had been evaluated yet.
+            An array with the best finite error within each budget, or ``NaN`` where no model had
+            been scored successfully yet.
         """
         errors = np.array([self.all_models[i].error for i in self.trace], dtype=float)
+        errors[~np.isfinite(errors)] = np.nan
         running = np.fmin.accumulate(errors) if len(errors) > 0 else errors
         curve = np.full(len(budgets), np.nan)
         for j, budget in enumerate(budgets):
             if budget > 0 and len(running) > 0:
                 curve[j] = running[min(budget, len(running)) - 1]
         return curve
+
+    def status_counts(self, per: Literal["unique", "call"] = "unique") -> Dict[str, int]:
+        """
+        Number of models with each [Status][SRToolkit.utils.types.Status].
+
+        Examples:
+            >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["X_0", "X_1"], float("inf"), status="invalid")]
+            >>> result = EvalResult(all_models=models, trace=[0, 1, 1], approach_name="")
+            >>> result.status_counts()
+            {'ok': 1, 'invalid': 1, 'rejected': 0, 'undefined': 0, 'error': 0}
+            >>> result.status_counts(per="call")["invalid"]
+            2
+
+        Args:
+            per: ``"unique"`` counts each evaluated expression once; ``"call"`` counts every
+                counted call in the trace, cache hits included.
+
+        Returns:
+            A dictionary with one entry per status, zeros included.
+
+        Raises:
+            ValueError: If ``per`` is not ``"unique"`` or ``"call"``.
+        """
+        if per == "unique":
+            models = self.all_models
+        elif per == "call":
+            models = [self.all_models[i] for i in self.trace]
+        else:
+            raise ValueError(f"[EvalResult.status_counts] per must be 'unique' or 'call', got {per!r}.")
+        counts = {status: 0 for status in STATUSES}
+        for model in models:
+            counts[model.status] += 1
+        return counts
+
+    # validity_rate is left out to keep the API lean: it is rarely needed, and it is a one-line
+    # formula on status_counts (the definition is in the "Evaluation statuses" section of the
+    # sr_evaluator module docstring). Uncomment it, and its tests in tests/utils/test_types.py,
+    # if a canonical method turns out to be useful.
+    #
+    # def validity_rate(self, per: Literal["unique", "call"] = "unique") -> float:
+    #     """
+    #     Fraction of expressions that are well-formed.
+    #
+    #     Every expression with a tree counts as valid (``"ok"``, ``"rejected"``, ``"undefined"``);
+    #     ``"invalid"`` ones do not. Models with status ``"error"`` are left out of both counts,
+    #     since their failure lies in the evaluation, not in the expression.
+    #
+    #     Args:
+    #         per: ``"unique"`` counts each evaluated expression once; ``"call"`` counts every
+    #             counted call in the trace, cache hits included.
+    #
+    #     Returns:
+    #         The fraction of valid expressions, or ``NaN`` if there are none to count.
+    #     """
+    #     counts = self.status_counts(per)
+    #     total = sum(counts.values()) - counts["error"]
+    #     if total == 0:
+    #         return float("nan")
+    #     return (total - counts["invalid"]) / total
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
         """
@@ -509,8 +617,8 @@ class EvalResult:
         NumPy arrays and scalars within nested [ModelResult][SRToolkit.utils.types.ModelResult] entries are
         converted to native Python types so the result can be passed directly
         to ``json.dump``. Besides the stored fields, the dictionary contains the derived summary
-        values (``min_error``, ``best_expr``, ``success``, ``num_evaluated``, ``evaluation_calls``)
-        for reading the file directly; [from_dict][SRToolkit.utils.types.EvalResult.from_dict]
+        values (``min_error``, ``best_expr``, ``success``, ``num_evaluated``, ``evaluation_calls``,
+        ``status_counts`` per unique expression) for reading the file directly; [from_dict][SRToolkit.utils.types.EvalResult.from_dict]
         ignores them.
 
         Examples:
@@ -533,6 +641,7 @@ class EvalResult:
             "success": self.success,
             "num_evaluated": self.num_evaluated,
             "evaluation_calls": self.evaluation_calls,
+            "status_counts": self.status_counts(),
             "approach_name": self.approach_name,
             "dataset_name": self.dataset_name,
             "success_threshold": None if self.success_threshold is None else float(self.success_threshold),
