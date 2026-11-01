@@ -38,7 +38,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: pip install ".[dev]"
+        # Editable, so tests and doctests import the source tree (with the compiled Cython extension
+        # built in place). A regular install would add a second copy in site-packages, and pytest
+        # fails with "import file mismatch" when conftest.py and the doctests import different copies.
+        run: pip install -e ".[dev]"
       - name: Run tests
         run: pytest --doctest-modules --cov=SRToolkit --cov-report=term-missing SRToolkit/ tests/
 
