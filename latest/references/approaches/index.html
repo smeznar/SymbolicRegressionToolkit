@@ -2283,6 +2283,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#SRToolkit.approaches.__getattr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;__getattr__
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2364,7 +2375,8 @@ discovery by Brence et al.</p>
             <td>
               <div class="doc-md-description">
                 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EDHiE&lt;/span&gt;" href="EDHiE/#SRToolkit.approaches.EDHiE.EDHiE">EDHiE</a> — equation discovery with hierarchical
-variational autoencoders by Mežnar et al. Requires PyTorch and pymoo.</p>
+variational autoencoders by Mežnar et al. Requires PyTorch and pymoo, which are imported
+only when <code>EDHiE</code> or <code>EDHiEConfig</code> is first accessed, so <code>import SRToolkit</code> stays light.</p>
               </div>
             </td>
           </tr>
@@ -2494,21 +2506,19 @@ config dict self-sufficient for reconstruction without any additional metadata.<
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-70">70</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-70">70</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-77">77</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-70" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-70"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-71" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-71"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-72" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-72"></a><span class="sd">    Serialise this config to a JSON-safe dictionary.</span>
-<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-73" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-73"></a>
-<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-74" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-74"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-75" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-75"></a><span class="sd">        A dictionary representation with all values converted to JSON-compatible types.</span>
-<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-76" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-76"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-77" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-77"></a>    <span class="k">return</span> <span class="n">_to_json_safe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-72">72</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-66" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-66"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-67" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-67"></a><span class="w">    </span><span class="sd">"""Serialise this config to a JSON-safe dictionary.</span>
+<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-68" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-68"></a>
+<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-69" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-69"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-70" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-70"></a><span class="sd">        A dictionary representation with all values converted to JSON-compatible types.</span>
+<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-71" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-71"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-72" name="SRToolkit.approaches.ApproachConfig.to_dict--source--__codelineno-0-72"></a>    <span class="k">return</span> <span class="n">_to_json_safe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2597,31 +2607,29 @@ config dict self-sufficient for reconstruction without any additional metadata.<
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-79">79</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-79">79</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-80">80</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-81">81</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-82">82</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-83">83</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-84">84</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-85">85</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-86">86</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-87">87</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-88">88</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-89">89</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-90">90</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-91">91</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-79" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-79"></a><span class="nd">@classmethod</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-80" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-80"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ApproachConfig"</span><span class="p">:</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-81" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-81"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-82" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-82"></a><span class="sd">    Restore a config from a dictionary produced by</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-83" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-83"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-84" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-84"></a>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-85" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-85"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-86" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-86"></a><span class="sd">        d: Dictionary representation of the config.</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-87" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-87"></a>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-88" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-88"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-89" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-89"></a><span class="sd">        A new instance of this config class populated with the values from ``d``.</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-90" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-90"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-91" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-91"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">_from_json_safe</span><span class="p">(</span><span class="n">d</span><span class="p">))</span>
+<span class="normal"><a href="#SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-85">85</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-74" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-74"></a><span class="nd">@classmethod</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-75" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-75"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"ApproachConfig"</span><span class="p">:</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-76" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-76"></a><span class="w">    </span><span class="sd">"""Restore a config from a dictionary produced by</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-77" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-77"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-78" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-78"></a>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-79" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-79"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-80" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-80"></a><span class="sd">        d: Dictionary representation of the config.</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-81" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-81"></a>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-82" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-82"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-83" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-83"></a><span class="sd">        A new instance of this config class populated with the values from ``d``.</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-84" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-84"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-85" name="SRToolkit.approaches.ApproachConfig.from_dict--source--__codelineno-0-85"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">_from_json_safe</span><span class="p">(</span><span class="n">d</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2760,7 +2768,13 @@ and passes an instance here from its own <code>__init__</code>.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-95"> 95</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-89"> 89</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-90"> 90</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-91"> 91</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-92"> 92</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-93"> 93</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-95"> 95</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-96"> 96</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-97"> 97</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-98"> 98</a></span>
@@ -2778,39 +2792,31 @@ and passes an instance here from its own <code>__init__</code>.</p>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-110">110</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-111">111</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-115">115</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-116">116</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-117">117</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-118">118</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-119">119</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-120">120</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-95" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-95"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ApproachConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-96" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-96"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-97" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-97"></a><span class="sd">    Abstract base class for all symbolic regression approaches.</span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach--source--__codelineno-0-113">113</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-89" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-89"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ApproachConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-90" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-90"></a><span class="w">    </span><span class="sd">"""Abstract base class for all symbolic regression approaches.</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-91" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-91"></a>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-92" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-92"></a><span class="sd">    Subclasses must implement [prepare][SRToolkit.approaches.sr_approach.SR_approach.prepare]</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-93" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-93"></a><span class="sd">    and [search][SRToolkit.approaches.sr_approach.SR_approach.search], and optionally override</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-94" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-94"></a><span class="sd">    [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt],</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-95" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-95"></a><span class="sd">    [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state], and</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-96" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-96"></a><span class="sd">    [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state]</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-97" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-97"></a><span class="sd">    according to their [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope].</span>
 <a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-98" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-98"></a>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-99" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-99"></a><span class="sd">    Subclasses must implement [prepare][SRToolkit.approaches.sr_approach.SR_approach.prepare]</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-100" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-100"></a><span class="sd">    and [search][SRToolkit.approaches.sr_approach.SR_approach.search], and optionally override</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-101" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-101"></a><span class="sd">    [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt],</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-102" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-102"></a><span class="sd">    [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state], and</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-103" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-103"></a><span class="sd">    [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state]</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-104" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-104"></a><span class="sd">    according to their [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope].</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-105" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-105"></a>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-106" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-106"></a><span class="sd">    The ``config.approach_class`` field is set automatically to the fully-qualified class path</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-107" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-107"></a><span class="sd">    of the concrete subclass, so the config dict alone is sufficient to reconstruct the approach.</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-108" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-108"></a>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-109" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-109"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-110" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-110"></a><span class="sd">        config: Configuration dataclass for the approach. Every concrete approach defines its</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-111" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-111"></a><span class="sd">            own [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] subclass</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-112" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-112"></a><span class="sd">            and passes an instance here from its own ``__init__``.</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-113" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-113"></a>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-114" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-114"></a><span class="sd">    Attributes:</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-115" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-115"></a><span class="sd">        name: Name of this approach, read from ``config.name``.</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-116" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-116"></a><span class="sd">        config: The approach configuration.</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-117" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-117"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-118" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-118"></a>    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-119" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-119"></a>    <span class="n">config</span><span class="o">.</span><span class="n">approach_class</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__qualname__</span><span class="si">}</span><span class="s2">"</span>
-<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-120" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-120"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-99" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-99"></a><span class="sd">    The ``config.approach_class`` field is set automatically to the fully-qualified class path</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-100" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-100"></a><span class="sd">    of the concrete subclass, so the config dict alone is sufficient to reconstruct the approach.</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-101" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-101"></a>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-102" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-102"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-103" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-103"></a><span class="sd">        config: Configuration dataclass for the approach. Every concrete approach defines its</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-104" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-104"></a><span class="sd">            own [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] subclass</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-105" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-105"></a><span class="sd">            and passes an instance here from its own ``__init__``.</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-106" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-106"></a>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-107" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-107"></a><span class="sd">    Attributes:</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-108" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-108"></a><span class="sd">        name: Name of this approach, read from ``config.name``.</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-109" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-109"></a><span class="sd">        config: The approach configuration.</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-110" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-110"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-111" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-111"></a>    <span class="bp">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-112" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-112"></a>    <span class="n">config</span><span class="o">.</span><span class="n">approach_class</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__qualname__</span><span class="si">}</span><span class="s2">"</span>
+<a id="SRToolkit.approaches.SR_approach--source--__codelineno-0-113" name="SRToolkit.approaches.SR_approach--source--__codelineno-0-113"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3012,39 +3018,37 @@ before the next one starts.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-166">166</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-166">166</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-167">167</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-168">168</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-169">169</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-170">170</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-171">171</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-172">172</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-173">173</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-174">174</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-175">175</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-176">176</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-177">177</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-178">178</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-179">179</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-180">180</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-181">181</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-182">182</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-166" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-166"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-167" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-167"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-168" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-168"></a><span class="sd">    Reset the approach's per-experiment state in preparation for a new run.</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-169" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-169"></a>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-170" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-170"></a><span class="sd">    Called by the framework before ``adapt()`` and ``search()`` for every</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-171" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-171"></a><span class="sd">    experiment, so any state accumulated during a previous run is cleared</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-172" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-172"></a><span class="sd">    before the next one starts.</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-173" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-173"></a>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-174" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-174"></a><span class="sd">    Three cases:</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-175" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-175"></a>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-176" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-176"></a><span class="sd">    - **Stateless** (e.g. random sampling): implement as ``pass``.</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-177" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-177"></a><span class="sd">    - **Stateful search** (e.g. GP): reset the population or any other</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-178" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-178"></a><span class="sd">      mutable search state to its initial configuration.</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-179" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-179"></a><span class="sd">    - **Pretrained weights + per-run search state** (e.g. neural): reset</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-180" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-180"></a><span class="sd">      only the search state; leave pretrained weights untouched.</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-181" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-181"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-182" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-182"></a>    <span class="k">pass</span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-172">172</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-157" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-157"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-158" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-158"></a><span class="w">    </span><span class="sd">"""Reset the approach's per-experiment state in preparation for a new run.</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-159" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-159"></a>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-160" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-160"></a><span class="sd">    Called by the framework before ``adapt()`` and ``search()`` for every</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-161" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-161"></a><span class="sd">    experiment, so any state accumulated during a previous run is cleared</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-162" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-162"></a><span class="sd">    before the next one starts.</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-163" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-163"></a>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-164" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-164"></a><span class="sd">    Three cases:</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-165" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-165"></a>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-166" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-166"></a><span class="sd">    - **Stateless** (e.g. random sampling): implement as ``pass``.</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-167" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-167"></a><span class="sd">    - **Stateful search** (e.g. GP): reset the population or any other</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-168" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-168"></a><span class="sd">      mutable search state to its initial configuration.</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-169" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-169"></a><span class="sd">    - **Pretrained weights + per-run search state** (e.g. neural): reset</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-170" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-170"></a><span class="sd">      only the search state; leave pretrained weights untouched.</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-171" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-171"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-172" name="SRToolkit.approaches.SR_approach.prepare--source--__codelineno-0-172"></a>    <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3122,39 +3126,37 @@ only the points from the domain and the symbol library may be used.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-184">184</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-176">176</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-177">177</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-178">178</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-184">184</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-185">185</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-187">187</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-188">188</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-189">189</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-190">190</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-191">191</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-192">192</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-193">193</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-194">194</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-195">195</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-196">196</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-197">197</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-198">198</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-199">199</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-200">200</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-184" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-184"></a><span class="k">def</span><span class="w"> </span><span class="nf">adapt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-185" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-185"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-186" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-186"></a><span class="sd">    Adapt the approach to the target dataset's input space and symbols in the symbol library.</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-187" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-187"></a>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-188" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-188"></a><span class="sd">    Called by the framework after ``prepare()`` and before ``search()``, according</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-189" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-189"></a><span class="sd">    to ``adaptation_scope``. This method must NOT access target values (y) or evaluate</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-190" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-190"></a><span class="sd">    expressions (e.g. by calling ``sr_evaluator.evaluate_expr()``) during adaptation —</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-191" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-191"></a><span class="sd">    only the points from the domain and the symbol library may be used.</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-192" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-192"></a>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-193" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-193"></a><span class="sd">    The default implementation does nothing. Override when ``adaptation_scope`` is</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-194" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-194"></a><span class="sd">    ``"once"`` or ``"experiment"``.</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-195" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-195"></a>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-196" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-196"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-197" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-197"></a><span class="sd">        X: input variables from the domain, shape ``(n_samples, n_variables)``.</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-198" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-198"></a><span class="sd">        symbol_library: The symbol library defining the available symbols/tokens.</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-199" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-199"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-200" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-200"></a>    <span class="k">pass</span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-189">189</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-174" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-174"></a><span class="k">def</span><span class="w"> </span><span class="nf">adapt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-175" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-175"></a><span class="w">    </span><span class="sd">"""Adapt the approach to the target dataset's input space and symbols in the symbol library.</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-176" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-176"></a>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-177" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-177"></a><span class="sd">    Called by the framework after ``prepare()`` and before ``search()``, according</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-178" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-178"></a><span class="sd">    to ``adaptation_scope``. This method must NOT access target values (y) or evaluate</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-179" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-179"></a><span class="sd">    expressions (e.g. by calling ``sr_evaluator.evaluate_expr()``) during adaptation —</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-180" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-180"></a><span class="sd">    only the points from the domain and the symbol library may be used.</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-181" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-181"></a>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-182" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-182"></a><span class="sd">    The default implementation does nothing. Override when ``adaptation_scope`` is</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-183" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-183"></a><span class="sd">    ``"once"`` or ``"experiment"``.</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-184" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-184"></a>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-185" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-185"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-186" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-186"></a><span class="sd">        X: input variables from the domain, shape ``(n_samples, n_variables)``.</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-187" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-187"></a><span class="sd">        symbol_library: The symbol library defining the available symbols/tokens.</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-188" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-188"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-189" name="SRToolkit.approaches.SR_approach.adapt--source--__codelineno-0-189"></a>    <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3268,7 +3270,18 @@ stored inside this object.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-202">202</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-194">194</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-195">195</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-202">202</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-203">203</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-204">204</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-205">205</a></span>
@@ -3281,44 +3294,31 @@ stored inside this object.</p>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-212">212</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-213">213</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-214">214</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-215">215</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-226">226</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-227">227</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-202" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-202"></a><span class="nd">@abstractmethod</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-203" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-203"></a><span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-204" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-204"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-205" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-205"></a><span class="sd">    Run the symbolic regression search.</span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.search--source--__codelineno-0-215">215</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-191" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-191"></a><span class="nd">@abstractmethod</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-192" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-192"></a><span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-193" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-193"></a><span class="w">    </span><span class="sd">"""Run the symbolic regression search.</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-194" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-194"></a>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-195" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-195"></a><span class="sd">    Implementations must call ``sr_evaluator.evaluate_expr(expr)`` to score</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-196" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-196"></a><span class="sd">    candidate expressions. The evaluator accumulates all results internally;</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-197" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-197"></a><span class="sd">    do not call ``sr_evaluator.get_results()`` — that is handled by the</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-198" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-198"></a><span class="sd">    framework after ``search`` finishes.</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-199" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-199"></a>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-200" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-200"></a><span class="sd">    Stop conditions to respect:</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-201" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-201"></a><span class="sd">        - ``sr_evaluator.total_evaluations &gt;= sr_evaluator.max_evaluations``</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-202" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-202"></a><span class="sd">          (when ``max_evaluations &gt; 0``)</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-203" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-203"></a><span class="sd">        - The current best error has dropped below ``sr_evaluator.success_threshold``</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-204" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-204"></a>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-205" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-205"></a><span class="sd">    The symbol library is available in ``sr_evaluator.symbol_library``.</span>
 <a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-206" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-206"></a>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-207" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-207"></a><span class="sd">    Implementations must call ``sr_evaluator.evaluate_expr(expr)`` to score</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-208" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-208"></a><span class="sd">    candidate expressions. The evaluator accumulates all results internally;</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-209" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-209"></a><span class="sd">    do not call ``sr_evaluator.get_results()`` — that is handled by the</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-210" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-210"></a><span class="sd">    framework after ``search`` finishes.</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-207" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-207"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-208" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-208"></a><span class="sd">        sr_evaluator: Evaluator used to score expressions. All results are</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-209" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-209"></a><span class="sd">            stored inside this object.</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-210" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-210"></a><span class="sd">        seed: Optional random seed for reproducible expression generation.</span>
 <a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-211" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-211"></a>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-212" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-212"></a><span class="sd">    Stop conditions to respect:</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-213" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-213"></a><span class="sd">        - ``sr_evaluator.total_evaluations &gt;= sr_evaluator.max_evaluations``</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-214" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-214"></a><span class="sd">          (when ``max_evaluations &gt; 0``)</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-215" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-215"></a><span class="sd">        - The current best error has dropped below ``sr_evaluator.success_threshold``</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-216" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-216"></a>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-217" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-217"></a><span class="sd">    The symbol library is available in ``sr_evaluator.symbol_library``.</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-218" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-218"></a>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-219" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-219"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-220" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-220"></a><span class="sd">        sr_evaluator: Evaluator used to score expressions. All results are</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-221" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-221"></a><span class="sd">            stored inside this object.</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-222" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-222"></a><span class="sd">        seed: Optional random seed for reproducible expression generation.</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-223" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-223"></a>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-224" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-224"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-225" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-225"></a><span class="sd">        None</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-226" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-226"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-227" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-227"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-212" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-212"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-213" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-213"></a><span class="sd">        None</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-214" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-214"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-215" name="SRToolkit.approaches.SR_approach.search--source--__codelineno-0-215"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3382,43 +3382,41 @@ without an extension; the approach may append its own extension (e.g.
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-229">229</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-229">229</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-230">230</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-231">231</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-232">232</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-247">247</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-229" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-229"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-230" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-230"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-231" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-231"></a><span class="sd">    Save the adapted model/approach state to ``path``.</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-232" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-232"></a>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-233" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-233"></a><span class="sd">    The approach is free to choose any serialization format (e.g. ``torch.save``,</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-234" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-234"></a><span class="sd">    ``numpy.save``, JSON, pickle).  The framework passes ``path`` as a base path</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-235" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-235"></a><span class="sd">    without an extension; the approach may append its own extension (e.g.</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-236" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-236"></a><span class="sd">    ``path + ".pt"``), but must be consistent between ``save_adapted_state`` and</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-237" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-237"></a><span class="sd">    ``load_adapted_state``.</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-238" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-238"></a>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-239" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-239"></a><span class="sd">    Must be implemented when ``adaptation_scope == "once"``, or when</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-240" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-240"></a><span class="sd">    ``adaptation_scope == "experiment"`` and ``save_adapted_model`` is ``True``.</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-241" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-241"></a>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-242" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-242"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-243" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-243"></a>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-244" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-244"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-245" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-245"></a><span class="sd">        path: Base file path to save the adapted state to.</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-246" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-246"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-247" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-247"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-234">234</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-217" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-217"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-218" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-218"></a><span class="w">    </span><span class="sd">"""Save the adapted model/approach state to ``path``.</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-219" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-219"></a>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-220" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-220"></a><span class="sd">    The approach is free to choose any serialization format (e.g. ``torch.save``,</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-221" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-221"></a><span class="sd">    ``numpy.save``, JSON, pickle).  The framework passes ``path`` as a base path</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-222" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-222"></a><span class="sd">    without an extension; the approach may append its own extension (e.g.</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-223" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-223"></a><span class="sd">    ``path + ".pt"``), but must be consistent between ``save_adapted_state`` and</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-224" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-224"></a><span class="sd">    ``load_adapted_state``.</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-225" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-225"></a>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-226" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-226"></a><span class="sd">    Must be implemented when ``adaptation_scope == "once"``, or when</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-227" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-227"></a><span class="sd">    ``adaptation_scope == "experiment"`` and ``save_adapted_model`` is ``True``.</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-228" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-228"></a>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-229" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-229"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-230" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-230"></a>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-231" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-231"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-232" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-232"></a><span class="sd">        path: Base file path to save the adapted state to.</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-233" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-233"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-234" name="SRToolkit.approaches.SR_approach.save_adapted_state--source--__codelineno-0-234"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3476,29 +3474,27 @@ without an extension; the approach may append its own extension (e.g.
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-255">255</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-259">259</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-260">260</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-249" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-249"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-250" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-250"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-251" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-251"></a><span class="sd">    Restore the previously saved adapted state from ``path``.</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-252" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-252"></a>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-253" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-253"></a><span class="sd">    Must be implemented when ``adaptation_scope == "once"``.</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-254" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-254"></a>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-255" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-255"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-256" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-256"></a>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-257" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-257"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-258" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-258"></a><span class="sd">        path: Base file path previously passed to ``save_adapted_state()``.</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-259" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-259"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-260" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-260"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-246">246</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-236" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-236"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_adapted_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-237" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-237"></a><span class="w">    </span><span class="sd">"""Restore the previously saved adapted state from ``path``.</span>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-238" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-238"></a>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-239" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-239"></a><span class="sd">    Must be implemented when ``adaptation_scope == "once"``.</span>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-240" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-240"></a>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-241" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-241"></a><span class="sd">    The default raises ``NotImplementedError``. Override when needed.</span>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-242" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-242"></a>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-243" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-243"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-244" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-244"></a><span class="sd">        path: Base file path previously passed to ``save_adapted_state()``.</span>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-245" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-245"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-246" name="SRToolkit.approaches.SR_approach.load_adapted_state--source--__codelineno-0-246"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3626,7 +3622,21 @@ or any JSON-serialisable dict describing the approach's hyperparameters.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-262">262</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-261">261</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-262">262</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-263">263</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-264">264</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-265">265</a></span>
@@ -3645,56 +3655,40 @@ or any JSON-serialisable dict describing the approach's hyperparameters.</p>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-278">278</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-279">279</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-280">280</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-281">281</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-283">283</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-284">284</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-285">285</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-288">288</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-289">289</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-290">290</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-296">296</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-262" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-262"></a><span class="nd">@classmethod</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-263" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-263"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"SR_approach"</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-264" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-264"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-265" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-265"></a><span class="sd">    Reconstruct an approach instance from a configuration dictionary.</span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-281">281</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-248" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-248"></a><span class="nd">@classmethod</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-249" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-249"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"SR_approach"</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-250" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-250"></a><span class="w">    </span><span class="sd">"""Reconstruct an approach instance from a configuration dictionary.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-251" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-251"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-252" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-252"></a><span class="sd">    This classmethod is the counterpart to saving an</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-253" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-253"></a><span class="sd">    [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] via</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-254" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-254"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].  It is used by</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-255" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-255"></a><span class="sd">    [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] when loading an approach from a</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-256" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-256"></a><span class="sd">    ``grid.json`` manifest for CLI or HPC execution.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-257" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-257"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-258" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-258"></a><span class="sd">    The default raises ``NotImplementedError``.  Override this classmethod in subclasses</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-259" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-259"></a><span class="sd">    that need to support CLI/grid loading.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-260" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-260"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-261" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-261"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-262" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-262"></a><span class="sd">        &gt;&gt;&gt; class MyApproach(SR_approach):</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-263" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-263"></a><span class="sd">        ...     @classmethod</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-264" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-264"></a><span class="sd">        ...     def from_config(cls, config: dict) -&gt; "MyApproach":</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-265" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-265"></a><span class="sd">        ...         return cls(param=config["param"])</span>
 <a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-266" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-266"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-267" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-267"></a><span class="sd">    This classmethod is the counterpart to saving an</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-268" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-268"></a><span class="sd">    [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] via</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-269" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-269"></a><span class="sd">    [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].  It is used by</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-270" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-270"></a><span class="sd">    [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] when loading an approach from a</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-271" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-271"></a><span class="sd">    ``grid.json`` manifest for CLI or HPC execution.</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-272" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-272"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-273" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-273"></a><span class="sd">    The default raises ``NotImplementedError``.  Override this classmethod in subclasses</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-274" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-274"></a><span class="sd">    that need to support CLI/grid loading.</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-275" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-275"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-276" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-276"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-277" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-277"></a><span class="sd">        &gt;&gt;&gt; class MyApproach(SR_approach):</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-278" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-278"></a><span class="sd">        ...     @classmethod</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-279" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-279"></a><span class="sd">        ...     def from_config(cls, config: dict) -&gt; "MyApproach":</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-280" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-280"></a><span class="sd">        ...         return cls(param=config["param"])</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-281" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-281"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-282" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-282"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-283" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-283"></a><span class="sd">        config: Dictionary previously produced by</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-284" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-284"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-285" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-285"></a><span class="sd">            or any JSON-serialisable dict describing the approach's hyperparameters.</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-286" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-286"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-287" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-287"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-288" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-288"></a><span class="sd">        A new instance of this approach class.</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-289" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-289"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-290" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-290"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-291" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-291"></a><span class="sd">        NotImplementedError: If the subclass has not implemented this method.</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-292" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-292"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-293" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-293"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-294" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-294"></a>        <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">] from_config() is not implemented. "</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-295" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-295"></a>        <span class="s2">"Override this classmethod to support loading from a grid manifest (CLI/HPC use)."</span>
-<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-296" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-296"></a>    <span class="p">)</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-267" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-267"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-268" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-268"></a><span class="sd">        config: Dictionary previously produced by</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-269" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-269"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-270" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-270"></a><span class="sd">            or any JSON-serialisable dict describing the approach's hyperparameters.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-271" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-271"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-272" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-272"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-273" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-273"></a><span class="sd">        A new instance of this approach class.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-274" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-274"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-275" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-275"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-276" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-276"></a><span class="sd">        NotImplementedError: If the subclass has not implemented this method.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-277" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-277"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-278" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-278"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-279" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-279"></a>        <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">] from_config() is not implemented. "</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-280" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-280"></a>        <span class="s2">"Override this classmethod to support loading from a grid manifest (CLI/HPC use)."</span>
+<a id="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-281" name="SRToolkit.approaches.SR_approach.from_config--source--__codelineno-0-281"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3825,7 +3819,22 @@ is not installed, or the config has no <code>_bundle</code> key and was never bo
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/approaches/sr_approach.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-298">298</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-298">298</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-299">299</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-300">300</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-301">301</a></span>
@@ -3845,59 +3854,42 @@ is not installed, or the config has no <code>_bundle</code> key and was never bo
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-315">315</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-316">316</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-317">317</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-318">318</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-319">319</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-320">320</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-321">321</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-322">322</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-323">323</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-324">324</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-325">325</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-326">326</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-327">327</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-328">328</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-329">329</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-330">330</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-331">331</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-332">332</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-333">333</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-334">334</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-298" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-298"></a><span class="nd">@classmethod</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-299" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-299"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_config_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"SR_approach"</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-300" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-300"></a><span class="w">    </span><span class="sd">"""</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-301" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-301"></a><span class="sd">    Reconstruct an approach from a config dict that includes an ``approach_class`` path.</span>
+<span class="normal"><a href="#SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-318">318</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-283" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-283"></a><span class="nd">@classmethod</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-284" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-284"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_config_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"SR_approach"</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-285" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-285"></a><span class="w">    </span><span class="sd">"""Reconstruct an approach from a config dict that includes an ``approach_class`` path.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-286" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-286"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-287" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-287"></a><span class="sd">    This is the self-dispatching counterpart to</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-288" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-288"></a><span class="sd">    [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]: it binds the</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-289" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-289"></a><span class="sd">    config to any installed ``.srtk`` bundle, resolves the concrete approach class named</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-290" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-290"></a><span class="sd">    by ``approach_class``, and delegates to that class's</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-291" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-291"></a><span class="sd">    [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]. Mirrors</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-292" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-292"></a><span class="sd">    [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], which</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-293" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-293"></a><span class="sd">    resolves its own class the same way.</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-294" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-294"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-295" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-295"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-296" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-296"></a><span class="sd">        config: A serialised approach config containing an ``approach_class`` key, as</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-297" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-297"></a><span class="sd">            produced by</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-298" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-298"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-299" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-299"></a>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-300" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-300"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-301" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-301"></a><span class="sd">        A new instance of the concrete approach class.</span>
 <a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-302" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-302"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-303" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-303"></a><span class="sd">    This is the self-dispatching counterpart to</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-304" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-304"></a><span class="sd">    [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]: it binds the</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-305" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-305"></a><span class="sd">    config to any installed ``.srtk`` bundle, resolves the concrete approach class named</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-306" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-306"></a><span class="sd">    by ``approach_class``, and delegates to that class's</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-307" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-307"></a><span class="sd">    [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]. Mirrors</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-308" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-308"></a><span class="sd">    [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], which</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-309" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-309"></a><span class="sd">    resolves its own class the same way.</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-310" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-310"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-311" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-311"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-312" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-312"></a><span class="sd">        config: A serialised approach config containing an ``approach_class`` key, as</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-313" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-313"></a><span class="sd">            produced by</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-314" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-314"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-315" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-315"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-316" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-316"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-317" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-317"></a><span class="sd">        A new instance of the concrete approach class.</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-318" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-318"></a>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-319" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-319"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-320" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-320"></a><span class="sd">        ImportError: If ``approach_class`` cannot be imported (e.g. its ``.srtk`` bundle</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-321" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-321"></a><span class="sd">            is not installed, or the config has no ``_bundle`` key and was never bound).</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-322" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-322"></a><span class="sd">    """</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-323" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-323"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">_auto_bind</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-324" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-324"></a>    <span class="n">class_path</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"approach_class"</span><span class="p">]</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-325" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-325"></a>    <span class="n">module_path</span><span class="p">,</span> <span class="n">cls_name</span> <span class="o">=</span> <span class="n">class_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-326" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-326"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-327" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-327"></a>        <span class="n">target_cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">),</span> <span class="n">cls_name</span><span class="p">)</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-328" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-328"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-329" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-329"></a>        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-330" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-330"></a>            <span class="sa">f</span><span class="s2">"Cannot import approach class </span><span class="si">{</span><span class="n">class_path</span><span class="si">!r}</span><span class="s2">. "</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-331" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-331"></a>            <span class="s2">"If this is a bundle class, install the bundle first. "</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-332" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-332"></a>            <span class="s2">"If the config has no '_bundle' key, call bind_config(config) manually."</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-333" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-333"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-334" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-334"></a>    <span class="k">return</span> <span class="n">target_cls</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-303" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-303"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-304" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-304"></a><span class="sd">        ImportError: If ``approach_class`` cannot be imported (e.g. its ``.srtk`` bundle</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-305" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-305"></a><span class="sd">            is not installed, or the config has no ``_bundle`` key and was never bound).</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-306" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-306"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-307" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-307"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">_auto_bind</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-308" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-308"></a>    <span class="n">class_path</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"approach_class"</span><span class="p">]</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-309" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-309"></a>    <span class="n">module_path</span><span class="p">,</span> <span class="n">cls_name</span> <span class="o">=</span> <span class="n">class_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-310" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-310"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-311" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-311"></a>        <span class="n">target_cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">),</span> <span class="n">cls_name</span><span class="p">)</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-312" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-312"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-313" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-313"></a>        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-314" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-314"></a>            <span class="sa">f</span><span class="s2">"Cannot import approach class </span><span class="si">{</span><span class="n">class_path</span><span class="si">!r}</span><span class="s2">. "</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-315" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-315"></a>            <span class="s2">"If this is a bundle class, install the bundle first. "</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-316" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-316"></a>            <span class="s2">"If the config has no '_bundle' key, call bind_config(config) manually."</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-317" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-317"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+<a id="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-318" name="SRToolkit.approaches.SR_approach.from_config_dict--source--__codelineno-0-318"></a>    <span class="k">return</span> <span class="n">target_cls</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3912,6 +3904,123 @@ is not installed, or the config has no <code>_bundle</code> key and was never bo
 
 </div>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="SRToolkit.approaches.__getattr__" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">__getattr__</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Import <code>EDHiE</code> and <code>EDHiEConfig</code> on first access (PEP 562).</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The requested class, or a placeholder that raises <code>ImportError</code> on instantiation if</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>PyTorch or pymoo is not installed.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="AttributeError">AttributeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>name</code> is not a lazily imported attribute of this package.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/approaches/__init__.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#SRToolkit.approaches.__getattr__--source--__codelineno-0-63">63</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-45" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-45"></a><span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-46" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-46"></a><span class="w">    </span><span class="sd">"""Import ``EDHiE`` and ``EDHiEConfig`` on first access (PEP 562).</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-47" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-47"></a>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-48" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-48"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-49" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-49"></a><span class="sd">        The requested class, or a placeholder that raises ``ImportError`` on instantiation if</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-50" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-50"></a><span class="sd">        PyTorch or pymoo is not installed.</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-51" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-51"></a>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-52" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-52"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-53" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-53"></a><span class="sd">        AttributeError: If ``name`` is not a lazily imported attribute of this package.</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-54" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-54"></a><span class="sd">    """</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-55" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-55"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_LAZY_EDHIE</span><span class="p">:</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-56" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-56"></a>        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"module </span><span class="si">{</span><span class="vm">__name__</span><span class="si">!r}</span><span class="s2"> has no attribute </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-57" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-57"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-58" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-58"></a>        <span class="n">module</span> <span class="o">=</span> <span class="n">_importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="s2">".EDHiE"</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-59" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-59"></a>        <span class="n">values</span> <span class="o">=</span> <span class="p">{</span><span class="n">attr</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">_LAZY_EDHIE</span><span class="p">}</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-60" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-60"></a>    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-61" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-61"></a>        <span class="n">values</span> <span class="o">=</span> <span class="n">_missing_dependency_stubs</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-62" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-62"></a>    <span class="nb">globals</span><span class="p">()</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+<a id="SRToolkit.approaches.__getattr__--source--__codelineno-0-63" name="SRToolkit.approaches.__getattr__--source--__codelineno-0-63"></a>    <span class="k">return</span> <span class="n">values</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 
