@@ -12,6 +12,10 @@
 - Installing from source without a C compiler now works as documented: the Cython extension is skipped and the pure-Python evaluator is used. A `RuntimeWarning` is issued the first time the `"stack"` backend falls back, and `SRToolkit.utils.expression_compiler.CYTHON_AVAILABLE` tells which evaluator is in use. Set `SRTOOLKIT_REQUIRE_CYTHON=1` to make a failed build an error.
 - `SR_results` can be iterated over directly (`for result in results:`); previously such a loop ended with an `AssertionError` (#5).
 - Results record the evaluation trace: `EvalResult.trace` lists, for every counted `evaluate_expr` call, the index into `all_models` of the requested expression (cache hits included). New `EvalResult.best_so_far()`, `calls_to_threshold(threshold=None)` and `best_error_within(budgets)` compute the incumbent history, the number of calls needed to reach a threshold, and the best error within given budgets.
+- `import SRToolkit` no longer imports PyTorch: `EDHiE` and `EDHiEConfig` are loaded the first time they are used. This cuts the import's memory use from about 770 MB to 150 MB and makes it faster.
+- `PredictFn`, the type of the `predict` argument of the regression metrics, is exported from `SRToolkit.utils`.
+- `create_behavior_matrix` and `bed` take a `backend` argument (default `"stack"`), and BED ranking now respects the `backend` setting, which previously only applied to RMSE ranking and `get_metric`.
+- The docstrings of `SRToolkit.utils.measures` now fully specify each function: valid inputs, special values (`nan`, `inf`), exceptions, and how `bed` handles non-finite values.
 
 **Breaking changes:**
 - Removed the `RMSE`, `BED` and `R2` augmenters; use `HoldoutMetric`.
@@ -24,6 +28,11 @@
 - `SR_evaluator.models` is a list in first-seen order instead of a dict keyed by the expression string, and `total_evaluations` is a read-only property (`len(trace)`).
 - Calls to `evaluate_expr` after evaluation has stopped are no longer counted in `total_evaluations` / `evaluation_calls`.
 - The module-level sampling helpers in `SRToolkit.dataset.sampling` (`uniform_sampling`, `log_uniform_sampling`, …) are now private; use the `UniformSampling`, `LogUniformSampling` and `IntegerUniformSampling` classes.
+- Regression metrics (`mse`, `rmse`, `mae`, `r2`, `nrmse`) raise a `ValueError` unless `predict(X)` and `y` are 1-D of length `len(X)`. Previously a `(n, 1)` target was silently broadcast against `(n,)` predictions into an `(n, n)` array, giving a meaningless value.
+- `r2` and `nrmse` with constant targets return `1.0` / `0.0` for an exact prediction and `-inf` / `inf` otherwise, instead of `nan`. `predict` is now always called, so its exceptions propagate.
+- `REGRESSION_METRICS` is a read-only mapping.
+- `tokens_to_tree`, `compile_expr` and `compile_expr_rmse` raise a `TypeError` for an expression that is not a list of token strings or a `Node` (previously a bare `Exception`, or numpy's "expected str instance" message). Numbers in token lists must be strings (`"1.5"`); passing `1.5` now says so.
+- Invalid arguments to `edit_distance`, `tree_edit_distance`, `create_behavior_matrix` and `bed` raise `TypeError` or `ValueError` naming the offending parameter, instead of a bare `Exception`, `UnboundLocalError` or `AttributeError` (a string or tuple passed to `edit_distance` used to be compared character by character). `bed` and `create_behavior_matrix` now validate `num_consts_sampled`, `consts_bounds`, `num_points_sampled`, matrix shapes and the row counts of matrices against `X`.
 
 **Fixes:**
 - A dataset with custom `constant_bounds` scored every expression with a constant as NaN after a JSON round trip (`from_dict`, `from_archive`, `ExperimentGrid`).
@@ -33,6 +42,11 @@
 - Compiled expressions given fewer constants than they use raise a `ValueError` on every backend. The default `"stack"` backend used to read past the end of the array and return garbage values. A `SampleSource` whose ground truth has a free constant (`C`) now fails with a clear error, as `SR_dataset.resample` already did, instead of generating a dataset with garbage `y`; the custom-dataset guide example that used one is fixed (#4).
 - Augmenters with `scope="all"` annotated the top models twice (e.g. `ExpressionToLatex` and `ExpressionToLatex_1`).
 - Fixed examples in the benchmarking, grammars, quickstart and experiments guides and the README (a wrong benchmark, a derivation that never finished, inconsistent file names) (#5).
+- `bed` gave wrong values when called with two behavior matrices that have different numbers of columns, e.g. a ground-truth matrix sampled with a different `num_consts_sampled`. `BEDRanking` always compares matrices of equal width, so rankings were not affected.
+- `bed` returned 0 for points where one expression is `nan` and the other infinite, or where they are `+inf` and `-inf`. Such points now give `inf`; points where both expressions are the same infinity give 0, as documented.
+- Evaluating an expression on an `X` with too few columns (or a 1-D `X`) read past the end of the array on the default `"stack"` backend and returned garbage; it now raises a `ValueError`. This affected `compile_expr`, `create_behavior_matrix` and `bed`.
+- `tree_edit_distance` priced relabelling by the character edit distance between symbols when the optional `editdistance` package was installed, so results depended on the environment. It now always uses unit costs.
+- Regression metrics no longer emit NumPy warnings on empty or non-finite input; the returned `nan` / `inf` is the signal.
 
 ### SymbolicRegressionToolkit-1.6.0 (2026-06-23)
 - New backends for expression evaluations (about 1.5x speedup for parameter estimation)

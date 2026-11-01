@@ -1,5 +1,4 @@
-"""
-Pluggable ranking functions for [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+"""Pluggable ranking functions for [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
 
 A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] turns an expression into a
 single lower-is-better scalar. Built-ins are [RMSERanking][SRToolkit.evaluation.ranking.RMSERanking]
@@ -25,8 +24,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 
 @dataclass
 class RankingResult:
-    """
-    The outcome of scoring a single expression with a
+    """The outcome of scoring a single expression with a
     [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction].
 
     Examples:
@@ -70,8 +68,7 @@ class RankingResult:
 
 
 class RankingFunction(ABC):
-    """
-    Abstract single-objective ranking strategy for
+    """Abstract single-objective ranking strategy for
     [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
 
     Subclasses own all of their data-derived state (built in
@@ -100,8 +97,7 @@ class RankingFunction(ABC):
         seed: Optional[int],
         settings: Dict[str, Any],
     ) -> None:
-        """
-        Validate required inputs and precompute all ranking-specific state.
+        """Validate required inputs and precompute all ranking-specific state.
 
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
@@ -115,8 +111,7 @@ class RankingFunction(ABC):
 
     @abstractmethod
     def score(self, expr: Union[List[str], Node]) -> RankingResult:
-        """
-        Score a single expression. Lower is better.
+        """Score a single expression. Lower is better.
 
         Args:
             expr: Expression as a token list (infix) or a
@@ -130,8 +125,7 @@ class RankingFunction(ABC):
         """
 
     def default_success_threshold(self) -> Optional[float]:
-        """
-        The success threshold to use when the evaluator was not given an explicit one.
+        """The success threshold to use when the evaluator was not given an explicit one.
 
         Returns:
             A scalar threshold, or ``None`` for no default. Called only when the user passed no
@@ -140,8 +134,7 @@ class RankingFunction(ABC):
         return None
 
     def describe(self, success_threshold: Optional[float]) -> str:
-        """
-        Human-readable description for [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]
+        """Human-readable description for [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]
         ``__str__``. Each subclass describes itself correctly.
 
         Args:
@@ -153,8 +146,7 @@ class RankingFunction(ABC):
         return f"Expressions are ranked based on the {self.name.upper()} ranking function."
 
     def to_dict(self) -> dict:
-        """
-        JSON-safe config: the ``ranking_class`` import path (plus any scalar params a subclass
+        """JSON-safe config: the ``ranking_class`` import path (plus any scalar params a subclass
         adds). No arrays.
 
         Returns:
@@ -165,8 +157,7 @@ class RankingFunction(ABC):
 
     @classmethod
     def from_dict(cls, data: dict) -> "RankingFunction":
-        """
-        Reconstruct a ranking from its [to_dict][SRToolkit.evaluation.ranking.RankingFunction.to_dict]
+        """Reconstruct a ranking from its [to_dict][SRToolkit.evaluation.ranking.RankingFunction.to_dict]
         form.
 
         Mirrors [Sampler.from_dict][SRToolkit.dataset.sampling.Sampler.from_dict] and
@@ -186,8 +177,7 @@ class RankingFunction(ABC):
 
 
 class RMSERanking(RankingFunction):
-    """
-    Ranks expressions by the root-mean-squared error of the best constant fit.
+    """Ranks expressions by the root-mean-squared error of the best constant fit.
 
     Owns a [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
     (built in [setup][SRToolkit.evaluation.ranking.RankingFunction.setup]); ``score`` returns the
@@ -214,8 +204,7 @@ class RMSERanking(RankingFunction):
         seed: Optional[int],
         settings: Dict[str, Any],
     ) -> None:
-        """
-        Build the parameter estimator that fits each expression's constants to ``y``.
+        """Build the parameter estimator that fits each expression's constants to ``y``.
 
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
@@ -276,8 +265,7 @@ class RMSERanking(RankingFunction):
 
 
 class BEDRanking(RankingFunction):
-    """
-    Ranks expressions by their Behavior-aware Expression Dissimilarity (BED) to a target behavior.
+    """Ranks expressions by their Behavior-aware Expression Dissimilarity (BED) to a target behavior.
 
     BED compares what two expressions do rather than how they are written. Each expression is
     evaluated at a fixed set of points ``bed_X`` under ``num_consts_sampled`` random draws of its
@@ -328,8 +316,7 @@ class BEDRanking(RankingFunction):
         seed: Optional[int],
         settings: Dict[str, Any],
     ) -> None:
-        """
-        Fix the evaluation points and the target behavior that expressions are compared against.
+        """Fix the evaluation points and the target behavior that expressions are compared against.
 
         See the class description for the order in which the target behavior (``bed_gt``,
         ``ground_truth``, ``y``) and the points (``samplers`` or rows of ``X``) are chosen.
@@ -343,8 +330,8 @@ class BEDRanking(RankingFunction):
             symbol_library: Token vocabulary.
             seed: Seed for all of BED's randomness, unless ``settings`` has a ``ranking_seed``.
             settings: BED settings (``num_points_sampled``, ``num_consts_sampled``,
-                ``constant_bounds``, ``samplers``, ``bed_gt``, ``ranking_seed``); other keys are
-                ignored.
+                ``constant_bounds``, ``samplers``, ``bed_gt``, ``ranking_seed``, ``backend``); other
+                keys are ignored.
 
         Raises:
             ValueError: If no target behavior can be built, or if ``ground_truth``, ``bed_gt``,
@@ -363,6 +350,7 @@ class BEDRanking(RankingFunction):
         self.num_consts_sampled = settings.get("num_consts_sampled", 32)
         self.num_points_sampled = settings.get("num_points_sampled", 64)
         self.constant_bounds = settings.get("constant_bounds", (-5, 5))
+        self.backend = settings.get("backend", "stack")
         samplers = settings.get("samplers", None)
 
         # The behaviour to compare against, in order: a precomputed bed_gt matrix, the ground-truth
@@ -428,6 +416,7 @@ class BEDRanking(RankingFunction):
             consts_bounds=self.constant_bounds,
             symbol_library=self.symbol_library,
             seed=self.seed,
+            backend=self.backend,
         )
 
     def _validate_bed_gt(self, bed_gt: np.ndarray, X: np.ndarray) -> None:
@@ -464,6 +453,7 @@ class BEDRanking(RankingFunction):
             consts_bounds=self.constant_bounds,
             symbol_library=self.symbol_library,
             seed=self.seed,
+            backend=self.backend,
         )
         return RankingResult(score=error)
 
@@ -487,6 +477,7 @@ class BEDRanking(RankingFunction):
                 consts_bounds=self.constant_bounds,
                 symbol_library=self.symbol_library,
                 seed=None if s is None else int(s),
+                backend=self.backend,
             )
             for s in seeds
         ]
@@ -511,8 +502,7 @@ _RANKING_ALIASES: Dict[str, type] = {
 
 
 def build_ranking(spec: Union[str, RankingFunction], fallback: str = "rmse") -> RankingFunction:
-    """
-    Resolve a ranking specification to an (un-``setup``) instance.
+    """Resolve a ranking specification to an (un-``setup``) instance.
 
     Args:
         spec: A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] instance (returned

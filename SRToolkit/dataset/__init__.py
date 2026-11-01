@@ -1,5 +1,4 @@
-"""
-Datasets and benchmarks for symbolic regression.
+"""Datasets and benchmarks for symbolic regression.
 
 A dataset ([SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]) represents a single equation
 with associated data, a symbol library, and evaluation constraints. A benchmark

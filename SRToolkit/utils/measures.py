@@ -1,21 +1,77 @@
-"""
-Distance and similarity measures between symbolic expressions: edit distance,
-tree edit distance, and Behavioral Embedding Distance (BED).
+"""Measures that compare expressions with each other, and metrics that score predictions against data.
+
+**Expression-to-expression measures** take two expressions, each given as a list of token strings in
+infix notation (as parsed by [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree]) or as a
+[Node][SRToolkit.utils.expression_tree.Node] tree:
+
+- [edit_distance][SRToolkit.utils.measures.edit_distance] and
+  [tree_edit_distance][SRToolkit.utils.measures.tree_edit_distance] are syntactic: they count
+  token or node edits.
+- [bed][SRToolkit.utils.measures.bed] computes the Behavior-aware Expression Dissimilarity (BED),
+  which compares what expressions compute rather than how they are written.
+
+An expression with free constants defines a family of functions, not a single one. BED evaluates
+each expression at points ``X`` for many constant vectors drawn by Latin Hypercube Sampling, giving
+a *behavior matrix* of shape ``(n_points, n_constant_samples)``
+([create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]). Row ``i`` is read as
+the distribution of the expression's output at ``X[i]``, and BED is the mean over points of the
+1-D Wasserstein distance between corresponding rows. No constants are fitted, so BED can rank
+candidate structures during search; [BEDRanking][SRToolkit.evaluation.ranking.BEDRanking] uses it
+as a ranking function. A behavior matrix can be computed once and passed to
+[bed][SRToolkit.utils.measures.bed] in place of an expression. See Mežnar et al.,
+[arXiv:2408.11515](https://arxiv.org/abs/2408.11515).
+
+**Regression metrics** ([mse][SRToolkit.utils.measures.mse], [rmse][SRToolkit.utils.measures.rmse],
+[mae][SRToolkit.utils.measures.mae], [r2][SRToolkit.utils.measures.r2],
+[nrmse][SRToolkit.utils.measures.nrmse]) compare a model's predictions with targets. All share the
+signature ``metric(predict, X, y) -> float``, where ``predict`` is a
+[PredictFn][SRToolkit.utils.measures.PredictFn] with the model's fitted constants already bound
+in. Taking ``predict`` rather than precomputed predictions lets a metric also evaluate the model
+away from ``X``, e.g. at perturbed or held-out points. Built-in metrics are listed by name in
+[REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS], which
+[SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric] uses; a user
+callable with the same signature can be used in place of a name.
+
+All metrics return a Python float and never emit NumPy warnings: an undefined or infinite result is
+returned as ``nan`` or ``inf`` (each metric lists when). ``predict(X)`` and ``y`` must both have
+shape ``(n_samples,)``; anything else raises ``ValueError``.
+
+Functions that take ``symbol_library=None`` use
+[SymbolLibrary.get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]: the
+library of the active context, else the one set with
+[set_default][SRToolkit.utils.symbol_library.SymbolLibrary.set_default], else
+[default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+
+Parameters are validated only when they are used. Invalid arguments raise ``TypeError`` or
+``ValueError`` with a message that names the offending parameter.
 """
 
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from types import MappingProxyType
+from typing import Callable, Dict, List, Mapping, Optional, Tuple, Union, cast
 
 import numpy as np
 import zss
 from scipy.stats.qmc import LatinHypercube
 
-from .expression_compiler import compile_expr
-from .expression_tree import Node, tokens_to_tree
+from .expression_compiler import _variable_column, compile_expr
+from .expression_tree import Node, _as_tree
 from .symbol_library import SymbolLibrary
+
+_NOTATIONS = ("infix", "prefix", "postfix")
+
+
+def _check_interval(bounds: Tuple[float, float], name: str) -> None:
+    """Raise ``ValueError`` unless ``bounds`` is an interval with ``lower < upper``."""
+    if not bounds[0] < bounds[1]:
+        raise ValueError(f"{name} must satisfy lower < upper, got {tuple(bounds)}.")
 
 
 def _levenshtein(a: List[str], b: List[str]) -> int:
-    """Levenshtein distance between two token sequences, computed row by row in O(len(a) * len(b)) time."""
+    """Return the Levenshtein distance between two token sequences.
+
+    Returns:
+        Minimum number of token insertions, deletions and substitutions turning ``a`` into ``b``.
+    """
     if len(a) < len(b):
         a, b = b, a
     prev = list(range(len(b) + 1))
@@ -33,49 +89,56 @@ def edit_distance(
     notation: str = "postfix",
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> int:
-    """
-    Compute the edit distance between two expressions.
+    """Return the Levenshtein distance between the token sequences of two expressions.
 
-    Both expressions are first converted to the requested notation, so the result
-    is independent of whether a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree is passed.
-    Levenshtein distance is then computed on the serialised token sequences.
-
-    Examples:
-        >>> edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
-        0
-        >>> edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
-        1
-        >>> edit_distance(tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1)), tokens_to_tree(["X_0", "-", "1"], SymbolLibrary.default_symbols(1)))
-        1
+    Both expressions are parsed and re-serialised in ``notation`` before comparison, so the result
+    does not depend on whether a token list or a tree is passed, and redundant parentheses in a
+    token list have no effect. Each token insertion, deletion or substitution costs 1, so the
+    distance is symmetric.
 
     Args:
-        expr1: First expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        expr2: Second expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        notation: Notation used for comparison: ``"infix"``, ``"prefix"``, or
-            ``"postfix"``. Defaults to ``"postfix"`` to avoid parenthesis artefacts.
-        symbol_library: Symbol library used when converting expressions to the target
-            notation. Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        expr1: First expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr2: Second expression, in either form.
+        notation: Notation in which the two expressions are compared: ``"infix"``, ``"prefix"`` or
+            ``"postfix"``. It does not affect how token lists are read (always infix). In ``"infix"``,
+            the parentheses needed to serialise an expression count as tokens; prefix and postfix
+            contain none, hence the default ``"postfix"``.
+        symbol_library: Symbol library used to parse and serialise the expressions. ``None`` uses
+            the active or default library (see the module docstring).
 
     Returns:
-        Integer edit distance between the two serialised expressions.
+        Number of token edits, ``>= 0``; ``0`` if and only if the serialised sequences are equal.
+
+    Raises:
+        TypeError: If an expression is neither a list of token strings nor a
+            [Node][SRToolkit.utils.expression_tree.Node] (e.g. a string, a tuple, or a list with a
+            non-string element).
+        ValueError: If ``notation`` is not ``"infix"``, ``"prefix"`` or ``"postfix"``.
+        ExpressionParseError: If a token list cannot be parsed: it is empty, malformed, or contains a
+            symbol missing from ``symbol_library``.
+
+    Examples:
+        >>> edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
+        1
+        >>> # The two parentheses count in infix notation
+        >>> edit_distance(["(", "X_0", "+", "X_1", ")", "*", "X_0"], ["X_0", "+", "X_1", "*", "X_0"], notation="infix")
+        2
     """
+    if notation not in _NOTATIONS:
+        raise ValueError(f"notation must be one of {_NOTATIONS}, got {notation!r}.")
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
-    if isinstance(expr1, Node):
-        expr1 = expr1.to_list(symbol_library=symbol_library, notation=notation)
-    elif isinstance(expr1, list):
-        expr1 = tokens_to_tree(expr1, symbol_library).to_list(symbol_library=symbol_library, notation=notation)
-
-    if isinstance(expr2, Node):
-        expr2 = expr2.to_list(symbol_library=symbol_library, notation=notation)
-    elif isinstance(expr2, list):
-        expr2 = tokens_to_tree(expr2, symbol_library).to_list(symbol_library=symbol_library, notation=notation)
-
-    return _levenshtein(expr1, expr2)
+    tokens1 = _as_tree(expr1, symbol_library, "expr1").to_list(symbol_library=symbol_library, notation=notation)
+    tokens2 = _as_tree(expr2, symbol_library, "expr2").to_list(symbol_library=symbol_library, notation=notation)
+    return _levenshtein(tokens1, tokens2)
 
 
 def _expr_to_zss(expr: Node) -> zss.Node:
-    """Convert a [Node][SRToolkit.utils.expression_tree.Node] tree to a ``zss.Node`` tree for Zhang-Shasha distance computation."""
+    """Convert a [Node][SRToolkit.utils.expression_tree.Node] tree to a ``zss.Node`` tree.
+
+    Returns:
+        A ``zss.Node`` tree with the same symbols and children ordered left, then right.
+    """
     zexpr = zss.Node(expr.symbol)
     if expr.left is not None:
         zexpr.addkid(_expr_to_zss(expr.left))
@@ -90,44 +153,51 @@ def tree_edit_distance(
     expr2: Union[Node, List[str]],
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> int:
-    """
-    Compute the Zhang-Shasha tree edit distance between two expressions.
+    """Return the Zhang-Shasha tree edit distance between two expressions.
 
-    Unlike [edit_distance][SRToolkit.utils.measures.edit_distance], which operates on flattened
-    token sequences, tree edit distance considers the expression's hierarchical structure.
-    The cost is the minimum number of node insertions, deletions, and relabellings needed
-    to transform one tree into the other.
-
-    Examples:
-        >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "+", "1"])
-        0
-        >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
-        1
-        >>> tree_edit_distance(tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1)), tokens_to_tree(["X_0", "-", "1"], SymbolLibrary.default_symbols(1)))
-        1
+    Unlike [edit_distance][SRToolkit.utils.measures.edit_distance], this compares expression trees,
+    so notation and parentheses play no role. Each node insertion, deletion or relabelling costs 1;
+    nodes match when their symbols are equal, and children are ordered (left, then right). The
+    distance is symmetric.
 
     Args:
-        expr1: First expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        expr2: Second expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library used when converting token lists to trees.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        expr1: First expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr2: Second expression, in either form.
+        symbol_library: Symbol library used to parse token lists. ``None`` uses the active or
+            default library (see the module docstring).
 
     Returns:
-        Integer tree edit distance.
+        Minimum number of node edits, ``>= 0``; ``0`` if and only if the trees have the same symbols in
+        the same ordered structure.
+
+    Raises:
+        TypeError: If an expression is neither a list of token strings nor a
+            [Node][SRToolkit.utils.expression_tree.Node] (e.g. a string, a tuple, or a list with a
+            non-string element).
+        ExpressionParseError: If a token list cannot be parsed: it is empty, malformed, or contains a
+            symbol missing from ``symbol_library``.
+
+    Examples:
+        >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
+        1
+        >>> tree_edit_distance(["X_0", "+", "1"], ["X_0"])
+        2
     """
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
-    if isinstance(expr1, Node):
-        zss1 = _expr_to_zss(expr1)
-    elif isinstance(expr1, list):
-        zss1 = _expr_to_zss(tokens_to_tree(expr1, symbol_library))
+    zss1 = _expr_to_zss(_as_tree(expr1, symbol_library, "expr1"))
+    zss2 = _expr_to_zss(_as_tree(expr2, symbol_library, "expr2"))
 
-    if isinstance(expr2, Node):
-        zss2 = _expr_to_zss(expr2)
-    elif isinstance(expr2, list):
-        zss2 = _expr_to_zss(tokens_to_tree(expr2, symbol_library))
+    # Unit costs: zss otherwise uses the `editdistance` package (when installed) to price relabelling
+    # by the character edit distance between symbols. zss is untyped; without return_operations=True
+    # it returns just the cost.
+    distance = cast(float, zss.simple_distance(zss1, zss2, label_dist=_unit_label_cost))
+    return int(distance)
 
-    return int(zss.simple_distance(zss1, zss2))
+
+def _unit_label_cost(a: str, b: str) -> int:
+    """Return the cost of relabelling ``a`` as ``b`` (insertion/deletion compare with ``""``): 0 or 1."""
+    return int(a != b)
 
 
 def create_behavior_matrix(
@@ -137,83 +207,85 @@ def create_behavior_matrix(
     consts_bounds: Tuple[float, float] = (-5, 5),
     symbol_library: Optional[SymbolLibrary] = None,
     seed: Optional[int] = None,
+    backend: str = "stack",
 ) -> np.ndarray:
-    """
-    Evaluate an expression over multiple constant samples to produce a behavior matrix.
+    """Evaluate an expression at the points ``X`` for many sampled constant vectors.
 
-    For expressions with free constants, constants are drawn via Latin Hypercube Sampling
-    within ``consts_bounds``. For constant-free expressions, all columns are identical.
-
-    Examples:
-        >>> X = np.random.rand(10, 2) - 0.5
-        >>> create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32).shape
-        (10, 32)
-        >>> mean_0_1 = np.mean(create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32, consts_bounds=(0, 1)))
-        >>> mean_1_5 = np.mean(create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=32, consts_bounds=(1, 5)))
-        >>> print(bool(mean_0_1 < mean_1_5))
-        True
-        >>> # Deterministic expressions always produce the same behavior matrix
-        >>> bm1 = create_behavior_matrix(["X_0", "+", "X_1"], X)
-        >>> bm2 = create_behavior_matrix(["X_0", "+", "X_1"], X)
-        >>> print(bool(np.array_equal(bm1, bm2)))
-        True
+    Column ``j`` holds the expression's values at ``X`` with the ``j``-th constant vector. Each
+    occurrence of a constant symbol is a separate free parameter; with ``n_consts`` occurrences, the
+    constant vectors are one Latin Hypercube sample of ``num_consts_sampled`` points in the
+    ``n_consts``-dimensional box with every constant in ``[lower, upper)`` (``consts_bounds``). A
+    constant-free expression gives ``num_consts_sampled`` identical columns. Non-finite outputs
+    (``nan``, ``±inf``) are kept. NumPy floating-point warnings are suppressed during the call, and
+    NumPy's error settings are restored afterwards. Sampling is random unless ``seed`` is set.
 
     Args:
-        expr: Expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        X: Input data of shape ``(n_samples, n_features)`` at which the expression is
-            evaluated.
-        num_consts_sampled: Number of constant vectors to sample; sets the number of
-            output columns. Default ``32``.
-        consts_bounds: ``(lower, upper)`` bounds for constant sampling. Default ``(-5, 5)``.
-        symbol_library: Symbol library used to compile the expression. Defaults to
-            [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
-        seed: Random seed for reproducible constant sampling. Default ``None``.
+        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        X: Evaluation points of shape ``(n_samples, n_features)``, with a column for every variable
+            ``expr`` uses. ``n_samples`` may be 0, giving a result of shape ``(0, num_consts_sampled)``.
+        num_consts_sampled: Number of constant vectors, i.e. output columns; at least 1.
+        consts_bounds: ``(lower, upper)`` interval for every constant, with ``lower < upper``.
+        symbol_library: Symbol library used to compile ``expr``. ``None`` uses the active or default
+            library (see the module docstring).
+        seed: Seed for constant sampling. ``None`` gives a different sample on each call.
+        backend: Backend used to compile expressions: ``"stack"`` (default), ``"stack_py"`` or
+            ``"codegen"`` (see [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]). All give
+            the same values; ``"stack_py"`` can be faster for libraries with many custom symbols.
 
     Returns:
         Behavior matrix of shape ``(n_samples, num_consts_sampled)``.
 
     Raises:
-        Exception: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
+        TypeError: If ``expr`` is neither a list of token strings nor a
+            [Node][SRToolkit.utils.expression_tree.Node].
+        ValueError: If ``X`` is not 2-D or has no column for a variable that ``expr`` uses, if
+            ``num_consts_sampled < 1``, if ``consts_bounds[0] >= consts_bounds[1]``, or if ``backend``
+            is not one of the backends above.
+        ExpressionParseError: If ``expr`` cannot be parsed or compiled with ``symbol_library``.
+
+    Examples:
+        >>> X = np.array([[0.0], [1.0], [2.0]])
+        >>> create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=8, seed=0).shape
+        (3, 8)
+        >>> create_behavior_matrix(["X_0", "*", "X_0"], X, num_consts_sampled=2)
+        array([[0., 0.],
+               [1., 1.],
+               [4., 4.]])
     """
+    if num_consts_sampled < 1:
+        raise ValueError(f"num_consts_sampled must be at least 1, got {num_consts_sampled}.")
+    _check_interval(consts_bounds, "consts_bounds")
+    X = np.asarray(X, dtype=np.float64)
+    if X.ndim != 2:
+        raise ValueError(f"X must be 2-D with shape (n_samples, n_features), got shape {X.shape}.")
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
-    const_symbols = symbol_library.get_symbols_of_type("const")
 
-    if isinstance(expr, list):
-        tokens = expr
-    elif isinstance(expr, Node):
-        tokens = expr.to_list(notation="postfix")
-    else:
-        raise TypeError("Expression must be given as a list of strings or a Node tree.")
+    tree = _as_tree(expr, symbol_library, "expr")
+    tokens = tree.to_list(symbol_library=symbol_library, notation="postfix")
+    num_constants = sum(symbol_library.get_type(token) == "const" for token in tokens)
+    callable_expr = compile_expr(tree, symbol_library, backend=backend)
 
-    num_constants = sum(tokens.count(c) for c in const_symbols)
-
-    callable_expr = compile_expr(expr, symbol_library, backend="stack")
-
-    with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
-        if num_constants > 0:
-            lho = LatinHypercube(num_constants, rng=seed)
-            constants = lho.random(num_consts_sampled) * (consts_bounds[1] - consts_bounds[0]) + consts_bounds[0]
-            ys = []
-            for c in constants:
-                ys.append(callable_expr(X, c))
-            return np.array(ys).T
-        else:
+    with np.errstate(all="ignore"):
+        if num_constants == 0:
             return np.repeat(callable_expr(X, None)[:, None], num_consts_sampled, axis=1)
+        lower, upper = consts_bounds
+        constants = LatinHypercube(num_constants, rng=seed).random(num_consts_sampled) * (upper - lower) + lower
+        columns = [callable_expr(X, c) for c in constants]
+        return np.stack(columns, axis=1)
 
 
 def _custom_wasserstein(u: np.ndarray, v: np.ndarray):
-    """
-    Compute the 1-D Wasserstein distance between two sample arrays.
+    """Return the 1-D Wasserstein distance between two samples.
 
-    Uses a direct CDF comparison over the sorted union of values, without scipy.
+    Equal to ``scipy.stats.wasserstein_distance(u, v)``; the samples may differ in length.
 
     Args:
-        u: First sample array. Must be non-empty.
-        v: Second sample array. Must be non-empty.
+        u: First sample, 1-D and non-empty.
+        v: Second sample, 1-D and non-empty.
 
     Returns:
-        Wasserstein distance as a float.
+        The distance as a numpy float, ``>= 0``.
     """
     u = np.sort(u)
     v = np.sort(v)
@@ -227,38 +299,38 @@ def _custom_wasserstein(u: np.ndarray, v: np.ndarray):
 
 
 def _vectorized_wasserstein_batch(expr1: np.ndarray, expr2: np.ndarray) -> np.ndarray:
-    """
-    Compute per-row Wasserstein distances between two fully-finite behavior matrices.
+    """Return the row-wise 1-D Wasserstein distances between two finite behavior matrices.
 
-    Both matrices must have identical shape ``(n_rows, k)`` with no NaN or inf values.
-    Processes data in memory-bounded chunks so that peak usage stays ≤ ~50 MB.
+    Equivalent to ``_custom_wasserstein`` on each pair
+    of rows, computed in chunks that keep temporary memory under about 50 MB.
 
     Args:
-        expr1: Behavior matrix, shape ``(n_rows, k)``.
-        expr2: Behavior matrix, shape ``(n_rows, k)``.
+        expr1: Finite matrix of shape ``(n_rows, k1)``.
+        expr2: Finite matrix of shape ``(n_rows, k2)``; ``k2`` may differ from ``k1``.
 
     Returns:
-        1-D array of shape ``(n_rows,)`` containing the Wasserstein distance for each row.
+        Array of shape ``(n_rows,)`` with the distance between row ``i`` of each matrix.
     """
-    n, k = expr1.shape
-    u_s = np.sort(expr1, axis=1)  # (n, k)
-    v_s = np.sort(expr2, axis=1)  # (n, k)
-    all_vals = np.sort(np.concatenate([u_s, v_s], axis=1), axis=1)  # (n, 2k)
-    deltas = np.diff(all_vals, axis=1)  # (n, 2k-1)
+    n, k1 = expr1.shape
+    k2 = expr2.shape[1]
+    u_s = np.sort(expr1, axis=1)  # (n, k1)
+    v_s = np.sort(expr2, axis=1)  # (n, k2)
+    all_vals = np.sort(np.concatenate([u_s, v_s], axis=1), axis=1)  # (n, k1 + k2)
+    deltas = np.diff(all_vals, axis=1)  # (n, m)
 
-    m = 2 * k - 1  # number of CDF evaluation points
-    # Limit intermediate (n_chunk × k × m) boolean array to ≈50 MB
-    max_chunk = max(1, 50_000_000 // (k * m))
+    m = k1 + k2 - 1  # number of CDF evaluation points
+    # Limit the intermediate (n_chunk × max(k1, k2) × m) boolean array to ≈50 MB
+    max_chunk = max(1, 50_000_000 // (max(k1, k2) * m))
 
     wds = np.empty(n, dtype=np.float64)
     for start in range(0, n, max_chunk):
         end = min(start + max_chunk, n)
-        cu = u_s[start:end]  # (chunk, k)
-        cv = v_s[start:end]  # (chunk, k)
+        cu = u_s[start:end]  # (chunk, k1)
+        cv = v_s[start:end]  # (chunk, k2)
         ca = all_vals[start:end, :-1]  # (chunk, m)
         # Broadcasting: (chunk, k, 1) <= (chunk, 1, m) → (chunk, k, m); sum over k axis
-        u_cdf = np.sum(cu[:, :, None] <= ca[:, None, :], axis=1) / k  # (chunk, m)
-        v_cdf = np.sum(cv[:, :, None] <= ca[:, None, :], axis=1) / k  # (chunk, m)
+        u_cdf = np.sum(cu[:, :, None] <= ca[:, None, :], axis=1) / k1  # (chunk, m)
+        v_cdf = np.sum(cv[:, :, None] <= ca[:, None, :], axis=1) / k2  # (chunk, m)
         wds[start:end] = np.sum(np.abs(u_cdf - v_cdf) * deltas[start:end], axis=1)
 
     return wds
@@ -274,301 +346,443 @@ def bed(
     consts_bounds: Tuple[float, float] = (-5, 5),
     symbol_library: Optional[SymbolLibrary] = None,
     seed: Optional[int] = None,
+    backend: str = "stack",
 ) -> float:
-    """
-    Compute the Behavior-aware Expression Distance (BED) between two expressions.
+    """Return the Behavior-aware Expression Dissimilarity (BED) between two expressions.
 
-    BED measures how similarly two expressions behave over a domain by comparing
-    their output distributions point-by-point using the Wasserstein distance. Free
-    constants are marginalised by sampling multiple constant vectors via Latin
-    Hypercube Sampling.
+    Each expression is turned into a behavior matrix over the same points (see
+    [create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]), and BED is the mean
+    over points of the 1-D Wasserstein distance between the two rows. A precomputed behavior matrix
+    can be passed in place of an expression to avoid re-evaluating it. The points depend on the
+    arguments:
 
-    Either ``X`` or ``domain_bounds`` must be provided when expressions are given as
-    token lists or [Node][SRToolkit.utils.expression_tree.Node] trees. Pre-computed behavior matrices can be passed
-    directly to avoid redundant evaluation.
-
-    Examples:
-        >>> X = np.random.rand(10, 2) - 0.5
-        >>> expr1 = ["X_0", "+", "C"] # instances of SRToolkit.utils.expression_tree.Node work as well
-        >>> expr2 = ["X_1", "+", "C"]
-        >>> bed(expr1, expr2, X) < 1
-        True
-        >>> # Changing the number of sampled constants
-        >>> bed(expr1, expr2, X, num_consts_sampled=128, consts_bounds=(-2, 2)) < 1
-        True
-        >>> # Sampling X instead of giving it directly by defining a domain
-        >>> bed(expr1, expr2, domain_bounds=[(0, 1), (0, 1)]) < 1
-        True
-        >>> bed(expr1, expr2, domain_bounds=[(0, 1), (0, 1)], num_points_sampled=128) < 1
-        True
-        >>> # You can use behavior matrices instead of expressions (this has potential computational advantages if same expression is used multiple times)
-        >>> bm1 = create_behavior_matrix(expr1, X)
-        >>> bed(bm1, expr2, X) < 1
-        True
-        >>> bm2 = create_behavior_matrix(expr2, X)
-        >>> bed(bm1, bm2) < 1
-        True
+    - **Two matrices** are compared directly, and must have been computed at the same points. If
+      ``X`` is given, it is only used to check that each matrix has ``len(X)`` rows.
+    - **At least one expression, with ``X``**: expressions are evaluated at ``X``, and a matrix
+      argument must have been computed at ``X`` (``len(X)`` rows). ``domain_bounds`` is ignored.
+    - **Two expressions, without ``X``**: ``num_points_sampled`` points are drawn from
+      ``domain_bounds`` by Latin Hypercube Sampling.
+    - **An expression and a matrix, without ``X``** is an error: the matrix's points are unknown.
 
     Args:
-        expr1: First expression as a token list, a [Node][SRToolkit.utils.expression_tree.Node] tree, or a pre-computed
-            behavior matrix of shape ``(n_samples, num_consts_sampled)``.
-        expr2: Second expression in the same format as ``expr1``.
-        X: Evaluation points of shape ``(n_samples, n_features)``. Required unless both
-            expressions are behavior matrices or ``domain_bounds`` is provided.
-        num_consts_sampled: Number of constant vectors sampled per expression. Default ``32``.
-        num_points_sampled: Number of points sampled from ``domain_bounds`` when ``X`` is
-            ``None``. Default ``64``.
-        domain_bounds: Per-variable ``(lower, upper)`` bounds used to sample ``X`` via
-            Latin Hypercube Sampling when ``X`` is ``None``.
-        consts_bounds: ``(lower, upper)`` bounds for constant sampling. Default ``(-5, 5)``.
-        symbol_library: Symbol library used to compile expressions. Defaults to
-            [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
-        seed: Random seed for reproducible sampling. Default ``None``.
+        expr1: First expression as an infix token list, a [Node][SRToolkit.utils.expression_tree.Node] tree,
+            or a behavior matrix of shape ``(n_samples, k1)`` with ``k1 >= 1``.
+        expr2: Second expression, in any of the same forms. A matrix may have a different number of
+            columns than ``expr1``.
+        X: Points of shape ``(n_samples, n_features)`` at which expression arguments are evaluated,
+            with a column for every variable used. Required when exactly one argument is a matrix;
+            with two matrices, only their row count is checked against it.
+        num_consts_sampled: Constant vectors sampled per expression argument (its matrix columns);
+            at least 1. Not used for matrix arguments.
+        num_points_sampled: Number of points drawn from ``domain_bounds``; at least 1. Used only in
+            that mode.
+        domain_bounds: One ``(lower, upper)`` interval per variable, with ``lower < upper``, covering
+            every variable used. Used only when ``X`` is ``None`` and neither argument is a matrix.
+        consts_bounds: ``(lower, upper)`` interval for every constant, with ``lower < upper``. Not used
+            for matrix arguments, but validated whenever an argument is an expression.
+        symbol_library: Symbol library used to compile expressions. ``None`` uses the active or
+            default library (see the module docstring).
+        seed: Seed for all sampling: the points and the constants of both expressions. ``None``
+            makes the result random whenever points are sampled or an expression has constants.
+        backend: Backend used to compile expression arguments: ``"stack"`` (default), ``"stack_py"`` or
+            ``"codegen"`` (see [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]). All give
+            the same values; ``"stack_py"`` can be faster for libraries with many custom symbols.
 
     Returns:
-        BED between the expressions as a non-negative float. A value of ``0.0``
-        indicates identical behavior over the sampled domain; larger values indicate
-        greater behavioral dissimilarity. Returns ``inf`` if any evaluation point
-        produces finite outputs for one expression but not the other.
+        BED as a float ``>= 0``; ``0.0`` for identical behavior at the points. Each point's (row's)
+        distance is found by these steps, in order:
+
+        1. ``nan`` entries are dropped from both rows.
+        2. If both rows are now empty, the distance is 0; if only one is, it is ``inf``.
+        3. If either row contains ``±inf``: 0 if both rows hold only the same infinity, else ``inf``.
+        4. Otherwise, the distance is the Wasserstein distance between the remaining samples.
+
+        If any point's distance is ``inf``, BED is ``inf``.
 
     Raises:
-        Exception: If ``X`` is ``None`` and neither ``domain_bounds`` is provided nor
-            both expressions are pre-computed behavior matrices.
-        Exception: If ``X`` is ``None`` and exactly one expression is a pre-computed
-            behavior matrix (the two matrices would be over different domains).
-        ValueError: If any entry in ``domain_bounds`` has a lower bound greater than
-            or equal to its upper bound.
-        ValueError: If the two behavior matrices have different numbers of rows.
-        ValueError: If the behavior matrices have zero rows.
-    """
+        TypeError: If an argument is neither a list of token strings, a
+            [Node][SRToolkit.utils.expression_tree.Node] nor a ``numpy.ndarray``.
+        ValueError: If ``X`` is ``None`` and either exactly one argument is a matrix, or neither
+            ``domain_bounds`` nor two matrices are given; if a matrix argument is not 2-D or has no
+            columns; if the two behaviors have different numbers of rows or none (including an
+            ``X`` with 0 rows at which an expression is evaluated); if ``X`` is given and is not
+            2-D or a matrix argument's row count differs from ``len(X)``;
+            if points are sampled and ``num_points_sampled < 1`` or an interval in
+            ``domain_bounds`` has ``lower >= upper``; if an argument is an expression (even one
+            without constants) and ``num_consts_sampled < 1`` or ``consts_bounds`` has
+            ``lower >= upper`` or ``backend`` is unknown; or if ``X`` or ``domain_bounds`` lacks a
+            column for a variable used.
+        ExpressionParseError: If an expression cannot be parsed or compiled with ``symbol_library``.
 
+    Examples:
+        >>> X = np.linspace(-1, 1, 20).reshape(-1, 1)
+        >>> bed(["X_0"], ["X_0", "+", "1"], X)
+        1.0
+        >>> bed(["C", "*", "X_0"], ["C", "+", "X_0"], domain_bounds=[(-1, 1)], seed=0) > 0
+        True
+        >>> # Reuse a precomputed behavior matrix, e.g. of a ground truth
+        >>> gt = create_behavior_matrix(["X_0", "+", "C"], X, seed=0)
+        >>> bed(["X_0", "+", "C"], gt, X, seed=0)
+        0.0
+
+    Notes:
+        With rows ``u_i`` and ``v_i`` of the two behavior matrices read as empirical distributions,
+        ``BED = (1 / n_samples) * sum_i d_i``, where ``d_i`` is the 1-D Wasserstein distance
+        ``W1(u_i, v_i)`` after the non-finite steps in Returns. Every point counts in ``n_samples``,
+        including those given distance 0 by those steps.
+
+        As a consequence of seeding, with ``seed`` set ``bed`` is deterministic, symmetric in
+        ``expr1`` and ``expr2``, and ``bed(e, e) == 0``. With ``seed=None``, ``bed(e, e)`` can be
+        greater than 0 for an expression with constants.
+
+    References:
+        S. Mežnar, S. Džeroski, L. Todorovski. Quantifying Behavioral Dissimilarity Between
+        Mathematical Expressions. [arXiv:2408.11515](https://arxiv.org/abs/2408.11515).
+    """
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
-    if X is None and not isinstance(expr1, np.ndarray) and not isinstance(expr2, np.ndarray):
-        if domain_bounds is None:
-            raise Exception(
-                "If X is not given and both expressions are not given as a behavior matrix, "
-                "then domain_bounds parameter must be given"
+    # Expressions become Node trees (parsed once); matrices are checked for shape.
+    trees: Dict[str, Node] = {}
+    matrices: Dict[str, np.ndarray] = {}
+    for name, arg in (("expr1", expr1), ("expr2", expr2)):
+        if isinstance(arg, np.ndarray):
+            if arg.ndim != 2 or arg.shape[1] == 0:
+                raise ValueError(
+                    f"{name} must be a behavior matrix of shape (n_samples, k) with k >= 1, got {arg.shape}."
+                )
+            matrices[name] = arg
+        elif isinstance(arg, (list, Node)):
+            trees[name] = _as_tree(arg, symbol_library, name)
+        else:
+            raise TypeError(
+                f"{name} must be a list of token strings, a Node or a numpy.ndarray, got {type(arg).__name__}."
             )
-        for i, (lb, ub) in enumerate(domain_bounds):
-            if lb >= ub:
-                raise ValueError(f"domain_bounds[{i}] has lower bound ({lb}) >= upper bound ({ub}).")
-        interval_length = np.array([ub - lb for (lb, ub) in domain_bounds])
-        lower_bound = np.array([lb for (lb, ub) in domain_bounds])
-        lho = LatinHypercube(len(domain_bounds), optimization="random-cd", rng=seed)
-        X = lho.random(num_points_sampled) * interval_length + lower_bound
-    elif X is None and (isinstance(expr1, np.ndarray) != isinstance(expr2, np.ndarray)):
-        raise Exception(
-            "If X is not given, both expressions must be given as a behavior matrix or as a list of "
-            "tokens/SRToolkit.utils.Node objects. Otherwise, behavior matrices are uncomparable."
-        )
 
-    if isinstance(expr1, list) or isinstance(expr1, Node):
+    if X is not None:
+        X = np.asarray(X, dtype=np.float64)
+        if X.ndim != 2:
+            raise ValueError(f"X must be 2-D with shape (n_samples, n_features), got shape {X.shape}.")
+        if X.shape[0] == 0:
+            raise ValueError("X must contain at least one point (row).")
+        for name, matrix in matrices.items():
+            if matrix.shape[0] != X.shape[0]:
+                raise ValueError(f"{name} has {matrix.shape[0]} rows, but X has {X.shape[0]} points.")
+    elif len(matrices) == 1:
+        raise ValueError("X must be given when exactly one of expr1 and expr2 is a behavior matrix.")
+    elif not matrices:
+        X = _sample_points(trees["expr1"], trees["expr2"], num_points_sampled, domain_bounds, symbol_library, seed)
+    else:
+        rows1, rows2 = matrices["expr1"].shape[0], matrices["expr2"].shape[0]
+        if rows1 != rows2:
+            raise ValueError(f"expr1 and expr2 must have the same number of rows, got {rows1} and {rows2}.")
+        if rows1 == 0:
+            raise ValueError("expr1 and expr2 must have at least one row.")
+
+    def behavior(name: str) -> np.ndarray:
+        if name in matrices:
+            return matrices[name]
+        # An expression argument always has points: X was given, or it was sampled above.
         assert X is not None
-        expr1 = create_behavior_matrix(expr1, X, num_consts_sampled, consts_bounds, symbol_library, seed)
+        return create_behavior_matrix(trees[name], X, num_consts_sampled, consts_bounds, symbol_library, seed, backend)
 
-    if isinstance(expr2, list) or isinstance(expr2, Node):
-        assert X is not None
-        expr2 = create_behavior_matrix(expr2, X, num_consts_sampled, consts_bounds, symbol_library, seed)
+    return _mean_row_distance(behavior("expr1"), behavior("expr2"))
 
-    if expr1.shape[0] != expr2.shape[0]:
-        raise ValueError("Behavior matrices must have the same number of rows (points on which behavior is evaluated).")
-    if expr1.shape[0] == 0:
-        raise ValueError(
-            "Behavior matrices must have at least one row. If your expressions are given as behavior "
-            "matrices, make sure they are not empty. Otherwise, if X is given, make sure it contains "
-            "at least one point. If X is not given, make sure num_points_sampled is greater than 0."
-        )
-    n = expr1.shape[0]
 
-    finite_any1 = np.any(np.isfinite(expr1), axis=1)
-    finite_any2 = np.any(np.isfinite(expr2), axis=1)
+def _sample_points(
+    expr1: Node,
+    expr2: Node,
+    num_points_sampled: int,
+    domain_bounds: Optional[List[Tuple[float, float]]],
+    symbol_library: SymbolLibrary,
+    seed: Optional[int],
+) -> np.ndarray:
+    """Return ``num_points_sampled`` Latin Hypercube points in ``domain_bounds``, for ``bed``.
 
-    if np.any(finite_any1 ^ finite_any2):
+    Returns:
+        Points of shape ``(num_points_sampled, len(domain_bounds))``.
+
+    Raises:
+        ValueError: If ``domain_bounds`` is missing, has an empty interval or no column for a variable
+            used by an expression, or if ``num_points_sampled < 1``.
+    """
+    if domain_bounds is None:
+        raise ValueError("domain_bounds must be given when X is not given and neither argument is a behavior matrix.")
+    if num_points_sampled < 1:
+        raise ValueError(f"num_points_sampled must be at least 1, got {num_points_sampled}.")
+    for i, bounds in enumerate(domain_bounds):
+        _check_interval(bounds, f"domain_bounds[{i}]")
+    for tree in (expr1, expr2):
+        columns = [
+            _variable_column(token, symbol_library)
+            for token in tree.to_list(symbol_library=symbol_library, notation="postfix")
+            if symbol_library.get_type(token) == "var"
+        ]
+        if columns and max(columns) >= len(domain_bounds):
+            raise ValueError(
+                f"domain_bounds has {len(domain_bounds)} interval(s), but an expression uses variable column "
+                f"{max(columns)}."
+            )
+    lower = np.array([lb for lb, _ in domain_bounds], dtype=np.float64)
+    width = np.array([ub - lb for lb, ub in domain_bounds], dtype=np.float64)
+    return (
+        LatinHypercube(len(domain_bounds), optimization="random-cd", rng=seed).random(num_points_sampled) * width
+        + lower
+    )
+
+
+def _mean_row_distance(b1: np.ndarray, b2: np.ndarray) -> float:
+    """Return BED for two behavior matrices with equal row counts, applying the non-finite steps per row.
+
+    Returns:
+        The mean over rows of the row distances defined in [bed][SRToolkit.utils.measures.bed]'s
+        Returns section, or ``inf`` if any row distance is ``inf``.
+    """
+    nan1, nan2 = np.isnan(b1), np.isnan(b2)
+    empty1, empty2 = nan1.all(axis=1), nan2.all(axis=1)
+    if np.any(empty1 != empty2):  # step 2: only one row has values left after dropping nan
         return np.inf
 
-    active = finite_any1 & finite_any2
-    e1, e2 = expr1[active], expr2[active]
-
-    if e1.shape[0] == 0:
-        return 0.0
-
-    if np.any(np.isinf(e1)) or np.any(np.isinf(e2)):
+    # Step 3: a row with an infinity has distance 0 only if every remaining value of both rows is the
+    # same infinity. (Rows that are empty in both matrices satisfy these conditions vacuously.)
+    has_inf = (np.isinf(b1).any(axis=1) | np.isinf(b2).any(axis=1)) & ~empty1
+    all_pos = ((b1 == np.inf) | nan1).all(axis=1) & ((b2 == np.inf) | nan2).all(axis=1)
+    all_neg = ((b1 == -np.inf) | nan1).all(axis=1) & ((b2 == -np.inf) | nan2).all(axis=1)
+    if np.any(has_inf & ~(all_pos | all_neg)):
         return np.inf
 
-    has_nan = ~(np.all(np.isfinite(e1), axis=1) & np.all(np.isfinite(e2), axis=1))
-    wds = np.empty(e1.shape[0])
-
-    if np.any(~has_nan):
-        wds[~has_nan] = _vectorized_wasserstein_batch(e1[~has_nan], e2[~has_nan])
-
-    for i in np.where(has_nan)[0]:
-        wds[i] = _custom_wasserstein(e1[i][~np.isnan(e1[i])], e2[i][~np.isnan(e2[i])])
-
-    return float(np.sum(wds) / n)
+    # Step 4: Wasserstein distance on finite rows; rows with nan go through the slower per-row path.
+    distances = np.zeros(b1.shape[0])
+    finite = ~empty1 & ~has_inf
+    clean = finite & ~nan1.any(axis=1) & ~nan2.any(axis=1)
+    if np.any(clean):
+        distances[clean] = _vectorized_wasserstein_batch(b1[clean], b2[clean])
+    for i in np.flatnonzero(finite & ~clean):
+        distances[i] = _custom_wasserstein(b1[i][~nan1[i]], b2[i][~nan2[i]])
+    return float(distances.mean())
 
 
 # ---------------------------------------------------------------------------
-# Regression error metrics
-#
-# These compare a model's predictions against target values, in contrast to the
-# expression-vs-expression measures above. Every metric shares the signature
-# ``metric(predict, X, y) -> float``, where ``predict`` is a callable
-# ``predict(X) -> y_pred`` with the model's fitted constants already bound in.
-# Passing ``predict`` (rather than a precomputed ``y_pred``) lets a metric
-# evaluate the model away from ``X`` too — e.g. at perturbed or held-out points
-# for smoothness, extrapolation, or symmetry measures.
-#
-# They are consumed by
-# [SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric],
-# which builds ``predict`` from a cached, already-evaluated expression. Custom
-# user metrics use this exact signature, so a built-in and a user callable are
-# interchangeable.
+# Regression metrics: metric(predict, X, y) -> float (see the module docstring)
 # ---------------------------------------------------------------------------
 
-# Type alias for a constants-bound prediction function ``predict(X) -> y_pred``.
 PredictFn = Callable[[np.ndarray], np.ndarray]
+"""Type of a prediction function ``predict(X) -> y_pred``, the first argument of every regression metric.
+
+It maps inputs of shape ``(n_samples, n_features)`` to predictions of shape ``(n_samples,)``, with the
+model's fitted constants already bound in.
+"""
+
+
+def _predictions_and_targets(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Call ``predict(X)`` and return the predictions and targets as float arrays of shape ``(n_samples,)``.
+
+    Returns:
+        ``(y_pred, y)``, both 1-D float64 arrays of length ``len(X)``.
+
+    Raises:
+        ValueError: If ``predict(X)`` or ``y`` is not 1-D of length ``n_samples``.
+    """
+    n_samples = len(X)
+    y_pred = np.asarray(predict(X), dtype=np.float64)
+    if y_pred.shape != (n_samples,):
+        raise ValueError(
+            f"predict(X) must return shape ({n_samples},) for X with {n_samples} rows, got {y_pred.shape}."
+        )
+    y = np.asarray(y, dtype=np.float64)
+    if y.shape != (n_samples,):
+        raise ValueError(f"y must have shape ({n_samples},) for X with {n_samples} rows, got {y.shape}.")
+    return y_pred, y
+
+
+def _mean_squared_error(y_pred: np.ndarray, y: np.ndarray) -> float:
+    """Return ``mean((y_pred - y) ** 2)``, or ``nan`` for empty input."""
+    if y.size == 0:
+        return float("nan")
+    return float(np.mean((y_pred - y) ** 2))
+
+
+def _normalised_metric_special_value(
+    y_pred: np.ndarray, y: np.ndarray, perfect: float, worst: float
+) -> Optional[float]:
+    """Return the special value of [r2][SRToolkit.utils.measures.r2] / [nrmse][SRToolkit.utils.measures.nrmse], if any.
+
+    Returns:
+        ``nan`` for empty input, a non-finite target or a ``nan`` prediction; for constant ``y``,
+        ``perfect`` if every prediction is exact, else ``worst``; ``worst`` if any prediction is
+        infinite; otherwise ``None`` (the regular formula applies).
+    """
+    if y.size == 0 or not np.all(np.isfinite(y)) or np.any(np.isnan(y_pred)):
+        return float("nan")
+    if np.all(y == y[0]):
+        return perfect if np.all(y_pred == y) else worst
+    if np.any(np.isinf(y_pred)):
+        return worst
+    return None
 
 
 def mse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
-    """
-    Mean squared error between predictions and targets.
-
-    Examples:
-        >>> f = compile_expr(["X_0", "+", "C"])
-        >>> predict = lambda X: f(X, np.array([1.0]))
-        >>> X = np.array([[1.0], [2.0], [3.0]])
-        >>> y = np.array([2.0, 3.0, 4.0])
-        >>> mse(predict, X, y)
-        0.0
+    """Return the mean squared error of a model's predictions.
 
     Args:
-        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        predict: Callable mapping ``X`` to predictions of shape ``(n_samples,)``. Exceptions it
+            raises propagate.
         X: Input data of shape ``(n_samples, n_features)``.
-        y: Target values of shape ``(n_samples,)``.
+        y: Targets of shape ``(n_samples,)``, as any array-like (converted with ``np.asarray``).
 
     Returns:
-        The mean squared error as a float.
+        ``mean((predict(X) - y) ** 2)``, ``>= 0``; lower is better. Special cases:
+
+        - ``nan`` if there are no samples, or an error ``predict(X)[i] - y[i]`` is ``nan`` (e.g. ``inf - inf``);
+        - otherwise ``inf`` if an error is infinite or too large to square.
+
+    Raises:
+        ValueError: If ``predict(X)`` or ``y`` is not 1-D of length ``n_samples``.
+
+    Examples:
+        >>> mse(lambda X: X[:, 0], np.array([[1.0], [2.0], [3.0]]), np.array([1.0, 2.0, 4.0]))
+        0.3333333333333333
     """
-    return float(np.mean((predict(X) - y) ** 2))
+    y_pred, y = _predictions_and_targets(predict, X, y)
+    with np.errstate(all="ignore"):
+        return _mean_squared_error(y_pred, y)
 
 
 def rmse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
-    """
-    Root-mean-square error between predictions and targets.
-
-    Examples:
-        >>> f = compile_expr(["X_0", "+", "C"])
-        >>> predict = lambda X: f(X, np.array([1.0]))
-        >>> X = np.array([[1.0], [2.0], [3.0]])
-        >>> y = np.array([2.0, 3.0, 4.0])
-        >>> rmse(predict, X, y)
-        0.0
+    """Return the root-mean-square error of a model's predictions.
 
     Args:
-        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        predict: Callable mapping ``X`` to predictions of shape ``(n_samples,)``. Exceptions it
+            raises propagate.
         X: Input data of shape ``(n_samples, n_features)``.
-        y: Target values of shape ``(n_samples,)``.
+        y: Targets of shape ``(n_samples,)``, as any array-like (converted with ``np.asarray``).
 
     Returns:
-        The root-mean-square error as a float.
+        ``sqrt(mean((predict(X) - y) ** 2))``, ``>= 0``; lower is better. Special cases:
+
+        - ``nan`` if there are no samples, or an error ``predict(X)[i] - y[i]`` is ``nan`` (e.g. ``inf - inf``);
+        - otherwise ``inf`` if an error is infinite or too large to square.
+
+    Raises:
+        ValueError: If ``predict(X)`` or ``y`` is not 1-D of length ``n_samples``.
+
+    Examples:
+        >>> rmse(lambda X: X[:, 0], np.array([[1.0], [2.0], [3.0]]), np.array([1.0, 2.0, 4.0]))
+        0.5773502691896257
     """
-    return float(np.sqrt(np.mean((predict(X) - y) ** 2)))
+    y_pred, y = _predictions_and_targets(predict, X, y)
+    with np.errstate(all="ignore"):
+        return float(np.sqrt(_mean_squared_error(y_pred, y)))
 
 
 def mae(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
-    """
-    Mean absolute error between predictions and targets.
-
-    Examples:
-        >>> f = compile_expr(["X_0", "+", "C"])
-        >>> predict = lambda X: f(X, np.array([1.0]))
-        >>> X = np.array([[1.0], [2.0], [3.0]])
-        >>> y = np.array([2.0, 3.0, 4.0])
-        >>> mae(predict, X, y)
-        0.0
+    """Return the mean absolute error of a model's predictions.
 
     Args:
-        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        predict: Callable mapping ``X`` to predictions of shape ``(n_samples,)``. Exceptions it
+            raises propagate.
         X: Input data of shape ``(n_samples, n_features)``.
-        y: Target values of shape ``(n_samples,)``.
+        y: Targets of shape ``(n_samples,)``, as any array-like (converted with ``np.asarray``).
 
     Returns:
-        The mean absolute error as a float.
+        ``mean(abs(predict(X) - y))``, ``>= 0``; lower is better. Special cases:
+
+        - ``nan`` if there are no samples, or an error ``predict(X)[i] - y[i]`` is ``nan`` (e.g. ``inf - inf``);
+        - otherwise ``inf`` if an error is infinite.
+
+    Raises:
+        ValueError: If ``predict(X)`` or ``y`` is not 1-D of length ``n_samples``.
+
+    Examples:
+        >>> mae(lambda X: X[:, 0], np.array([[1.0], [2.0], [3.0]]), np.array([1.0, 2.0, 4.0]))
+        0.3333333333333333
     """
-    return float(np.mean(np.abs(predict(X) - y)))
+    y_pred, y = _predictions_and_targets(predict, X, y)
+    if y.size == 0:
+        return float("nan")
+    with np.errstate(all="ignore"):
+        return float(np.mean(np.abs(y_pred - y)))
 
 
 def r2(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
-    """
-    Coefficient of determination R², ``1 - SS_res / SS_tot``.
-
-    Returns ``NaN`` when the targets have zero variance (``SS_tot == 0``), as R²
-    is undefined there.
-
-    Examples:
-        >>> f = compile_expr(["X_0", "+", "C"])
-        >>> predict = lambda X: f(X, np.array([1.0]))
-        >>> X = np.array([[1.0], [2.0], [3.0]])
-        >>> y = np.array([2.0, 3.0, 4.0])
-        >>> r2(predict, X, y)
-        1.0
+    """Return the coefficient of determination R² of a model's predictions.
 
     Args:
-        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        predict: Callable mapping ``X`` to predictions of shape ``(n_samples,)``. Exceptions it
+            raises propagate.
         X: Input data of shape ``(n_samples, n_features)``.
-        y: Target values of shape ``(n_samples,)``.
+        y: Targets of shape ``(n_samples,)``, as any array-like (converted with ``np.asarray``).
 
     Returns:
-        R² as a float, or ``NaN`` if the targets have zero variance.
+        ``1 - SS_res / SS_tot``, with ``SS_res = sum((y - predict(X)) ** 2)`` and
+        ``SS_tot = sum((y - mean(y)) ** 2)``; at most 1, higher is better. Special cases, checked
+        in this order (a prediction is exact if it equals its target exactly):
+
+        - ``nan`` if there are no samples, a target is ``nan`` or infinite, or a prediction is ``nan``;
+        - if all targets are equal (also for one sample): ``1.0`` if all predictions are exact, else ``-inf``;
+        - ``-inf`` if a prediction is infinite.
+
+    Raises:
+        ValueError: If ``predict(X)`` or ``y`` is not 1-D of length ``n_samples``.
+
+    Examples:
+        >>> r2(lambda X: X[:, 0], np.array([[1.0], [2.0], [3.0]]), np.array([1.0, 2.0, 4.0]))
+        0.7857142857142857
     """
-    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
-    if ss_tot == 0:
-        return float("nan")
-    return float(1 - np.sum((y - predict(X)) ** 2) / ss_tot)
+    y_pred, y = _predictions_and_targets(predict, X, y)
+    special = _normalised_metric_special_value(y_pred, y, perfect=1.0, worst=-np.inf)
+    if special is not None:
+        return special
+    with np.errstate(all="ignore"):
+        return float(1 - np.sum((y - y_pred) ** 2) / np.sum((y - np.mean(y)) ** 2))
 
 
 def nrmse(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> float:
-    """
-    Normalized root-mean-square error, ``RMSE / std(y)`` (population standard
-    deviation, ``ddof=0``).
-
-    Returns ``NaN`` when the targets have zero standard deviation, as the
-    normalization is undefined there.
-
-    Examples:
-        >>> f = compile_expr(["X_0", "+", "C"])
-        >>> predict = lambda X: f(X, np.array([1.0]))
-        >>> X = np.array([[1.0], [2.0], [3.0]])
-        >>> y = np.array([2.0, 3.0, 4.0])
-        >>> nrmse(predict, X, y)
-        0.0
+    """Return the root-mean-square error of a model's predictions, normalised by the spread of the targets.
 
     Args:
-        predict: Callable ``predict(X) -> y_pred`` with fitted constants bound in.
+        predict: Callable mapping ``X`` to predictions of shape ``(n_samples,)``. Exceptions it
+            raises propagate.
         X: Input data of shape ``(n_samples, n_features)``.
-        y: Target values of shape ``(n_samples,)``.
+        y: Targets of shape ``(n_samples,)``, as any array-like (converted with ``np.asarray``).
 
     Returns:
-        NRMSE as a float, or ``NaN`` if the targets have zero standard deviation.
+        ``rmse / std(y)``, with the population standard deviation (``ddof=0``); ``>= 0``, lower is
+        better. Special cases, checked in this order (a prediction is exact if it equals its target
+        exactly):
+
+        - ``nan`` if there are no samples, a target is ``nan`` or infinite, or a prediction is ``nan``;
+        - if all targets are equal (also for one sample): ``0.0`` if all predictions are exact, else ``inf``;
+        - ``inf`` if a prediction is infinite.
+
+    Raises:
+        ValueError: If ``predict(X)`` or ``y`` is not 1-D of length ``n_samples``.
+
+    Examples:
+        >>> nrmse(lambda X: X[:, 0], np.array([[1.0], [2.0], [3.0]]), np.array([1.0, 2.0, 4.0]))
+        0.46291004988627577
     """
-    std = float(np.std(y))
-    if std == 0:
-        return float("nan")
-    return float(np.sqrt(np.mean((y - predict(X)) ** 2)) / std)
+    y_pred, y = _predictions_and_targets(predict, X, y)
+    special = _normalised_metric_special_value(y_pred, y, perfect=0.0, worst=np.inf)
+    if special is not None:
+        return special
+    with np.errstate(all="ignore"):
+        return float(np.sqrt(np.mean((y - y_pred) ** 2)) / np.std(y))
 
 
-REGRESSION_METRICS: Dict[str, Callable[[PredictFn, np.ndarray, np.ndarray], float]] = {
-    "mse": mse,
-    "rmse": rmse,
-    "mae": mae,
-    "r2": r2,
-    "nrmse": nrmse,
-}
-"""Built-in regression metrics keyed by name.
+REGRESSION_METRICS: Mapping[str, Callable[[PredictFn, np.ndarray, np.ndarray], float]] = MappingProxyType(
+    {
+        "mse": mse,
+        "rmse": rmse,
+        "mae": mae,
+        "r2": r2,
+        "nrmse": nrmse,
+    }
+)
+"""Read-only mapping from name to built-in regression metric.
 
-Used by
-[SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric]
-to resolve a string ``metric`` argument. This registry is fixed by the library:
-callers pick a name from it but cannot redefine which metric a name maps to.
+Keys are ``"mse"``, ``"rmse"``, ``"mae"``, ``"r2"`` and ``"nrmse"``; every value has the signature
+``metric(predict, X, y) -> float``.
+[SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric] uses it to
+resolve a metric given by name. The mapping cannot be modified; to use another metric, pass a
+callable with the same signature instead of a name.
 """

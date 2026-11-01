@@ -1,5 +1,4 @@
-"""
-Classes and functions for evaluating symbolic regression approaches.
+"""Classes and functions for evaluating symbolic regression approaches.
 
 Modules:
     parameter_estimator: [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator] — fits

@@ -1,5 +1,4 @@
-"""
-Job-based experiment runner for symbolic regression experiments.
+"""Job-based experiment runner for symbolic regression experiments.
 
 Provides three public classes:
 
@@ -348,8 +347,7 @@ def _pack_custom_code(
 
 @dataclass
 class ExperimentInfo:
-    """
-    Metadata for a single experiment run.
+    """Metadata for a single experiment run.
 
     Holds all job-specific information not contained in the dataset or approach
     config: the random seed, the path where the result should be written, how many top
@@ -389,8 +387,7 @@ class ExperimentInfo:
     adapted_state_path: Optional[str] = None
 
     def to_dict(self) -> dict:
-        """
-        Serialise to a JSON-safe dictionary.
+        """Serialise to a JSON-safe dictionary.
 
         Returns:
             A flat dictionary with keys ``seed``, ``result_path``, ``top_k``, and ``adapted_state_path``, suitable for passing to [from_dict][SRToolkit.experiments.ExperimentInfo.from_dict].
@@ -399,8 +396,7 @@ class ExperimentInfo:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ExperimentInfo":
-        """
-        Restore an [ExperimentInfo][SRToolkit.experiments.ExperimentInfo] from a dictionary
+        """Restore an [ExperimentInfo][SRToolkit.experiments.ExperimentInfo] from a dictionary
         produced by [to_dict][SRToolkit.experiments.ExperimentInfo.to_dict].
 
         Args:
@@ -414,8 +410,7 @@ class ExperimentInfo:
 
 
 class ExperimentJob:
-    """
-    A single atomic experiment: one dataset × one approach × one seed.
+    """A single atomic experiment: one dataset × one approach × one seed.
 
     An ``ExperimentJob`` is built from three components:
 
@@ -453,8 +448,7 @@ class ExperimentJob:
         info: Union[ExperimentInfo, str, dict],
         callbacks: Optional[Union[SRCallbacks, List[SRCallbacks], dict, List[dict]]] = None,
     ) -> None:
-        """
-        Args:
+        """Args:
             dataset: The dataset.  One of:
 
                 - ``SR_dataset`` instance — used directly in memory.
@@ -546,8 +540,7 @@ class ExperimentJob:
         return os.path.exists(self.result_path)
 
     def run(self) -> None:
-        """
-        Execute this experiment and save the result to ``result_path``.
+        """Execute this experiment and save the result to ``result_path``.
 
         Handles adaptation according to
         [SR_approach.adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope]:
@@ -632,8 +625,7 @@ class ExperimentJob:
 
 
 class ExperimentGrid:
-    """
-    Defines and manages a grid of symbolic regression experiments across multiple
+    """Defines and manages a grid of symbolic regression experiments across multiple
     datasets and approaches.
 
     Each experiment is an independent
@@ -732,8 +724,7 @@ class ExperimentGrid:
             self.add_dataset(datasets)
 
     def add_approach(self, approach: SR_approach) -> None:
-        """
-        Add an approach to the grid.
+        """Add an approach to the grid.
 
         The approach's config is serialised immediately (its ``adaptation_scope`` is
         recorded alongside) so the grid never caches a live instance. Safe to call after
@@ -757,8 +748,7 @@ class ExperimentGrid:
         self.approach_configs.append(cfg)
 
     def add_dataset(self, dataset: Union[SR_dataset, SR_benchmark]) -> None:
-        """
-        Add a dataset, or every dataset in a benchmark, to the grid.
+        """Add a dataset, or every dataset in a benchmark, to the grid.
 
         Each dataset is serialised immediately to its config dict (no data arrays
         embedded). Safe to call after
@@ -795,8 +785,7 @@ class ExperimentGrid:
         return self._adapted_states.get(approach_name, {}).get(dataset_name)
 
     def materialize_data(self) -> None:
-        """
-        Materialise every dataset's data into the local cache, once, in this process.
+        """Materialise every dataset's data into the local cache, once, in this process.
 
         Reconstructing each dataset via
         [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] triggers
@@ -862,8 +851,7 @@ class ExperimentGrid:
         return pairs
 
     def adapt_one(self, approach_name: str, dataset_name: str, force: bool = False) -> None:
-        """
-        Adapt a single (approach, dataset) pair and persist its state.
+        """Adapt a single (approach, dataset) pair and persist its state.
 
         This is the unit the per-pair adaptation commands in ``prepare.txt`` invoke (via the
         ``adapt`` CLI with ``--dataset``/``--approach``), so independent pairs can adapt in
@@ -903,8 +891,7 @@ class ExperimentGrid:
         approach.save_adapted_state(state_path)
 
     def adapt_if_missing(self):
-        """
-        Pre-adapt all ``adaptation_scope="once"`` approaches where the state file is absent.
+        """Pre-adapt all ``adaptation_scope="once"`` approaches where the state file is absent.
 
         For each (approach, dataset) pair whose state file does not yet exist on disk,
         this method loads the dataset, calls
@@ -925,8 +912,7 @@ class ExperimentGrid:
             self.adapt_one(approach_name, dataset_name)
 
     def build_job(self, dataset_name: str, approach_name: str, seed: int) -> ExperimentJob:
-        """
-        Construct the single [ExperimentJob][SRToolkit.experiments.ExperimentJob] for one
+        """Construct the single [ExperimentJob][SRToolkit.experiments.ExperimentJob] for one
         (dataset, approach, seed) triple, using this grid's stored configs.
 
         This is the unit of work both
@@ -962,8 +948,7 @@ class ExperimentGrid:
         return ExperimentJob(dataset=dataset_dict, approach=approach_config, info=info, callbacks=self.callback_configs)
 
     def create_jobs(self, skip_completed: bool = True) -> List[ExperimentJob]:
-        """
-        Return the list of [ExperimentJob][SRToolkit.experiments.ExperimentJob] instances for
+        """Return the list of [ExperimentJob][SRToolkit.experiments.ExperimentJob] instances for
         this grid.
 
         Does **not** trigger adaptation — call
@@ -999,8 +984,7 @@ class ExperimentGrid:
         skip_completed: bool = True,
         materialize_data: bool = True,
     ) -> Optional[str]:
-        """
-        Write the experiment commands file (and, if needed, a ``prepare`` commands file).
+        """Write the experiment commands file (and, if needed, a ``prepare`` commands file).
 
         Calls [save][SRToolkit.experiments.ExperimentGrid.save] first to persist the grid
         to ``results_dir/grid.json``. Every command line references that single file plus
@@ -1094,8 +1078,7 @@ class ExperimentGrid:
         return prepare_path
 
     def progress(self) -> None:
-        """
-        Print a dataset × approach progress table to stdout.
+        """Print a dataset × approach progress table to stdout.
 
         Each cell shows ``done/total`` experiments completed for that pair, based on
         the presence of the per-experiment ``exp_{seed}.json`` files on disk.
@@ -1138,8 +1121,7 @@ class ExperimentGrid:
             print(row)
 
     def load_results(self, dataset_name: str, approach_name: str) -> SR_results:
-        """
-        Load and merge all completed per-experiment results for a (dataset, approach) pair.
+        """Load and merge all completed per-experiment results for a (dataset, approach) pair.
 
         Examples:
             >>> results = grid.load_results("Nguyen-1", "ProGED")  # doctest: +SKIP
@@ -1162,8 +1144,7 @@ class ExperimentGrid:
         return merged
 
     def to_dict(self) -> dict:
-        """
-        Serialize the grid to a single self-contained, JSON-safe dict — the *recipe*.
+        """Serialize the grid to a single self-contained, JSON-safe dict — the *recipe*.
 
         The returned dict inlines every dataset config, approach config, and callback
         config alongside the run metadata (``num_experiments``, ``initial_seed``,
@@ -1207,8 +1188,7 @@ class ExperimentGrid:
         results_dir: Optional[str] = None,
         adapted_states: Optional[Dict[str, Dict[str, str]]] = None,
     ) -> "ExperimentGrid":
-        """
-        Reconstruct an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] from a
+        """Reconstruct an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] from a
         recipe produced by [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict].
 
         Every embedded config (approaches, callbacks, and the samplers / sources /
@@ -1295,8 +1275,7 @@ class ExperimentGrid:
         additional_bundles: Optional[List[Union[str, Path]]] = None,
         strict: bool = False,
     ) -> None:
-        """
-        Write a self-contained, shareable ``.zip`` gathering everything a recipient needs.
+        """Write a self-contained, shareable ``.zip`` gathering everything a recipient needs.
 
         Unlike [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] (a recipe that
         *assumes* the recipient can reach the data and code), ``export`` bundles the
@@ -1388,7 +1367,8 @@ class ExperimentGrid:
     ) -> None:
         """Write the export contents (``grid.json``, ``data/``, ``bundles/``, ``MANIFEST.md``)
         into ``directory``. Shared by [export][SRToolkit.experiments.ExperimentGrid.export],
-        which zips the result."""
+        which zips the result.
+        """
         directory.mkdir(parents=True, exist_ok=True)
 
         archived: List["tuple[str, str]"] = []
@@ -1428,8 +1408,7 @@ class ExperimentGrid:
         path: Union[str, Path],
         results_dir: Optional[str] = None,
     ) -> "ExperimentGrid":
-        """
-        Load a grid from a ``.zip`` produced by
+        """Load a grid from a ``.zip`` produced by
         [export][SRToolkit.experiments.ExperimentGrid.export].
 
         The archive is unpacked and:
@@ -1590,8 +1569,7 @@ class ExperimentGrid:
         path.write_text("\n".join(lines))
 
     def save(self) -> None:
-        """
-        Persist the grid to a single ``results_dir/grid.json`` file.
+        """Persist the grid to a single ``results_dir/grid.json`` file.
 
         The file is the [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] recipe
         plus the machine-local ``adapted_states`` paths (which ``to_dict`` omits, since
@@ -1612,8 +1590,7 @@ class ExperimentGrid:
 
     @staticmethod
     def load(path: str) -> "ExperimentGrid":
-        """
-        Load a grid from a ``grid.json`` written by
+        """Load a grid from a ``grid.json`` written by
         [save][SRToolkit.experiments.ExperimentGrid.save].
 
         Thin wrapper over [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] that

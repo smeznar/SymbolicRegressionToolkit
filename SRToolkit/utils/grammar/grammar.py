@@ -1,5 +1,4 @@
-"""
-Context-free and probabilistic context-free grammar (CFG/PCFG) representation.
+"""Context-free and probabilistic context-free grammar (CFG/PCFG) representation.
 
 Provides [Rule][SRToolkit.utils.grammar.Rule], [ParseTreeNode][SRToolkit.utils.grammar.ParseTreeNode],
 [ParseTree][SRToolkit.utils.grammar.ParseTree], and [Grammar][SRToolkit.utils.grammar.Grammar].
@@ -47,8 +46,7 @@ def _level_name(prec: int) -> str:
 
 @dataclass
 class Rule:
-    """
-    A single production rule in a grammar.
+    """A single production rule in a grammar.
 
     A rule is a CFG production when weights remain 1 for all rules in the grammar;
     when weights differ across rules, the grammar is treated as a PCFG and
@@ -88,8 +86,7 @@ class Rule:
     name: Optional[str] = None
 
     def to_dict(self) -> dict:
-        """
-        Serialize this rule to a JSON-safe dictionary.
+        """Serialize this rule to a JSON-safe dictionary.
 
         Returns:
             A dictionary with ``lhs``, ``rhs``, ``weight`` and ``name``.
@@ -98,8 +95,7 @@ class Rule:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Rule":
-        """
-        Reconstruct a rule from a dictionary produced by
+        """Reconstruct a rule from a dictionary produced by
         [to_dict][SRToolkit.utils.grammar.grammar.Rule.to_dict].
 
         Args:
@@ -112,8 +108,7 @@ class Rule:
 
     @classmethod
     def from_line(cls, line: str) -> list["Rule"]:
-        """
-        Parse one NLTK production line into a list of [Rule][SRToolkit.utils.grammar.Rule] objects.
+        """Parse one NLTK production line into a list of [Rule][SRToolkit.utils.grammar.Rule] objects.
 
         The line must have the form::
 
@@ -172,8 +167,7 @@ class Rule:
 
 @dataclass
 class ParseTreeNode:
-    """
-    A node in a derivation parse tree.
+    """A node in a derivation parse tree.
 
     Terminal leaves have ``rule_applied=None`` and ``children=[]``.
     Internal nodes store the rule that expanded the non-terminal at this position.
@@ -192,8 +186,7 @@ class ParseTreeNode:
 
 
 class ParseTree:
-    """
-    Full derivation history of an expression under a grammar.
+    """Full derivation history of an expression under a grammar.
 
     Unlike [Node][SRToolkit.utils.expression_tree.Node], which holds only terminal
     symbols for expression evaluation, a [ParseTree][SRToolkit.utils.grammar.ParseTree]
@@ -220,8 +213,7 @@ class ParseTree:
         self.root = root
 
     def to_token_list(self) -> list[str]:
-        """
-        Collect all terminal tokens in left-to-right order.
+        """Collect all terminal tokens in left-to-right order.
 
         Examples:
             >>> leaf1 = ParseTreeNode("a", None)
@@ -246,8 +238,7 @@ class ParseTree:
                 self._collect_tokens(child, tokens)
 
     def productions_used(self) -> list[Rule]:
-        """
-        Return all rules applied in the derivation, in pre-order.
+        """Return all rules applied in the derivation, in pre-order.
 
         Examples:
             >>> leaf = ParseTreeNode("x", None)
@@ -271,8 +262,7 @@ class ParseTree:
 
 
 class Grammar:
-    """
-    A context-free grammar (CFG) or probabilistic context-free grammar (PCFG).
+    """A context-free grammar (CFG) or probabilistic context-free grammar (PCFG).
 
     Rules are added via [add_rule][SRToolkit.utils.grammar.Grammar.add_rule]. The set of
     non-terminals is derived automatically: a symbol is a non-terminal if and only
@@ -303,14 +293,13 @@ class Grammar:
     """
 
     def __init__(self, rules: Optional[list[Rule]] = None, start: Optional[str] = None) -> None:
-        """
-        Args:
-            rules: Optional list of [Rule][SRToolkit.utils.grammar.Rule] objects to add at
-                construction time. Equivalent to calling
-                [add_rule][SRToolkit.utils.grammar.Grammar.add_rule] for each entry.
-            start: Default start non-terminal used by
-                [start_derivation][SRToolkit.utils.grammar.Grammar.start_derivation]
-                when no ``start`` argument is given.
+        """Args:
+        rules: Optional list of [Rule][SRToolkit.utils.grammar.Rule] objects to add at
+            construction time. Equivalent to calling
+            [add_rule][SRToolkit.utils.grammar.Grammar.add_rule] for each entry.
+        start: Default start non-terminal used by
+            [start_derivation][SRToolkit.utils.grammar.Grammar.start_derivation]
+            when no ``start`` argument is given.
         """
         self.start: Optional[str] = start
         self._rules: list[Rule] = []
@@ -321,8 +310,7 @@ class Grammar:
 
     @property
     def nonterminals(self) -> set[str]:
-        """
-        Set of all non-terminal symbols in the grammar.
+        """Set of all non-terminal symbols in the grammar.
 
         A symbol is a non-terminal if and only if it appears as the ``lhs`` of
         at least one rule.
@@ -337,8 +325,7 @@ class Grammar:
         return set(self._rules_by_lhs.keys())
 
     def add_rule(self, rule: Rule) -> None:
-        """
-        Add a production rule to the grammar.
+        """Add a production rule to the grammar.
 
         Examples:
             >>> g = Grammar()
@@ -353,8 +340,7 @@ class Grammar:
         self._rules_by_lhs.setdefault(rule.lhs, []).append(rule)
 
     def add_constraint(self, constraint: "Constraint") -> None:
-        """
-        Register a [constraint][SRToolkit.utils.grammar.constraints.Constraint] applied at each derivation step.
+        """Register a [constraint][SRToolkit.utils.grammar.constraints.Constraint] applied at each derivation step.
 
         A rule is offered as an option only when every registered constraint's
         [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] returns ``True``
@@ -381,8 +367,7 @@ class Grammar:
         self._constraints.append(constraint)
 
     def rules_for(self, nonterminal: str) -> list[Rule]:
-        """
-        Return all rules whose ``lhs`` matches ``nonterminal``.
+        """Return all rules whose ``lhs`` matches ``nonterminal``.
 
         Examples:
             >>> g = Grammar()
@@ -402,8 +387,7 @@ class Grammar:
         return list(self._rules_by_lhs.get(nonterminal, []))
 
     def is_pcfg(self) -> bool:
-        """
-        Return ``True`` if any rule deviates from the default weight of ``1.0``.
+        """Return ``True`` if any rule deviates from the default weight of ``1.0``.
 
         Examples:
             >>> g = Grammar()
@@ -421,8 +405,7 @@ class Grammar:
         return any(r.weight != 1.0 for r in self._rules)
 
     def validate(self, parse_tree: ParseTree, require_start: bool = False) -> bool:
-        """
-        Validate that ``parse_tree`` is structurally valid, uses only productions
+        """Validate that ``parse_tree`` is structurally valid, uses only productions
         from this grammar, and satisfies every registered constraint.
 
         By default the root of the tree may be **any non-terminal** in the grammar,
@@ -515,8 +498,7 @@ class Grammar:
         return d.complete
 
     def start_derivation(self, start: Optional[str] = None) -> "Derivation":
-        """
-        Begin a new derivation.
+        """Begin a new derivation.
 
         Examples:
             >>> g = Grammar(start="E")
@@ -557,8 +539,7 @@ class Grammar:
         max_steps: int = 1000,
         max_retries: int = 10,
     ) -> Optional[list[str]]:
-        """
-        Generate a single expression by sampling the grammar to completion.
+        """Generate a single expression by sampling the grammar to completion.
 
         Convenience wrapper around
         [start_derivation][SRToolkit.utils.grammar.grammar.Grammar.start_derivation]
@@ -603,8 +584,7 @@ class Grammar:
         return None
 
     def to_dict(self) -> dict:
-        """
-        Serialise this grammar to a JSON-safe dictionary.
+        """Serialise this grammar to a JSON-safe dictionary.
 
         Constraints are serialised via their own ``to_dict`` method.  User-defined
         constraint subclasses must implement ``to_dict``/``from_dict`` to survive the
@@ -621,8 +601,7 @@ class Grammar:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Grammar":
-        """
-        Reconstruct a [Grammar][SRToolkit.utils.grammar.Grammar] from a dictionary
+        """Reconstruct a [Grammar][SRToolkit.utils.grammar.Grammar] from a dictionary
         produced by [to_dict][SRToolkit.utils.grammar.Grammar.to_dict].
 
         If ``d`` carries ``_bundle`` metadata (added by ``pack(..., configs=[...])``),
@@ -651,8 +630,7 @@ class Grammar:
         symbol_library: Optional[SymbolLibrary] = None,
         start: Optional[str] = None,
     ) -> "Grammar":
-        """
-        Build a PCFG from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]
+        """Build a PCFG from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]
         using a generic operator-precedence non-terminal hierarchy.
 
         One non-terminal is created per unique ``OP`` precedence level present in
@@ -820,8 +798,7 @@ class Grammar:
 
     @classmethod
     def from_grammar_string(cls, text: str, start: Optional[str] = None) -> "Grammar":
-        """
-        Construct a [Grammar][SRToolkit.utils.grammar.Grammar] from a string in
+        """Construct a [Grammar][SRToolkit.utils.grammar.Grammar] from a string in
         NLTK production-rule notation.
 
         Each non-empty, non-comment line must have the form::
@@ -902,8 +879,7 @@ class Grammar:
         return cls(rules, start=resolved_start)
 
     def to_grammar_string(self) -> str:
-        """
-        Serialise this grammar to a string in NLTK production-rule notation.
+        """Serialise this grammar to a string in NLTK production-rule notation.
 
         All rules sharing the same left-hand side are written on a single
         line, separated by `` | ``.  Symbols that are non-terminals (i.e.

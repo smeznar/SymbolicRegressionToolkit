@@ -19,7 +19,12 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: pytest SRToolkit/ tests/
+        # Run in the project's conda environment when it exists, whatever environment the commit comes
+        # from (e.g. an editor's git panel started with conda's base); otherwise use pytest on PATH.
+        entry: >-
+          bash -c 'if conda env list 2>/dev/null | grep -q "^SymbolicRegressionToolkit ";
+          then exec conda run -n SymbolicRegressionToolkit --no-capture-output pytest SRToolkit/ tests/;
+          else exec pytest SRToolkit/ tests/; fi'
         language: system
         pass_filenames: false
         always_run: true

@@ -1,6 +1,4 @@
-"""
-SRSD Feynman symbolic regression benchmark.
-"""
+"""SRSD Feynman symbolic regression benchmark."""
 
 from typing import Optional
 
@@ -33,8 +31,7 @@ _SYMBOL_LIST = [
 
 
 class SRSD_Feynman(SR_benchmark):
-    """
-    The SRSD Feynman symbolic regression benchmark.
+    """The SRSD Feynman symbolic regression benchmark.
 
     Contains 120 physics equations from the Feynman Symbolic Regression Dataset with
     per-variable sampling strategies (log-uniform, linear, or integer with sign constraints).

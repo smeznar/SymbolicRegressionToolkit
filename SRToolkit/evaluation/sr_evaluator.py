@@ -1,5 +1,4 @@
-"""
-Expression evaluation and results management for symbolic regression.
+"""Expression evaluation and results management for symbolic regression.
 
 Contains [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] — the base class for
 post-processing results, [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] — the core
@@ -135,8 +134,7 @@ def evaluate_metric(
     symbol_library: Optional[SymbolLibrary] = None,
     backend: str = "stack",
 ) -> float:
-    """
-    Score an expression on ``(X, y)`` by reusing already-fitted ``parameters`` — no refitting.
+    """Score an expression on ``(X, y)`` by reusing already-fitted ``parameters`` — no refitting.
 
     Builds a constants-bound prediction function ``predict(X) -> y_pred`` from ``expr`` and
     ``parameters`` and applies ``metric``. This is the shared scoring core behind
@@ -204,8 +202,7 @@ class ResultAugmenter(ABC):
         cls._type = f"{cls.__module__}.{cls.__qualname__}"
 
     def __init__(self, name: str):
-        """
-        Base class for result augmenters. Subclasses implement
+        """Base class for result augmenters. Subclasses implement
         [write_results][SRToolkit.evaluation.sr_evaluator.ResultAugmenter.write_results] to compute
         and store additional data in an [EvalResult][SRToolkit.utils.types.EvalResult] via
         [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
@@ -228,8 +225,7 @@ class ResultAugmenter(ABC):
         self,
         results: "EvalResult",
     ) -> None:
-        """
-        Compute and write augmentation data into *results* and its models.
+        """Compute and write augmentation data into *results* and its models.
 
         Call ``results.add_augmentation(self.name, data, self._type)`` for experiment-level
         data and ``model.add_augmentation(self.name, data, self._type)`` for per-model data.
@@ -240,8 +236,7 @@ class ResultAugmenter(ABC):
 
     @abstractmethod
     def to_dict(self, base_path: str, name: str) -> dict:
-        """
-        Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
+        """Transforms the augmenter into a dictionary. This is used for saving the augmenter to disk.
 
         Args:
             base_path: The base path used for saving the data inside the augmenter, if needed.
@@ -253,8 +248,7 @@ class ResultAugmenter(ABC):
 
     @classmethod
     def format_eval_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Returns a formatted string for experiment-level augmentation data.
+        """Returns a formatted string for experiment-level augmentation data.
 
         Subclasses override this for custom formatting. The *data* dict is the inner
         augmentation dictionary (includes ``_type``).
@@ -269,8 +263,7 @@ class ResultAugmenter(ABC):
 
     @classmethod
     def format_model_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Returns a formatted string for a single model's augmentation data.
+        """Returns a formatted string for a single model's augmentation data.
 
         Subclasses override this for custom formatting. The *data* dict is the inner
         augmentation dictionary (includes ``_type``).
@@ -286,8 +279,7 @@ class ResultAugmenter(ABC):
 
     @staticmethod
     def from_dict(data: dict) -> "ResultAugmenter":
-        """
-        Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
+        """Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
 
         Subclasses should override this method if they support serialization. The default
         implementation raises ``NotImplementedError``, allowing custom augmenters to skip
@@ -322,8 +314,7 @@ class SR_evaluator:
         metadata: Optional[dict] = None,
         **kwargs: Unpack[RankingSettings],
     ):
-        """
-        Evaluates symbolic regression expressions and ranks them by RMSE or Behavioral Expression Distance (BED).
+        """Evaluates symbolic regression expressions and ranks them by RMSE or Behavioral Expression Distance (BED).
 
         Previously evaluated expressions are cached so repeated calls with the same expression
         are free. Results are collected via
@@ -427,30 +418,33 @@ class SR_evaluator:
     def total_evaluations(self) -> int:
         """Number of counted calls to
         [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr], including
-        cache hits but not calls made after evaluation was stopped. Equal to ``len(trace)``."""
+        cache hits but not calls made after evaluation was stopped. Equal to ``len(trace)``.
+        """
         return len(self.trace)
 
     @property
     def invalid(self) -> List[str]:
         """Strings of the evaluated expressions with status ``"invalid"`` (not well-formed), in
-        the order they were first evaluated."""
+        the order they were first evaluated.
+        """
         return ["".join(m.expr) for m in self.models if m.status == "invalid"]
 
     @property
     def ranking_function(self) -> str:
         """The name of the active [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]
-        (e.g. ``"rmse"``, ``"bed"``)."""
+        (e.g. ``"rmse"``, ``"bed"``).
+        """
         return self.ranking.name
 
     @property
     def parameter_estimator(self) -> Any:
         """The [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
-        owned by the ranking function, or ``None`` if the active ranking fits no constants."""
+        owned by the ranking function, or ``None`` if the active ranking fits no constants.
+        """
         return getattr(self.ranking, "parameter_estimator", None)
 
     def register_callbacks(self, callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None) -> None:
-        """
-        Register callbacks for monitoring and early stopping.
+        """Register callbacks for monitoring and early stopping.
 
         A single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance is
         automatically wrapped in a
@@ -495,8 +489,7 @@ class SR_evaluator:
         simplify_expr: bool = False,
         verbose: int = 0,
     ) -> float:
-        """
-        Evaluates an expression in infix notation and stores the result in
+        """Evaluates an expression in infix notation and stores the result in
         memory to prevent re-evaluation.
 
         Examples:
@@ -704,8 +697,7 @@ class SR_evaluator:
         expr: Union[List[str], Node],
         metric: Union[str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]] = "r2",
     ) -> float:
-        """
-        Compute an alternative, read-only metric for an already-evaluated expression.
+        """Compute an alternative, read-only metric for an already-evaluated expression.
 
         Unlike [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
         this does **not** count toward the evaluation budget, does not affect ranking,
@@ -804,8 +796,7 @@ class SR_evaluator:
     def get_results(
         self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None
     ) -> "SR_results":
-        """
-        Returns the results of the equation discovery/symbolic regression process/evaluation.
+        """Returns the results of the equation discovery/symbolic regression process/evaluation.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -854,8 +845,7 @@ class SR_evaluator:
 
 class SR_results:
     def __init__(self):
-        """
-        Container for SR experiment results, typically obtained via
+        """Container for SR experiment results, typically obtained via
         [SR_evaluator.get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
 
         Examples:
@@ -886,8 +876,7 @@ class SR_results:
         approach_name: str,
         metadata: Optional[dict] = None,
     ) -> None:
-        """
-        Adds the results of an evaluation to the results object.
+        """Adds the results of an evaluation to the results object.
 
         Args:
             models: Evaluated models in the order they were first evaluated.
@@ -926,8 +915,7 @@ class SR_results:
         model_scope: Literal["best", "top", "all"] = "top",
         augmentations: Optional[List[str]] = None,
     ):
-        r"""
-        Prints the results of the SR_evaluator.
+        r"""Prints the results of the SR_evaluator.
 
         Displays the minimum error, best expression, evaluation counts, success status,
         metadata, and approach name. When *detailed* is ``True``, also prints per-model
@@ -1070,8 +1058,7 @@ class SR_results:
     def augment(
         self, augmenters: Union[List[ResultAugmenter], ResultAugmenter], experiment_number: Optional[int] = None
     ) -> None:
-        r"""
-        Applies the given [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter]
+        r"""Applies the given [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter]
         instances to the stored results. Augmenters add post-hoc information such as LaTeX
         representations, simplified expressions, or R² scores.
 
@@ -1110,8 +1097,7 @@ class SR_results:
                         warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
 
     def __add__(self, other: "SR_results") -> "SR_results":
-        """
-        Returns a new SR_results object that is the concatenation of the current SR_results object with the other SR_results object.
+        """Returns a new SR_results object that is the concatenation of the current SR_results object with the other SR_results object.
 
         Args:
             other: SR_results object to concatenate with the current SR_results object.
@@ -1124,8 +1110,7 @@ class SR_results:
         return new
 
     def __iadd__(self, other: "SR_results") -> "SR_results":
-        """
-        In-place concatenation of SR_results objects.
+        """In-place concatenation of SR_results objects.
 
         Args:
             other: SR_results object to concatenate with the current SR_results object.
@@ -1137,8 +1122,7 @@ class SR_results:
         return self
 
     def __getitem__(self, item: int) -> EvalResult:
-        """
-        Returns the results of the experiment with the given index.
+        """Returns the results of the experiment with the given index.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -1165,8 +1149,7 @@ class SR_results:
         return self.results[item]
 
     def __iter__(self) -> Iterator[EvalResult]:
-        """
-        Iterates over the results stored in the results object, in the order they were added. Usually, each result corresponds to a single experiment.
+        """Iterates over the results stored in the results object, in the order they were added. Usually, each result corresponds to a single experiment.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -1184,8 +1167,7 @@ class SR_results:
         return iter(self.results)
 
     def __len__(self) -> int:
-        """
-        Returns the number of results stored in the results object. Usually, each result corresponds to a single experiment.
+        """Returns the number of results stored in the results object. Usually, each result corresponds to a single experiment.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -1202,8 +1184,7 @@ class SR_results:
         return len(self.results)
 
     def save(self, path: str) -> None:
-        """
-        Saves the results to a specific file or directory as JSON.
+        """Saves the results to a specific file or directory as JSON.
 
         If *path* is an existing directory, it writes ``results.json`` inside it.
         If *path* is a file path, it must end with the ``.json`` extension.
@@ -1256,8 +1237,7 @@ class SR_results:
 
     @staticmethod
     def load(path: str) -> "SR_results":
-        """
-        Load results previously saved with [save][SRToolkit.evaluation.sr_evaluator.SR_results.save].
+        """Load results previously saved with [save][SRToolkit.evaluation.sr_evaluator.SR_results.save].
 
         If *path* is a directory, it looks for ``results.json`` inside it.
         If *path* is a file, it must end with the ``.json`` extension.

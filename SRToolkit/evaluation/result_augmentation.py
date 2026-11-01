@@ -1,5 +1,4 @@
-"""
-Concrete [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] implementations
+"""Concrete [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] implementations
 that post-process SR results with additional information.
 
 Available augmenters: [ExpressionToLatex][SRToolkit.evaluation.result_augmentation.ExpressionToLatex],
@@ -34,8 +33,7 @@ class ExpressionToLatex(ResultAugmenter):
         verbose: bool = False,
         name: str = "ExpressionToLatex",
     ) -> None:
-        """
-        Converts expressions inside the results to LaTeX strings.
+        """Converts expressions inside the results to LaTeX strings.
 
         Args:
             symbol_library: Symbol library used to produce LaTeX templates for each token.
@@ -61,8 +59,7 @@ class ExpressionToLatex(ResultAugmenter):
         self.verbose = verbose
 
     def write_results(self, results: EvalResult) -> None:
-        """
-        Write LaTeX representations into *results* and its models.
+        """Write LaTeX representations into *results* and its models.
 
         Stores ``{"best_expr_latex": ...}`` in
         [EvalResult][SRToolkit.utils.types.EvalResult] ``augmentations``.
@@ -96,8 +93,7 @@ class ExpressionToLatex(ResultAugmenter):
 
     @classmethod
     def format_eval_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Format experiment-level LaTeX augmentation data for display.
+        """Format experiment-level LaTeX augmentation data for display.
 
         Args:
             data: Augmentation dict containing ``"best_expr_latex"``.
@@ -110,8 +106,7 @@ class ExpressionToLatex(ResultAugmenter):
 
     @classmethod
     def format_model_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Format per-model LaTeX augmentation data for display.
+        """Format per-model LaTeX augmentation data for display.
 
         Args:
             data: Augmentation dict containing ``"expr_latex"``.
@@ -123,8 +118,7 @@ class ExpressionToLatex(ResultAugmenter):
         return f"LaTeX: {latex}" if latex else ""
 
     def to_dict(self, base_path: str, name: str) -> dict:
-        """
-        Creates a dictionary representation of the ExpressionToLatex augmenter.
+        """Creates a dictionary representation of the ExpressionToLatex augmenter.
 
         Args:
             base_path: Unused and ignored
@@ -144,8 +138,7 @@ class ExpressionToLatex(ResultAugmenter):
 
     @staticmethod
     def from_dict(data: dict) -> "ExpressionToLatex":
-        """
-        Creates an instance of the ExpressionToLatex augmenter from a dictionary.
+        """Creates an instance of the ExpressionToLatex augmenter from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the augmenter.
@@ -173,8 +166,7 @@ class ExpressionSimplifier(ResultAugmenter):
         verbose: bool = False,
         name: str = "ExpressionSimplifier",
     ) -> None:
-        """
-        Algebraically simplifies expressions inside the results using SymPy.
+        """Algebraically simplifies expressions inside the results using SymPy.
 
         Args:
             symbol_library: Symbol library used by the simplifier to resolve token types.
@@ -200,8 +192,7 @@ class ExpressionSimplifier(ResultAugmenter):
         self.verbose = verbose
 
     def write_results(self, results: EvalResult) -> None:
-        """
-        Write simplified expressions into *results* and its models.
+        """Write simplified expressions into *results* and its models.
 
         Stores ``{"simplified_best_expr": ...}`` in
         [EvalResult][SRToolkit.utils.types.EvalResult] ``augmentations`` if
@@ -243,8 +234,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
     @classmethod
     def format_eval_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Format experiment-level simplification data for display.
+        """Format experiment-level simplification data for display.
 
         Args:
             data: Augmentation dict containing ``"simplified_best_expr"``.
@@ -257,8 +247,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
     @classmethod
     def format_model_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Format per-model simplification data for display.
+        """Format per-model simplification data for display.
 
         Args:
             data: Augmentation dict containing ``"simplified_expr"``.
@@ -270,8 +259,7 @@ class ExpressionSimplifier(ResultAugmenter):
         return f"Simplified: {simplified}" if simplified else ""
 
     def to_dict(self, base_path: str, name: str) -> dict:
-        """
-        Creates a dictionary representation of the ExpressionSimplifier augmenter.
+        """Creates a dictionary representation of the ExpressionSimplifier augmenter.
 
         Args:
             base_path: Unused and ignored
@@ -291,11 +279,11 @@ class ExpressionSimplifier(ResultAugmenter):
 
     @staticmethod
     def from_dict(data: dict) -> "ExpressionSimplifier":
-        """
-        Creates an instance of the ExpressionSimplifier augmenter from a dictionary.
+        """Creates an instance of the ExpressionSimplifier augmenter from a dictionary.
 
         Args:
             data: A dictionary containing the necessary information to recreate the augmenter.
+
         Returns:
             An instance of the ExpressionSimplifier augmenter.
         """
@@ -326,8 +314,7 @@ class HoldoutMetric(ResultAugmenter):
         refit_constants: bool = False,
         name: str = "HoldoutMetric",
     ) -> None:
-        """
-        Scores a result's models on held-out data.
+        """Scores a result's models on held-out data.
 
         Use it to measure how the expressions found by a search perform on data the search never
         saw. Apply it with [SR_results.augment][SRToolkit.evaluation.sr_evaluator.SR_results.augment];
@@ -495,7 +482,8 @@ class HoldoutMetric(ResultAugmenter):
     def _fit_parameters(self, expr: list) -> Tuple[float, np.ndarray]:
         """Fit the free constants in *expr* against the held-out data (used when a model carries no
         fitted parameters). Returns the fit's error and the constants (an empty array for
-        constant-free expressions, and with a ``NaN`` error when the fit rejects the expression)."""
+        constant-free expressions, and with a ``NaN`` error when the fit rejects the expression).
+        """
         # __init__ rejects string/callable metrics without y, so it is set in this mode.
         assert self._y is not None
         if self._estimator is None:
@@ -505,8 +493,7 @@ class HoldoutMetric(ResultAugmenter):
         return self._estimator.estimate_parameters(expr)
 
     def write_results(self, results: EvalResult) -> None:
-        """
-        Write the held-out metric into *results* and its models.
+        """Write the held-out metric into *results* and its models.
 
         Stores ``{"best_value", "metric", "refit_constants"}`` on the
         [EvalResult][SRToolkit.utils.types.EvalResult] and ``{"value", "metric", "refit_constants"}``
@@ -542,8 +529,7 @@ class HoldoutMetric(ResultAugmenter):
 
     @classmethod
     def format_eval_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Format experiment-level holdout data for display.
+        """Format experiment-level holdout data for display.
 
         Args:
             data: The augmentation stored on the
@@ -561,8 +547,7 @@ class HoldoutMetric(ResultAugmenter):
 
     @classmethod
     def format_model_result(cls, data: Dict[str, Any]) -> str:
-        """
-        Format per-model holdout data for display.
+        """Format per-model holdout data for display.
 
         Args:
             data: The augmentation stored on a [ModelResult][SRToolkit.utils.types.ModelResult]
@@ -578,8 +563,7 @@ class HoldoutMetric(ResultAugmenter):
         return f"holdout {data.get('metric', '')}{refit}={val}"
 
     def to_dict(self, base_path: str, name: str) -> dict:
-        """
-        Serialize this augmenter. Supported only in reuse-params mode with a built-in (string)
+        """Serialize this augmenter. Supported only in reuse-params mode with a built-in (string)
         metric; the held-out arrays are written to ``base_path``.
 
         Args:
@@ -629,8 +613,7 @@ class HoldoutMetric(ResultAugmenter):
 
     @staticmethod
     def from_dict(data: dict) -> "HoldoutMetric":
-        """
-        Recreate a [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] from a
+        """Recreate a [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] from a
         dictionary produced by
         [to_dict][SRToolkit.evaluation.result_augmentation.HoldoutMetric.to_dict].
 

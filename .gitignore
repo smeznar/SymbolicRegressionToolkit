@@ -152,3 +152,8 @@ examples/my_benchmark.json
 examples/shared_demo.json
 examples/shared_demo.zip
 examples/single_eq.zip
+
+# Claude Code worktrees / mutation testing artefacts
+.claude/worktrees/
+mutants/
+.hypothesis/

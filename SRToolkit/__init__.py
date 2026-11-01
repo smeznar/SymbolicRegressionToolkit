@@ -1,5 +1,4 @@
-"""
-Symbolic Regression Toolkit
+"""Symbolic Regression Toolkit
 
 This package provides a Python-based toolkit for equation discovery/symbolic regression.
 

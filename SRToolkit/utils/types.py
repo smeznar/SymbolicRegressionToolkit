@@ -1,5 +1,4 @@
-"""
-Shared type definitions, constants, and result dataclasses for the SRToolkit package.
+"""Shared type definitions, constants, and result dataclasses for the SRToolkit package.
 
 Defines symbol-type constants (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``),
 ``RankingSettings`` for ranking-function and parameter-estimation configuration, and
@@ -59,8 +58,7 @@ STATUSES: Tuple[str, ...] = ("ok", "invalid", "rejected", "undefined", "error")
 
 
 class RankingSettings(TypedDict, total=False):
-    """
-    Settings consumed by the ranking functions (and the RMSE ranking's parameter estimator).
+    """Settings consumed by the ranking functions (and the RMSE ranking's parameter estimator).
 
     Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and ``ParameterEstimator``, then
     handed to the active ranking's [setup][SRToolkit.evaluation.ranking.RankingFunction.setup] as a
@@ -93,7 +91,7 @@ class RankingSettings(TypedDict, total=False):
             Default: ``8``.
         max_expr_length: Maximum expression length in tokens. ``-1`` disables the
             limit. Default: ``-1``.
-        backend: Evaluation backend used by ``ParameterEstimator``.
+        backend: Backend used to compile expressions, by both rankings (``ParameterEstimator`` and BED).
             ``"stack"`` uses the Cython-backed postfix stack machine (default);
             ``"codegen"`` generates Python/NumPy source via ``exec()``;
             ``"stack_py"`` uses the pure-Python stack machine (faster than
@@ -137,8 +135,7 @@ class RankingSettings(TypedDict, total=False):
 
 @dataclass
 class ModelResult:
-    """
-    A single model entry in ``EvalResult.all_models`` (and so in ``EvalResult.top_models()``).
+    """A single model entry in ``EvalResult.all_models`` (and so in ``EvalResult.top_models()``).
 
     Examples:
         >>> result = ModelResult(expr=["C", "*", "X_0"], error=0.42)
@@ -179,8 +176,7 @@ class ModelResult:
     status_detail: Optional[str] = None
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
-        """
-        Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.
+        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.
 
         If ``name`` is already present in :attr:`augmentations`, a numeric suffix is
         appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.
@@ -210,8 +206,7 @@ class ModelResult:
         self.augmentations[resolved] = data
 
     def to_dict(self) -> dict:
-        """
-        Serialize this model result to a JSON-safe dictionary.
+        """Serialize this model result to a JSON-safe dictionary.
 
         NumPy arrays and scalars are converted to native Python types so the
         result can be passed directly to ``json.dump``.
@@ -241,8 +236,7 @@ class ModelResult:
 
     @staticmethod
     def from_dict(data: dict) -> "ModelResult":
-        """
-        Reconstruct a [ModelResult][SRToolkit.utils.types.ModelResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.ModelResult.to_dict].
+        """Reconstruct a [ModelResult][SRToolkit.utils.types.ModelResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.ModelResult.to_dict].
 
         Examples:
             >>> result = ModelResult(expr=["X_0", "+", "C"], error=0.25)
@@ -289,8 +283,7 @@ def _ranking_key(model: ModelResult) -> Tuple[bool, float, int]:
 
 @dataclass
 class EvalResult:
-    """
-    Result for a single SR experiment, as returned by ``SR_results[i]``.
+    """Result for a single SR experiment, as returned by ``SR_results[i]``.
 
     The stored data is the list of evaluated models and the evaluation trace; summary values
     such as ``min_error``, ``best_expr``, ``success`` and ``top_models()`` are derived from them.
@@ -364,8 +357,7 @@ class EvalResult:
         return len(self.trace)
 
     def top_models(self, k: Optional[int] = None) -> List[ModelResult]:
-        """
-        The ``k`` best models, sorted by error, with models whose error is not finite (every
+        """The ``k`` best models, sorted by error, with models whose error is not finite (every
         status except ``"ok"``) last.
 
         Models with equal error are ordered by length (number of tokens), shorter first, and
@@ -402,7 +394,8 @@ class EvalResult:
     @property
     def min_error(self) -> float:
         """Lowest error across all evaluated models. ``NaN`` if there are none, and ``+inf`` if
-        every model failed."""
+        every model failed.
+        """
         ranking = self._ranking()
         return self.all_models[ranking[0]].error if ranking else float("nan")
 
@@ -418,8 +411,7 @@ class EvalResult:
         return self.success_threshold is not None and bool(self.min_error < self.success_threshold)
 
     def best_so_far(self) -> List[Tuple[int, int]]:
-        """
-        The incumbent history: each point in the trace where the best error so far strictly improved.
+        """The incumbent history: each point in the trace where the best error so far strictly improved.
 
         Failed models (non-finite error) never become the incumbent.
 
@@ -444,8 +436,7 @@ class EvalResult:
         return history
 
     def calls_to_threshold(self, threshold: Optional[float] = None) -> Optional[int]:
-        """
-        Number of calls needed to first reach an error below ``threshold``.
+        """Number of calls needed to first reach an error below ``threshold``.
 
         Examples:
             >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["C"], 0.01)]
@@ -479,8 +470,7 @@ class EvalResult:
         return None
 
     def best_error_within(self, budgets: Sequence[int]) -> np.ndarray:
-        """
-        Best error found within each of the given numbers of counted calls.
+        """Best error found within each of the given numbers of counted calls.
 
         A result does not record why its search stopped. For a budget larger than
         ``evaluation_calls``, the run's final best error is returned, as if the run had
@@ -521,8 +511,7 @@ class EvalResult:
         return curve
 
     def status_counts(self, per: Literal["unique", "call"] = "unique") -> Dict[str, int]:
-        """
-        Number of models with each [Status][SRToolkit.utils.types.Status].
+        """Number of models with each [Status][SRToolkit.utils.types.Status].
 
         Examples:
             >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["X_0", "X_1"], float("inf"), status="invalid")]
@@ -580,8 +569,7 @@ class EvalResult:
     #     return (total - counts["invalid"]) / total
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
-        """
-        Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.
+        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.
 
         If ``name`` is already present in :attr:`augmentations`, a numeric suffix is
         appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.
@@ -611,8 +599,7 @@ class EvalResult:
         self.augmentations[resolved] = data
 
     def to_dict(self) -> dict:
-        """
-        Serialize this evaluation result to a JSON-safe dictionary.
+        """Serialize this evaluation result to a JSON-safe dictionary.
 
         NumPy arrays and scalars within nested [ModelResult][SRToolkit.utils.types.ModelResult] entries are
         converted to native Python types so the result can be passed directly
@@ -655,8 +642,7 @@ class EvalResult:
 
     @staticmethod
     def from_dict(data: dict) -> "EvalResult":
-        """
-        Reconstruct an [EvalResult][SRToolkit.utils.types.EvalResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict].
+        """Reconstruct an [EvalResult][SRToolkit.utils.types.EvalResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict].
 
         Examples:
             >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0], approach_name="MyApproach")

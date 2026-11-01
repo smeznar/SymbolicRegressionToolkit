@@ -1,5 +1,4 @@
-"""
-The [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] class for managing the token vocabulary used in symbolic
+"""The [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] class for managing the token vocabulary used in symbolic
 regression expressions.
 """
 
@@ -25,8 +24,7 @@ class SymbolLibrary:
     def __init__(
         self, symbols: Optional[List[str]] = None, num_variables: int = 0, preamble: Optional[List[str]] = None
     ) -> None:
-        """
-        A registry of tokens and their properties, used throughout the toolkit to parse,
+        """A registry of tokens and their properties, used throughout the toolkit to parse,
         compile, and generate symbolic expressions.
 
         By default, the library uses NumPy for operator and function evaluation. To use a
@@ -90,8 +88,7 @@ class SymbolLibrary:
         latex_str: Optional[str] = None,
         cython_id: int = -1,
     ):
-        r"""
-        Add a token to the library with its associated type, precedence, NumPy function
+        r"""Add a token to the library with its associated type, precedence, NumPy function
         string, and LaTeX template.
 
         Symbol types:
@@ -181,8 +178,7 @@ class SymbolLibrary:
         }
 
     def remove_symbol(self, symbol: str):
-        """
-        Remove a token from the library.
+        """Remove a token from the library.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -202,8 +198,7 @@ class SymbolLibrary:
         del self.symbols[symbol]
 
     def get_type(self, symbol: str) -> str:
-        """
-        Return the type of a symbol.
+        """Return the type of a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -223,8 +218,7 @@ class SymbolLibrary:
             return ""
 
     def get_precedence(self, symbol: str) -> int:
-        """
-        Return the precedence of a symbol.
+        """Return the precedence of a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -244,8 +238,7 @@ class SymbolLibrary:
             return -1
 
     def get_np_fn(self, symbol: str) -> str:
-        """
-        Return the NumPy function string for a symbol.
+        """Return the NumPy function string for a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -265,8 +258,7 @@ class SymbolLibrary:
             return ""
 
     def get_cython_id(self, symbol: str) -> int:
-        """
-        Return the Cython stack machine dispatch ID for a symbol.
+        """Return the Cython stack machine dispatch ID for a symbol.
 
         Returns ``-1`` for symbols without a C implementation (they will fall
         back to a Python callable during Cython evaluation).
@@ -292,8 +284,7 @@ class SymbolLibrary:
         return -1
 
     def get_latex_str(self, symbol: str) -> str:
-        """
-        Return the LaTeX template string for a symbol.
+        """Return the LaTeX template string for a symbol.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -313,8 +304,7 @@ class SymbolLibrary:
             return ""
 
     def get_symbols_of_type(self, symbol_type: str) -> List[str]:
-        """
-        Return all symbols of a given type.
+        """Return all symbols of a given type.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -339,8 +329,7 @@ class SymbolLibrary:
         return symbols
 
     def symbols2index(self) -> Dict[str, int]:
-        """
-        Return a mapping from each token to its index in insertion order.
+        """Return a mapping from each token to its index in insertion order.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -359,8 +348,7 @@ class SymbolLibrary:
 
     @staticmethod
     def from_symbol_list(symbols: List[str], num_variables: int = 25) -> "SymbolLibrary":
-        """
-        Create a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] containing only the specified subset of default symbols.
+        """Create a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] containing only the specified subset of default symbols.
 
         The supported token names are those defined in [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
@@ -391,8 +379,7 @@ class SymbolLibrary:
 
     @staticmethod
     def default_symbols(num_variables: int = 25) -> "SymbolLibrary":
-        """
-        Return a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] pre-populated with standard mathematical symbols.
+        """Return a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] pre-populated with standard mathematical symbols.
 
         Supported tokens:
 
@@ -627,8 +614,7 @@ class SymbolLibrary:
 
     @staticmethod
     def get_active() -> "SymbolLibrary":
-        """
-        Return the currently active [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+        """Return the currently active [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
         Checks, in order: (1) the context manager stack, (2) the module-level default set via
         [set_default][SRToolkit.utils.symbol_library.SymbolLibrary.set_default].
@@ -651,8 +637,7 @@ class SymbolLibrary:
 
     @staticmethod
     def get_or_default() -> "SymbolLibrary":
-        """
-        Return the active [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary], falling back to
+        """Return the active [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary], falling back to
         [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] when nothing is active.
 
         Checks, in order: (1) the context manager stack, (2) the module-level default set via
@@ -671,8 +656,7 @@ class SymbolLibrary:
 
     @staticmethod
     def set_default(sl: Optional["SymbolLibrary"]) -> None:
-        """
-        Set (or clear) a module-level default [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+        """Set (or clear) a module-level default [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
         The default is used as a fallback by [get_active][SRToolkit.utils.symbol_library.SymbolLibrary.get_active]
         and [get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default] when no context manager
@@ -688,8 +672,7 @@ class SymbolLibrary:
         _default_sl = sl
 
     def to_dict(self) -> dict:
-        """
-        Serialize the library to a JSON-safe dictionary.
+        """Serialize the library to a JSON-safe dictionary.
 
         Examples:
             >>> library = SymbolLibrary.from_symbol_list(["+"], num_variables=1)
@@ -712,8 +695,7 @@ class SymbolLibrary:
 
     @staticmethod
     def from_dict(d: dict) -> "SymbolLibrary":
-        """
-        Reconstruct a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] from a dictionary produced by [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
+        """Reconstruct a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] from a dictionary produced by [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
 
         Args:
             d: Dictionary representation of the library, as produced by
@@ -736,8 +718,7 @@ class SymbolLibrary:
         return sl
 
     def __len__(self) -> int:
-        """
-        Return the number of symbols currently in the library.
+        """Return the number of symbols currently in the library.
 
         Examples:
              >>> library = SymbolLibrary.default_symbols(5)
@@ -753,8 +734,7 @@ class SymbolLibrary:
         return len(self.symbols)
 
     def __str__(self) -> str:
-        r"""
-        Return a comma-separated string of all registered token strings.
+        r"""Return a comma-separated string of all registered token strings.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -771,8 +751,7 @@ class SymbolLibrary:
         return ", ".join(self.symbols.keys())
 
     def __copy__(self) -> "SymbolLibrary":
-        r"""
-        Return a copy of the library with independent copies of all attributes.
+        r"""Return a copy of the library with independent copies of all attributes.
 
         Examples:
             >>> old_symbols = SymbolLibrary()

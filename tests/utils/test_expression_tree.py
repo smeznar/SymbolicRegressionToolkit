@@ -11,6 +11,22 @@ class TestTokensToTree:
     def setup_method(self):
         self.sl = SymbolLibrary.default_symbols(num_variables=3)
 
+    @pytest.mark.parametrize(
+        "tokens, match",
+        [
+            ("X_0+1", "must be a list of token strings"),
+            (("X_0", "+", "1"), "must be a list of token strings"),
+            (["X_0", "+", 1.5], r"Write numbers as strings, e\.g\. '1\.5'"),
+            (["X_0", "+", 2], r"Write numbers as strings, e\.g\. '2'"),
+            (["X_0", "*", None], r"contains None \(NoneType\)\.$"),
+        ],
+        ids=["string", "tuple", "float-token", "int-token", "none-token"],
+    )
+    def test_non_string_tokens_raise_type_error(self, tokens, match):
+        # Reason: clause (Raises TypeError unless tokens is a list of strings; numbers are written as strings).
+        with pytest.raises(TypeError, match=match):
+            tokens_to_tree(tokens, self.sl)
+
     def test_simple_binary_op(self):
         tree = tokens_to_tree(["X_0", "+", "X_1"], self.sl)
         assert tree.symbol == "+"

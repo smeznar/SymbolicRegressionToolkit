@@ -1,6 +1,4 @@
-"""
-Dataset wrapper for a single symbolic regression problem.
-"""
+"""Dataset wrapper for a single symbolic regression problem."""
 
 import io
 import json
@@ -53,8 +51,7 @@ class SR_dataset:
         aux_data: Optional[Dict[str, Union[Dict[str, np.ndarray], DataSplit]]] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
-        """
-        Wraps input data and evaluation settings for a single symbolic regression problem.
+        """Wraps input data and evaluation settings for a single symbolic regression problem.
 
         Examples:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
@@ -235,7 +232,8 @@ class SR_dataset:
 
     def _splits(self) -> List[Tuple[str, DataSplit]]:
         """Every split with its cache key: ``<name>`` for the train split, ``<name>/test`` for the
-        test split, and ``<name>/aux/<key>`` for each aux split."""
+        test split, and ``<name>/aux/<key>`` for each aux split.
+        """
         splits = [(self.dataset_name, self._train)]
         if self.test is not None:
             splits.append((f"{self.dataset_name}/test", self.test))
@@ -296,8 +294,7 @@ class SR_dataset:
         verbose: bool = True,
         adaptation_path: Optional[str] = None,
     ) -> SR_results:
-        """
-        Evaluates an SR approach on this dataset.
+        """Evaluates an SR approach on this dataset.
 
         Examples:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
@@ -390,8 +387,7 @@ class SR_dataset:
         return results
 
     def create_evaluator(self, metadata: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> SR_evaluator:
-        """
-        Creates an instance of the SR_evaluator class from this dataset.
+        """Creates an instance of the SR_evaluator class from this dataset.
 
         Examples:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
@@ -456,8 +452,7 @@ class SR_dataset:
         )
 
     def __str__(self) -> str:
-        r"""
-        Returns a string describing this dataset.
+        r"""Returns a string describing this dataset.
 
         The string describes the target expression, symbols that should be used,
         and the success threshold. It also includes any constraints that should
@@ -506,8 +501,7 @@ class SR_dataset:
         return description
 
     def resample(self, n: int, seed: Optional[int] = None) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """
-        Generate fresh data by applying the stored samplers to produce new inputs.
+        """Generate fresh data by applying the stored samplers to produce new inputs.
 
         For ``ranking_function="rmse"``, the ground truth expression is also evaluated and
         ``(X, y)`` is returned. For ``ranking_function="bed"``, only ``X`` is returned.
@@ -549,8 +543,7 @@ class SR_dataset:
         return X, y
 
     def resample_inplace(self, n: int, seed: Optional[int] = None) -> "SR_dataset":
-        """
-        Resample via the stored samplers and write the result back into ``self.X``/``self.y``.
+        """Resample via the stored samplers and write the result back into ``self.X``/``self.y``.
 
         A convenience wrapper around [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]
         that handles the RMSE ``(X, y)`` vs BED ``X``-only return shapes. For BED datasets,
@@ -575,8 +568,7 @@ class SR_dataset:
         return self
 
     def _persist_to_cache(self) -> None:
-        """
-        Write this dataset's in-memory data splits into the data cache version directory.
+        """Write this dataset's in-memory data splits into the data cache version directory.
 
         Each [DataSplit][SRToolkit.dataset.data_split.DataSplit] **without** a ``data_source`` is
         the only copy of its arrays, so it is written to its cache key (``<dataset_name>.npz`` for
@@ -599,8 +591,7 @@ class SR_dataset:
             np.savez(str(cache_path), **split.arrays)  # type: ignore[arg-type]  #
 
     def to_dict(self) -> dict:
-        r"""
-        Creates a JSON-safe dictionary representation of this dataset.
+        r"""Creates a JSON-safe dictionary representation of this dataset.
 
         The data arrays are not embedded in the dictionary — they live in the
         data cache (see [data_cache][SRToolkit.dataset.data_cache]). Use
@@ -693,8 +684,7 @@ class SR_dataset:
 
     @classmethod
     def from_dict(cls, d: Union[dict, str, Path]) -> "SR_dataset":
-        """
-        Creates an instance of the SR_dataset class from its dictionary representation.
+        """Creates an instance of the SR_dataset class from its dictionary representation.
 
         If ``d`` is a string or Path, it is treated as a JSON file path and read
         from disk. To load a self-contained ``.zip`` archive (written by
@@ -802,8 +792,7 @@ class SR_dataset:
         return dataset
 
     def to_archive(self, path: "Union[str, Path]") -> None:
-        """
-        Write this dataset (config + data) to a self-contained ``.zip`` archive.
+        """Write this dataset (config + data) to a self-contained ``.zip`` archive.
 
         The archive mirrors the per-dataset layout of
         [SR_benchmark.to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]
@@ -852,8 +841,7 @@ class SR_dataset:
 
     @classmethod
     def from_archive(cls, path: "Union[str, Path]") -> "SR_dataset":
-        """
-        Load a dataset from a self-contained ``.zip`` archive.
+        """Load a dataset from a self-contained ``.zip`` archive.
 
         This is the counterpart to
         [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive]: it reads
@@ -888,8 +876,7 @@ class SR_dataset:
 
     @classmethod
     def from_url(cls, url: str) -> "SR_dataset":
-        """
-        Download a self-contained ``.zip`` archive from a URL and load it.
+        """Download a self-contained ``.zip`` archive from a URL and load it.
 
         This is the remote counterpart to
         [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive]: the archive
@@ -936,8 +923,7 @@ class SR_dataset:
         version: Optional[str] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> "SR_dataset":
-        r"""
-        Build a dataset from just a ground-truth expression and per-variable samplers.
+        r"""Build a dataset from just a ground-truth expression and per-variable samplers.
 
         This is the convenience constructor for the common case where you have the
         expression you want to recover and a sampling spec for its inputs, but no data
@@ -1039,8 +1025,7 @@ class SR_dataset:
         return dataset
 
     def refresh(self) -> None:
-        """
-        Force-refresh the cached data for this dataset by re-materialising it
+        """Force-refresh the cached data for this dataset by re-materialising it
         from ``data_source``.
 
         Every split with a ``data_source`` is regenerated (the train data, and the test and aux

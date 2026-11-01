@@ -1,5 +1,4 @@
-"""
-Bundle sharing utilities for the Symbolic Regression Toolkit.
+"""Bundle sharing utilities for the Symbolic Regression Toolkit.
 
 Provides tools for packing, installing, and using bundles of user-defined Python
 code as ``.srtk`` archives. Bundles contain **code only** — configs (the settings

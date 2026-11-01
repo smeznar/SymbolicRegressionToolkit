@@ -47,7 +47,7 @@ classifiers = [
 
 [project.optional-dependencies]
 approaches = ["torch>=2.0", "pymoo"]
-dev = ["pytest", "pytest-cov", "ruff", "mypy", "pre-commit", "cython>=3.0"]
+dev = ["pytest", "pytest-cov", "hypothesis", "mutmut>=3.0", "ruff", "mypy", "pre-commit", "cython>=3.0"]
 
 [project.urls]
 Homepage = "https://github.com/smeznar/SymbolicRegressionToolkit"
@@ -59,6 +59,7 @@ doctest_optionflags = ["NORMALIZE_WHITESPACE"]
 testpaths = ["SRToolkit", "tests"]
 markers = [
     "benchmark: tests requiring downloaded benchmark data (run with: pytest tests/)",
+    "slow: tests taking more than ~1 s (deselect with: -m 'not slow')",
 ]
 filterwarnings = [
     "ignore:Symbol library not provided",
@@ -69,11 +70,47 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "NPY201"]
-ignore = ["E501"]
+select = ["E", "F", "W", "I", "NPY201", "D"]
+ignore = [
+    "E501",
+    # Docstring rules not yet satisfied codebase-wide. They are checked strictly per module during
+    # the docstring review (see CONTRIBUTING.md), and each one is removed from this list once the
+    # whole package passes it.
+    "D100", "D101", "D102", "D103", "D104", "D105", "D107",  # missing docstrings
+    "D200",  # one-line docstring should fit on one line
+    "D205",  # blank line between summary and description
+    "D301",  # use r""" if any backslashes in a docstring
+    "D415",  # summary should end with punctuation
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"scripts/**" = ["D"]
+"examples/**" = ["D"]
+"docs/**" = ["D"]
+"setup.py" = ["D"]
 
 [tool.mypy]
 ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["SRToolkit"]
+
+[tool.mutmut]
+# Run per module, e.g.: mutmut run "SRToolkit.utils.measures*"
+source_paths = ["SRToolkit/"]
+# Tests run against each mutant. To judge one module's test file on its own, point this at that file
+# temporarily (and delete mutants/ first).
+pytest_add_cli_args_test_selection = ["tests/"]
+# Dataset catalogues are hundreds of literal add_dataset calls: mutating them is meaningless and
+# blows up mutant generation (OOM at 8 GB).
+do_not_mutate = [
+    "SRToolkit/approaches/EDHiE.py",
+    "SRToolkit/utils/_eval_cython.py",
+    "SRToolkit/dataset/feynman.py",
+    "SRToolkit/dataset/srsd_feynman.py",
+    "SRToolkit/dataset/nguyen.py",
+]

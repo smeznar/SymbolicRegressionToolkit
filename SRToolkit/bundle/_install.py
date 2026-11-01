@@ -1,6 +1,4 @@
-"""
-Bundle install, uninstall, list operations.
-"""
+"""Bundle install, uninstall, list operations."""
 
 from __future__ import annotations
 
@@ -48,8 +46,7 @@ def _check_deps(python_deps: List[str]) -> List[str]:
 
 
 def read_manifest(srtk_path: Path) -> BundleManifest:
-    """
-    Read a ``.srtk`` bundle's manifest without installing it.
+    """Read a ``.srtk`` bundle's manifest without installing it.
 
     Reads only the ``manifest.json`` entry from the archive — the bundle's source files
     are not extracted, no checksums are verified, and the global bundle store is not
@@ -88,8 +85,7 @@ def _extract_and_verify(srtk_path: Path, tmp_dir: Path) -> BundleManifest:
 
 
 def install(srtk_path: Path) -> None:
-    """
-    Install a ``.srtk`` bundle onto this machine.
+    """Install a ``.srtk`` bundle onto this machine.
 
     Steps:
 
@@ -149,8 +145,7 @@ def install(srtk_path: Path) -> None:
 
 
 def uninstall(name: str, version: Optional[str] = None) -> None:
-    """
-    Remove an installed bundle from this machine.
+    """Remove an installed bundle from this machine.
 
     Args:
         name: Bundle name.
@@ -165,8 +160,7 @@ def uninstall(name: str, version: Optional[str] = None) -> None:
 
 
 def list_installed() -> list:
-    """
-    Return a list of all installed bundle index entries.
+    """Return a list of all installed bundle index entries.
 
     Each entry is a dict with keys ``name``, ``version``, ``author``,
     ``srtk_min_version``, ``python_deps``, ``path``, and ``import_prefix``.
@@ -175,8 +169,7 @@ def list_installed() -> list:
 
 
 def _repack(name: str, version: Optional[str], out_path: Path) -> Path:
-    """
-    Rebuild a ``.srtk`` archive from an already-installed bundle.
+    """Rebuild a ``.srtk`` archive from an already-installed bundle.
 
     The original ``.srtk`` is not retained at install time, so re-shipping a bundle's code
     (e.g. from [ExperimentGrid.export][SRToolkit.experiments.ExperimentGrid.export]) means

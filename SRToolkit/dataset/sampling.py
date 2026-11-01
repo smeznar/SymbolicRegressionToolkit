@@ -1,6 +1,4 @@
-"""
-Sampling strategies for variable generation in symbolic regression benchmarks.
-"""
+"""Sampling strategies for variable generation in symbolic regression benchmarks."""
 
 import importlib
 from abc import ABC, abstractmethod
@@ -80,8 +78,7 @@ def _integer_uniform_negative_sampling(sample_size, min_value=1, max_value=100):
 
 
 class Sampler(ABC):
-    """
-    Abstract base class for variable samplers.
+    """Abstract base class for variable samplers.
 
     Concrete subclasses must implement ``__call__``,
     [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict], and
@@ -99,8 +96,7 @@ class Sampler(ABC):
 
     @abstractmethod
     def to_dict(self) -> dict:
-        """
-        Serialize this sampler to a JSON-compatible dictionary.
+        """Serialize this sampler to a JSON-compatible dictionary.
 
         The returned dict **must** include ``"sampler_class"`` set to the
         fully-qualified class path of this sampler.
@@ -108,8 +104,7 @@ class Sampler(ABC):
 
     @classmethod
     def from_dict(cls, d: dict) -> "Sampler":
-        """
-        Reconstruct a sampler from a dictionary produced by
+        """Reconstruct a sampler from a dictionary produced by
         [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict].
 
         When called on the base [Sampler][SRToolkit.dataset.sampling.Sampler] class,
@@ -147,8 +142,7 @@ class Sampler(ABC):
 
 
 class LogUniformSampling(Sampler):
-    """
-    Log-uniform sampler with configurable sign constraints.
+    """Log-uniform sampler with configurable sign constraints.
 
     Samples from `U(\\log_{10}(\\text{min}), \\log_{10}(\\text{max}))` in log space,
     optionally drawing from positive and/or negative ranges.
@@ -190,8 +184,7 @@ class LogUniformSampling(Sampler):
 
     @classmethod
     def from_dict(cls, d: dict) -> "LogUniformSampling":
-        """
-        Deserialize a [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling] from a dictionary produced by
+        """Deserialize a [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling] from a dictionary produced by
         [to_dict][SRToolkit.dataset.sampling.LogUniformSampling.to_dict].
 
         Args:
@@ -205,8 +198,7 @@ class LogUniformSampling(Sampler):
 
 
 class UniformSampling(Sampler):
-    """
-    Linear uniform sampler with configurable sign constraints.
+    """Linear uniform sampler with configurable sign constraints.
 
     Samples from`U(\\text{min}, \\text{max})`, optionally drawing from positive
     and/or negative ranges.
@@ -248,8 +240,7 @@ class UniformSampling(Sampler):
 
     @classmethod
     def from_dict(cls, d: dict) -> "UniformSampling":
-        """
-        Deserialize a [UniformSampling][SRToolkit.dataset.sampling.UniformSampling] from a dictionary produced by
+        """Deserialize a [UniformSampling][SRToolkit.dataset.sampling.UniformSampling] from a dictionary produced by
         [to_dict][SRToolkit.dataset.sampling.UniformSampling.to_dict].
 
         Args:
@@ -263,8 +254,7 @@ class UniformSampling(Sampler):
 
 
 class IntegerUniformSampling(Sampler):
-    """
-    Integer uniform sampler with configurable sign constraints.
+    """Integer uniform sampler with configurable sign constraints.
 
     Samples integers from :math:`\\{\\text{min}, ..., \\text{max}-1\\}`, optionally drawing
     from positive and/or negative ranges.
@@ -306,8 +296,7 @@ class IntegerUniformSampling(Sampler):
 
     @classmethod
     def from_dict(cls, d: dict) -> "IntegerUniformSampling":
-        """
-        Deserialize a [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] from a dictionary produced by
+        """Deserialize a [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling] from a dictionary produced by
         [to_dict][SRToolkit.dataset.sampling.IntegerUniformSampling.to_dict].
 
         Args:

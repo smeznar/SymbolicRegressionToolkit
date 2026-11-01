@@ -1,5 +1,4 @@
-"""
-Constraint protocol for grammar-guided expression generation.
+"""Constraint protocol for grammar-guided expression generation.
 
 A [Constraint][SRToolkit.utils.grammar.constraints.Constraint] is a hard filter: at each
 derivation step its [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] method
@@ -57,8 +56,7 @@ G = TypeVar("G")
 
 @dataclass(frozen=True)
 class AncestorInfo:
-    """
-    One entry in an [ExpansionContext][SRToolkit.utils.grammar.constraints.ExpansionContext]'s ancestor chain.
+    """One entry in an [ExpansionContext][SRToolkit.utils.grammar.constraints.ExpansionContext]'s ancestor chain.
 
     Attributes:
         nonterminal: The non-terminal symbol at this ancestor position.
@@ -79,8 +77,7 @@ class AncestorInfo:
 
 @dataclass(frozen=True)
 class ExpansionContext(Generic[L]):
-    """
-    Read-only view of the current derivation position passed to constraints.
+    """Read-only view of the current derivation position passed to constraints.
 
     The engine constructs an [ExpansionContext][SRToolkit.utils.grammar.constraints.ExpansionContext] on demand
     for each ``(constraint, candidate_rule)`` pair evaluated in
@@ -127,8 +124,7 @@ class ExpansionContext(Generic[L]):
 
 
 class Constraint(Generic[L, G]):
-    """
-    Base class for derivation constraints (hard filters).
+    """Base class for derivation constraints (hard filters).
 
     Subclass and override the methods you need. Constraints carry only
     construction-time configuration; all per-derivation state is managed by the
@@ -160,8 +156,7 @@ class Constraint(Generic[L, G]):
     rule_names: Optional[frozenset[str]] = None
 
     def to_dict(self) -> dict:
-        """
-        Serialise this constraint to a JSON-safe dictionary.
+        """Serialise this constraint to a JSON-safe dictionary.
 
         The base implementation stores only the fully-qualified class path under
         ``constraint_class``. Subclasses should call ``super().to_dict()`` and
@@ -177,8 +172,7 @@ class Constraint(Generic[L, G]):
 
     @classmethod
     def from_dict(cls, d: dict) -> "Constraint":
-        """
-        Reconstruct a constraint from a dictionary produced by ``to_dict``.
+        """Reconstruct a constraint from a dictionary produced by ``to_dict``.
 
         When called on the base [Constraint][SRToolkit.utils.grammar.constraints.Constraint]
         class, dispatches to the correct subclass via the ``constraint_class`` key using
@@ -237,8 +231,7 @@ class Constraint(Generic[L, G]):
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 
     def initial_local(self, start: str) -> L:
-        """
-        Return the initial local state for the constraint.
+        """Return the initial local state for the constraint.
 
         Args:
             start: The non-terminal the derivation starts from.
@@ -253,8 +246,7 @@ class Constraint(Generic[L, G]):
         return None  # type: ignore[return-value]
 
     def allows(self, slot: ExpansionContext[L], rule: Rule, global_: G) -> bool:
-        """
-        Return ``True`` if ``rule`` may be applied at ``slot``.
+        """Return ``True`` if ``rule`` may be applied at ``slot``.
 
         Called only when the slot's non-terminal and rule name are within scope.
 
@@ -269,8 +261,7 @@ class Constraint(Generic[L, G]):
         return True
 
     def update(self, slot: ExpansionContext[L], rule: Rule, global_: G) -> tuple[list[L], G]:
-        """
-        Called after ``rule`` is applied at ``slot``.
+        """Called after ``rule`` is applied at ``slot``.
 
         Returns per-child local states (one per non-terminal in ``rule.rhs``,
         in order) and the new global state. May be used to update global
@@ -295,8 +286,7 @@ class Constraint(Generic[L, G]):
 
 
 class MaxDepth(Constraint[int, None]):
-    """
-    Hard limit on derivation depth.
+    """Hard limit on derivation depth.
 
     Local state is the remaining depth budget at each slot.  A rule is
     rejected when its application would require at least one recursive
@@ -342,8 +332,7 @@ class MaxDepth(Constraint[int, None]):
 
 
 class MaxNodes(Constraint[None, int]):
-    """
-    Hard limit on the total number of rule applications in a derivation.
+    """Hard limit on the total number of rule applications in a derivation.
 
     Global state is a running count of applications so far.  A rule is
     rejected when applying it would push the count over the limit taking
@@ -395,8 +384,7 @@ class MaxNodes(Constraint[None, int]):
 
 
 class MaxOccurrences(Constraint[None, int]):
-    """
-    Hard limit on how many times a specific terminal symbol may appear.
+    """Hard limit on how many times a specific terminal symbol may appear.
 
     Global state counts occurrences committed so far.  A rule whose ``rhs``
     contains the tracked symbol is rejected once the count equals the limit.
@@ -445,8 +433,7 @@ class MaxOccurrences(Constraint[None, int]):
 
 
 class NoNested(Constraint[bool, None]):
-    """
-    Prevent any symbol in a group from appearing nested inside any other symbol
+    """Prevent any symbol in a group from appearing nested inside any other symbol
     in the same group.
 
     Local state is a boolean "currently under any symbol in the group".  Any
@@ -593,8 +580,7 @@ def _units_equal(a: Unit, b: Unit) -> bool:
 
 
 class DimensionalConsistency(Constraint[Optional[Unit], None]):
-    """
-    Stateful constraint that enforces dimensional analysis during expression
+    """Stateful constraint that enforces dimensional analysis during expression
     generation.
 
     .. warning::

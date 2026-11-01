@@ -1,6 +1,4 @@
-"""
-Benchmark collection for symbolic regression datasets.
-"""
+"""Benchmark collection for symbolic regression datasets."""
 
 import copy
 import io
@@ -54,8 +52,7 @@ class SR_benchmark:
         version: str = "1.0.0",
         base_dir: Optional[str] = None,
     ):
-        """
-        A named, persistent collection of symbolic regression datasets.
+        """A named, persistent collection of symbolic regression datasets.
 
         Examples:
             >>> from SRToolkit.dataset import Feynman
@@ -95,8 +92,7 @@ class SR_benchmark:
                     )
 
     def add_dataset_instance(self, dataset_name: str, dataset: SR_dataset):
-        """
-        Adds an instance of the SR_dataset class to the benchmark.
+        """Adds an instance of the SR_dataset class to the benchmark.
 
         Examples:
             >>> from SRToolkit.dataset import Feynman
@@ -137,8 +133,7 @@ class SR_benchmark:
         data_source: Optional[DataSource] = None,
         **kwargs: Unpack[RankingSettings],
     ):
-        """
-        Adds a dataset to the benchmark.
+        """Adds a dataset to the benchmark.
 
         Examples:
             >>> import tempfile, numpy as np
@@ -182,7 +177,6 @@ class SR_benchmark:
         Raises:
             ValueError: Various validation errors (see below).
         """
-
         if dataset_name is None:
             dataset_name = f"{self.benchmark_name}_{len(self.datasets) + 1}"
 
@@ -295,8 +289,7 @@ class SR_benchmark:
         dataset_metadata: Optional[dict] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
-        """
-        Add a dataset described only by a ground-truth expression and per-variable samplers.
+        """Add a dataset described only by a ground-truth expression and per-variable samplers.
 
         This is the benchmark-level counterpart to
         [SR_dataset.from_samplers][SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers]:
@@ -365,8 +358,7 @@ class SR_benchmark:
         n_samples: Optional[int] = None,
         seed: Optional[int] = None,
     ) -> SR_dataset:
-        """
-        Creates an instance of a dataset from the given dataset name.
+        """Creates an instance of a dataset from the given dataset name.
 
         When ``n_samples`` is provided the returned dataset contains freshly sampled data
         instead of the pre-generated data on disk. The dataset must have samplers defined
@@ -430,8 +422,7 @@ class SR_benchmark:
             )
 
     def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> List[str]:
-        """
-        Lists the available datasets.
+        """Lists the available datasets.
 
         Examples:
             >>> from SRToolkit.dataset import Feynman
@@ -489,8 +480,7 @@ class SR_benchmark:
         return datasets
 
     def to_dict(self) -> dict:
-        """
-        Serialise the benchmark to a pure JSON-safe dictionary.
+        """Serialise the benchmark to a pure JSON-safe dictionary.
 
         Dataset entries that have an ``sr_dataset`` key (added via
         [add_dataset_instance][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset_instance])
@@ -517,8 +507,7 @@ class SR_benchmark:
 
     @classmethod
     def from_dict(cls, d: Union[dict, str, Path]) -> "SR_benchmark":
-        """
-        Reconstruct an SR_benchmark from a config dict or a saved JSON file.
+        """Reconstruct an SR_benchmark from a config dict or a saved JSON file.
 
         To load a self-contained ``.zip`` archive (written by
         [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]) use
@@ -562,8 +551,7 @@ class SR_benchmark:
         return b
 
     def to_archive(self, path: Union[str, Path]) -> None:
-        """
-        Write the benchmark (config + data) to a ``.zip`` archive.
+        """Write the benchmark (config + data) to a ``.zip`` archive.
 
         The archive contains:
 
@@ -613,8 +601,7 @@ class SR_benchmark:
 
     @classmethod
     def from_archive(cls, path: Union[str, Path]) -> "SR_benchmark":
-        """
-        Load a benchmark from a self-contained ``.zip`` archive.
+        """Load a benchmark from a self-contained ``.zip`` archive.
 
         This is the counterpart to
         [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]: it reads
@@ -647,8 +634,7 @@ class SR_benchmark:
 
     @classmethod
     def from_url(cls, url: str) -> "SR_benchmark":
-        """
-        Download a self-contained ``.zip`` archive from a URL and load it.
+        """Download a self-contained ``.zip`` archive from a URL and load it.
 
         This is the remote counterpart to
         [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive]: the

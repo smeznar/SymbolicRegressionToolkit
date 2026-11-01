@@ -1,5 +1,4 @@
-"""
-Managed storage for installed bundles.
+"""Managed storage for installed bundles.
 
 All bundles live under ``<user_data_dir>/SRToolkit/srtk_bundles/``. Each installed
 bundle is stored in a sub-directory whose name is ``<safe_name>_<version_slug>``
@@ -55,8 +54,7 @@ def _index_key(name: str, version: str) -> str:
 
 
 def enable_bundle_imports() -> None:
-    """
-    Make installed bundles importable in the current Python process.
+    """Make installed bundles importable in the current Python process.
 
     Adds the bundles-root parent directory to ``sys.path`` (if not already
     present) so that ``import srtk_bundles.<safe_name>_<version_slug>`` works.

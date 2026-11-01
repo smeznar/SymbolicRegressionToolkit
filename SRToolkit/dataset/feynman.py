@@ -1,6 +1,4 @@
-"""
-Feynman symbolic regression benchmark.
-"""
+"""Feynman symbolic regression benchmark."""
 
 from typing import Optional
 
@@ -12,8 +10,7 @@ from .sr_benchmark import SR_benchmark
 
 
 class Feynman(SR_benchmark):
-    """
-    The Feynman symbolic regression benchmark.
+    """The Feynman symbolic regression benchmark.
 
     Contains 100 physics equations with up to 9 variables. Data is downloaded on first use from
     the SymbolicRegressionToolkit repository (10,000 samples per dataset instead of the original

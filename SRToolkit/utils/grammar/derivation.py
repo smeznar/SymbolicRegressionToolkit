@@ -1,5 +1,4 @@
-"""
-Stateful leftmost derivation for CFG/PCFG grammars.
+"""Stateful leftmost derivation for CFG/PCFG grammars.
 
 Provides [Derivation][SRToolkit.utils.grammar.derivation.Derivation].  Obtain a
 derivation by calling
@@ -25,8 +24,7 @@ from .grammar import Grammar, ParseTree, ParseTreeNode, Rule
 
 @dataclass
 class _Frame:
-    """
-    Per-slot state for one open non-terminal in the derivation frontier.
+    """Per-slot state for one open non-terminal in the derivation frontier.
 
     Bundled together so that the engine works on a single list of frames
     rather than several parallel arrays.  The list is stored with the current
@@ -43,8 +41,7 @@ class _Frame:
 
 
 class Derivation:
-    """
-    Stateful leftmost derivation over a [Grammar][SRToolkit.utils.grammar.Grammar].
+    """Stateful leftmost derivation over a [Grammar][SRToolkit.utils.grammar.Grammar].
 
     A derivation begins at a start non-terminal and proceeds by repeatedly
     choosing a rule to apply to the leftmost unexpanded non-terminal.
@@ -109,8 +106,7 @@ class Derivation:
 
     @property
     def complete(self) -> bool:
-        """
-        ``True`` when no unexpanded non-terminals remain.
+        """``True`` when no unexpanded non-terminals remain.
 
         Examples:
             >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -130,8 +126,7 @@ class Derivation:
     # ------------------------------------------------------------------
 
     def local_stack(self, constraint: Constraint) -> list[Any]:
-        """
-        Return the local state stack for ``constraint`` across the open frontier,
+        """Return the local state stack for ``constraint`` across the open frontier,
         leftmost slot first.
 
         Args:
@@ -144,8 +139,7 @@ class Derivation:
         return [f.locals[cid] for f in reversed(self._frames)]
 
     def global_state(self, constraint: Constraint) -> Any:
-        """
-        Return the per-derivation global state for ``constraint``.
+        """Return the per-derivation global state for ``constraint``.
 
         Args:
             constraint: A constraint previously registered on the grammar.
@@ -160,8 +154,7 @@ class Derivation:
     # ------------------------------------------------------------------
 
     def options(self) -> list[Rule]:
-        """
-        Return candidate rules for the current leftmost unexpanded
+        """Return candidate rules for the current leftmost unexpanded
         non-terminal, filtered by every registered constraint's
         [allows][SRToolkit.utils.grammar.constraints.Constraint.allows].
 
@@ -205,8 +198,7 @@ class Derivation:
         return candidates
 
     def apply(self, rule: Rule) -> None:
-        """
-        Apply ``rule`` to the current leftmost unexpanded non-terminal.
+        """Apply ``rule`` to the current leftmost unexpanded non-terminal.
 
         Examples:
             >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -283,8 +275,7 @@ class Derivation:
         self._steps += 1
 
     def sample(self) -> None:
-        """
-        Apply one rule chosen proportionally by weight (PCFG) or uniformly
+        """Apply one rule chosen proportionally by weight (PCFG) or uniformly
         (CFG) from the surviving candidates.
 
         Examples:
@@ -313,8 +304,7 @@ class Derivation:
         self.apply(candidates[np.random.choice(len(candidates), p=probs)])
 
     def generate(self, limit: int = 1000) -> list[str]:
-        """
-        Run the derivation to completion and return the token list.
+        """Run the derivation to completion and return the token list.
 
         Examples:
             >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -343,8 +333,7 @@ class Derivation:
         return self.to_token_list()
 
     def to_token_list(self) -> list[str]:
-        """
-        Return the completed expression as a flat token list.
+        """Return the completed expression as a flat token list.
 
         Examples:
             >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -366,8 +355,7 @@ class Derivation:
         return self.to_parse_tree().to_token_list()
 
     def to_parse_tree(self) -> ParseTree:
-        """
-        Return the completed derivation as a
+        """Return the completed derivation as a
         [ParseTree][SRToolkit.utils.grammar.ParseTree].
 
         Examples:

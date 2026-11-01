@@ -1,6 +1,4 @@
-"""
-Bundle packing: zip a list of Python source files into a ``.srtk`` archive.
-"""
+"""Bundle packing: zip a list of Python source files into a ``.srtk`` archive."""
 
 from __future__ import annotations
 
@@ -22,8 +20,7 @@ def pack(
     srtk_min_version: str = "",
     configs: Optional[Sequence[Union[str, Path]]] = None,
 ) -> None:
-    """
-    Pack a list of Python source files into a ``.srtk`` bundle.
+    """Pack a list of Python source files into a ``.srtk`` bundle.
 
     Each file is stored flat under ``src/`` using its basename, so all filenames
     must be unique. Configs are intentionally excluded from the archive — share

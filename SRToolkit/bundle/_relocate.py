@@ -1,6 +1,4 @@
-"""
-Utilities for rewriting ``*_class`` dotted paths in serialized configs.
-"""
+"""Utilities for rewriting ``*_class`` dotted paths in serialized configs."""
 
 from __future__ import annotations
 
@@ -41,8 +39,7 @@ def bundle_class_index(srtk_path: str | os.PathLike) -> Dict[str, List[str]]:
 
 
 def _scan_classes(base_dir_path: Path) -> Dict[str, List[str]]:
-    """
-    Scan ``base_dir_path`` and return a mapping ``class_name -> [module_stem, ...]``.
+    """Scan ``base_dir_path`` and return a mapping ``class_name -> [module_stem, ...]``.
 
     Bundles use a flat ``src/`` layout, so only the top-level directory is read
     and each module is identified by its file stem. Uses ``ast`` to find
@@ -98,8 +95,7 @@ def _relocate_class_paths(
     base_dir: str,
     base_dir_path: str | os.PathLike,
 ) -> dict:
-    """
-    Rewrite every ``*_class`` dotted path in ``config`` to live under ``base_dir``.
+    """Rewrite every ``*_class`` dotted path in ``config`` to live under ``base_dir``.
 
     Low-level helper used by [bind_config][SRToolkit.bundle.bind_config]. Walks
     ``config`` recursively and, for every dict value whose key ends in ``_class``,
@@ -148,8 +144,7 @@ def bind_config(
     bundle_name: Optional[str] = None,
     version: Optional[str] = None,
 ) -> dict:
-    """
-    Rewrite ``*_class`` paths in ``config`` to point at an installed bundle.
+    """Rewrite ``*_class`` paths in ``config`` to point at an installed bundle.
 
     Looks up ``bundle_name`` in the local bundle index and rewrites every
     ``*_class`` value so that it resolves to the installed copy's import prefix.

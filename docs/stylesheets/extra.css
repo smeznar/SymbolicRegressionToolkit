@@ -31,3 +31,16 @@
     /*border-bottom: none !important;*/
 }
 
+
+/* Wider page: Material caps the whole layout at 61rem (~1220 px). */
+.md-grid {
+    max-width: 80rem;
+}
+
+/* Slightly narrower side panels, only on wide screens where both are shown.
+   Below 76.25em Material turns them into slide-out menus, so those are left alone. */
+@media screen and (min-width: 76.25em) {
+    .md-sidebar {
+        width: 11rem;
+    }
+}

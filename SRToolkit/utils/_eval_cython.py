@@ -1,5 +1,4 @@
-"""
-Pure-Python fallback for the Cython stack machine.
+"""Pure-Python fallback for the Cython stack machine.
 
 When the compiled ``_eval_cython`` extension is not available this module is
 imported instead (Python prefers ``.so``/``.pyd`` over ``.py`` for the same
@@ -49,8 +48,7 @@ PYTHON = -1
 
 
 def execute(X, C, token_ids, arities, extra_int, float_vals, python_ops):
-    """
-    Evaluate a symbolic expression over input data X.
+    """Evaluate a symbolic expression over input data X.
 
     This pure-Python implementation has the same interface as the Cython
     ``execute`` function. It uses NumPy for element-wise operations and is
@@ -161,8 +159,7 @@ def execute(X, C, token_ids, arities, extra_int, float_vals, python_ops):
 
 
 def execute_error(X, C, y, token_ids, arities, extra_int, float_vals, python_ops):
-    """
-    Evaluate an expression and return the RMSE against target values ``y``.
+    """Evaluate an expression and return the RMSE against target values ``y``.
 
     Args:
         X: Input data, shape ``(n_samples, n_features)``.

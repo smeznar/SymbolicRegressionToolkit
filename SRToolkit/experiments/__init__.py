@@ -1,5 +1,4 @@
-"""
-Job-based experiment runner for multi-dataset, multi-approach symbolic regression experiments.
+"""Job-based experiment runner for multi-dataset, multi-approach symbolic regression experiments.
 
 Exports three public classes:
 

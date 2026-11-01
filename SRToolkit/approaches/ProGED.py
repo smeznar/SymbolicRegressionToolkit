@@ -1,6 +1,4 @@
-"""
-ProGED approach — probabilistic grammar-based equation discovery by Brence et al.
-"""
+"""ProGED approach — probabilistic grammar-based equation discovery by Brence et al."""
 
 from dataclasses import dataclass
 from typing import Optional, Union
@@ -15,8 +13,7 @@ from .sr_approach import ApproachConfig, SR_approach
 
 @dataclass
 class ProGEDConfig(ApproachConfig):
-    """
-    Configuration dataclass for the [ProGED][SRToolkit.approaches.ProGED.ProGED] approach.
+    """Configuration dataclass for the [ProGED][SRToolkit.approaches.ProGED.ProGED] approach.
 
     Examples:
         >>> cfg = ProGEDConfig()
@@ -31,8 +28,7 @@ class ProGEDConfig(ApproachConfig):
 
 class ProGED(SR_approach):
     def __init__(self, grammar: Optional[Union[str, Grammar, SymbolLibrary]] = None) -> None:
-        r"""
-        A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.
+        r"""A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.
 
         Randomly samples expressions from a probabilistic context-free grammar (PCFG).
         The grammar defines both which expressions are structurally valid (hard constraints via
@@ -101,8 +97,7 @@ class ProGED(SR_approach):
         self.grammar: Optional[Grammar] = grammar
 
     def prepare(self) -> None:
-        """
-        ProGED is stateless — this method does nothing.
+        """ProGED is stateless — this method does nothing.
 
         Returns:
             None
@@ -118,8 +113,7 @@ class ProGED(SR_approach):
             self.grammar = Grammar.from_symbol_library(symbol_library)
 
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
-        """
-        Randomly sample expressions from the grammar and evaluate them until the budget is exhausted
+        """Randomly sample expressions from the grammar and evaluate them until the budget is exhausted
         or the success threshold is reached.
 
         Args:

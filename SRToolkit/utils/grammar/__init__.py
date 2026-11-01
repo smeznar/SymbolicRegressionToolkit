@@ -1,5 +1,4 @@
-"""
-CFG/PCFG grammar representation, constraint protocol, and stateful derivation engine.
+"""CFG/PCFG grammar representation, constraint protocol, and stateful derivation engine.
 
 Provides:
     [Rule][SRToolkit.utils.grammar.grammar.Rule],

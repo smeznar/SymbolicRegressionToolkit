@@ -1,6 +1,4 @@
-"""
-Abstract base class and configuration dataclass for symbolic regression approaches.
-"""
+"""Abstract base class and configuration dataclass for symbolic regression approaches."""
 
 import importlib
 from abc import ABC, abstractmethod
@@ -16,8 +14,7 @@ from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 
 def check_dependencies(packages: List[str]) -> None:
-    """
-    Verify that optional heavy dependencies are installed, raising a descriptive error if not.
+    """Verify that optional heavy dependencies are installed, raising a descriptive error if not.
 
     Args:
         packages: Names of packages to check. Recognised values: ``"pytorch"``, ``"pymoo"``.
@@ -45,8 +42,7 @@ def check_dependencies(packages: List[str]) -> None:
 
 @dataclass
 class ApproachConfig:
-    """
-    Serialisable base configuration for SR approaches.
+    """Serialisable base configuration for SR approaches.
 
     Subclass this dataclass to define approach-specific hyperparameters that can be
     saved and restored via [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]
@@ -68,8 +64,7 @@ class ApproachConfig:
     approach_class: str = ""
 
     def to_dict(self) -> dict:
-        """
-        Serialise this config to a JSON-safe dictionary.
+        """Serialise this config to a JSON-safe dictionary.
 
         Returns:
             A dictionary representation with all values converted to JSON-compatible types.
@@ -78,8 +73,7 @@ class ApproachConfig:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ApproachConfig":
-        """
-        Restore a config from a dictionary produced by
+        """Restore a config from a dictionary produced by
         [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict].
 
         Args:
@@ -93,8 +87,7 @@ class ApproachConfig:
 
 class SR_approach(ABC):
     def __init__(self, config: ApproachConfig) -> None:
-        """
-        Abstract base class for all symbolic regression approaches.
+        """Abstract base class for all symbolic regression approaches.
 
         Subclasses must implement [prepare][SRToolkit.approaches.sr_approach.SR_approach.prepare]
         and [search][SRToolkit.approaches.sr_approach.SR_approach.search], and optionally override
@@ -131,8 +124,7 @@ class SR_approach(ABC):
 
     @property
     def adaptation_scope(self) -> str:
-        """
-        Controls when ``adapt()`` is called by the framework, and whether
+        """Controls when ``adapt()`` is called by the framework, and whether
         ``save_adapted_state()`` / ``load_adapted_state()`` are used.
 
         - ``"never"``: ``adapt()`` is never called (default). ``save_adapted_state()`` and ``load_adapted_state()``
@@ -154,8 +146,7 @@ class SR_approach(ABC):
 
     @property
     def save_adapted_model(self) -> bool:
-        """
-        Whether the framework should call ``save_adapted_state()`` when ``adaptation_scope`` is ``"experiment"``.
+        """Whether the framework should call ``save_adapted_state()`` when ``adaptation_scope`` is ``"experiment"``.
         Ignored for ``"never"`` and ``"once"`` scopes (the latter always saves). Default is ``False``.
 
         Returns:
@@ -164,8 +155,7 @@ class SR_approach(ABC):
         return False
 
     def prepare(self) -> None:
-        """
-        Reset the approach's per-experiment state in preparation for a new run.
+        """Reset the approach's per-experiment state in preparation for a new run.
 
         Called by the framework before ``adapt()`` and ``search()`` for every
         experiment, so any state accumulated during a previous run is cleared
@@ -182,8 +172,7 @@ class SR_approach(ABC):
         pass
 
     def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary) -> None:
-        """
-        Adapt the approach to the target dataset's input space and symbols in the symbol library.
+        """Adapt the approach to the target dataset's input space and symbols in the symbol library.
 
         Called by the framework after ``prepare()`` and before ``search()``, according
         to ``adaptation_scope``. This method must NOT access target values (y) or evaluate
@@ -201,8 +190,7 @@ class SR_approach(ABC):
 
     @abstractmethod
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
-        """
-        Run the symbolic regression search.
+        """Run the symbolic regression search.
 
         Implementations must call ``sr_evaluator.evaluate_expr(expr)`` to score
         candidate expressions. The evaluator accumulates all results internally;
@@ -227,8 +215,7 @@ class SR_approach(ABC):
         raise NotImplementedError
 
     def save_adapted_state(self, path: str) -> None:
-        """
-        Save the adapted model/approach state to ``path``.
+        """Save the adapted model/approach state to ``path``.
 
         The approach is free to choose any serialization format (e.g. ``torch.save``,
         ``numpy.save``, JSON, pickle).  The framework passes ``path`` as a base path
@@ -247,8 +234,7 @@ class SR_approach(ABC):
         raise NotImplementedError
 
     def load_adapted_state(self, path: str) -> None:
-        """
-        Restore the previously saved adapted state from ``path``.
+        """Restore the previously saved adapted state from ``path``.
 
         Must be implemented when ``adaptation_scope == "once"``.
 
@@ -261,8 +247,7 @@ class SR_approach(ABC):
 
     @classmethod
     def from_config(cls, config: dict) -> "SR_approach":
-        """
-        Reconstruct an approach instance from a configuration dictionary.
+        """Reconstruct an approach instance from a configuration dictionary.
 
         This classmethod is the counterpart to saving an
         [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] via
@@ -297,8 +282,7 @@ class SR_approach(ABC):
 
     @classmethod
     def from_config_dict(cls, config: dict) -> "SR_approach":
-        """
-        Reconstruct an approach from a config dict that includes an ``approach_class`` path.
+        """Reconstruct an approach from a config dict that includes an ``approach_class`` path.
 
         This is the self-dispatching counterpart to
         [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]: it binds the

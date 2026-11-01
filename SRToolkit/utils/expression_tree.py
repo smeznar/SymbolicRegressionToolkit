@@ -1,5 +1,4 @@
-"""
-Binary expression tree ([Node][SRToolkit.utils.expression_tree.Node]) and conversion utilities between token
+"""Binary expression tree ([Node][SRToolkit.utils.expression_tree.Node]) and conversion utilities between token
 lists, trees, and LaTeX strings.
 """
 
@@ -14,8 +13,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
 class ExpressionParseError(ValueError):
-    """
-    Raised by [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree] when a token list
+    """Raised by [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree] when a token list
     is not a well-formed expression: an unknown token, a missing operand, two adjacent operands,
     or unbalanced or empty brackets.
 
@@ -33,8 +31,7 @@ class ExpressionParseError(ValueError):
 
 class Node:
     def __init__(self, symbol: str, right: Optional["Node"] = None, left: Optional["Node"] = None) -> None:
-        """
-        A node in a binary expression tree.
+        """A node in a binary expression tree.
 
         - Binary operators (``"op"``) set both ``left`` and ``right``.
         - Unary functions (``"fn"``) set only ``left``; ``right`` is ``None``.
@@ -61,8 +58,7 @@ class Node:
         self.left = left
 
     def to_list(self, symbol_library: Optional[SymbolLibrary] = None, notation: str = "infix") -> List[str]:
-        """
-        Transforms the tree rooted at this node into a list of tokens.
+        """Transforms the tree rooted at this node into a list of tokens.
 
         Examples:
             >>> node = Node("+", Node("X_0"), Node("1"))
@@ -180,8 +176,7 @@ class Node:
             )
 
     def to_latex(self, symbol_library: Optional[SymbolLibrary] = None) -> str:
-        r"""
-        Transforms the tree rooted at this node into a LaTeX expression.
+        r"""Transforms the tree rooted at this node into a LaTeX expression.
 
         Examples:
             >>> node = Node("+", right=Node("X_0"), left=Node("1"))
@@ -272,8 +267,7 @@ class Node:
         return child_precedence < precedence or (is_right and child_precedence == precedence)
 
     def height(self) -> int:
-        """
-        Return the height of the subtree rooted at this node.
+        """Return the height of the subtree rooted at this node.
 
         A single-node tree has height 1.
 
@@ -291,8 +285,7 @@ class Node:
         )
 
     def __len__(self) -> int:
-        """
-        Return the number of nodes in the subtree rooted at this node.
+        """Return the number of nodes in the subtree rooted at this node.
 
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
@@ -305,8 +298,7 @@ class Node:
         return 1 + (len(self.left) if self.left is not None else 0) + (len(self.right) if self.right is not None else 0)
 
     def __str__(self) -> str:
-        """
-        Return the expression as a concatenated string using default infix notation that may contain redundant parentheses.
+        """Return the expression as a concatenated string using default infix notation that may contain redundant parentheses.
 
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
@@ -319,8 +311,7 @@ class Node:
         return "".join(self.to_list())
 
     def __copy__(self) -> "Node":
-        """
-        Return a deep copy of the subtree rooted at this node.
+        """Return a deep copy of the subtree rooted at this node.
 
         Examples:
             >>> node = Node("+", Node("X_0"), Node("1"))
@@ -373,8 +364,7 @@ def _is_latex_atom(node: Node, symbol_library: SymbolLibrary) -> bool:
 
 
 def is_float(element: Any) -> bool:
-    """
-    Return ``True`` if ``element`` can be interpreted as a floating-point number.
+    """Return ``True`` if ``element`` can be interpreted as a floating-point number.
 
     Examples:
         >>> is_float(1.0)
@@ -403,9 +393,49 @@ def is_float(element: Any) -> bool:
         return False
 
 
-def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notation: str = "infix") -> Node:
+def _check_tokens(tokens: Any, name: str) -> None:
+    """Raise ``TypeError`` unless ``tokens`` is a list of strings, naming the parameter ``name``.
+
+    Raises:
+        TypeError: If ``tokens`` is not a list, or contains an element that is not a string. For a
+            number, the message suggests writing it as a string.
     """
-    Parse a token list into an expression tree.
+    if not isinstance(tokens, list):
+        raise TypeError(f"{name} must be a list of token strings, got {type(tokens).__name__}.")
+    for token in tokens:
+        if not isinstance(token, str):
+            hint = ""
+            if not isinstance(token, bool) and is_float(token):
+                hint = f" Write numbers as strings, e.g. {str(token)!r}."
+            raise TypeError(
+                f"{name} must contain only token strings, but contains {token!r} ({type(token).__name__}).{hint}"
+            )
+
+
+def _as_tree(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: str = "expr") -> "Node":
+    """Return an expression given as an infix token list or a Node as a Node tree.
+
+    The single place where SRToolkit accepts "a token list or a Node": token lists are checked and
+    parsed with [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree], and a Node is
+    returned unchanged.
+
+    Returns:
+        The expression as a [Node][SRToolkit.utils.expression_tree.Node] tree.
+
+    Raises:
+        TypeError: If ``expr`` is neither a Node nor a list of token strings (the message names ``name``).
+        ExpressionParseError: If a token list cannot be parsed with ``symbol_library``.
+    """
+    if isinstance(expr, Node):
+        return expr
+    if not isinstance(expr, list):
+        raise TypeError(f"{name} must be a list of token strings or a Node, got {type(expr).__name__}.")
+    _check_tokens(expr, name)
+    return tokens_to_tree(expr, symbol_library)
+
+
+def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notation: str = "infix") -> Node:
+    """Parse a token list into an expression tree.
 
     Infix token lists are parsed with the shunting-yard algorithm; prefix and
     postfix lists are parsed with a single stack pass using the arity implied by
@@ -456,11 +486,14 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notati
         Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.
 
     Raises:
+        TypeError: If ``tokens`` is not a list of strings. Numbers must be written as strings
+            (``"1.5"``, not ``1.5``).
         ExpressionParseError: If a token is absent from ``sl``, or if the expression is not
             well-formed (e.g. an operator lacks operands, brackets are unbalanced or empty, or
             tokens remain unconsumed).
         Exception: If ``notation`` is not one of the accepted values.
     """
+    _check_tokens(tokens, "tokens")
     if sl is None:
         sl = SymbolLibrary.get_active()
 
@@ -475,8 +508,7 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notati
 
 
 def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
-    """
-    Parse an infix token list into an expression tree using the shunting-yard algorithm.
+    """Parse an infix token list into an expression tree using the shunting-yard algorithm.
 
     The parser tracks whether an operand or an operator comes next, so malformed input is
     rejected rather than silently repaired: brackets must be balanced and non-empty, and an
@@ -581,8 +613,7 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
 
 
 def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str) -> Node:
-    """
-    Parse a prefix or postfix token list into an expression tree with a single stack pass.
+    """Parse a prefix or postfix token list into an expression tree with a single stack pass.
 
     Prefix and postfix are *mirror images* of each other, not reverses: operands keep
     their left-to-right order in both notations and only the operator moves, so postfix
@@ -648,8 +679,7 @@ def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str)
 
 
 def expr_to_latex(expr: Union[Node, List[str]], symbol_library: Optional[SymbolLibrary] = None) -> str:
-    """
-    Convert an expression to a LaTeX string.
+    """Convert an expression to a LaTeX string.
 
     Examples:
         >>> expr_to_latex(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())
@@ -670,14 +700,7 @@ def expr_to_latex(expr: Union[Node, List[str]], symbol_library: Optional[SymbolL
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_active()
     try:
-        if isinstance(expr, Node):
-            return expr.to_latex(symbol_library)
-        elif isinstance(expr, list):
-            return tokens_to_tree(expr, symbol_library).to_latex(symbol_library)
-        else:
-            raise Exception(
-                f"Invalid type for expression {str(expr)}. Should be SRToolkit.utils.Node or a list of tokens."
-            )
+        return _as_tree(expr, symbol_library).to_latex(symbol_library)
     except Exception as e:
         print(f"Error while converting expression {str(expr)} to LaTeX: {str(e)}")
         return ""

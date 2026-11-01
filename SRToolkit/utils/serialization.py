@@ -1,5 +1,4 @@
-"""
-Serialization utilities for JSON-safe conversion.
+"""Serialization utilities for JSON-safe conversion.
 
 Provides functions to convert numpy types and other non-JSON-serializable
 objects to JSON-safe Python types, and back.
@@ -11,8 +10,7 @@ import numpy as np
 
 
 def _to_json_safe(obj: Any) -> Any:
-    """
-    Recursively converts numpy types to JSON-safe Python types.
+    """Recursively converts numpy types to JSON-safe Python types.
 
     - ``np.ndarray`` → ``{"__ndarray__": True, "data": <list>}``
     - ``np.floating`` → ``float``
@@ -41,8 +39,7 @@ def _to_json_safe(obj: Any) -> Any:
 
 
 def _from_json_safe(obj: Any) -> Any:
-    """
-    Reverses the transformation applied by [_to_json_safe][SRToolkit.utils.serialization._to_json_safe].
+    """Reverses the transformation applied by [_to_json_safe][SRToolkit.utils.serialization._to_json_safe].
 
     - ``{"__ndarray__": True, "data": [...]}`` → ``np.ndarray``
     - ``dict`` without ``__ndarray__`` → recursively converted

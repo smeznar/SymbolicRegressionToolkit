@@ -1,5 +1,4 @@
-"""
-Persistent cache for symbolic regression benchmark datasets.
+"""Persistent cache for symbolic regression benchmark datasets.
 
 Datasets are stored as ``.npz`` files in a platform-appropriate data directory,
 keyed by benchmark name, version, and dataset name. This module is the public
@@ -36,8 +35,7 @@ def _version_slug(version: str) -> str:
 
 
 def dataset_path(benchmark: str, version: str, key: str) -> Path:
-    """
-    Return the expected cache path for a dataset (the file may not exist yet).
+    """Return the expected cache path for a dataset (the file may not exist yet).
 
     Args:
         benchmark: Benchmark name (e.g. ``"feynman"``).
@@ -52,8 +50,7 @@ def dataset_path(benchmark: str, version: str, key: str) -> Path:
 
 
 def _drift_hash(config: dict) -> str:
-    """
-    Return a 16-char SHA-256 digest of the parts of ``config`` that affect generated
+    """Return a 16-char SHA-256 digest of the parts of ``config`` that affect generated
     data: the ``data_source`` descriptor and the ``samplers``. Used to warn when a
     volatile source's configuration has drifted since the cache was built.
     """
@@ -99,8 +96,7 @@ def resolve(
     *,
     force: bool = False,
 ) -> Path:
-    """
-    Return the cache path for ``<benchmark>/<version>/<key>.npz``, materialising
+    """Return the cache path for ``<benchmark>/<version>/<key>.npz``, materialising
     it first if necessary.
 
     The data source is reconstructed from ``config["data_source"]`` via
@@ -167,8 +163,7 @@ def resolve(
 
 
 def extract_zip_into_version_dir(zf: zipfile.ZipFile, version_dir: Path, *, flat_fallback: bool = True) -> None:
-    """
-    Extract an open ``ZipFile`` into ``version_dir``, accepting both archive layouts.
+    """Extract an open ``ZipFile`` into ``version_dir``, accepting both archive layouts.
 
     - **``to_archive`` layout**: data files live under a ``data/`` prefix (alongside a
       ``benchmark.json`` / ``dataset.json`` that is *not* a data file). The ``data/``
@@ -222,8 +217,7 @@ def extract_zip_into_version_dir(zf: zipfile.ZipFile, version_dir: Path, *, flat
 
 
 def import_archive(archive_path: Path, benchmark: str, version: str) -> None:
-    """
-    Extract a ``.zip`` archive into the cache version directory
+    """Extract a ``.zip`` archive into the cache version directory
     ``<data_root>/<benchmark>/<version_slug>/``.
 
     Both the ``to_archive`` layout (data under a ``data/`` prefix) and a flat layout
@@ -244,8 +238,7 @@ def import_archive(archive_path: Path, benchmark: str, version: str) -> None:
 
 
 def list() -> List[Dict[str, Any]]:
-    """
-    List all datasets currently stored in the cache.
+    """List all datasets currently stored in the cache.
 
     Walks ``data_root()`` and returns one dict per cached dataset (its main ``.npz``; a
     dataset's test and aux data in its subfolder are not listed separately).
@@ -283,8 +276,7 @@ def list() -> List[Dict[str, Any]]:
 
 
 def gc(keep_latest: bool = True) -> List[Path]:
-    """
-    Garbage-collect the data cache.
+    """Garbage-collect the data cache.
 
     Args:
         keep_latest: If ``True`` (default), retain only the latest version
@@ -332,8 +324,7 @@ def gc(keep_latest: bool = True) -> List[Path]:
 
 
 def remove(benchmark: str, version: Optional[str] = None, key: Optional[str] = None) -> List[Path]:
-    """
-    Remove a specific cached benchmark, version, or dataset.
+    """Remove a specific cached benchmark, version, or dataset.
 
     The deletion granularity widens as fewer arguments are given:
 
@@ -391,8 +382,7 @@ def remove(benchmark: str, version: Optional[str] = None, key: Optional[str] = N
 
 
 def refresh(benchmark: str, version: str, key: str, source: "DataSource") -> None:
-    """
-    Force-refresh a cached dataset entry by re-materialising it from ``source``.
+    """Force-refresh a cached dataset entry by re-materialising it from ``source``.
 
     Args:
         benchmark: Benchmark name.

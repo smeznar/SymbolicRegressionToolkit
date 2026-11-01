@@ -1,5 +1,4 @@
-"""
-Functions for compiling symbolic expressions into executable Python callables.
+"""Functions for compiling symbolic expressions into executable Python callables.
 
 The primary interface are two functions:
 
@@ -46,7 +45,12 @@ import numpy as np
 # single import transparently selects the fast Cython path when available and
 # falls back to the pure-Python implementation otherwise.
 from SRToolkit.utils import _eval_cython as _eval  # type: ignore[attr-defined]
-from SRToolkit.utils.expression_tree import Node, is_float, tokens_to_tree
+from SRToolkit.utils.expression_tree import (
+    Node,
+    _as_tree,
+    is_float,
+    tokens_to_tree,  # noqa: F401  (used by the doctests)
+)
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 CYTHON_AVAILABLE: bool = not str(_eval.__file__).endswith(".py")
@@ -67,6 +71,44 @@ def _warn_if_no_cython() -> None:
             RuntimeWarning,
             stacklevel=3,
         )
+
+
+def _variable_column(token: str, symbol_library: SymbolLibrary) -> int:
+    """Return the column of ``X`` that a variable symbol reads.
+
+    Returns:
+        The index ``k`` from the variable's ``np_fn``, which has the form ``"X[:, k]"``.
+    """
+    return int(symbol_library.get_np_fn(token).split(", ")[1].rstrip("]"))
+
+
+def _check_X(X: np.ndarray, num_columns: int) -> np.ndarray:
+    """Return ``X`` as a C-contiguous float64 array after checking that it is 2-D and wide enough.
+
+    The Cython evaluator indexes columns without bounds checks, so a narrow ``X`` must be rejected
+    before evaluation rather than read out of bounds.
+
+    Returns:
+        ``X`` as a C-contiguous float64 array.
+
+    Raises:
+        ValueError: If ``X`` is not 2-D or has fewer than ``num_columns`` columns.
+    """
+    X = np.ascontiguousarray(X, dtype=np.float64)
+    if X.ndim != 2:
+        raise ValueError(f"X must be 2-D with shape (n_samples, n_features), got shape {X.shape}.")
+    if X.shape[1] < num_columns:
+        raise ValueError(
+            f"X has {X.shape[1]} column(s), but the expression uses column {num_columns - 1} "
+            f"(X needs at least {num_columns})."
+        )
+    return X
+
+
+def _columns_used(token_ids: np.ndarray, extra_int: np.ndarray) -> int:
+    """Return the number of columns of ``X`` an instruction array needs (highest variable column + 1)."""
+    var_columns = extra_int[token_ids == _eval.VAR]
+    return int(var_columns.max()) + 1 if var_columns.size else 0
 
 
 def _check_num_constants(C: Optional[np.ndarray], num_constants: int) -> None:
@@ -95,8 +137,7 @@ def _expr_to_executable_function(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
-    """
-    Compile an expression into an executable Python function.
+    """Compile an expression into an executable Python function.
 
     The returned callable evaluates the expression over a batch of inputs and a vector
     of constant values. To use a backend other than NumPy, set
@@ -134,20 +175,11 @@ def _expr_to_executable_function(
         A callable ``f(X, C)`` where ``X`` is a 2-D array of shape ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values. Returns a 1-D output array of shape ``(n_samples,)``.
 
     Raises:
-        Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
+        TypeError: If ``expr`` is neither a list of token strings nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
-    if not (isinstance(expr, list) or isinstance(expr, Node)):
-        raise Exception(
-            "Expression must be given as either a list of tokens or a tree (an instance of the "
-            "SRToolkit.utils.expression_tree.Node class)"
-        )
-
-    if isinstance(expr, list):
-        tree = tokens_to_tree(expr, symbol_library)
-    else:
-        tree = expr
+    tree = _as_tree(expr, symbol_library)
     code, symbol, _, num_constants = _tree_to_function_rec(tree, symbol_library)
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C):\n"
@@ -166,8 +198,7 @@ def _expr_to_error_function(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
-    """
-    Compile an expression into a callable that computes the RMSE against target values.
+    """Compile an expression into a callable that computes the RMSE against target values.
 
     To use a backend other than NumPy, set ``symbol_library.preamble`` to the required
     import statements.
@@ -198,20 +229,11 @@ def _expr_to_error_function(
         A callable ``f(X, C, y)`` where ``X`` is a 2-D array of shape ``(n_samples, n_features)``, ``C`` is a 1-D array of constant values, and ``y`` is a 1-D target array. Returns the scalar RMSE as a float.
 
     Raises:
-        Exception: If ``expr`` is neither a list nor a [Node][SRToolkit.utils.expression_tree.Node].
+        TypeError: If ``expr`` is neither a list of token strings nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
-    if not (isinstance(expr, list) or isinstance(expr, Node)):
-        raise Exception(
-            "Expression must be given as either a list of tokens or a tree (an instance of the "
-            "SRToolkit.utils.expression_tree.Node class)"
-        )
-
-    if isinstance(expr, list):
-        tree = tokens_to_tree(expr, symbol_library)
-    else:
-        tree = expr
+    tree = _as_tree(expr, symbol_library)
     code, symbol, _, num_constants = _tree_to_function_rec(tree, symbol_library)
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C, y):\n"
@@ -232,8 +254,7 @@ def _tree_to_function_rec(
     var_counter: int = 0,
     const_counter: int = 0,
 ) -> Tuple[List[str], str, int, int]:
-    """
-    Recursively convert a parse tree into lines of Python code for expression evaluation.
+    """Recursively convert a parse tree into lines of Python code for expression evaluation.
 
     This is a low-level helper used by the codegen backend of [compile_expr][SRToolkit.utils.expression_compiler.compile_expr] and
     [compile_expr_rmse][SRToolkit.utils.expression_compiler.compile_expr_rmse]. Call those functions directly unless you need
@@ -359,7 +380,8 @@ def _build_partial_instructions(
     const_counter: List,  # one-element list used as a mutable int
 ) -> None:
     """Recursively emit postfix instructions, substituting CACHED leaves for
-    pre-evaluated constant-free subtrees."""
+    pre-evaluated constant-free subtrees.
+    """
     if id(node) in const_free_ids:
         token_ids_list.append(_eval.CACHED)
         arities_list.append(0)
@@ -472,7 +494,7 @@ def _prepare_cython_traversal_partial(
         Same 5-tuple as ``_prepare_cython_traversal``.
     """
     X = np.ascontiguousarray(X, dtype=np.float64)
-    tree = tokens_to_tree(expr, symbol_library) if isinstance(expr, list) else expr
+    tree = _as_tree(expr, symbol_library)
 
     has_const, const_free_nodes = _collect_maximal_const_free(tree, symbol_library)
 
@@ -523,8 +545,7 @@ def _prepare_cython_traversal(
     expr: Union[List[str], Node],
     symbol_library: SymbolLibrary,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List]:
-    """
-    Convert an expression into the postfix instruction arrays consumed by the
+    """Convert an expression into the postfix instruction arrays consumed by the
     Cython evaluator.
 
     The const-index assignment order matches ``_tree_to_function_rec``: constants
@@ -540,10 +561,7 @@ def _prepare_cython_traversal(
         where the first four are 1-D NumPy arrays and the last is a list of
         Python callables (``None`` for C-implemented tokens).
     """
-    if isinstance(expr, list):
-        tree = tokens_to_tree(expr, symbol_library)
-    else:
-        tree = expr
+    tree = _as_tree(expr, symbol_library)
 
     postfix: List[str] = tree.to_list(notation="postfix")
     n = len(postfix)
@@ -561,11 +579,8 @@ def _prepare_cython_traversal(
         cython_id = symbol_library.get_cython_id(token)
 
         if stype == "var":
-            # Extract column index from np_fn of the form "X[:, k]"
-            np_fn = symbol_library.get_np_fn(token)
-            col = int(np_fn.split(", ")[1].rstrip("]"))
             token_ids[i] = _eval.VAR
-            extra_int[i] = col
+            extra_int[i] = _variable_column(token, symbol_library)
 
         elif stype == "const":
             token_ids[i] = _eval.CONST
@@ -608,8 +623,7 @@ def _expr_to_cython_callable(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
-    """
-    Compile an expression into a fast callable backed by the Cython evaluator.
+    """Compile an expression into a fast callable backed by the Cython evaluator.
 
     All operations present in the default symbol library are dispatched as tight
     C loops with no Python overhead and no intermediate array allocation.
@@ -644,13 +658,14 @@ def _expr_to_cython_callable(
         symbol_library = SymbolLibrary.get_or_default()
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
     num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
+    num_columns = _columns_used(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
         if num_constants > 0:
             _check_num_constants(C, num_constants)
         if C is None:
             C = np.array([], dtype=np.float64)
-        X = np.ascontiguousarray(X, dtype=np.float64)
+        X = _check_X(X, num_columns)
         C = np.ascontiguousarray(C, dtype=np.float64)
         return _eval.execute(X, C, token_ids, arities, extra_int, float_vals, python_ops)
 
@@ -662,8 +677,7 @@ def _expr_to_cython_error_callable(
     symbol_library: Optional[SymbolLibrary] = None,
     X: Optional[np.ndarray] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
-    """
-    Compile an expression into a fast RMSE callable backed by the Cython evaluator.
+    """Compile an expression into a fast RMSE callable backed by the Cython evaluator.
 
     Equivalent to [_expr_to_cython_callable][SRToolkit.utils.expression_compiler._expr_to_cython_callable] followed by an RMSE reduction,
     but the residual sum-of-squares is computed in C inside the Cython extension
@@ -701,13 +715,14 @@ def _expr_to_cython_error_callable(
     else:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
     num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
+    num_columns = _columns_used(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray], y: np.ndarray) -> float:
         if num_constants > 0:
             _check_num_constants(C, num_constants)
         if C is None:
             C = np.array([], dtype=np.float64)
-        X = np.ascontiguousarray(X, dtype=np.float64)
+        X = _check_X(X, num_columns)
         C = np.ascontiguousarray(C, dtype=np.float64)
         y = np.ascontiguousarray(y, dtype=np.float64)
         return _eval.execute_error(X, C, y, token_ids, arities, extra_int, float_vals, python_ops)
@@ -722,8 +737,7 @@ def _expr_to_python_callable(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
-    """
-    Compile an expression into a callable backed by the pure-Python evaluator.
+    """Compile an expression into a callable backed by the pure-Python evaluator.
 
     Uses the same postfix instruction arrays as the Cython backend but executes
     them through the pure-Python interpreter in ``_eval_cython.py``. This avoids
@@ -769,8 +783,7 @@ def _expr_to_python_stack_error_callable(
     symbol_library: Optional[SymbolLibrary] = None,
     X: Optional[np.ndarray] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
-    """
-    Compile an expression into an RMSE callable backed by the pure-Python evaluator.
+    """Compile an expression into an RMSE callable backed by the pure-Python evaluator.
 
     Uses the same postfix instruction arrays as the Cython backend but executes
     them through the pure-Python interpreter in ``_eval_cython.py``.  This avoids
@@ -829,8 +842,7 @@ def compile_expr(
     symbol_library: Optional[SymbolLibrary] = None,
     backend: str = "stack",
 ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
-    """
-    Compile an expression into a callable ``f(X, C) → np.ndarray``.
+    """Compile an expression into a callable ``f(X, C) → np.ndarray``.
 
     Examples:
         >>> f = compile_expr(["X_0", "+", "1"])
@@ -884,8 +896,7 @@ def compile_expr_rmse(
     backend: str = "stack",
     X: Optional[np.ndarray] = None,
 ) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
-    """
-    Compile an expression into an RMSE callable ``f(X, C, y) → float``.
+    """Compile an expression into an RMSE callable ``f(X, C, y) → float``.
 
     Examples:
         >>> f = compile_expr_rmse(["X_0", "+", "1"])

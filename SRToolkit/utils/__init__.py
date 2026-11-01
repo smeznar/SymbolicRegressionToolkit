@@ -1,5 +1,4 @@
-"""
-Utilities for expression representation, compilation, generation, and evaluation.
+"""Utilities for expression representation, compilation, generation, and evaluation.
 
 Modules:
     symbol_library: The [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] class — manages the token vocabulary and
@@ -42,6 +41,7 @@ from .grammar import (
 )
 from .measures import (
     REGRESSION_METRICS,
+    PredictFn,
     bed,
     create_behavior_matrix,
     edit_distance,
@@ -106,6 +106,7 @@ __all__ = [
     "r2",
     "nrmse",
     "REGRESSION_METRICS",
+    "PredictFn",
     "expr_to_latex",
     "RankingSettings",
     "VAR",

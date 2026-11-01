@@ -1,6 +1,4 @@
-"""
-Monte-Carlo sampling of symbolic expressions from a grammar or symbol library.
-"""
+"""Monte-Carlo sampling of symbolic expressions from a grammar or symbol library."""
 
 import warnings
 from typing import List, Union
@@ -25,8 +23,7 @@ def generate_n_expressions(
     max_derivation_steps: int = 1000,
     start: str = "E",
 ) -> List[List[str]]:
-    """
-    Sample ``num_expressions`` expressions from a grammar or symbol library.
+    """Sample ``num_expressions`` expressions from a grammar or symbol library.
 
     Examples:
         >>> len(generate_n_expressions(SymbolLibrary.default_symbols(5), 100, verbose=False))

@@ -1,5 +1,4 @@
-"""
-Algebraic simplification of symbolic expressions using SymPy.
+"""Algebraic simplification of symbolic expressions using SymPy.
 The functions in this script are work in progress and will be improved in the future for better accuracy and performance.
 """
 
@@ -19,8 +18,7 @@ def simplify(
     expr: Union[List[str], Node],
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> Union[List[str], Node]:
-    """
-    Simplify an expression algebraically.
+    """Simplify an expression algebraically.
 
     Two successive steps are applied:
 
@@ -78,8 +76,7 @@ def simplify(
 
 
 def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
-    """
-    Return ``True`` if every token in the tree is present in ``symbol_library`` or is numeric.
+    """Return ``True`` if every token in the tree is present in ``symbol_library`` or is numeric.
 
     Args:
         expr: Expression tree to validate.
@@ -105,8 +102,7 @@ def _sympy_to_number(expr):
 
 
 def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
-    """
-    Convert a SymPy expression into a [Node][SRToolkit.utils.expression_tree.Node] tree.
+    """Convert a SymPy expression into a [Node][SRToolkit.utils.expression_tree.Node] tree.
 
     Division is handled explicitly: SymPy represents ``x/y`` as ``Mul(x, Pow(y, -1))``,
     so any ``Pow`` factor with exponent ``-1`` inside a ``Mul`` is converted to a ``"/"`` node.
@@ -164,8 +160,7 @@ def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
 
 
 def _simplify_constants(eq, c, var):
-    """
-    Recursively fold constant-only sub-expressions in a SymPy expression.
+    """Recursively fold constant-only sub-expressions in a SymPy expression.
 
     Any sub-tree that contains no variables is replaced by the constant symbol ``c``.
 
@@ -215,8 +210,7 @@ def _simplify_constants(eq, c, var):
 
 
 def _enumerate_constants(expr, constant):
-    """
-    Replace each occurrence of the constant token with a uniquely numbered version.
+    """Replace each occurrence of the constant token with a uniquely numbered version.
 
     Example: ``C*x**2 + C*x + C`` → ``C0*x**2 + C1*x + C2``
 
@@ -230,7 +224,6 @@ def _enumerate_constants(expr, constant):
         expression with enumerated constants and ``constants`` is a tuple of the
         generated constant name strings.
     """
-
     char_list = np.array(list(str(expr)), dtype="<U16")
     constind = np.where(char_list == constant)[0]
     # Rename all constants: C -> C0, C1, ... by index
@@ -240,8 +233,7 @@ def _enumerate_constants(expr, constant):
 
 
 def _denumerate_constants(expr, constant):
-    """
-    Remove the numeric suffix from all constant tokens in a string expression.
+    """Remove the numeric suffix from all constant tokens in a string expression.
 
     Inverse of ``_enumerate_constants``: ``"C0*x + C1"`` → ``"C*x + C"``.
 
@@ -256,8 +248,7 @@ def _denumerate_constants(expr, constant):
 
 
 def _simplify_expression(expr_str, constant, variables):
-    """
-    Apply full algebraic simplification to an expression string.
+    """Apply full algebraic simplification to an expression string.
 
     Performs two rounds of constant folding around a SymPy ``expand`` call to produce
     a canonical form.

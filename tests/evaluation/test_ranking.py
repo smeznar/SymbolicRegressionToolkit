@@ -9,6 +9,7 @@ from SRToolkit.evaluation.ranking import (
     build_ranking,
 )
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
 class _CustomRanking(RMSERanking):
@@ -85,3 +86,21 @@ class TestCustomRankingSettings:
         se = SR_evaluator(X, ranking_function=path, success_threshold=-1, my_param=0.5)
         assert se.ranking.my_param == 0.5
         assert se.evaluate_expr(["X_0"]) == 0.5
+
+
+class TestBEDRankingBackend:
+    # Reason: clause (RankingSettings.backend applies to both rankings). An unknown backend only fails
+    # when an expression is compiled, so the error shows the setting was passed on.
+    X = np.random.default_rng(0).random((4, 1))
+
+    def test_backend_is_used_for_the_ground_truth(self):
+        ranking = BEDRanking()
+        with pytest.raises(ValueError, match="backend"):
+            ranking.setup(self.X, None, ["X_0", "+", "C"], SymbolLibrary.default_symbols(1), 0, {"backend": "fortran"})
+
+    def test_backend_is_used_for_scored_expressions(self):
+        ranking = BEDRanking()
+        settings = {"backend": "fortran", "bed_gt": np.zeros((4, 32))}
+        ranking.setup(self.X, None, None, SymbolLibrary.default_symbols(1), 0, settings)
+        with pytest.raises(ValueError, match="backend"):
+            ranking.score(["X_0"])

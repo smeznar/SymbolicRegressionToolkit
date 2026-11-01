@@ -1,5 +1,4 @@
-"""
-A set of named arrays held by an [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].
+"""A set of named arrays held by an [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].
 
 A dataset keeps its data as [DataSplit][SRToolkit.dataset.data_split.DataSplit]s: the data the
 search runs on, an optional held-out test split
@@ -18,8 +17,7 @@ from SRToolkit.dataset.data_source import DataSource
 
 @dataclass
 class DataSplit:
-    """
-    Named arrays (usually ``X`` and, if there are targets, ``y``), optionally with the
+    """Named arrays (usually ``X`` and, if there are targets, ``y``), optionally with the
     [DataSource][SRToolkit.dataset.data_source.DataSource] they can be regenerated from.
 
     Examples:

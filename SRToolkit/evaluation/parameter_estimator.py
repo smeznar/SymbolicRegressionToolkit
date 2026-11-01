@@ -1,6 +1,4 @@
-"""
-Constant parameter estimation for symbolic regression expressions using numerical optimization.
-"""
+"""Constant parameter estimation for symbolic regression expressions using numerical optimization."""
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -36,8 +34,7 @@ class ParameterEstimator:
         seed: Optional[int] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
-        """
-        Fits free constants in symbolic expressions by minimizing RMSE against target values.
+        """Fits free constants in symbolic expressions by minimizing RMSE against target values.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -95,8 +92,7 @@ class ParameterEstimator:
         self._rng = np.random.default_rng(self.seed)
 
     def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
-        """
-        Fit free constants in *expr* by minimizing RMSE against the target values.
+        """Fit free constants in *expr* by minimizing RMSE against the target values.
 
         Expressions that exceed ``max_constants`` or ``max_expr_length`` immediately
         return ``(NaN, [])``. Expressions with no free constants are evaluated directly
@@ -127,8 +123,7 @@ class ParameterEstimator:
         return rmse, parameters
 
     def estimate_parameters_with_info(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray, Dict[str, Any]]:
-        """
-        Like [estimate_parameters][SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters],
+        """Like [estimate_parameters][SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters],
         but also reports how the optimizer ended.
 
         The returned error is the lowest finite RMSE the optimizer evaluated, with the constants
@@ -197,8 +192,7 @@ class ParameterEstimator:
     def _optimize_parameters(
         self, executable_error_fn: Callable, num_constants: int
     ) -> Tuple[float, np.ndarray, Dict[str, Any]]:
-        """
-        Run L-BFGS-B to minimize *executable_error_fn* over *num_constants* constant values.
+        """Run L-BFGS-B to minimize *executable_error_fn* over *num_constants* constant values.
 
         Args:
             executable_error_fn: Compiled error function ``f(X, C, y)`` returning scalar RMSE.

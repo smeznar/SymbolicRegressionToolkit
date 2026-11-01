@@ -1,5 +1,4 @@
-"""
-CLI entry point for the SRToolkit runner.
+"""CLI entry point for the SRToolkit runner.
 
 Four subcommands:
 

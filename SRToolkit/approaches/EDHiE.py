@@ -1,5 +1,4 @@
-"""
-EDHiE approach — equation discovery with hierarchical variational autoencoders by Mežnar et al.
+"""EDHiE approach — equation discovery with hierarchical variational autoencoders by Mežnar et al.
 
 Requires the optional ``approaches`` extra (PyTorch and pymoo). Install with::
 
@@ -49,8 +48,7 @@ except ImportError:
 
 @dataclass
 class EDHiEConfig(ApproachConfig):
-    """
-    Configuration dataclass for the [EDHiE][SRToolkit.approaches.EDHiE.EDHiE] approach.
+    """Configuration dataclass for the [EDHiE][SRToolkit.approaches.EDHiE.EDHiE] approach.
 
     Examples:
         >>> cfg = EDHiEConfig(latent_size=32, epochs=10)
@@ -88,8 +86,7 @@ class EDHiE(SR_approach):
         weights_path: Optional[str] = None,
         verbose: bool = True,
     ) -> None:
-        r"""
-        EDHiE — Equation Discovery with Hierarchical variational autoEncoders by Mežnar et al.
+        r"""EDHiE — Equation Discovery with Hierarchical variational autoEncoders by Mežnar et al.
 
         Trains a Hierarchical VAE (HVAE) on randomly generated expressions from the symbol library
         (``adapt``), then explores the learned latent space with a genetic algorithm to find
@@ -149,8 +146,7 @@ class EDHiE(SR_approach):
         return "once" if self.model is None else "never"
 
     def prepare(self) -> None:
-        """
-        Reset per-experiment state.
+        """Reset per-experiment state.
 
         The trained HVAE weights are preserved across experiments; only the evolutionary search
         is re-initialised on each call to
@@ -162,8 +158,7 @@ class EDHiE(SR_approach):
         pass
 
     def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary) -> None:
-        """
-        Train the HVAE on randomly generated expressions from the symbol library.
+        """Train the HVAE on randomly generated expressions from the symbol library.
 
         Args:
             X: Input data from the domain (shape ``(n_samples, n_variables)``). Only used to
@@ -194,8 +189,7 @@ class EDHiE(SR_approach):
         )
 
     def save_adapted_state(self, path: str) -> None:
-        """
-        Save the trained HVAE model weights and architecture metadata to disk.
+        """Save the trained HVAE model weights and architecture metadata to disk.
 
         Saves a single checkpoint file containing the symbol library, latent size,
         hidden size, max height, and model weights — enough to fully reconstruct
@@ -220,8 +214,7 @@ class EDHiE(SR_approach):
         )
 
     def load_adapted_state(self, path: str) -> None:
-        """
-        Restore a previously trained HVAE model from disk.
+        """Restore a previously trained HVAE model from disk.
 
         Reconstructs the ``HVAE`` from the architecture
         metadata saved alongside the weights, so no prior call to
@@ -243,8 +236,7 @@ class EDHiE(SR_approach):
         self.model.load_state_dict(checkpoint["state_dict"])
 
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
-        """
-        Explore the HVAE latent space with a genetic algorithm to find the best expression.
+        """Explore the HVAE latent space with a genetic algorithm to find the best expression.
 
         Args:
             sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to
@@ -298,8 +290,7 @@ class EDHiE(SR_approach):
 
 
 class BatchedNode:
-    """
-    Batched binary tree node for vectorised HVAE forward/backward passes.
+    """Batched binary tree node for vectorised HVAE forward/backward passes.
 
     Mirrors the recursive structure of [Node][SRToolkit.utils.expression_tree.Node] but stores a
     batch of trees simultaneously. Each position in ``symbols`` corresponds to one tree in the
@@ -314,12 +305,11 @@ class BatchedNode:
     """
 
     def __init__(self, symbol2index: Dict[str, int], size: int = 0, trees: Optional[List[Optional[Node]]] = None):
-        """
-        Args:
-            symbol2index: Mapping from symbol strings to vocabulary indices.
-            size: Number of padding slots to pre-allocate (filled with ``""``).
-            trees: Optional list of [Node][SRToolkit.utils.expression_tree.Node] trees to add
-                immediately via [add_tree][SRToolkit.approaches.EDHiE.BatchedNode.add_tree].
+        """Args:
+        symbol2index: Mapping from symbol strings to vocabulary indices.
+        size: Number of padding slots to pre-allocate (filled with ``""``).
+        trees: Optional list of [Node][SRToolkit.utils.expression_tree.Node] trees to add
+            immediately via [add_tree][SRToolkit.approaches.EDHiE.BatchedNode.add_tree].
         """
         self.symbols: List[str] = ["" for _ in range(size)]  # For when a new leaf node is added
         self.left: Optional[BatchedNode] = None
@@ -335,8 +325,7 @@ class BatchedNode:
                 self.add_tree(tree)
 
     def add_tree(self, tree: Optional[Node] = None) -> None:
-        """
-        Append one tree (or a padding slot) to the batch.
+        """Append one tree (or a padding slot) to the batch.
 
         If ``tree`` is ``None``, an empty padding entry (``""``) is appended at every level.
         Otherwise the tree's symbol is appended and its subtrees are recursively merged into
@@ -386,8 +375,7 @@ class BatchedNode:
                 self.right.add_tree(tree.right)
 
     def create_target(self) -> None:
-        """
-        Build one-hot target tensors, integer target indices, and binary masks for the entire subtree.
+        """Build one-hot target tensors, integer target indices, and binary masks for the entire subtree.
 
         Populates ``self.target`` (one-hot, shape ``(batch, vocab)``), ``self.target_indices``
         (integer class indices, shape ``(batch,)``, ``-1`` for padding), and ``self.mask``
@@ -417,8 +405,7 @@ class BatchedNode:
             self.right.create_target()
 
     def to_expr_list(self) -> List[Optional[Node]]:
-        """
-        Extract one [Node][SRToolkit.utils.expression_tree.Node] tree per batch element.
+        """Extract one [Node][SRToolkit.utils.expression_tree.Node] tree per batch element.
 
         Returns:
             A list of [Node][SRToolkit.utils.expression_tree.Node] trees (or ``None`` for padding
@@ -427,8 +414,7 @@ class BatchedNode:
         return [self.get_expr_at_idx(i) for i in range(len(self.symbols))]
 
     def get_expr_at_idx(self, idx: int) -> Optional[Node]:
-        """
-        Reconstruct the expression tree for a single batch element.
+        """Reconstruct the expression tree for a single batch element.
 
         Args:
             idx: Batch index to retrieve.
@@ -446,8 +432,7 @@ class BatchedNode:
         return Node(symbol, left=left, right=right)
 
     def get_prediction(self) -> torch.Tensor:
-        """
-        Collect decoder logit predictions from all nodes in infix order.
+        """Collect decoder logit predictions from all nodes in infix order.
 
         Returns:
             Stacked logit tensor of shape ``(batch, vocab, n_nodes)``.
@@ -471,8 +456,7 @@ class BatchedNode:
         return reps
 
     def get_target(self) -> torch.Tensor:
-        """
-        Collect one-hot target indices from all nodes in infix order.
+        """Collect one-hot target indices from all nodes in infix order.
 
         Returns:
             Stacked target tensor of shape ``(batch, n_nodes)`` with ``-1`` for padding.
@@ -499,8 +483,7 @@ class BatchedNode:
 
 
 class HVAE(nn.Module):
-    """
-    Hierarchical Variational Autoencoder (HVAE) for expression trees.
+    """Hierarchical Variational Autoencoder (HVAE) for expression trees.
 
     Combines a tree-recursive [Encoder][SRToolkit.approaches.EDHiE.Encoder] with a
     tree-recursive [Decoder][SRToolkit.approaches.EDHiE.Decoder] to learn a continuous
@@ -515,14 +498,13 @@ class HVAE(nn.Module):
         hidden_size: Optional[int] = None,
         max_height: int = 20,
     ):
-        """
-        Args:
-            input_size: Vocabulary size (number of symbols in the symbol library).
-            output_size: Dimensionality of the latent space.
-            symbol_library: [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] used by
-                the decoder to constrain leaf/non-leaf symbol selection.
-            hidden_size: Hidden state size for the GRU cells. Defaults to ``output_size``.
-            max_height: Maximum tree depth the decoder will generate before forcing leaf symbols.
+        """Args:
+        input_size: Vocabulary size (number of symbols in the symbol library).
+        output_size: Dimensionality of the latent space.
+        symbol_library: [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] used by
+            the decoder to constrain leaf/non-leaf symbol selection.
+        hidden_size: Hidden state size for the GRU cells. Defaults to ``output_size``.
+        max_height: Maximum tree depth the decoder will generate before forcing leaf symbols.
         """
         super().__init__()
 
@@ -533,8 +515,7 @@ class HVAE(nn.Module):
         self.decoder = Decoder(output_size, hidden_size, input_size, symbol_library, max_height)
 
     def forward(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor, BatchedNode]:
-        """
-        Run the full VAE forward pass: encode, sample latent vector, decode.
+        """Run the full VAE forward pass: encode, sample latent vector, decode.
 
         Args:
             tree: Batched expression trees (training mode — teacher-forced decoding).
@@ -549,8 +530,7 @@ class HVAE(nn.Module):
         return mu, logvar, out
 
     def sample(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        """
-        Draw a latent sample using the reparameterisation trick.
+        """Draw a latent sample using the reparameterisation trick.
 
         Args:
             mu: Mean of the approximate posterior, shape ``(batch, latent_size)``.
@@ -564,8 +544,7 @@ class HVAE(nn.Module):
         return mu + eps * std
 
     def encode(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Encode a batch of trees to posterior parameters without sampling.
+        """Encode a batch of trees to posterior parameters without sampling.
 
         Args:
             tree: Batched expression trees.
@@ -577,8 +556,7 @@ class HVAE(nn.Module):
         return mu, logvar
 
     def decode(self, z: torch.Tensor) -> List[Optional[Node]]:
-        """
-        Decode a batch of latent vectors to expression trees (inference mode).
+        """Decode a batch of latent vectors to expression trees (inference mode).
 
         Args:
             z: Latent vectors of shape ``(batch, latent_size)``.
@@ -591,8 +569,7 @@ class HVAE(nn.Module):
 
 
 class Encoder(nn.Module):
-    """
-    Tree-recursive GRU encoder that maps a [BatchedNode][SRToolkit.approaches.EDHiE.BatchedNode]
+    """Tree-recursive GRU encoder that maps a [BatchedNode][SRToolkit.approaches.EDHiE.BatchedNode]
     tree to approximate posterior parameters ``(mu, logvar)``.
 
     Uses a [GRU221][SRToolkit.approaches.EDHiE.GRU221] cell to combine left/right child hidden
@@ -600,11 +577,10 @@ class Encoder(nn.Module):
     """
 
     def __init__(self, input_size: int, hidden_size: int, output_size: int):
-        """
-        Args:
-            input_size: Vocabulary size (one-hot input dimension).
-            hidden_size: Hidden state dimensionality of the GRU.
-            output_size: Dimensionality of the latent space (``mu`` and ``logvar`` output size).
+        """Args:
+        input_size: Vocabulary size (one-hot input dimension).
+        hidden_size: Hidden state dimensionality of the GRU.
+        output_size: Dimensionality of the latent space (``mu`` and ``logvar`` output size).
         """
         super().__init__()
         self.hidden_size = hidden_size
@@ -616,8 +592,7 @@ class Encoder(nn.Module):
         torch.nn.init.xavier_uniform_(self.logvar.weight)
 
     def forward(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Encode a batched tree to posterior parameters.
+        """Encode a batched tree to posterior parameters.
 
         Args:
             tree: Batched expression tree with targets and masks populated.
@@ -635,8 +610,7 @@ class Encoder(nn.Module):
         return mu, logvar
 
     def recursive_forward(self, tree: BatchedNode) -> torch.Tensor:
-        """
-        Recursively encode a subtree bottom-up using the GRU cell.
+        """Recursively encode a subtree bottom-up using the GRU cell.
 
         Args:
             tree: Current subtree node (batched).
@@ -663,8 +637,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    """
-    Tree-recursive GRU decoder that maps a latent vector to an expression tree.
+    """Tree-recursive GRU decoder that maps a latent vector to an expression tree.
 
     Uses a [GRU122][SRToolkit.approaches.EDHiE.GRU122] cell to split each parent hidden state
     top-down into left and right child hidden states, then predicts the symbol at each node.
@@ -675,13 +648,12 @@ class Decoder(nn.Module):
     def __init__(
         self, input_size: int, hidden_size: int, output_size: int, symbol_library: SymbolLibrary, max_height: int = 20
     ):
-        """
-        Args:
-            input_size: Latent space dimensionality (decoder input).
-            hidden_size: Hidden state dimensionality of the GRU.
-            output_size: Vocabulary size (logit output dimension).
-            symbol_library: Used to identify leaf symbols and enforce the ``max_height`` constraint.
-            max_height: Maximum tree depth; beyond this depth only leaf symbols are sampled.
+        """Args:
+        input_size: Latent space dimensionality (decoder input).
+        hidden_size: Hidden state dimensionality of the GRU.
+        output_size: Vocabulary size (logit output dimension).
+        symbol_library: Used to identify leaf symbols and enforce the ``max_height`` constraint.
+        max_height: Maximum tree depth; beyond this depth only leaf symbols are sampled.
         """
         super().__init__()
         self.hidden_size = hidden_size
@@ -703,8 +675,7 @@ class Decoder(nn.Module):
         torch.nn.init.xavier_uniform_(self.h2o.weight)
 
     def forward(self, z: torch.Tensor, tree: BatchedNode) -> BatchedNode:
-        """
-        Teacher-forced decoding pass used during training.
+        """Teacher-forced decoding pass used during training.
 
         Stores logit predictions in each node of ``tree`` (in-place) using the ground-truth
         tree structure to guide recursion.
@@ -722,8 +693,7 @@ class Decoder(nn.Module):
         return tree
 
     def recursive_forward(self, hidden: torch.Tensor, tree: BatchedNode) -> None:  # type: ignore[override]
-        """
-        Recursively write predictions into a subtree (teacher-forced, training only).
+        """Recursively write predictions into a subtree (teacher-forced, training only).
 
         Args:
             hidden: Current node hidden state, shape ``(batch, hidden_size)``.
@@ -745,8 +715,7 @@ class Decoder(nn.Module):
                 self.recursive_forward(right, tree.right)  # type: ignore[arg-type]
 
     def decode(self, z: torch.Tensor) -> List[Optional[Node]]:
-        """
-        Autoregressively decode latent vectors to expression trees (inference mode).
+        """Autoregressively decode latent vectors to expression trees (inference mode).
 
         Args:
             z: Latent vectors of shape ``(batch, latent_size)``.
@@ -761,8 +730,7 @@ class Decoder(nn.Module):
             return batch.to_expr_list()
 
     def recursive_decode(self, hidden: torch.Tensor, mask: torch.Tensor, height: int = 0) -> BatchedNode:
-        """
-        Recursively decode hidden states into a batched subtree (inference mode).
+        """Recursively decode hidden states into a batched subtree (inference mode).
 
         Args:
             hidden: Current node hidden state, shape ``(batch, hidden_size)``.
@@ -794,8 +762,7 @@ class Decoder(nn.Module):
     def sample_symbol(
         self, prediction: torch.Tensor, mask: torch.Tensor, height: int
     ) -> Tuple[List[str], torch.Tensor, torch.Tensor]:
-        """
-        Greedily select one symbol per batch element and compute child masks.
+        """Greedily select one symbol per batch element and compute child masks.
 
         Args:
             prediction: Softmax probabilities over the vocabulary, shape ``(batch, vocab)``.
@@ -829,8 +796,7 @@ class Decoder(nn.Module):
 
 
 class GRU221(nn.Module):
-    """
-    Two-input, one-output GRU cell used by the [Encoder][SRToolkit.approaches.EDHiE.Encoder].
+    """Two-input, one-output GRU cell used by the [Encoder][SRToolkit.approaches.EDHiE.Encoder].
 
     Combines an input vector with two hidden states (left child and right child) into a
     single parent hidden state. The two child states are concatenated before being passed
@@ -838,10 +804,9 @@ class GRU221(nn.Module):
     """
 
     def __init__(self, input_size: int, hidden_size: int):
-        """
-        Args:
-            input_size: Dimensionality of the input vector (vocabulary one-hot size).
-            hidden_size: Dimensionality of each child hidden state and the output hidden state.
+        """Args:
+        input_size: Dimensionality of the input vector (vocabulary one-hot size).
+        hidden_size: Dimensionality of each child hidden state and the output hidden state.
         """
         super().__init__()
         self.hidden_size = hidden_size
@@ -859,8 +824,7 @@ class GRU221(nn.Module):
         torch.nn.init.xavier_uniform_(self.whn.weight)
 
     def forward(self, x: torch.Tensor, h1: torch.Tensor, h2: torch.Tensor) -> torch.Tensor:
-        """
-        Compute parent hidden state from input and two child hidden states.
+        """Compute parent hidden state from input and two child hidden states.
 
         Args:
             x: Input (symbol embedding / one-hot), shape ``(batch, input_size)``.
@@ -878,19 +842,17 @@ class GRU221(nn.Module):
 
 
 class GRU122(nn.Module):
-    """
-    One-input, two-output GRU cell used by the [Decoder][SRToolkit.approaches.EDHiE.Decoder].
+    """One-input, two-output GRU cell used by the [Decoder][SRToolkit.approaches.EDHiE.Decoder].
 
     Splits a parent hidden state into two child hidden states (left and right) driven by
     an input vector. The output is split evenly along the hidden dimension.
     """
 
     def __init__(self, input_size: int, hidden_size: int):
-        """
-        Args:
-            input_size: Dimensionality of the input vector (symbol probability distribution).
-            hidden_size: Dimensionality of each output child hidden state (output is
-                ``2 * hidden_size`` before splitting).
+        """Args:
+        input_size: Dimensionality of the input vector (symbol probability distribution).
+        hidden_size: Dimensionality of each output child hidden state (output is
+            ``2 * hidden_size`` before splitting).
         """
         super().__init__()
         self.hidden_size = hidden_size
@@ -908,8 +870,7 @@ class GRU122(nn.Module):
         torch.nn.init.xavier_uniform_(self.whn.weight)
 
     def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Compute two child hidden states from input and parent hidden state.
+        """Compute two child hidden states from input and parent hidden state.
 
         Args:
             x: Input vector (symbol probabilities), shape ``(batch, input_size)``.
@@ -929,8 +890,7 @@ class GRU122(nn.Module):
 
 
 def create_batch(trees: List[Optional[Node]], symbol2index: Dict[str, int]) -> BatchedNode:
-    """
-    Pack a list of expression trees into a single [BatchedNode][SRToolkit.approaches.EDHiE.BatchedNode]
+    """Pack a list of expression trees into a single [BatchedNode][SRToolkit.approaches.EDHiE.BatchedNode]
     with targets and masks populated.
 
     Args:
@@ -946,18 +906,16 @@ def create_batch(trees: List[Optional[Node]], symbol2index: Dict[str, int]) -> B
 
 
 class TreeBatchSampler(Sampler[List[int]]):
-    """
-    PyTorch sampler that yields randomly permuted mini-batches of tree indices.
+    """PyTorch sampler that yields randomly permuted mini-batches of tree indices.
 
     Each call to ``__iter__`` produces a fresh permutation. Batches are contiguous slices
     of the permutation; the last incomplete batch is dropped.
     """
 
     def __init__(self, batch_size: int, num_eq: int):
-        """
-        Args:
-            batch_size: Number of trees per mini-batch.
-            num_eq: Total number of trees in the dataset.
+        """Args:
+        batch_size: Number of trees per mini-batch.
+        num_eq: Total number of trees in the dataset.
         """
         self.batch_size = batch_size
         self.num_eq = num_eq
@@ -972,14 +930,11 @@ class TreeBatchSampler(Sampler[List[int]]):
 
 
 class TreeDataset(Dataset):
-    """
-    Minimal PyTorch ``Dataset`` wrapping a list of expression trees.
-    """
+    """Minimal PyTorch ``Dataset`` wrapping a list of expression trees."""
 
     def __init__(self, trees: List[Optional[Node]]):
-        """
-        Args:
-            trees: List of [Node][SRToolkit.utils.expression_tree.Node] expression trees.
+        """Args:
+        trees: List of [Node][SRToolkit.utils.expression_tree.Node] expression trees.
         """
         self.trees: List[Node] = [t for t in trees if isinstance(t, Node)]
 
@@ -991,8 +946,7 @@ class TreeDataset(Dataset):
 
 
 def annealing_schedule(it: int, total_iters: int, supremum: float = 0.04) -> float:
-    """
-    Linear KL annealing schedule mapping iteration count to a ``[0, supremum]`` coefficient.
+    """Linear KL annealing schedule mapping iteration count to a ``[0, supremum]`` coefficient.
 
     Args:
         it: Current iteration index.
@@ -1013,8 +967,7 @@ def hvae_loss(
     lmbda: float,
     criterion: nn.Module,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Compute the HVAE ELBO loss: reconstruction (cross-entropy) + KL divergence.
+    """Compute the HVAE ELBO loss: reconstruction (cross-entropy) + KL divergence.
 
     Args:
         outputs: Decoded [BatchedNode][SRToolkit.approaches.EDHiE.BatchedNode] produced by the HVAE forward pass.
@@ -1040,8 +993,7 @@ def train_hvae(
     max_beta: float = 0.04,
     verbose: bool = True,
 ) -> None:
-    """
-    Train an [HVAE][SRToolkit.approaches.EDHiE.HVAE] on a dataset of expression trees.
+    """Train an [HVAE][SRToolkit.approaches.EDHiE.HVAE] on a dataset of expression trees.
 
     Uses the Adam optimiser and cross-entropy reconstruction loss with KL annealing controlled
     by [annealing_schedule][SRToolkit.approaches.EDHiE.annealing_schedule]. If ``verbose=True``,
@@ -1103,8 +1055,7 @@ def train_hvae(
 
 
 class _HVAEProblem(Problem):
-    """
-    pymoo ``Problem`` that wraps HVAE decoding and SR expression evaluation.
+    """pymoo ``Problem`` that wraps HVAE decoding and SR expression evaluation.
 
     Each call to ``_evaluate`` decodes a batch of latent vectors to expression trees,
     evaluates them via the [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator],
@@ -1114,12 +1065,11 @@ class _HVAEProblem(Problem):
     _FALLBACK_SCORE = float("inf")
 
     def __init__(self, model: HVAE, evaluator: SR_evaluator, dim: int):
-        """
-        Args:
-            model: Trained [HVAE][SRToolkit.approaches.EDHiE.HVAE] used to decode latent vectors.
-            evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to score
-                decoded expressions.
-            dim: Dimensionality of the latent space (number of decision variables for pymoo).
+        """Args:
+        model: Trained [HVAE][SRToolkit.approaches.EDHiE.HVAE] used to decode latent vectors.
+        evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to score
+            decoded expressions.
+        dim: Dimensionality of the latent space (number of decision variables for pymoo).
         """
         self.model = model
         self.evaluator = evaluator
@@ -1140,14 +1090,12 @@ class _HVAEProblem(Problem):
 
 
 class _TorchNormalSampling(Sampling):
-    """
-    pymoo ``Sampling`` that initialises the GA population by drawing samples from a
+    """pymoo ``Sampling`` that initialises the GA population by drawing samples from a
     standard normal distribution in latent space.
     """
 
     def _do(self, problem: _HVAEProblem, n_samples: int, **kwargs) -> np.ndarray:
-        """
-        Args:
+        """Args:
             problem: The [_HVAEProblem][SRToolkit.approaches.EDHiE._HVAEProblem].
             n_samples: Number of individuals to generate.
 
@@ -1158,8 +1106,7 @@ class _TorchNormalSampling(Sampling):
 
 
 class _BestTermination(Termination):
-    """
-    pymoo ``Termination`` that stops the GA when the evaluator signals early stopping
+    """pymoo ``Termination`` that stops the GA when the evaluator signals early stopping
     (success threshold reached or budget exhausted).
     """
 
@@ -1170,8 +1117,7 @@ class _BestTermination(Termination):
 
 
 class _LICrossover(Crossover):
-    """
-    Linear interpolation (LI) crossover operator for latent vectors.
+    """Linear interpolation (LI) crossover operator for latent vectors.
 
     Combines two parent vectors as a random convex combination:
     ``child = w * parent1 + (1 - w) * parent2`` with per-dimension weights ``w ~ U(0, 1)``.
@@ -1187,8 +1133,7 @@ class _LICrossover(Crossover):
 
 
 class _RandomMutation(Mutation):
-    """
-    Latent-space mutation that re-encodes individuals and perturbs them proportionally to
+    """Latent-space mutation that re-encodes individuals and perturbs them proportionally to
     the posterior variance learned by the HVAE encoder.
 
     Each individual is decoded to an expression tree, re-encoded to obtain the posterior

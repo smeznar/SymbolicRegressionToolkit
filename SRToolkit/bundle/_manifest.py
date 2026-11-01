@@ -1,6 +1,4 @@
-"""
-BundleManifest dataclass and checksum verification.
-"""
+"""BundleManifest dataclass and checksum verification."""
 
 from __future__ import annotations
 
