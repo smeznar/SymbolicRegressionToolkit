@@ -64,7 +64,7 @@ from typing import Any
 import numpy as np
 
 
-def _to_json_safe(obj: Any) -> Any:
+def _to_json_safe(obj: Any, path: str = "obj") -> Any:
     """Encode ``obj`` into JSON-compatible Python objects, losslessly.
 
     Follows the encoding table in the [module docstring][SRToolkit.utils.serialization]. Never
@@ -73,6 +73,8 @@ def _to_json_safe(obj: Any) -> Any:
     Args:
         obj: Value to encode: nested ``dict``/``list``/``tuple`` of Python scalars, numpy scalars
             and numpy arrays.
+        path: Name of ``obj`` in error messages, so callers can report where it sits in a larger
+            structure (e.g. ``"all_models[3].ranking_data"``).
 
     Returns:
         A value made only of ``None``, ``bool``, ``int``, ``float``, ``str``, ``list`` and
@@ -81,15 +83,15 @@ def _to_json_safe(obj: Any) -> Any:
     Raises:
         TypeError: If ``obj`` contains an unsupported value or dict key. The message names the type
             (``type(x).__name__``, e.g. ``complex``; ``ndarray of dtype complex128`` for arrays) and
-            the location, written as ``obj`` for the top level followed by ``[repr(key)]`` per dict
-            value, ``[i]`` per list or tuple element and ``[i, j]`` per object-array element, e.g.
-            ``obj['a'][1]``. An unsupported key is reported as ``dict key at <path of the dict>``.
+            the location, written as ``path`` for the top level followed by ``[repr(key)]`` per
+            dict value, ``[i]`` per list or tuple element and ``[i, j]`` per object-array element,
+            e.g. ``obj['a'][1]``. An unsupported key is reported as ``dict key at <path of the dict>``.
 
     Examples:
         >>> _to_json_safe({"n": np.int64(3), "w": np.array([1.0, 2.0])})
         {'n': 3, 'w': {'__ndarray__': True, 'dtype': 'float64', 'shape': [2], 'data': [1.0, 2.0]}}
     """
-    return _encode(obj, "obj")
+    return _encode(obj, path)
 
 
 def _from_json_safe(obj: Any) -> Any:

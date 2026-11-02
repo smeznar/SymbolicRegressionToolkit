@@ -1,40 +1,58 @@
-"""Shared type definitions, constants, and result dataclasses for the SRToolkit package.
+"""Shared constants, settings types and result dataclasses for SRToolkit.
 
-Defines symbol-type constants (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``),
-``RankingSettings`` for ranking-function and parameter-estimation configuration, and
-``ModelResult`` / ``EvalResult`` for representing SR experiment outcomes.
+- **Symbol types** (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``) tag the entries of a
+  [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+- **Precedence levels** (``OP_ADDITIVE``, ``OP_MULTIPLICATIVE``, ``OP_POWER``, ``FN_PREFIX``,
+  ``FN_POSTFIX``, ``LEAF``) order symbols for parsing and printing. Custom operators can use values
+  between the levels.
+- [RankingSettings][SRToolkit.utils.types.RankingSettings] lists the keyword settings understood by
+  the built-in ranking functions and the parameter estimator.
+- [ModelResult][SRToolkit.utils.types.ModelResult] (one evaluated expression) and
+  [EvalResult][SRToolkit.utils.types.EvalResult] (one SR run) hold experiment outcomes. Each model
+  has a [Status][SRToolkit.utils.types.Status]. Both save to JSON through
+  [serialization][SRToolkit.utils.serialization], so everything stored in them must be a value
+  listed there. The trace-based metrics of ``EvalResult`` are explained in
+  [sr_evaluator][SRToolkit.evaluation.sr_evaluator].
 """
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Tuple, TypedDict
+from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Tuple, TypedDict, get_args
 
 import numpy as np
 
 from .serialization import _from_json_safe, _to_json_safe
 
 VAR = "var"
+"""Symbol type of a variable (e.g. ``X_0``)."""
 CONST = "const"
+"""Symbol type of a free constant whose value is fitted (e.g. ``C``)."""
 FN = "fn"
+"""Symbol type of a function (e.g. ``sin``, or postfix ``^2``)."""
 OP = "op"
+"""Symbol type of a binary operator (e.g. ``+``)."""
 LIT = "lit"
+"""Symbol type of a literal with a fixed value (e.g. ``pi``, ``1``)."""
 VALID_SYMBOL_TYPES: Set[str] = {VAR, CONST, FN, OP, LIT}
+"""The set of valid symbol types: ``VAR``, ``CONST``, ``FN``, ``OP`` and ``LIT``."""
 
-# Operator precedence levels — use these when registering operators so that
-# user-defined operators at custom precedences can be inserted between levels.
-OP_ADDITIVE = 100  # +, -
-OP_MULTIPLICATIVE = 200  # *, /
-OP_POWER = 300  # ^
+OP_ADDITIVE = 100
+"""Precedence of additive operators (``+``, ``-``)."""
+OP_MULTIPLICATIVE = 200
+"""Precedence of multiplicative operators (``*``, ``/``)."""
+OP_POWER = 300
+"""Precedence of the power operator (``^``)."""
 
-# Precedence sentinels for functions (stored in the precedence field of "fn" symbols).
-# Values are chosen to be well outside any reasonable operator precedence range.
-FN_PREFIX = 1000  # prefix functions: sin(E), cos(E) — outranks all ops in the shunting-yard
-FN_POSTFIX = -1000  # postfix functions: E '^2' — clearly negative, distinct from get_precedence's -1 fallback
+FN_PREFIX = 1000
+"""Precedence of prefix functions (``sin(E)``). It is higher than every operator precedence."""
+FN_POSTFIX = -1000
+"""Precedence of postfix functions (``E^2``). Negative, and distinct from the ``-1`` that
+[get_precedence][SRToolkit.utils.symbol_library.SymbolLibrary.get_precedence] returns for unknown
+symbols."""
 
-# Atoms (VAR, CONST, LIT) never participate in operator precedence comparisons,
-# but storing a large value prevents accidental parenthesisation if a high-precedence
-# operator is added.
 LEAF = 1000
+"""Precedence stored for atoms (``VAR``, ``CONST``, ``LIT``). Atoms never take part in precedence
+comparisons. The large value prevents spurious parentheses if a high-precedence operator is added."""
 
 Status = Literal["ok", "invalid", "rejected", "undefined", "error"]
 """
@@ -54,11 +72,13 @@ Outcome of evaluating one expression, stored as [ModelResult.status][SRToolkit.u
 Every status except ``"ok"`` gets the error ``+inf``.
 """
 
-STATUSES: Tuple[str, ...] = ("ok", "invalid", "rejected", "undefined", "error")
+STATUSES: Tuple[str, ...] = get_args(Status)
+"""The values of [Status][SRToolkit.utils.types.Status], in the same order. This is also the key order
+of [status_counts][SRToolkit.utils.types.EvalResult.status_counts]."""
 
 
 class RankingSettings(TypedDict, total=False):
-    """Settings consumed by the ranking functions (and the RMSE ranking's parameter estimator).
+    """Settings for the ranking functions, the parameter estimator and the evaluator's limits.
 
     Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and ``ParameterEstimator``, then
     handed to the active ranking's [setup][SRToolkit.evaluation.ranking.RankingFunction.setup] as a
@@ -66,36 +86,32 @@ class RankingSettings(TypedDict, total=False):
 
     These are the keys the built-in rankings understand. A custom
     [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] may read *additional* keys from
-    the settings dict at runtime — passing them through works, but a type checker will not know
+    the settings dict at runtime. Passing them through works, but a type checker will not know
     about them, so extend this ``TypedDict`` (or silence the call site) if you want them checked.
-
-    Examples:
-        >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
-        >>> settings.get("method")
-        'L-BFGS-B'
-        >>> settings.get("tol", 1e-6)
-        1e-06
 
     Attributes:
         method: Optimization algorithm for parameter fitting. Default: ``"L-BFGS-B"``.
         tol: Termination tolerance for the optimizer. Default: ``1e-6``.
         gtol: Gradient-norm termination tolerance. Default: ``1e-3``.
         max_iter: Maximum optimizer iterations. Default: ``100``.
-        constant_bounds: ``(lower, upper)`` bounds for sampled constant values.
+        constant_bounds: ``(lower, upper)`` bounds for constant values. The RMSE ranking samples
+            initial values in them and passes them to the optimizer as bounds (used by methods
+            that support bounds, such as ``"L-BFGS-B"``); BED samples its constant vectors in them.
             Default: ``(-5, 5)``.
-        initialization: Constant initialization strategy — ``"random"`` samples
+        initialization: Constant initialization strategy. ``"random"`` samples
             uniformly within ``constant_bounds``; ``"mean"`` sets all constants
             to the midpoint. Default: ``"random"``.
-        max_constants: Maximum number of free constants permitted in a single
-            expression. Expressions exceeding this limit score ``NaN``.
-            Default: ``8``.
-        max_expr_length: Maximum expression length in tokens. ``-1`` disables the
-            limit. Default: ``-1``.
+        max_constants: Maximum number of free constants in an expression, enforced by the
+            evaluator for every ranking. An expression with more gets status ``"rejected"``
+            and error ``+inf``. A negative value disables the limit. Default: ``8``.
+        max_expr_length: Maximum expression length in tokens, enforced like ``max_constants``.
+            A negative value disables the limit. Default: ``-1``.
         backend: Backend used to compile expressions, by both rankings (``ParameterEstimator`` and BED).
-            ``"stack"`` uses the Cython-backed postfix stack machine (default);
+            ``"stack"`` uses the Cython-backed postfix stack machine;
             ``"codegen"`` generates Python/NumPy source via ``exec()``;
             ``"stack_py"`` uses the pure-Python stack machine (faster than
             ``"stack"`` when the symbol library contains many custom symbols).
+            Default: ``"stack"``.
         num_points_sampled: Number of domain points used when evaluating expression
             behavior for BED. ``-1`` uses all points in ``X``. Default: ``64``.
         samplers: Per-feature list of [Sampler][SRToolkit.dataset.sampling.Sampler] that draw
@@ -114,6 +130,9 @@ class RankingSettings(TypedDict, total=False):
             ``True`` resamples it every run from the run's seed. Default: ``False``.
         num_consts_sampled: Number of constant vectors sampled per expression for
             BED. Default: ``32``.
+
+    Examples:
+        >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
     """
 
     method: str
@@ -133,31 +152,27 @@ class RankingSettings(TypedDict, total=False):
     num_consts_sampled: int
 
 
+def _add_augmentation(augmentations: Dict[str, Dict[str, Any]], name: str, data: Dict[str, Any], aug_type: str) -> None:
+    # Shared body of ModelResult/EvalResult.add_augmentation: store a shallow copy under the first
+    # free key among name, name_1, name_2, ...
+    resolved = name
+    counter = 1
+    while resolved in augmentations:
+        resolved = f"{name}_{counter}"
+        counter += 1
+    augmentations[resolved] = {**data, "_type": aug_type}
+
+
 @dataclass
 class ModelResult:
-    """A single model entry in ``EvalResult.all_models`` (and so in ``EvalResult.top_models()``).
-
-    Examples:
-        >>> result = ModelResult(expr=["C", "*", "X_0"], error=0.42)
-        >>> result.expr
-        ['C', '*', 'X_0']
-        >>> result.error
-        0.42
-        >>> result.parameters is None
-        True
-        >>> result.status
-        'ok'
-        >>> ModelResult(expr=["X_0", "X_1"], error=float("inf"), status="invalid").status_detail is None
-        True
+    """One evaluated expression: an entry of [EvalResult.all_models][SRToolkit.utils.types.EvalResult].
 
     Attributes:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
-        error: Numeric error under the ranking function (RMSE or BED). ``+inf`` unless ``status``
-            is ``"ok"``.
-        parameters: Fitted constant values. Present for RMSE ranking only, ``None`` otherwise.
-        status: How the evaluation ended; see [Status][SRToolkit.utils.types.Status].
-        status_detail: Why the status is not ``"ok"``: the parse error, the violated limit, the
-            exception, or the non-finite score. ``None`` for ``"ok"``.
+        error: Numeric error under the ranking function (RMSE or BED). By convention ``+inf``
+            unless ``status`` is ``"ok"``; this is not validated.
+        parameters: Fitted constant values, shape ``(n_constants,)``. Set by the RMSE ranking
+            only. ``None`` for other rankings and when nothing was fitted.
         ranking_data: Freeform payload carried over from the
             [RankingResult][SRToolkit.evaluation.ranking.RankingResult] ``extra`` dict of the
             ranking function that scored this expression. Empty for rankings that emit nothing
@@ -165,6 +180,14 @@ class ModelResult:
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
             [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.ModelResult.add_augmentation].
+        status: How the evaluation ended; see [Status][SRToolkit.utils.types.Status].
+        status_detail: Why the status is not ``"ok"``: the parse error, the violated limit, the
+            exception, or the non-finite score. ``None`` for ``"ok"``.
+
+    Examples:
+        >>> result = ModelResult(expr=["C", "*", "X_0"], error=0.42)
+        >>> result.error, result.status
+        (0.42, 'ok')
     """
 
     expr: List[str]
@@ -176,106 +199,101 @@ class ModelResult:
     status_detail: Optional[str] = None
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
-        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.
+        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
 
-        If ``name`` is already present in :attr:`augmentations`, a numeric suffix is
-        appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.
+        A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.ModelResult] with
+        ``"_type"`` set to ``aug_type``. The caller's dict is not modified, but nested values are
+        shared with it. If ``name`` is already taken, the first free key among ``name_1``,
+        ``name_2``, … is used instead, so existing data is never overwritten.
+
+        Args:
+            name: Key under which the augmentation is stored.
+            data: Augmentation data. Its values must be ones that can be saved (see
+                [serialization][SRToolkit.utils.serialization]); otherwise
+                [to_dict][SRToolkit.utils.types.ModelResult.to_dict] raises ``TypeError``. A
+                ``"_type"`` key in it is replaced in the stored copy.
+            aug_type: Augmenter class name, stored under ``"_type"``.
 
         Examples:
             >>> result = ModelResult(expr=["X_0"], error=0.1)
             >>> result.add_augmentation("latex", {"value": "$X_0$"}, "LaTeXAugmenter")
-            >>> result.augmentations["latex"]["value"]
-            '$X_0$'
             >>> result.add_augmentation("latex", {"value": "$X_0$"}, "LaTeXAugmenter")
-            >>> "latex_1" in result.augmentations
-            True
-
-        Args:
-            name: Key under which the augmentation is stored in :attr:`augmentations`.
-                A suffix is added automatically if the key already exists.
-            data: Augmentation data. Its values must be ones that can be saved (see
-                [serialization][SRToolkit.utils.serialization]); otherwise saving the results raises ``TypeError``.
-                Any existing ``"_type"`` key will be overwritten with ``aug_type``.
-            aug_type: Augmenter class name, stored as ``data["_type"]``.
+            >>> list(result.augmentations)
+            ['latex', 'latex_1']
         """
-        resolved = name
-        counter = 1
-        while resolved in self.augmentations:
-            resolved = f"{name}_{counter}"
-            counter += 1
-        data["_type"] = aug_type
-        self.augmentations[resolved] = data
+        _add_augmentation(self.augmentations, name, data, aug_type)
 
     def to_dict(self) -> dict:
-        """Serialize this model result to a JSON-safe dictionary.
+        """Return a JSON-safe dictionary of this model result.
 
-        NumPy arrays and scalars are converted to native Python types so the
-        result can be passed directly to ``json.dump``.
-
-        Examples:
-            >>> result = ModelResult(expr=["X_0", "+", "C"], error=0.25)
-            >>> d = result.to_dict()
-            >>> d["expr"]
-            ['X_0', '+', 'C']
-            >>> d["error"]
-            0.25
-            >>> d["parameters"] is None
-            True
+        The dictionary can be passed to ``json.dump``. After a JSON round trip,
+        [from_dict][SRToolkit.utils.types.ModelResult.from_dict] restores every field exactly, as
+        guaranteed by [serialization][SRToolkit.utils.serialization] (arrays keep dtype and shape,
+        tuples and non-str dict keys are kept). The one exception is that numpy scalars come back as
+        Python scalars.
 
         Returns:
-            A JSON-safe dictionary suitable for passing to [from_dict][SRToolkit.utils.types.ModelResult.from_dict].
+            A dictionary with one entry per field.
 
         Raises:
-            TypeError: If ``parameters``, ``ranking_data`` or ``augmentations`` contain a value
-                that cannot be saved (see [serialization][SRToolkit.utils.serialization]); the message
-                names its location.
+            TypeError: If ``parameters`` has an unsupported dtype (e.g. complex), or
+                ``ranking_data`` or ``augmentations`` contain a value that cannot be saved. The
+                message gives its full path, e.g. ``ranking_data['z']``.
+
+        Examples:
+            >>> ModelResult(expr=["X_0", "+", "C"], error=0.25).to_dict()["error"]
+            0.25
         """
+        return self._to_dict("")
+
+    def _to_dict(self, prefix: str) -> dict:
+        # to_dict with ``prefix`` (e.g. "all_models[3].") prepended to the paths in error messages.
         return {
             "expr": self.expr,
             "error": float(self.error),
-            "parameters": _to_json_safe(self.parameters),
-            "ranking_data": _to_json_safe(self.ranking_data),
-            "augmentations": _to_json_safe(self.augmentations),
+            "parameters": _to_json_safe(self.parameters, f"{prefix}parameters"),
+            "ranking_data": _to_json_safe(self.ranking_data, f"{prefix}ranking_data"),
+            "augmentations": _to_json_safe(self.augmentations, f"{prefix}augmentations"),
             "status": self.status,
             "status_detail": self.status_detail,
         }
 
-    @staticmethod
-    def from_dict(data: dict) -> "ModelResult":
-        """Reconstruct a [ModelResult][SRToolkit.utils.types.ModelResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.ModelResult.to_dict].
+    @classmethod
+    def from_dict(cls, data: dict) -> "ModelResult":
+        """Reconstruct a [ModelResult][SRToolkit.utils.types.ModelResult] from the output of [to_dict][SRToolkit.utils.types.ModelResult.to_dict].
+
+        Args:
+            data: Dictionary produced by [to_dict][SRToolkit.utils.types.ModelResult.to_dict],
+                possibly after a JSON round trip. Unknown keys are ignored; other malformed
+                input has undefined behaviour.
+
+        Returns:
+            The reconstructed [ModelResult][SRToolkit.utils.types.ModelResult].
+
+        Raises:
+            ValueError: If ``data`` has no ``status`` (it was saved before statuses were recorded),
+                or its ``status`` is not one of [STATUSES][SRToolkit.utils.types.STATUSES].
 
         Examples:
             >>> result = ModelResult(expr=["X_0", "+", "C"], error=0.25)
-            >>> result2 = ModelResult.from_dict(result.to_dict())
-            >>> result2.expr
+            >>> ModelResult.from_dict(result.to_dict()).expr
             ['X_0', '+', 'C']
-            >>> result2.error
-            0.25
-
-        Args:
-            data: Dictionary representation of a [ModelResult][SRToolkit.utils.types.ModelResult], as produced
-                by [to_dict][SRToolkit.utils.types.ModelResult.to_dict].
-
-        Returns:
-            The reconstructed :class:`ModelResult`.
-
-        Raises:
-            ValueError: If ``data`` has no ``status``, i.e. it was saved before statuses were
-                recorded.
         """
         if "status" not in data:
             raise ValueError(
                 "[ModelResult.from_dict] This model was saved by an older SRToolkit version, without an "
                 "evaluation status, and cannot be loaded. Rerun the experiment."
             )
-        return ModelResult(
+        if data["status"] not in STATUSES:
+            raise ValueError(f"[ModelResult.from_dict] Unknown status {data['status']!r}; expected one of {STATUSES}.")
+        return cls(
             expr=data["expr"],
             error=data["error"],
             parameters=_from_json_safe(data["parameters"]),
-            ranking_data=_from_json_safe(data.get("ranking_data", {})),
+            ranking_data=_from_json_safe(data["ranking_data"]),
             augmentations=_from_json_safe(data["augmentations"]),
             status=data["status"],
-            status_detail=data.get("status_detail"),
+            status_detail=data["status_detail"],
         )
 
 
@@ -289,10 +307,36 @@ def _ranking_key(model: ModelResult) -> Tuple[bool, float, int]:
 
 @dataclass
 class EvalResult:
-    """Result for a single SR experiment, as returned by ``SR_results[i]``.
+    """Result of a single SR experiment, as returned by ``SR_results[i]``.
 
     The stored data is the list of evaluated models and the evaluation trace; summary values
     such as ``min_error``, ``best_expr``, ``success`` and ``top_models()`` are derived from them.
+    The ranking behind these summaries is cached. After construction models must not be modified
+    or replaced, or the summaries can be stale.
+
+    Attributes:
+        all_models: All evaluated models, in the order they were first evaluated. ``trace``
+            indexes into this list.
+        trace: The evaluation trace. ``trace[k]`` is the index into ``all_models`` of the
+            expression requested by the ``(k+1)``-th counted call to ``evaluate_expr`` (a call
+            that counts toward ``max_evaluations``; see
+            [sr_evaluator][SRToolkit.evaluation.sr_evaluator]). Cache hits appear as repeated
+            indices; calls made after evaluation was stopped are not recorded. Every entry must
+            be a valid, non-negative index into ``all_models``; otherwise behaviour is undefined.
+        approach_name: Name of the SR approach, or empty string if not provided.
+        success_threshold: The experiment succeeds if an error strictly below this is found. A
+            ``nan`` threshold is never reached. ``None`` if not set.
+        top_k: Default number of models returned by ``top_models()``. ``0`` means none; negative
+            means all models.
+        dataset_name: Name of the dataset. ``None`` if not provided.
+        metadata: The evaluator's metadata without ``dataset_name`` (e.g. model name, seed, and
+            the dataset's metadata under ``"dataset_metadata"``). ``None`` if there is none.
+        wall_time: Wall-clock duration in seconds of the approach's search for this
+            experiment, measured around ``search()`` by the experiment runner. ``None`` if
+            the result was not produced by a runner that records timing.
+        augmentations: Per-augmenter data keyed by augmenter name. Populated by
+            [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
+            [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
 
     Examples:
         >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["C", "*", "X_0"], error=0.05)]
@@ -302,36 +346,8 @@ class EvalResult:
         ...     approach_name="MyApproach",
         ...     success_threshold=0.1,
         ... )
-        >>> result.best_expr
-        'C*X_0'
-        >>> result.min_error
-        0.05
-        >>> result.success
-        True
-        >>> result.num_evaluated, result.evaluation_calls
-        (2, 3)
-        >>> result.dataset_name is None
-        True
-
-    Attributes:
-        all_models: All evaluated models, in the order they were first evaluated. ``trace``
-            indexes into this list.
-        trace: The evaluation trace. ``trace[k]`` is the index into ``all_models`` of the
-            expression requested by the ``(k+1)``-th counted call to ``evaluate_expr``. Cache
-            hits appear as repeated indices; calls made after evaluation was stopped are not
-            recorded.
-        approach_name: Name of the SR approach, or empty string if not provided.
-        success_threshold: Error threshold below which the experiment counts as a success.
-            ``None`` if not set.
-        top_k: Default number of models returned by ``top_models()``. Negative means all models.
-        dataset_name: Name of the dataset. ``None`` if not provided.
-        metadata: Arbitrary metadata dict associated with the dataset. ``None`` if not provided.
-        wall_time: Wall-clock duration in seconds of the approach's search for this
-            experiment, measured around ``search()`` by the experiment runner. ``None`` if
-            the result was not produced by a runner that records timing.
-        augmentations: Per-augmenter data keyed by augmenter name. Populated by
-            [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
-            [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
+        >>> result.best_expr, result.min_error, result.success
+        ('C*X_0', 0.05, True)
     """
 
     all_models: List[ModelResult]
@@ -354,7 +370,7 @@ class EvalResult:
 
     @property
     def num_evaluated(self) -> int:
-        """Number of unique expressions evaluated."""
+        """Number of unique expressions evaluated: ``len(all_models)``, including models the trace never references."""
         return len(self.all_models)
 
     @property
@@ -363,12 +379,21 @@ class EvalResult:
         return len(self.trace)
 
     def top_models(self, k: Optional[int] = None) -> List[ModelResult]:
-        """The ``k`` best models, sorted by error, with models whose error is not finite (every
-        status except ``"ok"``) last.
+        """Return the ``k`` best models, best first.
 
-        Models with equal error are ordered by length (number of tokens), shorter first, and
-        then by the order in which they were first evaluated. These are the same objects as in
-        ``all_models``, not copies.
+        Models with a finite error come first, sorted by error. Models whose error is not finite
+        (``inf`` or ``nan``, not distinguished) come last. Only the error decides this, not the
+        status; for results produced by the evaluator the two agree. Ties in error, and models
+        that are all non-finite, are ordered by length (fewer tokens first), then by the order in
+        which they were first evaluated. The returned objects are the ones in ``all_models``, not
+        copies.
+
+        Args:
+            k: Number of models to return. Defaults to ``top_k``. ``0`` returns ``[]``; a negative
+                value or one larger than the number of models returns all of them.
+
+        Returns:
+            The best ``k`` models, best first.
 
         Examples:
             >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["X_1"], error=0.1)]
@@ -377,18 +402,6 @@ class EvalResult:
             [['X_1']]
             >>> [m.expr for m in result.top_models(k=-1)]
             [['X_1'], ['X_0']]
-            >>> result.top_models()[0] is result.all_models[1]
-            True
-            >>> long, short = ModelResult(["X_0", "+", "0"], 0.1), ModelResult(["X_0"], 0.1)
-            >>> EvalResult(all_models=[long, short], trace=[0, 1], approach_name="").best_expr
-            'X_0'
-
-        Args:
-            k: Number of models to return. Defaults to ``top_k``; a negative value or one larger
-                than the number of models returns all of them.
-
-        Returns:
-            The best ``k`` models, best first.
         """
         if k is None:
             k = self.top_k
@@ -399,27 +412,36 @@ class EvalResult:
 
     @property
     def min_error(self) -> float:
-        """Lowest error across all evaluated models. ``NaN`` if there are none, and ``+inf`` if
-        every model failed.
+        """Lowest finite error across all models.
+
+        If no error is finite, the error of the top-ranked model (see
+        [top_models][SRToolkit.utils.types.EvalResult.top_models]); this is ``+inf`` for results
+        produced by the evaluator. ``NaN`` if no model was evaluated.
         """
         ranking = self._ranking()
         return self.all_models[ranking[0]].error if ranking else float("nan")
 
     @property
     def best_expr(self) -> str:
-        """The best expression as a string. Empty if no expression was evaluated."""
+        """Tokens of the best model joined without a separator (e.g. ``"C*X_0"``). Empty if no expression was evaluated."""
         ranking = self._ranking()
         return "".join(self.all_models[ranking[0]].expr) if ranking else ""
 
     @property
     def success(self) -> bool:
-        """Whether ``min_error`` is below ``success_threshold``. ``False`` if no threshold is set."""
+        """Whether ``min_error < success_threshold``. ``False`` if no threshold is set or it is ``nan``."""
         return self.success_threshold is not None and bool(self.min_error < self.success_threshold)
 
     def best_so_far(self) -> List[Tuple[int, int]]:
-        """The incumbent history: each point in the trace where the best error so far strictly improved.
+        """Return the incumbent history: each call in the trace where the best error strictly improved.
 
-        Failed models (non-finite error) never become the incumbent.
+        Failed models (non-finite error) never become the incumbent. Only a strictly lower error
+        changes the incumbent, so after a tie broken by length the last entry need not be
+        ``top_models(1)[0]``.
+
+        Returns:
+            A list of ``(call_number, model_index)`` pairs, where ``call_number`` is 1-based and
+            ``model_index`` indexes into ``all_models``. Empty if no model was scored successfully.
 
         Examples:
             >>> failed = ModelResult(["X_1", "X_0"], float("inf"), status="invalid")
@@ -427,10 +449,6 @@ class EvalResult:
             >>> result = EvalResult(all_models=models, trace=[1, 0, 0, 2], approach_name="")
             >>> result.best_so_far()
             [(2, 0), (4, 2)]
-
-        Returns:
-            A list of ``(call_number, model_index)`` pairs, where ``call_number`` is 1-based and
-            ``model_index`` indexes into ``all_models``.
         """
         history: List[Tuple[int, int]] = []
         best = None
@@ -442,82 +460,87 @@ class EvalResult:
         return history
 
     def calls_to_threshold(self, threshold: Optional[float] = None) -> Optional[int]:
-        """Number of calls needed to first reach an error below ``threshold``.
+        """Return the number of calls needed to first reach an error below ``threshold``.
+
+        Args:
+            threshold: Error threshold. Defaults to ``success_threshold``.
+
+        Returns:
+            The 1-based call number at which an expression with a finite error strictly below
+            ``threshold`` was first requested, or ``None`` if that never happened (always for a
+            ``nan`` threshold). Failed models (non-finite error) never count. When aggregating
+            over runs, treat
+            ``None`` as censored at ``evaluation_calls`` rather than dropping the run (see
+            [sr_evaluator][SRToolkit.evaluation.sr_evaluator]).
+
+        Raises:
+            ValueError: If ``threshold`` is not given and ``success_threshold`` is ``None``.
 
         Examples:
             >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["C"], 0.01)]
             >>> result = EvalResult(all_models=models, trace=[0, 0, 1], approach_name="", success_threshold=0.1)
             >>> result.calls_to_threshold()
             3
-            >>> result.calls_to_threshold(threshold=0.001) is None
-            True
-
-        Args:
-            threshold: Error threshold. Defaults to ``success_threshold``.
-
-        Returns:
-            The 1-based call number at which an expression with error below ``threshold`` was first
-            requested, or ``None`` if that never happened. When aggregating over runs, treat
-            ``None`` as censored at ``evaluation_calls`` (more calls were needed) rather than
-            dropping the run. A run that was stopped before using its whole budget (e.g. by a
-            time limit) is censored at fewer calls than the budget; the result cannot tell such
-            a run apart from one that used its budget.
-
-        Raises:
-            ValueError: If ``threshold`` is not given and ``success_threshold`` is ``None``.
         """
         if threshold is None:
             threshold = self.success_threshold
         if threshold is None:
             raise ValueError("[EvalResult.calls_to_threshold] No threshold given and success_threshold is None.")
         for call, index in enumerate(self.trace, start=1):
-            if self.all_models[index].error < threshold:
+            error = self.all_models[index].error
+            if math.isfinite(error) and error < threshold:
                 return call
         return None
 
     def best_error_within(self, budgets: Sequence[int]) -> np.ndarray:
-        """Best error found within each of the given numbers of counted calls.
+        """Return the best error found within each of the given numbers of counted calls.
 
-        A result does not record why its search stopped. For a budget larger than
-        ``evaluation_calls``, the run's final best error is returned, as if the run had
-        continued without finding anything better. How far to trust that depends on why the
-        run stopped:
+        A budget larger than ``evaluation_calls`` gets the run's final best error. This is exact
+        for a run that reached ``success_threshold``, but only an upper bound for a run that
+        stopped early for another reason (see [sr_evaluator][SRToolkit.evaluation.sr_evaluator]).
+        Keep budgets at or below the experiment's ``max_evaluations``.
 
-        - It reached ``success_threshold``: the value is exact, since a run stops as soon
-          as it succeeds.
-        - It stopped early for another reason, such as a time limit or an approach that ran
-          out of candidates: the value is only an upper bound, because the run might have
-          improved with more calls.
+        Args:
+            budgets: Numbers of calls, as ``int`` or numpy integers. Non-integers have undefined
+                behaviour.
 
-        Keep budgets at or below the experiment's ``max_evaluations``. No run got more calls
-        than that, so larger budgets don't measure anything.
+        Returns:
+            Array of shape ``(len(budgets),)``, in the order of ``budgets``, with the best finite
+            error within each budget.
+            ``NaN`` where no model had been scored successfully yet, including every budget
+            ``<= 0``.
 
         Examples:
             >>> failed = ModelResult(["X_0", "X_1"], float("inf"), status="invalid")
             >>> models = [failed, ModelResult(["X_1"], 0.5), ModelResult(["C"], 0.1)]
             >>> result = EvalResult(all_models=models, trace=[0, 1, 2], approach_name="")
-            >>> result.best_error_within([0, 1, 2, 3, 10])
-            array([nan, nan, 0.5, 0.1, 0.1])
-
-        Args:
-            budgets: Numbers of calls. Budgets beyond ``evaluation_calls`` give the final best
-                error (see above).
-
-        Returns:
-            An array with the best finite error within each budget, or ``NaN`` where no model had
-            been scored successfully yet.
+            >>> result.best_error_within([1, 2, 3, 10])
+            array([nan, 0.5, 0.1, 0.1])
         """
+        curve = np.full(len(budgets), np.nan)
+        if not self.trace:
+            return curve
         errors = np.array([self.all_models[i].error for i in self.trace], dtype=float)
         errors[~np.isfinite(errors)] = np.nan
-        running = np.fmin.accumulate(errors) if len(errors) > 0 else errors
-        curve = np.full(len(budgets), np.nan)
+        running = np.fmin.accumulate(errors)
         for j, budget in enumerate(budgets):
-            if budget > 0 and len(running) > 0:
+            if budget > 0:
                 curve[j] = running[min(budget, len(running)) - 1]
         return curve
 
     def status_counts(self, per: Literal["unique", "call"] = "unique") -> Dict[str, int]:
-        """Number of models with each [Status][SRToolkit.utils.types.Status].
+        """Return the number of models with each [Status][SRToolkit.utils.types.Status].
+
+        Args:
+            per: ``"unique"`` counts each evaluated expression once; ``"call"`` counts every
+                counted call in the trace, cache hits included.
+
+        Returns:
+            A dictionary with one entry per status in the order of
+            [STATUSES][SRToolkit.utils.types.STATUSES], zeros included.
+
+        Raises:
+            ValueError: If ``per`` is not ``"unique"`` or ``"call"``.
 
         Examples:
             >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["X_0", "X_1"], float("inf"), status="invalid")]
@@ -526,16 +549,6 @@ class EvalResult:
             {'ok': 1, 'invalid': 1, 'rejected': 0, 'undefined': 0, 'error': 0}
             >>> result.status_counts(per="call")["invalid"]
             2
-
-        Args:
-            per: ``"unique"`` counts each evaluated expression once; ``"call"`` counts every
-                counted call in the trace, cache hits included.
-
-        Returns:
-            A dictionary with one entry per status, zeros included.
-
-        Raises:
-            ValueError: If ``per`` is not ``"unique"`` or ``"call"``.
         """
         if per == "unique":
             models = self.all_models
@@ -548,90 +561,58 @@ class EvalResult:
             counts[model.status] += 1
         return counts
 
-    # validity_rate is left out to keep the API lean: it is rarely needed, and it is a one-line
-    # formula on status_counts (the definition is in the "Evaluation statuses" section of the
-    # sr_evaluator module docstring). Uncomment it, and its tests in tests/utils/test_types.py,
-    # if a canonical method turns out to be useful.
-    #
-    # def validity_rate(self, per: Literal["unique", "call"] = "unique") -> float:
-    #     """
-    #     Fraction of expressions that are well-formed.
-    #
-    #     Every expression with a tree counts as valid (``"ok"``, ``"rejected"``, ``"undefined"``);
-    #     ``"invalid"`` ones do not. Models with status ``"error"`` are left out of both counts,
-    #     since their failure lies in the evaluation, not in the expression.
-    #
-    #     Args:
-    #         per: ``"unique"`` counts each evaluated expression once; ``"call"`` counts every
-    #             counted call in the trace, cache hits included.
-    #
-    #     Returns:
-    #         The fraction of valid expressions, or ``NaN`` if there are none to count.
-    #     """
-    #     counts = self.status_counts(per)
-    #     total = sum(counts.values()) - counts["error"]
-    #     if total == 0:
-    #         return float("nan")
-    #     return (total - counts["invalid"]) / total
-
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
-        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] to this result.
+        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
 
-        If ``name`` is already present in :attr:`augmentations`, a numeric suffix is
-        appended (``name_1``, ``name_2``, …) to avoid overwriting existing data.
+        A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.EvalResult] with
+        ``"_type"`` set to ``aug_type``. The caller's dict is not modified, but nested values are
+        shared with it. If ``name`` is already taken, the first free key among ``name_1``,
+        ``name_2``, … is used instead, so existing data is never overwritten.
+
+        Args:
+            name: Key under which the augmentation is stored.
+            data: Augmentation data. Its values must be ones that can be saved (see
+                [serialization][SRToolkit.utils.serialization]); otherwise
+                [to_dict][SRToolkit.utils.types.EvalResult.to_dict] raises ``TypeError``. A
+                ``"_type"`` key in it is replaced in the stored copy.
+            aug_type: Augmenter class name, stored under ``"_type"``.
 
         Examples:
             >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0], approach_name="MyApproach")
             >>> result.add_augmentation("complexity", {"value": 3}, "ComplexityAugmenter")
-            >>> result.augmentations["complexity"]["value"]
-            3
-            >>> result.add_augmentation("complexity", {"value": 5}, "ComplexityAugmenter")
-            >>> "complexity_1" in result.augmentations
-            True
-
-        Args:
-            name: Key under which the augmentation is stored in :attr:`augmentations`.
-                A suffix is added automatically if the key already exists.
-            data: Augmentation data. Its values must be ones that can be saved (see
-                [serialization][SRToolkit.utils.serialization]); otherwise saving the results raises ``TypeError``.
-                Any existing ``"_type"`` key will be overwritten with ``aug_type``.
-            aug_type: Augmenter class name, stored as ``data["_type"]``.
+            >>> result.augmentations["complexity"]
+            {'value': 3, '_type': 'ComplexityAugmenter'}
         """
-        resolved = name
-        counter = 1
-        while resolved in self.augmentations:
-            resolved = f"{name}_{counter}"
-            counter += 1
-        data["_type"] = aug_type
-        self.augmentations[resolved] = data
+        _add_augmentation(self.augmentations, name, data, aug_type)
 
     def to_dict(self) -> dict:
-        """Serialize this evaluation result to a JSON-safe dictionary.
+        """Return a JSON-safe dictionary of this evaluation result.
 
-        NumPy arrays and scalars within nested [ModelResult][SRToolkit.utils.types.ModelResult] entries are
-        converted to native Python types so the result can be passed directly
-        to ``json.dump``. Besides the stored fields, the dictionary contains the derived summary
-        values (``min_error``, ``best_expr``, ``success``, ``num_evaluated``, ``evaluation_calls``,
-        ``status_counts`` per unique expression) for reading the file directly; [from_dict][SRToolkit.utils.types.EvalResult.from_dict]
-        ignores them.
+        The dictionary can be passed to ``json.dump``. After a JSON round trip,
+        [from_dict][SRToolkit.utils.types.EvalResult.from_dict] restores every field exactly
+        (including ``metadata``, ``augmentations`` and each model, see
+        [ModelResult.to_dict][SRToolkit.utils.types.ModelResult.to_dict]), as guaranteed by
+        [serialization][SRToolkit.utils.serialization]. The one exception is that numpy scalars come
+        back as Python scalars.
+
+        Returns:
+            A dictionary with ``"format_version": 2`` and one entry per field. It also holds the
+            derived summaries ``min_error``, ``best_expr``, ``success``, ``num_evaluated``,
+            ``evaluation_calls`` and ``status_counts`` (per unique expression), for reading the file
+            directly. ``from_dict`` ignores them. ``min_error`` is ``nan`` for a result without
+            models, which ``json`` writes as the non-standard token ``NaN``.
+
+        Raises:
+            TypeError: If ``metadata`` or ``augmentations`` contain a value that cannot be saved,
+                or a model's ``to_dict`` raises (see
+                [ModelResult.to_dict][SRToolkit.utils.types.ModelResult.to_dict]). The
+                message gives its full path, e.g. ``all_models[3].ranking_data['z']``.
 
         Examples:
             >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0, 0], approach_name="MyApproach")
             >>> d = result.to_dict()
-            >>> d["min_error"]
-            0.05
-            >>> d["trace"]
-            [0, 0]
-            >>> d["approach_name"]
-            'MyApproach'
-
-        Returns:
-            A JSON-safe dictionary suitable for passing to [from_dict][SRToolkit.utils.types.EvalResult.from_dict].
-
-        Raises:
-            TypeError: If the augmentations, or a model's ranking data or augmentations, contain a
-                value that cannot be saved (see [serialization][SRToolkit.utils.serialization]); the message
-                names its location.
+            >>> d["trace"], d["min_error"]
+            ([0, 0], 0.05)
         """
         return {
             "format_version": 2,
@@ -645,37 +626,34 @@ class EvalResult:
             "dataset_name": self.dataset_name,
             "success_threshold": None if self.success_threshold is None else float(self.success_threshold),
             "top_k": int(self.top_k),
-            "metadata": self.metadata,
-            "wall_time": self.wall_time,
-            "augmentations": _to_json_safe(self.augmentations),
+            "metadata": _to_json_safe(self.metadata, "metadata"),
+            "wall_time": None if self.wall_time is None else float(self.wall_time),
+            "augmentations": _to_json_safe(self.augmentations, "augmentations"),
             "trace": [int(i) for i in self.trace],
-            "all_models": [m.to_dict() for m in self.all_models],
+            "all_models": [m._to_dict(f"all_models[{i}].") for i, m in enumerate(self.all_models)],
         }
 
-    @staticmethod
-    def from_dict(data: dict) -> "EvalResult":
-        """Reconstruct an [EvalResult][SRToolkit.utils.types.EvalResult] from a dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict].
-
-        Examples:
-            >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0], approach_name="MyApproach")
-            >>> result2 = EvalResult.from_dict(result.to_dict())
-            >>> result2.min_error
-            0.05
-            >>> result2.best_expr
-            'X_0'
-            >>> result2.trace
-            [0]
+    @classmethod
+    def from_dict(cls, data: dict) -> "EvalResult":
+        """Reconstruct an [EvalResult][SRToolkit.utils.types.EvalResult] from the output of [to_dict][SRToolkit.utils.types.EvalResult.to_dict].
 
         Args:
-            data: Dictionary representation of an [EvalResult][SRToolkit.utils.types.EvalResult], as produced
-                by [to_dict][SRToolkit.utils.types.EvalResult.to_dict].
+            data: Dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict],
+                possibly after a JSON round trip. Unknown keys are ignored; other malformed
+                input has undefined behaviour.
 
         Returns:
             The reconstructed [EvalResult][SRToolkit.utils.types.EvalResult].
 
         Raises:
-            ValueError: If ``format_version`` is not ``2``. Results saved before the evaluation
-                trace was recorded have no ``format_version`` and cannot be loaded.
+            ValueError: If ``format_version`` is not ``2`` (results saved before the evaluation
+                trace was recorded have none), or if a model cannot be loaded (see
+                [ModelResult.from_dict][SRToolkit.utils.types.ModelResult.from_dict]).
+
+        Examples:
+            >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0], approach_name="MyApproach")
+            >>> EvalResult.from_dict(result.to_dict()).best_expr
+            'X_0'
         """
         fmt = data.get("format_version")
         if fmt != 2:
@@ -686,14 +664,14 @@ class EvalResult:
                     "delete the old result files first, since existing files count as completed jobs."
                 )
             raise ValueError(f"[EvalResult.from_dict] Unsupported format_version: {fmt!r}. Expected 2.")
-        return EvalResult(
+        return cls(
             all_models=[ModelResult.from_dict(m) for m in data["all_models"]],
             trace=list(data["trace"]),
             approach_name=data["approach_name"],
-            success_threshold=data.get("success_threshold"),
-            top_k=data.get("top_k", 20),
-            dataset_name=data.get("dataset_name"),
-            metadata=data.get("metadata"),
-            wall_time=data.get("wall_time"),
+            success_threshold=data["success_threshold"],
+            top_k=data["top_k"],
+            dataset_name=data["dataset_name"],
+            metadata=_from_json_safe(data["metadata"]),
+            wall_time=data["wall_time"],
             augmentations=_from_json_safe(data["augmentations"]),
         )

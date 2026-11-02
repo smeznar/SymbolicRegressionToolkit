@@ -1,4 +1,9 @@
+"""Spec tests for SRToolkit.utils.types (constants, RankingSettings, ModelResult, EvalResult)."""
+
 import json
+import math
+import re
+import typing
 
 import numpy as np
 import pytest
@@ -20,494 +25,555 @@ from SRToolkit.utils.types import (
     EvalResult,
     ModelResult,
     RankingSettings,
+    Status,
 )
 
+INF = float("inf")
+NAN = float("nan")
 
-class TestSymbolTypeConstants:
-    def test_constant_values(self):
-        assert VAR == "var"
-        assert CONST == "const"
-        assert FN == "fn"
-        assert OP == "op"
-        assert LIT == "lit"
 
-    def test_valid_symbol_types_contains_all_constants(self):
+def M(expr, error, status="ok", **kwargs):
+    """A ModelResult; ``expr`` is a token list."""
+    return ModelResult(expr=list(expr), error=error, status=status, **kwargs)
+
+
+def F(expr=("X_0", "X_1")):
+    """A failed model: invalid expression with error +inf."""
+    return ModelResult(expr=list(expr), error=INF, status="invalid")
+
+
+def R(models, trace, **kwargs):
+    return EvalResult(all_models=models, trace=trace, approach_name=kwargs.pop("approach_name", ""), **kwargs)
+
+
+def json_round_trip(obj):
+    return type(obj).from_dict(json.loads(json.dumps(obj.to_dict())))
+
+
+# ---------------------------------------------------------------------------------------------
+# Constants and RankingSettings
+# ---------------------------------------------------------------------------------------------
+
+
+class TestConstants:
+    def test_valid_symbol_types_is_exactly_the_five_types(self):
         assert VALID_SYMBOL_TYPES == {VAR, CONST, FN, OP, LIT}
+        assert len(VALID_SYMBOL_TYPES) == 5
 
-    def test_valid_symbol_types_is_set(self):
-        assert isinstance(VALID_SYMBOL_TYPES, set)
-
-
-class TestPrecedenceConstants:
-    def test_operator_levels_ordered(self):
-        assert OP_ADDITIVE < OP_MULTIPLICATIVE < OP_POWER
-
-    def test_operator_levels_values(self):
-        assert OP_ADDITIVE == 100
-        assert OP_MULTIPLICATIVE == 200
-        assert OP_POWER == 300
-
-    def test_fn_prefix_above_all_ops(self):
-        assert FN_PREFIX > OP_POWER
-
-    def test_fn_postfix_below_zero(self):
+    def test_precedence_levels_are_ordered(self):
+        assert OP_ADDITIVE < OP_MULTIPLICATIVE < OP_POWER < FN_PREFIX
+        assert OP_POWER < LEAF
         assert FN_POSTFIX < 0
-
-    def test_fn_postfix_distinct_from_get_precedence_fallback(self):
         assert FN_POSTFIX != -1
 
-    def test_leaf_above_all_ops(self):
-        assert LEAF > OP_POWER
-
-    def test_fn_prefix_equals_leaf(self):
-        assert FN_PREFIX == LEAF
+    def test_statuses_match_status_literal_in_order(self):
+        assert STATUSES == typing.get_args(Status)
 
 
 class TestRankingSettings:
-    EXPECTED_FIELDS = {
-        "method",
-        "tol",
-        "gtol",
-        "max_iter",
-        "constant_bounds",
-        "initialization",
-        "max_constants",
-        "max_expr_length",
-        "num_points_sampled",
-        "samplers",
-        "bed_gt",
-        "ranking_seed",
-        "bed_resample",
-        "num_consts_sampled",
-        "backend",
-    }
-
-    def test_all_fields_in_annotations(self):
-        assert self.EXPECTED_FIELDS == set(RankingSettings.__annotations__.keys())
-
-    def test_all_fields_optional(self):
+    def test_ranking_settings_keys_are_the_documented_optional_keys(self):
+        documented = {
+            "method",
+            "tol",
+            "gtol",
+            "max_iter",
+            "constant_bounds",
+            "initialization",
+            "max_constants",
+            "max_expr_length",
+            "backend",
+            "num_points_sampled",
+            "samplers",
+            "bed_gt",
+            "ranking_seed",
+            "bed_resample",
+            "num_consts_sampled",
+        }
+        assert RankingSettings.__optional_keys__ == documented
         assert RankingSettings.__required_keys__ == frozenset()
-        assert self.EXPECTED_FIELDS == set(RankingSettings.__optional_keys__)
-
-    def test_dict_interface(self):
-        settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
-        assert settings.get("method") == "L-BFGS-B"
-        assert settings.get("tol", 1e-6) == 1e-6
 
 
-class TestModelResultConstruction:
-    def test_default_fields(self):
-        result = ModelResult(expr=["X_0"], error=0.1)
-        assert result.parameters is None
-        # Each instance must get its own dict, not a shared default
-        result2 = ModelResult(expr=["X_1"], error=0.2)
-        result.augmentations["key"] = {}
-        assert "key" not in result2.augmentations
+# ---------------------------------------------------------------------------------------------
+# ModelResult
+# ---------------------------------------------------------------------------------------------
 
 
-class TestModelResultAddAugmentation:
-    def test_stores_data_and_injects_type(self):
-        result = ModelResult(expr=["X_0"], error=0.1)
-        result.add_augmentation("latex", {"value": "$X_0$"}, "LaTeXAugmenter")
-        assert "latex" in result.augmentations
-        assert result.augmentations["latex"]["value"] == "$X_0$"
-        assert result.augmentations["latex"]["_type"] == "LaTeXAugmenter"
+class TestModelResult:
+    def test_model_result_defaults_and_independent_containers(self):
+        a = ModelResult(expr=["X_0"], error=0.1)
+        b = ModelResult(expr=["X_1"], error=0.2)
+        assert a.parameters is None
+        assert a.ranking_data == {}
+        assert a.augmentations == {}
+        assert a.status == "ok"
+        assert a.status_detail is None
+        a.ranking_data["k"] = 1
+        a.augmentations["k"] = {}
+        assert b.ranking_data == {}
+        assert b.augmentations == {}
 
-    def test_duplicate_key_gets_suffix(self):
-        result = ModelResult(expr=["X_0"], error=0.1)
-        result.add_augmentation("latex", {"value": "$X_0$"}, "LaTeXAugmenter")
-        result.add_augmentation("latex", {"value": "$X_1$"}, "LaTeXAugmenter")
-        assert "latex" in result.augmentations
-        assert "latex_1" in result.augmentations
-        assert result.augmentations["latex_1"]["value"] == "$X_1$"
+    def test_model_result_json_round_trip_restores_every_field(self):
+        model = ModelResult(
+            expr=["C", "*", "X_0", "+", "C"],
+            error=INF,
+            parameters=np.array([1.5, -2.0], dtype=np.float32),
+            ranking_data={"t": (1, 2), 3: np.arange(4).reshape(2, 2)},
+            augmentations={"aug": {"value": "s", "_type": "Aug"}},
+            status="undefined",
+            status_detail="nan score",
+        )
+        back = json_round_trip(model)
+        assert back.expr == ["C", "*", "X_0", "+", "C"]
+        assert back.error == INF
+        assert back.parameters.dtype == np.float32
+        assert back.parameters.shape == (2,)
+        np.testing.assert_array_equal(back.parameters, [1.5, -2.0])
+        assert type(back.ranking_data["t"]) is tuple
+        assert back.ranking_data["t"] == (1, 2)
+        assert list(back.ranking_data) == ["t", 3]
+        assert back.ranking_data[3].dtype == np.arange(4).dtype
+        np.testing.assert_array_equal(back.ranking_data[3], [[0, 1], [2, 3]])
+        assert back.augmentations == {"aug": {"value": "s", "_type": "Aug"}}
+        assert back.status == "undefined"
+        assert back.status_detail == "nan score"
 
-    def test_multiple_duplicates_increment_counter(self):
-        result = ModelResult(expr=["X_0"], error=0.1)
-        result.add_augmentation("latex", {"value": "a"}, "LaTeXAugmenter")
-        result.add_augmentation("latex", {"value": "b"}, "LaTeXAugmenter")
-        result.add_augmentation("latex", {"value": "c"}, "LaTeXAugmenter")
-        assert "latex" in result.augmentations
-        assert "latex_1" in result.augmentations
-        assert "latex_2" in result.augmentations
-        assert result.augmentations["latex_2"]["value"] == "c"
+    def test_model_result_numpy_scalars_come_back_as_python_scalars(self):
+        model = ModelResult(expr=["X_0"], error=np.float64(0.25), ranking_data={"n": np.int64(3)})
+        back = json_round_trip(model)
+        assert type(back.error) is float
+        assert back.error == 0.25
+        assert type(back.ranking_data["n"]) is int
+        assert back.ranking_data["n"] == 3
 
-    def test_different_names_do_not_collide(self):
-        result = ModelResult(expr=["X_0"], error=0.1)
-        result.add_augmentation("foo", {"x": 1}, "A")
-        result.add_augmentation("bar", {"x": 2}, "B")
-        assert len(result.augmentations) == 2
-
-
-class TestModelResultToDict:
-    def test_basic_serialization(self):
-        result = ModelResult(expr=["X_0", "+", "C"], error=0.25)
-        d = result.to_dict()
-        assert d["expr"] == ["X_0", "+", "C"]
-        assert d["error"] == 0.25
-        assert isinstance(d["error"], float)
-        assert d["parameters"] is None
-        assert d["augmentations"] == {}
-
-    def test_numpy_parameters_serialized(self):
-        params = np.array([1.5, -2.0])
-        result = ModelResult(expr=["C", "*", "X_0", "+", "C"], error=np.float64(0.1))
-        result.parameters = params
-        d = result.to_dict()
-        assert isinstance(d["error"], float)
-        assert d["parameters"] == {"__ndarray__": True, "dtype": "float64", "shape": [2], "data": [1.5, -2.0]}
-
-
-class TestModelResultFromDict:
-    def test_round_trip_with_parameters(self):
-        params = np.array([1.5, -2.0])
-        original = ModelResult(expr=["C", "*", "X_0"], error=0.42, parameters=params)
-        original.add_augmentation("latex", {"value": "$C X_0$"}, "LaTeXAugmenter")
-
-        restored = ModelResult.from_dict(original.to_dict())
-
-        assert restored.expr == ["C", "*", "X_0"]
-        assert restored.error == 0.42
-        assert isinstance(restored.parameters, np.ndarray)
-        assert np.array_equal(restored.parameters, params)
-        assert restored.augmentations["latex"]["value"] == "$C X_0$"
-        assert restored.augmentations["latex"]["_type"] == "LaTeXAugmenter"
-
-    def test_round_trip_status(self):
-        original = ModelResult(expr=["X_0", "X_1"], error=np.inf, status="invalid", status_detail="bad")
-        restored = ModelResult.from_dict(json.loads(json.dumps(original.to_dict())))
-        assert (restored.status, restored.status_detail, restored.error) == ("invalid", "bad", np.inf)
-
-    def test_missing_status_raises(self):
+    @pytest.mark.parametrize(
+        "mutate",
+        [
+            lambda d: d.pop("status"),
+            lambda d: d.update(status="bogus"),
+        ],
+        ids=["missing", "bogus"],
+    )
+    def test_model_result_from_dict_rejects_bad_status(self, mutate):
         data = ModelResult(expr=["X_0"], error=0.1).to_dict()
-        del data["status"]
-        with pytest.raises(ValueError, match="without an evaluation status"):
+        mutate(data)
+        with pytest.raises(ValueError, match="status"):
             ModelResult.from_dict(data)
 
 
-def _make_eval_result(**kwargs):
-    model = ModelResult(expr=["X_0"], error=0.05)
-    defaults = dict(
-        all_models=[model],
-        trace=[0, 0],
-        approach_name="TestApproach",
-        success_threshold=0.1,
+# ---------------------------------------------------------------------------------------------
+# Shared behaviour of ModelResult and EvalResult
+# ---------------------------------------------------------------------------------------------
+
+FACTORIES = [
+    pytest.param(lambda: ModelResult(expr=["X_0"], error=0.1), id="ModelResult"),
+    pytest.param(lambda: R([M(["X_0"], 0.1)], [0]), id="EvalResult"),
+]
+
+
+class TestAddAugmentation:
+    @pytest.mark.parametrize("make", FACTORIES)
+    def test_add_augmentation_stores_typed_entry_under_first_free_key(self, make):
+        result = make()
+        result.add_augmentation("a", {"v": 1, "_type": "old"}, "T")
+        result.add_augmentation("a_3", {"v": 2}, "T")
+        result.add_augmentation("a", {"v": 3}, "U")
+        result.add_augmentation("a", {"v": 4}, "U")
+        result.add_augmentation("a", {"v": 5}, "U")
+        # first free key among a_1, a_2, ...: a_1, a_2, then a_4 because a_3 is taken
+        assert list(result.augmentations) == ["a", "a_3", "a_1", "a_2", "a_4"]
+        assert result.augmentations["a"] == {"v": 1, "_type": "T"}
+        assert result.augmentations["a_3"] == {"v": 2, "_type": "T"}
+        assert result.augmentations["a_1"] == {"v": 3, "_type": "U"}
+        assert result.augmentations["a_4"] == {"v": 5, "_type": "U"}
+
+    @pytest.mark.parametrize("make", FACTORIES)
+    def test_add_augmentation_stores_shallow_copy_and_does_not_modify_caller_dict(self, make):
+        result = make()
+        nested = [1]
+        data = {"v": 1, "nested": nested}
+        result.add_augmentation("a", data, "T")
+        assert data == {"v": 1, "nested": [1]}
+        data["v"] = 2
+        assert result.augmentations["a"]["v"] == 1
+        assert result.augmentations["a"]["nested"] is nested
+
+
+def _mr(**kwargs):
+    return ModelResult(expr=["X_0"], error=0.1, **kwargs)
+
+
+def _er(models=None, **kwargs):
+    models = models if models is not None else [M(["X_0"], 0.1)]
+    return R(models, list(range(len(models))), **kwargs)
+
+
+def _er_bad_model():
+    return _er([M(["X_0"], 0.1), M(["X_1"], 0.2), M(["X_2"], 0.3), M(["X_3"], 0.4, ranking_data={"z": {1}})])
+
+
+class TestToDictErrors:
+    @pytest.mark.parametrize(
+        "make, type_name",
+        [
+            (lambda: _mr(parameters=np.array([1j])), "complex"),
+            (lambda: _mr(ranking_data={"z": {1}}), "set"),
+            (lambda: _mr(augmentations={"a": {"v": b"x", "_type": "T"}}), "bytes"),
+            (lambda: _er(augmentations={"a": {"v": {1}, "_type": "T"}}), "set"),
+            (_er_bad_model, "set"),
+        ],
+        ids=[
+            "MR-parameters-complex",
+            "MR-ranking_data-set",
+            "MR-augmentations-bytes",
+            "ER-augmentations-set",
+            "ER-model-ranking_data-set",
+        ],
     )
-    defaults.update(kwargs)
-    return EvalResult(**defaults)
+    def test_to_dict_raises_type_error_for_unsaveable_value(self, make, type_name):
+        with pytest.raises(TypeError, match=type_name):
+            make().to_dict()
+
+    @pytest.mark.parametrize(
+        "make, path",
+        [
+            (lambda: _mr(parameters=np.array([1j])), "parameters"),
+            (lambda: _mr(ranking_data={"z": {1}}), "ranking_data['z']"),
+            (lambda: _mr(augmentations={"a": {"v": b"x", "_type": "T"}}), "augmentations['a']['v']"),
+            (lambda: _er(augmentations={"a": {"v": {1}, "_type": "T"}}), "augmentations['a']['v']"),
+            (lambda: _er(metadata={"m": {1}}), "metadata['m']"),
+            (_er_bad_model, "all_models[3].ranking_data['z']"),
+        ],
+        ids=[
+            "MR-parameters",
+            "MR-ranking_data",
+            "MR-augmentations",
+            "ER-augmentations",
+            "ER-metadata",
+            "ER-model-ranking_data",
+        ],
+    )
+    def test_to_dict_type_error_names_full_path(self, make, path):
+        # Anchored: the path must be the whole location, not just a suffix of it.
+        with pytest.raises(TypeError, match=rf" at {re.escape(path)}\.$"):
+            make().to_dict()
 
 
-def _models(*errors):
-    return [ModelResult(expr=[f"X_{i}"], error=e) for i, e in enumerate(errors)]
+# ---------------------------------------------------------------------------------------------
+# EvalResult: construction and derived summaries
+# ---------------------------------------------------------------------------------------------
 
 
-class TestEvalResultConstruction:
-    def test_default_fields(self):
-        result = _make_eval_result()
+class TestEvalResultSummaries:
+    def test_eval_result_defaults(self):
+        result = R([], [])
+        assert result.success_threshold is None
+        assert result.top_k == 20
         assert result.dataset_name is None
         assert result.metadata is None
-        assert result.top_k == 20
-        # Each instance must get its own augmentations dict
-        result2 = _make_eval_result()
-        result.augmentations["key"] = {}
-        assert "key" not in result2.augmentations
+        assert result.wall_time is None
+        assert result.augmentations == {}
 
+    def test_num_evaluated_and_evaluation_calls(self):
+        # model 3 is never referenced by the trace but still counts as evaluated
+        models = [M(["X_0"], 0.1), M(["X_1"], 0.2), M(["X_2"], 0.3), M(["X_3"], 0.4)]
+        result = R(models, [0, 1, 0, 2, 2])
+        assert result.num_evaluated == 4
+        assert result.evaluation_calls == 5
 
-class TestEvalResultDerivedFields:
-    def test_counts(self):
-        result = _make_eval_result(all_models=_models(0.3, 0.2), trace=[0, 1, 0, 0])
-        assert result.num_evaluated == 2
-        assert result.evaluation_calls == 4
+    def test_top_models_sorted_by_error_failed_last(self):
+        models = [M(["X_0"], 0.5), F(), M(["X_1"], 0.1), M(["X_2"], 0.3)]
+        result = R(models, [0, 1, 2, 3])
+        assert result.top_models(-1) == [models[2], models[3], models[0], models[1]]
 
-    def test_best_and_success(self):
-        result = _make_eval_result(all_models=_models(0.3, 0.05, 0.2), trace=[0, 1, 2])
-        assert result.min_error == 0.05
-        assert result.best_expr == "X_1"
-        assert result.success is True
-
-    def test_success_false_above_threshold_or_without_threshold(self):
-        assert _make_eval_result(all_models=_models(0.5), trace=[0]).success is False
-        assert _make_eval_result(success_threshold=None).success is False
-
-    def test_top_models_sorted_stable_nan_last(self):
-        result = _make_eval_result(all_models=_models(np.nan, 0.2, 0.1, 0.2), trace=[0, 1, 2, 3])
-        assert [m.expr for m in result.top_models()] == [["X_2"], ["X_1"], ["X_3"], ["X_0"]]
-
-    def test_ties_broken_by_length_then_first_seen(self):
+    def test_top_models_ties_by_length_then_first_evaluated(self):
+        # error decides, not status: the "rejected" model with a finite error ranks by error
         models = [
-            ModelResult(expr=["X_0", "+", "X_1"], error=0.1),
-            ModelResult(expr=["X_1", "+", "X_0"], error=0.1),
-            ModelResult(expr=["X_0"], error=0.1),
-            ModelResult(expr=["C"], error=0.05),
+            M(["X_0", "+", "X_1"], 0.1),
+            M(["X_0"], 0.1),
+            M(["X_1"], 0.1),
+            M(["X_0", "X_1", "X_2"], INF, status="invalid"),
+            M(["X_0", "X_1"], NAN, status="undefined"),
+            M(["X_1", "X_0"], INF, status="error"),
+            M(["X_2"], 0.05, status="rejected"),
         ]
-        result = _make_eval_result(all_models=models, trace=[0, 1, 2, 3])
-        assert [m.expr for m in result.top_models()] == [
-            ["C"],
-            ["X_0"],
-            ["X_0", "+", "X_1"],
-            ["X_1", "+", "X_0"],
-        ]
+        result = R(models, list(range(7)))
+        expected = [models[6], models[1], models[2], models[0], models[4], models[5], models[3]]
+        assert [id(m) for m in result.top_models(-1)] == [id(m) for m in expected]
 
-    def test_length_does_not_override_error(self):
-        models = [ModelResult(expr=["X_0"], error=0.2), ModelResult(expr=["X_0", "+", "C"], error=0.1)]
-        assert _make_eval_result(all_models=models, trace=[0, 1]).best_expr == "X_0+C"
+    @pytest.mark.parametrize(
+        "top_k, k, expected",
+        [
+            (2, None, [1, 2]),
+            (0, None, []),
+            (2, 0, []),
+            (2, -1, [1, 2, 0]),
+            (2, 10, [1, 2, 0]),
+            (2, 1, [1]),
+        ],
+        ids=["default-top_k", "top_k-zero", "k-zero", "k-negative", "k-too-large", "k-one"],
+    )
+    def test_top_models_k(self, top_k, k, expected):
+        models = [M(["X_0"], 0.3), M(["X_1"], 0.1), M(["X_2"], 0.2)]
+        result = R(models, [0, 1, 2], top_k=top_k)
+        assert result.top_models(k) == [models[i] for i in expected]
 
-    def test_top_models_respects_top_k(self):
-        models = _models(0.3, 0.1, 0.2)
-        assert [m.expr for m in _make_eval_result(all_models=models, trace=[0], top_k=2).top_models()] == [
-            ["X_1"],
-            ["X_2"],
-        ]
-        assert len(_make_eval_result(all_models=models, trace=[0], top_k=-1).top_models()) == 3
-        assert len(_make_eval_result(all_models=models, trace=[0], top_k=10).top_models()) == 3
+    def test_summaries_follow_appended_models(self):
+        models = [M(["X_0"], 0.5)]
+        result = R(models, [0])
+        assert result.min_error == 0.5
+        new = M(["X_1"], 0.1)
+        result.all_models.append(new)
+        result.trace.append(1)
+        assert result.min_error == 0.1
+        assert result.best_expr == "X_1"
+        assert result.top_models(1)[0] is new
 
-    def test_top_models_k_overrides_top_k(self):
-        result = _make_eval_result(all_models=_models(0.3, 0.1, 0.2), trace=[0], top_k=1)
-        assert [m.expr for m in result.top_models(2)] == [["X_1"], ["X_2"]]
-        assert len(result.top_models(k=-1)) == 3
-        assert result.top_models(0) == []
-        assert len(result.top_models()) == 1
+    @pytest.mark.parametrize(
+        "models, expected",
+        [
+            ([], NAN),
+            ([F(), F()], INF),
+            ([M(["X_0", "X_1"], INF, status="invalid"), M(["X_0"], NAN, status="undefined")], NAN),
+            ([F(), M(["X_0"], 0.5), M(["X_1"], 0.1)], 0.1),
+        ],
+        ids=["empty", "all-inf", "all-failed-shorter-nan-ranks-first", "mixed"],
+    )
+    def test_min_error(self, models, expected):
+        result = R(models, list(range(len(models))))
+        np.testing.assert_equal(result.min_error, expected)
 
-    def test_top_models_are_shared_objects(self):
-        result = _make_eval_result(all_models=_models(0.3, 0.1), trace=[0, 1])
-        assert result.top_models()[0] is result.all_models[1]
+    @pytest.mark.parametrize(
+        "models, expected",
+        [
+            ([], ""),
+            ([M(["X_0"], 0.5), M(["C", "*", "X_0"], 0.05)], "C*X_0"),
+        ],
+        ids=["empty", "best"],
+    )
+    def test_best_expr(self, models, expected):
+        assert R(models, list(range(len(models)))).best_expr == expected
 
-    def test_top_models_follow_appended_models(self):
-        result = _make_eval_result(all_models=_models(0.3), trace=[0])
-        _ = result.top_models()
-        result.all_models.append(ModelResult(expr=["C"], error=0.01))
-        assert result.best_expr == "C"
+    @pytest.mark.parametrize(
+        "errors, threshold, expected",
+        [
+            ([0.05], 0.1, True),
+            ([0.1], 0.1, False),
+            ([0.2], 0.1, False),
+            ([0.05], None, False),
+            ([0.05], NAN, False),
+            ([], 0.1, False),
+        ],
+        ids=["below", "equal", "above", "no-threshold", "nan-threshold", "empty"],
+    )
+    def test_success(self, errors, threshold, expected):
+        models = [M([f"X_{i}"], e) for i, e in enumerate(errors)]
+        assert R(models, list(range(len(models))), success_threshold=threshold).success is expected
 
-    def test_all_nan(self):
-        result = _make_eval_result(all_models=_models(np.nan, np.nan), trace=[0, 1])
-        assert np.isnan(result.min_error)
-        assert result.best_expr == "X_0"
-        assert result.success is False
 
-    def test_empty(self):
-        result = _make_eval_result(all_models=[], trace=[])
-        assert np.isnan(result.min_error)
-        assert result.best_expr == ""
-        assert result.success is False
-        assert result.top_models() == []
-        assert result.evaluation_calls == 0
+# ---------------------------------------------------------------------------------------------
+# EvalResult: trace-based metrics
+# ---------------------------------------------------------------------------------------------
 
 
 class TestEvalResultTrace:
-    def test_best_so_far_strict_improvements_skip_nan(self):
-        result = _make_eval_result(all_models=_models(np.nan, 0.5, 0.5, 0.1), trace=[0, 1, 2, 1, 3, 0])
-        assert result.best_so_far() == [(2, 1), (5, 3)]
+    def test_best_so_far_records_strict_improvements(self):
+        models = [M(["X_0", "+", "C"], 0.5), F(), M(["C", "*", "X_0"], 0.2), M(["C"], 0.2)]
+        result = R(models, [1, 0, 0, 2, 3])
+        assert result.best_so_far() == [(2, 0), (4, 2)]
+        assert result.top_models(1)[0] is models[3]
 
-    def test_best_so_far_skips_inf(self):
-        result = _make_eval_result(all_models=_models(np.inf, 1.0), trace=[0, 1])
-        assert result.best_so_far() == [(2, 1)]
+    @pytest.mark.parametrize(
+        "models, trace",
+        [([], []), ([F(), M(["X_0"], NAN, status="undefined")], [0, 1, 0])],
+        ids=["no-models", "all-failed"],
+    )
+    def test_best_so_far_empty(self, models, trace):
+        assert R(models, trace).best_so_far() == []
 
-    def test_best_so_far_empty(self):
-        assert _make_eval_result(all_models=[], trace=[]).best_so_far() == []
+    @pytest.mark.parametrize(
+        "threshold, expected",
+        [(None, 4), (0.6, 1), (0.5, 4), (0.001, None), (NAN, None)],
+        ids=["success_threshold", "explicit-overrides", "strictly-below", "never", "nan"],
+    )
+    def test_calls_to_threshold(self, threshold, expected):
+        models = [M(["X_0"], 0.5), M(["X_1"], INF, status="rejected"), M(["C"], 0.01)]
+        result = R(models, [0, 1, 0, 2, 2], success_threshold=0.1)
+        assert result.calls_to_threshold(threshold) == expected
 
-    def test_calls_to_threshold_uses_success_threshold(self):
-        result = _make_eval_result(all_models=_models(0.5, 0.05), trace=[0, 0, 0, 1, 1])
-        assert result.calls_to_threshold() == 4
-
-    def test_calls_to_threshold_explicit_threshold(self):
-        result = _make_eval_result(all_models=_models(0.5, 0.05), trace=[0, 0, 0, 1, 1])
-        assert result.calls_to_threshold(threshold=1.0) == 1
-        assert result.calls_to_threshold(threshold=0.01) is None
+    def test_calls_to_threshold_skips_failed_models(self):
+        models = [M(["X_0"], -INF, status="undefined"), M(["C"], 0.01)]
+        assert R(models, [0, 1]).calls_to_threshold(0.1) == 2
 
     def test_calls_to_threshold_without_threshold_raises(self):
-        result = _make_eval_result(success_threshold=None)
-        with pytest.raises(ValueError):
+        result = R([M(["X_0"], 0.5)], [0])
+        with pytest.raises(ValueError, match="threshold"):
             result.calls_to_threshold()
 
-    def test_best_error_within_budgets(self):
-        result = _make_eval_result(all_models=_models(np.nan, 0.5, 0.1), trace=[0, 1, 0, 2])
-        curve = result.best_error_within([0, 1, 2, 3, 4, 100])
-        np.testing.assert_array_equal(curve, [np.nan, np.nan, 0.5, 0.5, 0.1, 0.1])
+    @pytest.mark.parametrize(
+        "models, trace, budgets, expected",
+        [
+            (
+                [F(), M(["X_1"], 0.5), M(["C"], 0.1)],
+                [0, 1, 1, 2],
+                [-1, 0, 1, 2, 3, 4, 100],
+                [NAN, NAN, NAN, 0.5, 0.5, 0.1, 0.1],
+            ),
+            (
+                [F(), M(["X_1"], 0.5), M(["C"], 0.1)],
+                [0, 1, 1, 2],
+                np.array([4, 1, 2], dtype=np.int64),
+                [0.1, NAN, 0.5],
+            ),
+            ([M(["X_1"], 0.5)], [0], [1, 2], [0.5, 0.5]),
+            ([F(), M(["X_1"], 0.5)], [0, 1], [], np.empty(0)),
+            ([], [], [1, 5], [NAN, NAN]),
+        ],
+        ids=["budgets", "unsorted-numpy-ints", "single-call", "no-budgets", "no-models"],
+    )
+    def test_best_error_within(self, models, trace, budgets, expected):
+        out = R(models, trace).best_error_within(budgets)
+        assert out.shape == (len(expected),)
+        np.testing.assert_array_equal(out, expected)
 
-    def test_best_error_within_empty_trace(self):
-        curve = _make_eval_result(all_models=[], trace=[]).best_error_within([1, 5])
-        assert np.all(np.isnan(curve))
-
-
-def _status_models(*statuses):
-    return [
-        ModelResult(expr=[f"X_{i}"], error=0.1 * (i + 1) if st == "ok" else np.inf, status=st)
-        for i, st in enumerate(statuses)
-    ]
-
-
-class TestEvalResultStatuses:
     def test_status_counts_unique_and_call(self):
-        result = _make_eval_result(all_models=_status_models("ok", "invalid", "error"), trace=[0, 1, 1, 2])
-        assert result.status_counts() == {"ok": 1, "invalid": 1, "rejected": 0, "undefined": 0, "error": 1}
-        assert result.status_counts(per="call") == {"ok": 1, "invalid": 2, "rejected": 0, "undefined": 0, "error": 1}
-        assert list(result.status_counts()) == list(STATUSES)
+        models = [
+            M(["X_0"], 0.5),
+            M(["X_0", "X_1"], INF, status="invalid"),
+            M(["X_1", "X_0"], INF, status="invalid"),
+            M(["X_1"], INF, status="error"),
+        ]
+        result = R(models, [0, 1, 1, 2, 3, 3, 3])
+        unique = result.status_counts()
+        assert unique == {"ok": 1, "invalid": 2, "rejected": 0, "undefined": 0, "error": 1}
+        assert list(unique) == list(STATUSES)
+        assert result.status_counts(per="call") == {"ok": 1, "invalid": 3, "rejected": 0, "undefined": 0, "error": 3}
 
-    def test_status_counts_bad_per_raises(self):
-        with pytest.raises(ValueError, match="per must be"):
-            _make_eval_result().status_counts(per="model")  # type: ignore[arg-type]
-
-    # Tests for EvalResult.validity_rate, which is commented out in SRToolkit/utils/types.py.
-    #
-    # def test_validity_rate_counts_rejected_and_undefined_as_valid(self):
-    #     result = _make_eval_result(
-    #         all_models=_status_models("ok", "rejected", "undefined", "invalid"), trace=[0, 1, 2, 3]
-    #     )
-    #     assert result.validity_rate() == 0.75
-    #
-    # def test_validity_rate_excludes_error(self):
-    #     result = _make_eval_result(all_models=_status_models("ok", "invalid", "error", "error"), trace=[0, 1, 2, 3])
-    #     assert result.validity_rate() == 0.5
-    #
-    # def test_validity_rate_per_call(self):
-    #     result = _make_eval_result(all_models=_status_models("ok", "invalid"), trace=[0, 1, 1, 1])
-    #     assert result.validity_rate(per="call") == 0.25
-    #
-    # def test_validity_rate_nan_without_countable_models(self):
-    #     assert np.isnan(_make_eval_result(all_models=[], trace=[]).validity_rate())
-    #     assert np.isnan(_make_eval_result(all_models=_status_models("error"), trace=[0]).validity_rate())
-
-    def test_failed_models_rank_last(self):
-        models = _status_models("invalid", "ok", "undefined", "ok")
-        result = _make_eval_result(all_models=models, trace=[0, 1, 2, 3])
-        assert [m.status for m in result.top_models(k=-1)] == ["ok", "ok", "invalid", "undefined"]
-        assert result.best_expr == "X_1"
-
-    def test_inf_and_nan_rank_after_finite(self):
-        result = _make_eval_result(all_models=_models(np.nan, np.inf, 0.3), trace=[0, 1, 2])
-        assert result.top_models(k=-1)[0].error == 0.3
-
-    def test_min_error_inf_when_all_failed(self):
-        result = _make_eval_result(all_models=_status_models("invalid", "rejected"), trace=[0, 1])
-        assert result.min_error == np.inf
-        assert result.success is False
-
-    def test_best_error_within_ignores_inf(self):
-        result = _make_eval_result(all_models=_models(np.inf, 0.5), trace=[0, 1])
-        assert np.isnan(result.best_error_within([1])[0])
-        assert result.best_error_within([2])[0] == 0.5
-
-    def test_to_dict_contains_status_counts(self):
-        result = _make_eval_result(all_models=_status_models("ok", "invalid"), trace=[0, 1])
-        d = result.to_dict()
-        assert d["status_counts"]["invalid"] == 1
-        assert EvalResult.from_dict(json.loads(json.dumps(d))).all_models[1].status == "invalid"
+    @pytest.mark.parametrize("per", ["calls", None], ids=["calls", "None"])
+    def test_status_counts_rejects_bad_per(self, per):
+        with pytest.raises(ValueError, match="per"):
+            R([M(["X_0"], 0.5)], [0]).status_counts(per=per)
 
 
-class TestEvalResultAddAugmentation:
-    def test_stores_data_and_injects_type(self):
-        result = _make_eval_result()
-        result.add_augmentation("summary", {"value": 42}, "SummaryAugmenter")
-        assert "summary" in result.augmentations
-        assert result.augmentations["summary"]["value"] == 42
-        assert result.augmentations["summary"]["_type"] == "SummaryAugmenter"
-
-    def test_duplicate_key_gets_suffix(self):
-        result = _make_eval_result()
-        result.add_augmentation("summary", {"value": 42}, "SummaryAugmenter")
-        result.add_augmentation("summary", {"value": 99}, "SummaryAugmenter")
-        assert "summary" in result.augmentations
-        assert "summary_1" in result.augmentations
-        assert result.augmentations["summary_1"]["value"] == 99
+# ---------------------------------------------------------------------------------------------
+# EvalResult: serialization
+# ---------------------------------------------------------------------------------------------
 
 
-class TestEvalResultToDict:
-    def test_basic_serialization(self):
-        result = _make_eval_result()
-        d = result.to_dict()
-        assert d["min_error"] == 0.05
-        assert d["best_expr"] == "X_0"
-        assert d["approach_name"] == "TestApproach"
-        assert d["success"] is True
-        assert d["num_evaluated"] == 1
-        assert d["evaluation_calls"] == 2
-        assert d["trace"] == [0, 0]
-        assert d["success_threshold"] == 0.1
-        assert d["top_k"] == 20
-        assert len(d["all_models"]) == 1
-        assert "top_models" not in d
-        assert d["dataset_name"] is None
-        assert d["metadata"] is None
+def _summary_result():
+    models = [M(["X_0"], 0.5), F(), M(["C", "*", "X_0"], 0.05)]
+    return R(models, [0, 1, 1, 2, 2], success_threshold=0.1)
 
-    def test_numpy_scalar_casts(self):
-        result = _make_eval_result(
-            all_models=[ModelResult(expr=["X_0"], error=np.float64(0.05))],
-            trace=[np.int64(0)],
-            success_threshold=np.float64(0.1),
-            top_k=np.int64(5),
+
+class TestEvalResultSerialization:
+    def test_eval_result_json_round_trip_restores_every_field(self):
+        model = M(
+            ["C", "*", "X_0"],
+            0.05,
+            parameters=np.array([2.0, 3.0], dtype=np.float32),
+            augmentations={"latex": {"value": "C X_0", "_type": "LaTeXAugmenter"}},
         )
-        d = result.to_dict()
-        assert isinstance(d["min_error"], float)
-        assert isinstance(d["num_evaluated"], int)
-        assert isinstance(d["evaluation_calls"], int)
-        assert isinstance(d["success"], bool)
-        assert isinstance(d["success_threshold"], float)
-        assert isinstance(d["top_k"], int)
-        assert all(type(i) is int for i in d["trace"])
+        result = EvalResult(
+            all_models=[M(["X_0"], 0.5), model, F()],
+            trace=[0, 1, 2, 1],
+            approach_name="MyApproach",
+            success_threshold=0.1,
+            top_k=5,
+            dataset_name="ds",
+            metadata={"seed": 3, "model": "m", "dataset_metadata": {"n": [1, 2]}},
+            wall_time=1.5,
+            augmentations={"aug": {"t": (1, "a"), 7: [1.0, INF], "_type": "Aug"}},
+        )
+        back = json_round_trip(result)
+        assert [m.expr for m in back.all_models] == [["X_0"], ["C", "*", "X_0"], ["X_0", "X_1"]]
+        assert [m.error for m in back.all_models] == [0.5, 0.05, INF]
+        assert [m.status for m in back.all_models] == ["ok", "ok", "invalid"]
+        assert back.all_models[1].parameters.dtype == np.float32
+        np.testing.assert_array_equal(back.all_models[1].parameters, [2.0, 3.0])
+        assert back.all_models[1].augmentations == {"latex": {"value": "C X_0", "_type": "LaTeXAugmenter"}}
+        assert back.trace == [0, 1, 2, 1]
+        assert back.approach_name == "MyApproach"
+        assert back.success_threshold == 0.1
+        assert back.top_k == 5
+        assert back.dataset_name == "ds"
+        assert back.metadata == {"seed": 3, "model": "m", "dataset_metadata": {"n": [1, 2]}}
+        assert back.wall_time == 1.5
+        assert back.augmentations == {"aug": {"t": (1, "a"), 7: [1.0, INF], "_type": "Aug"}}
+        assert type(back.augmentations["aug"]["t"]) is tuple
+
+    def test_eval_result_metadata_is_encoded(self):
+        with pytest.raises(TypeError, match="set"):
+            R([M(["X_0"], 0.1)], [0], metadata={"m": {1}}).to_dict()
+        result = R([M(["X_0"], 0.1)], [0], metadata={"seed": 3, "bounds": (0, 1), "X": np.arange(3)})
+        back = json_round_trip(result)
+        assert back.metadata["seed"] == 3
+        assert type(back.metadata["bounds"]) is tuple
+        assert back.metadata["bounds"] == (0, 1)
+        assert back.metadata["X"].dtype == np.arange(3).dtype
+        np.testing.assert_array_equal(back.metadata["X"], [0, 1, 2])
+
+    @pytest.mark.parametrize(
+        "kwargs, get, expected_type, expected",
+        [
+            ({"trace": [np.int64(0)]}, lambda r: r.trace[0], int, 0),
+            ({"top_k": np.int64(5)}, lambda r: r.top_k, int, 5),
+            ({"success_threshold": np.float64(0.1)}, lambda r: r.success_threshold, float, 0.1),
+            ({"wall_time": np.float32(1.5)}, lambda r: r.wall_time, float, 1.5),
+        ],
+        ids=["trace", "top_k", "success_threshold", "wall_time"],
+    )
+    def test_eval_result_numpy_scalars_come_back_as_python_scalars(self, kwargs, get, expected_type, expected):
+        result = EvalResult(**{"all_models": [M(["X_0"], 0.1)], "trace": [0], "approach_name": "", **kwargs})
+        value = get(json_round_trip(result))
+        assert type(value) is expected_type
+        assert value == expected
+
+    def test_eval_result_to_dict_contains_version_and_summaries(self):
+        d = _summary_result().to_dict()
         json.dumps(d)
+        assert d["format_version"] == 2
+        assert d["min_error"] == 0.05
+        assert d["best_expr"] == "C*X_0"
+        assert d["success"] is True
+        assert d["num_evaluated"] == 3
+        assert d["evaluation_calls"] == 5
+        assert d["status_counts"] == {"ok": 2, "invalid": 1, "rejected": 0, "undefined": 0, "error": 0}
 
+    def test_eval_result_from_dict_ignores_saved_summaries_and_unknown_keys(self):
+        d = json.loads(json.dumps(_summary_result().to_dict()))
+        d["min_error"] = 99.0
+        d["best_expr"] = "X"
+        d["success"] = False
+        d["num_evaluated"] = 0
+        d["unknown_key"] = 1
+        d["all_models"][0]["unknown_key"] = 1
+        back = EvalResult.from_dict(d)
+        assert back.min_error == 0.05
+        assert back.best_expr == "C*X_0"
+        assert back.success is True
+        assert back.num_evaluated == 3
+        assert back.all_models[0].expr == ["X_0"]
 
-class TestEvalResultFromDict:
-    def test_round_trip_with_optional_fields(self):
-        result = _make_eval_result(
-            dataset_name="Feynman_I_1",
-            metadata={"source": "feynman"},
-            top_k=3,
-        )
-        result.add_augmentation("summary", {"value": 42}, "SummaryAugmenter")
+    def test_eval_result_without_models_round_trips(self):
+        result = R([], [], approach_name="A")
+        text = json.dumps(result.to_dict())
+        assert "NaN" in text
+        back = EvalResult.from_dict(json.loads(text))
+        assert back.all_models == []
+        assert back.trace == []
+        assert math.isnan(back.min_error)
 
-        restored = EvalResult.from_dict(result.to_dict())
-
-        assert restored.min_error == 0.05
-        assert restored.best_expr == "X_0"
-        assert restored.trace == [0, 0]
-        assert restored.success_threshold == 0.1
-        assert restored.top_k == 3
-        assert restored.dataset_name == "Feynman_I_1"
-        assert restored.metadata == {"source": "feynman"}
-        assert restored.augmentations["summary"]["value"] == 42
-        assert len(restored.top_models()) == 1
-        assert isinstance(restored.top_models()[0], ModelResult)
-
-    def test_round_trip_missing_optional_fields(self):
-        d = _make_eval_result().to_dict()
-        del d["dataset_name"]
-        del d["metadata"]
-
-        restored = EvalResult.from_dict(d)
-
-        assert restored.dataset_name is None
-        assert restored.metadata is None
-
-    def test_writes_format_version(self):
-        assert _make_eval_result().to_dict()["format_version"] == 2
-
-    def test_old_format_without_version_raises_clear_error(self):
-        d = _make_eval_result().to_dict()
-        del d["format_version"]
-        with pytest.raises(ValueError, match="older SRToolkit version"):
+    @pytest.mark.parametrize(
+        "mutate, match",
+        [
+            (lambda d: d.pop("format_version"), "evaluation trace"),
+            (lambda d: d.update(format_version=1), "format_version"),
+            (lambda d: d.update(format_version=3), "format_version"),
+            (lambda d: d["all_models"][0].pop("status"), "status"),
+        ],
+        ids=["version-missing", "version-1", "version-3", "model-without-status"],
+    )
+    def test_eval_result_from_dict_rejects(self, mutate, match):
+        d = json.loads(json.dumps(_summary_result().to_dict()))
+        mutate(d)
+        with pytest.raises(ValueError, match=match):
             EvalResult.from_dict(d)
-
-    def test_unknown_format_version_raises(self):
-        d = _make_eval_result().to_dict()
-        d["format_version"] = 99
-        with pytest.raises(ValueError, match="Unsupported format_version: 99"):
-            EvalResult.from_dict(d)
-
-    def test_round_trip_preserves_nested_model_results(self):
-        params = np.array([2.0])
-        model = ModelResult(expr=["C", "*", "X_0"], error=0.01, parameters=params)
-        result = _make_eval_result(all_models=[model], trace=[0])
-
-        restored = EvalResult.from_dict(result.to_dict())
-
-        assert restored.top_models()[0].expr == ["C", "*", "X_0"]
-        assert np.array_equal(restored.top_models()[0].parameters, params)
-
-    def test_round_trip_keeps_model_augmentations_on_top_models(self):
-        result = _make_eval_result(all_models=_models(0.3, 0.1), trace=[0, 1])
-        result.top_models()[0].add_augmentation("latex", {"expr_latex": "X_1"}, "LaTeXAugmenter")
-
-        restored = EvalResult.from_dict(result.to_dict())
-
-        assert restored.top_models()[0].augmentations["latex"]["expr_latex"] == "X_1"
-        assert restored.top_models()[0] is restored.all_models[1]
