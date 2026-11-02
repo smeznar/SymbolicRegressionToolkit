@@ -703,6 +703,8 @@
       
         
       
+        
+      
     
     
     
@@ -954,6 +956,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../references/utils/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    serialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -975,7 +1005,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -997,14 +1027,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_9" id="__nav_3_2_9_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_9">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2346,6 +2376,7 @@
 <li><code>PredictFn</code>, the type of the <code>predict</code> argument of the regression metrics, is exported from <code>SRToolkit.utils</code>.</li>
 <li><code>create_behavior_matrix</code> and <code>bed</code> take a <code>backend</code> argument (default <code>"stack"</code>), and BED ranking now respects the <code>backend</code> setting, which previously only applied to RMSE ranking and <code>get_metric</code>.</li>
 <li>The docstrings of <code>SRToolkit.utils.measures</code> now fully specify each function: valid inputs, special values (<code>nan</code>, <code>inf</code>), exceptions, and how <code>bed</code> handles non-finite values.</li>
+<li>Saved results and configs (<code>ModelResult</code>, <code>EvalResult</code>, <code>ApproachConfig</code>, <code>HoldoutMetric</code>) now round-trip exactly: numpy arrays keep their dtype and shape (including empty axes such as <code>(0, 3)</code>) and object arrays are saved element by element, tuples stay tuples, and dicts with non-string keys (int, float, tuple, numpy scalars) keep their keys. Files written by earlier versions still load. The supported values and the file format are documented on the new <code>SRToolkit.utils.serialization</code> reference page.</li>
 </ul>
 <p><strong>Breaking changes:</strong>
 - Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
@@ -2362,11 +2393,13 @@
 - <code>r2</code> and <code>nrmse</code> with constant targets return <code>1.0</code> / <code>0.0</code> for an exact prediction and <code>-inf</code> / <code>inf</code> otherwise, instead of <code>nan</code>. <code>predict</code> is now always called, so its exceptions propagate.
 - <code>REGRESSION_METRICS</code> is a read-only mapping.
 - <code>tokens_to_tree</code>, <code>compile_expr</code> and <code>compile_expr_rmse</code> raise a <code>TypeError</code> for an expression that is not a list of token strings or a <code>Node</code> (previously a bare <code>Exception</code>, or numpy's "expected str instance" message). Numbers in token lists must be strings (<code>"1.5"</code>); passing <code>1.5</code> now says so.
-- Invalid arguments to <code>edit_distance</code>, <code>tree_edit_distance</code>, <code>create_behavior_matrix</code> and <code>bed</code> raise <code>TypeError</code> or <code>ValueError</code> naming the offending parameter, instead of a bare <code>Exception</code>, <code>UnboundLocalError</code> or <code>AttributeError</code> (a string or tuple passed to <code>edit_distance</code> used to be compared character by character). <code>bed</code> and <code>create_behavior_matrix</code> now validate <code>num_consts_sampled</code>, <code>consts_bounds</code>, <code>num_points_sampled</code>, matrix shapes and the row counts of matrices against <code>X</code>.</p>
+- Invalid arguments to <code>edit_distance</code>, <code>tree_edit_distance</code>, <code>create_behavior_matrix</code> and <code>bed</code> raise <code>TypeError</code> or <code>ValueError</code> naming the offending parameter, instead of a bare <code>Exception</code>, <code>UnboundLocalError</code> or <code>AttributeError</code> (a string or tuple passed to <code>edit_distance</code> used to be compared character by character). <code>bed</code> and <code>create_behavior_matrix</code> now validate <code>num_consts_sampled</code>, <code>consts_bounds</code>, <code>num_points_sampled</code>, matrix shapes and the row counts of matrices against <code>X</code>.
+- Values that cannot be saved as JSON (complex numbers, <code>datetime64</code>, sets, masked arrays, arbitrary objects) in augmentations, ranking data or approach configs now raise a <code>TypeError</code> from <code>to_dict</code> naming the value's location (e.g. <code>obj['augmentations'][2]</code>), instead of failing later in <code>json.dump</code>. Saved arrays now include <code>dtype</code> and <code>shape</code>, and tuples and non-string-keyed dicts are written in a new form, so files saved by this version cannot be read by earlier versions.</p>
 <p><strong>Fixes:</strong>
 - A dataset with custom <code>constant_bounds</code> scored every expression with a constant as NaN after a JSON round trip (<code>from_dict</code>, <code>from_archive</code>, <code>ExperimentGrid</code>).
 - A <code>Node</code> ground truth is now serialised with the dataset's own symbol library.
 - <code>SR_dataset.refresh()</code> regenerates the test and aux data too, and <code>data_cache.remove</code> deletes them.
+- Saving results no longer fails on dict keys that are numpy scalars (e.g. <code>np.int64</code>) or on object arrays holding arrays.
 - <code>SR_dataset</code> now describes BED datasets correctly.
 - Compiled expressions given fewer constants than they use raise a <code>ValueError</code> on every backend. The default <code>"stack"</code> backend used to read past the end of the array and return garbage values. A <code>SampleSource</code> whose ground truth has a free constant (<code>C</code>) now fails with a clear error, as <code>SR_dataset.resample</code> already did, instead of generating a dataset with garbage <code>y</code>; the custom-dataset guide example that used one is fixed (#4).
 - Augmenters with <code>scope="all"</code> annotated the top models twice (e.g. <code>ExpressionToLatex</code> and <code>ExpressionToLatex_1</code>).
