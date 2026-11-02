@@ -229,6 +229,8 @@ class ResultAugmenter(ABC):
 
         Call ``results.add_augmentation(self.name, data, self._type)`` for experiment-level
         data and ``model.add_augmentation(self.name, data, self._type)`` for per-model data.
+        ``data`` may hold only values that can be saved (see
+        [serialization][SRToolkit.utils.serialization]), or saving the results raises ``TypeError``.
 
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
@@ -1208,6 +1210,8 @@ class SR_results:
         Raises:
             ValueError: If the path is a file with an extension other than .json.
             OSError: If the directory cannot be created.
+            TypeError: If a result holds augmentation or ranking data that cannot be saved (see
+                [serialization][SRToolkit.utils.serialization]).
         """
         if os.path.isdir(path):
             target_file = os.path.join(path, "results.json")

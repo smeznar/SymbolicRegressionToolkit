@@ -17,7 +17,8 @@ Modules:
         [Derivation][SRToolkit.utils.grammar.derivation.Derivation], and more.
     measures: Distance and similarity measures: edit distance, tree edit distance,
         and Behavior-aware Expression Distance (BED).
-    serialization: Internal JSON serialization utilities for numpy types.
+    serialization: Which values can be saved in results and configs, and how they are stored as
+        JSON.
 """
 
 from .expression_compiler import compile_expr, compile_expr_rmse

@@ -152,8 +152,7 @@ class ParameterEstimator:
             run (no free constants, or a violated limit). Otherwise it holds:
 
             - ``converged``: ``scipy``'s ``success`` flag;
-            - ``evaluations``: how often the RMSE was computed (``nfev``), including the extra
-              evaluations for the finite-difference gradient, so the cost of the fit;
+            - ``evaluations``: RMSE computations (``nfev``), finite-difference gradient included;
             - ``iterations``: optimizer iterations (``nit``);
             - ``message``: the optimizer's message, only when ``converged`` is ``False``.
 

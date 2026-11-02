@@ -193,8 +193,9 @@ class ModelResult:
         Args:
             name: Key under which the augmentation is stored in :attr:`augmentations`.
                 A suffix is added automatically if the key already exists.
-            data: Arbitrary dict of augmentation data. Any existing ``"_type"`` key
-                will be overwritten with ``aug_type``.
+            data: Augmentation data. Its values must be ones that can be saved (see
+                [serialization][SRToolkit.utils.serialization]); otherwise saving the results raises ``TypeError``.
+                Any existing ``"_type"`` key will be overwritten with ``aug_type``.
             aug_type: Augmenter class name, stored as ``data["_type"]``.
         """
         resolved = name
@@ -223,6 +224,11 @@ class ModelResult:
 
         Returns:
             A JSON-safe dictionary suitable for passing to [from_dict][SRToolkit.utils.types.ModelResult.from_dict].
+
+        Raises:
+            TypeError: If ``parameters``, ``ranking_data`` or ``augmentations`` contain a value
+                that cannot be saved (see [serialization][SRToolkit.utils.serialization]); the message
+                names its location.
         """
         return {
             "expr": self.expr,
@@ -586,8 +592,9 @@ class EvalResult:
         Args:
             name: Key under which the augmentation is stored in :attr:`augmentations`.
                 A suffix is added automatically if the key already exists.
-            data: Arbitrary dict of augmentation data. Any existing ``"_type"`` key
-                will be overwritten with ``aug_type``.
+            data: Augmentation data. Its values must be ones that can be saved (see
+                [serialization][SRToolkit.utils.serialization]); otherwise saving the results raises ``TypeError``.
+                Any existing ``"_type"`` key will be overwritten with ``aug_type``.
             aug_type: Augmenter class name, stored as ``data["_type"]``.
         """
         resolved = name
@@ -620,6 +627,11 @@ class EvalResult:
 
         Returns:
             A JSON-safe dictionary suitable for passing to [from_dict][SRToolkit.utils.types.EvalResult.from_dict].
+
+        Raises:
+            TypeError: If the augmentations, or a model's ranking data or augmentations, contain a
+                value that cannot be saved (see [serialization][SRToolkit.utils.serialization]); the message
+                names its location.
         """
         return {
             "format_version": 2,

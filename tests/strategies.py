@@ -54,3 +54,43 @@ def regression_data(draw, min_n: int = 2, max_n: int = 20):
     y = draw(hnp.arrays(np.float64, (n,), elements=_FINITE).filter(lambda y: np.std(y) > 1e-3))
     y_pred = draw(hnp.arrays(np.float64, (n,), elements=_FINITE))
     return X, y, y_pred
+
+
+# --- JSON-serialisable values ----------------------------------------------------------------
+
+_SERIAL_TEXT = st.text(alphabet=st.characters(codec="utf-8", exclude_characters="\x00"), max_size=4)
+_SERIAL_KEY_SCALARS = (
+    st.none()
+    | st.booleans()
+    | st.integers()
+    | st.floats(allow_nan=False)
+    | _SERIAL_TEXT
+    | st.sampled_from(["__ndarray__", "__tuple__", "__dict__"])
+)
+_SERIAL_KEYS = st.recursive(_SERIAL_KEY_SCALARS, lambda k: st.tuples(k) | st.tuples(k, k), max_leaves=4)
+_SERIAL_ARRAY_DTYPES = [np.bool_, np.int8, np.uint8, np.int64, np.float32, np.float64]
+
+
+@st.composite
+def _serial_arrays(draw):
+    shape = draw(hnp.array_shapes(min_dims=0, max_dims=3, min_side=0, max_side=3))
+    if draw(st.booleans()):
+        return draw(hnp.arrays(np.dtype("<U3"), shape, elements=st.text(alphabet="abé", max_size=3)))
+    return draw(hnp.arrays(draw(st.sampled_from(_SERIAL_ARRAY_DTYPES)), shape))
+
+
+def serializable_values(max_leaves: int = 12):
+    """Values supported by ``SRToolkit.utils.serialization`` without numpy scalars or subclasses.
+
+    Leaves: ``None``, bool, int, float (``nan``/``inf`` included), text, and arrays of dtype bool, int8,
+    uint8, int64, float32, float64 or ``<U3`` with 0-3 dimensions (zero-length sides allowed).
+    Containers: lists, tuples and dicts whose keys are scalars, reserved marker names or nested tuples.
+    """
+    leaves = st.none() | st.booleans() | st.integers() | st.floats() | _SERIAL_TEXT | _serial_arrays()
+    return st.recursive(
+        leaves,
+        lambda c: (
+            st.lists(c, max_size=3) | st.lists(c, max_size=3).map(tuple) | st.dictionaries(_SERIAL_KEYS, c, max_size=3)
+        ),
+        max_leaves=max_leaves,
+    )

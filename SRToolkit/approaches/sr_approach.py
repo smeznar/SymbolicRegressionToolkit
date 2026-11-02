@@ -46,7 +46,9 @@ class ApproachConfig:
 
     Subclass this dataclass to define approach-specific hyperparameters that can be
     saved and restored via [to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]
-    and [from_dict][SRToolkit.approaches.sr_approach.ApproachConfig.from_dict].
+    and [from_dict][SRToolkit.approaches.sr_approach.ApproachConfig.from_dict]. Fields must
+    hold values that can be saved (numbers, strings, lists, dicts, numpy arrays, …; see
+    [serialization][SRToolkit.utils.serialization]).
 
     The ``approach_class`` field is populated automatically by
     [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] and contains
@@ -68,6 +70,10 @@ class ApproachConfig:
 
         Returns:
             A dictionary representation with all values converted to JSON-compatible types.
+
+        Raises:
+            TypeError: If a field holds a value that cannot be saved (see
+                [serialization][SRToolkit.utils.serialization]); the message names the field.
         """
         return _to_json_safe(self.__dict__)
 

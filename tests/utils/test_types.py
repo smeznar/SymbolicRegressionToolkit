@@ -154,7 +154,7 @@ class TestModelResultToDict:
         result.parameters = params
         d = result.to_dict()
         assert isinstance(d["error"], float)
-        assert d["parameters"] == {"__ndarray__": True, "data": [1.5, -2.0]}
+        assert d["parameters"] == {"__ndarray__": True, "dtype": "float64", "shape": [2], "data": [1.5, -2.0]}
 
 
 class TestModelResultFromDict:

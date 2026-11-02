@@ -16,6 +16,7 @@
 - `PredictFn`, the type of the `predict` argument of the regression metrics, is exported from `SRToolkit.utils`.
 - `create_behavior_matrix` and `bed` take a `backend` argument (default `"stack"`), and BED ranking now respects the `backend` setting, which previously only applied to RMSE ranking and `get_metric`.
 - The docstrings of `SRToolkit.utils.measures` now fully specify each function: valid inputs, special values (`nan`, `inf`), exceptions, and how `bed` handles non-finite values.
+- Saved results and configs (`ModelResult`, `EvalResult`, `ApproachConfig`, `HoldoutMetric`) now round-trip exactly: numpy arrays keep their dtype and shape (including empty axes such as `(0, 3)`) and object arrays are saved element by element, tuples stay tuples, and dicts with non-string keys (int, float, tuple, numpy scalars) keep their keys. Files written by earlier versions still load. The supported values and the file format are documented on the new `SRToolkit.utils.serialization` reference page.
 
 **Breaking changes:**
 - Removed the `RMSE`, `BED` and `R2` augmenters; use `HoldoutMetric`.
@@ -33,11 +34,13 @@
 - `REGRESSION_METRICS` is a read-only mapping.
 - `tokens_to_tree`, `compile_expr` and `compile_expr_rmse` raise a `TypeError` for an expression that is not a list of token strings or a `Node` (previously a bare `Exception`, or numpy's "expected str instance" message). Numbers in token lists must be strings (`"1.5"`); passing `1.5` now says so.
 - Invalid arguments to `edit_distance`, `tree_edit_distance`, `create_behavior_matrix` and `bed` raise `TypeError` or `ValueError` naming the offending parameter, instead of a bare `Exception`, `UnboundLocalError` or `AttributeError` (a string or tuple passed to `edit_distance` used to be compared character by character). `bed` and `create_behavior_matrix` now validate `num_consts_sampled`, `consts_bounds`, `num_points_sampled`, matrix shapes and the row counts of matrices against `X`.
+- Values that cannot be saved as JSON (complex numbers, `datetime64`, sets, masked arrays, arbitrary objects) in augmentations, ranking data or approach configs now raise a `TypeError` from `to_dict` naming the value's location (e.g. `obj['augmentations'][2]`), instead of failing later in `json.dump`. Saved arrays now include `dtype` and `shape`, and tuples and non-string-keyed dicts are written in a new form, so files saved by this version cannot be read by earlier versions.
 
 **Fixes:**
 - A dataset with custom `constant_bounds` scored every expression with a constant as NaN after a JSON round trip (`from_dict`, `from_archive`, `ExperimentGrid`).
 - A `Node` ground truth is now serialised with the dataset's own symbol library.
 - `SR_dataset.refresh()` regenerates the test and aux data too, and `data_cache.remove` deletes them.
+- Saving results no longer fails on dict keys that are numpy scalars (e.g. `np.int64`) or on object arrays holding arrays.
 - `SR_dataset` now describes BED datasets correctly.
 - Compiled expressions given fewer constants than they use raise a `ValueError` on every backend. The default `"stack"` backend used to read past the end of the array and return garbage values. A `SampleSource` whose ground truth has a free constant (`C`) now fails with a clear error, as `SR_dataset.resample` already did, instead of generating a dataset with garbage `y`; the custom-dataset guide example that used one is fixed (#4).
 - Augmenters with `scope="all"` annotated the top models twice (e.g. `ExpressionToLatex` and `ExpressionToLatex_1`).
