@@ -1000,6 +1000,8 @@
       
         
       
+        
+      
     
     
     
@@ -1168,6 +1170,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../references/utils/expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../references/utils/expression_generator/" class="md-nav__link">
         
   
@@ -1300,7 +1330,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1322,14 +1352,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2780,7 +2810,7 @@ The dispatchers that handle configs containing custom classes
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/utils/grammar/constraints/#SRToolkit.utils.grammar.constraints.Constraint.from_dict"><code>Constraint.from_dict</code></a>,
+  &lt;/span&gt;" href="../../references/utils/grammar/constraints/#SRToolkit.utils.grammar.constraints.GrammarConstraint.from_dict"><code>GrammarConstraint.from_dict</code></a>,
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
 
 
@@ -2823,9 +2853,9 @@ call <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbo
 <code>to_dict</code> and <code>from_dict</code>, and make sure <code>to_dict</code> embeds a fully-qualified <code>*_class</code> path so
 the matching dispatcher can reconstruct it via <code>importlib</code> — no central registry.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># meznar_constraints.py</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">Constraint</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">GrammarConstraint</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">PhysicsConstraint</span><span class="p">(</span><span class="n">Constraint</span><span class="p">):</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">PhysicsConstraint</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">forbidden_terminals</span><span class="p">):</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">forbidden</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">forbidden_terminals</span><span class="p">)</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>

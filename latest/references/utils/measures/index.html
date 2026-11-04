@@ -711,6 +711,8 @@
       
         
       
+        
+      
     
     
     
@@ -859,6 +861,34 @@
     
   
     expression_simplifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
   
 
     
@@ -1196,7 +1226,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1218,14 +1248,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3537,7 +3567,7 @@ is not one of the backends above.</p>
 <a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-263" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-263"></a>
 <a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-264" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-264"></a>    <span class="n">tree</span> <span class="o">=</span> <span class="n">_as_tree</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="s2">"expr"</span><span class="p">)</span>
 <a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-265" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-265"></a>    <span class="n">tokens</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">=</span><span class="n">symbol_library</span><span class="p">,</span> <span class="n">notation</span><span class="o">=</span><span class="s2">"postfix"</span><span class="p">)</span>
-<a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-266" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-266"></a>    <span class="n">num_constants</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">get_type</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"const"</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">)</span>
+<a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-266" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-266"></a>    <span class="n">num_constants</span> <span class="o">=</span> <span class="n">_count_constants</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
 <a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-267" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-267"></a>    <span class="n">callable_expr</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">backend</span><span class="p">)</span>
 <a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-268" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-268"></a>
 <a id="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-269" name="SRToolkit.utils.measures.create_behavior_matrix--source--__codelineno-0-269"></a>    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="nb">all</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>

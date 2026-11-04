@@ -709,6 +709,8 @@
       
         
       
+        
+      
     
     
     
@@ -877,6 +879,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../utils/expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../utils/expression_generator/" class="md-nav__link">
         
   
@@ -1009,7 +1039,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1031,14 +1061,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3265,7 +3295,7 @@ keys it needs.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>ordering. The evaluator has already parsed <code>expr</code> and checked <code>max_constants</code> /</p>
+                <p>ordering. The evaluator has already parsed <code>expr</code> and run the pre-checks of its</p>
               </div>
             </td>
           </tr>
@@ -3280,7 +3310,7 @@ keys it needs.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>max_expr_length</code>. May raise; the evaluator then records the status <code>"error"</code></p>
+                <p>required constraints. May raise; the evaluator then records the status <code>"error"</code></p>
               </div>
             </td>
           </tr>
@@ -3328,8 +3358,8 @@ keys it needs.</p>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-121" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-121"></a>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-122" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-122"></a><span class="sd">    Returns:</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-123" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-123"></a><span class="sd">        A [RankingResult][SRToolkit.evaluation.ranking.RankingResult] whose ``score`` drives</span>
-<a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-124" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-124"></a><span class="sd">        ordering. The evaluator has already parsed ``expr`` and checked ``max_constants`` /</span>
-<a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-125" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-125"></a><span class="sd">        ``max_expr_length``. May raise; the evaluator then records the status ``"error"``</span>
+<a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-124" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-124"></a><span class="sd">        ordering. The evaluator has already parsed ``expr`` and run the pre-checks of its</span>
+<a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-125" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-125"></a><span class="sd">        required constraints. May raise; the evaluator then records the status ``"error"``</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-126" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-126"></a><span class="sd">        with the error ``+inf``.</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-127" name="SRToolkit.evaluation.ranking.RankingFunction.score--source--__codelineno-0-127"></a><span class="sd">    """</span>
 </code></pre></div></td></tr></table></div>
@@ -4104,7 +4134,7 @@ from a ground truth that contains a free constant.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>ordering. The evaluator has already parsed <code>expr</code> and checked <code>max_constants</code> /</p>
+                <p>ordering. The evaluator has already parsed <code>expr</code> and run the pre-checks of its</p>
               </div>
             </td>
           </tr>
@@ -4119,7 +4149,7 @@ from a ground truth that contains a free constant.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>max_expr_length</code>. May raise; the evaluator then records the status <code>"error"</code></p>
+                <p>required constraints. May raise; the evaluator then records the status <code>"error"</code></p>
               </div>
             </td>
           </tr>
@@ -4869,7 +4899,7 @@ keys are ignored.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>ordering. The evaluator has already parsed <code>expr</code> and checked <code>max_constants</code> /</p>
+                <p>ordering. The evaluator has already parsed <code>expr</code> and run the pre-checks of its</p>
               </div>
             </td>
           </tr>
@@ -4884,7 +4914,7 @@ keys are ignored.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>max_expr_length</code>. May raise; the evaluator then records the status <code>"error"</code></p>
+                <p>required constraints. May raise; the evaluator then records the status <code>"error"</code></p>
               </div>
             </td>
           </tr>

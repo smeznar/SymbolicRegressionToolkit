@@ -983,6 +983,8 @@
       
         
       
+        
+      
     
     
     
@@ -1151,6 +1153,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../references/utils/expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../references/utils/expression_generator/" class="md-nav__link">
         
   
@@ -1283,7 +1313,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1305,14 +1335,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2980,10 +3010,10 @@ not rely on the unit guarantee until this is fixed.</p>
 <p><code>to_dict</code> stores the start symbol, all rules (with names and weights), and all constraints. Constraints are identified by their fully-qualified class path, so <code>from_dict</code> uses <code>importlib</code> to reconstruct them — the same approach used for callbacks and samplers throughout SRToolkit.</p>
 <p><code>DimensionalConsistency</code> serializes unit exponents as <code>"p/q"</code> strings for exact <code>Fraction</code> fidelity. The <code>symbol_library</code> reference is not serialized; reconstruct it from the original symbol set if needed.</p>
 <h2 id="custom-constraints">Custom constraints</h2>
-<p>Subclass <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constraint&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.Constraint">Constraint</a> and override the methods you need:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">Constraint</span><span class="p">,</span> <span class="n">Grammar</span><span class="p">,</span> <span class="n">Rule</span>
+<p>Subclass <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;GrammarConstraint&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.GrammarConstraint">GrammarConstraint</a> and override the methods you need:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">GrammarConstraint</span><span class="p">,</span> <span class="n">Grammar</span><span class="p">,</span> <span class="n">Rule</span>
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">Constraint</span><span class="p">):</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
 <a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="sd">"""Reject any rule whose rhs contains 'C'."""</span>
 <a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
 <a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
@@ -3070,7 +3100,7 @@ not rely on the unit guarantee until this is fixed.</p>
 <p><strong>Global state</strong> is a single value shared across the entire derivation. It is updated after every rule application and is useful for running counters and accumulators, such as a total node count.</p>
 <p>Both are initialised once per derivation — local state via <code>initial_local(start)</code>, global state via <code>initial_global()</code> — and the engine threads the current values into every <code>allows</code> and <code>update</code> call.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Local state: remaining depth budget inherited by each child slot</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">BudgetDepth</span><span class="p">(</span><span class="n">Constraint</span><span class="p">):</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">BudgetDepth</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
 <a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
 <a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
 <a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
@@ -3088,7 +3118,7 @@ not rely on the unit guarantee until this is fixed.</p>
 <a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a>
 <a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a>
 <a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a><span class="c1"># Global state: running count of rule applications across the whole derivation</span>
-<a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a><span class="k">class</span><span class="w"> </span><span class="nc">ApplicationCounter</span><span class="p">(</span><span class="n">Constraint</span><span class="p">):</span>
+<a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a><span class="k">class</span><span class="w"> </span><span class="nc">ApplicationCounter</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
 <a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
 <a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
 <a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a>
@@ -3104,7 +3134,7 @@ not rely on the unit guarantee until this is fixed.</p>
 </code></pre></div>
 <p>Both flavours can be combined in a single constraint by implementing all four methods together, as <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DimensionalConsistency&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.DimensionalConsistency">DimensionalConsistency</a> does with its per-slot unit tracking.</p>
 <p>To make a custom constraint serializable, implement <code>to_dict</code> and <code>from_dict</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">Constraint</span><span class="p">):</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()}</span>   <span class="c1"># constraint_class is enough</span>
 <a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
@@ -3112,10 +3142,10 @@ not rely on the unit guarantee until this is fixed.</p>
 <a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
 <a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">()</span>
 </code></pre></div>
-<p><code>Constraint.from_dict</code> dispatches via <code>importlib</code>, so any class reachable by its module path is supported automatically.</p>
+<p><code>GrammarConstraint.from_dict</code> dispatches via <code>importlib</code>, so any class reachable by its module path is supported automatically.</p>
 <h3 id="scoping">Scoping</h3>
 <p>Set <code>nonterminals</code> and/or <code>rule_names</code> on the class to limit when <code>allows</code> is called. Slots outside scope are accepted unconditionally; <code>update</code> is always called regardless of scope so that global counters stay accurate.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DepthLimitForE</span><span class="p">(</span><span class="n">Constraint</span><span class="p">):</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DepthLimitForE</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
 <a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>    <span class="n">nonterminals</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"E"</span><span class="p">})</span>   <span class="c1"># only active at E slots</span>
 <a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
 <a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>

@@ -711,6 +711,8 @@
       
         
       
+        
+      
     
     
     
@@ -879,6 +881,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../expression_generator/" class="md-nav__link">
         
   
@@ -1013,7 +1043,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -1035,14 +1065,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3830,7 +3860,7 @@ that differs from <code>1.0</code>.</p>
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_constraint&lt;/span&gt;" href="../#SRToolkit.utils.grammar.Grammar.add_constraint">add_constraint</a>. During a
 derivation, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;options&lt;/span&gt;" href="../derivation/#SRToolkit.utils.grammar.derivation.Derivation.options">options</a>
 returns only rules that every constraint's
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;allows&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.Constraint.allows">allows</a> accepts.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;allows&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.GrammarConstraint.allows">allows</a> accepts.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
@@ -4056,14 +4086,14 @@ at least one rule.</p>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_constraint</span><span class="p">(</span><span class="n">constraint</span><span class="p">:</span> <span class="s1">'Constraint'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_constraint</span><span class="p">(</span><span class="n">constraint</span><span class="p">:</span> <span class="s1">'GrammarConstraint'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Register a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constraint&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.Constraint">constraint</a> applied at each derivation step.</p>
+        <p>Register a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;GrammarConstraint&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.GrammarConstraint">constraint</a> applied at each derivation step.</p>
 <p>A rule is offered as an option only when every registered constraint's
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;allows&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.Constraint.allows">allows</a> returns <code>True</code>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;allows&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.GrammarConstraint.allows">allows</a> returns <code>True</code>
 for it.</p>
 
 
@@ -4093,11 +4123,11 @@ for it.</p>
                 <code>constraint</code>
             </td>
             <td>
-                  <code>&#39;Constraint&#39;</code>
+                  <code>&#39;GrammarConstraint&#39;</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constraint&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.Constraint">Constraint</a>
+                <p>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;GrammarConstraint&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.GrammarConstraint">GrammarConstraint</a>
 instance — typically a built-in such as
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;MaxDepth&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.MaxDepth">MaxDepth</a>,
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;MaxNodes&lt;/span&gt;" href="../constraints/#SRToolkit.utils.grammar.constraints.MaxNodes">MaxNodes</a>,
@@ -4142,11 +4172,11 @@ or a user-defined subclass.</p>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-364">364</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-365">365</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-366">366</a></span>
-<span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-367">367</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-342" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-342"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_constraint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint</span><span class="p">:</span> <span class="s2">"Constraint"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-343" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-343"></a><span class="w">    </span><span class="sd">"""Register a [constraint][SRToolkit.utils.grammar.constraints.Constraint] applied at each derivation step.</span>
+<span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-367">367</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-342" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-342"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_constraint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constraint</span><span class="p">:</span> <span class="s2">"GrammarConstraint"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-343" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-343"></a><span class="w">    </span><span class="sd">"""Register a [constraint][SRToolkit.utils.grammar.constraints.GrammarConstraint] applied at each derivation step.</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-344" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-344"></a>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-345" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-345"></a><span class="sd">    A rule is offered as an option only when every registered constraint's</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-346" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-346"></a><span class="sd">    [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] returns ``True``</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-346" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-346"></a><span class="sd">    [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows] returns ``True``</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-347" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-347"></a><span class="sd">    for it.</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-348" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-348"></a>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-349" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-349"></a><span class="sd">    Examples:</span>
@@ -4158,7 +4188,7 @@ or a user-defined subclass.</p>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-355" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-355"></a><span class="sd">        [['x']]</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-356" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-356"></a>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-357" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-357"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-358" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-358"></a><span class="sd">        constraint: A [Constraint][SRToolkit.utils.grammar.constraints.Constraint]</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-358" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-358"></a><span class="sd">        constraint: A [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint]</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-359" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-359"></a><span class="sd">            instance — typically a built-in such as</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-360" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-360"></a><span class="sd">            [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth],</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-361" name="SRToolkit.utils.grammar.grammar.Grammar.add_constraint--source--__codelineno-0-361"></a><span class="sd">            [MaxNodes][SRToolkit.utils.grammar.constraints.MaxNodes],</span>
@@ -5419,13 +5449,13 @@ rewritten to point at the installed bundle before reconstruction.</p>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-615" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-615"></a><span class="sd">        A new [Grammar][SRToolkit.utils.grammar.Grammar] with all rules and</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-616" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-616"></a><span class="sd">        constraints registered.</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-617" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-617"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-618" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-618"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">Constraint</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-618" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-618"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">GrammarConstraint</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-619" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-619"></a>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-620" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-620"></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">_auto_bind</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-621" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-621"></a>    <span class="n">rules</span> <span class="o">=</span> <span class="p">[</span><span class="n">Rule</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rules"</span><span class="p">,</span> <span class="p">[])]</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-622" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-622"></a>    <span class="n">g</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">rules</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"start"</span><span class="p">))</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-623" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-623"></a>    <span class="k">for</span> <span class="n">cd</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"constraints"</span><span class="p">,</span> <span class="p">[]):</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-624" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-624"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">Constraint</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">cd</span><span class="p">))</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-624" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-624"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">cd</span><span class="p">))</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-625" name="SRToolkit.utils.grammar.grammar.Grammar.from_dict--source--__codelineno-0-625"></a>    <span class="k">return</span> <span class="n">g</span>
 </code></pre></div></td></tr></table></div>
             </details>

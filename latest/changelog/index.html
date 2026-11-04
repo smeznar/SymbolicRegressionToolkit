@@ -705,6 +705,8 @@
       
         
       
+        
+      
     
     
     
@@ -873,6 +875,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../references/utils/expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../references/utils/expression_generator/" class="md-nav__link">
         
   
@@ -1005,7 +1035,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1027,14 +1057,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2377,6 +2407,8 @@
 <li><code>create_behavior_matrix</code> and <code>bed</code> take a <code>backend</code> argument (default <code>"stack"</code>), and BED ranking now respects the <code>backend</code> setting, which previously only applied to RMSE ranking and <code>get_metric</code>.</li>
 <li>The docstrings of <code>SRToolkit.utils.measures</code> now fully specify each function: valid inputs, special values (<code>nan</code>, <code>inf</code>), exceptions, and how <code>bed</code> handles non-finite values.</li>
 <li>Saved results and configs (<code>ModelResult</code>, <code>EvalResult</code>, <code>ApproachConfig</code>, <code>HoldoutMetric</code>) now round-trip exactly: numpy arrays keep their dtype and shape (including empty axes such as <code>(0, 3)</code>) and object arrays are saved element by element, tuples stay tuples, and dicts with non-string keys (int, float, tuple, numpy scalars) keep their keys. Files written by earlier versions still load. The supported values and the file format are documented on the new <code>SRToolkit.utils.serialization</code> reference page.</li>
+<li>Expression constraints (<code>SRToolkit.utils.expression_constraints</code>): <code>ExpressionConstraint</code> checks a candidate before scoring (<code>pre_check</code>, on the expression) and/or after (<code>post_check</code>, on the fitted model), and returns a <code>CheckResult</code> (passed, message, amount). Built-ins: <code>MaxConstants</code>, <code>MaxTokens</code>, <code>MaxTreeDepth</code>, <code>MaxTreeSize</code>, <code>RequiredVariables</code>, <code>MaxSymbolCount</code>, <code>NoNesting</code> and <code>OutputBounds</code>. <code>OutputBounds</code> takes one bound for all points or one per point. A check that raises counts as failed: its <code>CheckResult</code> has <code>error</code> set, a required constraint then gives status <code>"error"</code>, and an advisory one is recorded in <code>advisory_violations</code>.</li>
+<li><code>SR_evaluator</code> takes <code>required_constraints</code> (a failed check gives status <code>"rejected"</code>) and <code>advisory_constraints</code> (failed checks are recorded in <code>ModelResult.advisory_violations</code> without changing the error). <code>check_constraints(expr)</code> runs the pre-checks without evaluating, billing or recording anything, and returns the failed required and advisory checks as two lists. <code>max_constants</code> / <code>max_expr_length</code> add a <code>MaxConstants</code> / <code>MaxTokens</code> in front of the list unless it already has one.</li>
 </ul>
 <p><strong>Breaking changes:</strong>
 - Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
@@ -2395,7 +2427,10 @@
 - <code>tokens_to_tree</code>, <code>compile_expr</code> and <code>compile_expr_rmse</code> raise a <code>TypeError</code> for an expression that is not a list of token strings or a <code>Node</code> (previously a bare <code>Exception</code>, or numpy's "expected str instance" message). Numbers in token lists must be strings (<code>"1.5"</code>); passing <code>1.5</code> now says so.
 - Invalid arguments to <code>edit_distance</code>, <code>tree_edit_distance</code>, <code>create_behavior_matrix</code> and <code>bed</code> raise <code>TypeError</code> or <code>ValueError</code> naming the offending parameter, instead of a bare <code>Exception</code>, <code>UnboundLocalError</code> or <code>AttributeError</code> (a string or tuple passed to <code>edit_distance</code> used to be compared character by character). <code>bed</code> and <code>create_behavior_matrix</code> now validate <code>num_consts_sampled</code>, <code>consts_bounds</code>, <code>num_points_sampled</code>, matrix shapes and the row counts of matrices against <code>X</code>.
 - Values that cannot be saved as JSON (complex numbers, <code>datetime64</code>, sets, masked arrays, arbitrary objects) in augmentations, ranking data or approach configs now raise a <code>TypeError</code> from <code>to_dict</code> naming the value's location (for results the full path, e.g. <code>all_models[3].ranking_data['z']</code>), instead of failing later in <code>json.dump</code>. Saved arrays now include <code>dtype</code> and <code>shape</code>, and tuples and non-string-keyed dicts are written in a new form, so files saved by this version cannot be read by earlier versions.
-- <code>ModelResult.from_dict</code> raises a <code>ValueError</code> for a status that is not one of <code>STATUSES</code>, instead of failing later in <code>status_counts</code> with a <code>KeyError</code>.</p>
+- <code>ModelResult.from_dict</code> raises a <code>ValueError</code> for a status that is not one of <code>STATUSES</code>, instead of failing later in <code>status_counts</code> with a <code>KeyError</code>.
+- The grammar base class <code>Constraint</code> is renamed <code>GrammarConstraint</code>.
+- The <code>status_detail</code> of a rejected expression names the constraint, e.g. <code>"MaxConstants: 9 constants, limit 8"</code> instead of <code>"9 constants exceed max_constants=8"</code>.
+- <code>max_constants</code> / <code>max_expr_length</code> must be ints (numpy ints accepted); other values raise a <code>ValueError</code> instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a <code>ValueError</code>.</p>
 <p><strong>Fixes:</strong>
 - A dataset with custom <code>constant_bounds</code> scored every expression with a constant as NaN after a JSON round trip (<code>from_dict</code>, <code>from_archive</code>, <code>ExperimentGrid</code>).
 - A <code>Node</code> ground truth is now serialised with the dataset's own symbol library.
@@ -2412,7 +2447,9 @@
 - <code>bed</code> returned 0 for points where one expression is <code>nan</code> and the other infinite, or where they are <code>+inf</code> and <code>-inf</code>. Such points now give <code>inf</code>; points where both expressions are the same infinity give 0, as documented.
 - Evaluating an expression on an <code>X</code> with too few columns (or a 1-D <code>X</code>) read past the end of the array on the default <code>"stack"</code> backend and returned garbage; it now raises a <code>ValueError</code>. This affected <code>compile_expr</code>, <code>create_behavior_matrix</code> and <code>bed</code>.
 - <code>tree_edit_distance</code> priced relabelling by the character edit distance between symbols when the optional <code>editdistance</code> package was installed, so results depended on the environment. It now always uses unit costs.
-- Regression metrics no longer emit NumPy warnings on empty or non-finite input; the returned <code>nan</code> / <code>inf</code> is the signal.</p>
+- Regression metrics no longer emit NumPy warnings on empty or non-finite input; the returned <code>nan</code> / <code>inf</code> is the signal.
+- <code>MaxOccurrences</code> let a grammar rule containing the symbol several times (e.g. <code>E -&gt; x * x</code>) exceed the limit.
+- An <code>SR_evaluator</code> whose required constraints allow more than 8 free constants no longer has its parameter estimator reject such expressions at its default limit of 8.</p>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>
 <li>New backends for expression evaluations (about 1.5x speedup for parameter estimation)</li>

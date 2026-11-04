@@ -16,7 +16,7 @@
         <link rel="prev" href="../expression_compiler/">
       
       
-        <link rel="next" href="../expression_generator/">
+        <link rel="next" href="../expression_constraints/">
       
       
         
@@ -711,6 +711,8 @@
       
         
       
+        
+      
     
     
     
@@ -954,6 +956,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../expression_generator/" class="md-nav__link">
         
   
@@ -1086,7 +1116,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1108,14 +1138,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2473,9 +2503,7 @@ Defaults to <a class="autorefs autorefs-internal" title="&lt;code class=&quot;do
 <span class="normal"><a href="#SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-70">70</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-71">71</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-75">75</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-17" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">simplify</span><span class="p">(</span>
+<span class="normal"><a href="#SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-73">73</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-17" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">simplify</span><span class="p">(</span>
 <a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-18" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-18"></a>    <span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">],</span>
 <a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-19" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-19"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-20" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-20"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Node</span><span class="p">]:</span>
@@ -2507,33 +2535,31 @@ Defaults to <a class="autorefs autorefs-internal" title="&lt;code class=&quot;do
 <a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-46" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-46"></a><span class="sd">    """</span>
 <a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-47" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-47"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-48" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-48"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-49" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-49"></a>    <span class="n">is_tree</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-50" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-50"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Node</span><span class="p">):</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-51" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-51"></a>        <span class="n">expr</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">=</span><span class="n">symbol_library</span><span class="p">,</span> <span class="n">notation</span><span class="o">=</span><span class="s2">"infix"</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-52" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-52"></a>        <span class="n">is_tree</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-49" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-49"></a>    <span class="n">is_tree</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">Node</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-50" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-50"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">_as_tokens</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-51" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-51"></a>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-52" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-52"></a>    <span class="n">variables</span> <span class="o">=</span> <span class="n">symbol_library</span><span class="o">.</span><span class="n">get_symbols_of_type</span><span class="p">(</span><span class="s2">"var"</span><span class="p">)</span>
 <a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-53" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-53"></a>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-54" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-54"></a>    <span class="n">variables</span> <span class="o">=</span> <span class="n">symbol_library</span><span class="o">.</span><span class="n">get_symbols_of_type</span><span class="p">(</span><span class="s2">"var"</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-55" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-55"></a>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-56" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-56"></a>    <span class="c1"># We expect only one symbol for constants</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-57" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-57"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">get_symbols_of_type</span><span class="p">(</span><span class="s2">"const"</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-58" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-58"></a>        <span class="n">constant</span> <span class="o">=</span> <span class="n">symbol_library</span><span class="o">.</span><span class="n">get_symbols_of_type</span><span class="p">(</span><span class="s2">"const"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-59" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-59"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-60" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-60"></a>        <span class="c1"># In this case constants shouldn't be problematic as they are not in the SymbolLibrary</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-61" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-61"></a>        <span class="c1"># Just in case and to not change other functions, I changed it to __C__.</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-62" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-62"></a>        <span class="n">constant</span> <span class="o">=</span> <span class="s2">"__C__"</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-63" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-63"></a>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-64" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-64"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">_simplify_expression</span><span class="p">(</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">expr</span><span class="p">),</span> <span class="n">constant</span><span class="p">,</span> <span class="n">variables</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-65" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-65"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">_denumerate_constants</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">expr</span><span class="p">),</span> <span class="n">constant</span><span class="p">),</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-66" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-66"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">_sympy_to_sr</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-67" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-67"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tree</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">):</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-68" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-68"></a>        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-69" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-69"></a>            <span class="s2">"Simplified expression contains invalid symbols. Possibly skip its simplification or add symbols to the SymbolLibrary."</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-70" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-70"></a>        <span class="p">)</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-71" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-71"></a>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-72" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-72"></a>    <span class="k">if</span> <span class="n">is_tree</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-73" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-73"></a>        <span class="k">return</span> <span class="n">expr</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-74" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-74"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-75" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-75"></a>        <span class="k">return</span> <span class="n">expr</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">=</span><span class="n">symbol_library</span><span class="p">,</span> <span class="n">notation</span><span class="o">=</span><span class="s2">"infix"</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-54" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-54"></a>    <span class="c1"># We expect only one symbol for constants</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-55" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-55"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">get_symbols_of_type</span><span class="p">(</span><span class="s2">"const"</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-56" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-56"></a>        <span class="n">constant</span> <span class="o">=</span> <span class="n">symbol_library</span><span class="o">.</span><span class="n">get_symbols_of_type</span><span class="p">(</span><span class="s2">"const"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-57" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-57"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-58" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-58"></a>        <span class="c1"># In this case constants shouldn't be problematic as they are not in the SymbolLibrary</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-59" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-59"></a>        <span class="c1"># Just in case and to not change other functions, I changed it to __C__.</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-60" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-60"></a>        <span class="n">constant</span> <span class="o">=</span> <span class="s2">"__C__"</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-61" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-61"></a>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-62" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-62"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">_simplify_expression</span><span class="p">(</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">expr</span><span class="p">),</span> <span class="n">constant</span><span class="p">,</span> <span class="n">variables</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-63" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-63"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">sympify</span><span class="p">(</span><span class="n">_denumerate_constants</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">expr</span><span class="p">),</span> <span class="n">constant</span><span class="p">),</span> <span class="n">evaluate</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-64" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-64"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">_sympy_to_sr</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-65" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-65"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tree</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">):</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-66" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-66"></a>        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-67" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-67"></a>            <span class="s2">"Simplified expression contains invalid symbols. Possibly skip its simplification or add symbols to the SymbolLibrary."</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-68" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-68"></a>        <span class="p">)</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-69" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-69"></a>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-70" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-70"></a>    <span class="k">if</span> <span class="n">is_tree</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-71" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-71"></a>        <span class="k">return</span> <span class="n">expr</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-72" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-72"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-73" name="SRToolkit.utils.expression_simplifier.simplify--source--__codelineno-0-73"></a>        <span class="k">return</span> <span class="n">expr</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">symbol_library</span><span class="o">=</span><span class="n">symbol_library</span><span class="p">,</span> <span class="n">notation</span><span class="o">=</span><span class="s2">"infix"</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

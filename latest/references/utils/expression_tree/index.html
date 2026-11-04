@@ -711,6 +711,8 @@
       
         
       
+        
+      
     
     
     
@@ -1070,6 +1072,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../expression_generator/" class="md-nav__link">
         
   
@@ -1202,7 +1232,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1224,14 +1254,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_10" id="__nav_3_2_10_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4013,38 +4043,7 @@ tokens remain unconsumed).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/expression_tree.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-437">437</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-438">438</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-439">439</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-440">440</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-441">441</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-442">442</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-443">443</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-444">444</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-445">445</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-446">446</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-447">447</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-448">448</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-449">449</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-450">450</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-451">451</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-452">452</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-453">453</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-454">454</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-455">455</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-456">456</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-457">457</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-458">458</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-459">459</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-460">460</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-461">461</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-462">462</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-463">463</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-464">464</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-465">465</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-466">466</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-467">467</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-468">468</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-468">468</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-469">469</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-470">470</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-471">471</a></span>
@@ -4083,77 +4082,108 @@ tokens remain unconsumed).</p>
 <span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-504">504</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-505">505</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-506">506</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-507">507</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-437" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-437"></a><span class="k">def</span><span class="w"> </span><span class="nf">tokens_to_tree</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">sl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">notation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"infix"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Node</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-438" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-438"></a><span class="w">    </span><span class="sd">"""Parse a token list into an expression tree.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-439" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-439"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-440" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-440"></a><span class="sd">    Infix token lists are parsed with the shunting-yard algorithm; prefix and</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-441" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-441"></a><span class="sd">    postfix lists are parsed with a single stack pass using the arity implied by</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-442" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-442"></a><span class="sd">    each token's type (``"op"`` is binary, ``"fn"`` is unary, and variables,</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-443" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-443"></a><span class="sd">    constants, literals, and numeric literals are leaves). This is the inverse of</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-444" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-444"></a><span class="sd">    [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], so a tree</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-445" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-445"></a><span class="sd">    survives a round trip through any of the three notations.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-446" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-446"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-447" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-447"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-448" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-448"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-449" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-449"></a><span class="sd">        &gt;&gt;&gt; len(tree)</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-450" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-450"></a><span class="sd">        3</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-451" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-451"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["+", "1", "X_0"], SymbolLibrary.default_symbols(), notation="prefix")</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-452" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-452"></a><span class="sd">        &gt;&gt;&gt; tree.to_list(SymbolLibrary.default_symbols())</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-453" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-453"></a><span class="sd">        ['1', '+', 'X_0']</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-454" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-454"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["X_0", "X_1", "*", "1", "+"], SymbolLibrary.default_symbols(), notation="postfix")</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-455" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-455"></a><span class="sd">        &gt;&gt;&gt; tree.to_list(SymbolLibrary.default_symbols())</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-456" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-456"></a><span class="sd">        ['X_0', '*', 'X_1', '+', '1']</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-457" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-457"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["sin", "X_0"], SymbolLibrary.default_symbols(), notation="prefix")</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-458" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-458"></a><span class="sd">        &gt;&gt;&gt; tree.to_list(SymbolLibrary.default_symbols())</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-459" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-459"></a><span class="sd">        ['sin', '(', 'X_0', ')']</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-460" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-460"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-461" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-461"></a><span class="sd">    Infix conventions, some of which differ from usual mathematical notation:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-462" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-462"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-463" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-463"></a><span class="sd">    - A function with positive precedence is prefix (``sin ( X_0 )``); one with zero or negative</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-464" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-464"></a><span class="sd">      precedence is postfix (``X_0 ^2``), as in</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-465" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-465"></a><span class="sd">      [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list].</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-466" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-466"></a><span class="sd">    - A prefix function written without brackets applies to the operand that follows it, more</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-467" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-467"></a><span class="sd">      tightly than any binary operator: ``u- X_0 * X_1`` is ``(-X_0) * X_1``, and ``u- X_0 ^ 2``</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-468" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-468"></a><span class="sd">      is ``(-X_0)^2``, not ``-(X_0^2)`` as in mathematics. A postfix function binds more tightly</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-469" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-469"></a><span class="sd">      still: ``u- X_0 ^2`` is ``-(X_0^2)``.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-470" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-470"></a><span class="sd">    - Binary operators are left-associative, ``^`` included: ``X_0 ^ X_1 ^ X_2`` is</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-471" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-471"></a><span class="sd">      ``(X_0^X_1)^X_2``, whereas mathematics reads it as ``X_0^(X_1^X_2)``.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-472" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-472"></a><span class="sd">    - Numbers are any token ``float()`` accepts (``1.5``, ``-2``, ``1e-3``, ``inf``), except</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-473" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-473"></a><span class="sd">      ``nan``.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-474" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-474"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-475" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-475"></a><span class="sd">    Write brackets where these conventions differ from what you mean.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-477" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-477"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-478" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-478"></a><span class="sd">        tokens: Token list in the notation given by ``notation``.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-479" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-479"></a><span class="sd">        sl: Symbol library used to resolve token types and precedences. If None,</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-480" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-480"></a><span class="sd">            falls back to the currently active library set via</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-481" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-481"></a><span class="sd">            'with SymbolLibrary(...) as sl:'. Defaults to None.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-482" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-482"></a><span class="sd">        notation: Notation of ``tokens``: ``"infix"``, ``"prefix"``, or</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-483" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-483"></a><span class="sd">            ``"postfix"``. Default ``"infix"``.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-484" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-484"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-485" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-485"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-486" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-486"></a><span class="sd">        Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-487" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-487"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-488" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-488"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-489" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-489"></a><span class="sd">        TypeError: If ``tokens`` is not a list of strings. Numbers must be written as strings</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-490" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-490"></a><span class="sd">            (``"1.5"``, not ``1.5``).</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-491" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-491"></a><span class="sd">        ExpressionParseError: If a token is absent from ``sl``, or if the expression is not</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-492" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-492"></a><span class="sd">            well-formed (e.g. an operator lacks operands, brackets are unbalanced or empty, or</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-493" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-493"></a><span class="sd">            tokens remain unconsumed).</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-494" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-494"></a><span class="sd">        Exception: If ``notation`` is not one of the accepted values.</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-495" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-495"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-496" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-496"></a>    <span class="n">_check_tokens</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="s2">"tokens"</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-497" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-497"></a>    <span class="k">if</span> <span class="n">sl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-498" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-498"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-499" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-499"></a>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-500" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-500"></a>    <span class="k">if</span> <span class="n">notation</span> <span class="o">==</span> <span class="s2">"infix"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-501" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-501"></a>        <span class="k">return</span> <span class="n">_infix_to_tree</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">sl</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-502" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-502"></a>    <span class="k">elif</span> <span class="n">notation</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"prefix"</span><span class="p">,</span> <span class="s2">"postfix"</span><span class="p">):</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-503" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-503"></a>        <span class="k">return</span> <span class="n">_prefix_postfix_to_tree</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="n">notation</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-504" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-504"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-505" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-505"></a>        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-506" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-506"></a>            <span class="s2">"Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix')."</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-507" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-507"></a>        <span class="p">)</span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-507">507</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-508">508</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-509">509</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-510">510</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-511">511</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-512">512</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-513">513</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-514">514</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-515">515</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-516">516</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-517">517</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-518">518</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-519">519</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-520">520</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-521">521</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-522">522</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-523">523</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-524">524</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-525">525</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-526">526</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-527">527</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-528">528</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-529">529</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-530">530</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-531">531</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-532">532</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-533">533</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-534">534</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-535">535</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-536">536</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-537">537</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-538">538</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-468" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-468"></a><span class="k">def</span><span class="w"> </span><span class="nf">tokens_to_tree</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">sl</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">notation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"infix"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Node</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-469" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-469"></a><span class="w">    </span><span class="sd">"""Parse a token list into an expression tree.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-470" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-470"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-471" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-471"></a><span class="sd">    Infix token lists are parsed with the shunting-yard algorithm; prefix and</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-472" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-472"></a><span class="sd">    postfix lists are parsed with a single stack pass using the arity implied by</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-473" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-473"></a><span class="sd">    each token's type (``"op"`` is binary, ``"fn"`` is unary, and variables,</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-474" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-474"></a><span class="sd">    constants, literals, and numeric literals are leaves). This is the inverse of</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-475" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-475"></a><span class="sd">    [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], so a tree</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476"></a><span class="sd">    survives a round trip through any of the three notations.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-477" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-477"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-478" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-478"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-479" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-479"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-480" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-480"></a><span class="sd">        &gt;&gt;&gt; len(tree)</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-481" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-481"></a><span class="sd">        3</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-482" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-482"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["+", "1", "X_0"], SymbolLibrary.default_symbols(), notation="prefix")</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-483" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-483"></a><span class="sd">        &gt;&gt;&gt; tree.to_list(SymbolLibrary.default_symbols())</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-484" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-484"></a><span class="sd">        ['1', '+', 'X_0']</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-485" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-485"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["X_0", "X_1", "*", "1", "+"], SymbolLibrary.default_symbols(), notation="postfix")</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-486" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-486"></a><span class="sd">        &gt;&gt;&gt; tree.to_list(SymbolLibrary.default_symbols())</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-487" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-487"></a><span class="sd">        ['X_0', '*', 'X_1', '+', '1']</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-488" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-488"></a><span class="sd">        &gt;&gt;&gt; tree = tokens_to_tree(["sin", "X_0"], SymbolLibrary.default_symbols(), notation="prefix")</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-489" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-489"></a><span class="sd">        &gt;&gt;&gt; tree.to_list(SymbolLibrary.default_symbols())</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-490" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-490"></a><span class="sd">        ['sin', '(', 'X_0', ')']</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-491" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-491"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-492" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-492"></a><span class="sd">    Infix conventions, some of which differ from usual mathematical notation:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-493" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-493"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-494" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-494"></a><span class="sd">    - A function with positive precedence is prefix (``sin ( X_0 )``); one with zero or negative</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-495" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-495"></a><span class="sd">      precedence is postfix (``X_0 ^2``), as in</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-496" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-496"></a><span class="sd">      [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list].</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-497" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-497"></a><span class="sd">    - A prefix function written without brackets applies to the operand that follows it, more</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-498" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-498"></a><span class="sd">      tightly than any binary operator: ``u- X_0 * X_1`` is ``(-X_0) * X_1``, and ``u- X_0 ^ 2``</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-499" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-499"></a><span class="sd">      is ``(-X_0)^2``, not ``-(X_0^2)`` as in mathematics. A postfix function binds more tightly</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-500" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-500"></a><span class="sd">      still: ``u- X_0 ^2`` is ``-(X_0^2)``.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-501" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-501"></a><span class="sd">    - Binary operators are left-associative, ``^`` included: ``X_0 ^ X_1 ^ X_2`` is</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-502" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-502"></a><span class="sd">      ``(X_0^X_1)^X_2``, whereas mathematics reads it as ``X_0^(X_1^X_2)``.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-503" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-503"></a><span class="sd">    - Numbers are any token ``float()`` accepts (``1.5``, ``-2``, ``1e-3``, ``inf``), except</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-504" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-504"></a><span class="sd">      ``nan``.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-505" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-505"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-506" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-506"></a><span class="sd">    Write brackets where these conventions differ from what you mean.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-507" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-507"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-508" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-508"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-509" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-509"></a><span class="sd">        tokens: Token list in the notation given by ``notation``.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-510" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-510"></a><span class="sd">        sl: Symbol library used to resolve token types and precedences. If None,</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-511" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-511"></a><span class="sd">            falls back to the currently active library set via</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-512" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-512"></a><span class="sd">            'with SymbolLibrary(...) as sl:'. Defaults to None.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-513" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-513"></a><span class="sd">        notation: Notation of ``tokens``: ``"infix"``, ``"prefix"``, or</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-514" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-514"></a><span class="sd">            ``"postfix"``. Default ``"infix"``.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-515" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-515"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-516" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-516"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-517" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-517"></a><span class="sd">        Root [Node][SRToolkit.utils.expression_tree.Node] of the parsed expression tree.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-518" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-518"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-519" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-519"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-520" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-520"></a><span class="sd">        TypeError: If ``tokens`` is not a list of strings. Numbers must be written as strings</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-521" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-521"></a><span class="sd">            (``"1.5"``, not ``1.5``).</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-522" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-522"></a><span class="sd">        ExpressionParseError: If a token is absent from ``sl``, or if the expression is not</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-523" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-523"></a><span class="sd">            well-formed (e.g. an operator lacks operands, brackets are unbalanced or empty, or</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-524" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-524"></a><span class="sd">            tokens remain unconsumed).</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-525" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-525"></a><span class="sd">        Exception: If ``notation`` is not one of the accepted values.</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-526" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-526"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-527" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-527"></a>    <span class="n">_check_tokens</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="s2">"tokens"</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-528" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-528"></a>    <span class="k">if</span> <span class="n">sl</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-529" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-529"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-530" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-530"></a>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-531" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-531"></a>    <span class="k">if</span> <span class="n">notation</span> <span class="o">==</span> <span class="s2">"infix"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-532" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-532"></a>        <span class="k">return</span> <span class="n">_infix_to_tree</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">sl</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-533" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-533"></a>    <span class="k">elif</span> <span class="n">notation</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"prefix"</span><span class="p">,</span> <span class="s2">"postfix"</span><span class="p">):</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-534" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-534"></a>        <span class="k">return</span> <span class="n">_prefix_postfix_to_tree</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">sl</span><span class="p">,</span> <span class="n">notation</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-535" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-535"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-536" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-536"></a>        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-537" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-537"></a>            <span class="s2">"Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix')."</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-538" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-538"></a>        <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4259,57 +4289,57 @@ back to the currently active library set via
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/expression_tree.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-681">681</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-682">682</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-683">683</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-684">684</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-685">685</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-686">686</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-687">687</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-688">688</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-689">689</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-690">690</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-691">691</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-692">692</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-693">693</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-694">694</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-695">695</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-696">696</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-697">697</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-698">698</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-699">699</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-700">700</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-701">701</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-702">702</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-703">703</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-704">704</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-705">705</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-706">706</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-681" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-681"></a><span class="k">def</span><span class="w"> </span><span class="nf">expr_to_latex</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Node</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-682" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-682"></a><span class="w">    </span><span class="sd">"""Convert an expression to a LaTeX string.</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-683" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-683"></a>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-684" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-684"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-685" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-685"></a><span class="sd">        &gt;&gt;&gt; expr_to_latex(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-686" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-686"></a><span class="sd">        '$X_{0} + X_{1}$'</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-687" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-687"></a><span class="sd">        &gt;&gt;&gt; expr = Node("+", Node("X_0"), Node("1"))</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-688" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-688"></a><span class="sd">        &gt;&gt;&gt; expr_to_latex(expr, SymbolLibrary.default_symbols())</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-689" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-689"></a><span class="sd">        '$1 + X_{0}$'</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-690" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-690"></a>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-691" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-691"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-692" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-692"></a><span class="sd">        expr: Expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-693" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-693"></a><span class="sd">        symbol_library: Symbol library providing LaTeX templates. If None, falls</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-694" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-694"></a><span class="sd">            back to the currently active library set via</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-695" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-695"></a><span class="sd">            'with SymbolLibrary(...) as sl:'. Defaults to None.</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-696" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-696"></a>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-697" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-697"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-698" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-698"></a><span class="sd">        A LaTeX string of the form ``$...$``, or an empty string if conversion fails.</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-699" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-699"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-700" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-700"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-701" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-701"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-702" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-702"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-703" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-703"></a>        <span class="k">return</span> <span class="n">_as_tree</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span><span class="o">.</span><span class="n">to_latex</span><span class="p">(</span><span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-704" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-704"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-705" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-705"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error while converting expression </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span><span class="si">}</span><span class="s2"> to LaTeX: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-706" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-706"></a>        <span class="k">return</span> <span class="s2">""</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-712">712</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-713">713</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-714">714</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-715">715</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-716">716</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-717">717</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-718">718</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-719">719</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-720">720</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-721">721</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-722">722</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-723">723</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-724">724</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-725">725</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-726">726</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-727">727</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-728">728</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-729">729</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-730">730</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-731">731</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-732">732</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-733">733</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-734">734</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-735">735</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-736">736</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-737">737</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-712" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-712"></a><span class="k">def</span><span class="w"> </span><span class="nf">expr_to_latex</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Node</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-713" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-713"></a><span class="w">    </span><span class="sd">"""Convert an expression to a LaTeX string.</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-714" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-714"></a>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-715" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-715"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-716" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-716"></a><span class="sd">        &gt;&gt;&gt; expr_to_latex(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-717" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-717"></a><span class="sd">        '$X_{0} + X_{1}$'</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-718" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-718"></a><span class="sd">        &gt;&gt;&gt; expr = Node("+", Node("X_0"), Node("1"))</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-719" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-719"></a><span class="sd">        &gt;&gt;&gt; expr_to_latex(expr, SymbolLibrary.default_symbols())</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-720" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-720"></a><span class="sd">        '$1 + X_{0}$'</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-721" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-721"></a>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-722" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-722"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-723" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-723"></a><span class="sd">        expr: Expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-724" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-724"></a><span class="sd">        symbol_library: Symbol library providing LaTeX templates. If None, falls</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-725" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-725"></a><span class="sd">            back to the currently active library set via</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-726" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-726"></a><span class="sd">            'with SymbolLibrary(...) as sl:'. Defaults to None.</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-727" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-727"></a>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-728" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-728"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-729" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-729"></a><span class="sd">        A LaTeX string of the form ``$...$``, or an empty string if conversion fails.</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-730" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-730"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-731" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-731"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-732" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-732"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-733" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-733"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-734" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-734"></a>        <span class="k">return</span> <span class="n">_as_tree</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span><span class="o">.</span><span class="n">to_latex</span><span class="p">(</span><span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-735" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-735"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-736" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-736"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error while converting expression </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span><span class="si">}</span><span class="s2"> to LaTeX: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-737" name="SRToolkit.utils.expression_tree.expr_to_latex--source--__codelineno-0-737"></a>        <span class="k">return</span> <span class="s2">""</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
