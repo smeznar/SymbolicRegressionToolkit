@@ -335,8 +335,9 @@ class HoldoutMetric(ResultAugmenter):
         - **A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]**: the ranking is
           set up on the held-out data and scores each model, e.g. BED on the held-out ``X``.
 
-        With a metric name or a callable, models the search could not score (any
-        [status][SRToolkit.utils.types.Status] other than ``"ok"``) get ``NaN``.
+        With every kind of metric, models the search could not score (any
+        [status][SRToolkit.utils.types.Status] other than ``"ok"``, e.g. rejected by a required
+        constraint) get ``NaN``; they are not scored on the held-out data.
 
         Examples:
             >>> from SRToolkit.evaluation import SR_evaluator
@@ -364,9 +365,11 @@ class HoldoutMetric(ResultAugmenter):
                 (e.g. for BED). Unused otherwise.
             ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting
                 constants on the held-out data (e.g. ``constant_bounds``, ``max_constants``).
-                Pass the dataset's settings (``dataset.kwargs``) to fit under the same limits as
-                the search; required constraints given explicitly to the evaluator are not
-                applied here and must be matched separately.
+                Pass the dataset's settings (``dataset.kwargs``) to fit under the same settings as
+                the search. ``max_constants`` and ``max_expr_length`` apply only if given here: a
+                missing one means no limit, not the estimator's default of 8 constants, because the
+                search already enforced its limits (including its required constraints) on every
+                model it scored ``"ok"``.
             seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
                 Default ``0``.
             refit_constants: Fit every model's constants on the held-out data instead of reusing
@@ -395,6 +398,10 @@ class HoldoutMetric(ResultAugmenter):
         self.seed = seed
         self.refit_constants = refit_constants
         self.ranking_settings: Dict[str, Any] = dict(ranking_settings or {})
+        # The search enforced its own limits on every model it scored "ok". Apply only the limits
+        # given here: the estimator's defaults (max_constants=8) could reject models the search
+        # accepted, e.g. under a required MaxConstants(20).
+        self._fit_settings: Dict[str, Any] = {"max_constants": -1, "max_expr_length": -1, **self.ranking_settings}
         self._estimator: Optional[ParameterEstimator] = None
 
         if isinstance(data, tuple):
@@ -419,7 +426,7 @@ class HoldoutMetric(ResultAugmenter):
             # Deep-copy so setup() mutates our own instance, not the caller's (which may be shared
             # with an SR_evaluator or another HoldoutMetric).
             self.metric = copy.deepcopy(metric)
-            self.metric.setup(self._X, self._y, ground_truth, symbol_library, seed, self.ranking_settings)
+            self.metric.setup(self._X, self._y, ground_truth, symbol_library, seed, self._fit_settings)
         elif isinstance(metric, str):
             self._ranking_mode = False
             self._metric_label = metric
@@ -442,6 +449,10 @@ class HoldoutMetric(ResultAugmenter):
 
     def _value(self, model: ModelResult) -> float:
         expr = model.expr
+        # A model the search could not score (invalid, rejected e.g. for max_constants, ...) gets
+        # NaN with every metric; scoring it here would make a rejected expression look like an answer.
+        if model.status != "ok":
+            return float("nan")
         if isinstance(self.metric, RankingFunction):  # same as self._ranking_mode; narrows the type
             # Match the NaN-on-failure contract of the reuse-params branch (evaluate_metric): a
             # single expression that raises must not abort the whole augmentation.
@@ -450,10 +461,6 @@ class HoldoutMetric(ResultAugmenter):
             except Exception as e:
                 warnings.warn(f"[HoldoutMetric] Error scoring expression '{''.join(expr)}': {e}")
                 return float("nan")
-        # A model the search could not score (invalid, rejected e.g. for max_constants, ...) has no
-        # usable parameters; scoring it here would make a rejected expression look like an answer.
-        if model.status != "ok":
-            return float("nan")
         # Reuse the model's fitted parameters when it has them (true generalization; an empty array
         # is a valid fit of a constant-free expression). When it has none — results from a ranking
         # that fits no constants, such as BED — or refit_constants is set, fit the free constants on
@@ -489,7 +496,7 @@ class HoldoutMetric(ResultAugmenter):
         assert self._y is not None
         if self._estimator is None:
             self._estimator = ParameterEstimator(
-                self._X, self._y, self.symbol_library, seed=self.seed, **self.ranking_settings
+                self._X, self._y, self.symbol_library, seed=self.seed, **self._fit_settings
             )
         return self._estimator.estimate_parameters(expr)
 

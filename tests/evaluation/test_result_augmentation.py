@@ -13,6 +13,7 @@ from SRToolkit.evaluation.result_augmentation import (
 )
 from SRToolkit.evaluation.sr_evaluator import ModelResult, SR_evaluator, SR_results
 from SRToolkit.utils import Node
+from SRToolkit.utils.expression_constraints import MaxConstants
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 # ── Shared data ────────────────────────────────────────────────────────────────
@@ -603,6 +604,40 @@ class TestHoldoutMetricReuseParams:
             (_X_TEST, _y_TEST), scope="best", symbol_library=_sl, ranking_settings={"max_constants": 0}
         ).write_results(result)
         assert np.isnan(result.augmentations["HoldoutMetric"]["best_value"])
+
+
+# 9 free constants: over the estimator's default limit of 8, within a required MaxConstants(20).
+_NINE_CONSTANTS = ["C", "*", "X_1", "-", "X_0"] + ["+", "C"] * 8
+
+
+class TestHoldoutMetricLimits:
+    def test_refit_does_not_apply_default_max_constants(self):
+        # Regression: the search accepted the model under MaxConstants(20), but the holdout
+        # estimator fell back to max_constants=8 and returned NaN for it.
+        se = _rmse_se(symbol_library=_sl, required_constraints=[MaxConstants(20)])
+        se.evaluate_expr(_NINE_CONSTANTS)
+        result = se.get_results(top_k=1)[0]
+        assert result.top_models()[0].status == "ok"
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl, refit_constants=True)
+        aug.write_results(result)
+        assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
+
+    def test_ranking_metric_does_not_apply_default_max_constants(self):
+        se = _rmse_se(symbol_library=_sl, required_constraints=[MaxConstants(20)])
+        se.evaluate_expr(_NINE_CONSTANTS)
+        result = se.get_results(top_k=1)[0]
+        HoldoutMetric((_X_TEST, _y_TEST), metric=RMSERanking(), scope="best", symbol_library=_sl).write_results(result)
+        assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
+
+    def test_ranking_metric_gives_nan_for_rejected_model(self):
+        # Regression: the ranking branch scored every model, so a model the search rejected (here
+        # for 9 constants, over the default limit of 8) got a finite holdout score.
+        se = _rmse_se(symbol_library=_sl)
+        se.evaluate_expr(_NINE_CONSTANTS)
+        result = se.get_results(top_k=1)[0]
+        assert result.all_models[0].status == "rejected"
+        HoldoutMetric((_X_TEST, _y_TEST), metric=RMSERanking(), scope="all", symbol_library=_sl).write_results(result)
+        assert np.isnan(result.all_models[0].augmentations["HoldoutMetric"]["value"])
 
 
 class TestHoldoutMetricRefitConstants:

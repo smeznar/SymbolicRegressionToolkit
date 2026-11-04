@@ -43,6 +43,8 @@
 - `max_constants` / `max_expr_length` must be ints (numpy ints accepted); other values raise a `ValueError` instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a `ValueError`.
 
 **Fixes:**
+- `HoldoutMetric` no longer applies the estimator's default limit of 8 constants when fitting constants on held-out data: `max_constants` / `max_expr_length` apply only if given in `ranking_settings`. Before, a model the search accepted (e.g. under a required `MaxConstants(20)`) got `NaN` on the holdout.
+- `HoldoutMetric` with a `RankingFunction` metric gives `NaN` to models the search did not score `"ok"`, like the built-in and callable metrics already did. Before, it scored rejected models on the held-out data, so they could look like valid answers.
 - A dataset with custom `constant_bounds` scored every expression with a constant as NaN after a JSON round trip (`from_dict`, `from_archive`, `ExperimentGrid`).
 - A `Node` ground truth is now serialised with the dataset's own symbol library.
 - `SR_dataset.refresh()` regenerates the test and aux data too, and `data_cache.remove` deletes them.
