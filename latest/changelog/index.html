@@ -2432,6 +2432,8 @@
 - The <code>status_detail</code> of a rejected expression names the constraint, e.g. <code>"MaxConstants: 9 constants, limit 8"</code> instead of <code>"9 constants exceed max_constants=8"</code>.
 - <code>max_constants</code> / <code>max_expr_length</code> must be ints (numpy ints accepted); other values raise a <code>ValueError</code> instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a <code>ValueError</code>.</p>
 <p><strong>Fixes:</strong>
+- <code>HoldoutMetric</code> no longer applies the estimator's default limit of 8 constants when fitting constants on held-out data: <code>max_constants</code> / <code>max_expr_length</code> apply only if given in <code>ranking_settings</code>. Before, a model the search accepted (e.g. under a required <code>MaxConstants(20)</code>) got <code>NaN</code> on the holdout.
+- <code>HoldoutMetric</code> with a <code>RankingFunction</code> metric gives <code>NaN</code> to models the search did not score <code>"ok"</code>, like the built-in and callable metrics already did. Before, it scored rejected models on the held-out data, so they could look like valid answers.
 - A dataset with custom <code>constant_bounds</code> scored every expression with a constant as NaN after a JSON round trip (<code>from_dict</code>, <code>from_archive</code>, <code>ExperimentGrid</code>).
 - A <code>Node</code> ground truth is now serialised with the dataset's own symbol library.
 - <code>SR_dataset.refresh()</code> regenerates the test and aux data too, and <code>data_cache.remove</code> deletes them.
