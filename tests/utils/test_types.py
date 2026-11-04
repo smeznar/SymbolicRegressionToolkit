@@ -1,5 +1,6 @@
 """Spec tests for SRToolkit.utils.types (constants, RankingSettings, ModelResult, EvalResult)."""
 
+import dataclasses
 import json
 import math
 import re
@@ -22,6 +23,7 @@ from SRToolkit.utils.types import (
     STATUSES,
     VALID_SYMBOL_TYPES,
     VAR,
+    CheckResult,
     EvalResult,
     ModelResult,
     RankingSettings,
@@ -98,6 +100,17 @@ class TestRankingSettings:
 # ---------------------------------------------------------------------------------------------
 
 
+class TestCheckResult:
+    def test_check_result_defaults(self):
+        # A constraint fills passed/message/amount; the evaluator fills constraint and stage.
+        result = CheckResult()
+        assert (result.passed, result.message, result.amount) == (True, "", 0.0)
+        assert (result.implemented, result.constraint, result.stage) == (True, "", "")
+        assert result.error is None
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            result.passed = False
+
+
 class TestModelResult:
     def test_model_result_defaults_and_independent_containers(self):
         a = ModelResult(expr=["X_0"], error=0.1)
@@ -107,10 +120,13 @@ class TestModelResult:
         assert a.augmentations == {}
         assert a.status == "ok"
         assert a.status_detail is None
+        assert a.advisory_violations == []
         a.ranking_data["k"] = 1
         a.augmentations["k"] = {}
+        a.advisory_violations.append(CheckResult(passed=False))
         assert b.ranking_data == {}
         assert b.augmentations == {}
+        assert b.advisory_violations == []
 
     def test_model_result_json_round_trip_restores_every_field(self):
         model = ModelResult(
@@ -121,6 +137,12 @@ class TestModelResult:
             augmentations={"aug": {"value": "s", "_type": "Aug"}},
             status="undefined",
             status_detail="nan score",
+            advisory_violations=[
+                CheckResult(False, "depth 3, limit 1", 2.0, True, "MaxTreeDepth", "pre"),
+                CheckResult(False, "no fitted parameters", INF, True, "OutputBounds", "post"),
+                CheckResult(False, "raised ValueError: x", INF, True, "Custom", "pre", "ValueError: x"),
+                CheckResult(False, "numpy amount", np.int64(3), True, "Custom", "post"),
+            ],
         )
         back = json_round_trip(model)
         assert back.expr == ["C", "*", "X_0", "+", "C"]
@@ -136,6 +158,13 @@ class TestModelResult:
         assert back.augmentations == {"aug": {"value": "s", "_type": "Aug"}}
         assert back.status == "undefined"
         assert back.status_detail == "nan score"
+        assert back.advisory_violations == [
+            CheckResult(False, "depth 3, limit 1", 2.0, True, "MaxTreeDepth", "pre"),
+            CheckResult(False, "no fitted parameters", INF, True, "OutputBounds", "post"),
+            CheckResult(False, "raised ValueError: x", INF, True, "Custom", "pre", "ValueError: x"),
+            CheckResult(False, "numpy amount", 3, True, "Custom", "post"),
+        ]
+        assert type(back.advisory_violations[-1].amount) is int
 
     def test_model_result_numpy_scalars_come_back_as_python_scalars(self):
         model = ModelResult(expr=["X_0"], error=np.float64(0.25), ranking_data={"n": np.int64(3)})
@@ -144,6 +173,12 @@ class TestModelResult:
         assert back.error == 0.25
         assert type(back.ranking_data["n"]) is int
         assert back.ranking_data["n"] == 3
+
+    def test_model_result_from_dict_missing_advisory_violations_loads_empty(self):
+        # Results saved before advisory violations were recorded have no such key.
+        data = ModelResult(expr=["X_0"], error=0.1).to_dict()
+        data.pop("advisory_violations", None)
+        assert ModelResult.from_dict(data).advisory_violations == []
 
     @pytest.mark.parametrize(
         "mutate",

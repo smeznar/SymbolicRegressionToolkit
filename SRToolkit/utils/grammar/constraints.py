@@ -1,7 +1,7 @@
 """Constraint protocol for grammar-guided expression generation.
 
-A [Constraint][SRToolkit.utils.grammar.constraints.Constraint] is a hard filter: at each
-derivation step its [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] method
+A [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint] is a hard filter: at each
+derivation step its [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows] method
 decides which candidate rules survive.
 
 All constraints operate on an [ExpansionContext][SRToolkit.utils.grammar.constraints.ExpansionContext]
@@ -18,8 +18,8 @@ Per-derivation state comes in two flavours:
 
 Both flavours are owned by the engine; the [Derivation][SRToolkit.utils.grammar.derivation.Derivation]
 initialises them at [Grammar.start_derivation][SRToolkit.utils.grammar.Grammar.start_derivation]
-and threads them through every [allows][SRToolkit.utils.grammar.constraints.Constraint.allows]
-/ [update][SRToolkit.utils.grammar.constraints.Constraint.update] call. Constraint instances
+and threads them through every [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows]
+/ [update][SRToolkit.utils.grammar.constraints.GrammarConstraint.update] call. GrammarConstraint instances
 carry only construction-time configuration and are safe to share across
 parallel derivations.
 
@@ -119,11 +119,11 @@ class ExpansionContext(Generic[L]):
 
 
 # ---------------------------------------------------------------------------
-# Constraint protocol
+# GrammarConstraint protocol
 # ---------------------------------------------------------------------------
 
 
-class Constraint(Generic[L, G]):
+class GrammarConstraint(Generic[L, G]):
     """Base class for derivation constraints (hard filters).
 
     Subclass and override the methods you need. Constraints carry only
@@ -131,15 +131,15 @@ class Constraint(Generic[L, G]):
     engine and threaded through method arguments.
 
     **Scoping** — set ``nonterminals`` and/or ``rule_names`` to restrict
-    [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] to a subset of slots
+    [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows] to a subset of slots
     or rules. A scope miss is treated as implicit acceptance.
-    [update][SRToolkit.utils.grammar.constraints.Constraint.update] is *always* called
+    [update][SRToolkit.utils.grammar.constraints.GrammarConstraint.update] is *always* called
     regardless of scope so that global counters stay accurate.
 
     Examples:
         >>> from SRToolkit.utils.grammar import Grammar, Rule
         >>> g = Grammar([Rule("E", ["x"]), Rule("E", ["y"])])
-        >>> class RejectY(Constraint):
+        >>> class RejectY(GrammarConstraint):
         ...     def allows(self, slot, rule, global_): return rule.rhs != ["y"]
         >>> g.add_constraint(RejectY())
         >>> d = g.start_derivation("E")
@@ -162,7 +162,7 @@ class Constraint(Generic[L, G]):
         ``constraint_class``. Subclasses should call ``super().to_dict()`` and
         add their own constructor arguments so that ``from_dict`` can reconstruct
         the instance faithfully. See
-        [from_dict][SRToolkit.utils.grammar.constraints.Constraint.from_dict]
+        [from_dict][SRToolkit.utils.grammar.constraints.GrammarConstraint.from_dict]
         for an example.
 
         Returns:
@@ -171,10 +171,10 @@ class Constraint(Generic[L, G]):
         return {"constraint_class": f"{self.__class__.__module__}.{self.__class__.__qualname__}"}
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Constraint":
+    def from_dict(cls, d: dict) -> "GrammarConstraint":
         """Reconstruct a constraint from a dictionary produced by ``to_dict``.
 
-        When called on the base [Constraint][SRToolkit.utils.grammar.constraints.Constraint]
+        When called on the base [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint]
         class, dispatches to the correct subclass via the ``constraint_class`` key using
         `importlib` — both built-in and user-defined subclasses are supported.
         When called on a concrete subclass, the subclass must override this method.
@@ -186,7 +186,7 @@ class Constraint(Generic[L, G]):
         To make a custom subclass serialisable, override both ``to_dict`` and
         ``from_dict``::
 
-            class MyConstraint(Constraint):
+            class MyConstraint(GrammarConstraint):
                 def __init__(self, threshold: float) -> None:
                     self.threshold = threshold
 
@@ -198,8 +198,8 @@ class Constraint(Generic[L, G]):
                     return cls(d["threshold"])
 
         Examples:
-            >>> from SRToolkit.utils.grammar import Constraint, MaxDepth
-            >>> c = Constraint.from_dict(MaxDepth(5).to_dict())
+            >>> from SRToolkit.utils.grammar import GrammarConstraint, MaxDepth
+            >>> c = GrammarConstraint.from_dict(MaxDepth(5).to_dict())
             >>> isinstance(c, MaxDepth) and c.limit == 5
             True
 
@@ -207,7 +207,7 @@ class Constraint(Generic[L, G]):
             d: Dictionary previously returned by ``to_dict``.
 
         Returns:
-            A reconstructed [Constraint][SRToolkit.utils.grammar.constraints.Constraint] instance.
+            A reconstructed [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint] instance.
 
         Raises:
             KeyError: If ``constraint_class`` is missing from ``d`` (dispatch path).
@@ -215,7 +215,7 @@ class Constraint(Generic[L, G]):
             AttributeError: If the class cannot be found in the module (dispatch path).
             NotImplementedError: If called on a subclass that has not overridden this method.
         """
-        if cls is Constraint:
+        if cls is GrammarConstraint:
             d = _auto_bind(d)
             class_path = d["constraint_class"]
             module_path, cls_name = class_path.rsplit(".", 1)
@@ -285,7 +285,7 @@ class Constraint(Generic[L, G]):
 # ---------------------------------------------------------------------------
 
 
-class MaxDepth(Constraint[int, None]):
+class MaxDepth(GrammarConstraint[int, None]):
     """Hard limit on derivation depth.
 
     Local state is the remaining depth budget at each slot.  A rule is
@@ -331,7 +331,7 @@ class MaxDepth(Constraint[int, None]):
         return [slot.local - 1] * n, None
 
 
-class MaxNodes(Constraint[None, int]):
+class MaxNodes(GrammarConstraint[None, int]):
     """Hard limit on the total number of rule applications in a derivation.
 
     Global state is a running count of applications so far.  A rule is
@@ -383,11 +383,12 @@ class MaxNodes(Constraint[None, int]):
         return [None] * n, global_ + 1
 
 
-class MaxOccurrences(Constraint[None, int]):
+class MaxOccurrences(GrammarConstraint[None, int]):
     """Hard limit on how many times a specific terminal symbol may appear.
 
-    Global state counts occurrences committed so far.  A rule whose ``rhs``
-    contains the tracked symbol is rejected once the count equals the limit.
+    Global state counts occurrences committed so far. A rule is rejected if applying it would
+    push the count over the limit, i.e. if the count plus the occurrences of the symbol in its
+    ``rhs`` exceeds the limit (so ``E -> x * x`` is rejected under a limit of 1).
 
     Examples:
         >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -422,9 +423,7 @@ class MaxOccurrences(Constraint[None, int]):
         return 0
 
     def allows(self, slot: ExpansionContext[None], rule: Rule, global_: int) -> bool:
-        if global_ >= self.limit:
-            return self.symbol not in rule.rhs
-        return True
+        return global_ + rule.rhs.count(self.symbol) <= self.limit
 
     def update(self, slot: ExpansionContext[None], rule: Rule, global_: int) -> tuple[list[None], int]:
         n = sum(1 for s in rule.rhs if s in slot.nonterminals)
@@ -432,9 +431,10 @@ class MaxOccurrences(Constraint[None, int]):
         return [None] * n, global_ + count
 
 
-class NoNested(Constraint[bool, None]):
-    """Prevent any symbol in a group from appearing nested inside any other symbol
-    in the same group.
+class NoNested(GrammarConstraint[bool, None]):
+    """Prevent any symbol in a group from appearing nested inside a symbol of the group.
+
+    The same symbol counts: ``NoNested("sin")`` forbids ``sin(sin(x))``.
 
     Local state is a boolean "currently under any symbol in the group".  Any
     rule whose ``rhs`` contains a group symbol is rejected while the local
@@ -455,7 +455,7 @@ class NoNested(Constraint[bool, None]):
         siblings in a single production (e.g. ``E -> sin ( E ) + F``): the
         sibling ``F`` will be incorrectly treated as inside the group.  If your
         grammar uses such rules, implement a custom
-        [Constraint][SRToolkit.utils.grammar.constraints.Constraint] instead.
+        [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint] instead.
 
     Examples:
         >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -579,7 +579,7 @@ def _units_equal(a: Unit, b: Unit) -> bool:
     return _to_unit(a) == _to_unit(b)
 
 
-class DimensionalConsistency(Constraint[Optional[Unit], None]):
+class DimensionalConsistency(GrammarConstraint[Optional[Unit], None]):
     """Stateful constraint that enforces dimensional analysis during expression
     generation.
 

@@ -302,12 +302,12 @@ with open("grammar.json") as f:
 
 ## Custom constraints
 
-Subclass [Constraint][SRToolkit.utils.grammar.Constraint] and override the methods you need:
+Subclass [GrammarConstraint][SRToolkit.utils.grammar.GrammarConstraint] and override the methods you need:
 
 ```python
-from SRToolkit.utils.grammar import Constraint, Grammar, Rule
+from SRToolkit.utils.grammar import GrammarConstraint, Grammar, Rule
 
-class NoConstants(Constraint):
+class NoConstants(GrammarConstraint):
     """Reject any rule whose rhs contains 'C'."""
 
     def allows(self, slot, rule, global_):
@@ -351,7 +351,7 @@ Both are initialised once per derivation — local state via `initial_local(star
 
 ```python
 # Local state: remaining depth budget inherited by each child slot
-class BudgetDepth(Constraint):
+class BudgetDepth(GrammarConstraint):
     def __init__(self, limit):
         self.limit = limit
 
@@ -369,7 +369,7 @@ class BudgetDepth(Constraint):
 
 
 # Global state: running count of rule applications across the whole derivation
-class ApplicationCounter(Constraint):
+class ApplicationCounter(GrammarConstraint):
     def __init__(self, limit):
         self.limit = limit
 
@@ -389,7 +389,7 @@ Both flavours can be combined in a single constraint by implementing all four me
 To make a custom constraint serializable, implement `to_dict` and `from_dict`:
 
 ```python
-class NoConstants(Constraint):
+class NoConstants(GrammarConstraint):
     def to_dict(self):
         return {**super().to_dict()}   # constraint_class is enough
 
@@ -398,14 +398,14 @@ class NoConstants(Constraint):
         return cls()
 ```
 
-`Constraint.from_dict` dispatches via `importlib`, so any class reachable by its module path is supported automatically.
+`GrammarConstraint.from_dict` dispatches via `importlib`, so any class reachable by its module path is supported automatically.
 
 ### Scoping
 
 Set `nonterminals` and/or `rule_names` on the class to limit when `allows` is called. Slots outside scope are accepted unconditionally; `update` is always called regardless of scope so that global counters stay accurate.
 
 ```python
-class DepthLimitForE(Constraint):
+class DepthLimitForE(GrammarConstraint):
     nonterminals = frozenset({"E"})   # only active at E slots
 
     def __init__(self, limit):

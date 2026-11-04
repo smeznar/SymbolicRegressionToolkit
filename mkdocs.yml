@@ -131,6 +131,7 @@ nav:
           - expression_tree: references/utils/expression_tree.md
           - expression_compiler: references/utils/expression_compiler.md
           - expression_simplifier: references/utils/expression_simplifier.md
+          - expression_constraints: references/utils/expression_constraints.md
           - expression_generator: references/utils/expression_generator.md
           - measures: references/utils/measures.md
           - types: references/utils/types.md

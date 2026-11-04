@@ -1,9 +1,80 @@
 """Expression evaluation and results management for symbolic regression.
 
-Contains [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] — the base class for
-post-processing results, [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] — the core
-evaluator that ranks expressions by RMSE or BED, and
-[SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] — a container for experiment results.
+Contains [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator], which ranks expressions
+with a [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] (RMSE by default);
+[SR_results][SRToolkit.evaluation.sr_evaluator.SR_results], a container for experiment results; and
+[ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter], the base class for
+post-processing results.
+
+## Evaluation statuses
+
+Each evaluated expression gets a [Status][SRToolkit.utils.types.Status] and, unless it is ``"ok"``,
+a ``status_detail`` saying why. The evaluator checks in this order and stops at the first match:
+
+1. ``"invalid"``: the parser raises an
+   [ExpressionParseError][SRToolkit.utils.expression_tree.ExpressionParseError].
+2. ``"rejected"``: a pre-check of a required constraint fails (see below), so the expression is
+   not scored; or the ranking function rejects it while scoring.
+3. ``"error"``: the ranking function, or a check of a required constraint, raises. The evaluator
+   also emits a warning.
+4. ``"undefined"``: the ranking function returns a non-finite error.
+5. ``"rejected"``: a post-check of a required constraint fails. The fit is kept in ``parameters``.
+6. ``"ok"``: otherwise.
+
+Every status except ``"ok"`` gets the error ``+inf``, so an evaluated expression never gives
+``NaN`` and failed models rank after every scored one. Every call counts toward
+``max_evaluations``, whatever its status. Once evaluation has stopped (threshold or budget
+reached), further calls are not evaluated: they warn, return ``nan`` and are not counted.
+
+The statuses are saved with the results, so validity can be measured after the run from
+[status_counts][SRToolkit.utils.types.EvalResult.status_counts]. Count every well-formed
+expression as valid, including rejected and undefined ones, and leave ``"error"`` out entirely,
+because those failures belong to the evaluation, not to the approach:
+
+```python
+counts = result.status_counts()  # per unique expression; per="call" counts every call
+validity_rate = 1 - counts["invalid"] / (sum(counts.values()) - counts["error"])
+```
+
+## Constraints
+
+The evaluator takes two lists of
+[ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]; that module
+explains what the checks look at and the two roles. It calls ``setup`` with its symbol library on
+its own copies, so the instances passed in are not changed.
+
+- ``required_constraints``: pre-checks run in order after parsing, post-checks in order after an
+  ``"ok"`` score. The first failure gives ``"rejected"`` with the ``status_detail``
+  ``"<ClassName>: <message>"``, e.g. ``"MaxConstants: 9 constants, limit 8"``, and the later checks
+  of that stage are not run. The settings
+  ``max_constants`` (default 8) and ``max_expr_length`` add a ``MaxConstants`` and a ``MaxTokens``
+  in front of the list, unless a negative setting disables them or the list already has one of
+  that class (see [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator]), so ``[]``
+  still allows at most 8 constants.
+- ``advisory_constraints``: pre-checks run on every parsed expression, post-checks on every ``"ok"``
+  model. Each failed check is recorded in
+  [ModelResult.advisory_violations][SRToolkit.utils.types.ModelResult] as a
+  [CheckResult][SRToolkit.utils.types.CheckResult] with ``constraint`` and ``stage`` filled in; the
+  error is not affected.
+
+For one expression the order is: parse, advisory pre-checks, required pre-checks, score, required
+post-checks, advisory post-checks. So rejected models and models with status ``"error"`` still
+carry their advisory pre-check results. Pre-checks get ``ModelResult.expr`` (simplified if
+``simplify_expr=True``), post-checks the ``ModelResult``. Checks a constraint does not implement
+are skipped.
+
+A check that raises an exception, or returns something other than a ``CheckResult`` (treated as a
+``TypeError``), emits a ``UserWarning`` and counts as failed, with
+[CheckResult.error][SRToolkit.utils.types.CheckResult] set to ``"<ExceptionType>: <message>"``. For
+a required constraint the status is then ``"error"`` with the ``status_detail``
+``"<ClassName>.<pre_check|post_check> raised <ExceptionType>: <message>"``. For an advisory
+constraint the result is recorded in ``advisory_violations`` like any failed check; leave results
+with ``error`` set out when counting violations.
+
+To avoid spending evaluations on expressions that would fail a pre-check, or to filter candidates
+by the advisory constraints, an approach can call
+[check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints] first: it runs
+the pre-checks only and is not billed.
 
 ## Evaluation trace
 
@@ -40,68 +111,28 @@ curves = np.stack([r.best_error_within(budgets) for r in results])
 median_curve = np.nanmedian(curves, axis=0)
 ```
 
-### Limitations
-
-A result does not record ``max_evaluations`` or why its search stopped: reaching the
-threshold, using up the budget, or something else (a time limit, an approach that ran out of
-candidates). This affects both methods for runs that end before the budget:
-
-- [best_error_within][SRToolkit.utils.types.EvalResult.best_error_within] gives a budget beyond
-  a run's last call the run's final best error. That value is exact for a run that reached the
-  threshold, since a run stops as soon as it succeeds. For a run stopped early for another
-  reason, it is only an upper bound. Keep ``budgets`` at or below ``max_evaluations``, since
-  no run got more calls than that.
-- [calls_to_threshold][SRToolkit.utils.types.EvalResult.calls_to_threshold] returns ``None`` both
-  for a run that used its whole budget and for one stopped early, which is censored at fewer
-  calls. Counting both as unsolved at every budget, as above, is conservative.
-
-If your runs can stop early, for example because the experiment uses a time limit, check
-``evaluation_calls`` against the budget before comparing approaches.
-
-## Evaluation statuses
-
-Each evaluated expression gets a [Status][SRToolkit.utils.types.Status] that records how its
-evaluation ended, and a ``status_detail`` saying why when it is not ``"ok"``. The evaluator checks
-in this order:
-
-1. ``"invalid"``: the expression is not well-formed, i.e. the parser raises an
-   [ExpressionParseError][SRToolkit.utils.expression_tree.ExpressionParseError] (unknown token,
-   missing operand, unbalanced brackets).
-2. ``"rejected"``: it has more free constants than ``max_constants`` (default 8) or more tokens
-   than ``max_expr_length`` (default unlimited). These limits apply to every ranking function.
-3. ``"error"``: the ranking function raised an exception. The evaluator also emits a warning,
-   since this usually points at a bug rather than at the expression.
-4. ``"undefined"``: the ranking function returned a non-finite error, e.g. for ``sqrt`` of a
-   negative number, ``log(0)``, a division by zero, or an overflow. Under RMSE this describes the
-   fitted model: other values of the constants might have given a finite error.
-5. ``"ok"``: otherwise.
-
-Every status except ``"ok"`` gets the error ``+inf``, so an approach never receives ``NaN`` and
-failed models rank after every scored one. Every call still counts toward ``max_evaluations``.
-
-The statuses are saved with the results, so validity can be measured after the run from
-[status_counts][SRToolkit.utils.types.EvalResult.status_counts]. Count every well-formed
-expression as valid, including rejected and undefined ones, and leave ``"error"`` out entirely,
-because those failures belong to the evaluation, not to the approach:
-
-```python
-counts = result.status_counts()  # per unique expression; per="call" counts every call
-validity_rate = 1 - counts["invalid"] / (sum(counts.values()) - counts["error"])
-```
+A result does not record ``max_evaluations`` or why its search stopped. For a run that stopped
+early for another reason than reaching the threshold (e.g. a time limit), ``best_error_within``
+past its last call is only an upper bound, and a ``None`` from ``calls_to_threshold`` is censored
+at fewer calls than the budget. If your runs can stop early, check ``evaluation_calls`` against the
+budget before comparing approaches.
 
 Note:
     [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] is defined here rather than
     in ``result_augmentation`` to avoid circular imports.
 """
 
+import copy
+import dataclasses
 import importlib
 import json
 import logging
+import math
 import os
 import warnings
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 from typing_extensions import Literal, Unpack
@@ -116,11 +147,12 @@ from SRToolkit.evaluation.callbacks import (
 from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.expression_constraints import ExpressionConstraint, MaxConstants, MaxTokens, _validate_limit
 from SRToolkit.utils.expression_simplifier import simplify
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, tokens_to_tree
 from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EvalResult, ModelResult, RankingSettings, Status
+from SRToolkit.utils.types import CheckResult, EvalResult, ModelResult, RankingSettings, Status
 
 logger = logging.getLogger(__name__)
 
@@ -175,10 +207,7 @@ def evaluate_metric(
     else:
         raise TypeError(f"[evaluate_metric] metric must be a string or a callable, got {type(metric).__name__}.")
 
-    if isinstance(expr, Node):
-        expr_list = expr.to_list(symbol_library=symbol_library)
-    else:
-        expr_list = expr
+    expr_list = _as_tokens(expr, symbol_library)
 
     raw = compile_expr(expr_list, symbol_library, backend=backend)
     params = parameters if parameters is not None else np.array([])
@@ -302,6 +331,76 @@ class ResultAugmenter(ABC):
         )
 
 
+def _as_constraint_tuple(constraints: Any, name: str) -> Tuple[ExpressionConstraint, ...]:
+    # The items of a constraint list as a tuple; TypeError naming the offending argument or item.
+    try:
+        items = tuple(constraints)
+    except TypeError:
+        raise TypeError(
+            f"[SR_evaluator] {name} must be an iterable of ExpressionConstraint, got {constraints!r}."
+        ) from None
+    for item in items:
+        if not isinstance(item, ExpressionConstraint):
+            raise TypeError(f"[SR_evaluator] {name} must contain ExpressionConstraint instances, got {item!r}.")
+    return items
+
+
+def _add_limit_constraints_from_kwargs(
+    constraints: Tuple[ExpressionConstraint, ...], kwargs: Mapping[str, Any]
+) -> Tuple[ExpressionConstraint, ...]:
+    # MaxConstants then MaxTokens from the max_constants / max_expr_length settings (negative = none),
+    # followed by the given constraints. A setting adds nothing when the list already has a
+    # constraint of its class; if the setting was given and disagrees with it, that is a ValueError.
+    built: List[ExpressionConstraint] = []
+    for key, cls in (("max_constants", MaxConstants), ("max_expr_length", MaxTokens)):
+        value = _validate_limit(kwargs.get(key, DEFAULT_ESTIMATION_SETTINGS[key]), key, allow_negative=True)
+        # cls is MaxConstants or MaxTokens, so every listed constraint has a limit.
+        listed = cast(List[Union[MaxConstants, MaxTokens]], [c for c in constraints if isinstance(c, cls)])
+        if not listed:
+            if value >= 0:
+                built.append(cls(value))
+        else:
+            clash = next((c for c in listed if value < 0 or c.limit != value), None)
+            if key in kwargs and clash is not None:
+                raise ValueError(
+                    f"[SR_evaluator] {key}={value} disagrees with {cls.__name__}({clash.limit}) in "
+                    f"required_constraints; remove the setting or the constraint."
+                )
+    return tuple(built) + constraints
+
+
+def _set_up_copy(constraint: ExpressionConstraint, symbol_library: SymbolLibrary) -> ExpressionConstraint:
+    duplicate = copy.copy(constraint)
+    duplicate.setup(symbol_library)
+    return duplicate
+
+
+def _failed_checks(
+    constraints: Sequence[ExpressionConstraint], stage: str, subject: Any, first_only: bool = False
+) -> List[CheckResult]:
+    # The failed checks of one stage, in order, with constraint and stage filled in. A check that
+    # raises, or returns something other than a CheckResult, counts as failed: it gives
+    # passed=False, amount inf and error "<Type>: <message>", and a UserWarning. Passed and
+    # unimplemented checks are left out. With first_only, stops after the first failure.
+    failed: List[CheckResult] = []
+    for constraint in constraints:
+        name = type(constraint).__name__
+        try:
+            result = constraint.pre_check(subject) if stage == "pre" else constraint.post_check(subject)
+            if not isinstance(result, CheckResult):
+                raise TypeError(f"{stage}_check returned {type(result).__name__}, expected CheckResult")
+        except Exception as e:
+            error = f"{type(e).__name__}: {e}"
+            warnings.warn(f"[SR_evaluator] {name}.{stage}_check raised {error}", UserWarning)
+            result = CheckResult(passed=False, message=f"raised {error}", amount=math.inf, error=error)
+        if not result.implemented or result.passed:
+            continue
+        failed.append(dataclasses.replace(result, constraint=name, stage=stage))
+        if first_only:
+            break
+    return failed
+
+
 class SR_evaluator:
     def __init__(
         self,
@@ -314,19 +413,20 @@ class SR_evaluator:
         ground_truth: Optional[Union[List[str], Node]] = None,
         seed: Optional[int] = None,
         metadata: Optional[dict] = None,
+        required_constraints: Optional[Sequence[ExpressionConstraint]] = None,
+        advisory_constraints: Optional[Sequence[ExpressionConstraint]] = None,
         **kwargs: Unpack[RankingSettings],
     ):
-        """Evaluates symbolic regression expressions and ranks them by RMSE or Behavioral Expression Distance (BED).
+        """Evaluate expressions on data with a ranking function and collect the results.
 
-        Previously evaluated expressions are cached so repeated calls with the same expression
-        are free. Results are collected via
-        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
+        Each distinct expression is scored once and cached; repeating it returns the cached error
+        but still counts toward ``max_evaluations``. Statuses, constraints and the evaluation trace
+        are described in the [module docs][SRToolkit.evaluation.sr_evaluator]; results are
+        collected with [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
 
         Note:
-            Determining whether two expressions are semantically equivalent is undecidable.
-            Random sampling, parameter fitting, and numerical errors all make the
-            ``success_threshold`` only a proxy for success — we recommend inspecting the best
-            expression manually.
+            Whether two expressions are equivalent is undecidable, so ``success_threshold`` is only
+            a proxy for success. Inspect the best expressions manually.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -338,49 +438,82 @@ class SR_evaluator:
 
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
-            y: Target values of shape ``(n_samples,)``. Required when ``ranking_function="rmse"``.
-            symbol_library: Symbol library defining the token vocabulary.
-                Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
-            max_evaluations: Maximum number of expressions to evaluate. ``-1`` means no limit.
-                Default ``-1``.
-            success_threshold: Error value below which an expression is considered successful.
-                If ``None``, defaults to ``1e-7`` for RMSE and is auto-calculated for BED by
-                evaluating the ground truth against itself 100 times and taking
-                ``max(distances) * 1.1``. If less than 0, no threshold is used.
-            ranking_function: ``"rmse"`` or ``"bed"``. Default ``"rmse"``.
-            ground_truth: Required when ``ranking_function="bed"``. The target expression as a
-                token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-            seed: Random seed for reproducible sampling. Default ``None``.
-            metadata: Optional dict with information about this evaluation (e.g. dataset name,
-                seed). If a ``"dataset_name"`` key is present it is extracted into
+            y: Target values of shape ``(n_samples,)``. RMSE needs ``y`` or a constant-free
+                ``ground_truth`` to generate it from; BED can use it in place of a ground truth.
+            symbol_library: Symbol library defining the tokens. Defaults to the active library
+                ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
+            max_evaluations: Budget of counted calls to
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
+                cache hits included. ``-1`` (default) means no limit.
+            success_threshold: Error below which an expression counts as successful and the search
+                stops. ``None`` (default) uses the ranking's default (``1e-7`` for RMSE; for BED
+                estimated from the ground truth, or none without one). A negative value is never
+                reached.
+            ranking_function: ``"rmse"`` (default), ``"bed"``, a
+                [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] instance, or a
+                ``"module.ClassName"`` import path (see
+                [build_ranking][SRToolkit.evaluation.ranking.build_ranking]).
+            ground_truth: The target expression, as a token list or a
+                [Node][SRToolkit.utils.expression_tree.Node]. BED compares against it; RMSE uses it
+                to generate ``y`` when ``y`` is not given.
+            seed: Random seed. If given, the constructor also calls ``np.random.seed(seed)``, which
+                sets NumPy's global random state.
+            metadata: Optional information about this evaluation (e.g. dataset name). A
+                ``"dataset_name"`` key is copied to
                 [EvalResult][SRToolkit.utils.types.EvalResult] ``dataset_name``.
-            **kwargs: Optional settings from
-                [RankingSettings][SRToolkit.utils.types.RankingSettings].
-                Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
-                ``constant_bounds``, ``initialization``, ``max_constants``,
-                ``max_expr_length``, ``num_points_sampled``, ``samplers``,
-                ``bed_gt``, ``num_consts_sampled``.
+            required_constraints: Constraints every evaluated expression must satisfy (see the
+                [module docs][SRToolkit.evaluation.sr_evaluator]); any iterable, ``None`` meaning
+                ``[]``. The evaluator stores shallow copies (data such as ``OutputBounds.points``
+                is shared with the instances passed in) and calls their ``setup``; an exception
+                from ``setup`` propagates. ``max_constants`` and ``max_expr_length`` add a
+                [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] and a
+                [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] in front, unless a
+                negative setting disables them or the list already has one of that class.
+            advisory_constraints: Constraints whose failed checks are recorded in each model's
+                ``advisory_violations`` without changing its error. Stored like
+                ``required_constraints``; ``None`` (default) means none.
+            **kwargs: Settings from [RankingSettings][SRToolkit.utils.types.RankingSettings],
+                passed to the ranking function. The ranking's parameter estimator gets
+                ``max_constants`` and ``max_expr_length`` as ``-1``, since the evaluator enforces
+                them.
+
+        Raises:
+            TypeError: If an item of ``required_constraints`` or ``advisory_constraints`` is not
+                an [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]
+                (e.g. the grammar constraint [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth],
+                or a single constraint passed instead of a sequence). The message names the item.
+                Also raised by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
+                ``ranking_function`` of the wrong type.
+            ValueError: If ``max_constants`` or ``max_expr_length`` is not an ``int`` or numpy
+                integer (``bool`` is rejected), or is given and disagrees with a constraint of its
+                class in ``required_constraints`` (a different limit, or any limit if the setting is
+                negative); the message names the setting. Also raised by the ranking's ``setup``
+                for missing or malformed data (e.g. RMSE with neither ``y`` nor ``ground_truth``).
+            ImportError: If an import-path ``ranking_function`` cannot be imported.
 
         Attributes:
-            models: Cached [ModelResult][SRToolkit.utils.types.ModelResult] for every evaluated expression,
-                in the order the expressions were first evaluated.
-            trace: The evaluation trace: one entry per counted call to
-                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
-                (cache hits included, calls after stopping excluded), holding the index into
-                ``models`` of the requested expression.
-            ground_truth: The target expression passed at construction (BED mode).
-            max_evaluations: Maximum number of expressions to evaluate.
-            metadata: Metadata dict passed at construction.
+            X: The input data.
+            y: The target values as given (``None`` if RMSE generated them).
             symbol_library: The symbol library used.
-            total_evaluations: Number of counted calls to
-                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
-                including cache hits; equal to ``len(trace)``.
-            seed: Random seed.
-            ranking: The active [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]
-                instance. Owns all ranking-specific state — the
+            ranking: The active [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]. It
+                owns the ranking's state: the
                 [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
-                (RMSE) or the behaviour matrix and evaluation points ``bed_X`` (BED).
-            success_threshold: Error threshold for determining success.
+                for RMSE, or the behaviour matrix and points ``bed_X`` for BED.
+            kwargs: The settings passed as ``**kwargs``.
+            ground_truth: The target expression as passed, or ``None``.
+            max_evaluations: The budget of counted calls; ``-1`` for no limit.
+            success_threshold: The ``success_threshold`` passed, or the ranking's default if it
+                was ``None`` (still ``None`` if the ranking has no default).
+            seed: The random seed.
+            metadata: The metadata dict as passed.
+            models: Cached [ModelResult][SRToolkit.utils.types.ModelResult] for every evaluated
+                expression, in the order the expressions were first evaluated.
+            trace: One entry per counted call to
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+                (cache hits included, calls after stopping excluded): the index into ``models`` of
+                the requested expression.
+            should_stop: Whether evaluation has stopped (threshold or budget reached). Later calls
+                to ``evaluate_expr`` warn and return ``nan`` without being counted.
         """
         self.kwargs = kwargs
         self.models: List[ModelResult] = list()
@@ -389,7 +522,6 @@ class SR_evaluator:
         self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
-        self._callbacks: Optional[Union[CallbackDispatcher, SRCallbacks]] = None
         self._experiment_id: str = ""
         self.should_stop = False
         self._current_best_error = float("inf")
@@ -399,18 +531,34 @@ class SR_evaluator:
         self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
         self.seed = seed
+
+        # Constraints: types first (both lists), then the limit settings, then set-up copies.
+        required = (
+            () if required_constraints is None else _as_constraint_tuple(required_constraints, "required_constraints")
+        )
+        advisory = (
+            () if advisory_constraints is None else _as_constraint_tuple(advisory_constraints, "advisory_constraints")
+        )
+        required = _add_limit_constraints_from_kwargs(required, kwargs)
+        self._required_constraints = tuple(_set_up_copy(c, symbol_library) for c in required)
+        self._advisory_constraints = tuple(_set_up_copy(c, symbol_library) for c in advisory)
+
         if seed is not None:
             np.random.seed(seed)
 
         # The ranking function owns all of its data-derived state (parameter estimator for RMSE,
         # behaviour matrix + evaluation points bed_X for BED); the evaluator just calls score().
+        # The evaluator enforces the limits itself, so the ranking's parameter estimator does not.
+        ranking_settings: Dict[str, Any] = dict(kwargs)
+        ranking_settings["max_constants"] = -1
+        ranking_settings["max_expr_length"] = -1
         self.ranking: RankingFunction = build_ranking(ranking_function)
-        self.ranking.setup(X, y, ground_truth, symbol_library, seed, dict(kwargs))
+        self.ranking.setup(X, y, ground_truth, symbol_library, seed, ranking_settings)
 
         if self.success_threshold is None:
             self.success_threshold = self.ranking.default_success_threshold()
 
-        self._callbacks = CallbackDispatcher(
+        self._callbacks: Optional[Union[CallbackDispatcher, SRCallbacks]] = CallbackDispatcher(
             callbacks=[EarlyStoppingCallback(threshold=self.success_threshold, max_evaluations=max_evaluations)]
         )
         self.X = X
@@ -444,6 +592,81 @@ class SR_evaluator:
         owned by the ranking function, or ``None`` if the active ranking fits no constants.
         """
         return getattr(self.ranking, "parameter_estimator", None)
+
+    @property
+    def required_constraints(self) -> Tuple[ExpressionConstraint, ...]:
+        """The set-up copies of the required constraints, in the order they are checked.
+
+        The ``MaxConstants`` and ``MaxTokens`` added by the settings (if any), then copies of the
+        ``required_constraints`` argument. Passing this tuple back as ``required_constraints``
+        with the same settings gives the same constraints.
+        """
+        return self._required_constraints
+
+    @property
+    def advisory_constraints(self) -> Tuple[ExpressionConstraint, ...]:
+        """The set-up copies of the advisory constraints, in the order given."""
+        return self._advisory_constraints
+
+    def check_constraints(
+        self,
+        expr: Union[List[str], Node],
+    ) -> Tuple[List[CheckResult], List[CheckResult]]:
+        """Run the constraints' pre-checks on an expression without evaluating it.
+
+        The call is free: it reads no data, does not count toward ``max_evaluations``, fires no
+        callbacks and records nothing. An approach can use it to skip candidates that would be
+        rejected, or to filter them by the advisory constraints. Only pre-checks run, since
+        post-checks need a scored model.
+
+        The pre-checks are the ones
+        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] runs, on the
+        same input (the expression is not simplified), so an empty ``required`` list means
+        ``evaluate_expr(expr)`` will neither reject ``expr`` in a pre-check nor give it the status
+        ``"error"`` there. Unlike evaluation, every failed pre-check is reported, not only the
+        first. A check that raises, or returns something other than a ``CheckResult``, is reported
+        like a failed one, with ``error`` set (see
+        [CheckResult][SRToolkit.utils.types.CheckResult]), and emits a ``UserWarning``. Checks a
+        constraint does not implement are skipped.
+
+        Args:
+            expr: The expression, as an infix token list or a
+                [Node][SRToolkit.utils.expression_tree.Node] tree.
+
+        Returns:
+            A tuple ``(required, advisory)`` of lists with one
+            [CheckResult][SRToolkit.utils.types.CheckResult] per failed pre-check of
+            ``required_constraints`` and of ``advisory_constraints``, in the order of each list,
+            with ``constraint`` and ``stage="pre"`` filled in as in
+            [ModelResult.advisory_violations][SRToolkit.utils.types.ModelResult]. A list is empty if
+            all its pre-checks pass.
+
+        Raises:
+            TypeError: If ``expr`` is neither a token list nor a ``Node``.
+            ExpressionParseError: If ``expr`` is not a well-formed expression. It is always
+                parsed, even when there are no constraints.
+
+        Examples:
+            >>> from SRToolkit.utils.expression_constraints import MaxConstants, MaxTreeDepth
+            >>> X = np.array([[1.0], [2.0], [3.0]])
+            >>> se = SR_evaluator(X, X[:, 0], symbol_library=SymbolLibrary.default_symbols(1),
+            ...     required_constraints=[MaxConstants(1)], advisory_constraints=[MaxTreeDepth(2)])
+            >>> required, advisory = se.check_constraints(["C", "*", "sin", "(", "X_0", "+", "C", ")"])
+            >>> [(r.constraint, r.message) for r in required]
+            [('MaxConstants', '2 constants, limit 1')]
+            >>> [(r.constraint, r.message) for r in advisory]
+            [('MaxTreeDepth', 'depth 4, limit 2')]
+            >>> se.check_constraints(["C", "*", "X_0"])
+            ([], [])
+            >>> se.total_evaluations
+            0
+        """
+        expr_list = _as_tokens(expr, self.symbol_library)
+        tokens_to_tree(expr_list, self.symbol_library)
+        return (
+            _failed_checks(self._required_constraints, "pre", expr_list),
+            _failed_checks(self._advisory_constraints, "pre", expr_list),
+        )
 
     def register_callbacks(self, callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None) -> None:
         """Register callbacks for monitoring and early stopping.
@@ -491,61 +714,65 @@ class SR_evaluator:
         simplify_expr: bool = False,
         verbose: int = 0,
     ) -> float:
-        """Evaluates an expression in infix notation and stores the result in
-        memory to prevent re-evaluation.
+        """Evaluate an expression, or return its cached error.
+
+        A new expression is parsed, checked against the constraints, scored by the ranking
+        function and stored in ``models`` (statuses and the order of checks are in the
+        [module docs][SRToolkit.evaluation.sr_evaluator]). An expression evaluated before is not
+        scored again; its stored error is returned. Either way the call is appended to ``trace``,
+        counts toward ``max_evaluations`` and is reported to the callbacks: ``on_expr_evaluated``
+        for every call, plus ``on_best_expression`` when the error improves on the best so far. A
+        callback returning ``False`` stops evaluation; by default this happens when an error is
+        below ``success_threshold`` or ``max_evaluations`` is reached.
+
+        Note:
+            ``simplify_expr=True`` makes a call much slower: simplifying with SymPy usually takes
+            longer than scoring the expression. Use it to inspect the best results after a search,
+            not on every candidate during it.
 
         Examples:
-            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y, seed=42)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
-            >>> print(rmse < 1e-6)
+            >>> print(se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) < 1e-6)
             True
+            >>> # With simplify_expr, the simplified expression is scored and stored
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
-            >>> y = np.array([2, 3, 4])
-            >>> se = SR_evaluator(X, y, seed=42, success_threshold=-1)
-            >>> rmse = se.evaluate_expr(["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
-            >>> print(rmse < 1e-6)
-            True
-            >>> "".join(se.models[0].expr)
-            'C+X_1'
-            >>> print(0.99 < se.models[0].parameters[0] < 1.01)
-            True
-            >>> # A malformed expression scores inf and gets the status "invalid"
+            >>> se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1)
+            >>> _ = se.evaluate_expr(["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
+            >>> "".join(se.models[0].expr), bool(0.99 < se.models[0].parameters[0] < 1.01)
+            ('C+X_1', True)
+            >>> # A malformed expression gets the error inf and the status "invalid"
             >>> print(se.evaluate_expr(["C", "*", "X_1", "X_0"]))
             inf
-            >>> se.models[-1].status, se.invalid
-            ('invalid', ['C*X_1X_0'])
+            >>> se.models[-1].status
+            'invalid'
+            >>> # BED is stochastic and scaled by the ground truth's output, so an exact match may
+            >>> # still have a small positive error
             >>> X = np.random.rand(10, 2) - 0.5
-            >>> gt = ["X_0", "+", "C"]
-            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", seed=42)
-            >>> print(se.evaluate_expr(["C", "+", "X_1"]) < 1)
-            True
-            >>> # When evaluating using BED as the ranking function, the error depends on the scale of output of the
-            >>> # ground truth. Because of stochasticity of BED, error might be high even when expressions match exactly.
-            >>> print(se.evaluate_expr(["C", "+", "X_0"]) < 0.2)
-            True
-            >>> # A custom evaluation domain can be provided via per-feature samplers
-            >>> from SRToolkit.dataset.sampling import UniformSampling
-            >>> samplers = [UniformSampling(-1, 1), UniformSampling(-1, 1)]
-            >>> se = SR_evaluator(X, ground_truth=gt, ranking_function="bed", samplers=samplers, seed=42)
+            >>> se = SR_evaluator(X, ground_truth=["X_0", "+", "C"], ranking_function="bed", seed=42)
             >>> print(se.evaluate_expr(["C", "+", "X_0"]) < 0.2)
             True
 
         Args:
-            expr: Expression as a token list in infix notation or a
+            expr: The expression, as a token list in infix notation or a
                 [Node][SRToolkit.utils.expression_tree.Node] tree.
-            simplify_expr: If ``True``, simplifies the expression with SymPy before evaluating.
-                Slows down evaluation; recommended only for post-hoc inspection of top results.
-                Default ``False``.
-            verbose: ``0`` — silent; ``1`` — logs expression, error, and fitted parameters;
-                ``2`` — also surfaces NumPy warnings during evaluation. Default ``0``.
+            simplify_expr: If ``True``, simplify the expression first; the simplified
+                expression is then checked, scored, cached and stored as ``ModelResult.expr``, so
+                inputs that simplify alike share one cache entry. If simplification fails, a
+                warning is emitted and the expression is evaluated as given. Default ``False``.
+            verbose: ``0`` (default): no logging. ``1``: log at DEBUG level (logger
+                ``SRToolkit.evaluation.sr_evaluator``) each new expression with its final status,
+                error and ``status_detail``, and each cache hit. ``2``: also let NumPy
+                floating-point warnings through while scoring.
 
         Returns:
-            The error of the expression under the active ranking function: RMSE when ``ranking_function="rmse"``, BED when ``ranking_function="bed"``. Returns ``+inf`` if the expression could not be scored (see the evaluation statuses in the module description), and ``NaN`` if evaluation was stopped, e.g. because ``max_evaluations`` was reached (a warning is emitted). If the expression was already evaluated, the cached value is returned immediately.
+            The error under the active ranking function, or ``+inf`` if the status is not
+            ``"ok"``. ``nan`` if evaluation has already stopped: the call then emits a warning and
+            is not counted.
 
-            Every call except those made after evaluation was stopped is appended to ``trace``
-            and counts toward ``max_evaluations``, cache hits and failed expressions included.
+        Raises:
+            TypeError: If ``expr`` is neither a token list nor a ``Node``.
         """
         if self.should_stop:
             warnings.warn(
@@ -557,16 +784,10 @@ class SR_evaluator:
                 try:
                     expr = simplify(expr, self.symbol_library)
                 except Exception as e:
-                    if isinstance(expr, Node):
-                        expr_list = expr.to_list(symbol_library=self.symbol_library)
-                    else:
-                        expr_list = expr
+                    expr_list = _as_tokens(expr, self.symbol_library)
                     warnings.warn(f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}")
 
-            if isinstance(expr, Node):
-                expr_list = expr.to_list(symbol_library=self.symbol_library)
-            else:
-                expr_list = expr
+            expr_list = _as_tokens(expr, self.symbol_library)
 
             expr_str = "".join(expr_list)
             index = self._model_index.get(expr_str)
@@ -589,6 +810,14 @@ class SR_evaluator:
 
             else:
                 model = self._evaluate_new(expr, expr_list, expr_str, verbose)
+                if verbose > 0:
+                    logger.debug(
+                        "Evaluated expression %s: status %s, error %s%s",
+                        expr_str,
+                        model.status,
+                        model.error,
+                        f" ({model.status_detail})" if model.status_detail else "",
+                    )
                 error = model.error
                 self._model_index[expr_str] = len(self.models)
                 self.trace.append(len(self.models))
@@ -623,20 +852,44 @@ class SR_evaluator:
     def _evaluate_new(
         self, expr: Union[List[str], Node], expr_list: List[str], expr_str: str, verbose: int
     ) -> ModelResult:
-        # Parse and check the limits before scoring, so that each failure gets its own status.
+        # Parse first, so that each failure gets its own status.
         try:
             tokens_to_tree(expr_list, self.symbol_library)
         except ExpressionParseError as e:
-            if verbose > 0:
-                logger.debug("Invalid expression %s: %s", expr_str, e)
             return ModelResult(expr=expr_list, error=np.inf, status="invalid", status_detail=str(e))
 
-        violation = self._limit_violation(expr_list)
-        if violation is not None:
-            if verbose > 0:
-                logger.debug("Rejected expression %s: %s", expr_str, violation)
-            return ModelResult(expr=expr_list, error=np.inf, status="rejected", status_detail=violation)
+        advisory = _failed_checks(self._advisory_constraints, "pre", expr_list)
 
+        failed = _failed_checks(self._required_constraints, "pre", expr_list, first_only=True)
+        if failed:
+            if failed[0].error is not None:
+                return self._constraint_error(failed[0], expr_list, advisory)
+            return ModelResult(
+                expr=expr_list,
+                error=np.inf,
+                status="rejected",
+                status_detail=f"{failed[0].constraint}: {failed[0].message}",
+                advisory_violations=advisory,
+            )
+
+        model = self._score(expr, expr_list, expr_str, verbose)
+        model.advisory_violations = advisory
+        if model.status != "ok":
+            return model
+
+        failed = _failed_checks(self._required_constraints, "post", model, first_only=True)
+        if failed:
+            if failed[0].error is not None:
+                return self._constraint_error(failed[0], expr_list, advisory, model.parameters, model.ranking_data)
+            model.error = np.inf
+            model.status = "rejected"
+            model.status_detail = f"{failed[0].constraint}: {failed[0].message}"
+            return model
+
+        model.advisory_violations.extend(_failed_checks(self._advisory_constraints, "post", model))
+        return model
+
+    def _score(self, expr: Union[List[str], Node], expr_list: List[str], expr_str: str, verbose: int) -> ModelResult:
         try:
             with (
                 np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore")
@@ -671,9 +924,6 @@ class SR_evaluator:
         elif detail is None:
             detail = f"{self.ranking.name} score is {score}" if status == "undefined" else "rejected by the ranking"
 
-        if verbose > 0:
-            logger.debug("Evaluated expression %s with error: %s (%s).", expr_str, score, status)
-
         return ModelResult(
             expr=expr_list,
             error=score if status == "ok" else np.inf,
@@ -683,16 +933,24 @@ class SR_evaluator:
             status_detail=detail,
         )
 
-    def _limit_violation(self, expr_list: List[str]) -> Optional[str]:
-        max_constants = self.kwargs.get("max_constants", DEFAULT_ESTIMATION_SETTINGS["max_constants"])
-        max_expr_length = self.kwargs.get("max_expr_length", DEFAULT_ESTIMATION_SETTINGS["max_expr_length"])
-        if isinstance(max_constants, int) and max_constants >= 0:
-            num_constants = sum(1 for t in expr_list if self.symbol_library.get_type(t) == "const")
-            if num_constants > max_constants:
-                return f"{num_constants} constants exceed max_constants={max_constants}"
-        if isinstance(max_expr_length, int) and 0 <= max_expr_length < len(expr_list):
-            return f"{len(expr_list)} tokens exceed max_expr_length={max_expr_length}"
-        return None
+    @staticmethod
+    def _constraint_error(
+        result: CheckResult,
+        expr_list: List[str],
+        advisory: List[CheckResult],
+        parameters: Optional[np.ndarray] = None,
+        ranking_data: Optional[Dict[str, Any]] = None,
+    ) -> ModelResult:
+        # A required check raised: a failure of the evaluation, not of the expression.
+        return ModelResult(
+            expr=expr_list,
+            error=np.inf,
+            parameters=parameters,
+            ranking_data=ranking_data if ranking_data is not None else {},
+            status="error",
+            status_detail=f"{result.constraint}.{result.stage}_check raised {result.error}",
+            advisory_violations=advisory,
+        )
 
     def get_metric(
         self,
@@ -755,10 +1013,7 @@ class SR_evaluator:
                 string that is not a known built-in metric.
             TypeError: If ``metric`` is neither a string nor a callable.
         """
-        if isinstance(expr, Node):
-            expr_list = expr.to_list(symbol_library=self.symbol_library)
-        else:
-            expr_list = expr
+        expr_list = _as_tokens(expr, self.symbol_library)
         expr_str = "".join(expr_list)
 
         index = self._model_index.get(expr_str)

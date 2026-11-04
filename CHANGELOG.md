@@ -17,6 +17,8 @@
 - `create_behavior_matrix` and `bed` take a `backend` argument (default `"stack"`), and BED ranking now respects the `backend` setting, which previously only applied to RMSE ranking and `get_metric`.
 - The docstrings of `SRToolkit.utils.measures` now fully specify each function: valid inputs, special values (`nan`, `inf`), exceptions, and how `bed` handles non-finite values.
 - Saved results and configs (`ModelResult`, `EvalResult`, `ApproachConfig`, `HoldoutMetric`) now round-trip exactly: numpy arrays keep their dtype and shape (including empty axes such as `(0, 3)`) and object arrays are saved element by element, tuples stay tuples, and dicts with non-string keys (int, float, tuple, numpy scalars) keep their keys. Files written by earlier versions still load. The supported values and the file format are documented on the new `SRToolkit.utils.serialization` reference page.
+- Expression constraints (`SRToolkit.utils.expression_constraints`): `ExpressionConstraint` checks a candidate before scoring (`pre_check`, on the expression) and/or after (`post_check`, on the fitted model), and returns a `CheckResult` (passed, message, amount). Built-ins: `MaxConstants`, `MaxTokens`, `MaxTreeDepth`, `MaxTreeSize`, `RequiredVariables`, `MaxSymbolCount`, `NoNesting` and `OutputBounds`. `OutputBounds` takes one bound for all points or one per point. A check that raises counts as failed: its `CheckResult` has `error` set, a required constraint then gives status `"error"`, and an advisory one is recorded in `advisory_violations`.
+- `SR_evaluator` takes `required_constraints` (a failed check gives status `"rejected"`) and `advisory_constraints` (failed checks are recorded in `ModelResult.advisory_violations` without changing the error). `check_constraints(expr)` runs the pre-checks without evaluating, billing or recording anything, and returns the failed required and advisory checks as two lists. `max_constants` / `max_expr_length` add a `MaxConstants` / `MaxTokens` in front of the list unless it already has one.
 
 **Breaking changes:**
 - Removed the `RMSE`, `BED` and `R2` augmenters; use `HoldoutMetric`.
@@ -36,6 +38,9 @@
 - Invalid arguments to `edit_distance`, `tree_edit_distance`, `create_behavior_matrix` and `bed` raise `TypeError` or `ValueError` naming the offending parameter, instead of a bare `Exception`, `UnboundLocalError` or `AttributeError` (a string or tuple passed to `edit_distance` used to be compared character by character). `bed` and `create_behavior_matrix` now validate `num_consts_sampled`, `consts_bounds`, `num_points_sampled`, matrix shapes and the row counts of matrices against `X`.
 - Values that cannot be saved as JSON (complex numbers, `datetime64`, sets, masked arrays, arbitrary objects) in augmentations, ranking data or approach configs now raise a `TypeError` from `to_dict` naming the value's location (for results the full path, e.g. `all_models[3].ranking_data['z']`), instead of failing later in `json.dump`. Saved arrays now include `dtype` and `shape`, and tuples and non-string-keyed dicts are written in a new form, so files saved by this version cannot be read by earlier versions.
 - `ModelResult.from_dict` raises a `ValueError` for a status that is not one of `STATUSES`, instead of failing later in `status_counts` with a `KeyError`.
+- The grammar base class `Constraint` is renamed `GrammarConstraint`.
+- The `status_detail` of a rejected expression names the constraint, e.g. `"MaxConstants: 9 constants, limit 8"` instead of `"9 constants exceed max_constants=8"`.
+- `max_constants` / `max_expr_length` must be ints (numpy ints accepted); other values raise a `ValueError` instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a `ValueError`.
 
 **Fixes:**
 - A dataset with custom `constant_bounds` scored every expression with a constant as NaN after a JSON round trip (`from_dict`, `from_archive`, `ExperimentGrid`).
@@ -54,6 +59,8 @@
 - Evaluating an expression on an `X` with too few columns (or a 1-D `X`) read past the end of the array on the default `"stack"` backend and returned garbage; it now raises a `ValueError`. This affected `compile_expr`, `create_behavior_matrix` and `bed`.
 - `tree_edit_distance` priced relabelling by the character edit distance between symbols when the optional `editdistance` package was installed, so results depended on the environment. It now always uses unit costs.
 - Regression metrics no longer emit NumPy warnings on empty or non-finite input; the returned `nan` / `inf` is the signal.
+- `MaxOccurrences` let a grammar rule containing the symbol several times (e.g. `E -> x * x`) exceed the limit.
+- An `SR_evaluator` whose required constraints allow more than 8 free constants no longer has its parameter estimator reject such expressions at its default limit of 8.
 
 ### SymbolicRegressionToolkit-1.6.0 (2026-06-23)
 - New backends for expression evaluations (about 1.5x speedup for parameter estimation)

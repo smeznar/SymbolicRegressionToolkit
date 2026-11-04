@@ -10,7 +10,7 @@ from sympy import Basic, Expr, expand, sympify
 from sympy import symbols as sp_symbols
 from sympy.core import Add, Mul, Pow
 
-from SRToolkit.utils.expression_tree import Node, is_float
+from SRToolkit.utils.expression_tree import Node, _as_tokens, is_float
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
@@ -46,10 +46,8 @@ def simplify(
     """
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
-    is_tree = False
-    if isinstance(expr, Node):
-        expr = expr.to_list(symbol_library=symbol_library, notation="infix")
-        is_tree = True
+    is_tree = isinstance(expr, Node)
+    expr = _as_tokens(expr, symbol_library)
 
     variables = symbol_library.get_symbols_of_type("var")
 

@@ -86,7 +86,7 @@ An annotated `.srtk.json` config can be passed directly to any `from_dict` — n
 The dispatchers that handle configs containing custom classes
 ([`Sampler.from_dict`][SRToolkit.dataset.sampling.Sampler.from_dict],
 [`DataSource.from_dict`][SRToolkit.dataset.data_source.DataSource.from_dict],
-[`Constraint.from_dict`][SRToolkit.utils.grammar.constraints.Constraint.from_dict],
+[`GrammarConstraint.from_dict`][SRToolkit.utils.grammar.constraints.GrammarConstraint.from_dict],
 [`Grammar.from_dict`][SRToolkit.utils.grammar.Grammar.from_dict], and the approach loader
 used by [`ExperimentGrid`][SRToolkit.experiments.ExperimentGrid]) detect the `_bundle` key
 and rewrite every `*_class` dotted path to the installed bundle's import prefix. Paths
@@ -139,9 +139,9 @@ the matching dispatcher can reconstruct it via `importlib` — no central regist
 
 ```python
 # meznar_constraints.py
-from SRToolkit.utils.grammar import Constraint
+from SRToolkit.utils.grammar import GrammarConstraint
 
-class PhysicsConstraint(Constraint):
+class PhysicsConstraint(GrammarConstraint):
     def __init__(self, forbidden_terminals):
         self.forbidden = frozenset(forbidden_terminals)
 

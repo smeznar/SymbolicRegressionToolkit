@@ -7,7 +7,8 @@ from scipy.optimize import minimize
 from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
-from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.expression_constraints import _validate_limit
+from SRToolkit.utils.expression_tree import Node, _as_tokens, _count_constants
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import RankingSettings
 
@@ -58,6 +59,11 @@ class ParameterEstimator:
                 ``constant_bounds``, ``initialization``, ``max_constants``,
                 ``max_expr_length``, ``backend``.
 
+        Raises:
+            ValueError: If ``constant_bounds`` is not a ``(lower, upper)`` pair, ``backend`` is not
+                one of the supported values, or ``max_constants`` / ``max_expr_length`` is not an
+                ``int`` or numpy integer (``bool`` is rejected).
+
         Attributes:
             symbol_library: The symbol library used.
             X: Input data.
@@ -79,6 +85,10 @@ class ParameterEstimator:
                 if k in kwargs:
                     self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
 
+        for key in ("max_constants", "max_expr_length"):
+            value = self.estimation_settings[key]  # type: ignore[literal-required]
+            self.estimation_settings[key] = _validate_limit(value, key, allow_negative=True)  # type: ignore[literal-required]
+
         bounds = self.estimation_settings["constant_bounds"]
         if not (isinstance(bounds, (tuple, list, np.ndarray)) and len(bounds) == 2):
             raise ValueError(f"constant_bounds must be a (lower, upper) pair, got {bounds!r}")
@@ -94,9 +104,15 @@ class ParameterEstimator:
     def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
         """Fit free constants in *expr* by minimizing RMSE against the target values.
 
-        Expressions that exceed ``max_constants`` or ``max_expr_length`` immediately
-        return ``(NaN, [])``. Expressions with no free constants are evaluated directly
-        without running the optimizer.
+        Expressions that exceed a non-negative ``max_constants`` or ``max_expr_length``
+        immediately return ``(NaN, [])``; the counts are those of
+        [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] and
+        [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] (a tree is written out with
+        ``to_list`` before its tokens are counted). These checks are for direct callers (e.g.
+        [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric]): an
+        [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] enforces its own required
+        constraints and disables both limits in its estimator. Expressions with no free constants
+        are evaluated directly without running the optimizer.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -162,17 +178,11 @@ class ParameterEstimator:
         """
         # Count on the infix token list, brackets included, as SR_evaluator does, so both apply the
         # limits identically. (For a Node, len() would count tree nodes, without brackets.)
-        tokens = expr.to_list(symbol_library=self.symbol_library) if isinstance(expr, Node) else expr
-        num_constants = sum([1 for t in tokens if self.symbol_library.get_type(t) == "const"])
-        if (
-            isinstance(self.estimation_settings["max_constants"], int)
-            and 0 <= self.estimation_settings["max_constants"] < num_constants
-        ):
+        tokens = _as_tokens(expr, self.symbol_library)
+        num_constants = _count_constants(tokens, self.symbol_library)
+        if 0 <= self.estimation_settings["max_constants"] < num_constants:
             return np.nan, np.array([]), {}
-
-        if isinstance(self.estimation_settings["max_expr_length"], int) and 0 <= self.estimation_settings[
-            "max_expr_length"
-        ] < len(tokens):
+        if 0 <= self.estimation_settings["max_expr_length"] < len(tokens):
             return np.nan, np.array([]), {}
 
         executable_error_fn = compile_expr_rmse(

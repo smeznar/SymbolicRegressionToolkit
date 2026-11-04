@@ -434,6 +434,37 @@ def _as_tree(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: st
     return tokens_to_tree(expr, symbol_library)
 
 
+def _as_tokens(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: str = "expr") -> List[str]:
+    """Return an expression given as an infix token list or a Node as an infix token list.
+
+    The counterpart of [_as_tree][SRToolkit.utils.expression_tree._as_tree]: a token list is checked
+    and returned unchanged (not parsed, not copied), and a Node is written out with
+    [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], which places only the brackets
+    that are needed.
+
+    Returns:
+        The expression as a list of infix token strings.
+
+    Raises:
+        TypeError: If ``expr`` is neither a Node nor a list of token strings (the message names ``name``).
+    """
+    if isinstance(expr, Node):
+        return expr.to_list(symbol_library=symbol_library)
+    if not isinstance(expr, list):
+        raise TypeError(f"{name} must be a list of token strings or a Node, got {type(expr).__name__}.")
+    _check_tokens(expr, name)
+    return expr
+
+
+def _count_constants(tokens: List[str], symbol_library: SymbolLibrary) -> int:
+    """Return the number of free constants in a token list: the tokens of type ``"const"``.
+
+    Each occurrence counts, since each is a separate free parameter. The single definition of the
+    count, shared by the ``max_constants`` limit, the parameter estimator and BED.
+    """
+    return sum(1 for token in tokens if symbol_library.get_type(token) == "const")
+
+
 def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notation: str = "infix") -> Node:
     """Parse a token list into an expression tree.
 

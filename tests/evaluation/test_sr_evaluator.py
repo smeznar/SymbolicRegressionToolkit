@@ -1,9 +1,15 @@
 import json
+import logging
+import math
 import os
-from unittest.mock import MagicMock, patch
+import warnings
+from unittest.mock import ANY, MagicMock, patch
 
 import numpy as np
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+from strategies import infix_expressions
 
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation.callbacks import (
@@ -13,10 +19,19 @@ from SRToolkit.evaluation.callbacks import (
 )
 from SRToolkit.evaluation.ranking import RankingFunction, RankingResult
 from SRToolkit.evaluation.sr_evaluator import ResultAugmenter, SR_evaluator, SR_results
-from SRToolkit.utils.expression_tree import Node, tokens_to_tree
+from SRToolkit.utils.expression_constraints import (
+    ExpressionConstraint,
+    MaxConstants,
+    MaxTokens,
+    MaxTreeDepth,
+    OutputBounds,
+    RequiredVariables,
+)
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
+from SRToolkit.utils.grammar import MaxDepth, MaxNodes
 from SRToolkit.utils.measures import create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EvalResult, ModelResult
+from SRToolkit.utils.types import CheckResult, EvalResult, ModelResult
 
 # ── Shared data ────────────────────────────────────────────────────────────────
 
@@ -47,6 +62,13 @@ class _FailingAugmenter(ResultAugmenter):
 
     def to_dict(self, base_path: str, name: str) -> dict:
         return {}
+
+
+_LOGGER = "SRToolkit.evaluation.sr_evaluator"
+
+
+def _log_messages(caplog):
+    return [r.getMessage() for r in caplog.records if r.name == _LOGGER]
 
 
 def _make_se(**kwargs):
@@ -121,6 +143,17 @@ class TestSREvaluatorInitRmse:
         assert se.X is _X
         assert se.y is _y
         assert se.seed == 7
+
+    def test_stores_arguments_and_seeds_global_rng(self):
+        # "If given, the constructor also calls np.random.seed(seed)": the next global draw is the
+        # first draw after np.random.seed(3).
+        ground_truth = ["C", "*", "X_1", "-", "X_0"]
+        se = SR_evaluator(_X, _y, seed=3, ground_truth=ground_truth, max_constants=3)
+        drawn = np.random.random()
+        np.random.seed(3)
+        assert drawn == np.random.random()
+        assert se.ground_truth is ground_truth
+        assert se.kwargs == {"max_constants": 3}
 
     def test_default_symbol_library(self):
         se = _make_se()
@@ -579,19 +612,58 @@ class TestEvaluateExprRmse:
         result = se.evaluate_expr(node)
         assert np.isfinite(result)
 
-    def test_cache_hit_with_verbose_covers_log(self):
-        se = _make_se()
-        se.evaluate_expr(["X_0"])
-        se.evaluate_expr(["X_0"], verbose=1)  # cache hit
+    @pytest.mark.parametrize(
+        "make_kwargs, expr, status",
+        [
+            (lambda: {}, ["X_0", "X_0"], "invalid"),
+            (lambda: {}, ["C"] + ["+", "C"] * 8, "rejected"),  # 9 constants, default limit 8
+            (
+                lambda: {"symbol_library": _LIB2(), "required_constraints": [OutputBounds([[1.0, 1.0]], lower=100.0)]},
+                ["X_0"],
+                "rejected",
+            ),
+            pytest.param(
+                lambda: {"required_constraints": [_Boom()]},
+                ["X_0"],
+                "error",
+                marks=pytest.mark.filterwarnings("ignore:.*_Boom.pre_check raised"),
+            ),
+            (lambda: {}, ["X_0"], "ok"),
+        ],
+        ids=["invalid", "rejected-pre-check", "rejected-post-check", "check-raised", "ok"],
+    )
+    def test_verbose_controls_debug_log_of_new_expression(self, caplog, make_kwargs, expr, status):
+        # verbose=0: no logging; verbose=1: one DEBUG record with the final status, error and detail.
+        caplog.set_level(logging.DEBUG, logger=_LOGGER)
+        _make_se(**make_kwargs()).evaluate_expr(expr, verbose=0)
+        assert _log_messages(caplog) == []
+        se = _make_se(**make_kwargs())
+        se.evaluate_expr(expr, verbose=1)
+        model = se.models[0]
+        (message,) = _log_messages(caplog)
+        assert model.status == status
+        assert "".join(expr) in message
+        assert status in message
+        assert str(model.error) in message
+        assert str(model.status_detail or "") in message
 
-    def test_verbose_1_covers_parameter_logging(self):
+    def test_verbose_1_logs_cache_hit(self, caplog):
+        caplog.set_level(logging.DEBUG, logger=_LOGGER)
         se = _make_se()
-        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"], verbose=1)  # with params
-        se.evaluate_expr(["X_0", "+", "X_1"], verbose=1)  # no params
+        se.evaluate_expr(["X_0", "+", "X_1"])
+        se.evaluate_expr(["X_0", "+", "X_1"], verbose=0)
+        assert _log_messages(caplog) == []
+        se.evaluate_expr(["X_0", "+", "X_1"], verbose=1)
+        (message,) = _log_messages(caplog)
+        assert "X_0+X_1" in message
 
-    def test_verbose_1_covers_invalid_expr_logging(self):
-        se = _make_se()
-        se.evaluate_expr(["C", "*", "X_1", "X_0"], verbose=1)
+    def test_success_threshold_stops_evaluation(self):
+        se = _make_se(success_threshold=1e-6)
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])  # exact fit: error below the threshold
+        assert se.should_stop is True
+        with pytest.warns(UserWarning, match="success_threshold"):
+            assert np.isnan(se.evaluate_expr(["X_0"]))
+        assert se.total_evaluations == 1
 
     def test_ranking_function_is_read_only(self):
         # ranking_function now reflects the active RankingFunction instance and cannot be reassigned;
@@ -743,20 +815,15 @@ class TestEvaluationStatus:
         se.evaluate_expr(["log", "(", "X_0", "-", "X_0", ")"])
         details = [m.status_detail for m in se.models]
         assert "unclosed '('" in details[0]
-        assert details[1] == "9 constants exceed max_constants=8"
+        assert details[1] == "MaxConstants: 9 constants, limit 8"
         assert details[2] == "rmse score is inf"
 
     def test_max_expr_length_rejects(self):
         se = _make_se(max_expr_length=3)
         assert se.evaluate_expr(["X_0", "+", "X_1", "+", "X_0"]) == np.inf
         assert se.models[0].status == "rejected"
-        assert se.models[0].status_detail == "5 tokens exceed max_expr_length=3"
+        assert se.models[0].status_detail == "MaxTokens: 5 tokens, limit 3"
         assert np.isfinite(se.evaluate_expr(["X_0", "+", "X_1"]))
-
-    def test_max_constants_negative_disables_limit(self):
-        se = _make_se(max_constants=-1)
-        se.evaluate_expr(["C"] + ["+", "C"] * 8)
-        assert se.models[0].status == "ok"
 
     def test_bed_enforces_max_constants(self):
         se = SR_evaluator(
@@ -776,6 +843,7 @@ class TestEvaluationStatus:
             assert se.evaluate_expr(["X_0"]) == np.inf
         assert se.models[0].status == "error"
         assert se.models[0].status_detail == "RuntimeError: boom"
+        assert se.models[0].expr == ["X_0"]
         assert se.invalid == []
 
     def test_ranking_status_is_respected(self):
@@ -804,12 +872,37 @@ class TestEvaluationStatus:
             se.evaluate_expr(["X_0"])
         assert se.models[0].status == "error"
         assert se.models[0].error == np.inf
+        assert se.models[0].expr == ["X_0"]
+        assert se.models[0].status_detail  # every status other than "ok" says why
 
     def test_ranking_undefined_with_finite_score(self):
         outcome = RankingResult(score=0.3, status="undefined", status_detail="no finite behaviour")
         se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
         assert se.evaluate_expr(["X_0"]) == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "no finite behaviour")
+
+    @pytest.mark.parametrize(
+        "operation",
+        [
+            lambda: np.log(np.zeros(1)),
+            lambda: np.sqrt(-np.ones(1)),
+            lambda: np.exp(np.full(1, 1000.0)),
+        ],
+        ids=["divide", "invalid", "overflow"],
+    )
+    @pytest.mark.parametrize("verbose, warns", [(0, False), (1, False), (2, True)], ids=["0", "1", "2"])
+    def test_numpy_warnings_surface_only_at_verbose_2(self, operation, verbose, warns):
+        # Documented for evaluate_expr(verbose=2): "also surfaces NumPy warnings during evaluation".
+        class _WarningRanking(_FixedRanking):
+            def score(self, expr):
+                operation()
+                return RankingResult(score=0.1)
+
+        se = SR_evaluator(_X, _y, ranking_function=_WarningRanking(None), success_threshold=-1)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            se.evaluate_expr(["X_0"], verbose=verbose)
+        assert any(issubclass(w.category, RuntimeWarning) for w in caught) is warns
 
     def test_invalid_property_lists_only_invalid(self):
         se = _make_se()
@@ -898,12 +991,6 @@ class TestEvaluateExprBed:
         result = self.se.evaluate_expr(["C", "*", "X_1", "X_0"])
         assert result == np.inf
         assert "C*X_1X_0" in self.se.invalid
-
-    def test_bed_verbose_1_covers_logging(self):
-        self.se.evaluate_expr(["C", "+", "X_0"], verbose=1)
-
-    def test_bed_invalid_verbose_covers_exception_log(self):
-        self.se.evaluate_expr(["C", "*", "X_1", "X_0"], verbose=1)
 
     def test_bed_callback_stop_sets_should_stop(self):
         cb = MagicMock(spec=SRCallbacks)
@@ -1518,3 +1605,593 @@ class TestSRResultsSaveLoad:
         orig_value = results[0].top_models()[0].augmentations["HoldoutMetric"]["value"]
         rest_value = loaded[0].top_models()[0].augmentations["HoldoutMetric"]["value"]
         assert abs(rest_value - orig_value) < 1e-12
+
+
+# ── Constraints ────────────────────────────────────────────────────────────────────────────────
+# Expected values follow the module docs "Evaluation statuses" and "Constraints". Constraint
+# objects are built inside the tests (or in lambdas), never at import time.
+
+_INF = float("inf")
+_LIB1 = lambda: SymbolLibrary.default_symbols(1)  # noqa: E731
+_LIB2 = lambda: SymbolLibrary.default_symbols(2)  # noqa: E731
+_X1 = _X[:, :1]
+_NINE_CONSTANTS = ["C"] + ["+", "C"] * 8
+_STD_Y = math.sqrt(16.6875)  # best constant fit to _y: mean 4.25, squared deviations sum 66.75, /4
+
+
+def _violation(constraint, stage, message, amount):
+    return CheckResult(
+        passed=False, message=message, amount=amount, implemented=True, constraint=constraint, stage=stage
+    )
+
+
+def _raised(constraint, stage):
+    # The recorded result of a check that raised RuntimeError("boom").
+    return CheckResult(
+        passed=False,
+        message="raised RuntimeError: boom",
+        amount=_INF,
+        constraint=constraint,
+        stage=stage,
+        error="RuntimeError: boom",
+    )
+
+
+class _Boom(ExpressionConstraint):
+    def pre_check(self, expr):
+        raise RuntimeError("boom")
+
+
+class _BoomPost(ExpressionConstraint):
+    def post_check(self, model):
+        raise RuntimeError("boom")
+
+
+class _ReturnsBool(ExpressionConstraint):
+    def pre_check(self, expr):
+        return True
+
+
+class _Spy(ExpressionConstraint):
+    """Records what its checks receive; the lists are shared with the evaluator's shallow copy."""
+
+    def __init__(self):
+        self.pre = []
+        self.post = []
+
+    def pre_check(self, expr):
+        self.pre.append(expr)
+        return CheckResult()
+
+    def post_check(self, model):
+        self.post.append(model)
+        return CheckResult()
+
+
+class _Unimpl(ExpressionConstraint):
+    def pre_check(self, expr):
+        return CheckResult(passed=False, implemented=False)
+
+    def post_check(self, model):
+        return CheckResult(passed=False, implemented=False)
+
+
+class _CountingRanking(RankingFunction):
+    name = "counting"
+
+    def __init__(self):
+        self.calls = 0
+
+    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+        pass
+
+    def score(self, expr):
+        self.calls += 1
+        return RankingResult(score=0.5)
+
+
+class _Recorder(SRCallbacks):
+    def __init__(self):
+        self.events = []
+
+    def on_expr_evaluated(self, event):
+        self.events.append(event)
+
+
+def _fit_ranking():
+    """Scores every expression 0.1 with fitted constant 2.0 and some ranking data."""
+    return _FixedRanking(RankingResult(score=0.1, parameters=np.array([2.0]), extra={"k": 1}))
+
+
+class TestConstraintSetup:
+    @pytest.mark.parametrize(
+        "make_kwargs, expected",
+        [
+            (lambda: {}, [("MaxConstants", 8)]),
+            (lambda: {"max_constants": 3, "max_expr_length": 20}, [("MaxConstants", 3), ("MaxTokens", 20)]),
+            (lambda: {"max_constants": -1}, []),
+            (lambda: {"max_constants": -1, "max_expr_length": 0}, [("MaxTokens", 0)]),
+            (lambda: {"max_constants": np.int64(2)}, [("MaxConstants", 2)]),
+            (lambda: {"required_constraints": []}, [("MaxConstants", 8)]),
+            (
+                lambda: {"required_constraints": [MaxTreeDepth(4)], "max_expr_length": 5},
+                [("MaxConstants", 8), ("MaxTokens", 5), ("MaxTreeDepth", 4)],
+            ),
+            (lambda: {"required_constraints": [MaxConstants(2)]}, [("MaxConstants", 2)]),
+            (lambda: {"required_constraints": [MaxConstants(2)], "max_constants": 2}, [("MaxConstants", 2)]),
+            (lambda: {"required_constraints": None}, [("MaxConstants", 8)]),
+            (lambda: {"required_constraints": [MaxTokens(4)]}, [("MaxConstants", 8), ("MaxTokens", 4)]),
+            (
+                lambda: {"required_constraints": [MaxTokens(0)], "max_expr_length": 0},
+                [("MaxConstants", 8), ("MaxTokens", 0)],
+            ),
+        ],
+        ids=[
+            "default",
+            "both",
+            "disabled",
+            "zero-is-a-limit",
+            "numpy-int",
+            "empty-list-keeps-default",
+            "settings-before-list",
+            "list-replaces-default",
+            "agreeing-setting",
+            "none-is-empty-list",
+            "list-MaxTokens-default-setting",
+            "agreeing-zero-limit",
+        ],
+    )
+    def test_required_constraints_from_settings_and_list(self, make_kwargs, expected):
+        se = _make_se(symbol_library=_LIB2(), **make_kwargs())
+        assert isinstance(se.required_constraints, tuple)
+        assert [(type(c).__name__, c.limit) for c in se.required_constraints] == expected
+        assert all(c.symbol_library is se.symbol_library for c in se.required_constraints)
+        assert se.parameter_estimator.estimation_settings["max_constants"] == -1
+        assert se.parameter_estimator.estimation_settings["max_expr_length"] == -1
+
+    def test_constraints_stored_as_set_up_shallow_copies(self):
+        given = OutputBounds([[1.0, 1.0]], lower=0.0)
+        advisory = (c for c in [MaxTreeDepth(3), MaxTokens(5)])
+        se = _make_se(symbol_library=_LIB2(), required_constraints=[given], advisory_constraints=advisory)
+        _, stored = se.required_constraints  # MaxConstants(8) from the settings comes first
+        assert stored is not given and type(stored) is OutputBounds
+        assert stored.points is given.points
+        assert stored.symbol_library is se.symbol_library
+        assert given.symbol_library is None
+        assert isinstance(se.advisory_constraints, tuple)
+        assert [(type(c).__name__, c.limit) for c in se.advisory_constraints] == [("MaxTreeDepth", 3), ("MaxTokens", 5)]
+        assert _make_se(symbol_library=_LIB2(), advisory_constraints=None).advisory_constraints == ()
+        assert _make_se(symbol_library=_LIB2()).advisory_constraints == ()
+
+    def test_same_instance_serves_evaluators_with_different_libraries(self):
+        shared = RequiredVariables()
+        se1 = SR_evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[shared])
+        se3 = SR_evaluator(
+            np.column_stack([_X, _X[:, 0]]),
+            _y,
+            symbol_library=SymbolLibrary.default_symbols(3),
+            required_constraints=[shared],
+        )
+        assert se1.check_constraints(["X_0"]) == ([], [])
+        assert se3.check_constraints(["X_0"]) == ([_violation("RequiredVariables", "pre", "missing X_1, X_2", 2.0)], [])
+
+    @pytest.mark.parametrize(
+        "make_kwargs, error, match",
+        [
+            (lambda: {"required_constraints": [MaxDepth(3)]}, TypeError, "MaxDepth"),
+            (lambda: {"advisory_constraints": [MaxNodes(3)]}, TypeError, "MaxNodes"),
+            (lambda: {"required_constraints": MaxTokens(3)}, TypeError, "MaxTokens"),
+            (lambda: {"required_constraints": "MaxTokens"}, TypeError, "M"),
+            (lambda: {"required_constraints": [MaxDepth(3)], "max_constants": 3}, TypeError, "MaxDepth"),
+            (lambda: {"required_constraints": [MaxConstants(2)], "max_constants": 3}, ValueError, "max_constants"),
+            (lambda: {"required_constraints": [MaxConstants(3)], "max_constants": -1}, ValueError, "max_constants"),
+            (lambda: {"required_constraints": [MaxTokens(4)], "max_expr_length": 5}, ValueError, "max_expr_length"),
+            (lambda: {"required_constraints": [MaxConstants(3)], "max_constants": 8}, ValueError, "max_constants"),
+            (lambda: {"required_constraints": [MaxTokens(4)], "max_expr_length": -1}, ValueError, "max_expr_length"),
+            (lambda: {"max_constants": True}, ValueError, "max_constants"),
+            (lambda: {"max_constants": 2.0}, ValueError, "max_constants"),
+            (lambda: {"max_constants": None}, ValueError, "max_constants"),
+            (lambda: {"max_expr_length": "5"}, ValueError, "max_expr_length"),
+            (lambda: {"required_constraints": [OutputBounds(np.zeros((1, 3)), lower=0.0)]}, ValueError, "3"),
+            (lambda: {"advisory_constraints": [RequiredVariables(["X0"])]}, ValueError, "X0"),
+        ],
+        ids=[
+            "grammar-constraint",
+            "grammar-constraint-advisory",
+            "lone-constraint",
+            "string",
+            "type-checked-before-values",
+            "max_constants-disagrees-with-list",
+            "negative-max_constants-with-MaxConstants",
+            "max_expr_length-disagrees-with-list",
+            "explicit-default-max_constants-disagrees",
+            "negative-max_expr_length-with-MaxTokens",
+            "bool-limit",
+            "float-limit",
+            "none-limit",
+            "str-limit",
+            "setup-error-propagates",
+            "advisory-setup-error-propagates",
+        ],
+    )
+    def test_constructor_error_contract(self, make_kwargs, error, match):
+        kwargs = make_kwargs()
+        with pytest.raises(error, match=match):
+            _make_se(symbol_library=_LIB2(), **kwargs)
+
+    @pytest.mark.parametrize(
+        "settings, make_list, expected",
+        [
+            ({}, lambda: None, [("MaxConstants", 8)]),
+            (
+                {"max_constants": 3, "max_expr_length": 20},
+                lambda: [MaxTreeDepth(4)],
+                [("MaxConstants", 3), ("MaxTokens", 20), ("MaxTreeDepth", 4)],
+            ),
+        ],
+        ids=["default-settings", "given-settings"],
+    )
+    def test_required_constraints_round_trip_with_same_settings(self, settings, make_list, expected):
+        first = _make_se(symbol_library=_LIB2(), required_constraints=make_list(), **settings)
+        again = _make_se(symbol_library=_LIB2(), required_constraints=first.required_constraints, **settings)
+        assert [(type(c).__name__, c.limit) for c in first.required_constraints] == expected
+        assert [(type(c).__name__, c.limit) for c in again.required_constraints] == expected
+
+    @pytest.mark.parametrize(
+        "make_kwargs",
+        [
+            lambda: {"max_constants": 12},
+            lambda: {"max_constants": -1},
+            lambda: {"required_constraints": [MaxConstants(12)]},
+        ],
+        ids=["max_constants-12", "max_constants-disabled", "explicit-MaxConstants-12"],
+    )
+    def test_estimator_limits_disabled_for_scoring(self, make_kwargs):
+        # Regression: the estimator's own default limit (8) must not cut a 9-constant expression.
+        se = _make_se(symbol_library=_LIB2(), **make_kwargs())
+        error = se.evaluate_expr(_NINE_CONSTANTS)
+        assert se.models[0].status == "ok"
+        assert error == pytest.approx(_STD_Y, rel=1e-3)
+
+
+class TestCheckConstraints:
+    def _se(self):
+        return SR_evaluator(
+            _X1,
+            _y,
+            symbol_library=_LIB1(),
+            required_constraints=[MaxConstants(1), MaxTokens(3), OutputBounds([[1.0]], lower=0.0)],
+            advisory_constraints=[MaxTreeDepth(2), RequiredVariables()],
+        )
+
+    def test_check_constraints_splits_required_and_advisory(self):
+        # C * sin(X_0 + C): 2 constants, 8 tokens, height 4. OutputBounds has no pre-check.
+        expr = ["C", "*", "sin", "(", "X_0", "+", "C", ")"]
+        assert self._se().check_constraints(expr) == (
+            [
+                _violation("MaxConstants", "pre", "2 constants, limit 1", 1.0),
+                _violation("MaxTokens", "pre", "8 tokens, limit 3", 5.0),
+            ],
+            [_violation("MaxTreeDepth", "pre", "depth 4, limit 2", 2.0)],
+        )
+
+    def test_check_constraints_same_class_in_both_lists(self):
+        se = SR_evaluator(
+            _X1, _y, symbol_library=_LIB1(), required_constraints=[MaxTokens(5)], advisory_constraints=[MaxTokens(2)]
+        )
+        assert se.check_constraints(["X_0", "+", "C"]) == (
+            [],
+            [_violation("MaxTokens", "pre", "3 tokens, limit 2", 1.0)],
+        )
+
+    def test_check_constraints_has_no_side_effects(self):
+        se = SR_evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[MaxConstants(0)])
+        recorder = _Recorder()
+        se.register_callbacks(recorder)
+        assert se.check_constraints(["C"]) == ([_violation("MaxConstants", "pre", "1 constants, limit 0", 1.0)], [])
+        assert (se.total_evaluations, se.trace, se.models, recorder.events) == (0, [], [], [])
+
+    @pytest.mark.parametrize(
+        "make, make_expr, messages",
+        [
+            (lambda: MaxTokens(3), lambda sl: ["(", "X_0", "+", "C", ")"], ["5 tokens, limit 3"]),
+            (lambda: MaxTokens(3), lambda sl: tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), []),
+            (lambda: MaxConstants(1), lambda sl: ["C", "+", "C"], ["2 constants, limit 1"]),
+            (lambda: MaxTokens(5), lambda sl: tokens_to_tree(["X_0", "+", "X_0", "*", "X_0"], sl), []),
+        ],
+        ids=["list-as-given", "tree-written-out", "not-simplified", "tree-minimal-brackets"],
+    )
+    def test_check_constraints_input_form(self, make, make_expr, messages):
+        se = SR_evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[make()])
+        required, _ = se.check_constraints(make_expr(se.symbol_library))
+        assert [r.message for r in required] == messages
+
+    @pytest.mark.parametrize(
+        "make_kwargs, expr, error, match",
+        [
+            (lambda: {"max_constants": -1}, ["X_0", "X_0"], ExpressionParseError, None),
+            (lambda: {"required_constraints": [MaxTokens(10)]}, ["X_0", "X_0"], ExpressionParseError, None),
+            (lambda: {}, "X_0", TypeError, "str"),
+        ],
+        ids=["parsed-with-no-constraints", "parsed-for-token-only", "wrong-type"],
+    )
+    def test_check_constraints_error_contract(self, make_kwargs, expr, error, match):
+        se = SR_evaluator(_X1, _y, symbol_library=_LIB1(), **make_kwargs())
+        with pytest.raises(error, match=match):
+            se.check_constraints(expr)
+
+    def test_check_constraints_returns_raising_check(self):
+        # The raising check is reported in either list, and the checks after it still run.
+        se = SR_evaluator(
+            _X1,
+            _y,
+            symbol_library=_LIB1(),
+            required_constraints=[_Boom(), MaxTokens(0)],
+            advisory_constraints=[_Boom()],
+            max_constants=-1,
+        )
+        with pytest.warns(UserWarning, match=r"_Boom\.pre_check raised RuntimeError: boom") as record:
+            required, advisory = se.check_constraints(["X_0"])
+        assert len([w for w in record if issubclass(w.category, UserWarning)]) == 2
+        assert (required, advisory) == (
+            [_raised("_Boom", "pre"), _violation("MaxTokens", "pre", "1 tokens, limit 0", 1.0)],
+            [_raised("_Boom", "pre")],
+        )
+
+    @settings(max_examples=60, deadline=None)
+    @given(tokens=infix_expressions(), as_tree=st.booleans())
+    def test_check_constraints_required_empty_iff_not_rejected(self, tokens, as_tree):
+        library = _LIB2()
+        se = SR_evaluator(
+            _X,
+            _y,
+            symbol_library=library,
+            ranking_function=_FixedRanking(RankingResult(score=0.0)),
+            success_threshold=-1,
+            required_constraints=[MaxConstants(1), MaxTreeDepth(3), MaxTokens(9)],
+        )
+        expr = tokens_to_tree(tokens, library) if as_tree else tokens
+        failed, _ = se.check_constraints(expr)
+        se.evaluate_expr(expr)
+        expected = ("rejected", f"{failed[0].constraint}: {failed[0].message}") if failed else ("ok", None)
+        assert (se.models[0].status, se.models[0].status_detail) == expected
+
+
+class TestConstraintEvaluation:
+    @pytest.mark.parametrize(
+        "make_required, detail",
+        [
+            (lambda: [MaxTreeDepth(2), MaxConstants(0)], "MaxTreeDepth: depth 3, limit 2"),
+            (lambda: [MaxConstants(0), MaxTreeDepth(2)], "MaxConstants: 1 constants, limit 0"),
+        ],
+        ids=["depth-first", "constants-first"],
+    )
+    def test_first_failed_required_pre_check_decides(self, make_required, detail):
+        se = SR_evaluator(
+            _X1, _y, symbol_library=_LIB1(), ranking_function=_CountingRanking(), required_constraints=make_required()
+        )
+        assert se.evaluate_expr(["C", "*", "sin", "(", "X_0", ")"]) == _INF
+        model = se.models[0]
+        assert (model.status, model.error, model.status_detail) == ("rejected", _INF, detail)
+        assert se.ranking.calls == 0
+        assert se.total_evaluations == 1
+
+    def test_required_post_check_rejects_and_keeps_fit(self):
+        # Fitted C = 2 gives 2 * (-1) - 0 = -2 at the point (0, -1), below the lower bound 0.
+        se = SR_evaluator(
+            _X,
+            _y,
+            symbol_library=_LIB2(),
+            ranking_function=_fit_ranking(),
+            success_threshold=-1,
+            required_constraints=[OutputBounds([[0.0, -1.0]], lower=0.0)],
+        )
+        assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) == _INF
+        model = se.models[0]
+        assert (model.status, model.error) == ("rejected", _INF)
+        assert model.status_detail == "OutputBounds: output outside [0.0, inf] at 1 of 1 points"
+        np.testing.assert_array_equal(model.parameters, [2.0])
+        assert model.ranking_data == {"k": 1}
+
+    def test_post_checks_run_only_for_ok_models(self):
+        spy = _Spy()
+        se = _make_se(symbol_library=_LIB2(), required_constraints=[spy])
+        se.evaluate_expr(["log", "(", "X_0", "-", "X_0", ")"])
+        assert (se.models[0].status, spy.post) == ("undefined", [])
+        se.evaluate_expr(["X_0"])
+        assert len(spy.post) == 1
+
+    @pytest.mark.filterwarnings("ignore::UserWarning")
+    @pytest.mark.parametrize(
+        "ranking, expr, status, expected",
+        [
+            (
+                lambda: "rmse",
+                ["X_0", "-", "X_1"],
+                "ok",
+                [
+                    _violation("MaxTreeDepth", "pre", "depth 2, limit 1", 1.0),
+                    _violation("OutputBounds", "post", "output outside [0.5, inf] at 1 of 1 points", 0.5),
+                ],
+            ),
+            (
+                lambda: "rmse",
+                ["X_0", "-", "X_1", "-", "X_1"],
+                "rejected",
+                [_violation("MaxTreeDepth", "pre", "depth 3, limit 1", 2.0)],
+            ),
+            (
+                lambda: "rmse",
+                ["C", "*", "C", "*", "X_1"],
+                "rejected",
+                [_violation("MaxTreeDepth", "pre", "depth 3, limit 1", 2.0)],
+            ),
+            (
+                lambda: "rmse",
+                ["log", "(", "X_0", "-", "X_0", ")"],
+                "undefined",
+                [_violation("MaxTreeDepth", "pre", "depth 3, limit 1", 2.0)],
+            ),
+            (
+                lambda: _FixedRanking(RuntimeError("boom")),
+                ["X_0", "+", "X_1"],
+                "error",
+                [_violation("MaxTreeDepth", "pre", "depth 2, limit 1", 1.0)],
+            ),
+            (lambda: "rmse", ["C", "C"], "invalid", []),
+        ],
+        ids=[
+            "ok-pre-then-post",
+            "rejected-by-post-no-advisory-post",
+            "rejected-by-pre",
+            "undefined",
+            "error",
+            "invalid-before-constraints",
+        ],
+    )
+    def test_advisory_violations_recorded_by_stage(self, ranking, expr, status, expected):
+        # At the point (1, 1): X_0 - X_1 = 0 passes the required lower bound 0 but not the advisory
+        # 0.5; X_0 - X_1 - X_1 = -1 fails the required bound (and would fail the advisory one).
+        point = [[1.0, 1.0]]
+        se = SR_evaluator(
+            _X,
+            _y,
+            symbol_library=_LIB2(),
+            ranking_function=ranking(),
+            seed=42,
+            success_threshold=-1,
+            required_constraints=[MaxConstants(1), OutputBounds(point, lower=0.0)],
+            advisory_constraints=[MaxTreeDepth(1), OutputBounds(point, lower=0.5)],
+        )
+        se.evaluate_expr(expr)
+        assert se.models[0].status == status
+        assert se.models[0].advisory_violations == expected
+
+    @pytest.mark.parametrize(
+        "expr",
+        [["X_0", "+", "X_0"], ["C", "*", "X_1", "-", "X_0"], ["log", "(", "X_0", "-", "X_0", ")"]],
+        ids=["constant-free", "fitted", "undefined"],
+    )
+    def test_advisory_constraints_never_change_error(self, expr):
+        plain = _make_se(symbol_library=_LIB2())
+        advised = _make_se(
+            symbol_library=_LIB2(),
+            advisory_constraints=[MaxTreeDepth(1), RequiredVariables(["X_1"]), OutputBounds([[1.0, 1.0]], lower=100.0)],
+        )
+        plain.evaluate_expr(expr)
+        advised.evaluate_expr(expr)
+        assert advised.models[0].advisory_violations != []
+        assert (advised.models[0].error, advised.models[0].status) == (plain.models[0].error, plain.models[0].status)
+
+    @pytest.mark.parametrize(
+        "make_expr, simplify, expected",
+        [
+            (lambda sl: ["X_0", "+", "C"], False, ["X_0", "+", "C"]),
+            (lambda sl: tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), False, ["X_0", "+", "C"]),
+            (
+                lambda sl: ["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"],
+                True,
+                ["C", "+", "X_1"],
+            ),
+        ],
+        ids=["list", "tree-written-out", "simplified"],
+    )
+    def test_checks_receive_stored_expression(self, make_expr, simplify, expected):
+        required, advisory = _Spy(), _Spy()
+        se = _make_se(symbol_library=_LIB2(), required_constraints=[required], advisory_constraints=[advisory])
+        se.evaluate_expr(make_expr(se.symbol_library), simplify_expr=simplify)
+        model = se.models[0]
+        assert model.expr == expected
+        assert (required.pre, advisory.pre) == ([expected], [expected])
+        assert [m.expr for m in required.post] == [expected]
+        assert [m.expr for m in advisory.post] == [expected]
+        np.testing.assert_array_equal(required.post[0].parameters, model.parameters)
+
+    @pytest.mark.parametrize(
+        "make, detail, parameters, ranking_data",
+        [
+            (_Boom, "_Boom.pre_check raised RuntimeError: boom", None, {}),
+            (_BoomPost, "_BoomPost.post_check raised RuntimeError: boom", [2.0], {"k": 1}),
+            (
+                _ReturnsBool,
+                "_ReturnsBool.pre_check raised TypeError: pre_check returned bool, expected CheckResult",
+                None,
+                {},
+            ),
+        ],
+        ids=["pre_check", "post_check", "returns-non-CheckResult"],
+    )
+    def test_required_check_exception_gives_error_status(self, make, detail, parameters, ranking_data):
+        # A pre-check that raises stops before scoring; a post-check that raises keeps the fit. The
+        # advisory pre-checks ran before and stay recorded, as for every parsed expression.
+        se = SR_evaluator(
+            _X,
+            _y,
+            symbol_library=_LIB2(),
+            ranking_function=_fit_ranking(),
+            success_threshold=-1,
+            required_constraints=[make()],
+            advisory_constraints=[MaxTreeDepth(1)],
+        )
+        recorder = _Recorder()
+        se.register_callbacks(recorder)
+        check = detail.split(" ")[0]  # "<Class>.<check>"
+        with pytest.warns(UserWarning, match=check.replace(".", r".*")):
+            assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) == _INF
+        model = se.models[0]
+        assert (model.status, model.error, model.status_detail) == ("error", _INF, detail)
+        assert model.expr == ["C", "*", "X_1", "-", "X_0"]
+        assert model.advisory_violations == [_violation("MaxTreeDepth", "pre", "depth 3, limit 1", 2.0)]
+        assert (None if model.parameters is None else model.parameters.tolist()) == parameters
+        assert model.ranking_data == ranking_data
+        assert (se.total_evaluations, len(recorder.events)) == (1, 1)
+        assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) == _INF
+        assert (se.total_evaluations, len(se.models)) == (2, 1)
+
+    @pytest.mark.parametrize("make, check", [(_Boom, "pre_check"), (_BoomPost, "post_check")], ids=["pre", "post"])
+    def test_advisory_check_exception_is_recorded_with_error(self, make, check):
+        # The raising check is recorded with error set; the advisory constraints after it are still
+        # checked. X_0 + X_0 has height 2 and is 2 at the point (1, 1).
+        plain = _make_se(symbol_library=_LIB2())
+        advised = _make_se(
+            symbol_library=_LIB2(),
+            advisory_constraints=[make(), MaxTreeDepth(1), OutputBounds([[1.0, 1.0]], lower=100.0)],
+        )
+        plain.evaluate_expr(["X_0", "+", "X_0"])
+        with pytest.warns(UserWarning, match=f"{make.__name__}.*{check}"):
+            advised.evaluate_expr(["X_0", "+", "X_0"])
+        model = advised.models[0]
+        assert (model.status, model.error) == ("ok", plain.models[0].error)
+        raised = _raised(make.__name__, check.split("_")[0])
+        assert model.advisory_violations == [
+            *([raised] if check == "pre_check" else []),
+            _violation("MaxTreeDepth", "pre", "depth 2, limit 1", 1.0),
+            *([raised] if check == "post_check" else []),
+            _violation("OutputBounds", "post", "output outside [100.0, inf] at 1 of 1 points", 98.0),
+        ]
+
+    def test_unimplemented_results_are_ignored(self):
+        se = _make_se(symbol_library=_LIB2(), required_constraints=[_Unimpl()], advisory_constraints=[_Unimpl()])
+        se.evaluate_expr(["X_0"])
+        assert (se.models[0].status, se.models[0].advisory_violations) == ("ok", [])
+        assert se.check_constraints(["X_0"]) == ([], [])
+
+    @pytest.mark.parametrize(
+        "expr, status, error, detail",
+        [
+            (["C", "*", "X_1", "-", "X_0"], "ok", 0.0, None),
+            (["X_0"], "ok", math.sqrt(22), None),  # residuals 2, -8, -2, 4
+            (["X_1", "-", "X_0"], "ok", math.sqrt(29.25), None),  # residual = X_1
+            (["C"] + ["+", "C"] * 7, "ok", _STD_Y, None),  # 8 constants: at the default limit
+            (_NINE_CONSTANTS, "rejected", _INF, "MaxConstants: 9 constants, limit 8"),
+            (["X_0"] + ["+", "X_0"] * 50, "ok", math.sqrt(87997), None),  # 101 tokens: no default limit
+            (["X_0", "X_0"], "invalid", _INF, ANY),
+            (["log", "(", "X_0", "-", "X_0", ")"], "undefined", _INF, ANY),
+        ],
+        ids=["exact-fit", "X_0", "X_1-X_0", "eight-constants", "nine-constants", "long", "invalid", "undefined"],
+    )
+    def test_default_settings_regression(self, expr, status, error, detail):
+        se = _make_se()
+        assert se.evaluate_expr(expr) == pytest.approx(error, rel=1e-3, abs=1e-6)
+        model = se.models[0]
+        assert (model.status, model.status_detail, model.advisory_violations) == (status, detail, [])

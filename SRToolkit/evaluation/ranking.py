@@ -17,7 +17,7 @@ import numpy as np
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_compiler import compile_expr
-from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.expression_tree import Node, _as_tokens, _count_constants
 from SRToolkit.utils.measures import bed, create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -121,8 +121,8 @@ class RankingFunction(ABC):
 
         Returns:
             A [RankingResult][SRToolkit.evaluation.ranking.RankingResult] whose ``score`` drives
-            ordering. The evaluator has already parsed ``expr`` and checked ``max_constants`` /
-            ``max_expr_length``. May raise; the evaluator then records the status ``"error"``
+            ordering. The evaluator has already parsed ``expr`` and run the pre-checks of its
+            required constraints. May raise; the evaluator then records the status ``"error"``
             with the error ``+inf``.
         """
 
@@ -236,11 +236,11 @@ class RMSERanking(RankingFunction):
         ground_truth: Union[List[str], Node],
         symbol_library: SymbolLibrary,
     ) -> np.ndarray:
-        tokens = ground_truth if isinstance(ground_truth, list) else ground_truth.to_list(symbol_library)
+        tokens = _as_tokens(ground_truth, symbol_library, "ground_truth")
         # A free constant ("C") has no value to evaluate against — reject rather than feed the
         # compiled backend an empty constant array (which would read out of bounds).
         const_symbols = set(symbol_library.get_symbols_of_type("const"))
-        if any(tok in const_symbols for tok in tokens):
+        if _count_constants(tokens, symbol_library) > 0:
             raise ValueError(
                 "Cannot generate y from a ground truth containing a free constant "
                 f"({', '.join(sorted(const_symbols))}) — it has no value to evaluate. Provide y "

@@ -11,10 +11,13 @@
   [EvalResult][SRToolkit.utils.types.EvalResult] (one SR run) hold experiment outcomes. Each model
   has a [Status][SRToolkit.utils.types.Status]. Both save to JSON through
   [serialization][SRToolkit.utils.serialization], so everything stored in them must be a value
-  listed there. The trace-based metrics of ``EvalResult`` are explained in
+  listed there. [CheckResult][SRToolkit.utils.types.CheckResult] is the outcome of one check of an
+  [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]; a
+  ``ModelResult`` saves the failed advisory ones. The trace-based metrics of ``EvalResult`` are explained in
   [sr_evaluator][SRToolkit.evaluation.sr_evaluator].
 """
 
+import dataclasses
 import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Tuple, TypedDict, get_args
@@ -61,13 +64,15 @@ Outcome of evaluating one expression, stored as [ModelResult.status][SRToolkit.u
 - ``"ok"``: scored, with a finite error.
 - ``"invalid"``: not a well-formed expression; the parser raised an
   [ExpressionParseError][SRToolkit.utils.expression_tree.ExpressionParseError].
-- ``"rejected"``: well-formed, but it violates a limit of the task (``max_constants``,
-  ``max_expr_length``), so it was not scored.
+- ``"rejected"``: well-formed, but it fails a check of a required constraint of the evaluator (by
+  default the ``max_constants`` / ``max_expr_length`` limits), or the ranking function rejected it.
+  A failed pre-check means it was not scored; a failed post-check means it was scored and its fit
+  kept, but its error is still ``+inf``.
 - ``"undefined"``: scored, but the ranking function gave a non-finite error, e.g. because the
   expression is undefined at some inputs (``sqrt`` of a negative number, ``log(0)``) or
   overflows. For RMSE this describes the fitted model: other constants might have been fine.
-- ``"error"``: the ranking function raised an exception for a well-formed expression. This is a
-  failure of the evaluation, not of the expression.
+- ``"error"``: the ranking function, or a check of a required constraint, raised an exception for
+  a well-formed expression. This is a failure of the evaluation, not of the expression.
 
 Every status except ``"ok"`` gets the error ``+inf``.
 """
@@ -101,11 +106,19 @@ class RankingSettings(TypedDict, total=False):
         initialization: Constant initialization strategy. ``"random"`` samples
             uniformly within ``constant_bounds``; ``"mean"`` sets all constants
             to the midpoint. Default: ``"random"``.
-        max_constants: Maximum number of free constants in an expression, enforced by the
-            evaluator for every ranking. An expression with more gets status ``"rejected"``
-            and error ``+inf``. A negative value disables the limit. Default: ``8``.
-        max_expr_length: Maximum expression length in tokens, enforced like ``max_constants``.
-            A negative value disables the limit. Default: ``-1``.
+        max_constants: Maximum number of free constants in an expression, an ``int`` or numpy
+            integer (``bool`` and other types raise ``ValueError``). For the evaluator, a
+            shorthand for the required constraint
+            [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]: an expression
+            with more gets status ``"rejected"`` and error ``+inf``, for every ranking. A negative
+            value disables the limit. Adds nothing if the evaluator's ``required_constraints``
+            already contain a ``MaxConstants``; given together with one, it must have the same
+            limit (a negative setting together with one raises). Default: ``8``.
+        max_expr_length: Maximum expression length in infix tokens, brackets included; same type
+            rules as ``max_constants``. For the evaluator, a shorthand for the required constraint
+            [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens], enforced like
+            ``max_constants``. A negative value disables the limit. Same rule for a
+            ``MaxTokens`` in ``required_constraints``. Default: ``-1``.
         backend: Backend used to compile expressions, by both rankings (``ParameterEstimator`` and BED).
             ``"stack"`` uses the Cython-backed postfix stack machine;
             ``"codegen"`` generates Python/NumPy source via ``exec()``;
@@ -163,6 +176,53 @@ def _add_augmentation(augmentations: Dict[str, Dict[str, Any]], name: str, data:
     augmentations[resolved] = {**data, "_type": aug_type}
 
 
+@dataclass(frozen=True)
+class CheckResult:
+    """The outcome of one check of one [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint].
+
+    Immutable (a frozen dataclass), so results can be shared. A constraint's ``pre_check`` / ``post_check`` returns one; it fills in ``passed``, ``message``
+    and ``amount`` and leaves ``constraint`` and ``stage`` empty. When the
+    [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] records a result, it stores a
+    copy with ``constraint`` and ``stage`` filled in.
+
+    Attributes:
+        passed: Whether the expression satisfies the constraint. ``True`` also when the check is
+            not implemented.
+        message: Why the check failed (e.g. ``"9 constants, limit 8"``); may be empty. For a check
+            that is not implemented, says so. The built-in constraints leave it empty when the
+            check passes.
+        amount: How far outside the constraint the expression is, in the constraint's own unit
+            (e.g. ``1.0`` for one constant too many). The built-in constraints return a ``float``
+            that is greater than 0 exactly when the check fails, and ``0.0`` when it passes. Not validated, so a custom
+            constraint may return any value.
+        implemented: ``False`` if the constraint has no such check. The evaluator then ignores the
+            result, whatever ``passed`` says: nothing is recorded and nothing is rejected.
+        constraint: The class name (``type(constraint).__name__``) of the constraint that produced
+            it, filled in by the evaluator; ``""`` otherwise.
+        stage: ``"pre"`` or ``"post"`` for the check that produced it, filled in by the evaluator;
+            ``""`` otherwise.
+        error: ``None``, unless the check raised an exception or returned something other than a
+            ``CheckResult`` (treated as a ``TypeError``). The evaluator then records the check as
+            failed, with ``error`` set to ``"<ExceptionType>: <message>"``, ``message``
+            to ``"raised <error>"`` and ``amount`` to ``inf``. Such a result says nothing about
+            the expression; leave it out when counting violations.
+
+    Examples:
+        >>> CheckResult().passed
+        True
+        >>> CheckResult(passed=False, message="9 constants, limit 8", amount=1.0).amount
+        1.0
+    """
+
+    passed: bool = True
+    message: str = ""
+    amount: float = 0.0
+    implemented: bool = True
+    constraint: str = ""
+    stage: str = ""
+    error: Optional[str] = None
+
+
 @dataclass
 class ModelResult:
     """One evaluated expression: an entry of [EvalResult.all_models][SRToolkit.utils.types.EvalResult].
@@ -181,8 +241,17 @@ class ModelResult:
             [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.ModelResult.add_augmentation].
         status: How the evaluation ended; see [Status][SRToolkit.utils.types.Status].
-        status_detail: Why the status is not ``"ok"``: the parse error, the violated limit, the
-            exception, or the non-finite score. ``None`` for ``"ok"``.
+        status_detail: Why the status is not ``"ok"``: the parse error, the failed check of a
+            required constraint (e.g. ``"MaxConstants: 9 constants, limit 8"``), the exception, or the
+            non-finite score. ``None`` for ``"ok"``.
+        advisory_violations: The failed checks of the evaluator's advisory constraints, as
+            [CheckResult][SRToolkit.utils.types.CheckResult]s with ``constraint`` and ``stage``
+            filled in; a check that raised is included, with ``error`` set. Pre-checks are recorded for every expression the evaluator could parse,
+            whatever its status; post-checks only for models with status ``"ok"``. Pre-check
+            results come first; within a stage, results follow the order of the constraints. Empty
+            if no check failed, if the evaluator has no advisory constraints, or if the status is
+            ``"invalid"``. It never affects ``error``. See
+            [expression_constraints][SRToolkit.utils.expression_constraints].
 
     Examples:
         >>> result = ModelResult(expr=["C", "*", "X_0"], error=0.42)
@@ -197,6 +266,7 @@ class ModelResult:
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     status: Status = "ok"
     status_detail: Optional[str] = None
+    advisory_violations: List[CheckResult] = field(default_factory=list)
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
         """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
@@ -233,7 +303,8 @@ class ModelResult:
         Python scalars.
 
         Returns:
-            A dictionary with one entry per field.
+            A dictionary with one entry per field; ``advisory_violations`` is saved as a list of
+            dicts with one entry per [CheckResult][SRToolkit.utils.types.CheckResult] field.
 
         Raises:
             TypeError: If ``parameters`` has an unsupported dtype (e.g. complex), or
@@ -256,6 +327,10 @@ class ModelResult:
             "augmentations": _to_json_safe(self.augmentations, f"{prefix}augmentations"),
             "status": self.status,
             "status_detail": self.status_detail,
+            "advisory_violations": [
+                _to_json_safe(dataclasses.asdict(r), f"{prefix}advisory_violations[{i}]")
+                for i, r in enumerate(self.advisory_violations)
+            ],
         }
 
     @classmethod
@@ -264,8 +339,11 @@ class ModelResult:
 
         Args:
             data: Dictionary produced by [to_dict][SRToolkit.utils.types.ModelResult.to_dict],
-                possibly after a JSON round trip. Unknown keys are ignored; other malformed
-                input has undefined behaviour.
+                possibly after a JSON round trip. Unknown keys are ignored; a missing
+                ``advisory_violations`` (results saved before it was recorded) loads as an empty
+                list; other malformed input has undefined behaviour. Each saved
+                [CheckResult][SRToolkit.utils.types.CheckResult] comes back equal, field by field
+                (an ``inf`` amount included).
 
         Returns:
             The reconstructed [ModelResult][SRToolkit.utils.types.ModelResult].
@@ -294,6 +372,7 @@ class ModelResult:
             augmentations=_from_json_safe(data["augmentations"]),
             status=data["status"],
             status_detail=data["status_detail"],
+            advisory_violations=[CheckResult(**r) for r in data.get("advisory_violations", [])],
         )
 
 

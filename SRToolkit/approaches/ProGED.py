@@ -32,7 +32,7 @@ class ProGED(SR_approach):
 
         Randomly samples expressions from a probabilistic context-free grammar (PCFG).
         The grammar defines both which expressions are structurally valid (hard constraints via
-        registered [Constraint][SRToolkit.utils.grammar.Constraint] objects) and a probability
+        registered [GrammarConstraint][SRToolkit.utils.grammar.GrammarConstraint] objects) and a probability
         distribution over them (soft constraints via production rule weights), biasing sampling
         toward shorter or domain-appropriate expressions. Providing a domain-specific grammar is
         the main strength of this approach — it encodes prior knowledge about the expected form

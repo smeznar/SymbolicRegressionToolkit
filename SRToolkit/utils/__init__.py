@@ -8,12 +8,17 @@ Modules:
     expression_compiler: Compiles token-list or tree expressions into executable Python
         callables.
     expression_simplifier: SymPy-backed algebraic simplification, including constant folding.
+    expression_constraints: Constraints on candidate expressions, checked before scoring (on the
+        expression) or after (on the fitted model), and enforced by the evaluator (required) or
+        recorded (advisory) —
+        [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint] and
+        the built-in constraints.
     expression_generator: PCFG construction from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] and Monte-Carlo
         expression sampling.
     grammar: CFG/PCFG representation, constraint protocol, and stateful derivation —
         [Rule][SRToolkit.utils.grammar.grammar.Rule],
         [Grammar][SRToolkit.utils.grammar.grammar.Grammar],
-        [Constraint][SRToolkit.utils.grammar.constraints.Constraint],
+        [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint],
         [Derivation][SRToolkit.utils.grammar.derivation.Derivation], and more.
     measures: Distance and similarity measures: edit distance, tree edit distance,
         and Behavior-aware Expression Distance (BED).
@@ -22,16 +27,27 @@ Modules:
 """
 
 from .expression_compiler import compile_expr, compile_expr_rmse
+from .expression_constraints import (
+    ExpressionConstraint,
+    MaxConstants,
+    MaxSymbolCount,
+    MaxTokens,
+    MaxTreeDepth,
+    MaxTreeSize,
+    NoNesting,
+    OutputBounds,
+    RequiredVariables,
+)
 from .expression_generator import generate_n_expressions
 from .expression_simplifier import simplify
 from .expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, tokens_to_tree
 from .grammar import (
     AncestorInfo,
-    Constraint,
     Derivation,
     DimensionalConsistency,
     ExpansionContext,
     Grammar,
+    GrammarConstraint,
     MaxDepth,
     MaxNodes,
     MaxOccurrences,
@@ -68,6 +84,7 @@ from .types import (
     STATUSES,
     VALID_SYMBOL_TYPES,
     VAR,
+    CheckResult,
     EvalResult,
     ModelResult,
     RankingSettings,
@@ -80,7 +97,7 @@ __all__ = [
     "ParseTree",
     "ParseTreeNode",
     "Derivation",
-    "Constraint",
+    "GrammarConstraint",
     "ExpansionContext",
     "AncestorInfo",
     "MaxDepth",
@@ -88,6 +105,16 @@ __all__ = [
     "MaxOccurrences",
     "NoNested",
     "DimensionalConsistency",
+    "ExpressionConstraint",
+    "MaxConstants",
+    "MaxTokens",
+    "MaxTreeDepth",
+    "MaxTreeSize",
+    "MaxSymbolCount",
+    "NoNesting",
+    "OutputBounds",
+    "RequiredVariables",
+    "CheckResult",
     "SymbolLibrary",
     "Node",
     "tokens_to_tree",

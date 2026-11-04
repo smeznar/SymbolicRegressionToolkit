@@ -16,7 +16,7 @@ from ..symbol_library import SymbolLibrary
 from ..types import CONST, FN, FN_POSTFIX, FN_PREFIX, LIT, OP, OP_ADDITIVE, OP_MULTIPLICATIVE, OP_POWER, VAR
 
 if TYPE_CHECKING:
-    from .constraints import Constraint
+    from .constraints import GrammarConstraint
     from .derivation import Derivation
 
 
@@ -276,7 +276,7 @@ class Grammar:
     [add_constraint][SRToolkit.utils.grammar.Grammar.add_constraint]. During a
     derivation, [options][SRToolkit.utils.grammar.derivation.Derivation.options]
     returns only rules that every constraint's
-    [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] accepts.
+    [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows] accepts.
 
     Examples:
         >>> g = Grammar([
@@ -339,11 +339,11 @@ class Grammar:
         self._rules.append(rule)
         self._rules_by_lhs.setdefault(rule.lhs, []).append(rule)
 
-    def add_constraint(self, constraint: "Constraint") -> None:
-        """Register a [constraint][SRToolkit.utils.grammar.constraints.Constraint] applied at each derivation step.
+    def add_constraint(self, constraint: "GrammarConstraint") -> None:
+        """Register a [constraint][SRToolkit.utils.grammar.constraints.GrammarConstraint] applied at each derivation step.
 
         A rule is offered as an option only when every registered constraint's
-        [allows][SRToolkit.utils.grammar.constraints.Constraint.allows] returns ``True``
+        [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows] returns ``True``
         for it.
 
         Examples:
@@ -355,7 +355,7 @@ class Grammar:
             [['x']]
 
         Args:
-            constraint: A [Constraint][SRToolkit.utils.grammar.constraints.Constraint]
+            constraint: A [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint]
                 instance — typically a built-in such as
                 [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth],
                 [MaxNodes][SRToolkit.utils.grammar.constraints.MaxNodes],
@@ -615,13 +615,13 @@ class Grammar:
             A new [Grammar][SRToolkit.utils.grammar.Grammar] with all rules and
             constraints registered.
         """
-        from .constraints import Constraint
+        from .constraints import GrammarConstraint
 
         d = _auto_bind(d)
         rules = [Rule.from_dict(r) for r in d.get("rules", [])]
         g = cls(rules, start=d.get("start"))
         for cd in d.get("constraints", []):
-            g.add_constraint(Constraint.from_dict(cd))
+            g.add_constraint(GrammarConstraint.from_dict(cd))
         return g
 
     @classmethod

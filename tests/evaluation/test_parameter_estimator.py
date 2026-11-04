@@ -161,6 +161,51 @@ class TestLimitsMatchEvaluator:
         assert np.isnan(pe.estimate_parameters(tokens)[0])
         assert np.isnan(pe.estimate_parameters(tokens_to_tree(tokens, pe.symbol_library))[0])
 
+    @pytest.mark.parametrize(
+        "settings, make_expr, rejected",
+        [
+            ({"max_constants": 0}, lambda sl: ["pi", "*", "X_0", "+", "2"], False),
+            ({"max_expr_length": 3}, lambda sl: tokens_to_tree(["(", "X_0", "+", "X_1", ")"], sl), False),
+            ({"max_expr_length": 3}, lambda sl: ["(", "X_0", "+", "X_1", ")"], True),
+            ({"max_constants": 1}, lambda sl: tokens_to_tree(["C", "*", "X_0", "+", "C"], sl), True),
+            ({"max_expr_length": 5}, lambda sl: tokens_to_tree(["X_0", "+", "X_1", "*", "X_0"], sl), False),
+            ({"max_expr_length": 0}, lambda sl: ["X_0"], True),
+        ],
+        ids=[
+            "literals-not-constants",
+            "tree-redundant-brackets-dropped",
+            "list-brackets-counted",
+            "tree-constants",
+            "tree-precedence-needs-no-brackets",
+            "zero-length-limit",
+        ],
+    )
+    def test_limits_count_like_expression_constraints(self, settings, make_expr, rejected):
+        # Counts as MaxConstants / MaxTokens: tokens of type "const"; a tree written out with to_list.
+        pe = ParameterEstimator(_X, _y_exact, seed=0, **settings)
+        rmse, _ = pe.estimate_parameters(make_expr(pe.symbol_library))
+        assert np.isnan(rmse) == rejected
+
+
+class TestLimitValidation:
+    @pytest.mark.parametrize("key", ["max_constants", "max_expr_length"])
+    @pytest.mark.parametrize(
+        "value", [True, False, 2.0, "8", None, np.float64(3)], ids=["True", "False", "2.0", "str", "None", "float64"]
+    )
+    def test_invalid_limit_type_raises(self, key, value):
+        with pytest.raises(ValueError, match=key):
+            ParameterEstimator(_X, _y_linear, **{key: value})
+
+    @pytest.mark.parametrize(
+        "settings", [{"max_constants": np.int64(1)}, {"max_expr_length": np.int32(3)}], ids=["int64", "int32"]
+    )
+    def test_numpy_integer_limit_acts_as_int(self, settings):
+        pe = ParameterEstimator(_X, _y_linear, seed=0, **settings)
+        assert np.isfinite(pe.estimate_parameters(["C", "*", "X_0"])[0])
+        rmse, params = pe.estimate_parameters(["C", "*", "X_0", "+", "C"])
+        assert np.isnan(rmse)
+        assert params.size == 0
+
 
 class TestEstimateParametersWithInfo:
     def test_converged_fit(self):

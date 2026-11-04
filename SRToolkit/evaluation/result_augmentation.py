@@ -19,6 +19,7 @@ from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
 from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult, ResultAugmenter, evaluate_metric
 from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
+from SRToolkit.utils.expression_tree import _count_constants
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 if TYPE_CHECKING:
@@ -364,7 +365,8 @@ class HoldoutMetric(ResultAugmenter):
             ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting
                 constants on the held-out data (e.g. ``constant_bounds``, ``max_constants``).
                 Pass the dataset's settings (``dataset.kwargs``) to fit under the same limits as
-                the search.
+                the search; required constraints given explicitly to the evaluator are not
+                applied here and must be matched separately.
             seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
                 Default ``0``.
             refit_constants: Fit every model's constants on the held-out data instead of reusing
@@ -476,8 +478,7 @@ class HoldoutMetric(ResultAugmenter):
             return float("nan")
 
     def _has_constants(self, expr: list) -> bool:
-        const_symbols = set(self.symbol_library.get_symbols_of_type("const"))
-        return any(token in const_symbols for token in expr)
+        return _count_constants(expr, self.symbol_library) > 0
 
     def _fit_parameters(self, expr: list) -> Tuple[float, np.ndarray]:
         """Fit the free constants in *expr* against the held-out data (used when a model carries no

@@ -5,7 +5,7 @@ Provides:
     [ParseTreeNode][SRToolkit.utils.grammar.grammar.ParseTreeNode],
     [ParseTree][SRToolkit.utils.grammar.grammar.ParseTree],
     [Grammar][SRToolkit.utils.grammar.grammar.Grammar],
-    [Constraint][SRToolkit.utils.grammar.constraints.Constraint],
+    [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint],
     [AncestorInfo][SRToolkit.utils.grammar.constraints.AncestorInfo],
     [ExpansionContext][SRToolkit.utils.grammar.constraints.ExpansionContext],
     [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth],
@@ -18,9 +18,9 @@ Provides:
 
 from .constraints import (
     AncestorInfo,
-    Constraint,
     DimensionalConsistency,
     ExpansionContext,
+    GrammarConstraint,
     MaxDepth,
     MaxNodes,
     MaxOccurrences,
@@ -35,7 +35,7 @@ __all__ = [
     "ParseTree",
     "ParseTreeNode",
     "Derivation",
-    "Constraint",
+    "GrammarConstraint",
     "ExpansionContext",
     "AncestorInfo",
     "MaxDepth",

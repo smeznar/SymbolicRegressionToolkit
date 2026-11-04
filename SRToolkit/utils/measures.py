@@ -54,7 +54,7 @@ import zss
 from scipy.stats.qmc import LatinHypercube
 
 from .expression_compiler import _variable_column, compile_expr
-from .expression_tree import Node, _as_tree
+from .expression_tree import Node, _as_tree, _count_constants
 from .symbol_library import SymbolLibrary
 
 _NOTATIONS = ("infix", "prefix", "postfix")
@@ -263,7 +263,7 @@ def create_behavior_matrix(
 
     tree = _as_tree(expr, symbol_library, "expr")
     tokens = tree.to_list(symbol_library=symbol_library, notation="postfix")
-    num_constants = sum(symbol_library.get_type(token) == "const" for token in tokens)
+    num_constants = _count_constants(tokens, symbol_library)
     callable_expr = compile_expr(tree, symbol_library, backend=backend)
 
     with np.errstate(all="ignore"):

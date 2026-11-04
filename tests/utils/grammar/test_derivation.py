@@ -16,8 +16,8 @@ import pytest
 
 from SRToolkit.utils.grammar import (
     AncestorInfo,
-    Constraint,
     Grammar,
+    GrammarConstraint,
     MaxDepth,
     MaxNodes,
     MaxOccurrences,
@@ -53,7 +53,7 @@ def _two_level_grammar() -> Grammar:
     )
 
 
-class _RejectAll(Constraint):
+class _RejectAll(GrammarConstraint):
     def allows(self, slot, rule, global_):
         return False
 
@@ -62,7 +62,7 @@ class _RejectAll(Constraint):
         return [None] * n, None
 
 
-class _CountCalls(Constraint):
+class _CountCalls(GrammarConstraint):
     """Counts how many times allows() is called."""
 
     def __init__(self):
@@ -128,7 +128,7 @@ class TestOptions:
         assert len(d.options()) == 3
 
     def test_constraint_filters_candidates(self):
-        class RejectX(Constraint):
+        class RejectX(GrammarConstraint):
             def allows(self, slot, rule, global_):
                 return "x" not in rule.rhs
 
@@ -166,7 +166,7 @@ class TestOptions:
     def test_scope_miss_lets_rule_through_unfiltered(self):
         """A constraint scoped to 'F' must not reject rules at an 'E' slot."""
 
-        class RejectAtF(Constraint):
+        class RejectAtF(GrammarConstraint):
             nonterminals = frozenset({"F"})
 
             def allows(self, slot, rule, global_):
@@ -267,7 +267,7 @@ class TestApply:
         """slot.frontier_size inside update() is the count BEFORE new frames are pushed."""
         captured = []
 
-        class CaptureFrontierSize(Constraint):
+        class CaptureFrontierSize(GrammarConstraint):
             def update(self, slot, rule, global_):
                 captured.append(slot.frontier_size)
                 n = sum(1 for s in rule.rhs if s in slot.nonterminals)
@@ -281,7 +281,7 @@ class TestApply:
         assert captured[0] == 1  # pre-apply size was 1
 
     def test_wrong_child_local_count_raises(self):
-        class BadUpdate(Constraint):
+        class BadUpdate(GrammarConstraint):
             def update(self, slot, rule, global_):
                 return [None] * 99, None  # always wrong
 
@@ -523,7 +523,7 @@ class TestLocalStack:
         """local_stack[0] is the leftmost (current) slot's value."""
 
         # Use an asymmetric constraint to distinguish left vs right child.
-        class AsymDepth(Constraint):
+        class AsymDepth(GrammarConstraint):
             def initial_local(self, start):
                 return 10
 
@@ -608,7 +608,7 @@ class TestFrontierSize:
         """slot.frontier_size passed to allows() equals the current open-slot count."""
         observed = []
 
-        class ObserveFrontierSize(Constraint):
+        class ObserveFrontierSize(GrammarConstraint):
             def allows(self, slot, rule, global_):
                 observed.append(slot.frontier_size)
                 return True
@@ -630,7 +630,7 @@ class TestFrontierSize:
         """update() sees the frontier size from BEFORE new frames were pushed."""
         observed_in_update = []
 
-        class ObserveUpdate(Constraint):
+        class ObserveUpdate(GrammarConstraint):
             def update(self, slot, rule, global_):
                 observed_in_update.append(slot.frontier_size)
                 n = sum(1 for s in rule.rhs if s in slot.nonterminals)
@@ -750,8 +750,8 @@ class TestFrontierOrdering:
 
 
 class TestScopeMiss:
-    def _c(self, nonterminals=None, rule_names=None) -> Constraint:
-        c = Constraint()
+    def _c(self, nonterminals=None, rule_names=None) -> GrammarConstraint:
+        c = GrammarConstraint()
         c.nonterminals = nonterminals
         c.rule_names = rule_names
         return c
@@ -798,7 +798,7 @@ class TestScopeMiss:
 
 
 # ---------------------------------------------------------------------------
-# Constraint state initialisation in __init__
+# GrammarConstraint state initialisation in __init__
 # ---------------------------------------------------------------------------
 
 

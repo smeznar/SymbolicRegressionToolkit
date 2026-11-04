@@ -7,7 +7,7 @@ rather than constructing [Derivation][SRToolkit.utils.grammar.derivation.Derivat
 directly.
 
 The engine threads per-slot **local** state and per-derivation **global** state
-through every registered [Constraint][SRToolkit.utils.grammar.constraints.Constraint].  See
+through every registered [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint].  See
 [SRToolkit.utils.grammar.constraints][] for the full protocol documentation.
 """
 
@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from .constraints import AncestorInfo, Constraint, ExpansionContext
+from .constraints import AncestorInfo, ExpansionContext, GrammarConstraint
 from .grammar import Grammar, ParseTree, ParseTreeNode, Rule
 
 
@@ -125,7 +125,7 @@ class Derivation:
     # Inspection helpers
     # ------------------------------------------------------------------
 
-    def local_stack(self, constraint: Constraint) -> list[Any]:
+    def local_stack(self, constraint: GrammarConstraint) -> list[Any]:
         """Return the local state stack for ``constraint`` across the open frontier,
         leftmost slot first.
 
@@ -138,7 +138,7 @@ class Derivation:
         cid = id(constraint)
         return [f.locals[cid] for f in reversed(self._frames)]
 
-    def global_state(self, constraint: Constraint) -> Any:
+    def global_state(self, constraint: GrammarConstraint) -> Any:
         """Return the per-derivation global state for ``constraint``.
 
         Args:
@@ -156,7 +156,7 @@ class Derivation:
     def options(self) -> list[Rule]:
         """Return candidate rules for the current leftmost unexpanded
         non-terminal, filtered by every registered constraint's
-        [allows][SRToolkit.utils.grammar.constraints.Constraint.allows].
+        [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows].
 
         Examples:
             >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -259,7 +259,7 @@ class Derivation:
             child_locals, new_global = c.update(slot, rule, self._globals[cid])
             if len(child_locals) != n_nt_children:
                 raise RuntimeError(
-                    f"Constraint {c!r}.update() returned {len(child_locals)} child locals "
+                    f"GrammarConstraint {c!r}.update() returned {len(child_locals)} child locals "
                     f"but rule '{rule.lhs} -> {rule.rhs}' has {n_nt_children} "
                     f"non-terminal children."
                 )
@@ -290,7 +290,7 @@ class Derivation:
         Raises:
             RuntimeError: If the derivation is already complete.
             RuntimeError: If all candidate rules are filtered out by
-                [allows][SRToolkit.utils.grammar.constraints.Constraint.allows].
+                [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows].
         """
         candidates = self.options()
         if not candidates:
@@ -401,7 +401,7 @@ class Derivation:
         )
 
 
-def _scope_miss(constraint: Constraint, nt: str, rule: Rule) -> bool:
+def _scope_miss(constraint: GrammarConstraint, nt: str, rule: Rule) -> bool:
     if constraint.nonterminals is not None and nt not in constraint.nonterminals:
         return True
     if constraint.rule_names is not None and rule.name not in constraint.rule_names:

@@ -1,7 +1,7 @@
 """
 Tests for SRToolkit/utils/grammar/constraints.py.
 
-Covers: _to_unit, _units_equal, AncestorInfo, ExpansionContext, Constraint base
+Covers: _to_unit, _units_equal, AncestorInfo, ExpansionContext, GrammarConstraint base
 class, MaxDepth, MaxNodes, MaxOccurrences, NoNested, and DimensionalConsistency
 (all internal helpers: _classify_rule named and fallback paths, _fn_child_unit,
 _leaf_compatible, _child_units, _is_additive, allows, update).
@@ -15,10 +15,10 @@ import pytest
 
 from SRToolkit.utils.grammar import (
     AncestorInfo,
-    Constraint,
     DimensionalConsistency,
     ExpansionContext,
     Grammar,
+    GrammarConstraint,
     MaxDepth,
     MaxNodes,
     MaxOccurrences,
@@ -227,24 +227,24 @@ class TestExpansionContext:
 
 
 # ---------------------------------------------------------------------------
-# Constraint base class
+# GrammarConstraint base class
 # ---------------------------------------------------------------------------
 
 
 class TestConstraintBase:
     def test_initial_local_is_none(self):
-        assert Constraint().initial_local("E") is None
+        assert GrammarConstraint().initial_local("E") is None
 
     def test_initial_global_is_none(self):
-        assert Constraint().initial_global() is None
+        assert GrammarConstraint().initial_global() is None
 
     def test_allows_returns_true(self):
-        c = Constraint()
+        c = GrammarConstraint()
         slot = _make_slot(local=None)
         assert c.allows(slot, Rule("E", ["x"]), None) is True
 
     def test_update_propagates_local_to_nt_children(self):
-        c = Constraint()
+        c = GrammarConstraint()
         nts = frozenset({"E", "F"})
         slot = _make_slot(local=99, nonterminals=nts)
         rule = Rule("E", ["E", "+", "F"])
@@ -253,22 +253,22 @@ class TestConstraintBase:
         assert new_global == "g"
 
     def test_update_terminal_only_returns_empty_list(self):
-        c = Constraint()
+        c = GrammarConstraint()
         slot = _make_slot(local=7, nonterminals=frozenset({"E"}))
         child_locals, new_global = c.update(slot, Rule("E", ["x", "+", "y"]), None)
         assert child_locals == []
 
     def test_update_global_unchanged(self):
-        c = Constraint()
+        c = GrammarConstraint()
         slot = _make_slot(local=None, nonterminals=frozenset({"E"}))
         _, new_global = c.update(slot, Rule("E", ["x"]), "original")
         assert new_global == "original"
 
     def test_nonterminals_is_none_by_default(self):
-        assert Constraint.nonterminals is None
+        assert GrammarConstraint.nonterminals is None
 
     def test_rule_names_is_none_by_default(self):
-        assert Constraint.rule_names is None
+        assert GrammarConstraint.rule_names is None
 
 
 # ---------------------------------------------------------------------------
@@ -437,6 +437,23 @@ class TestMaxOccurrences:
         slot = _make_slot(nonterminals=frozenset({"E"}))
         child_locals, _ = c.update(slot, Rule("E", ["E", "+", "E"]), 0)
         assert child_locals == [None, None]
+
+    @pytest.mark.parametrize(
+        "limit, count, rhs, allowed",
+        [
+            (1, 0, ["x", "*", "x"], False),
+            (2, 0, ["x", "*", "x"], True),
+            (2, 1, ["x", "*", "x"], False),
+            (1, 0, ["x"], True),
+            (1, 1, ["y"], True),
+        ],
+        ids=["two-at-once-over-limit", "two-at-once-fits", "two-at-once-after-one", "single", "symbol-absent"],
+    )
+    def test_max_occurrences_allows_counts_symbols_in_rule(self, limit, count, rhs, allowed):
+        # Regression: a rule is allowed only if count + rhs.count(symbol) <= limit, so a rule
+        # adding several occurrences at once cannot push the count over the limit.
+        c = MaxOccurrences("x", limit)
+        assert c.allows(_make_slot(), Rule("E", rhs), count) is allowed
 
     def test_integration_never_exceeds_limit(self):
         g = Grammar(
@@ -1082,7 +1099,7 @@ class TestConstraintBaseSerialization:
 
     def test_base_from_dict_missing_class_key_raises(self):
         with pytest.raises(KeyError):
-            Constraint.from_dict({})
+            GrammarConstraint.from_dict({})
 
 
 class TestMaxDepthSerialization:
@@ -1184,33 +1201,33 @@ class TestDimensionalConsistencySerialization:
 class TestConstraintFromDict:
     def test_dispatch_max_depth(self):
         d = MaxDepth(4).to_dict()
-        c = Constraint.from_dict(d)
+        c = GrammarConstraint.from_dict(d)
         assert isinstance(c, MaxDepth)
         assert c.limit == 4
 
     def test_dispatch_max_nodes(self):
-        c = Constraint.from_dict(MaxNodes(20).to_dict())
+        c = GrammarConstraint.from_dict(MaxNodes(20).to_dict())
         assert isinstance(c, MaxNodes)
         assert c.limit == 20
 
     def test_dispatch_max_occurrences(self):
-        c = Constraint.from_dict(MaxOccurrences("cos", 2).to_dict())
+        c = GrammarConstraint.from_dict(MaxOccurrences("cos", 2).to_dict())
         assert isinstance(c, MaxOccurrences)
         assert c.symbol == "cos"
 
     def test_dispatch_no_nested(self):
-        c = Constraint.from_dict(NoNested(["sin"]).to_dict())
+        c = GrammarConstraint.from_dict(NoNested(["sin"]).to_dict())
         assert isinstance(c, NoNested)
 
     def test_dispatch_dimensional_consistency(self):
         original = DimensionalConsistency(variable_units={"x": {"m": 1}}, target_unit={"m": 1})
-        c = Constraint.from_dict(original.to_dict())
+        c = GrammarConstraint.from_dict(original.to_dict())
         assert isinstance(c, DimensionalConsistency)
 
     def test_dispatch_user_defined(self):
-        """Constraint.from_dict resolves classes via importlib, including user-defined ones."""
+        """GrammarConstraint.from_dict resolves classes via importlib, including user-defined ones."""
 
-        class _AlwaysAllow(Constraint):
+        class _AlwaysAllow(GrammarConstraint):
             def to_dict(self):
                 return {**super().to_dict(), "extra": 42}
 
@@ -1227,11 +1244,11 @@ class TestConstraintFromDict:
         _AlwaysAllow.__qualname__ = "_AlwaysAllow"
 
         d = _AlwaysAllow().to_dict()
-        c = Constraint.from_dict(d)
+        c = GrammarConstraint.from_dict(d)
         assert isinstance(c, _AlwaysAllow)
 
     def test_subclass_without_override_raises(self):
-        class _NoFromDict(Constraint):
+        class _NoFromDict(GrammarConstraint):
             pass
 
         with pytest.raises(NotImplementedError, match="_NoFromDict"):
