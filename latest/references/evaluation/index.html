@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1433,6 +1433,8 @@
       
         
       
+        
+      
     
     
     
@@ -1497,6 +1499,34 @@
     
   
     dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dataset/background_knowledge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    background_knowledge
   
 
     
@@ -10047,8 +10077,8 @@ library.</p>
               <div class="doc-md-description">
                 <p>Settings for a <code>RankingFunction</code> metric's setup and for fitting
 constants on the held-out data (e.g. <code>constant_bounds</code>, <code>max_constants</code>).
-Pass the dataset's settings (<code>dataset.kwargs</code>) to fit under the same settings as
-the search. <code>max_constants</code> and <code>max_expr_length</code> apply only if given here: a
+Pass <code>dataset.ranking_settings()</code> to fit under the same settings as the search
+(<code>constant_bounds</code> included). <code>max_constants</code> and <code>max_expr_length</code> apply only if given here: a
 missing one means no limit, not the estimator's default of 8 constants, because the
 search already enforced its limits (including its required constraints) on every
 model it scored <code>"ok"</code>.</p>
@@ -10365,8 +10395,8 @@ held-out data without <code>y</code>, or if <code>refit_constants=True</code> is
 <a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-365" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-365"></a><span class="sd">            (e.g. for BED). Unused otherwise.</span>
 <a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-366" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-366"></a><span class="sd">        ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting</span>
 <a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-367" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-367"></a><span class="sd">            constants on the held-out data (e.g. ``constant_bounds``, ``max_constants``).</span>
-<a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-368" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-368"></a><span class="sd">            Pass the dataset's settings (``dataset.kwargs``) to fit under the same settings as</span>
-<a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-369" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-369"></a><span class="sd">            the search. ``max_constants`` and ``max_expr_length`` apply only if given here: a</span>
+<a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-368" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-368"></a><span class="sd">            Pass ``dataset.ranking_settings()`` to fit under the same settings as the search</span>
+<a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-369" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-369"></a><span class="sd">            (``constant_bounds`` included). ``max_constants`` and ``max_expr_length`` apply only if given here: a</span>
 <a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-370" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-370"></a><span class="sd">            missing one means no limit, not the estimator's default of 8 constants, because the</span>
 <a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-371" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-371"></a><span class="sd">            search already enforced its limits (including its required constraints) on every</span>
 <a id="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-372" name="SRToolkit.evaluation.HoldoutMetric--source--__codelineno-0-372"></a><span class="sd">            model it scored ``"ok"``.</span>
@@ -14822,9 +14852,9 @@ Also raised by <a class="autorefs autorefs-internal" title="&lt;code class=&quot
             <td>
               <div class="doc-md-description">
                 <p>If <code>max_constants</code> or <code>max_expr_length</code> is not an <code>int</code> or numpy
-integer (<code>bool</code> is rejected), or is given and disagrees with a constraint of its
-class in <code>required_constraints</code> (a different limit, or any limit if the setting is
-negative); the message names the setting. Also raised by the ranking's <code>setup</code>
+integer (<code>bool</code> is rejected), or is given, non-negative and different from the
+limit of a constraint of its class in <code>required_constraints</code> (a negative setting
+adds nothing and never clashes); the message names the setting. Also raised by the ranking's <code>setup</code>
 for missing or malformed data (e.g. RMSE with neither <code>y</code> nor <code>ground_truth</code>).</p>
               </div>
             </td>
@@ -15252,9 +15282,9 @@ to <code>evaluate_expr</code> warn and return <code>nan</code> without being cou
 <a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-485" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-485"></a><span class="sd">            Also raised by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a</span>
 <a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-486" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-486"></a><span class="sd">            ``ranking_function`` of the wrong type.</span>
 <a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-487" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-487"></a><span class="sd">        ValueError: If ``max_constants`` or ``max_expr_length`` is not an ``int`` or numpy</span>
-<a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-488" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-488"></a><span class="sd">            integer (``bool`` is rejected), or is given and disagrees with a constraint of its</span>
-<a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-489" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-489"></a><span class="sd">            class in ``required_constraints`` (a different limit, or any limit if the setting is</span>
-<a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-490" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-490"></a><span class="sd">            negative); the message names the setting. Also raised by the ranking's ``setup``</span>
+<a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-488" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-488"></a><span class="sd">            integer (``bool`` is rejected), or is given, non-negative and different from the</span>
+<a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-489" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-489"></a><span class="sd">            limit of a constraint of its class in ``required_constraints`` (a negative setting</span>
+<a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-490" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-490"></a><span class="sd">            adds nothing and never clashes); the message names the setting. Also raised by the ranking's ``setup``</span>
 <a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-491" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-491"></a><span class="sd">            for missing or malformed data (e.g. RMSE with neither ``y`` nor ``ground_truth``).</span>
 <a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-492" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-492"></a><span class="sd">        ImportError: If an import-path ``ranking_function`` cannot be imported.</span>
 <a id="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-493" name="SRToolkit.evaluation.SR_evaluator--source--__codelineno-0-493"></a>
@@ -19321,7 +19351,7 @@ data) — the same call against different arrays.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1713,6 +1713,8 @@
       
         
       
+        
+      
     
     
     
@@ -1777,6 +1779,34 @@
     
   
     dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/background_knowledge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    background_knowledge
   
 
     
@@ -4547,8 +4577,8 @@ library.</p>
               <div class="doc-md-description">
                 <p>Settings for a <code>RankingFunction</code> metric's setup and for fitting
 constants on the held-out data (e.g. <code>constant_bounds</code>, <code>max_constants</code>).
-Pass the dataset's settings (<code>dataset.kwargs</code>) to fit under the same settings as
-the search. <code>max_constants</code> and <code>max_expr_length</code> apply only if given here: a
+Pass <code>dataset.ranking_settings()</code> to fit under the same settings as the search
+(<code>constant_bounds</code> included). <code>max_constants</code> and <code>max_expr_length</code> apply only if given here: a
 missing one means no limit, not the estimator's default of 8 constants, because the
 search already enforced its limits (including its required constraints) on every
 model it scored <code>"ok"</code>.</p>
@@ -4865,8 +4895,8 @@ held-out data without <code>y</code>, or if <code>refit_constants=True</code> is
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-365" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-365"></a><span class="sd">            (e.g. for BED). Unused otherwise.</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-366" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-366"></a><span class="sd">        ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-367" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-367"></a><span class="sd">            constants on the held-out data (e.g. ``constant_bounds``, ``max_constants``).</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-368" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-368"></a><span class="sd">            Pass the dataset's settings (``dataset.kwargs``) to fit under the same settings as</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-369" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-369"></a><span class="sd">            the search. ``max_constants`` and ``max_expr_length`` apply only if given here: a</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-368" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-368"></a><span class="sd">            Pass ``dataset.ranking_settings()`` to fit under the same settings as the search</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-369" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-369"></a><span class="sd">            (``constant_bounds`` included). ``max_constants`` and ``max_expr_length`` apply only if given here: a</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-370" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-370"></a><span class="sd">            missing one means no limit, not the estimator's default of 8 constants, because the</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-371" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-371"></a><span class="sd">            search already enforced its limits (including its required constraints) on every</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-372" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-372"></a><span class="sd">            model it scored ``"ok"``.</span>
@@ -5794,7 +5824,7 @@ dictionary produced by
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

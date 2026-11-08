@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1427,6 +1427,8 @@
       
         
       
+        
+      
     
     
     
@@ -1491,6 +1493,34 @@
     
   
     dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/dataset/background_knowledge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    background_knowledge
   
 
     
@@ -2409,6 +2439,10 @@
 <li>Saved results and configs (<code>ModelResult</code>, <code>EvalResult</code>, <code>ApproachConfig</code>, <code>HoldoutMetric</code>) now round-trip exactly: numpy arrays keep their dtype and shape (including empty axes such as <code>(0, 3)</code>) and object arrays are saved element by element, tuples stay tuples, and dicts with non-string keys (int, float, tuple, numpy scalars) keep their keys. Files written by earlier versions still load. The supported values and the file format are documented on the new <code>SRToolkit.utils.serialization</code> reference page.</li>
 <li>Expression constraints (<code>SRToolkit.utils.expression_constraints</code>): <code>ExpressionConstraint</code> checks a candidate before scoring (<code>pre_check</code>, on the expression) and/or after (<code>post_check</code>, on the fitted model), and returns a <code>CheckResult</code> (passed, message, amount). Built-ins: <code>MaxConstants</code>, <code>MaxTokens</code>, <code>MaxTreeDepth</code>, <code>MaxTreeSize</code>, <code>RequiredVariables</code>, <code>MaxSymbolCount</code>, <code>NoNesting</code> and <code>OutputBounds</code>. <code>OutputBounds</code> takes one bound for all points or one per point. A check that raises counts as failed: its <code>CheckResult</code> has <code>error</code> set, a required constraint then gives status <code>"error"</code>, and an advisory one is recorded in <code>advisory_violations</code>.</li>
 <li><code>SR_evaluator</code> takes <code>required_constraints</code> (a failed check gives status <code>"rejected"</code>) and <code>advisory_constraints</code> (failed checks are recorded in <code>ModelResult.advisory_violations</code> without changing the error). <code>check_constraints(expr)</code> runs the pre-checks without evaluating, billing or recording anything, and returns the failed required and advisory checks as two lists. <code>max_constants</code> / <code>max_expr_length</code> add a <code>MaxConstants</code> / <code>MaxTokens</code> in front of the list unless it already has one.</li>
+<li>Background knowledge on datasets (<code>SRToolkit.dataset.background_knowledge</code>): <code>BackgroundKnowledge</code> holds what a task tells the approach besides the data (symbol library, samplers, constant bounds, advisory constraints, a reference grammar, task/variable/target descriptions as <code>VariableInfo</code>), without the answer. <code>SR_dataset</code>, <code>from_samplers</code>, <code>SR_benchmark.add_dataset</code> and <code>add_from_samplers</code> take its parts as arguments (<code>variables=</code>, <code>target=</code>, <code>description=</code>, <code>advisory_constraints=</code>, <code>reference_grammar=</code>, …) and expose it as <code>dataset.background_knowledge</code>. <code>dataset.describe()</code> renders it for people and LLM prompts without the ground truth.</li>
+<li><code>SR_dataset</code> takes <code>required_constraints</code>, and <code>max_constants</code> / <code>max_expr_length</code> are named parameters that become <code>MaxConstants</code> / <code>MaxTokens</code> in that list. <code>create_evaluator</code> passes the required constraints and the background knowledge's advisory ones to the evaluator. <code>constant_bounds</code> is a named parameter too and goes into the background knowledge. <code>dataset.ranking_settings()</code> returns the settings the ranking gets (pass them to <code>HoldoutMetric</code> to score held-out data under the search's settings).</li>
+<li>Samplers can be given as a mapping <code>{token: sampler}</code>.</li>
+<li>Expression constraints describe themselves: <code>describe()</code> gives a short phrase (e.g. <code>"at most 8 free constants"</code>) and <code>summary()</code> a plain record (e.g. <code>{"kind": "max_constants", "limit": 8}</code>). <code>BackgroundKnowledge.priors()</code> and <code>SR_dataset.priors()</code> list the records of the advisory (and required) constraints, and <code>describe()</code> uses the phrases. Samplers describe themselves too (<code>UniformSampling(1, 5).describe()</code> is <code>"uniform on [-5, -1] ∪ [1, 5]"</code>).</li>
 </ul>
 <p><strong>Breaking changes:</strong>
 - Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
@@ -2430,7 +2464,9 @@
 - <code>ModelResult.from_dict</code> raises a <code>ValueError</code> for a status that is not one of <code>STATUSES</code>, instead of failing later in <code>status_counts</code> with a <code>KeyError</code>.
 - The grammar base class <code>Constraint</code> is renamed <code>GrammarConstraint</code>.
 - The <code>status_detail</code> of a rejected expression names the constraint, e.g. <code>"MaxConstants: 9 constants, limit 8"</code> instead of <code>"9 constants exceed max_constants=8"</code>.
-- <code>max_constants</code> / <code>max_expr_length</code> must be ints (numpy ints accepted); other values raise a <code>ValueError</code> instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a <code>ValueError</code>.</p>
+- <code>max_constants</code> / <code>max_expr_length</code> must be ints (numpy ints accepted); other values raise a <code>ValueError</code> instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a <code>ValueError</code>; a negative setting adds no limit and never clashes.
+- Datasets are saved with <code>format_version: 4</code> (symbol library and samplers inside <code>"background_knowledge"</code>, limits in <code>"required_constraints"</code>). Files of format 2 and 3 still load, and their data cache stays valid. <code>SR_dataset.symbol_library</code>, <code>samplers</code> and <code>constant_bounds</code> are read-only, <code>samplers</code> is a tuple, and <code>kwargs</code> no longer contains <code>constant_bounds</code>, <code>max_constants</code> or <code>max_expr_length</code>. A sampler count that differs from the number of variables now raises a <code>ValueError</code>.
+- <code>SR_benchmark.add_dataset</code> raises a <code>ValueError</code> (instead of <code>Exception</code>) when the ground truth cannot be evaluated, and a <code>ValueError</code> when neither <code>dataset</code> nor <code>data_source</code> is given (such an entry could never be loaded).</p>
 <p><strong>Fixes:</strong>
 - <code>HoldoutMetric</code> no longer applies the estimator's default limit of 8 constants when fitting constants on held-out data: <code>max_constants</code> / <code>max_expr_length</code> apply only if given in <code>ranking_settings</code>. Before, a model the search accepted (e.g. under a required <code>MaxConstants(20)</code>) got <code>NaN</code> on the holdout.
 - <code>HoldoutMetric</code> with a <code>RankingFunction</code> metric gives <code>NaN</code> to models the search did not score <code>"ok"</code>, like the built-in and callable metrics already did. Before, it scored rejected models on the held-out data, so they could look like valid answers.
@@ -2451,6 +2487,11 @@
 - <code>tree_edit_distance</code> priced relabelling by the character edit distance between symbols when the optional <code>editdistance</code> package was installed, so results depended on the environment. It now always uses unit costs.
 - Regression metrics no longer emit NumPy warnings on empty or non-finite input; the returned <code>nan</code> / <code>inf</code> is the signal.
 - <code>MaxOccurrences</code> let a grammar rule containing the symbol several times (e.g. <code>E -&gt; x * x</code>) exceed the limit.
+- <code>SR_benchmark.create_dataset</code> no longer turns every error from loading an entry into a bare <code>ValueError</code>: <code>TypeError</code>, <code>ImportError</code> and <code>FileNotFoundError</code> pass through, and a <code>ValueError</code> keeps its cause.
+- <code>SR_dataset</code> and <code>SR_benchmark.add_dataset</code> raise a <code>ValueError</code> when the data's number of columns differs from the number of variables in the symbol library. Such a dataset was accepted before and failed or misbehaved later (e.g. <code>list_datasets(num_variables=...)</code> missed it, resampling drew the wrong number of columns).
+- <code>SR_benchmark.from_dict</code> no longer modifies the dict it is given.
+- <code>SR_dataset.evaluate_approach</code> seeds experiment <code>i</code> with <code>initial_seed + i</code> (or the dataset seed <code>+ i</code>), like <code>ExperimentGrid</code> does. It used <code>+ i + 1</code>, so the given seed itself was never used; runs with the same <code>initial_seed</code> now give different results than before (use <code>initial_seed + 1</code> to reproduce them).
+- <code>is_float</code> returns <code>False</code> for values <code>float</code> cannot convert (lists, complex numbers, arbitrary objects) instead of raising a <code>TypeError</code>.
 - An <code>SR_evaluator</code> whose required constraints allow more than 8 free constants no longer has its parameter estimator reject such expressions at its default limit of 8.</p>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>
@@ -2604,7 +2645,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
