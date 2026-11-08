@@ -151,6 +151,7 @@ nav:
       - dataset:
           - references/dataset/index.md
           - dataset: references/dataset/srdataset.md
+          - background_knowledge: references/dataset/background_knowledge.md
           - benchmark: references/dataset/srbenchmark.md
           - feynman: references/dataset/feynman.md
           - nguyen: references/dataset/nguyen.md

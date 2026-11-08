@@ -949,3 +949,83 @@ class TestSerialisation:
         d = make_dict()
         with pytest.raises(error, match=match):
             load(d)
+
+
+# ── describe / summary: the text and record forms of a constraint ─────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "constraint, text, record",
+    [
+        (MaxConstants(8), "at most 8 free constants", {"kind": "max_constants", "limit": 8}),
+        (MaxTokens(30), "at most 30 tokens", {"kind": "max_tokens", "limit": 30}),
+        (MaxTreeDepth(4), "expression tree at most 4 levels deep", {"kind": "max_tree_depth", "limit": 4}),
+        (MaxTreeSize(15), "at most 15 nodes in the expression tree", {"kind": "max_tree_size", "limit": 15}),
+        (
+            RequiredVariables(["X_1", "X_0"]),
+            "uses each of X_1, X_0",
+            {"kind": "required_variables", "variables": ["X_1", "X_0"]},
+        ),
+        (RequiredVariables(), "uses every variable", {"kind": "required_variables", "variables": None}),
+        (MaxSymbolCount("sin", 2), "sin at most 2 times", {"kind": "max_symbol_count", "symbols": ["sin"], "limit": 2}),
+        (
+            MaxSymbolCount(["sin", "cos"], 2),
+            "cos and sin together at most 2 times",
+            {"kind": "max_symbol_count", "symbols": ["cos", "sin"], "limit": 2},
+        ),
+        (
+            NoNesting(["sin", "cos"]),
+            "no cos or sin inside another cos or sin",
+            {"kind": "no_nesting", "symbols": ["cos", "sin"]},
+        ),
+        (NoNesting("exp"), "no exp inside another exp", {"kind": "no_nesting", "symbols": ["exp"]}),
+        (
+            OutputBounds(np.zeros((50, 1)), lower=0),
+            "output >= 0.0 at 50 given points",
+            {"kind": "output_bounds", "lower": 0.0, "upper": None, "num_points": 50},
+        ),
+        (
+            OutputBounds(np.zeros((3, 1)), upper=1.5),
+            "output <= 1.5 at 3 given points",
+            {"kind": "output_bounds", "lower": None, "upper": 1.5, "num_points": 3},
+        ),
+        (
+            OutputBounds(np.zeros((3, 1)), lower=-1, upper=1),
+            "output within [-1.0, 1.0] at 3 given points",
+            {"kind": "output_bounds", "lower": -1.0, "upper": 1.0, "num_points": 3},
+        ),
+        (
+            OutputBounds(np.zeros((2, 1)), lower=[0.0, 1.0]),
+            "output >= per-point bounds at 2 given points",
+            {"kind": "output_bounds", "lower": "per point", "upper": None, "num_points": 2},
+        ),
+    ],
+    ids=[
+        "max-constants",
+        "max-tokens",
+        "max-tree-depth",
+        "max-tree-size",
+        "required-variables",
+        "required-all",
+        "symbol-count-one",
+        "symbol-count-group",
+        "no-nesting-group",
+        "no-nesting-one",
+        "bounds-lower",
+        "bounds-upper",
+        "bounds-both",
+        "bounds-per-point",
+    ],
+)
+def test_builtin_describe_and_summary(constraint, text, record):
+    assert constraint.describe() == text
+    assert constraint.summary() == record
+    json.dumps(constraint.summary())
+
+
+def test_default_describe_and_summary_from_to_dict():
+    # A custom constraint without overrides: rendered from its to_dict, kind from the class name.
+    assert _Forbid("sin").describe() == "_Forbid(symbol='sin')"
+    assert _Forbid("sin").summary() == {"kind": "_forbid", "symbol": "sin"}
+    assert _NoOverride().describe() == "_NoOverride()"
+    assert _NoOverride().summary() == {"kind": "_no_override"}

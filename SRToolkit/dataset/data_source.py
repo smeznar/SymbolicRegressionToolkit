@@ -43,10 +43,18 @@ from zipfile import ZipFile
 import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind
-from SRToolkit.dataset.sampling import Sampler
+from SRToolkit.dataset.sampling import Sampler, _sample_inputs
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+
+def _config_samplers(config: dict) -> Optional[list]:
+    """The saved samplers of a dataset config, from ``background_knowledge`` (format 4) or the top level (2/3)."""
+    bk = config.get("background_knowledge")
+    if isinstance(bk, dict):
+        return bk.get("samplers")
+    return config.get("samplers")
 
 
 def _check_no_free_constants(ground_truth: Union[List[str], Node], symbol_library: SymbolLibrary, context: str) -> None:
@@ -150,8 +158,9 @@ class DataSource(ABC):
 
     @abstractmethod
     def materialize(self, cache_path: Path, config: dict) -> None:
-        """Produce the dataset's data at ``cache_path`` (an ``.npz`` file with ``X`` and,
-        for RMSE datasets, ``y``).
+        """Produce the dataset's data at ``cache_path``.
+
+        The file is an ``.npz`` with ``X`` and, for RMSE datasets, ``y``.
 
         Args:
             cache_path: Target ``.npz`` path inside the data cache.
@@ -159,8 +168,9 @@ class DataSource(ABC):
                 [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]).
                 Sources that generate data (e.g.
                 [SampleSource][SRToolkit.dataset.data_source.SampleSource]) read the
-                dataset's ``"samplers"``, ``"ground_truth"``, ``"symbol_library"``, and
-                ``"ranking_function"`` from it.
+                dataset's samplers, symbol library, ``"ground_truth"`` and
+                ``"ranking_function"`` from it. The samplers and symbol library are read from
+                ``"background_knowledge"`` (format 4) or from the top level (formats 2 and 3).
         """
 
 
@@ -281,10 +291,16 @@ class SampleSource(DataSource):
 
         Args:
             cache_path: Target ``.npz`` path inside the data cache.
-            config: The dataset's config dict; its ``samplers``, ``ranking_function``,
-                ``ground_truth`` and ``symbol_library`` are used to generate the data.
+            config: The dataset's config dict; its samplers, ``ranking_function``,
+                ``ground_truth`` and symbol library are used to generate the data. The samplers
+                and symbol library are read from ``"background_knowledge"`` (format 4) or from
+                the top level (formats 2 and 3).
+
+        Raises:
+            ValueError: If the config has no samplers, or ``ranking_function`` is ``"rmse"`` and
+                ``ground_truth`` is missing, an ndarray, or contains a free constant.
         """
-        samplers_raw = config.get("samplers")
+        samplers_raw = _config_samplers(config)
         if not samplers_raw:
             raise ValueError(
                 "[SampleSource.materialize] Cannot generate data: the dataset defines no "
@@ -295,7 +311,7 @@ class SampleSource(DataSource):
             np.random.seed(self.seed)
 
         samplers = [Sampler.from_dict(s) for s in samplers_raw]
-        X = np.column_stack([s(self.n_samples) for s in samplers])
+        X = _sample_inputs(samplers, self.n_samples)
 
         ranking_function = config.get("ranking_function", "rmse")
         ground_truth = config.get("ground_truth")
@@ -317,7 +333,9 @@ class SampleSource(DataSource):
                     "concept and cannot be evaluated to produce targets 'y'. Provide the "
                     "ground truth as a token list or Node expression for RMSE datasets."
                 )
-            sl_dict = config.get("symbol_library")
+            # Format 4 keeps the symbol library in "background_knowledge"; formats 2 and 3 at the top level.
+            bk = config.get("background_knowledge")
+            sl_dict = bk.get("symbol_library") if isinstance(bk, dict) else config.get("symbol_library")
             if sl_dict is not None:
                 sl = SymbolLibrary.from_dict(sl_dict)
             else:

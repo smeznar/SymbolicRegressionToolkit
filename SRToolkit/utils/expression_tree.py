@@ -382,14 +382,16 @@ def is_float(element: Any) -> bool:
         element: Value to test.
 
     Returns:
-        ``True`` if ``float(element)`` succeeds, ``False`` otherwise (including ``None``).
+        ``True`` if ``float(element)`` succeeds, ``False`` otherwise (including ``None`` and values
+        ``float`` cannot convert, such as lists or complex numbers). Numeric strings and ``bool``
+        count as floats.
     """
     if element is None:
         return False
     try:
         float(element)
         return True
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 

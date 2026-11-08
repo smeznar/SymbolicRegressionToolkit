@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from packaging.version import Version as PkgVersion
 from platformdirs import user_data_dir
 
+from .data_source import _config_samplers
+
 if TYPE_CHECKING:
     from SRToolkit.dataset.data_source import DataSource
 
@@ -56,7 +58,8 @@ def _drift_hash(config: dict) -> str:
     """
     payload = {
         "data_source": config.get("data_source"),
-        "samplers": config.get("samplers"),
+        # Read in either layout, so a v3 config and its v4 migration hash the same.
+        "samplers": _config_samplers(config),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
@@ -96,8 +99,7 @@ def resolve(
     *,
     force: bool = False,
 ) -> Path:
-    """Return the cache path for ``<benchmark>/<version>/<key>.npz``, materialising
-    it first if necessary.
+    """Return the cache path for ``<benchmark>/<version>/<key>.npz``, materialising it if needed.
 
     The data source is reconstructed from ``config["data_source"]`` via
     [DataSource.from_dict][SRToolkit.dataset.data_source.DataSource.from_dict]. Passing
@@ -108,7 +110,9 @@ def resolve(
     On a cache hit (file exists and ``force`` is ``False``): if the source is *volatile*
     (e.g. [SampleSource][SRToolkit.dataset.data_source.SampleSource]), the stored sidecar
     ``.meta.json`` hash is compared against the current ``data_source`` + ``samplers``
-    config. A mismatch emits a warning telling the user to call ``refresh()``.
+    config. A mismatch emits a warning telling the user to call ``refresh()``. The samplers are
+    read from either config layout (see ``config``), and the hash does not depend on the layout,
+    so a format 2/3 config and its format 4 migration hash the same.
 
     On a cache miss (or ``force=True``): the data is materialised by calling the source's
     [materialize][SRToolkit.dataset.data_source.DataSource.materialize].
@@ -117,7 +121,10 @@ def resolve(
         benchmark: Benchmark name (e.g. ``"feynman"``).
         version: Version string (e.g. ``"1.0.0"``).
         key: Dataset key / name (e.g. ``"I.16.6"``).
-        config: Full dataset config dict containing a ``"data_source"`` key.
+        config: Full dataset config dict containing a ``"data_source"`` key, in format 4
+            (symbol library and samplers inside ``"background_knowledge"``, as written by
+            [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]) or in the
+            format 2/3 layout (``"symbol_library"`` and ``"samplers"`` at the top level).
             ``None`` (or a config with ``data_source=None``) is valid only when
             the cache entry already exists.
         force: If ``True``, re-materialise even when the cache entry exists.

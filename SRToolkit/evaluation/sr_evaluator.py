@@ -350,7 +350,7 @@ def _add_limit_constraints_from_kwargs(
 ) -> Tuple[ExpressionConstraint, ...]:
     # MaxConstants then MaxTokens from the max_constants / max_expr_length settings (negative = none),
     # followed by the given constraints. A setting adds nothing when the list already has a
-    # constraint of its class; if the setting was given and disagrees with it, that is a ValueError.
+    # constraint of its class; a given non-negative setting with a different limit is a ValueError.
     built: List[ExpressionConstraint] = []
     for key, cls in (("max_constants", MaxConstants), ("max_expr_length", MaxTokens)):
         value = _validate_limit(kwargs.get(key, DEFAULT_ESTIMATION_SETTINGS[key]), key, allow_negative=True)
@@ -360,8 +360,8 @@ def _add_limit_constraints_from_kwargs(
             if value >= 0:
                 built.append(cls(value))
         else:
-            clash = next((c for c in listed if value < 0 or c.limit != value), None)
-            if key in kwargs and clash is not None:
+            clash = next((c for c in listed if c.limit != value), None)
+            if key in kwargs and value >= 0 and clash is not None:
                 raise ValueError(
                     f"[SR_evaluator] {key}={value} disagrees with {cls.__name__}({clash.limit}) in "
                     f"required_constraints; remove the setting or the constraint."
@@ -485,9 +485,9 @@ class SR_evaluator:
                 Also raised by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
                 ``ranking_function`` of the wrong type.
             ValueError: If ``max_constants`` or ``max_expr_length`` is not an ``int`` or numpy
-                integer (``bool`` is rejected), or is given and disagrees with a constraint of its
-                class in ``required_constraints`` (a different limit, or any limit if the setting is
-                negative); the message names the setting. Also raised by the ranking's ``setup``
+                integer (``bool`` is rejected), or is given, non-negative and different from the
+                limit of a constraint of its class in ``required_constraints`` (a negative setting
+                adds nothing and never clashes); the message names the setting. Also raised by the ranking's ``setup``
                 for missing or malformed data (e.g. RMSE with neither ``y`` nor ``ground_truth``).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
 

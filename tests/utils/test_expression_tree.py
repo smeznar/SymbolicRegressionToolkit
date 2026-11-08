@@ -520,3 +520,8 @@ class TestIsFloat:
         assert is_float("hello") is False
         assert is_float("+") is False
         assert is_float("X_0") is False
+
+    @pytest.mark.parametrize("value", [[1], object(), 1 + 2j], ids=["list", "object", "complex"])
+    def test_returns_false_for_unconvertible_types(self, value):
+        # regression: float() raises TypeError for these, which is_float let through.
+        assert is_float(value) is False

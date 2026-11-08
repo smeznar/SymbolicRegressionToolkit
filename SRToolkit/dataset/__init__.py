@@ -7,6 +7,9 @@ with associated data, a symbol library, and evaluation constraints. A benchmark
 Modules:
     sr_dataset: [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] — wraps input data and
         evaluation settings for a single equation discovery problem.
+    background_knowledge: [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge]
+        and [VariableInfo][SRToolkit.dataset.background_knowledge.VariableInfo] — what a dataset
+        tells the approach besides the data (symbols, input distribution, hints, descriptions).
     sr_benchmark: [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] — manages a
         collection of datasets.
     feynman: [Feynman][SRToolkit.dataset.feynman.Feynman] — 100-equation physics benchmark.
@@ -28,6 +31,7 @@ Modules:
 """
 
 from . import data_cache
+from .background_knowledge import BackgroundKnowledge, VariableInfo
 from .data_source import DataSource, FallbackSource, SampleSource, UrlSource
 from .data_split import DataSplit
 from .feynman import Feynman
@@ -40,6 +44,8 @@ from .srsd_feynman import SRSD_Feynman
 __all__ = [
     "SR_dataset",
     "SR_benchmark",
+    "BackgroundKnowledge",
+    "VariableInfo",
     "Feynman",
     "Nguyen",
     "SRSD_Feynman",

@@ -365,8 +365,8 @@ class HoldoutMetric(ResultAugmenter):
                 (e.g. for BED). Unused otherwise.
             ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting
                 constants on the held-out data (e.g. ``constant_bounds``, ``max_constants``).
-                Pass the dataset's settings (``dataset.kwargs``) to fit under the same settings as
-                the search. ``max_constants`` and ``max_expr_length`` apply only if given here: a
+                Pass ``dataset.ranking_settings()`` to fit under the same settings as the search
+                (``constant_bounds`` included). ``max_constants`` and ``max_expr_length`` apply only if given here: a
                 missing one means no limit, not the estimator's default of 8 constants, because the
                 search already enforced its limits (including its required constraints) on every
                 model it scored ``"ok"``.

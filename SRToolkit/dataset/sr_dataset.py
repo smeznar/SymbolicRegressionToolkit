@@ -1,4 +1,49 @@
-"""Dataset wrapper for a single symbolic regression problem."""
+"""A single symbolic regression task: data, objective and background knowledge.
+
+[SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] bundles three things.
+
+## Data
+
+The data lives in [DataSplit][SRToolkit.dataset.data_split.DataSplit]s: the train split (``X`` /
+``y``, the data the search runs on), an optional held-out ``test`` split, and optional ``aux_data``
+splits for the user's own measures. A split either holds arrays given directly or regenerates them
+from a [DataSource][SRToolkit.dataset.data_source.DataSource]; the
+[data cache][SRToolkit.dataset.data_cache] stores them between runs.
+
+## Background knowledge and objective
+
+What the task tells the approach besides the data (symbol library, samplers, constant bounds,
+advisory constraints, reference grammar, descriptions) is given as separate arguments, from which
+the dataset builds one
+[BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge], available as
+``dataset.background_knowledge``.
+
+The objective is how expressions are scored: the ranking function, the success threshold, the
+evaluation budget and the ``required_constraints``. An expression that breaks a required constraint
+is rejected with error ``+inf``. The ``max_constants`` and ``max_expr_length`` arguments are turned
+into [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] (8 by default) and
+[MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] at the front of
+``required_constraints``. A ``MaxConstants`` / ``MaxTokens`` already in the list takes the place
+of its limit (a different non-negative limit is a ``ValueError``), and a negative limit adds
+nothing.
+The advisory constraints of the background knowledge only record violations; the evaluator gets
+both lists from [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator].
+
+## Text
+
+[describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe] renders only the background knowledge
+and the required constraints, so it can go into a prompt. ``str(dataset)`` adds the answer (the
+target equation) and the ranking.
+
+## File format
+
+[to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict] writes format 4: the background
+knowledge under ``"background_knowledge"`` and the required constraints under
+``"required_constraints"``. [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also
+reads formats 2 and 3 (symbol library and samplers at the top level, ``constant_bounds`` /
+``max_constants`` / ``max_expr_length`` in ``kwargs``) and gives the same objective as before;
+saving the result writes format 4.
+"""
 
 import io
 import json
@@ -8,7 +53,7 @@ import time
 import warnings
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 from urllib.request import urlopen
 
 import numpy as np
@@ -18,18 +63,144 @@ from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
 from SRToolkit.evaluation.ranking import build_ranking
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator, SR_results
+from SRToolkit.evaluation.sr_evaluator import (
+    SR_evaluator,
+    SR_results,
+    _add_limit_constraints_from_kwargs,
+    _as_constraint_tuple,
+)
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.expression_constraints import ExpressionConstraint
+from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.types import RankingSettings
 
 from . import data_cache
+from .background_knowledge import BackgroundKnowledge, VariableInfo
 from .data_source import DataSource, SampleSource, _check_no_free_constants
 from .data_split import DataSplit
-from .sampling import Sampler
+from .sampling import Sampler, _sample_inputs
+
+
+def _resolve_task(
+    flat: Dict[str, Any],
+    max_constants: Optional[int],
+    max_expr_length: Optional[int],
+    required_constraints: Optional[Iterable[ExpressionConstraint]],
+    kwargs: Mapping[str, Any],
+    X: Optional[np.ndarray] = None,
+) -> Tuple[BackgroundKnowledge, Tuple[ExpressionConstraint, ...], Dict[str, Any]]:
+    """Return the background knowledge, required constraints and remaining ranking settings of a task."""
+    # Background knowledge from its parts; None means not given (the field's default).
+    bk = BackgroundKnowledge(**{k: v for k, v in flat.items() if v is not None})
+    n_variables = len(bk.symbol_library.get_symbols_of_type("var"))
+    if X is not None and X.ndim == 2 and X.shape[1] != n_variables:
+        raise ValueError(f"X has {X.shape[1]} columns but the symbol library has {n_variables} variables.")
+    limits = {
+        key: value
+        for key, value in (("max_constants", max_constants), ("max_expr_length", max_expr_length))
+        if value is not None
+    }
+    required = _add_limit_constraints_from_kwargs(
+        _as_constraint_tuple(() if required_constraints is None else required_constraints, "required_constraints"),
+        limits,
+    )
+    return bk, required, dict(kwargs)
 
 
 class SR_dataset:
+    """One symbolic regression task: data splits, objective and background knowledge.
+
+    How background knowledge is given and how ``max_constants`` / ``max_expr_length`` become
+    required constraints is explained in the [module docstring][SRToolkit.dataset.sr_dataset].
+
+    Args:
+        X: Inputs of shape ``(n_samples, n_variables)`` that the search runs on.
+        symbol_library: Tokens expressions may use.
+        ranking_function: ``"rmse"``, ``"bed"`` (see [BEDRanking][SRToolkit.evaluation.ranking.BEDRanking])
+            or the import path of a custom [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction].
+        y: Targets of shape ``(n_samples,)``, or ``None``.
+        max_evaluations: Evaluation budget; negative means no limit.
+        ground_truth: The answer as infix tokens or a [Node][SRToolkit.utils.expression_tree.Node], or
+            ``None``.
+        original_equation: Human-readable answer, e.g. ``"z = x + y"``.
+        success_threshold: Error below which an expression counts as a success; ``None`` for none.
+        seed: Default seed of evaluators, experiments and the ranking; ``None`` for none.
+        dataset_metadata: Metadata about the dataset artefact (e.g. citation).
+        dataset_name: Name of the dataset, also its key in the data cache.
+        samplers: Input distribution: one [Sampler][SRToolkit.dataset.sampling.Sampler] per variable,
+            as ``{token: sampler}`` or a list in the library's variable order. Used by
+            [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample] and passed to the ranking.
+        benchmark: Benchmark name, e.g. ``"feynman"``. Required by
+            [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict].
+        version: Version string, e.g. ``"1.0.0"``. Required by ``to_dict``.
+        test_X: Held-out inputs the search never sees, e.g. for
+            [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric].
+        test_y: Held-out targets for ``test_X``.
+        aux_data: Extra data for your own measures, as ``{key: {array_name: array}}`` or
+            ``{key: DataSplit}``. Saved with the dataset; nothing in the toolkit reads it.
+        variables: Information per variable, keyed by token (e.g. ``"X_0"``).
+        target: Information about the target.
+        description: Free text about the task.
+        constant_bounds: ``(lower, upper)`` range free constants are fitted in; ``None``:
+            ``(-5, 5)``.
+        reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
+            start from.
+        max_constants: Limit on free constants, added as ``MaxConstants``. ``None``: 8, unless
+            ``required_constraints`` lists one. Negative: no limit.
+        max_expr_length: Limit on tokens, added as ``MaxTokens``. ``None`` or negative: no limit.
+        required_constraints: Further constraints every expression must satisfy; ``None`` for none.
+        advisory_constraints: Hints about the search space: violations are recorded, the score is
+            not changed; ``None`` for none.
+        **kwargs: Ranking settings (see [RankingSettings][SRToolkit.utils.types.RankingSettings]),
+            passed on to the evaluator.
+
+    Raises:
+        ValueError: If ``X`` has a different number of columns than the symbol library has
+            variables; ``max_constants`` / ``max_expr_length`` is not an integer
+            or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``ground_truth`` is an ndarray
+            (pass a BED behaviour matrix as ``bed_gt``); an ``aux_data`` key is not a valid file name;
+            or as for [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
+        TypeError: If ``required_constraints`` holds something that is not an
+            ``ExpressionConstraint``, or as for ``BackgroundKnowledge``.
+
+    Attributes:
+        X: Inputs the search runs on.
+        y: Targets the search runs on, or ``None``.
+        test: The held-out [DataSplit][SRToolkit.dataset.data_split.DataSplit], or ``None``.
+        test_X: ``test.X``, or ``None``.
+        test_y: ``test.y``, or ``None``.
+        aux_data: Extra data as ``{key: DataSplit}``; you may add entries.
+        data_source: Origin of ``X`` / ``y`` (e.g. a
+            [SampleSource][SRToolkit.dataset.data_source.SampleSource]), used to regenerate them;
+            ``None`` if they were given directly.
+        contains_constants: Whether the symbol library has a free-constant symbol.
+        kwargs: The ranking settings.
+        background_knowledge: The background knowledge (read-only).
+        symbol_library: ``background_knowledge.symbol_library`` (read-only).
+        samplers: ``background_knowledge.samplers``: a tuple in variable order, or ``None`` (read-only).
+        constant_bounds: ``background_knowledge.constant_bounds`` (read-only).
+        required_constraints: The required constraints as a tuple, the limit ones first (read-only).
+        ranking_function: As given.
+        max_evaluations: As given.
+        success_threshold: As given.
+        ground_truth: As given.
+        original_equation: As given.
+        seed: As given.
+        dataset_metadata: As given.
+        dataset_name: As given.
+        benchmark: As given.
+        version: As given.
+
+    Examples:
+        >>> X = np.array([[1, 2], [3, 4], [5, 6]])
+        >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]),
+        ...     ground_truth=["X_0", "+", "X_1"], success_threshold=1e-6)
+        >>> evaluator = dataset.create_evaluator()
+        >>> bool(evaluator.evaluate_expr(["C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold)
+        True
+    """
+
     def __init__(  # type: ignore[misc]
         self,
         X: np.ndarray,
@@ -43,123 +214,41 @@ class SR_dataset:
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
         dataset_name: str = "unnamed",
-        samplers: Optional[List[Sampler]] = None,
+        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
         benchmark: Optional[str] = None,
         version: Optional[str] = None,
         test_X: Optional[np.ndarray] = None,
         test_y: Optional[np.ndarray] = None,
         aux_data: Optional[Dict[str, Union[Dict[str, np.ndarray], DataSplit]]] = None,
+        variables: Optional[Mapping[str, VariableInfo]] = None,
+        target: Optional[VariableInfo] = None,
+        description: Optional[str] = None,
+        constant_bounds: Optional[Tuple[float, float]] = None,
+        reference_grammar: Optional[Grammar] = None,
+        max_constants: Optional[int] = None,
+        max_expr_length: Optional[int] = None,
+        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
-        """Wraps input data and evaluation settings for a single symbolic regression problem.
+        self._background_knowledge, self._required_constraints, kwargs = _resolve_task(  # type: ignore[assignment]
+            {
+                "symbol_library": symbol_library,
+                "samplers": samplers,
+                "variables": variables,
+                "target": target,
+                "description": description,
+                "constant_bounds": constant_bounds,
+                "reference_grammar": reference_grammar,
+                "constraints": advisory_constraints,
+            },
+            max_constants,
+            max_expr_length,
+            required_constraints,
+            kwargs,
+            X,
+        )
 
-        Examples:
-            >>> X = np.array([[1, 2], [3, 4], [5, 6]])
-            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
-            ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> evaluator = dataset.create_evaluator()
-            >>> bool(evaluator.evaluate_expr(["sin", "(", "X_0", ")"]) < dataset.success_threshold)
-            False
-            >>> bool(evaluator.evaluate_expr(["u-", "C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold)
-            True
-
-            A held-out test set travels with the dataset and is scored after the search:
-
-            >>> from SRToolkit.evaluation import HoldoutMetric
-            >>> X_test = np.array([[2, 1], [4, 0]])
-            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]),
-            ...     test_X=X_test, test_y=X_test.sum(axis=1), success_threshold=1e-6)
-            >>> evaluator = dataset.create_evaluator()
-            >>> _ = evaluator.evaluate_expr(["X_0", "+", "X_1"])
-            >>> results = evaluator.get_results(top_k=1)
-            >>> results.augment(HoldoutMetric(dataset.test, symbol_library=dataset.symbol_library))
-            >>> bool(results[0].augmentations["HoldoutMetric"]["best_value"] < 1e-9)
-            True
-
-        Args:
-            X: Input data of shape ``(num_samples, num_variables)`` that the search runs on.
-            symbol_library: The symbol library defining the tokens used for the discovery task.
-            ranking_function: Ranking function to use: ``"rmse"``, ``"bed"``, or the import path of a
-                custom [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]. ``"rmse"``
-                calculates the RMSE between the targets and the expression's outputs with fitted free
-                parameters. ``"bed"`` is a stochastic measure of behavioral dissimilarity between
-                expressions; it is less sensitive to overfitting and focuses more on structure
-                identification (see [BEDRanking][SRToolkit.evaluation.ranking.BEDRanking]).
-            y: Target values of shape ``(num_samples,)``. The ``"rmse"`` ranking fits constants against
-                them; ``"bed"`` uses them as the target behavior when no ground truth is given.
-            max_evaluations: Maximum number of expressions to evaluate. Values less than 0 mean no limit.
-            ground_truth: The ground truth expression, as a list of tokens in infix notation or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree. A precomputed BED behavior matrix
-                goes in the ``bed_gt`` setting instead.
-            original_equation: Human-readable string of the original equation (e.g. ``"z = x + y"``).
-            success_threshold: Error threshold below which an expression is considered successful. If ``None``,
-                no threshold is applied.
-            seed: Random seed for reproducibility. ``None`` means no seed is set.
-            dataset_metadata: Optional dictionary of metadata about the dataset (e.g. citation, variable names).
-            dataset_name: Name for this dataset. Defaults to ``"unnamed"``.
-            samplers: Optional list of [Sampler][SRToolkit.dataset.sampling.Sampler]
-                instances (one per input variable). The built-in
-                [LogUniformSampling][SRToolkit.dataset.sampling.LogUniformSampling],
-                [UniformSampling][SRToolkit.dataset.sampling.UniformSampling], and
-                [IntegerUniformSampling][SRToolkit.dataset.sampling.IntegerUniformSampling]
-                implement this interface. They define the dataset's input domain: besides powering
-                [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample], they are handed to the
-                ranking function, so ``"bed"`` draws its evaluation points from them (unless
-                ``num_points_sampled=-1`` or a precomputed ``bed_gt`` is given, which use ``X``).
-            benchmark: Optional benchmark name (e.g. ``"feynman"``). Required for serialisation
-                via [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict].
-            version: Optional version string (e.g. ``"1.0.0"``). Required for serialisation.
-            test_X: Optional held-out inputs. The search never sees them; use them to score results
-                afterwards, e.g. with
-                [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric]
-                (``HoldoutMetric(dataset.test)``).
-            test_y: Optional held-out targets for ``test_X``.
-            aux_data: Optional extra data for your own measures, as ``{key: {array_name: array}}``
-                (e.g. ``{"grid": {"X": grid_points}}``), or with a
-                [DataSplit][SRToolkit.dataset.data_split.DataSplit] as the value to give it a
-                ``data_source`` it is regenerated from. It is saved and shared with the dataset, but
-                nothing in the toolkit reads it; access it with ``dataset.aux_data[key]``. Each key
-                becomes a file name in the data cache, so it must be a valid one: not empty, ``.``
-                or ``..``, and without ``/ \\ : * ? " < > |``.
-            **kwargs: Optional ranking settings passed to
-                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] (see
-                [RankingSettings][SRToolkit.utils.types.RankingSettings]). Supported keys:
-                ``method``, ``tol``, ``gtol``, ``max_iter``, ``constant_bounds``,
-                ``initialization``, ``max_constants``, ``max_expr_length``, ``backend``,
-                ``num_points_sampled``, ``num_consts_sampled``, ``bed_gt``, ``ranking_seed``,
-                ``bed_resample``. The ``samplers`` setting is taken from the ``samplers`` argument
-                above.
-
-        Attributes:
-            X: Input data the search runs on.
-            y: Target values the search runs on, or ``None``.
-            test: The held-out test data as a [DataSplit][SRToolkit.dataset.data_split.DataSplit]
-                (``X``, ``y`` and its ``data_source``), or ``None``. Pass it to
-                [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] to score
-                results on it.
-            test_X: Shortcut to ``test.X``, or ``None``.
-            test_y: Shortcut to ``test.y``, or ``None``.
-            aux_data: The extra data, as ``{key: DataSplit}``. You may add entries; they are saved
-                with the dataset like the rest.
-            data_source: Where ``X`` / ``y`` come from (e.g. a
-                [SampleSource][SRToolkit.dataset.data_source.SampleSource]), or ``None`` if ``X`` /
-                ``y`` were given directly. Used to regenerate the data when the dataset is loaded.
-            contains_constants: Whether the symbol library has a free-constant symbol.
-            kwargs: The ranking settings passed as ``**kwargs``, forwarded to the evaluator.
-            symbol_library: The symbol library, as given.
-            ranking_function: The ranking function name or import path, as given.
-            max_evaluations: The evaluation budget, as given.
-            success_threshold: The success threshold, as given.
-            ground_truth: The ground truth expression, as given.
-            original_equation: The human-readable equation, as given.
-            seed: The random seed, as given.
-            dataset_metadata: The metadata dictionary, as given.
-            dataset_name: The dataset's name, as given.
-            samplers: The per-variable samplers, as given.
-            benchmark: The benchmark name, as given.
-            version: The version string, as given.
-        """
-        self.symbol_library = symbol_library
         self.max_evaluations = max_evaluations
         self.success_threshold = success_threshold
         self.ranking_function = ranking_function
@@ -197,7 +286,6 @@ class SR_dataset:
 
         self.seed = seed
         self.dataset_metadata = dataset_metadata
-        self.samplers = samplers
 
         # Cache / serialisation metadata
         self.benchmark = benchmark
@@ -208,6 +296,33 @@ class SR_dataset:
         # data_source is a view over the train split's source (see the property below).
         self.data_source = None
 
+    # ── Background knowledge and objective (read-only) ───────────────────────
+
+    @property
+    def background_knowledge(self) -> BackgroundKnowledge:
+        """The background knowledge (read-only)."""
+        return self._background_knowledge
+
+    @property
+    def symbol_library(self) -> SymbolLibrary:
+        """Shortcut to ``background_knowledge.symbol_library`` (read-only)."""
+        return self._background_knowledge.symbol_library
+
+    @property
+    def samplers(self) -> Optional[Tuple[Sampler, ...]]:
+        """Shortcut to ``background_knowledge.samplers`` (read-only)."""
+        return self._background_knowledge.samplers  # type: ignore[return-value]
+
+    @property
+    def constant_bounds(self) -> Tuple[float, float]:
+        """Shortcut to ``background_knowledge.constant_bounds`` (read-only)."""
+        return self._background_knowledge.constant_bounds
+
+    @property
+    def required_constraints(self) -> Tuple[ExpressionConstraint, ...]:
+        """The required constraints, the ``max_constants`` / ``max_expr_length`` ones first (read-only)."""
+        return self._required_constraints
+
     # ── Data accessors ───────────────────────────────────────────────────────
     # X / y / test_X / test_y are shortcuts to the splits' arrays, and data_source is the train
     # split's origin, so all `self.X` / `self.data_source` uses work on the splits directly.
@@ -217,7 +332,7 @@ class SR_dataset:
 
     @classmethod
     def _validate_aux_key(cls, key: str) -> None:
-        """An aux key becomes a file name in the data cache, so it must be a valid one."""
+        """Raise ``ValueError`` if ``key`` cannot be a file name in the data cache."""
         if (
             not isinstance(key, str)
             or key in ("", ".", "..")
@@ -231,9 +346,7 @@ class SR_dataset:
             )
 
     def _splits(self) -> List[Tuple[str, DataSplit]]:
-        """Every split with its cache key: ``<name>`` for the train split, ``<name>/test`` for the
-        test split, and ``<name>/aux/<key>`` for each aux split.
-        """
+        """Return every split with its cache key: ``<name>``, ``<name>/test``, ``<name>/aux/<key>``."""
         splits = [(self.dataset_name, self._train)]
         if self.test is not None:
             splits.append((f"{self.dataset_name}/test", self.test))
@@ -294,37 +407,34 @@ class SR_dataset:
         verbose: bool = True,
         adaptation_path: Optional[str] = None,
     ) -> SR_results:
-        """Evaluates an SR approach on this dataset.
+        """Run an SR approach on this dataset and collect the results.
 
-        Examples:
-            >>> X = np.array([[1, 2], [3, 4], [5, 6]])
-            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
-            ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y")
-            >>> results = dataset.evaluate_approach(my_approach, num_experiments=5)  # doctest: +SKIP
+        Each experiment searches with a new evaluator from
+        [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]. Experiment ``i``
+        (from 0) is seeded with ``seed + i``, where ``seed`` is ``initial_seed`` or the dataset seed; it
+        is unseeded if both are ``None``. Approaches with ``adaptation_scope="once"`` adapt before the
+        first experiment, those with ``"experiment"`` before each one.
 
         Args:
-            sr_approach: The SR approach to evaluate.
-            num_experiments: Number of independent experiments (runs) to perform.
-            top_k: Number of top expressions to retain per experiment.
-            initial_seed: Seed for random number generation. If ``None``, the dataset seed is used.
-            results: Existing [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object to append
-                results to. If ``None``, a new one is created.
-            callbacks: Optional list of [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], or
-                [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for monitoring
-                and controlling the search.
-            verbose: If ``True``, prints progress for each experiment.
-            adaptation_path: Path to save/load the adapted state for approaches with
-                ``adaptation_scope="once"``. If the file already exists it is loaded directly,
-                skipping adaptation. If it does not exist, the approach is adapted and the state
-                is saved to this path. If ``None``, adaptation runs without saving.
+            sr_approach: The approach to run.
+            num_experiments: Number of independent runs.
+            top_k: Number of best expressions kept per run.
+            initial_seed: Base seed; ``None`` uses the dataset seed.
+            results: [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] to append to in place;
+                ``None`` creates a new one.
+            callbacks: An [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], a list of them, or a
+                [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher].
+            verbose: Print a line as each experiment starts.
+            adaptation_path: For ``adaptation_scope="once"``: load the adapted state from this file if it
+                exists, otherwise adapt and save it there. ``None`` adapts without saving.
 
         Returns:
-            An [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object containing results from all experiments.
+            ``results`` (or a new ``SR_results``) with one entry per experiment.
+
+        Examples:
+            >>> results = dataset.evaluate_approach(my_approach, num_experiments=5)  # doctest: +SKIP
         """
-        if initial_seed is None:
-            seed = self.seed
-        else:
-            seed = initial_seed
+        base_seed = self.seed if initial_seed is None else initial_seed
 
         if results is None:
             results = SR_results()
@@ -354,8 +464,8 @@ class SR_dataset:
         for experiment in range(num_experiments):
             if verbose:
                 print(f"Running experiment {experiment + 1}/{num_experiments}")
-            if seed is not None:
-                seed += 1
+            # Experiment i gets base_seed + i, as job i of an ExperimentGrid does.
+            seed = None if base_seed is None else base_seed + experiment
 
             event = ExperimentEvent(
                 dataset_name=dataset_name,
@@ -386,57 +496,70 @@ class SR_dataset:
                 callbacks.on_experiment_end(event, results.results[-1])
         return results
 
-    def create_evaluator(self, metadata: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> SR_evaluator:
-        """Creates an instance of the SR_evaluator class from this dataset.
+    def ranking_settings(self) -> Dict[str, Any]:
+        """Return the settings the ranking function gets, as in an evaluator from ``create_evaluator``.
 
-        Examples:
-            >>> X = np.array([[1, 2], [3, 4], [5, 6]])
-            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
-            ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> evaluator = dataset.create_evaluator()
-            >>> float(evaluator.evaluate_expr(["sin", "(", "X_0", ")"]))  # doctest: +ELLIPSIS
-            8.05645397...
-            >>> float(evaluator.evaluate_expr(["X_1", "+", "X_0"]))  # doctest: +ELLIPSIS
-            0.0...
-
-        Args:
-            metadata: Optional dictionary of metadata to attach to the evaluator (e.g. model name, seed).
-                Dataset metadata is merged in automatically.
-            seed: Seed for the random number generator. If ``None``, the dataset seed is used.
+        They are ``kwargs`` plus ``constant_bounds``, plus ``samplers`` if the dataset has samplers
+        and a ground truth, no ``bed_gt`` and ``num_points_sampled != -1``. Unless ``bed_resample``
+        is set, ``ranking_seed`` defaults to the dataset seed (``0`` if ``None``), so every run is
+        scored by the same objective. Pass them to
+        [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] to score held-out
+        data under the search's settings.
 
         Returns:
-            A configured [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] ready to evaluate expressions against this dataset.
-
-        Raises:
-            Exception: If [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] cannot be
-                instantiated with the current dataset settings.
+            A new dict of settings; the limits ``max_constants`` / ``max_expr_length`` are not in it
+            (they are in ``required_constraints``).
         """
-        if metadata is None:
-            metadata = dict()
-        if self.dataset_metadata is not None:
-            metadata["dataset_metadata"] = self.dataset_metadata
-        metadata["dataset_name"] = self.dataset_name
-
-        if seed is None:
-            seed = self.seed
-
-        # The dataset's samplers define its input domain, so hand them to the ranking: BED draws its
+        # The dataset's samplers define its input distribution, so hand them to the ranking: BED draws its
         # evaluation points from them when its behaviour comes from the ground-truth expression.
         # Not forwarded with num_points_sampled=-1 ("use all of X"), a precomputed bed_gt, or no
         # ground truth (BED then uses y), whose behaviour exists only at the rows of X. Rankings
         # ignore settings they do not read.
-        settings = dict(self.kwargs)
+        settings: Dict[str, Any] = dict(self.kwargs)
+        settings["constant_bounds"] = self.constant_bounds
         if (
             self.samplers is not None
             and self.ground_truth is not None
             and settings.get("num_points_sampled") != -1
             and settings.get("bed_gt") is None
         ):
-            settings["samplers"] = self.samplers
-        # Fix the ranking's randomness per dataset, so every run is scored by the same objective,
-        # unless the user asked for it to be resampled each run.
+            settings["samplers"] = list(self.samplers)
+        # Fix the ranking's randomness per dataset, unless the user asked for it to be resampled each run.
         if not settings.get("bed_resample", False):
             settings.setdefault("ranking_seed", self.seed if self.seed is not None else 0)
+        return settings
+
+    def create_evaluator(self, metadata: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> SR_evaluator:
+        """Create an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] for this dataset.
+
+        The evaluator gets ``required_constraints`` as required and ``background_knowledge.constraints``
+        as advisory constraints, adds no limits of its own, and passes
+        [ranking_settings][SRToolkit.dataset.sr_dataset.SR_dataset.ranking_settings] to the ranking.
+
+        Args:
+            metadata: Metadata to attach to the evaluator; ``dataset_name`` and ``dataset_metadata`` are
+                added to it in place.
+            seed: Seed of the evaluator; ``None`` uses the dataset seed.
+
+        Returns:
+            The configured evaluator.
+
+        Raises:
+            ValueError: If a constraint or the ranking rejects the dataset (e.g. RMSE with neither ``y``
+                nor ``ground_truth``).
+            ImportError: If an import-path ``ranking_function`` cannot be imported.
+
+        Examples:
+            >>> X = np.array([[1, 2], [3, 4], [5, 6]])
+            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]))
+            >>> float(dataset.create_evaluator().evaluate_expr(["X_1", "+", "X_0"]))  # doctest: +ELLIPSIS
+            0.0...
+        """
+        if metadata is None:
+            metadata = dict()
+        if self.dataset_metadata is not None:
+            metadata["dataset_metadata"] = self.dataset_metadata
+        metadata["dataset_name"] = self.dataset_name
 
         return SR_evaluator(
             X=self.X,
@@ -446,77 +569,79 @@ class SR_dataset:
             ranking_function=self.ranking_function,
             ground_truth=self.ground_truth,
             symbol_library=self.symbol_library,
-            seed=seed,
+            seed=self.seed if seed is None else seed,
             metadata=metadata,
-            **settings,
+            required_constraints=self.required_constraints,
+            advisory_constraints=tuple(self.background_knowledge.constraints),
+            # The limits are already in required_constraints; -1 adds none of the evaluator's own.
+            max_constants=-1,
+            max_expr_length=-1,
+            **self.ranking_settings(),
         )
+
+    def describe(self) -> str:
+        """Return the task as text for people and LLM prompts, without the answer.
+
+        Returns:
+            [BackgroundKnowledge.describe][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe]
+            with ``required_constraints`` listed as enforced. Unlike ``str(dataset)``, it has no ground
+            truth, equation or success threshold.
+        """
+        return self.background_knowledge.describe(self.required_constraints)
+
+    def priors(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Return the constraints as records, the structured form of ``describe``.
+
+        Returns:
+            ``{"required": [...], "advisory": [...]}``: the
+            [summary][SRToolkit.utils.expression_constraints.ExpressionConstraint.summary] of each
+            required constraint and
+            [BackgroundKnowledge.priors][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.priors],
+            each in order.
+        """
+        return {
+            "required": [c.summary() for c in self.required_constraints],
+            "advisory": self.background_knowledge.priors(),
+        }
 
     def __str__(self) -> str:
-        r"""Returns a string describing this dataset.
+        """Return a description of the dataset, including the answer.
 
-        The string describes the target expression, symbols that should be used,
-        and the success threshold. It also includes any constraints that should
-        be followed when evaluating a model on this dataset. These constraints include the maximum
-        number of expressions to evaluate, the maximum length of the expression,
-        and the maximum number of constants allowed in the expression. If the
-        symbol library contains a symbol for constants, the string also includes
-        the range of constants.
-
-        For other metadata, please refer to the attribute self.dataset_metadata.
-
-        Examples:
-            >>> X = np.array([[1, 2], [3, 4], [5, 6]])
-            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
-            ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y", success_threshold=1e-6)
-            >>> str(dataset)
-            'Dataset for target expression z = x + y. When evaluating your model on this dataset, you should limit your generative model to only produce expressions using the following symbols: +, -, *, /, ^, u-, sqrt, sin, cos, exp, tan, arcsin, arccos, arctan, sinh, cosh, tanh, floor, ceil, ln, log, ^-1, ^2, ^3, ^4, ^5, pi, e, C, X_0, X_1.\nExpressions are ranked based on the RMSE ranking function.\nExpressions are deemed successful if the root mean squared error is less than 1e-06. However, we advise that you check the best performing expressions manually to ensure they are correct.\nDataset uses the default limitations (extra arguments) from the SR_evaluator.The expressions in the dataset can contain constants/free parameters.\nFor other metadata, please refer to the attribute self.dataset_metadata.'
+        It gives the target equation, the ranking with its success rule and non-default settings, then
+        [describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe] and a pointer to
+        ``dataset_metadata``. Use ``describe`` for prompts.
 
         Returns:
-            A string describing this dataset.
+            The multi-line description.
         """
-        description = f"Dataset for target expression {self.original_equation}."
-        description += (
-            f" When evaluating your model on this dataset, you should limit your generative model to only "
-            f"produce expressions using the following symbols: {str(self.symbol_library)}.\n"
-        )
+        text = f"Dataset for target expression {self.original_equation}.\n"
         # Each ranking describes itself (and its success rule); no setup() is needed for that.
-        description += build_ranking(self.ranking_function).describe(self.success_threshold)
-        if not description.endswith("\n"):
-            description += "\n"
-
-        if len(self.kwargs) == 0:
-            description += "Dataset uses the default limitations (extra arguments) from the SR_evaluator."
-        else:
-            limitations = "Non default limitations (extra arguments) from the SR_evaluators are:"
-            for key, value in self.kwargs.items():
-                limitations += f" {key}={value}, "
-            limitations = limitations[:-2] + ".\n"
-            description += limitations
-
-        if self.contains_constants:
-            description += "The expressions in the dataset can contain constants/free parameters.\n"
-
-        description += "For other metadata, please refer to the attribute self.dataset_metadata."
-
-        return description
+        text += build_ranking(self.ranking_function).describe(self.success_threshold)
+        if not text.endswith("\n"):
+            text += "\n"
+        if self.kwargs:
+            settings = ", ".join(f"{key}={value}" for key, value in self.kwargs.items())
+            text += f"Non-default ranking settings: {settings}.\n"
+        text += self.describe() + "\n"
+        text += "For other metadata, please refer to the attribute self.dataset_metadata."
+        return text
 
     def resample(self, n: int, seed: Optional[int] = None) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """Generate fresh data by applying the stored samplers to produce new inputs.
+        """Draw new data from the samplers without changing the dataset.
 
-        For ``ranking_function="rmse"``, the ground truth expression is also evaluated and
-        ``(X, y)`` is returned. For ``ranking_function="bed"``, only ``X`` is returned.
+        ``y`` is computed from ``ground_truth`` unless ``ranking_function`` is ``"bed"``.
 
         Args:
-            n: Number of samples to generate.
-            seed: Random seed for reproducibility. If ``None``, no seed is set.
+            n: Number of rows.
+            seed: Seeds NumPy's global random state before the draw; ``None`` leaves it as is.
 
         Returns:
-            For RMSE: a tuple ``(X, y)`` with shapes ``(n, n_features)`` and ``(n,)``.
-            For BED: a single array ``X`` with shape ``(n, n_features)``.
+            ``X`` of shape ``(n, n_variables)`` if ``ranking_function`` is ``"bed"``, otherwise
+            ``(X, y)`` with ``y`` of shape ``(n,)``.
 
         Raises:
-            ValueError: If ``samplers`` is ``None``, or if ``ranking_function="rmse"`` and
-                ``ground_truth`` is ``None`` or a behaviour array.
+            ValueError: If the dataset has no samplers, or ``y`` is needed and ``ground_truth`` is
+                ``None`` or has a free constant.
         """
         if self.samplers is None:
             raise ValueError(
@@ -525,7 +650,7 @@ class SR_dataset:
             )
         if seed is not None:
             np.random.seed(seed)
-        X = np.column_stack([s(n) for s in self.samplers])
+        X = _sample_inputs(self.samplers, n)
         if self.ranking_function == "bed":
             return X
         if self.ground_truth is None or isinstance(self.ground_truth, np.ndarray):
@@ -543,22 +668,19 @@ class SR_dataset:
         return X, y
 
     def resample_inplace(self, n: int, seed: Optional[int] = None) -> "SR_dataset":
-        """Resample via the stored samplers and write the result back into ``self.X``/``self.y``.
+        """Replace ``X`` and ``y`` with data from [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample].
 
-        A convenience wrapper around [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]
-        that handles the RMSE ``(X, y)`` vs BED ``X``-only return shapes. For BED datasets,
-        ``self.y`` is set to ``None``.
+        ``y`` becomes ``None`` if ``ranking_function`` is ``"bed"``.
 
         Args:
-            n: Number of samples to generate.
-            seed: Random seed for reproducibility. If ``None``, no seed is set.
+            n: Number of rows.
+            seed: As for ``resample``.
 
         Returns:
-            ``self``, with ``X`` (and ``y``) replaced by the freshly sampled data.
+            ``self``.
 
         Raises:
-            ValueError: Propagated from [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]
-                if ``samplers`` is ``None`` or the ground truth cannot produce ``y``.
+            ValueError: As for ``resample``.
         """
         result = self.resample(n, seed=seed)
         if isinstance(result, tuple):
@@ -568,17 +690,7 @@ class SR_dataset:
         return self
 
     def _persist_to_cache(self) -> None:
-        """Write this dataset's in-memory data splits into the data cache version directory.
-
-        Each [DataSplit][SRToolkit.dataset.data_split.DataSplit] **without** a ``data_source`` is
-        the only copy of its arrays, so it is written to its cache key (``<dataset_name>.npz`` for
-        the train split, ``<dataset_name>/test.npz`` for the test split,
-        ``<dataset_name>/aux/<key>.npz`` for aux splits) for
-        [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] to reload. Splits backed by
-        a ``data_source`` are regenerated on load and are not written here.
-
-        Requires ``benchmark`` and ``version`` to be set (the caller validates this).
-        """
+        """Write every split without a ``data_source`` to its file in the data cache."""
         assert self.benchmark is not None and self.version is not None, (
             "_persist_to_cache requires benchmark/version to be set; the caller must validate this."
         )
@@ -591,39 +703,29 @@ class SR_dataset:
             np.savez(str(cache_path), **split.arrays)  # type: ignore[arg-type]  #
 
     def to_dict(self) -> dict:
-        r"""Creates a JSON-safe dictionary representation of this dataset.
+        """Return a JSON-safe dictionary of this dataset's configuration (format 4).
 
-        The data arrays are not embedded in the dictionary — they live in the
-        data cache (see [data_cache][SRToolkit.dataset.data_cache]). Use
-        [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] to
-        reconstruct the full dataset including data.
+        Arrays are not embedded but live in the [data cache][SRToolkit.dataset.data_cache]: this call
+        writes every split without a ``data_source`` there, so the result reloads with
+        [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict].
 
-        When ``data_source`` is ``None`` the in-memory arrays are the only copy of the
-        data, so calling this method writes them into the cache version directory (via
-        the private ``_persist_to_cache`` helper) so the returned config stays
-        reloadable. For
-        [SampleSource][SRToolkit.dataset.data_source.SampleSource] /
-        [UrlSource][SRToolkit.dataset.data_source.UrlSource] datasets there are no arrays
-        to write and the call has no filesystem side effects.
+        Returns:
+            A dict with ``format_version`` (``4``), ``dataset_name``, ``benchmark``, ``version``,
+            ``ranking_function``, ``max_evaluations``, ``success_threshold``, ``original_equation``,
+            ``seed``, ``dataset_metadata``, ``kwargs``, ``ground_truth`` (token list or ``None``),
+            ``data_source``, ``test``, ``aux``, ``background_knowledge``
+            ([BackgroundKnowledge.to_dict][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.to_dict])
+            and ``required_constraints`` (each constraint's ``to_dict``, the limit ones included).
+
+        Raises:
+            ValueError: If ``benchmark`` or ``version`` is ``None``.
 
         Examples:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
-            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
-            ...     y=np.array([3, 7, 11]), max_evaluations=10000, original_equation="z = x + y",
-            ...     success_threshold=1e-6, benchmark="test", version="1.0.0")
-            >>> d = dataset.to_dict()
-            >>> d["format_version"]
-            3
-            >>> d["benchmark"]
-            'test'
-
-        Returns:
-            A JSON-safe dictionary representing this dataset's configuration.
-
-        Raises:
-            ValueError: If ``benchmark`` or ``version`` is ``None`` (both are required for
-                serialisation so the cache layer can locate the data).
-            ValueError: If ``ground_truth`` is not the correct type.
+            >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]),
+            ...     benchmark="test", version="1.0.0")
+            >>> dataset.to_dict()["format_version"]
+            4
         """
         if self.benchmark is None:
             raise ValueError("[SR_dataset.to_dict] 'benchmark' is None. Set self.benchmark before serialising.")
@@ -663,11 +765,10 @@ class SR_dataset:
             }
 
         return {
-            "format_version": 3,
+            "format_version": 4,
             "dataset_name": self.dataset_name,
             "benchmark": self.benchmark,
             "version": self.version,
-            "symbol_library": self.symbol_library.to_dict(),
             "ranking_function": self.ranking_function,
             "max_evaluations": self.max_evaluations,
             "success_threshold": self.success_threshold,
@@ -675,50 +776,43 @@ class SR_dataset:
             "seed": self.seed,
             "dataset_metadata": self.dataset_metadata,
             "kwargs": kwargs_out,
-            "samplers": [s.to_dict() for s in self.samplers] if self.samplers is not None else None,
             "ground_truth": ground_truth_out,
             "data_source": self.data_source.to_dict() if self.data_source is not None else None,
             "test": split_entry(self.test) if self.test is not None else None,
             "aux": {key: split_entry(split) for key, split in self.aux_data.items()},
+            "background_knowledge": self.background_knowledge.to_dict(),
+            "required_constraints": [c.to_dict() for c in self.required_constraints],
         }
 
     @classmethod
     def from_dict(cls, d: Union[dict, str, Path]) -> "SR_dataset":
-        """Creates an instance of the SR_dataset class from its dictionary representation.
+        """Load a dataset from its dictionary representation or a JSON file.
 
-        If ``d`` is a string or Path, it is treated as a JSON file path and read
-        from disk. To load a self-contained ``.zip`` archive (written by
-        [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive]) use
-        [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive] instead.
-        The data arrays are loaded from the data cache (or materialised on demand).
-
-        Examples:
-            >>> import tempfile, os, json
-            >>> from SRToolkit.dataset.sampling import UniformSampling
-            >>> from SRToolkit.dataset.data_source import SampleSource
-            >>> X = np.array([[1, 2], [3, 4], [5, 6]], dtype=float)
-            >>> ds = SR_dataset(X, SymbolLibrary.default_symbols(2), ground_truth=["X_0", "+", "X_1"],
-            ...     y=np.array([3, 7, 11], dtype=float), max_evaluations=10000, original_equation="z = x + y",
-            ...     success_threshold=1e-6, benchmark="test_bench", version="1.0.0",
-            ...     samplers=[UniformSampling(0, 5), UniformSampling(0, 5)])
-            >>> ds.data_source = SampleSource(n_samples=3, seed=0)
-            >>> d = ds.to_dict()
-            >>> ds2 = SR_dataset.from_dict(d)
-            >>> ds2.benchmark
-            'test_bench'
+        Arrays come from the data cache, or are generated from their ``data_source``. Formats 2 and 3
+        are migrated (see the [module docstring][SRToolkit.dataset.sr_dataset]). For
+        ``d = ds.to_dict()``, ``from_dict(d).to_dict() == d``. Load ``.zip`` archives with
+        [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive].
 
         Args:
-            d: Dictionary produced by
-                [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict], or a path to a
-                JSON file containing such a dictionary.
+            d: Output of [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict], or the path of a
+                JSON file holding it.
 
         Returns:
-            A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance.
+            The dataset.
 
         Raises:
-            ValueError: If the ``format_version`` is not 2 or 3.
-            FileNotFoundError: If a cached data file does not exist and its ``data_source`` is
-                ``None``.
+            ValueError: If ``d`` is a ``.zip`` path, ``format_version`` is not 2, 3 or 4, or the
+                constructor rejects the configuration.
+            TypeError: As for the constructor.
+            ImportError: If a saved sampler, constraint or ranking class cannot be imported.
+            FileNotFoundError: If a split's data is not in the cache and it has no ``data_source``.
+
+        Examples:
+            >>> from SRToolkit.dataset.sampling import UniformSampling
+            >>> ds = SR_dataset.from_samplers(["X_0", "+", "X_1"], [UniformSampling(0, 5), UniformSampling(0, 5)],
+            ...     n_samples=3, seed=0, benchmark="test_bench", version="1.0.0")
+            >>> SR_dataset.from_dict(ds.to_dict()).X.shape
+            (3, 2)
         """
         if isinstance(d, (str, Path)):
             if str(d).endswith(".zip"):
@@ -734,14 +828,39 @@ class SR_dataset:
         # Apply bundle relocation if needed
         dd = _auto_bind(dd)
 
-        # Accept the current v3 layout and the previous release's v2 configs. A v2 dict has no
+        # Accept the current v4 layout and the v2 / v3 configs of earlier releases. A v2 dict has no
         # "test" / "aux" entries, so only the train split loads; its cache key is the dataset name in
-        # both versions, and symbolic ground truth still loads from dd["ground_truth"]. (v2 datasets
+        # every version, and symbolic ground truth still loads from dd["ground_truth"]. (v2 datasets
         # that stored an ndarray ground truth in a separate _gt.npy are not migrated — ndarray ground
         # truth is no longer supported; provide a symbolic ground truth or rebuild such datasets.)
         fmt = dd.get("format_version")
-        if fmt not in (2, 3):
-            raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2 or 3.")
+        if fmt not in (2, 3, 4):
+            raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2, 3 or 4.")
+        # Read the task part in either layout, validating it before any data is loaded or generated.
+        task_args: Dict[str, Any] = dict(dd.get("kwargs") or {})
+        if "background_knowledge" in dd:  # format 4
+            required = tuple(ExpressionConstraint.from_dict(c) for c in dd.get("required_constraints") or ())
+            bk = BackgroundKnowledge.from_dict(dd["background_knowledge"])
+            task_args.update(
+                symbol_library=bk.symbol_library,
+                samplers=bk.samplers,
+                constant_bounds=bk.constant_bounds,
+                advisory_constraints=bk.constraints,
+                reference_grammar=bk.reference_grammar,
+                description=bk.description,
+                variables=bk.variables,
+                target=bk.target,
+                required_constraints=required,
+                # The saved list holds the effective limits; -1 adds no default to it.
+                max_constants=-1,
+                max_expr_length=-1,
+            )
+        else:  # formats 2 and 3: symbol library and samplers at the top level, the rest in kwargs
+            samplers = dd.get("samplers")
+            task_args.update(
+                symbol_library=SymbolLibrary.from_dict(dd["symbol_library"]),
+                samplers=[Sampler.from_dict(s) for s in samplers] if samplers is not None else None,
+            )
 
         benchmark = dd["benchmark"]
         version = dd["version"]
@@ -762,15 +881,8 @@ class SR_dataset:
             cls._validate_aux_key(key)
             aux[key] = load_split(f"{dataset_name}/aux/{key}", entry.get("data_source"))
 
-        kwargs = dict(dd.get("kwargs") or {})
-
-        samplers = None
-        if dd.get("samplers") is not None:
-            samplers = [Sampler.from_dict(s) for s in dd["samplers"]]
-
         dataset = cls(
             train.X,
-            SymbolLibrary.from_dict(dd["symbol_library"]),
             ranking_function=dd["ranking_function"],
             y=train.y,
             max_evaluations=dd["max_evaluations"],
@@ -780,10 +892,9 @@ class SR_dataset:
             seed=dd["seed"],
             dataset_metadata=dd.get("dataset_metadata"),
             dataset_name=dataset_name,
-            samplers=samplers,
             benchmark=benchmark,
             version=version,
-            **kwargs,
+            **task_args,
         )
         # Attach the loaded splits whole, so every array and each split's source is kept.
         dataset._train = train
@@ -792,33 +903,19 @@ class SR_dataset:
         return dataset
 
     def to_archive(self, path: "Union[str, Path]") -> None:
-        """Write this dataset (config + data) to a self-contained ``.zip`` archive.
+        """Write the dataset, configuration and all data, to a self-contained ``.zip`` archive.
 
-        The archive mirrors the per-dataset layout of
-        [SR_benchmark.to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]
-        and contains:
-
-        - ``dataset.json``: this dataset's configuration dict (see
-          [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]).
-        - ``data/<dataset_name>.npz``: the data the search runs on, plus
-          ``data/<dataset_name>/test.npz`` for the test split and
-          ``data/<dataset_name>/aux/<key>.npz`` for each aux split. All splits are bundled —
-          even source-backed ones — so the archive file is self-contained and never needs to
-          regenerate or download on load.
-
-        Load it back with
-        [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive], or
-        from a URL with
+        The archive holds ``dataset.json`` and one ``data/<cache key>.npz`` per split, source-backed
+        ones included, so loading it never regenerates or downloads anything. Like ``to_dict``, it
+        writes splits without a ``data_source`` to the data cache. Load it with
+        [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive] or
         [from_url][SRToolkit.dataset.sr_dataset.SR_dataset.from_url].
 
         Args:
-            path: Destination path for the archive. A non-``.zip`` suffix triggers a
-                warning but is still written as a ZIP archive.
+            path: Destination file. A suffix other than ``.zip`` gives a warning.
 
         Raises:
-            ValueError: If ``benchmark`` or ``version`` is ``None`` (both are required
-                so the cache layer can locate the data on load — raised by
-                [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]).
+            ValueError: If ``benchmark`` or ``version`` is ``None``.
         """
         path = Path(path)
         if path.suffix.lower() != ".zip":
@@ -841,21 +938,15 @@ class SR_dataset:
 
     @classmethod
     def from_archive(cls, path: "Union[str, Path]") -> "SR_dataset":
-        """Load a dataset from a self-contained ``.zip`` archive.
+        """Load a dataset from a ``.zip`` archive written by [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive].
 
-        This is the counterpart to
-        [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive]: it reads
-        ``dataset.json`` from the archive, extracts the bundled data files (one per data split)
-        into the data cache, and reconstructs the dataset from them. Unlike
-        [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], no
-        ``data_source`` materialisation is needed — the data travels inside the archive.
+        The archive's data is extracted into the data cache, so nothing is regenerated.
 
         Args:
-            path: Path to a ``.zip`` archive written by
-                [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive].
+            path: Path of the archive.
 
         Returns:
-            A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance.
+            The dataset.
         """
         with zipfile.ZipFile(str(path), "r") as zf:
             d = json.loads(zf.read("dataset.json"))
@@ -876,22 +967,16 @@ class SR_dataset:
 
     @classmethod
     def from_url(cls, url: str) -> "SR_dataset":
-        """Download a self-contained ``.zip`` archive from a URL and load it.
+        """Download an archive written by [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive] and load it.
 
-        This is the remote counterpart to
-        [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive]: the archive
-        is downloaded to a temporary file and then loaded exactly as ``from_archive``
-        would. The ``url`` must point at an archive written by
-        [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive] (a
-        ``dataset.json`` plus a ``data/`` directory) — not a bare ``.npz``/data zip
-        (that is what [UrlSource][SRToolkit.dataset.data_source.UrlSource] is for).
+        Loads as [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive]. For a bare data
+        file, use [UrlSource][SRToolkit.dataset.data_source.UrlSource] instead.
 
         Args:
-            url: URL of a ``.zip`` archive written by
-                [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive].
+            url: URL of the archive.
 
         Returns:
-            A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] instance.
+            The dataset.
         """
         with urlopen(url) as response:
             data = response.read()
@@ -908,7 +993,7 @@ class SR_dataset:
     def from_samplers(  # type: ignore[misc]
         cls,
         ground_truth: Union[List[str], Node],
-        samplers: List[Sampler],
+        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
         symbol_library: Optional[SymbolLibrary] = None,
         n_samples: int = 10000,
         seed: Optional[int] = None,
@@ -921,19 +1006,62 @@ class SR_dataset:
         dataset_metadata: Optional[dict] = None,
         benchmark: Optional[str] = None,
         version: Optional[str] = None,
+        variables: Optional[Mapping[str, VariableInfo]] = None,
+        target: Optional[VariableInfo] = None,
+        description: Optional[str] = None,
+        constant_bounds: Optional[Tuple[float, float]] = None,
+        reference_grammar: Optional[Grammar] = None,
+        max_constants: Optional[int] = None,
+        max_expr_length: Optional[int] = None,
+        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> "SR_dataset":
-        r"""Build a dataset from just a ground-truth expression and per-variable samplers.
+        """Build a dataset by sampling inputs and evaluating a ground truth on them.
 
-        This is the convenience constructor for the common case where you have the
-        expression you want to recover and a sampling spec for its inputs, but no data
-        arrays yet. The inputs ``X`` are drawn from ``samplers`` (one per variable) and,
-        for ``ranking_function="rmse"``, the targets ``y`` are produced by evaluating
-        ``ground_truth`` on them. The result carries a
-        [SampleSource][SRToolkit.dataset.data_source.SampleSource], so it round-trips via
-        [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict], regenerates with
-        [refresh][SRToolkit.dataset.sr_dataset.SR_dataset.refresh], and resamples with
-        [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample].
+        ``X`` is drawn from the samplers and ``y`` is computed as in
+        [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]. The data gets a
+        [SampleSource][SRToolkit.dataset.data_source.SampleSource] as ``data_source``, so ``to_dict``
+        stores no arrays and [refresh][SRToolkit.dataset.sr_dataset.SR_dataset.refresh] regenerates it.
+
+        Args:
+            ground_truth: The answer as infix tokens or a [Node][SRToolkit.utils.expression_tree.Node];
+                it must have no free constants unless ``ranking_function`` is ``"bed"``.
+            samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per variable, as a list in
+                variable order or ``{token: sampler}``.
+            symbol_library: ``None`` uses
+                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] with one
+                variable per sampler.
+            n_samples: Number of rows of ``X``.
+            seed: Seed of the draw, stored on the ``SampleSource``; ``None`` for none.
+            n_test: Rows of a held-out test split drawn the same way with seed ``seed + 1``, with its own
+                ``SampleSource``; ``None`` for no test split.
+            ranking_function: As for ``SR_dataset``; with ``"bed"`` no ``y`` is generated.
+            original_equation: ``None`` with a token-list ``ground_truth`` gives ``"y = <tokens>"``.
+            success_threshold: As for ``SR_dataset``.
+            max_evaluations: As for ``SR_dataset``.
+            dataset_name: As for ``SR_dataset``.
+            dataset_metadata: As for ``SR_dataset``.
+            benchmark: As for ``SR_dataset``.
+            version: As for ``SR_dataset``.
+            variables: As for ``SR_dataset``.
+            target: As for ``SR_dataset``.
+            description: As for ``SR_dataset``.
+            constant_bounds: As for ``SR_dataset``.
+            reference_grammar: As for ``SR_dataset``.
+            max_constants: As for ``SR_dataset``.
+            max_expr_length: As for ``SR_dataset``.
+            required_constraints: As for ``SR_dataset``.
+            advisory_constraints: As for ``SR_dataset``.
+            **kwargs: As for ``SR_dataset``.
+
+        Returns:
+            The dataset with freshly generated data.
+
+        Raises:
+            ValueError: If ``samplers`` is ``None`` or empty, ``y`` cannot be computed (see ``resample``),
+                or the constructor rejects the arguments.
+            TypeError: As for the constructor.
 
         Examples:
             >>> from SRToolkit.dataset.sampling import UniformSampling
@@ -941,59 +1069,21 @@ class SR_dataset:
             ...     [UniformSampling(0, 5), UniformSampling(0, 5)], n_samples=100, seed=0)
             >>> ds.X.shape
             (100, 2)
-            >>> ds.y.shape
-            (100,)
             >>> ds.original_equation
             'y = X_0+X_1'
-
-        Args:
-            ground_truth: The ground-truth expression as a list of infix tokens or a
-                [Node][SRToolkit.utils.expression_tree.Node]. For ``"rmse"`` it is
-                evaluated to produce ``y``; for ``"bed"`` it is stored as the target.
-            samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per input variable.
-            symbol_library: Token vocabulary. Defaults to
-                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]
-                with one variable per sampler.
-            n_samples: Number of input rows to generate. Defaults to ``10000``.
-            seed: Random seed for the generation (stored on the
-                [SampleSource][SRToolkit.dataset.data_source.SampleSource]). ``None`` means
-                no seed is set.
-            n_test: If given, also generate a held-out test split of this many rows from
-                the same samplers and ground truth, backed by its own
-                [SampleSource][SRToolkit.dataset.data_source.SampleSource] (seeded at
-                ``seed + 1`` when ``seed`` is set). ``None`` (default) creates no test split.
-            ranking_function: ``"rmse"`` or ``"bed"``.
-            original_equation: Human-readable equation string. If ``None`` and
-                ``ground_truth`` is a token list, it is auto-filled as ``"y = <tokens>"``.
-            success_threshold: Error threshold for success. ``None`` means no threshold.
-            max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
-            dataset_name: Name for this dataset.
-            dataset_metadata: Optional dataset-level metadata dict.
-            benchmark: Optional benchmark name (needed only for serialisation).
-            version: Optional version string (needed only for serialisation).
-            **kwargs: Estimation settings forwarded to
-                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
-
-        Returns:
-            A new [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] with freshly
-            generated data.
-
-        Raises:
-            ValueError: If ``samplers`` is empty, or (via
-                [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]) if
-                ``ranking_function="rmse"`` and ``ground_truth`` cannot be evaluated.
         """
         if not samplers:
             raise ValueError(
-                "[SR_dataset.from_samplers] 'samplers' must be a non-empty list (one sampler per input variable)."
+                "[SR_dataset.from_samplers] 'samplers' must be non-empty (one sampler per input variable)."
             )
+        n_vars = len(samplers)
         if symbol_library is None:
-            symbol_library = SymbolLibrary.default_symbols(len(samplers))
+            symbol_library = SymbolLibrary.default_symbols(n_vars)
         if original_equation is None and isinstance(ground_truth, list):
             original_equation = "y = " + "".join(ground_truth)
 
         dataset = cls(
-            np.empty((0, len(samplers))),
+            np.empty((0, n_vars)),
             symbol_library,
             ranking_function=ranking_function,
             ground_truth=ground_truth,
@@ -1005,6 +1095,15 @@ class SR_dataset:
             samplers=samplers,
             benchmark=benchmark,
             version=version,
+            variables=variables,
+            target=target,
+            description=description,
+            constant_bounds=constant_bounds,
+            reference_grammar=reference_grammar,
+            max_constants=max_constants,
+            max_expr_length=max_expr_length,
+            required_constraints=required_constraints,
+            advisory_constraints=advisory_constraints,
             **kwargs,
         )
         dataset.data_source = SampleSource(n_samples=n_samples, seed=seed)
@@ -1025,14 +1124,12 @@ class SR_dataset:
         return dataset
 
     def refresh(self) -> None:
-        """Force-refresh the cached data for this dataset by re-materialising it
-        from ``data_source``.
+        """Regenerate every split that has a ``data_source`` and reload it.
 
-        Every split with a ``data_source`` is regenerated (the train data, and the test and aux
-        splits that have their own source) and reloaded from the new cache.
+        The new arrays overwrite the split's files in the data cache.
 
         Raises:
-            ValueError: If ``data_source``, ``benchmark``, or ``version`` is ``None``.
+            ValueError: If ``data_source``, ``benchmark`` or ``version`` is ``None``.
         """
         if self.data_source is None:
             raise ValueError(

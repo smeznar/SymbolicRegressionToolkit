@@ -8,21 +8,24 @@ import tempfile
 import warnings
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 from urllib.request import urlopen
 
 import numpy as np
 from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.expression_constraints import ExpressionConstraint
 from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import RankingSettings
 
 from . import data_cache
-from .data_source import DataSource, SampleSource
+from .background_knowledge import VariableInfo
+from .data_source import DataSource, SampleSource, _config_samplers
 from .sampling import Sampler
-from .sr_dataset import SR_dataset
+from .sr_dataset import SR_dataset, _resolve_task
 
 
 def _save_arrays_to_cache(
@@ -129,29 +132,34 @@ class SR_benchmark:
         success_threshold: Optional[float] = None,
         seed: Optional[int] = None,
         dataset_metadata: Optional[dict] = None,
-        samplers: Optional[List[Sampler]] = None,
+        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
         data_source: Optional[DataSource] = None,
+        variables: Optional[Mapping[str, VariableInfo]] = None,
+        target: Optional[VariableInfo] = None,
+        description: Optional[str] = None,
+        constant_bounds: Optional[Tuple[float, float]] = None,
+        reference_grammar: Optional[Grammar] = None,
+        max_constants: Optional[int] = None,
+        max_expr_length: Optional[int] = None,
+        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         **kwargs: Unpack[RankingSettings],
     ):
-        """Adds a dataset to the benchmark.
+        """Add a dataset to the benchmark without building it.
 
-        Examples:
-            >>> import tempfile, numpy as np
-            >>> from SRToolkit.utils import SymbolLibrary
-            >>> bm = SR_benchmark("BM")
-            >>> X = np.random.rand(10, 2)
-            >>> y = X[:, 0] + X[:, 1]
-            >>> bm.add_dataset(SymbolLibrary.default_symbols(2),(X, y),dataset_name="test_ds",ground_truth=["X_0", "+", "X_1"],original_equation="y = x0 + x1")
-            >>> len(bm.list_datasets(verbose=False))
-            1
+        The entry is stored in format 4 (see
+        [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]) and built by
+        [create_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.create_dataset]. The
+        arguments are validated as by ``SR_dataset`` before any cache file is written. Array data
+        given in ``dataset`` is written to the data cache.
 
         Args:
-            dataset: Direct data for the dataset: a 2-D numpy array (features) or a
-                ``(X, y)`` tuple. Use ``None`` together with ``data_source`` to have the
+            symbol_library: The symbol library to use.
+            dataset: Direct data for the dataset: a bare 2-D ndarray ``X`` (features only; for
+                ``"rmse"``, ``y`` is computed from ``ground_truth``), or an ``(X, y)`` tuple. Use ``None`` together with ``data_source`` to have the
                 cache layer materialise the data instead. When ``data_source`` is provided
                 this argument is ignored. To use data from a local file, load it
                 yourself (e.g. with ``numpy.load``) and pass the arrays here.
-            symbol_library: The symbol library to use.
             dataset_name: The name of the dataset. Auto-generated if ``None``.
             ranking_function: ``"rmse"`` or ``"bed"``.
             max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
@@ -159,9 +167,11 @@ class SR_benchmark:
             original_equation: Human-readable equation string.
             success_threshold: Error threshold for success. ``None`` means no threshold.
             seed: Random seed.
-            dataset_metadata: Optional dataset-level metadata dict.
-            samplers: Optional list of samplers (one per input variable). They define the
-                problem's input distribution and power
+            dataset_metadata: Optional dataset-level metadata dict, merged over the benchmark's
+                metadata.
+            samplers: One sampler per variable, as a list in the library's variable order or a
+                mapping ``{token: sampler}``, as for ``SR_dataset``. They define the problem's
+                input distribution and power
                 [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample]; a
                 [SampleSource][SRToolkit.dataset.data_source.SampleSource] draws from them, and a
                 ``"bed"`` ranking draws its evaluation points from them.
@@ -171,11 +181,39 @@ class SR_benchmark:
                 [SampleSource][SRToolkit.dataset.data_source.SampleSource]). When provided,
                 the ``dataset`` argument is ignored and the cache layer manages
                 materialisation.
-            **kwargs: Estimation settings forwarded to
-                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+            variables: Information per variable, keyed by token, as for
+                [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].
+            target: Information about the target, as for ``SR_dataset``.
+            description: Free text about the task, as for ``SR_dataset``.
+            constant_bounds: Range free constants are fitted in, as for ``SR_dataset``.
+            reference_grammar: A grammar an approach may start from, as for ``SR_dataset``.
+            max_constants: Free-constant limit, as for ``SR_dataset`` (``None``: 8).
+            max_expr_length: Token limit, as for ``SR_dataset`` (``None``: no limit).
+            required_constraints: Further required constraints, as for ``SR_dataset``.
+            advisory_constraints: Hints about the search space, as for ``SR_dataset``.
+            **kwargs: Ranking settings, as for ``SR_dataset``.
 
         Raises:
-            ValueError: Various validation errors (see below).
+            ValueError: If the dataset name already exists; the background-knowledge, limit or
+                constraint arguments are rejected as by
+                [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]; ``ground_truth`` is an
+                ndarray, or missing where the ranking needs it (``"bed"``, or ``"rmse"`` with a
+                bare ndarray ``dataset``, not an ``(X, y)`` tuple); ``dataset`` is a tuple that is
+                not two numpy arrays; the data has a different number of columns than the symbol library
+                has variables; both ``dataset`` and ``data_source`` are ``None`` (the
+                dataset could never be loaded); or ``ground_truth`` cannot be evaluated on a bare
+                ndarray ``dataset`` (raised from the original error).
+            TypeError: As for ``SR_dataset``.
+
+        Examples:
+            >>> import numpy as np
+            >>> from SRToolkit.utils import SymbolLibrary
+            >>> bm = SR_benchmark("BM")
+            >>> X = np.random.rand(10, 2)
+            >>> bm.add_dataset(SymbolLibrary.default_symbols(2), (X, X[:, 0] + X[:, 1]), dataset_name="test_ds",
+            ...     ground_truth=["X_0", "+", "X_1"], original_equation="y = x0 + x1")
+            >>> len(bm.list_datasets(verbose=False))
+            1
         """
         if dataset_name is None:
             dataset_name = f"{self.benchmark_name}_{len(self.datasets) + 1}"
@@ -183,6 +221,38 @@ class SR_benchmark:
         # Fail fast before any cache files are written, mirroring add_dataset_instance.
         if dataset_name in self.datasets:
             raise ValueError(f"[SR_benchmark.add_dataset] Dataset '{dataset_name}' already exists in the benchmark.")
+
+        # Validate the task (background knowledge, required constraints) before anything is written.
+        # Array data is checked against the library too (dataset is ignored when data_source is given).
+        X = None
+        if data_source is None:
+            if isinstance(dataset, np.ndarray):
+                X = dataset
+            elif isinstance(dataset, tuple) and len(dataset) == 2 and isinstance(dataset[0], np.ndarray):
+                X = dataset[0]
+        bk, required, kwargs = _resolve_task(  # type: ignore[assignment]
+            {
+                "symbol_library": symbol_library,
+                "samplers": samplers,
+                "variables": variables,
+                "target": target,
+                "description": description,
+                "constant_bounds": constant_bounds,
+                "reference_grammar": reference_grammar,
+                "constraints": advisory_constraints,
+            },
+            max_constants,
+            max_expr_length,
+            required_constraints,
+            kwargs,
+            X,
+        )
+        symbol_library = bk.symbol_library
+        if dataset is None and data_source is None:
+            raise ValueError(
+                "[SR_benchmark.add_dataset] Give the data ('dataset') or a 'data_source' to generate it from; "
+                "without either the dataset could never be loaded."
+            )
 
         # Ground truth is symbolic only (token list / Node). A precomputed ndarray behaviour
         # matrix is ranking-owned state, not a dataset ground truth — reject it here.
@@ -201,11 +271,10 @@ class SR_benchmark:
             merged_metadata.update(dataset_metadata)
 
         entry: Dict[str, Any] = {
-            "format_version": 3,
+            "format_version": 4,
             "dataset_name": dataset_name,
             "benchmark": self.benchmark_name,
             "version": self.version,
-            "symbol_library": symbol_library.to_dict(),
             "ranking_function": ranking_function,
             "max_evaluations": max_evaluations,
             "success_threshold": success_threshold,
@@ -214,10 +283,10 @@ class SR_benchmark:
             "original_equation": original_equation,
             "kwargs": kwargs,
             "ground_truth": ground_truth_out,
-            "samplers": [s.to_dict() for s in samplers] if samplers is not None else None,
-            # Default count: one variable per sampler, else the symbol library. The array
-            # branches below override this with the real column count when data is supplied.
-            "num_variables": len(samplers) if samplers is not None else _count_variables(symbol_library),
+            "background_knowledge": bk.to_dict(),
+            "required_constraints": [c.to_dict() for c in required],
+            # Samplers and array data are validated to match the library's variables.
+            "num_variables": _count_variables(symbol_library),
         }
 
         # Derive a human-readable equation from a token-list ground truth if absent.
@@ -231,8 +300,7 @@ class SR_benchmark:
         elif original_equation is None and isinstance(ground_truth, list):
             entry["original_equation"] = "y = " + "".join(ground_truth)
 
-        # Resolve the data source / write the arrays. num_variables defaults to the sampler /
-        # symbol-library count set above; the array branches override it with the real shape.
+        # Resolve the data source / write the arrays.
         if data_source is not None:
             # Lazy: the cache layer materialises X (and y) on first use; nothing written here.
             entry["data_source"] = data_source.to_dict()
@@ -248,9 +316,9 @@ class SR_benchmark:
                     try:
                         y = compile_expr(ground_truth, symbol_library)(dataset, None)
                     except Exception as e:
-                        raise Exception(
+                        raise ValueError(
                             f"[SR_benchmark.add_dataset] Could not evaluate the ground truth. Original error: {e}"
-                        )
+                        ) from e
                     _save_arrays_to_cache(self.benchmark_name, self.version, dataset_name, dataset, y)
                 elif ranking_function == "bed":
                     _save_arrays_to_cache(self.benchmark_name, self.version, dataset_name, dataset)
@@ -277,7 +345,7 @@ class SR_benchmark:
     def add_from_samplers(  # type: ignore[misc]
         self,
         ground_truth: Union[List[str], Node],
-        samplers: List[Sampler],
+        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
         symbol_library: Optional[SymbolLibrary] = None,
         n_samples: int = 10000,
         seed: Optional[int] = None,
@@ -287,32 +355,33 @@ class SR_benchmark:
         success_threshold: Optional[float] = None,
         max_evaluations: int = -1,
         dataset_metadata: Optional[dict] = None,
+        variables: Optional[Mapping[str, VariableInfo]] = None,
+        target: Optional[VariableInfo] = None,
+        description: Optional[str] = None,
+        constant_bounds: Optional[Tuple[float, float]] = None,
+        reference_grammar: Optional[Grammar] = None,
+        max_constants: Optional[int] = None,
+        max_expr_length: Optional[int] = None,
+        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
-        """Add a dataset described only by a ground-truth expression and per-variable samplers.
+        """Add a dataset described by a ground-truth expression and per-variable samplers.
 
-        This is the benchmark-level counterpart to
-        [SR_dataset.from_samplers][SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers]:
-        it attaches a [SampleSource][SRToolkit.dataset.data_source.SampleSource] so the data
-        is generated lazily from ``samplers`` (and, for RMSE, ``ground_truth``) the first
-        time the dataset is materialised via
-        [create_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.create_dataset].
-
-        Examples:
-            >>> from SRToolkit.dataset.sampling import UniformSampling
-            >>> bm = SR_benchmark("BM")
-            >>> bm.add_from_samplers(["X_0", "+", "X_1"],
-            ...     [UniformSampling(0, 5), UniformSampling(0, 5)], dataset_name="add",
-            ...     n_samples=100, seed=0)
-            >>> ds = bm.create_dataset("add")
-            >>> ds.X.shape
-            (100, 2)
+        The benchmark-level counterpart to
+        [SR_dataset.from_samplers][SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers]: it
+        attaches a [SampleSource][SRToolkit.dataset.data_source.SampleSource], so the data is
+        generated lazily from the samplers (and, for RMSE, ``ground_truth``) the first time the
+        dataset is materialised via
+        [create_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.create_dataset]. Nothing is
+        written to the data cache here.
 
         Args:
             ground_truth: Ground-truth expression as a token list or
                 [Node][SRToolkit.utils.expression_tree.Node].
-            samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per input variable.
-            symbol_library: Token vocabulary. Defaults to
+            samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per variable, as a list
+                in the library's variable order or a mapping ``{token: sampler}``.
+            symbol_library: Token vocabulary. ``None`` uses
                 [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]
                 with one variable per sampler.
             n_samples: Number of input rows to generate on materialisation. Defaults to ``10000``.
@@ -325,15 +394,38 @@ class SR_benchmark:
             success_threshold: Error threshold for success. ``None`` means no threshold.
             max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
             dataset_metadata: Optional dataset-level metadata dict.
-            **kwargs: Estimation settings forwarded to
-                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+            variables: Information per variable, as for
+                [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].
+            target: Information about the target, as for ``SR_dataset``.
+            description: Free text about the task, as for ``SR_dataset``.
+            constant_bounds: Range free constants are fitted in, as for ``SR_dataset``.
+            reference_grammar: A grammar an approach may start from, as for ``SR_dataset``.
+            max_constants: Free-constant limit, as for ``SR_dataset`` (``None``: 8).
+            max_expr_length: Token limit, as for ``SR_dataset`` (``None``: no limit).
+            required_constraints: Further required constraints, as for ``SR_dataset``.
+            advisory_constraints: Hints about the search space, as for ``SR_dataset``.
+            **kwargs: Ranking settings, as for ``SR_dataset``.
+
+        Raises:
+            ValueError: If ``samplers`` is ``None`` or empty, or as for
+                [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset].
+            TypeError: As for ``add_dataset``.
+
+        Examples:
+            >>> from SRToolkit.dataset.sampling import UniformSampling
+            >>> bm = SR_benchmark("BM")
+            >>> bm.add_from_samplers(["X_0", "+", "X_1"],
+            ...     [UniformSampling(0, 5), UniformSampling(0, 5)], dataset_name="add",
+            ...     n_samples=100, seed=0)
+            >>> ds = bm.create_dataset("add")
+            >>> ds.X.shape
+            (100, 2)
         """
+        if not samplers:
+            raise ValueError(
+                "[SR_benchmark.add_from_samplers] 'samplers' must be non-empty (one sampler per input variable)."
+            )
         if symbol_library is None:
-            if not samplers:
-                raise ValueError(
-                    "[SR_benchmark.add_from_samplers] 'samplers' must be a non-empty list "
-                    "(one sampler per input variable)."
-                )
             symbol_library = SymbolLibrary.default_symbols(len(samplers))
 
         self.add_dataset(
@@ -349,6 +441,15 @@ class SR_benchmark:
             dataset_metadata=dataset_metadata,
             samplers=samplers,
             data_source=SampleSource(n_samples=n_samples, seed=seed),
+            variables=variables,
+            target=target,
+            description=description,
+            constant_bounds=constant_bounds,
+            reference_grammar=reference_grammar,
+            max_constants=max_constants,
+            max_expr_length=max_expr_length,
+            required_constraints=required_constraints,
+            advisory_constraints=advisory_constraints,
             **kwargs,
         )
 
@@ -363,7 +464,9 @@ class SR_benchmark:
         When ``n_samples`` is provided the returned dataset contains freshly sampled data
         instead of the pre-generated data on disk. The dataset must have samplers defined
         (see ``samplers`` argument of
-        [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset]).
+        [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset]). Entries of format
+        2 or 3 from older saved benchmarks are migrated as by
+        [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict].
 
         Examples:
             >>> from SRToolkit.dataset import Feynman
@@ -386,15 +489,19 @@ class SR_benchmark:
             data, ground truth expression, and metadata for the given dataset.
 
         Raises:
-            ValueError: If the dataset name is not found, or if ``n_samples`` is provided but
-                the dataset has no samplers defined.
+            ValueError: If the dataset name is not found; ``n_samples`` is provided but the
+                dataset has no samplers defined; or ``SR_dataset.from_dict`` raises a ``ValueError``
+                for the entry (raised from it, with the dataset name).
+            TypeError: As for ``SR_dataset.from_dict``, unchanged.
+            ImportError: As for ``SR_dataset.from_dict``, unchanged.
+            FileNotFoundError: As for ``SR_dataset.from_dict``, unchanged.
         """
         if dataset_name not in self.datasets:
             raise ValueError(f"Dataset {dataset_name} not found")
 
         if n_samples is not None:
             config = self.datasets[dataset_name]
-            if config.get("samplers") is None:
+            if _config_samplers(config) is None:
                 raise ValueError(
                     f"[SR_benchmark.create_dataset] Cannot resample '{dataset_name}': no samplers defined."
                 )
@@ -415,11 +522,12 @@ class SR_benchmark:
             return entry["sr_dataset"]
         try:
             return SR_dataset.from_dict(entry)
-        except Exception as e:
+        except ValueError as e:
+            # Name the benchmark entry; other exception types pass through as SR_dataset.from_dict raises them.
             raise ValueError(
-                f"[SR_benchmark.create_dataset] Could not create SR_dataset from the given "
-                f"dictionary. Original error: {e}"
-            )
+                f"[SR_benchmark.create_dataset] Could not create dataset '{entry.get('dataset_name')}' from its "
+                f"entry: {e}"
+            ) from e
 
     def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> List[str]:
         """Lists the available datasets.
@@ -512,6 +620,9 @@ class SR_benchmark:
         To load a self-contained ``.zip`` archive (written by
         [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]) use
         [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive] instead.
+        Dataset entries of format 2 or 3 in older files are accepted and migrated as by
+        [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict]. The entries are
+        copied, so ``d`` is not changed.
 
         Args:
             d: A dict produced by [to_dict][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_dict],
@@ -538,11 +649,13 @@ class SR_benchmark:
         b = cls(benchmark_name, version=version, metadata=metadata)
 
         for name, entry in dd.get("datasets", {}).items():
-            # Store the entry dict directly; materialisation is lazy via create_dataset
+            # Store a copy of the entry (the caller's dict is not changed); materialisation is lazy
+            # via create_dataset.
+            entry = copy.deepcopy(entry)
             b.datasets[name] = entry
             if "num_variables" not in entry:
                 # Try to infer
-                samplers = entry.get("samplers")
+                samplers = _config_samplers(entry)
                 if samplers is not None:
                     entry["num_variables"] = len(samplers)
                 else:

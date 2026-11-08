@@ -77,6 +77,23 @@ def _integer_uniform_negative_sampling(sample_size, min_value=1, max_value=100):
     return -np.random.randint(min_value, max_value, size=sample_size)
 
 
+def _signed_intervals(low: float, high: float, positive: bool, negative: bool) -> str:
+    """``[low, high]``, its mirror ``[-high, -low]``, or their union; one interval if ``low == 0``."""
+    if positive and negative and low == 0:
+        return f"[{-high:.15g}, {high:.15g}]"
+    parts = []
+    if negative:
+        parts.append(f"[{-high:.15g}, {-low:.15g}]")
+    if positive:
+        parts.append(f"[{low:.15g}, {high:.15g}]")
+    return " ∪ ".join(parts)
+
+
+def _sample_inputs(samplers, n: int) -> np.ndarray:
+    """Draw ``n`` input rows, one column per sampler: the single place inputs are sampled."""
+    return np.column_stack([s(n) for s in samplers])
+
+
 class Sampler(ABC):
     """Abstract base class for variable samplers.
 
@@ -101,6 +118,21 @@ class Sampler(ABC):
         The returned dict **must** include ``"sampler_class"`` set to the
         fully-qualified class path of this sampler.
         """
+
+    def describe(self) -> str:
+        """Return a short phrase saying what the sampler draws, for people and LLM prompts.
+
+        [BackgroundKnowledge.describe][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe]
+        lists it under "Input distribution". The base implementation renders
+        ``ClassName(key=repr(value), ...)`` from
+        [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] without ``"sampler_class"``; the
+        built-ins return a phrase such as ``"uniform on [1, 5]"``.
+
+        Returns:
+            The phrase.
+        """
+        args = ", ".join(f"{k}={v!r}" for k, v in self.to_dict().items() if k != "sampler_class")
+        return f"{type(self).__name__}({args})"
 
     @classmethod
     def from_dict(cls, d: dict) -> "Sampler":
@@ -172,6 +204,19 @@ class LogUniformSampling(Sampler):
             f"Either uses_positive ({self.uses_positive}) or uses_negative ({self.uses_negative}) must be True"
         )
 
+    def describe(self) -> str:
+        """Return ``"log-uniform on <intervals>"``, e.g. ``"log-uniform on [-10, -0.1] ∪ [0.1, 10]"``.
+
+        The magnitude is in ``[min_value, max_value]``; with both signs the mirrored interval is
+        included.
+
+        Returns:
+            The phrase.
+        """
+        return "log-uniform on " + _signed_intervals(
+            self.min_value, self.max_value, self.uses_positive, self.uses_negative
+        )
+
     def to_dict(self) -> dict:
         """Serialize this sampler to a JSON-compatible dictionary."""
         return {
@@ -228,6 +273,17 @@ class UniformSampling(Sampler):
             f"Either uses_positive ({self.uses_positive}) or uses_negative ({self.uses_negative}) must be True"
         )
 
+    def describe(self) -> str:
+        """Return ``"uniform on <intervals>"``, e.g. ``"uniform on [-5, -1] ∪ [1, 5]"``.
+
+        The magnitude is in ``[min_value, max_value]``; with both signs the mirrored interval is
+        included, written as one interval when ``min_value`` is ``0`` (``"uniform on [-5, 5]"``).
+
+        Returns:
+            The phrase.
+        """
+        return "uniform on " + _signed_intervals(self.min_value, self.max_value, self.uses_positive, self.uses_negative)
+
     def to_dict(self) -> dict:
         """Serialize this sampler to a JSON-compatible dictionary."""
         return {
@@ -283,6 +339,22 @@ class IntegerUniformSampling(Sampler):
         raise AttributeError(
             f"Either uses_positive ({self.uses_positive}) or uses_negative ({self.uses_negative}) must be True"
         )
+
+    def describe(self) -> str:
+        """Return ``"integers from <a> to <b>, uniform"``, ``max_value`` excluded.
+
+        With both signs: ``"integers from -<b> to -<a> and from <a> to <b>, uniform"``.
+
+        Returns:
+            The phrase.
+        """
+        low, high = self.min_value, self.max_value - 1
+        parts = []
+        if self.uses_negative:
+            parts.append(f"from {-high} to {-low}")
+        if self.uses_positive:
+            parts.append(f"from {low} to {high}")
+        return "integers " + " and ".join(parts) + ", uniform"
 
     def to_dict(self) -> dict:
         """Serialize this sampler to a JSON-compatible dictionary."""

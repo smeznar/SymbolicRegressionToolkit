@@ -126,6 +126,7 @@ therefore be importable by that path: define it at module level in an importable
 from __future__ import annotations
 
 import importlib
+import re
 import warnings
 from typing import Any, List, Optional, Sequence, Tuple, Type, Union
 
@@ -317,6 +318,48 @@ class ExpressionConstraint:
         """
         return CheckResult(implemented=False, message=f"{type(self).__name__} implements no post_check")
 
+    def describe(self) -> str:
+        """Return a short phrase saying what the constraint requires, for people and LLM prompts.
+
+        [BackgroundKnowledge.describe][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe]
+        lists it under "Enforced constraints" or "Hints". The base implementation renders
+        ``ClassName(key=repr(value), ...)`` from
+        [to_dict][SRToolkit.utils.expression_constraints.ExpressionConstraint.to_dict] without
+        ``"constraint_class"``; the built-ins return a phrase such as ``"at most 8 free
+        constants"``. Does not need ``setup``.
+
+        Returns:
+            The phrase.
+
+        Examples:
+            >>> MaxTreeDepth(4).describe()
+            'expression tree at most 4 levels deep'
+        """
+        d = self.to_dict()
+        args = ", ".join(f"{k}={v!r}" for k, v in d.items() if k != "constraint_class")
+        return f"{type(self).__name__}({args})"
+
+    def summary(self) -> dict:
+        """Return what the constraint requires as a plain record, the structured form of ``describe``.
+
+        A record is a JSON-safe dict with a ``"kind"`` key naming the constraint in snake_case and
+        its parameters under readable keys, e.g. ``{"kind": "max_tree_depth", "limit": 4}``. Unlike
+        ``to_dict`` it is for reading, not for rebuilding: it has no class path and leaves out
+        bulky data such as evaluation points. The base implementation returns ``"kind"`` (the class
+        name in snake_case) and the ``to_dict`` entries without ``"constraint_class"``. Does not
+        need ``setup``.
+
+        Returns:
+            The record.
+
+        Examples:
+            >>> NoNesting(["sin", "cos"]).summary()
+            {'kind': 'no_nesting', 'symbols': ['cos', 'sin']}
+        """
+        d = {k: v for k, v in self.to_dict().items() if k != "constraint_class"}
+        kind = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", type(self).__name__).lower()  # MaxTreeDepth -> max_tree_depth
+        return {"kind": kind, **d}
+
     def to_dict(self) -> dict:
         """Return a JSON-safe dictionary from which ``from_dict`` can rebuild this constraint.
 
@@ -421,6 +464,14 @@ class MaxConstants(ExpressionConstraint):
             return CheckResult()
         return CheckResult(passed=False, message=f"{n} constants, limit {self.limit}", amount=float(n - self.limit))
 
+    def describe(self) -> str:
+        """Return ``"at most <limit> free constants"``.
+
+        Returns:
+            The phrase.
+        """
+        return f"at most {self.limit} free constants"
+
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "limit": limit}``.
 
@@ -496,6 +547,14 @@ class MaxTokens(ExpressionConstraint):
         if n <= self.limit:
             return CheckResult()
         return CheckResult(passed=False, message=f"{n} tokens, limit {self.limit}", amount=float(n - self.limit))
+
+    def describe(self) -> str:
+        """Return ``"at most <limit> tokens"``.
+
+        Returns:
+            The phrase.
+        """
+        return f"at most {self.limit} tokens"
 
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "limit": limit}``.
@@ -574,6 +633,14 @@ class MaxTreeDepth(ExpressionConstraint):
             return CheckResult()
         return CheckResult(passed=False, message=f"depth {n}, limit {self.limit}", amount=float(n - self.limit))
 
+    def describe(self) -> str:
+        """Return ``"expression tree at most <limit> levels deep"``.
+
+        Returns:
+            The phrase.
+        """
+        return f"expression tree at most {self.limit} levels deep"
+
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "limit": limit}``.
 
@@ -649,6 +716,14 @@ class MaxTreeSize(ExpressionConstraint):
         if n <= self.limit:
             return CheckResult()
         return CheckResult(passed=False, message=f"{n} nodes, limit {self.limit}", amount=float(n - self.limit))
+
+    def describe(self) -> str:
+        """Return ``"at most <limit> nodes in the expression tree"``.
+
+        Returns:
+            The phrase.
+        """
+        return f"at most {self.limit} nodes in the expression tree"
 
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "limit": limit}``.
@@ -758,6 +833,16 @@ class RequiredVariables(ExpressionConstraint):
             return CheckResult()
         return CheckResult(passed=False, message="missing " + ", ".join(missing), amount=float(len(missing)))
 
+    def describe(self) -> str:
+        """Return ``"uses each of <v1>, <v2>, ..."``, or ``"uses every variable"`` for all of them.
+
+        Returns:
+            The phrase.
+        """
+        if self.variables is None:
+            return "uses every variable"
+        return "uses each of " + ", ".join(self.variables)
+
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "variables": [...] or None}``.
 
@@ -851,6 +936,19 @@ class MaxSymbolCount(ExpressionConstraint):
             message=f"{names} {verb} {n} times{together}, limit {self.limit}",
             amount=float(n - self.limit),
         )
+
+    def describe(self) -> str:
+        """Return ``"<s> at most <limit> times"``, or ``"<s1> and <s2> together at most <limit> times"``.
+
+        Symbols are listed sorted.
+
+        Returns:
+            The phrase.
+        """
+        symbols = sorted(self.symbols)
+        if len(symbols) == 1:
+            return f"{symbols[0]} at most {self.limit} times"
+        return f"{' and '.join(symbols)} together at most {self.limit} times"
 
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "symbols": [...], "limit": limit}``, the symbols sorted.
@@ -949,6 +1047,15 @@ class NoNesting(ExpressionConstraint):
             outer = node.symbol
         self._collect_nested(node.left, outer, nested)
         self._collect_nested(node.right, outer, nested)
+
+    def describe(self) -> str:
+        """Return ``"no <group> inside another <group>"``, the group's symbols sorted and joined with ``or``.
+
+        Returns:
+            The phrase.
+        """
+        group = " or ".join(sorted(self.symbols))
+        return f"no {group} inside another {group}"
 
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "symbols": [...]}``, the symbols sorted.
@@ -1103,6 +1210,33 @@ class OutputBounds(ExpressionConstraint):
         else:
             message = f"output outside the bounds {where}"
         return CheckResult(passed=False, message=message, amount=amount)
+
+    def describe(self) -> str:
+        """Return ``"output >= <lower> at <n> given points"``, or ``<= <upper>``, or ``within [<lower>, <upper>]``.
+
+        A bound given per point is written ``per-point bounds``.
+
+        Returns:
+            The phrase.
+        """
+        lower, upper = (str(b) if isinstance(b, float) else "per-point bounds" for b in (self.lower, self.upper))
+        where = f"at {len(self.points)} given points"
+        if self.upper is None:
+            return f"output >= {lower} {where}"
+        if self.lower is None:
+            return f"output <= {upper} {where}"
+        return f"output within [{lower}, {upper}] {where}"
+
+    def summary(self) -> dict:
+        """Return ``{"kind": "output_bounds", "lower": ..., "upper": ..., "num_points": n}``.
+
+        A bound is a ``float``, ``None`` (no bound) or ``"per point"``; the points are left out.
+
+        Returns:
+            The record.
+        """
+        lower, upper = (b if b is None or isinstance(b, float) else "per point" for b in (self.lower, self.upper))
+        return {"kind": "output_bounds", "lower": lower, "upper": upper, "num_points": len(self.points)}
 
     def to_dict(self) -> dict:
         """Return ``{"constraint_class": ..., "points": ..., "lower": ..., "upper": ...}``.

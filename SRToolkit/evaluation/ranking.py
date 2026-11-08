@@ -405,7 +405,10 @@ class BEDRanking(RankingFunction):
             # draw from the global np.random state, so seed it here for reproducibility.
             if self.seed is not None:
                 np.random.seed(self.seed)
-            self.bed_X = np.column_stack([s(self.num_points_sampled) for s in samplers])
+            # Imported here: SRToolkit.dataset imports this module.
+            from SRToolkit.dataset.sampling import _sample_inputs
+
+            self.bed_X = _sample_inputs(samplers, self.num_points_sampled)
         else:
             self.bed_X = X[self._subsample_rows(X.shape[0]), :]
 

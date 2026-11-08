@@ -1784,10 +1784,8 @@ class TestConstraintSetup:
             (lambda: {"required_constraints": "MaxTokens"}, TypeError, "M"),
             (lambda: {"required_constraints": [MaxDepth(3)], "max_constants": 3}, TypeError, "MaxDepth"),
             (lambda: {"required_constraints": [MaxConstants(2)], "max_constants": 3}, ValueError, "max_constants"),
-            (lambda: {"required_constraints": [MaxConstants(3)], "max_constants": -1}, ValueError, "max_constants"),
             (lambda: {"required_constraints": [MaxTokens(4)], "max_expr_length": 5}, ValueError, "max_expr_length"),
             (lambda: {"required_constraints": [MaxConstants(3)], "max_constants": 8}, ValueError, "max_constants"),
-            (lambda: {"required_constraints": [MaxTokens(4)], "max_expr_length": -1}, ValueError, "max_expr_length"),
             (lambda: {"max_constants": True}, ValueError, "max_constants"),
             (lambda: {"max_constants": 2.0}, ValueError, "max_constants"),
             (lambda: {"max_constants": None}, ValueError, "max_constants"),
@@ -1802,10 +1800,8 @@ class TestConstraintSetup:
             "string",
             "type-checked-before-values",
             "max_constants-disagrees-with-list",
-            "negative-max_constants-with-MaxConstants",
             "max_expr_length-disagrees-with-list",
             "explicit-default-max_constants-disagrees",
-            "negative-max_expr_length-with-MaxTokens",
             "bool-limit",
             "float-limit",
             "none-limit",
@@ -1828,8 +1824,14 @@ class TestConstraintSetup:
                 lambda: [MaxTreeDepth(4)],
                 [("MaxConstants", 3), ("MaxTokens", 20), ("MaxTreeDepth", 4)],
             ),
+            (
+                # A negative setting adds no limit and does not clash with a listed one.
+                {"max_constants": -1, "max_expr_length": -1},
+                lambda: [MaxConstants(3), MaxTokens(4)],
+                [("MaxConstants", 3), ("MaxTokens", 4)],
+            ),
         ],
-        ids=["default-settings", "given-settings"],
+        ids=["default-settings", "given-settings", "negative-settings-keep-listed"],
     )
     def test_required_constraints_round_trip_with_same_settings(self, settings, make_list, expected):
         first = _make_se(symbol_library=_LIB2(), required_constraints=make_list(), **settings)

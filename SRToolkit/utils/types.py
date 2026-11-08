@@ -112,8 +112,8 @@ class RankingSettings(TypedDict, total=False):
             [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]: an expression
             with more gets status ``"rejected"`` and error ``+inf``, for every ranking. A negative
             value disables the limit. Adds nothing if the evaluator's ``required_constraints``
-            already contain a ``MaxConstants``; given together with one, it must have the same
-            limit (a negative setting together with one raises). Default: ``8``.
+            already contain a ``MaxConstants``; a non-negative setting given together with one
+            must have the same limit. Default: ``8``.
         max_expr_length: Maximum expression length in infix tokens, brackets included; same type
             rules as ``max_constants``. For the evaluator, a shorthand for the required constraint
             [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens], enforced like

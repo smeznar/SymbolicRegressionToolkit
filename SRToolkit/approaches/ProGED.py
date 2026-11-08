@@ -50,7 +50,7 @@ class ProGED(SR_approach):
             >>> model = ProGED()
             >>> # Since we don't put a custom grammar into ProGED we will need an automatically created PCFG.
             >>> model.adapt(dataset.X, dataset.symbol_library)
-            >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=18, verbose=False)
+            >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=19, verbose=False)
             >>> r = results[0]
             >>> r.dataset_name
             'I.16.6'
