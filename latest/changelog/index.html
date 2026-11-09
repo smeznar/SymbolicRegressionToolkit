@@ -2450,6 +2450,8 @@
 <li><code>BackgroundKnowledge.reference_grammar</code> must use only symbols of the symbol library, brackets and numbers (<code>ValueError</code> otherwise; <code>Grammar.unknown_tokens(symbol_library)</code> lists the offending tokens), and <code>BackgroundKnowledge.sampling_grammar()</code> returns the grammar approaches sample from: the reference grammar, else a generic grammar for the library.</li>
 <li><code>SR_evaluator.get_model(expr)</code> returns the result of an already evaluated expression, or <code>None</code>, without using the budget.</li>
 <li><code>evaluate_approach</code> now calls <code>prepare()</code> before a <code>"once"</code> adaptation, as the docs say and <code>ExperimentJob.run</code> already did. <code>ExperimentGrid.adapt_one</code> creates the parent directories of the state path, like the other adaptation paths.</li>
+<li><code>SR_dataset.original_equation</code> is derived when not given, from the ground truth with the variable and target names (e.g. <code>F = m*a</code>); only a given string is saved. <code>SR_benchmark.list_datasets(verbose=True)</code> shows it, also for datasets added with <code>add_dataset_instance</code> (previously <code>None</code>).</li>
+<li>Feynman and SRSD datasets carry a name and description for every variable and the target, and a task description. SRSD equations are now derived from these names.</li>
 </ul>
 <p><strong>Breaking changes:</strong>
 - Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
@@ -2475,7 +2477,8 @@
 - The <code>status_detail</code> of a rejected expression names the constraint, e.g. <code>"MaxConstants: 9 constants, limit 8"</code> instead of <code>"9 constants exceed max_constants=8"</code>.
 - <code>max_constants</code> / <code>max_expr_length</code> must be ints (numpy ints accepted); other values raise a <code>ValueError</code> instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a <code>ValueError</code>; a negative setting adds no limit and never clashes.
 - Datasets are saved with <code>format_version: 4</code> (symbol library and samplers inside <code>"background_knowledge"</code>, limits in <code>"required_constraints"</code>). Files of format 2 and 3 still load, and their data cache stays valid. <code>SR_dataset.symbol_library</code>, <code>samplers</code> and <code>constant_bounds</code> are read-only, <code>samplers</code> is a tuple, and <code>kwargs</code> no longer contains <code>constant_bounds</code>, <code>max_constants</code> or <code>max_expr_length</code>. A sampler count that differs from the number of variables now raises a <code>ValueError</code>.
-- <code>SR_benchmark.add_dataset</code> raises a <code>ValueError</code> (instead of <code>Exception</code>) when the ground truth cannot be evaluated, and a <code>ValueError</code> when neither <code>dataset</code> nor <code>data_source</code> is given (such an entry could never be loaded).</p>
+- <code>SR_benchmark.add_dataset</code> raises a <code>ValueError</code> (instead of <code>Exception</code>) when the ground truth cannot be evaluated, and a <code>ValueError</code> when neither <code>dataset</code> nor <code>data_source</code> is given (such an entry could never be loaded).
+- <code>SR_dataset.original_equation</code> is a read-only property.</p>
 <p><strong>Fixes:</strong>
 - <code>HoldoutMetric</code> no longer applies the estimator's default limit of 8 constants when fitting constants on held-out data: <code>max_constants</code> / <code>max_expr_length</code> apply only if given in <code>ranking_settings</code>. Before, a model the search accepted (e.g. under a required <code>MaxConstants(20)</code>) got <code>NaN</code> on the holdout.
 - <code>HoldoutMetric</code> with a <code>RankingFunction</code> metric gives <code>NaN</code> to models the search did not score <code>"ok"</code>, like the built-in and callable metrics already did. Before, it scored rejected models on the held-out data, so they could look like valid answers.
@@ -2501,7 +2504,8 @@
 - <code>SR_benchmark.from_dict</code> no longer modifies the dict it is given.
 - <code>SR_dataset.evaluate_approach</code> seeds experiment <code>i</code> with <code>initial_seed + i</code> (or the dataset seed <code>+ i</code>), like <code>ExperimentGrid</code> does. It used <code>+ i + 1</code>, so the given seed itself was never used; runs with the same <code>initial_seed</code> now give different results than before (use <code>initial_seed + 1</code> to reproduce them).
 - <code>is_float</code> returns <code>False</code> for values <code>float</code> cannot convert (lists, complex numbers, arbitrary objects) instead of raising a <code>TypeError</code>.
-- An <code>SR_evaluator</code> whose required constraints allow more than 8 free constants no longer has its parameter estimator reject such expressions at its default limit of 8.</p>
+- An <code>SR_evaluator</code> whose required constraints allow more than 8 free constants no longer has its parameter estimator reject such expressions at its default limit of 8.
+- SRSD Bonus 6: the ground truth used <code>epsilon</code> instead of <code>epsilon**2</code>. Fixed together with its data (SRSD data version 1.0.1); its targets no longer contain NaN.</p>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>
 <li>New backends for expression evaluations (about 1.5x speedup for parameter estimation)</li>

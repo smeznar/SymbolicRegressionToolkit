@@ -2369,10 +2369,10 @@ Data is generated on first instantiation and cached as .npz files for subsequent
 
 <details class="warning" open>
   <summary>Warning</summary>
-  <p>Eight datasets currently have a known data problem, both in the downloaded data and
+  <p>Seven datasets currently have a known data problem, both in the downloaded data and
 with <code>force_generate=True</code>:</p>
 <ul>
-<li><code>SRSD II.24.17</code>, <code>SRSD Bonus 4</code>, <code>SRSD Bonus 6</code> and <code>SRSD Bonus 7</code>: for part
+<li><code>SRSD II.24.17</code>, <code>SRSD Bonus 4</code> and <code>SRSD Bonus 7</code>: for part
   of the sampled points (about 25–85%) the ground truth takes the square root of a
   negative number, so <code>y</code> contains NaN. The ground truth itself then scores NaN, so
   no approach can be counted as solving these datasets.</li>
@@ -2599,8 +2599,7 @@ Optional — if omitted, the data cache is used exclusively.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/srsd_feynman.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-82">82</a></span>
-<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83">83</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83">83</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84">84</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85">85</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86">86</a></span>
@@ -2609,17 +2608,18 @@ Optional — if omitted, the data cache is used exclusively.</p>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89">89</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90">90</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91">91</a></span>
-<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92">92</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-82" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-82"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87"></a><span class="p">):</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"SRSD_Feynman"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.0"</span><span class="p">)</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-93">93</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88"></a><span class="p">):</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"SRSD_Feynman"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.1"</span><span class="p">)</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-93" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-93"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 

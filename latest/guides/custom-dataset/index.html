@@ -2558,9 +2558,9 @@ regenerated or resampled later.</p>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># (1000, 2)</span>
 </code></pre></div>
-<p><code>symbol_library</code> defaults to one variable per sampler and <code>original_equation</code> is filled in
-from a token-list ground truth, so the minimal call is just the expression and the
-samplers. Use <code>ranking_function="bed"</code> for a dataset that only needs inputs (no <code>y</code>). The
+<p><code>symbol_library</code> defaults to one variable per sampler and <code>original_equation</code>, when not
+given, is derived from the ground truth with the variable and target names (<code>y = X_0+X_1</code>
+without them), so the minimal call is just the expression and the samplers. Use <code>ranking_function="bed"</code> for a dataset that only needs inputs (no <code>y</code>). The
 same estimation settings as the constructor (<code>max_evaluations</code>, <code>success_threshold</code>,
 <code>constant_bounds</code>, …) are accepted as keyword arguments.</p>
 <h2 id="building-a-benchmark-with-sr_benchmark">Building a benchmark with SR_benchmark</h2>
