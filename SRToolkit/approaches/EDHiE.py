@@ -8,14 +8,19 @@ Requires the optional ``approaches`` extra (PyTorch and pymoo). Install with::
 import random
 import warnings
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Tuple
 
 from tqdm import tqdm
 
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
+from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
 from .sr_approach import ApproachConfig, SR_approach, check_dependencies
+
+if TYPE_CHECKING:
+    # Imported for annotations only: SRToolkit.dataset imports the approaches.
+    from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 
 try:
     from pymoo.algorithms.soo.nonconvex.ga import GA
@@ -70,6 +75,10 @@ class EDHiEConfig(ApproachConfig):
     population_size: int = 40
     weights_path: Optional[str] = None
     verbose: bool = True
+    max_consecutive_skips: int = 10000
+    skip_evaluated: bool = True
+    skip_rejected: bool = True
+    training_seed: Optional[int] = None
 
 
 class EDHiE(SR_approach):
@@ -85,11 +94,15 @@ class EDHiE(SR_approach):
         population_size: int = 40,
         weights_path: Optional[str] = None,
         verbose: bool = True,
+        max_consecutive_skips: int = 10000,
+        skip_evaluated: bool = True,
+        skip_rejected: bool = True,
+        training_seed: Optional[int] = None,
     ) -> None:
         r"""EDHiE — Equation Discovery with Hierarchical variational autoEncoders by Mežnar et al.
 
-        Trains a Hierarchical VAE (HVAE) on randomly generated expressions from the symbol library
-        (``adapt``), then explores the learned latent space with a genetic algorithm to find
+        Trains a Hierarchical VAE (HVAE) on randomly generated expressions for the task
+        ([adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt]), then explores the learned latent space with a genetic algorithm to find
         expressions that best fit the target dataset (``search``).
 
         References:
@@ -103,14 +116,29 @@ class EDHiE(SR_approach):
         Args:
             latent_size: Dimensionality of the HVAE latent space.
             num_expressions: Number of random expressions generated to train the HVAE.
-            max_expression_length: Maximum token length of generated training expressions.
-            only_unique_expressions: If ``True``, only unique expressions are generated.
+            max_expression_length: Longest training expression, in tokens. A required ``MaxTokens``
+                with a lower limit shortens them further.
+            only_unique_expressions: Prefer distinct training expressions: each is used once until
+                the grammar yields no new valid ones (see
+                [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]).
+                ``False`` keeps repeats as sampled, so likely expressions weigh more in training.
             epochs: Number of training epochs for the HVAE.
             batch_size: Batch size used during HVAE training.
             max_beta: Maximum value of the KL annealing coefficient (controls regularization strength).
             population_size: GA population size used during latent space search.
             weights_path: Optional path to load/save HVAE weights from/to disk.
             verbose: If ``True``, prints training loss and new best expressions during search.
+            max_consecutive_skips: Number of samples in a row that may be rejected, both when
+                sampling the training expressions and in
+                [search][SRToolkit.approaches.EDHiE.EDHiE.search], before giving up.
+            skip_evaluated: In ``search``, do not evaluate an expression again: reuse its cached
+                error. ``False`` evaluates repeats too, as cache hits that use the budget.
+            skip_rejected: In ``search``, do not evaluate expressions that break a required
+                constraint. ``False`` evaluates them, so they use the budget and appear in the
+                results as ``"rejected"``.
+            training_seed: Seed for [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] (sampling the
+                training expressions and training the HVAE); the global random states are restored
+                afterwards. ``None`` (default): unseeded.
         """
         super().__init__(
             EDHiEConfig(
@@ -124,6 +152,10 @@ class EDHiE(SR_approach):
                 population_size=population_size,
                 weights_path=weights_path,
                 verbose=verbose,
+                max_consecutive_skips=max_consecutive_skips,
+                skip_evaluated=skip_evaluated,
+                skip_rejected=skip_rejected,
+                training_seed=training_seed,
             )
         )
         check_dependencies(["pytorch", "pymoo"])
@@ -136,14 +168,30 @@ class EDHiE(SR_approach):
         self.max_beta = max_beta
         self.population_size = population_size
         self.verbose = verbose
+        self.max_consecutive_skips = max_consecutive_skips
+        self.skip_evaluated = skip_evaluated
+        self.skip_rejected = skip_rejected
+        self.training_seed = training_seed
 
         self.model: Optional[HVAE] = None
+        self._pretrained = weights_path is not None
         if weights_path is not None:
             self.load_adapted_state(weights_path)
 
     @property
     def adaptation_scope(self) -> str:
-        return "once" if self.model is None else "never"
+        """When the framework trains the HVAE.
+
+        ``"never"`` if the constructor got ``weights_path``: that model is used for every task.
+        Otherwise ``"once"``: the framework calls [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt]
+        (or loads a saved state) before the first experiment of each
+        [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] call or grid
+        job, so the model matches the task.
+
+        Returns:
+            ``"once"`` or ``"never"``.
+        """
+        return "never" if self._pretrained else "once"
 
     def prepare(self) -> None:
         """Reset per-experiment state.
@@ -157,36 +205,126 @@ class EDHiE(SR_approach):
         """
         pass
 
-    def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary) -> None:
-        """Train the HVAE on randomly generated expressions from the symbol library.
+    def adapt(
+        self,
+        X: np.ndarray,
+        background_knowledge: "BackgroundKnowledge",
+        required_constraints: Sequence[ExpressionConstraint],
+    ) -> None:
+        """Train the HVAE for this task.
+
+        1. Collects ``num_expressions`` training expressions with
+           [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]: from the
+           reference grammar if the background knowledge has one, otherwise from the symbol
+           library, keeping only those that pass the required constraints.
+        2. Trains a new HVAE on them for ``epochs`` epochs, replacing any earlier model.
+
+        Later experiments of the same run reuse the model. With ``training_seed`` set, both steps
+        are reproducible, and the global random states are left as they were.
 
         Args:
-            X: Input data from the domain (shape ``(n_samples, n_variables)``). Only used to
-                determine the number of variables; target values are not accessed.
-            symbol_library: Symbol library defining available tokens.
+            X: Not used.
+            background_knowledge: Its reference grammar or symbol library supplies the training
+                expressions.
+            required_constraints: Every training expression passes them.
+
+        Raises:
+            ValueError: If no valid training expressions can be sampled (see
+                ``training_expressions``).
+        """
+        # Seed this training only: the global states are restored afterwards, so later unseeded
+        # searches stay random.
+        states = None
+        if self.training_seed is not None:
+            states = (random.getstate(), np.random.get_state(), torch.get_rng_state())
+            random.seed(self.training_seed)
+            np.random.seed(self.training_seed)
+            torch.manual_seed(self.training_seed)
+        try:
+            symbol_library = background_knowledge.symbol_library
+            expressions = self.training_expressions(background_knowledge, required_constraints)
+            expr_trees: List[Optional[Node]] = [tokens_to_tree(expr, symbol_library) for expr in expressions]
+            self.model = HVAE(len(symbol_library), self.latent_size, symbol_library)
+            train_hvae(
+                self.model,
+                TreeDataset(expr_trees),
+                symbol_library,
+                epochs=self.epochs,
+                batch_size=self.batch_size,
+                max_beta=self.max_beta,
+                verbose=self.verbose,
+            )
+        finally:
+            if states is not None:
+                random.setstate(states[0])
+                np.random.set_state(states[1])
+                torch.set_rng_state(states[2])
+
+    def training_expressions(
+        self,
+        background_knowledge: "BackgroundKnowledge",
+        required_constraints: Sequence[ExpressionConstraint],
+    ) -> List[List[str]]:
+        """Sample the expressions the HVAE is trained on.
+
+        Samples from [BackgroundKnowledge.sampling_grammar][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.sampling_grammar]
+        (the reference grammar if it is set, otherwise a generic grammar for the symbol library). Keeps
+        only expressions of at most ``max_expression_length`` tokens that pass the pre-checks of all
+        ``required_constraints``. With ``only_unique_expressions`` they are distinct until
+        ``max_consecutive_skips`` valid samples in a row are repeats; the rest is then filled with
+        further valid samples, repeats included, with a warning.
+
+        Args:
+            background_knowledge: Source of the reference grammar or the symbol library.
+            required_constraints: Set-up constraints every expression must pass.
 
         Returns:
-            None
-        """
-        expressions = generate_n_expressions(
-            symbol_library,
-            self.num_expressions,
-            max_expression_length=self.max_expression_length,
-            unique=self.only_unique_expressions,
-        )
-        expr_trees: List[Optional[Node]] = [tokens_to_tree(expr, symbol_library) for expr in expressions]
-        trainset = TreeDataset(expr_trees)
+            ``num_expressions`` expressions as token lists.
 
-        self.model = HVAE(len(symbol_library), self.latent_size, symbol_library)
-        train_hvae(
-            self.model,
-            trainset,
-            symbol_library,
-            epochs=self.epochs,
-            batch_size=self.batch_size,
-            max_beta=self.max_beta,
-            verbose=self.verbose,
-        )
+        Raises:
+            ValueError: If ``max_consecutive_skips`` samples in a row break a required constraint.
+        """
+        grammar = background_knowledge.sampling_grammar()
+
+        expressions: List[List[str]] = []
+        seen = set()
+        allow_repeats = not self.only_unique_expressions
+        rejected = repeats = 0  # consecutive samples of each kind
+        while len(expressions) < self.num_expressions:
+            # unique=False: uniqueness is checked below, across batches and after the constraint filter.
+            batch = generate_n_expressions(
+                grammar,
+                max(self.num_expressions - len(expressions), 64),
+                unique=False,
+                max_expression_length=self.max_expression_length,
+                verbose=False,
+            )
+            for expr in batch:
+                if any(r.implemented and not r.passed for r in (c.pre_check(expr) for c in required_constraints)):
+                    rejected += 1
+                    if rejected >= self.max_consecutive_skips:
+                        raise ValueError(
+                            f"[EDHiE] {rejected} sampled expressions in a row broke a required constraint; "
+                            "the grammar cannot produce valid training expressions."
+                        )
+                    continue
+                rejected = 0
+                key = "".join(expr)
+                if not allow_repeats and key in seen:
+                    repeats += 1
+                    if repeats >= self.max_consecutive_skips:
+                        allow_repeats = True
+                        warnings.warn(
+                            f"[EDHiE] Only {len(expressions)} distinct valid training expressions found; "
+                            f"filling the remaining {self.num_expressions - len(expressions)} with repeats."
+                        )
+                    continue
+                repeats = 0
+                seen.add(key)
+                expressions.append(expr)
+                if len(expressions) == self.num_expressions:
+                    break
+        return expressions
 
     def save_adapted_state(self, path: str) -> None:
         """Save the trained HVAE model weights and architecture metadata to disk.
@@ -238,13 +376,17 @@ class EDHiE(SR_approach):
     def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
         """Explore the HVAE latent space with a genetic algorithm to find the best expression.
 
+        Each individual is decoded to an expression and scored without using the budget if it was
+        already evaluated and ``skip_evaluated`` is set (its cached error, from
+        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), or if it breaks a
+        required constraint and ``skip_rejected`` is set, or does not decode (error ``inf``). Other
+        individuals are evaluated. After ``max_consecutive_skips`` individuals in a row scored
+        without evaluation, the search stops early with a warning.
+
         Args:
             sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to
                 score candidate expressions.
             seed: Optional random seed for reproducibility.
-
-        Returns:
-            None
 
         Raises:
             RuntimeError: If [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] has not been called
@@ -258,7 +400,14 @@ class EDHiE(SR_approach):
             torch.manual_seed(seed)
             random.seed(seed)
 
-        problem = _HVAEProblem(self.model, sr_evaluator, self.latent_size)
+        problem = _HVAEProblem(
+            self.model,
+            sr_evaluator,
+            self.latent_size,
+            self.skip_evaluated,
+            self.skip_rejected,
+            self.max_consecutive_skips,
+        )
         ga = GA(
             pop_size=self.population_size,
             sampling=_TorchNormalSampling(),
@@ -286,6 +435,10 @@ class EDHiE(SR_approach):
             population_size=config.get("population_size", 40),
             weights_path=config.get("weights_path", None),
             verbose=config.get("verbose", True),
+            max_consecutive_skips=config.get("max_consecutive_skips", 10000),
+            skip_evaluated=config.get("skip_evaluated", True),
+            skip_rejected=config.get("skip_rejected", True),
+            training_seed=config.get("training_seed", None),
         )
 
 
@@ -1064,15 +1217,31 @@ class _HVAEProblem(Problem):
 
     _FALLBACK_SCORE = float("inf")
 
-    def __init__(self, model: HVAE, evaluator: SR_evaluator, dim: int):
+    def __init__(
+        self,
+        model: HVAE,
+        evaluator: SR_evaluator,
+        dim: int,
+        skip_evaluated: bool,
+        skip_rejected: bool,
+        max_consecutive_skips: int,
+    ):
         """Args:
         model: Trained [HVAE][SRToolkit.approaches.EDHiE.HVAE] used to decode latent vectors.
         evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to score
             decoded expressions.
         dim: Dimensionality of the latent space (number of decision variables for pymoo).
+        skip_evaluated: Score already evaluated expressions with their cached error.
+        skip_rejected: Score expressions that break a required constraint with ``inf``.
+        max_consecutive_skips: Skips in a row after which ``exhausted`` is set.
         """
         self.model = model
         self.evaluator = evaluator
+        self.skip_evaluated = skip_evaluated
+        self.skip_rejected = skip_rejected
+        self.max_consecutive_skips = max_consecutive_skips
+        self.skipped = 0  # individuals in a row scored without evaluation
+        self.exhausted = False
         self.symbol2index = evaluator.symbol_library.symbols2index()
         super().__init__(n_var=dim, n_obj=1)
 
@@ -1081,9 +1250,22 @@ class _HVAEProblem(Problem):
         trees = self.model.decode(torch.tensor(x[:, :], device=device, dtype=torch.float32))
         errors = []
         for tree in trees:
-            if self.evaluator.should_stop or tree is None:
+            if self.evaluator.should_stop or self.exhausted:
                 errors.append(self._FALLBACK_SCORE)
                 continue
+            # Scored without evaluation: no decode, already evaluated, or would be rejected.
+            cached = self.evaluator.get_model(tree) if tree is not None and self.skip_evaluated else None
+            if tree is None or cached is not None or (self.skip_rejected and self.evaluator.check_constraints(tree)[0]):
+                errors.append(cached.error if cached is not None else self._FALLBACK_SCORE)
+                self.skipped += 1
+                if self.skipped >= self.max_consecutive_skips:
+                    self.exhausted = True
+                    warnings.warn(
+                        f"[EDHiE] Stopping early: {self.skipped} individuals in a row were already evaluated, "
+                        "broke a required constraint or did not decode."
+                    )
+                continue
+            self.skipped = 0
             error = self.evaluator.evaluate_expr(tree)
             errors.append(error if not np.isnan(error) else self._FALLBACK_SCORE)
         out["F"] = np.array(errors)
@@ -1111,7 +1293,7 @@ class _BestTermination(Termination):
     """
 
     def _update(self, algorithm):
-        if algorithm.problem.evaluator.should_stop:
+        if algorithm.problem.evaluator.should_stop or algorithm.problem.exhausted:
             self.terminate()
         return 0.0
 

@@ -7,6 +7,7 @@ For stateful expression generation see [Derivation][SRToolkit.utils.grammar.deri
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
@@ -385,6 +386,41 @@ class Grammar:
             List of matching [Rule][SRToolkit.utils.grammar.Rule] objects in insertion order.
         """
         return list(self._rules_by_lhs.get(nonterminal, []))
+
+    def unknown_tokens(self, symbol_library: SymbolLibrary) -> set[str]:
+        """Return the terminal tokens that expressions over ``symbol_library`` cannot contain.
+
+        A terminal is known if it is a symbol of the library, a bracket or a number (any token
+        ``float()`` accepts except ``nan``, as in
+        [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree]). Library symbols the
+        grammar does not use are fine.
+
+        Examples:
+            >>> lib = SymbolLibrary.from_symbol_list(["+"], num_variables=1)
+            >>> Grammar(Rule.from_line("E -> E '+' 'X_0' [0.5] | '2' [0.5]")).unknown_tokens(lib)
+            set()
+            >>> Grammar(Rule.from_line("E -> 'pi' [1.0]")).unknown_tokens(lib)
+            {'pi'}
+
+        Args:
+            symbol_library: The library the grammar's expressions are parsed with.
+
+        Returns:
+            The unknown terminal tokens; empty if the grammar fits the library.
+        """
+        known = set(symbol_library.symbols2index()) | {"(", ")"}
+        unknown = set()
+        for rule in self._rules:
+            for token in rule.rhs:
+                if token in self.nonterminals or token in known:
+                    continue
+                try:
+                    if not math.isnan(float(token)):
+                        continue
+                except ValueError:
+                    pass
+                unknown.add(token)
+        return unknown
 
     def is_pcfg(self) -> bool:
         """Return ``True`` if any rule deviates from the default weight of ``1.0``.

@@ -281,16 +281,15 @@ class BEDRanking(RankingFunction):
     1. **A precomputed ``bed_gt`` matrix**, one row per row of ``X`` and ``num_consts_sampled``
        columns. If a ``ground_truth`` is also given, it is used only for the default threshold.
     2. **The ``ground_truth`` expression**, possibly with free parameters, evaluated over
-       ``bed_X``. The points are drawn by ``samplers`` (one
-       [Sampler][SRToolkit.dataset.sampling.Sampler] per variable, ``num_points_sampled`` fresh
-       points; an [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] passes its own samplers
-       here) or, without samplers, subsampled from the rows of ``X``.
+       ``bed_X``. With ``samplers`` (the input distribution, one
+       [Sampler][SRToolkit.dataset.sampling.Sampler] per variable) and ``num_points_sampled > 0``,
+       the points are ``num_points_sampled`` fresh draws from them; otherwise they are rows of
+       ``X``.
     3. **The observed targets ``y``**, treated as a deterministic behavior. This lets BED rank
        expressions on measured data with no known expression.
 
     For ``bed_gt`` and ``y``, the behavior is known only at the rows of ``X``, so the points are
-    rows of ``X`` (the same rows are kept in the behavior) and ``samplers`` are ignored, with a
-    warning. Rows of
+    rows of ``X`` (the same rows are kept in the behavior) and ``samplers`` are not used. Rows of
     ``X`` are subsampled without replacement to ``num_points_sampled``; ``-1`` uses all of them,
     which is how to score on exactly a given set of points.
 
@@ -380,25 +379,15 @@ class BEDRanking(RankingFunction):
         if row_behavior is not None:
             # A matrix or y describes behaviour at the rows of X, so the points are rows of X, and
             # any subsampling applies the same rows to both. Samplers would need behaviour at fresh
-            # points, which neither has, so they are ignored.
-            if samplers is not None:
-                warnings.warn(
-                    "A precomputed bed_gt matrix or targets y give behaviour at the rows of X only, so "
-                    "samplers are ignored; the points are rows of X."
-                )
+            # points, which neither has, so they are not used.
             indices = self._subsample_rows(X.shape[0])
             self.bed_X = X[indices, :]
             self.gt_behavior = row_behavior[indices, :]
             return
 
-        # Ground-truth expression: points from samplers (a fresh domain) or subsampled from X, and
-        # the behaviour computed over them.
-        if samplers is not None:
-            if self.num_points_sampled == -1:
-                raise ValueError(
-                    "num_points_sampled=-1 (use all of X) is not valid together with samplers, "
-                    "which generate a fresh domain — set it to a positive integer."
-                )
+        # Ground-truth expression: points drawn from the samplers, or rows of X when there are none
+        # or num_points_sampled=-1 asks for all of X; the behaviour is computed over them.
+        if samplers is not None and self.num_points_sampled != -1:
             if len(samplers) != X.shape[1]:
                 raise ValueError(f"Got {len(samplers)} samplers for {X.shape[1]} variables; give one per variable.")
             # One sampler per feature; each draws a column (cf. SR_dataset.resample). Samplers

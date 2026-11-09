@@ -49,12 +49,12 @@ class RandomSearch(SR_approach):
 
 ## The `adapt()` lifecycle
 
-`adapt()` is called before `search()` and receives only `X` (no `y`). Use it for data-driven warm-up that does not require knowing the target:
+`adapt()` is called before `search()` and receives `X` (no `y`), the dataset's background knowledge and its required constraints (set up, so their checks can run). Use what you need for warm-up that does not require knowing the target:
 
 ```python
-def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary):
+def adapt(self, X, background_knowledge, required_constraints):
     # Train a generative model, build a PCFG, pre-compute statistics, etc.
-    self._grammar = build_grammar(symbol_library)
+    self._grammar = build_grammar(background_knowledge.symbol_library)
 ```
 
 Control when adaptation happens via the `adaptation_scope` property:
@@ -62,7 +62,7 @@ Control when adaptation happens via the `adaptation_scope` property:
 | Value | When `adapt()` is called |
 |---|---|
 | `"never"` (default) | Never — skip `adapt()` entirely |
-| `"once"` | Once per symbol library; state is saved and reloaded for subsequent runs |
+| `"once"` | Once per run; with a state path the state is saved and reloaded for later runs |
 | `"experiment"` | Before every `search()` call |
 
 For `"once"` scope, also implement `save_adapted_state()` and `load_adapted_state()`:
@@ -75,10 +75,10 @@ def adaptation_scope(self):
     return "once"
 
 def save_adapted_state(self, path: str):
-    torch.save(self._model.state_dict(), path + ".pt")
+    torch.save(self._model.state_dict(), path)
 
 def load_adapted_state(self, path: str):
-    self._model.load_state_dict(torch.load(path + ".pt"))
+    self._model.load_state_dict(torch.load(path))
 ```
 
 !!! note "Heavy dependencies"

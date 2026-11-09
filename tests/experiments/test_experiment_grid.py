@@ -6,18 +6,20 @@ import os
 import shutil
 import warnings
 import zipfile
+from dataclasses import dataclass
 
 import pytest
 
-from SRToolkit.approaches import ProGED
+from SRToolkit.approaches import ApproachConfig, ProGED, SR_approach
 from SRToolkit.dataset import SR_dataset, data_cache
 from SRToolkit.dataset.sampling import UniformSampling
-from SRToolkit.experiments import ExperimentGrid
+from SRToolkit.experiments import ExperimentGrid, ExperimentInfo, ExperimentJob
 from SRToolkit.experiments.experiment_grid import (
     _annotate_bundles,
     _classify_dataset_source,
     _custom_class_paths,
 )
+from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth
 
 
 def _make_dataset(name="ds1", benchmark="unit_test", version="1.0.0", max_evaluations=-1):
@@ -443,45 +445,29 @@ def test_adapt_one_unknown_approach_raises(tmp_path):
         grid.adapt_one("Nope", "ds1")
 
 
-def test_adapt_one_force_overwrites_existing_state(tmp_path, monkeypatch):
-    """Without force an existing state is left alone; with force it is re-adapted."""
-    from SRToolkit.experiments import experiment_grid as eg
-
-    state = tmp_path / "state.pt"
+def test_adapt_one_force_readapts_and_passes_task(tmp_path, monkeypatch):
+    """Without force an existing state is left alone; with force adapt gets the dataset's task."""
+    _isolate_cache(monkeypatch, tmp_path)
+    state = tmp_path / "state"
     state.write_text("OLD")
-    ap = _OnceProGED()
-    ap.config.name = "OnceAp"
-    grid = _make_grid(str(tmp_path / "run"), approaches=[ap], adapted_states={"OnceAp": {"ds1": str(state)}})
+    ds = _task_dataset()
+    grid = _make_grid(
+        str(tmp_path / "run"),
+        datasets=[ds],
+        approaches=[_GridRecorder("once")],
+        adapted_states={"recorder": {"ds1": str(state)}},
+    )
 
-    calls = []
-
-    class _FakeApproach:
-        def prepare(self):
-            pass
-
-        def adapt(self, X, symbol_library):
-            calls.append("adapt")
-
-        def save_adapted_state(self, path):
-            with open(path, "w") as fh:
-                fh.write("NEW")
-
-    class _FakeDataset:
-        X = None
-        symbol_library = None
-
-    monkeypatch.setattr(eg.SR_approach, "from_config_dict", staticmethod(lambda cfg: _FakeApproach()))
-    monkeypatch.setattr(eg.SR_dataset, "from_dict", staticmethod(lambda d: _FakeDataset()))
-
-    # Default: existing file is a no-op — not re-adapted, contents untouched.
-    grid.adapt_one("OnceAp", "ds1")
-    assert calls == []
+    grid.adapt_one("recorder", "ds1")
     assert state.read_text() == "OLD"
 
-    # force=True: re-adapts and overwrites.
-    grid.adapt_one("OnceAp", "ds1", force=True)
-    assert calls == ["adapt"]
-    assert state.read_text() == "NEW"
+    grid.adapt_one("recorder", "ds1", force=True)
+    record = json.loads(state.read_text())
+    assert record["X_shape"] == list(ds.X.shape)
+    assert record["X_sum"] == pytest.approx(float(ds.X.sum()))
+    assert record["background_knowledge"] == json.loads(json.dumps(ds.background_knowledge.to_dict()))
+    assert record["required"] == [c.to_dict() for c in _TASK_REQUIRED]
+    assert record["checked"] == [True, True, True]
 
 
 def test_cli_adapt_force_requires_single_pair():
@@ -919,3 +905,119 @@ def test_export_include_results_roundtrips(tmp_path):
         assert (tmp_path / "recipient" / "vol" / "ProGED" / "exp_0.json").exists()
     finally:
         data_cache.remove(benchmark)
+
+
+# --------------------------------------------------------------------------- #
+# What adapt receives (stage D)
+# --------------------------------------------------------------------------- #
+_TASK_REQUIRED = [MaxConstants(8), MaxTokens(20), MaxTreeDepth(5)]
+
+
+def _task_dataset():
+    """Grid dataset whose required list is _TASK_REQUIRED, with a hint and a description."""
+    return SR_dataset.from_samplers(
+        ground_truth=["X_0", "*", "X_0"],
+        samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+        n_samples=16,
+        seed=1,
+        dataset_name="ds1",
+        benchmark="unit_test",
+        version="1.0.0",
+        max_evaluations=5,
+        required_constraints=[MaxTreeDepth(5)],
+        max_expr_length=20,
+        advisory_constraints=[MaxTreeDepth(3)],
+        description="Toy task",
+    )
+
+
+@dataclass
+class _RecorderConfig(ApproachConfig):
+    name: str = "recorder"
+    scope: str = "experiment"
+
+
+class _GridRecorder(SR_approach):
+    """Logs calls; its saved state is a JSON record of what the last ``adapt`` received."""
+
+    def __init__(self, scope="experiment"):
+        super().__init__(_RecorderConfig(scope=scope))
+        self.events = []
+        self.adapt_args = []
+        self.loaded_from = []
+
+    @property
+    def adaptation_scope(self):
+        return self.config.scope
+
+    def prepare(self):
+        self.events.append("prepare")
+
+    def adapt(self, X, background_knowledge, required_constraints):
+        self.events.append("adapt")
+        required = tuple(required_constraints)
+        checked = [c.pre_check(["X_0"]).passed for c in required]  # raises unless set up
+        self.adapt_args.append((X, background_knowledge, required, checked))
+
+    def search(self, sr_evaluator, seed=None):
+        self.events.append("search")
+        sr_evaluator.evaluate_expr(["X_0"])
+
+    def save_adapted_state(self, path):
+        self.events.append("save")
+        X, bk, required, checked = self.adapt_args[-1]
+        record = {
+            "X_shape": list(X.shape),
+            "X_sum": float(X.sum()),
+            "background_knowledge": bk.to_dict(),
+            "required": [c.to_dict() for c in required],
+            "checked": checked,
+        }
+        with open(path, "w") as fh:
+            json.dump(record, fh)
+
+    def load_adapted_state(self, path):
+        self.events.append("load")
+        self.loaded_from.append(path)
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config["scope"])
+
+
+@pytest.mark.parametrize("scope", ["experiment", "once"])
+def test_job_run_passes_task_to_adapt(tmp_path, monkeypatch, scope):
+    _isolate_cache(monkeypatch, tmp_path)
+    ds = _task_dataset()
+    approach = _GridRecorder(scope)
+    ExperimentJob(ds, approach, ExperimentInfo(seed=0, result_path=str(tmp_path / "r.json"))).run()
+    [(X, bk, required, checked)] = approach.adapt_args
+    assert X.tolist() == ds.X.tolist()
+    assert bk is ds.background_knowledge
+    assert [c.to_dict() for c in required] == [c.to_dict() for c in _TASK_REQUIRED]
+    assert checked == [True, True, True]
+    assert len(required) == len(ds.required_constraints)
+    assert all(a is b for a, b in zip(required, ds.required_constraints))
+
+
+def _run_once_job(tmp_path, seed, state_path):
+    approach = _GridRecorder("once")
+    info = ExperimentInfo(seed=seed, result_path=str(tmp_path / f"r{seed}.json"), adapted_state_path=state_path)
+    ExperimentJob(_task_dataset(), approach, info).run()
+    return approach
+
+
+@pytest.mark.parametrize(
+    "with_path, expected",
+    [(False, (1, 1, 0)), (True, (1, 0, 1))],
+    ids=["without-path-adapts-every-job", "with-path-loads-saved-state"],
+)
+def test_job_run_once_reuses_state_only_with_path(tmp_path, monkeypatch, with_path, expected):
+    _isolate_cache(monkeypatch, tmp_path)
+    state = tmp_path / "missing" / "dirs" / "state"  # parent directories are created
+    path = str(state) if with_path else None
+    first = _run_once_job(tmp_path, 0, path)
+    second = _run_once_job(tmp_path, 1, path)
+    assert (first.events.count("adapt"), second.events.count("adapt"), len(second.loaded_from)) == expected
+    assert second.loaded_from == [path] * expected[2]
+    assert state.exists() is with_path

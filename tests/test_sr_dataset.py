@@ -14,7 +14,14 @@ from SRToolkit.dataset.data_source import SampleSource
 from SRToolkit.dataset.data_split import DataSplit
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.dataset.sr_dataset import SR_dataset
-from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth, NoNesting, RequiredVariables
+from SRToolkit.utils.expression_constraints import (
+    MaxConstants,
+    MaxTokens,
+    MaxTreeDepth,
+    NoNesting,
+    OutputBounds,
+    RequiredVariables,
+)
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
@@ -595,11 +602,11 @@ class TestRequiredConstraints:
         ds = SR_dataset(_X2, _lib2c(), y=_Y, **kwargs)
         assert _dicts(ds.required_constraints) == _dicts(expected)
 
-    def test_required_constraints_stores_given_instances(self):
+    def test_required_constraints_accepts_any_iterable(self):
         c = MaxTreeDepth(4)
         ds = SR_dataset(_X2, _lib2c(), y=_Y, required_constraints=(x for x in [c]))
         assert isinstance(ds.required_constraints, tuple)
-        assert ds.required_constraints[-1] is c
+        assert ds.required_constraints[-1].to_dict() == c.to_dict()
 
 
 class TestDescribe:
@@ -700,7 +707,8 @@ class TestCreateEvaluatorConstraints:
         ds.create_evaluator()
         assert _dicts(ev.required_constraints) == _dicts(ds.required_constraints)
         assert _dicts(ev.advisory_constraints) == _dicts(hints)
-        assert all(c.symbol_library is None for c in ds.required_constraints + ds.background_knowledge.constraints)
+        assert all(c.symbol_library is ds.symbol_library for c in ds.required_constraints)
+        assert all(c.symbol_library is ds.symbol_library for c in ds.background_knowledge.constraints)
         assert all(e is not d for e, d in zip(ev.required_constraints, ds.required_constraints))
 
     @pytest.mark.parametrize(
@@ -738,14 +746,14 @@ class TestCreateEvaluatorConstraints:
         [
             (lambda: _bed_dataset(), True, (-5.0, 5.0)),
             (lambda: _bed_dataset(constant_bounds=(-1, 1)), True, (-1.0, 1.0)),
-            (lambda: _bed_dataset(num_points_sampled=-1), False, (-5.0, 5.0)),
+            (lambda: _bed_dataset(num_points_sampled=-1), True, (-5.0, 5.0)),
             (
                 lambda: _bed_dataset(
                     bed_gt=create_behavior_matrix(
                         ["X_0", "+", "C"], np.random.default_rng(0).random((20, 2)), num_consts_sampled=4, seed=0
                     )
                 ),
-                False,
+                True,
                 (-5.0, 5.0),
             ),
             (
@@ -755,7 +763,7 @@ class TestCreateEvaluatorConstraints:
                     y=np.zeros(20),
                     samplers=[UniformSampling(0, 1), UniformSampling(0, 1)],
                 ),
-                False,
+                True,
                 (-5.0, 5.0),
             ),
             (
@@ -778,11 +786,6 @@ class TestCreateEvaluatorConstraints:
         assert ("samplers" in ev.kwargs) is has_samplers
         if has_samplers:
             assert _dicts(ev.kwargs["samplers"]) == _dicts(ds.samplers)
-
-    def test_create_evaluator_rejects_misfit_constraint(self):
-        ds = SR_dataset(_X2, _lib2c(), y=_Y, required_constraints=[RequiredVariables("X_9")])
-        with pytest.raises(ValueError, match="X_9"):
-            ds.create_evaluator()
 
 
 class TestFormat4:
@@ -1049,3 +1052,153 @@ def test_evaluate_approach_seeds_experiments_from_base(initial_seed, dataset_see
     results = ds.evaluate_approach(approach, num_experiments=3, initial_seed=initial_seed)
     assert approach.seeds == expected
     assert len(results.results) == 3
+
+
+# ── Approach access (stage D) ─────────────────────────────────────────────────
+
+
+class _AdaptRecorder(SR_approach):
+    """Logs the framework's calls and what ``adapt`` received; ``pre_check`` raises unless set up."""
+
+    def __init__(self, scope="experiment"):
+        super().__init__(ApproachConfig(name="recorder"))
+        self._scope = scope
+        self.events = []
+        self.adapt_args = []
+        self.loaded_from = []
+
+    @property
+    def adaptation_scope(self):
+        return self._scope
+
+    def prepare(self):
+        self.events.append("prepare")
+
+    def adapt(self, X, background_knowledge, required_constraints):
+        self.events.append("adapt")
+        required = tuple(required_constraints)
+        checked = [c.pre_check(["X_0"]).passed for c in required]
+        self.adapt_args.append((X, background_knowledge, required, checked))
+
+    def search(self, sr_evaluator, seed=None):
+        self.events.append("search")
+        sr_evaluator.evaluate_expr(["X_0"])
+
+    def save_adapted_state(self, path):
+        self.events.append("save")
+        Path(path).write_text("state")
+
+    def load_adapted_state(self, path):
+        self.events.append("load")
+        self.loaded_from.append(path)
+
+
+def _task_dataset(**kwargs):
+    """Dataset whose required list is [MaxConstants(8), MaxTokens(20), MaxTreeDepth(5)], with a hint."""
+    X = np.random.default_rng(0).random((10, 2))
+    defaults = dict(
+        y=X[:, 0],
+        required_constraints=[MaxTreeDepth(5)],
+        max_expr_length=20,
+        advisory_constraints=[MaxTreeDepth(3)],
+        description="Toy task",
+        variables={"X_0": VariableInfo("x", "position")},
+        target=VariableInfo("F", "force"),
+    )
+    defaults.update(kwargs)
+    return SR_dataset(X, _lib2c(), **defaults)
+
+
+_TASK_REQUIRED = [MaxConstants(8), MaxTokens(20), MaxTreeDepth(5)]
+
+
+class TestRequiredConstraintsSetUp:
+    @pytest.mark.parametrize(
+        "kwargs, expected",
+        [({}, _TASK_REQUIRED), ({"max_constants": -1, "max_expr_length": -1, "required_constraints": []}, [])],
+        ids=["limits-first", "none"],
+    )
+    def test_required_constraints_are_set_up_copies(self, kwargs, expected):
+        given = MaxTreeDepth(5)
+        kwargs.setdefault("required_constraints", [given])
+        ds = _task_dataset(**kwargs)
+        stored = ds.required_constraints
+        assert isinstance(stored, tuple)
+        assert _dicts(stored) == _dicts(expected)
+        assert all(c.symbol_library is ds.symbol_library for c in stored)
+        assert all(c is not given for c in stored)
+        assert given.symbol_library is None
+
+    @pytest.mark.parametrize(
+        "constraint, match",
+        [(RequiredVariables("X_9"), "X_9"), (OutputBounds(np.zeros((2, 3)), lower=0.0), None)],
+        ids=["unknown-variable", "points-wrong-columns"],
+    )
+    def test_misfit_required_constraint_rejected(self, constraint, match):
+        with pytest.raises(ValueError, match=match):
+            SR_dataset(_X2, _lib2c(), y=_Y, required_constraints=[constraint])
+
+
+class TestEvaluateApproachAdapt:
+    @pytest.mark.parametrize("scope", ["experiment", "once"])
+    def test_evaluate_approach_passes_task_to_adapt(self, scope):
+        ds = _task_dataset()
+        approach = _AdaptRecorder(scope)
+        ds.evaluate_approach(approach, num_experiments=1, verbose=False)
+        [(X, bk, required, checked)] = approach.adapt_args
+        np.testing.assert_array_equal(X, ds.X)
+        assert bk is ds.background_knowledge
+        assert _dicts(required) == _dicts(_TASK_REQUIRED)
+        assert checked == [True, True, True]
+        assert len(required) == len(ds.required_constraints)
+        assert all(a is b for a, b in zip(required, ds.required_constraints))
+
+    @pytest.mark.parametrize(
+        "scope, with_path, expected",
+        [
+            ("never", False, ["prepare", "search", "prepare", "search"]),
+            ("once", False, ["prepare", "adapt", "search", "prepare", "search"]),
+            ("experiment", True, ["prepare", "adapt", "search", "prepare", "adapt", "search"]),
+        ],
+        ids=["never", "once-without-path", "experiment-not-saved"],
+    )
+    def test_evaluate_approach_adapts_per_scope(self, tmp_path, scope, with_path, expected):
+        ds = _task_dataset()
+        approach = _AdaptRecorder(scope)
+        path = str(tmp_path / "state") if with_path else None
+        ds.evaluate_approach(approach, num_experiments=2, verbose=False, adaptation_path=path)
+        ds.evaluate_approach(approach, num_experiments=2, verbose=False, adaptation_path=path)
+        assert approach.events == expected * 2
+        assert not (tmp_path / "state").exists()
+
+    def test_evaluate_approach_once_reuses_saved_state_as_is(self, tmp_path):
+        path = str(tmp_path / "missing" / "dirs" / "state")  # parent directories are created
+        first = _AdaptRecorder("once")
+        _task_dataset().evaluate_approach(first, num_experiments=2, verbose=False, adaptation_path=path)
+        assert (first.events.count("adapt"), first.events.count("save")) == (1, 1)
+        assert Path(path).read_text() == "state"
+
+        second = _AdaptRecorder("once")
+        changed = _task_dataset(max_constants=3)
+        changed.evaluate_approach(second, num_experiments=2, verbose=False, adaptation_path=path)
+        assert (second.events.count("adapt"), second.loaded_from) == (0, [path])
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda: SR_dataset(_X2, _lib2c(), y=_Y),
+        lambda: _task_dataset(
+            samplers=[UniformSampling(0, 1), UniformSampling(2, 3)],
+            constant_bounds=(-2, 2),
+            reference_grammar=_grammar(),
+        ),
+    ],
+    ids=["minimal", "rich"],
+)
+def test_evaluator_describes_task_like_dataset(make):
+    ds = make()
+    ev = ds.create_evaluator()
+    assert ev.background_knowledge.to_dict() == ds.background_knowledge.to_dict()
+    assert ev.describe() == ds.describe()
+    assert ev.priors() == ds.priors()

@@ -127,9 +127,11 @@ class RankingSettings(TypedDict, total=False):
             Default: ``"stack"``.
         num_points_sampled: Number of domain points used when evaluating expression
             behavior for BED. ``-1`` uses all points in ``X``. Default: ``64``.
-        samplers: Per-feature list of [Sampler][SRToolkit.dataset.sampling.Sampler] that draw
-            the BED evaluation points (``num_points_sampled`` of them). Takes precedence over
-            subsampling ``X``. Default: ``None``.
+        samplers: The input distribution: one [Sampler][SRToolkit.dataset.sampling.Sampler] per
+            variable. BED draws its ``num_points_sampled`` points from them when the behavior comes
+            from a ground-truth expression and ``num_points_sampled`` is not ``-1``; otherwise it
+            uses rows of ``X``. The evaluator also puts them in its background knowledge.
+            Default: ``None``.
         bed_gt: Precomputed ground-truth behavior matrix for BED, one row per row of ``X`` and
             ``num_consts_sampled`` columns (so ``X`` must be the points it was computed on;
             ``samplers`` are ignored with it). If ``None``, the behavior is computed from the ground

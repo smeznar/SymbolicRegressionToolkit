@@ -26,14 +26,20 @@ into [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] (8 by d
 ``required_constraints``. A ``MaxConstants`` / ``MaxTokens`` already in the list takes the place
 of its limit (a different non-negative limit is a ``ValueError``), and a negative limit adds
 nothing.
-The advisory constraints of the background knowledge only record violations; the evaluator gets
-both lists from [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator].
+The advisory constraints of the background knowledge only record violations. The evaluator from
+[create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] gets the background
+knowledge and the required constraints, and so does an approach's
+[adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt]. Both constraint lists are stored as
+copies set up on the symbol library, so their checks can run.
 
 ## Text
 
 [describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe] renders only the background knowledge
-and the required constraints, so it can go into a prompt. ``str(dataset)`` adds the answer (the
-target equation) and the ranking.
+and the required constraints, so it can go into a prompt; an evaluator from ``create_evaluator``
+gives the same text with
+[SR_evaluator.describe][SRToolkit.evaluation.sr_evaluator.SR_evaluator.describe], so an approach
+can read it during the search. ``str(dataset)`` adds the answer (the target equation) and the
+ranking.
 
 ## File format
 
@@ -71,7 +77,7 @@ from SRToolkit.evaluation.sr_evaluator import (
 )
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.expression_compiler import compile_expr
-from SRToolkit.utils.expression_constraints import ExpressionConstraint
+from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.types import RankingSettings
 
@@ -105,7 +111,7 @@ def _resolve_task(
         _as_constraint_tuple(() if required_constraints is None else required_constraints, "required_constraints"),
         limits,
     )
-    return bk, required, dict(kwargs)
+    return bk, tuple(_set_up_copy(c, bk.symbol_library) for c in required), dict(kwargs)
 
 
 class SR_dataset:
@@ -160,7 +166,8 @@ class SR_dataset:
             variables; ``max_constants`` / ``max_expr_length`` is not an integer
             or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``ground_truth`` is an ndarray
             (pass a BED behaviour matrix as ``bed_gt``); an ``aux_data`` key is not a valid file name;
-            or as for [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
+            a required constraint does not fit the symbol library (raised by its ``setup``); or as
+            for [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
         TypeError: If ``required_constraints`` holds something that is not an
             ``ExpressionConstraint``, or as for ``BackgroundKnowledge``.
 
@@ -180,7 +187,7 @@ class SR_dataset:
         symbol_library: ``background_knowledge.symbol_library`` (read-only).
         samplers: ``background_knowledge.samplers``: a tuple in variable order, or ``None`` (read-only).
         constant_bounds: ``background_knowledge.constant_bounds`` (read-only).
-        required_constraints: The required constraints as a tuple, the limit ones first (read-only).
+        required_constraints: The required constraints as a tuple (read-only).
         ranking_function: As given.
         max_evaluations: As given.
         success_threshold: As given.
@@ -320,7 +327,7 @@ class SR_dataset:
 
     @property
     def required_constraints(self) -> Tuple[ExpressionConstraint, ...]:
-        """The required constraints, the ``max_constants`` / ``max_expr_length`` ones first (read-only)."""
+        """The required constraints (read-only)."""
         return self._required_constraints
 
     # ── Data accessors ───────────────────────────────────────────────────────
@@ -413,7 +420,9 @@ class SR_dataset:
         [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]. Experiment ``i``
         (from 0) is seeded with ``seed + i``, where ``seed`` is ``initial_seed`` or the dataset seed; it
         is unseeded if both are ``None``. Approaches with ``adaptation_scope="once"`` adapt before the
-        first experiment, those with ``"experiment"`` before each one.
+        first experiment, those with ``"experiment"`` before each one;
+        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] gets ``X``, ``background_knowledge``
+        and ``required_constraints``.
 
         Args:
             sr_approach: The approach to run.
@@ -426,7 +435,8 @@ class SR_dataset:
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher].
             verbose: Print a line as each experiment starts.
             adaptation_path: For ``adaptation_scope="once"``: load the adapted state from this file if it
-                exists, otherwise adapt and save it there. ``None`` adapts without saving.
+                exists, otherwise adapt and save it there, creating its parent directories. ``None``
+                adapts without saving.
 
         Returns:
             ``results`` (or a new ``SR_results``) with one entry per experiment.
@@ -450,17 +460,6 @@ class SR_dataset:
 
         dataset_name = self.dataset_name
 
-        if sr_approach.adaptation_scope == "once":
-            if adaptation_path is not None and os.path.exists(adaptation_path):
-                sr_approach.load_adapted_state(adaptation_path)
-            else:
-                sr_approach.adapt(self.X, self.symbol_library)
-                if adaptation_path is not None:
-                    dir_name = os.path.dirname(adaptation_path)
-                    if dir_name:
-                        os.makedirs(dir_name, exist_ok=True)
-                    sr_approach.save_adapted_state(adaptation_path)
-
         for experiment in range(num_experiments):
             if verbose:
                 print(f"Running experiment {experiment + 1}/{num_experiments}")
@@ -479,8 +478,18 @@ class SR_dataset:
 
             sr_approach.prepare()
 
-            if sr_approach.adaptation_scope == "experiment":
-                sr_approach.adapt(self.X, self.symbol_library)
+            if sr_approach.adaptation_scope == "once" and experiment == 0:
+                if adaptation_path is not None and os.path.exists(adaptation_path):
+                    sr_approach.load_adapted_state(adaptation_path)
+                else:
+                    sr_approach.adapt(self.X, self.background_knowledge, self.required_constraints)
+                    if adaptation_path is not None:
+                        dir_name = os.path.dirname(adaptation_path)
+                        if dir_name:
+                            os.makedirs(dir_name, exist_ok=True)
+                        sr_approach.save_adapted_state(adaptation_path)
+            elif sr_approach.adaptation_scope == "experiment":
+                sr_approach.adapt(self.X, self.background_knowledge, self.required_constraints)
 
             evaluator = self.create_evaluator(seed=seed)
             evaluator._experiment_id = f"{dataset_name}_{sr_approach.name}_{seed}"
@@ -499,8 +508,8 @@ class SR_dataset:
     def ranking_settings(self) -> Dict[str, Any]:
         """Return the settings the ranking function gets, as in an evaluator from ``create_evaluator``.
 
-        They are ``kwargs`` plus ``constant_bounds``, plus ``samplers`` if the dataset has samplers
-        and a ground truth, no ``bed_gt`` and ``num_points_sampled != -1``. Unless ``bed_resample``
+        They are ``kwargs`` plus ``constant_bounds``, plus ``samplers`` if the dataset has them
+        (BED draws its points from them when it can; other rankings ignore them). Unless ``bed_resample``
         is set, ``ranking_seed`` defaults to the dataset seed (``0`` if ``None``), so every run is
         scored by the same objective. Pass them to
         [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] to score held-out
@@ -510,19 +519,9 @@ class SR_dataset:
             A new dict of settings; the limits ``max_constants`` / ``max_expr_length`` are not in it
             (they are in ``required_constraints``).
         """
-        # The dataset's samplers define its input distribution, so hand them to the ranking: BED draws its
-        # evaluation points from them when its behaviour comes from the ground-truth expression.
-        # Not forwarded with num_points_sampled=-1 ("use all of X"), a precomputed bed_gt, or no
-        # ground truth (BED then uses y), whose behaviour exists only at the rows of X. Rankings
-        # ignore settings they do not read.
         settings: Dict[str, Any] = dict(self.kwargs)
         settings["constant_bounds"] = self.constant_bounds
-        if (
-            self.samplers is not None
-            and self.ground_truth is not None
-            and settings.get("num_points_sampled") != -1
-            and settings.get("bed_gt") is None
-        ):
+        if self.samplers is not None:
             settings["samplers"] = list(self.samplers)
         # Fix the ranking's randomness per dataset, unless the user asked for it to be resampled each run.
         if not settings.get("bed_resample", False):
@@ -532,9 +531,11 @@ class SR_dataset:
     def create_evaluator(self, metadata: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> SR_evaluator:
         """Create an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] for this dataset.
 
-        The evaluator gets ``required_constraints`` as required and ``background_knowledge.constraints``
-        as advisory constraints, adds no limits of its own, and passes
+        The evaluator gets the parts of the background knowledge (its ``constraints`` as advisory
+        constraints) and ``required_constraints`` as required, adds no limits of its own, and passes
         [ranking_settings][SRToolkit.dataset.sr_dataset.SR_dataset.ranking_settings] to the ranking.
+        Its ``background_knowledge`` is rebuilt from these parts, so its ``to_dict()``,
+        ``describe()`` and ``priors()`` equal this dataset's.
 
         Args:
             metadata: Metadata to attach to the evaluator; ``dataset_name`` and ``dataset_metadata`` are
@@ -545,8 +546,8 @@ class SR_dataset:
             The configured evaluator.
 
         Raises:
-            ValueError: If a constraint or the ranking rejects the dataset (e.g. RMSE with neither ``y``
-                nor ``ground_truth``).
+            ValueError: If the ranking rejects the dataset (e.g. RMSE with neither ``y`` nor
+                ``ground_truth``).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
 
         Examples:
@@ -573,6 +574,10 @@ class SR_dataset:
             metadata=metadata,
             required_constraints=self.required_constraints,
             advisory_constraints=tuple(self.background_knowledge.constraints),
+            variables=self.background_knowledge.variables,
+            target=self.background_knowledge.target,
+            description=self.background_knowledge.description,
+            reference_grammar=self.background_knowledge.reference_grammar,
             # The limits are already in required_constraints; -1 adds none of the evaluator's own.
             max_constants=-1,
             max_expr_length=-1,
@@ -581,6 +586,9 @@ class SR_dataset:
 
     def describe(self) -> str:
         """Return the task as text for people and LLM prompts, without the answer.
+
+        An evaluator from ``create_evaluator`` gives the same text with
+        [SR_evaluator.describe][SRToolkit.evaluation.sr_evaluator.SR_evaluator.describe].
 
         Returns:
             [BackgroundKnowledge.describe][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe]
@@ -591,6 +599,9 @@ class SR_dataset:
 
     def priors(self) -> Dict[str, List[Dict[str, Any]]]:
         """Return the constraints as records, the structured form of ``describe``.
+
+        An evaluator from ``create_evaluator`` gives the same with
+        [SR_evaluator.priors][SRToolkit.evaluation.sr_evaluator.SR_evaluator.priors].
 
         Returns:
             ``{"required": [...], "advisory": [...]}``: the

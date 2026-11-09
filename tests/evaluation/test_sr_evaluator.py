@@ -11,6 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from strategies import infix_expressions
 
+from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation.callbacks import (
     CallbackDispatcher,
@@ -28,7 +29,7 @@ from SRToolkit.utils.expression_constraints import (
     RequiredVariables,
 )
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
-from SRToolkit.utils.grammar import MaxDepth, MaxNodes
+from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
 from SRToolkit.utils.measures import create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import CheckResult, EvalResult, ModelResult
@@ -39,6 +40,7 @@ _X = np.array([[1.0, 2.0], [8.0, 4.0], [5.0, 4.0], [7.0, 9.0]])
 _y = np.array([3.0, 0.0, 3.0, 11.0])  # y = 2*X_1 - X_0; optimal: ["C","*","X_1","-","X_0"]
 
 _X_BED = np.random.default_rng(0).random((20, 2)) - 0.5
+_LIB_BED = SymbolLibrary.default_symbols(2)
 
 
 # ── Concrete helpers ──────────────────────────────────────────────────────────
@@ -233,6 +235,7 @@ class TestSREvaluatorInitBed:
         samplers = [UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)]
         se = SR_evaluator(
             _X_BED,
+            symbol_library=_LIB_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
             samplers=samplers,
@@ -247,6 +250,7 @@ class TestSREvaluatorInitBed:
         def build():
             return SR_evaluator(
                 _X_BED,
+                symbol_library=_LIB_BED,
                 ground_truth=["C", "+", "X_0"],
                 ranking_function="bed",
                 samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
@@ -256,17 +260,17 @@ class TestSREvaluatorInitBed:
 
         assert np.array_equal(build().ranking.bed_X, build().ranking.bed_X)
 
-    def test_bed_samplers_reject_use_all_points(self):
-        samplers = [UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)]
-        with pytest.raises(ValueError, match="not valid together with samplers"):
-            SR_evaluator(
-                _X_BED,
-                ground_truth=["C", "+", "X_0"],
-                ranking_function="bed",
-                samplers=samplers,
-                num_points_sampled=-1,
-                seed=0,
-            )
+    def test_bed_use_all_points_wins_over_samplers(self):
+        se = SR_evaluator(
+            _X_BED,
+            symbol_library=_LIB_BED,
+            ground_truth=["C", "+", "X_0"],
+            ranking_function="bed",
+            samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
+            num_points_sampled=-1,
+            seed=0,
+        )
+        np.testing.assert_array_equal(se.ranking.bed_X, _X_BED)
 
     def test_bed_subsamples_X_without_replacement(self):
         se = SR_evaluator(
@@ -325,9 +329,11 @@ class TestSREvaluatorInitBed:
 
     def test_bed_gt_with_samplers_ignored(self):
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        with pytest.warns(UserWarning, match="samplers are ignored"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             se = SR_evaluator(
                 _X_BED,
+                symbol_library=_LIB_BED,
                 ranking_function="bed",
                 bed_gt=gt,
                 num_consts_sampled=4,
@@ -421,10 +427,12 @@ class TestSREvaluatorInitBed:
         np.testing.assert_array_equal(se.ranking.gt_behavior[:, 0], _X_BED[:, 0])
 
     def test_bed_y_with_samplers_ignored(self):
-        with pytest.warns(UserWarning, match="samplers are ignored"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             se = SR_evaluator(
                 _X_BED,
                 _X_BED[:, 0],
+                symbol_library=_LIB_BED,
                 ranking_function="bed",
                 samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
                 seed=0,
@@ -436,9 +444,10 @@ class TestSREvaluatorInitBed:
         assert se.success_threshold is None
 
     def test_bed_sampler_count_must_match_variables(self):
-        with pytest.raises(ValueError, match="1 samplers for 2 variables"):
+        with pytest.raises(ValueError, match="1 samplers"):
             SR_evaluator(
                 _X_BED,
+                symbol_library=_LIB_BED,
                 ground_truth=["C", "+", "X_0"],
                 ranking_function="bed",
                 samplers=[UniformSampling(0.0, 1.0)],
@@ -2197,3 +2206,121 @@ class TestConstraintEvaluation:
         assert se.evaluate_expr(expr) == pytest.approx(error, rel=1e-3, abs=1e-6)
         model = se.models[0]
         assert (model.status, model.status_detail, model.advisory_violations) == (status, detail, [])
+
+
+# ── Background knowledge ──────────────────────────────────────────────────────
+
+
+def _lib_pmc():
+    return SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
+
+
+def _task_parts(**kwargs):
+    # The parts of a task's background knowledge, as SR_evaluator takes them (flat).
+    parts = dict(
+        advisory_constraints=[MaxTreeDepth(4)],
+        description="Toy task",
+        variables={"X_0": VariableInfo("x", "position")},
+        target=VariableInfo("F"),
+    )
+    parts.update(kwargs)
+    return parts
+
+
+def _bk_from_parts(lib, advisory_constraints=(), constant_bounds=(-5.0, 5.0), **parts):
+    return BackgroundKnowledge(lib, constraints=advisory_constraints, constant_bounds=constant_bounds, **parts)
+
+
+class TestBackgroundKnowledge:
+    def test_background_knowledge_built_from_arguments(self):
+        lib = _lib_pmc()
+        hint = MaxTreeDepth(4)
+        grammar = Grammar.from_symbol_library(lib)
+        samplers = [UniformSampling(0, 1), UniformSampling(2, 3)]
+        parts = _task_parts(advisory_constraints=[hint], reference_grammar=grammar)
+        se = SR_evaluator(_X, _y, symbol_library=lib, constant_bounds=(-2, 2), samplers=samplers, **parts)
+        bk = se.background_knowledge
+        expected = _bk_from_parts(lib, constant_bounds=(-2, 2), samplers=samplers, **parts)
+        assert bk.to_dict() == expected.to_dict()
+        assert bk.symbol_library is lib
+        assert se.advisory_constraints is bk.constraints
+        assert bk.constraints[0] is not hint and bk.constraints[0].symbol_library is lib
+        assert hint.symbol_library is None
+        with pytest.raises(AttributeError):
+            se.background_knowledge = expected
+
+    def test_minimal_background_knowledge_defaults(self):
+        se = SR_evaluator(_X, _y)
+        bk = se.background_knowledge
+        assert bk.symbol_library is se.symbol_library
+        assert bk.constant_bounds == (-5.0, 5.0)
+        assert bk.constraints == ()
+        assert bk.samplers is None
+        assert (bk.description, bk.variables, bk.target) == ("", {}, None)
+
+    @pytest.mark.parametrize(
+        "kwargs, match",
+        [
+            ({"constant_bounds": (2, -2)}, None),
+            ({"variables": {"X_9": VariableInfo("z")}}, "X_9"),
+            ({"samplers": [UniformSampling(0, 1)]}, None),
+        ],
+        ids=["bad-bounds", "unknown-variable", "samplers-count"],
+    )
+    def test_background_knowledge_argument_errors(self, kwargs, match):
+        with pytest.raises(ValueError, match=match):
+            SR_evaluator(_X, _y, symbol_library=_lib_pmc(), **kwargs)
+
+    def test_describe_lists_settings_limits_as_enforced(self):
+        lib = _lib_pmc()
+        se = SR_evaluator(
+            _X, _y, symbol_library=lib, required_constraints=[MaxTreeDepth(3)], max_expr_length=10, **_task_parts()
+        )
+        expected = _bk_from_parts(lib, **_task_parts())
+        assert se.describe() == expected.describe([MaxConstants(8), MaxTokens(10), MaxTreeDepth(3)])
+
+    def test_describe_and_priors_ignore_answer_ranking_and_budget(self):
+        lib = _lib_pmc()
+        a = SR_evaluator(
+            _X, _y, symbol_library=lib, ground_truth=["X_0", "+", "X_1"], success_threshold=1e-6, **_task_parts()
+        )
+        b = SR_evaluator(
+            _X,
+            symbol_library=lib,
+            **_task_parts(),
+            ranking_function="bed",
+            ground_truth=["X_0", "*", "X_1"],
+            success_threshold=0.5,
+            max_evaluations=7,
+            seed=0,
+        )
+        assert a.describe() == b.describe()
+        assert a.priors() == b.priors()
+
+    def test_priors_are_constraint_summaries(self):
+        se = SR_evaluator(_X, _y, symbol_library=_lib_pmc(), required_constraints=[MaxTreeDepth(3)], **_task_parts())
+        assert se.priors() == {
+            "required": [MaxConstants(8).summary(), MaxTreeDepth(3).summary()],
+            "advisory": [MaxTreeDepth(4).summary()],
+        }
+
+
+class TestGetModel:
+    def test_get_model_returns_cached_result_without_billing(self):
+        se = SR_evaluator(_X, _y, symbol_library=_LIB2())
+        assert se.get_model(["X_0"]) is None
+        se.evaluate_expr(["X_0"])
+        for _ in range(3):
+            assert se.get_model(["X_0"]) is se.models[0]
+        assert se.total_evaluations == 1 and se.trace == [0]
+
+    def test_get_model_accepts_node(self):
+        lib = _LIB2()
+        se = SR_evaluator(_X, _y, symbol_library=lib)
+        se.evaluate_expr(["X_0", "+", "X_1"])
+        assert se.get_model(tokens_to_tree(["X_0", "+", "X_1"], lib)) is se.models[0]
+
+    def test_get_model_does_not_simplify(self):
+        se = SR_evaluator(_X, _y, symbol_library=_LIB2())
+        se.evaluate_expr(["X_0", "+", "X_0"], simplify_expr=True)
+        assert se.get_model(["X_0", "+", "X_0"]) is None

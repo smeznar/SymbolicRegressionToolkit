@@ -2,6 +2,7 @@
 
 import dataclasses
 import json
+import logging
 
 import numpy as np
 import pytest
@@ -109,12 +110,40 @@ class TestBackgroundKnowledgeInit:
         variables["X_1"] = VariableInfo("y")
         assert bk.variables == {"X_0": VariableInfo("x")}
 
-    def test_constraints_and_grammar_not_checked_against_library(self):
-        c = RequiredVariables("X_9")
-        grammar = Grammar(Rule.from_line("E -> 'Z' [1.0]"))
-        bk = BackgroundKnowledge(_lib(), constraints=[c], reference_grammar=grammar)
-        assert bk.constraints[0].symbol_library is None
-        assert bk.reference_grammar is grammar
+    def test_constraints_are_set_up_copies(self):
+        given = MaxTreeDepth(4)
+        lib = _lib()
+        bk = BackgroundKnowledge(lib, constraints=[given])
+        (stored,) = bk.constraints
+        assert stored is not given and stored.to_dict() == given.to_dict()
+        assert stored.symbol_library is lib
+        assert given.symbol_library is None
+        assert stored.pre_check(["X_0"]).passed
+
+    def test_constraint_that_does_not_fit_library_is_rejected(self):
+        with pytest.raises(ValueError, match="X_9"):
+            BackgroundKnowledge(_lib(), constraints=[RequiredVariables("X_9")])
+
+    def test_grammar_with_unknown_token_rejected(self):
+        with pytest.raises(ValueError, match="Z"):
+            BackgroundKnowledge(_lib(), reference_grammar=Grammar(Rule.from_line("E -> 'Z' [1.0]")))
+
+    def test_grammar_with_symbols_brackets_and_numbers_accepted(self):
+        grammar = Grammar(Rule.from_line("E -> '(' 'X_0' '+' '2.5' ')' [1.0]"), start="E")
+        assert BackgroundKnowledge(_lib(), reference_grammar=grammar).reference_grammar is grammar
+
+    def test_sampling_grammar_is_reference_grammar(self, caplog):
+        grammar = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
+        bk = BackgroundKnowledge(_lib(), reference_grammar=grammar)
+        with caplog.at_level(logging.INFO, logger="SRToolkit.dataset.background_knowledge"):
+            assert bk.sampling_grammar() is grammar
+        assert [r.levelno for r in caplog.records if r.name == "SRToolkit.dataset.background_knowledge"] == [
+            logging.INFO
+        ]
+
+    def test_sampling_grammar_defaults_to_library_grammar(self):
+        lib = _lib()
+        assert BackgroundKnowledge(lib).sampling_grammar().to_dict() == Grammar.from_symbol_library(lib).to_dict()
 
     @pytest.mark.parametrize(
         "kwargs, match",

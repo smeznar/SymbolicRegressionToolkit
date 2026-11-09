@@ -16,7 +16,8 @@ from SRToolkit.experiments import ExperimentGrid
 bm = Feynman()
 datasets = [bm.create_dataset(n) for n in bm.list_datasets(num_variables=2, verbose=False)[:4]]
 
-# EDHiE adapts once per symbol space; map each dataset to a shared weights file
+# EDHiE's training depends on the symbol library, reference grammar and required constraints;
+# these datasets share all three, so map each to a shared weights file
 adapted_states = {
     "EDHiE": {ds.dataset_name: "edhie_2v.pt" for ds in datasets}
 }

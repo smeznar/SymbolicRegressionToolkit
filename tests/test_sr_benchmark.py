@@ -13,7 +13,7 @@ from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
-from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth
+from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth, RequiredVariables
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -168,6 +168,12 @@ def _add_existing(bm):
             lambda bm: bm.add_dataset(_lib2c(), _XY, "x", ground_truth=_GT, required_constraints=[MaxDepth(3)]),
             TypeError,
         ),
+        (
+            lambda bm: bm.add_dataset(
+                _lib2c(), _XY, "x", ground_truth=_GT, required_constraints=[RequiredVariables("X_9")]
+            ),
+            ValueError,
+        ),
         (lambda bm: bm.add_dataset(_lib2c(), _XY, "x", ground_truth=np.zeros((5, 4))), ValueError),
         (lambda bm: bm.add_dataset(_lib2c(), _X, "x", ranking_function="bed"), ValueError),
         (lambda bm: bm.add_dataset(_lib2c(), (np.zeros((5, 3)), np.zeros(5)), "x", ground_truth=_GT), ValueError),
@@ -180,6 +186,7 @@ def _add_existing(bm):
         "tuple-y-not-array",
         "rmse-array-without-gt",
         "grammar-constraint",
+        "misfit-required-constraint",
         "ndarray-ground-truth",
         "bed-without-gt",
         "columns-differ-from-variables",

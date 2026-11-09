@@ -39,15 +39,18 @@ same classes; the list a constraint is in decides its role (see
 [expression_constraints][SRToolkit.utils.expression_constraints]).
 """
 
+import logging
 import math
 import numbers
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union, cast
 
 from SRToolkit.dataset.sampling import Sampler
-from SRToolkit.utils.expression_constraints import ExpressionConstraint
+from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -140,8 +143,8 @@ class BackgroundKnowledge:
         constant_bounds: ``(lower, upper)`` range free constants are fitted in: finite, with
             ``lower < upper``. Defaults to ``(-5, 5)``.
         constraints: Advisory constraints (hints).
-        reference_grammar: A grammar an approach may start from. Not checked against
-            ``symbol_library``.
+        reference_grammar: A grammar an approach may start from. Its terminal tokens must be
+            symbols of ``symbol_library``, brackets or numbers.
         description: Free text, as a domain expert would write it: what was measured, under which
             conditions, and what is known about the phenomenon (signs, limiting cases,
             monotonicity, symmetries). Must not name the law or equation being discovered.
@@ -154,13 +157,16 @@ class BackgroundKnowledge:
             ``constraints``, or ``bool`` as a bound.
         ValueError: If ``samplers`` does not give exactly one sampler per variable (the message
             names missing or unknown tokens); ``constant_bounds`` is not finite with
-            ``lower < upper``; or a key of ``variables`` is not a variable of ``symbol_library``.
+            ``lower < upper``; a key of ``variables`` is not a variable of ``symbol_library``; a
+            constraint does not fit ``symbol_library`` (raised by its ``setup``); or
+            ``reference_grammar`` has a terminal token that is not a symbol, bracket or number (the
+            message names it).
 
     Attributes:
         symbol_library: The symbol library, as given.
         samplers: The samplers as a tuple in the library's variable order, or ``None``.
         constant_bounds: ``(lower, upper)`` as a tuple of two ``float``s.
-        constraints: The advisory constraints as a tuple.
+        constraints: The advisory constraints, as a tuple.
         reference_grammar: The grammar, as given, or ``None``.
         description: The description, as given.
         variables: A copy of ``variables`` as a dict from token to ``VariableInfo``, in the
@@ -241,12 +247,19 @@ class BackgroundKnowledge:
                 raise TypeError(
                     f"[BackgroundKnowledge] every constraint must be an ExpressionConstraint, got {type(c).__name__}."
                 )
-        object.__setattr__(self, "constraints", constraints)
+        object.__setattr__(self, "constraints", tuple(_set_up_copy(c, self.symbol_library) for c in constraints))
 
         if self.reference_grammar is not None and not isinstance(self.reference_grammar, Grammar):
             raise TypeError(
                 f"[BackgroundKnowledge] 'reference_grammar' must be a Grammar or None, got {type(self.reference_grammar).__name__}."
             )
+        if self.reference_grammar is not None:
+            unknown_tokens = self.reference_grammar.unknown_tokens(self.symbol_library)
+            if unknown_tokens:
+                raise ValueError(
+                    f"[BackgroundKnowledge] 'reference_grammar' has terminal tokens that are not symbols of "
+                    f"'symbol_library', brackets or numbers: {sorted(unknown_tokens)}."
+                )
         if not isinstance(self.description, str):
             raise TypeError(
                 f"[BackgroundKnowledge] 'description' must be a str, got {type(self.description).__name__}."
@@ -297,6 +310,21 @@ class BackgroundKnowledge:
             if not isinstance(s, Sampler):
                 raise TypeError(f"[BackgroundKnowledge] every sampler must be a Sampler, got {type(s).__name__}.")
         return tuple(ordered)
+
+    def sampling_grammar(self) -> Grammar:
+        """Return the grammar to sample expressions from.
+
+        ``reference_grammar`` if it is set (logged at ``INFO`` level), otherwise a generic grammar
+        for ``symbol_library``
+        ([Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library]).
+
+        Returns:
+            The grammar.
+        """
+        if self.reference_grammar is not None:
+            logger.info("Sampling from the reference grammar of the background knowledge.")
+            return self.reference_grammar
+        return Grammar.from_symbol_library(self.symbol_library)
 
     def describe(self, required_constraints: Iterable[ExpressionConstraint] = ()) -> str:
         r"""Return a plain-text description of the task for people and LLM prompts.

@@ -39,8 +39,8 @@ bm = Feynman()
 ds_names = bm.list_datasets(num_variables=2, verbose=False)
 datasets = [bm.create_dataset(ds_names[0]), bm.create_dataset(ds_names[1])]
 
-# EDHiE trains a VAE once per symbol space; reuse the same weights for both datasets
-# since they share the same number of variables
+# EDHiE's trained VAE depends on the symbol library, reference grammar and required constraints;
+# these two datasets share all three, so they can reuse the same weights
 adapted_states = {
     "EDHiE": {ds_names[0]: "edhie_2v.pt", ds_names[1]: "edhie_2v.pt"}
 }

@@ -38,10 +38,11 @@ validity_rate = 1 - counts["invalid"] / (sum(counts.values()) - counts["error"])
 
 ## Constraints
 
-The evaluator takes two lists of
-[ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]; that module
-explains what the checks look at and the two roles. It calls ``setup`` with its symbol library on
-its own copies, so the instances passed in are not changed.
+The evaluator enforces the ``required_constraints`` and records the advisory ones, which are the
+``constraints`` of its background knowledge (see below). Both are
+[ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]s; that module
+explains what the checks look at and the two roles. The evaluator calls ``setup`` with its symbol
+library on its own copies, so the instances passed in are not changed.
 
 - ``required_constraints``: pre-checks run in order after parsing, post-checks in order after an
   ``"ok"`` score. The first failure gives ``"rejected"`` with the ``status_detail``
@@ -75,6 +76,17 @@ To avoid spending evaluations on expressions that would fail a pre-check, or to 
 by the advisory constraints, an approach can call
 [check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints] first: it runs
 the pre-checks only and is not billed.
+
+## Background knowledge
+
+The search sees only the evaluator, so the evaluator carries the task's
+[BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge] as
+[background_knowledge][SRToolkit.evaluation.sr_evaluator.SR_evaluator.background_knowledge].
+[describe][SRToolkit.evaluation.sr_evaluator.SR_evaluator.describe] and
+[priors][SRToolkit.evaluation.sr_evaluator.SR_evaluator.priors] give the task as text and as
+records, the same as the dataset's, e.g. to build an LLM prompt. Neither mentions the answer, but
+the evaluator does not hide it: ``ground_truth`` is a public attribute, which an approach must not
+read.
 
 ## Evaluation trace
 
@@ -122,7 +134,6 @@ Note:
     in ``result_augmentation`` to avoid circular imports.
 """
 
-import copy
 import dataclasses
 import importlib
 import json
@@ -132,7 +143,21 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from typing import Any, Callable, ClassVar, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import numpy as np
 from typing_extensions import Literal, Unpack
@@ -147,12 +172,23 @@ from SRToolkit.evaluation.callbacks import (
 from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.utils.expression_compiler import compile_expr
-from SRToolkit.utils.expression_constraints import ExpressionConstraint, MaxConstants, MaxTokens, _validate_limit
+from SRToolkit.utils.expression_constraints import (
+    ExpressionConstraint,
+    MaxConstants,
+    MaxTokens,
+    _set_up_copy,
+    _validate_limit,
+)
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, tokens_to_tree
+from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import CheckResult, EvalResult, ModelResult, RankingSettings, Status
+
+if TYPE_CHECKING:
+    # Imported for annotations only: SRToolkit.dataset imports this module.
+    from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
 
 logger = logging.getLogger(__name__)
 
@@ -369,12 +405,6 @@ def _add_limit_constraints_from_kwargs(
     return tuple(built) + constraints
 
 
-def _set_up_copy(constraint: ExpressionConstraint, symbol_library: SymbolLibrary) -> ExpressionConstraint:
-    duplicate = copy.copy(constraint)
-    duplicate.setup(symbol_library)
-    return duplicate
-
-
 def _failed_checks(
     constraints: Sequence[ExpressionConstraint], stage: str, subject: Any, first_only: bool = False
 ) -> List[CheckResult]:
@@ -415,6 +445,10 @@ class SR_evaluator:
         metadata: Optional[dict] = None,
         required_constraints: Optional[Sequence[ExpressionConstraint]] = None,
         advisory_constraints: Optional[Sequence[ExpressionConstraint]] = None,
+        variables: Optional[Mapping[str, "VariableInfo"]] = None,
+        target: Optional["VariableInfo"] = None,
+        description: str = "",
+        reference_grammar: Optional[Grammar] = None,
         **kwargs: Unpack[RankingSettings],
     ):
         """Evaluate expressions on data with a ranking function and collect the results.
@@ -440,8 +474,8 @@ class SR_evaluator:
             X: Input data of shape ``(n_samples, n_features)``.
             y: Target values of shape ``(n_samples,)``. RMSE needs ``y`` or a constant-free
                 ``ground_truth`` to generate it from; BED can use it in place of a ground truth.
-            symbol_library: Symbol library defining the tokens. Defaults to the active library
-                ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
+            symbol_library: Symbol library defining the tokens. ``None`` (default): the active
+                library ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
             max_evaluations: Budget of counted calls to
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
                 cache hits included. ``-1`` (default) means no limit.
@@ -462,16 +496,19 @@ class SR_evaluator:
                 ``"dataset_name"`` key is copied to
                 [EvalResult][SRToolkit.utils.types.EvalResult] ``dataset_name``.
             required_constraints: Constraints every evaluated expression must satisfy (see the
-                [module docs][SRToolkit.evaluation.sr_evaluator]); any iterable, ``None`` meaning
-                ``[]``. The evaluator stores shallow copies (data such as ``OutputBounds.points``
-                is shared with the instances passed in) and calls their ``setup``; an exception
-                from ``setup`` propagates. ``max_constants`` and ``max_expr_length`` add a
+                [module docs][SRToolkit.evaluation.sr_evaluator]); ``None`` means ``[]``.
+                ``max_constants`` and ``max_expr_length`` add a
                 [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] and a
                 [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] in front, unless a
                 negative setting disables them or the list already has one of that class.
             advisory_constraints: Constraints whose failed checks are recorded in each model's
-                ``advisory_violations`` without changing its error. Stored like
-                ``required_constraints``; ``None`` (default) means none.
+                ``advisory_violations`` without changing its error; stored like
+                ``required_constraints``. ``None`` (default) means none.
+            variables: Information per variable, keyed by token (e.g. ``"X_0"``).
+            target: Information about the target.
+            description: Free text about the task.
+            reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
+                start from.
             **kwargs: Settings from [RankingSettings][SRToolkit.utils.types.RankingSettings],
                 passed to the ranking function. The ranking's parameter estimator gets
                 ``max_constants`` and ``max_expr_length`` as ``-1``, since the evaluator enforces
@@ -482,19 +519,25 @@ class SR_evaluator:
                 an [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]
                 (e.g. the grammar constraint [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth],
                 or a single constraint passed instead of a sequence). The message names the item.
-                Also raised by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
+                Also raised as for
+                [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
+                and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
                 ``ranking_function`` of the wrong type.
             ValueError: If ``max_constants`` or ``max_expr_length`` is not an ``int`` or numpy
                 integer (``bool`` is rejected), or is given, non-negative and different from the
                 limit of a constraint of its class in ``required_constraints`` (a negative setting
-                adds nothing and never clashes); the message names the setting. Also raised by the ranking's ``setup``
-                for missing or malformed data (e.g. RMSE with neither ``y`` nor ``ground_truth``).
+                adds nothing and never clashes); the message names the setting. Also raised as
+                for ``BackgroundKnowledge`` (e.g. a ``constant_bounds`` setting that is not finite
+                with ``lower < upper``, or ``samplers`` without one sampler per variable), and by
+                the ranking's ``setup`` for missing or malformed data (e.g. RMSE with neither ``y``
+                nor ``ground_truth``).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
 
         Attributes:
             X: The input data.
             y: The target values as given (``None`` if RMSE generated them).
             symbol_library: The symbol library used.
+            background_knowledge: The background knowledge (read-only).
             ranking: The active [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]. It
                 owns the ranking's state: the
                 [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
@@ -541,7 +584,23 @@ class SR_evaluator:
         )
         required = _add_limit_constraints_from_kwargs(required, kwargs)
         self._required_constraints = tuple(_set_up_copy(c, symbol_library) for c in required)
-        self._advisory_constraints = tuple(_set_up_copy(c, symbol_library) for c in advisory)
+
+        # Background knowledge from the same values the evaluator fits with; it holds the set-up
+        # copies of the advisory constraints. Imported here: SRToolkit.dataset imports this module.
+        from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
+
+        self._background_knowledge = BackgroundKnowledge(
+            symbol_library,
+            samplers=kwargs.get("samplers"),
+            constant_bounds=kwargs.get("constant_bounds", DEFAULT_ESTIMATION_SETTINGS["constant_bounds"]),
+            constraints=advisory,
+            reference_grammar=reference_grammar,
+            description=description,
+            variables={} if variables is None else variables,
+            target=target,
+        )
+        # BackgroundKnowledge stores its constraints as a tuple; the field is typed Iterable.
+        self._advisory_constraints = cast(Tuple[ExpressionConstraint, ...], self._background_knowledge.constraints)
 
         if seed is not None:
             np.random.seed(seed)
@@ -607,6 +666,88 @@ class SR_evaluator:
     def advisory_constraints(self) -> Tuple[ExpressionConstraint, ...]:
         """The set-up copies of the advisory constraints, in the order given."""
         return self._advisory_constraints
+
+    @property
+    def background_knowledge(self) -> "BackgroundKnowledge":
+        """What the task tells the approach besides the data (read-only).
+
+        Built in the constructor from the symbol library, ``advisory_constraints``, ``variables``,
+        ``target``, ``description``, ``reference_grammar`` and the ``constant_bounds`` /
+        ``samplers`` settings, so it describes the task the evaluator scores. Its ``constraints``
+        are the advisory constraints.
+        """
+        return self._background_knowledge
+
+    def describe(self) -> str:
+        r"""Return the task as text for people and LLM prompts, without the answer.
+
+        [BackgroundKnowledge.describe][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe]
+        of [background_knowledge][SRToolkit.evaluation.sr_evaluator.SR_evaluator.background_knowledge]
+        with [required_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.required_constraints]
+        listed as enforced (including a ``MaxConstants`` / ``MaxTokens`` added by the settings).
+        For an evaluator from
+        [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] it
+        equals [SR_dataset.describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe]. It does not
+        mention the ground truth, success threshold, ranking or budget.
+
+        Returns:
+            The description, lines separated by ``"\n"``, without a trailing newline.
+
+        Examples:
+            >>> from SRToolkit.utils.expression_constraints import MaxTreeDepth
+            >>> X = np.array([[1.0], [2.0]])
+            >>> se = SR_evaluator(X, X[:, 0], symbol_library=SymbolLibrary.from_symbol_list(["+", "*", "C"], 1),
+            ...     advisory_constraints=[MaxTreeDepth(4)])
+            >>> print(se.describe())
+            Symbols: +, *, C, X_0
+            Free constants are fitted in [-5.0, 5.0].
+            Enforced constraints (expressions that break them are rejected):
+              - at most 8 free constants
+            Hints (advisory, may be ignored):
+              - expression tree at most 4 levels deep
+        """
+        return self._background_knowledge.describe(self._required_constraints)
+
+    def priors(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Return the constraints as records, the structured form of ``describe``.
+
+        For an evaluator from ``create_evaluator`` it equals
+        [SR_dataset.priors][SRToolkit.dataset.sr_dataset.SR_dataset.priors].
+
+        Returns:
+            ``{"required": [...], "advisory": [...]}``: the
+            [summary][SRToolkit.utils.expression_constraints.ExpressionConstraint.summary] of each of
+            ``required_constraints`` and ``advisory_constraints``, in order.
+        """
+        return {
+            "required": [c.summary() for c in self._required_constraints],
+            "advisory": [c.summary() for c in self._advisory_constraints],
+        }
+
+    def get_model(self, expr: Union[List[str], Node]) -> Optional[ModelResult]:
+        """Return the result of an already evaluated expression, or ``None``.
+
+        Does not count toward ``max_evaluations`` and fires no callbacks. The expression is matched
+        token for token, without simplifying it.
+
+        Args:
+            expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
+
+        Returns:
+            The cached [ModelResult][SRToolkit.utils.types.ModelResult], or ``None`` if ``expr`` has
+            not been evaluated.
+
+        Examples:
+            >>> X = np.array([[1.0], [2.0]])
+            >>> se = SR_evaluator(X, X[:, 0], symbol_library=SymbolLibrary.from_symbol_list(["+"], 1))
+            >>> se.get_model(["X_0"]) is None
+            True
+            >>> _ = se.evaluate_expr(["X_0"])
+            >>> se.get_model(["X_0"]).status
+            'ok'
+        """
+        index = self._model_index.get("".join(_as_tokens(expr, self.symbol_library)))
+        return None if index is None else self.models[index]
 
     def check_constraints(
         self,

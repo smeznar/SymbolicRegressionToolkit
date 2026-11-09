@@ -376,9 +376,9 @@ class ExperimentInfo:
             passed to [ExperimentJob][SRToolkit.experiments.ExperimentJob], the filename
             ``exp_{seed}.json`` is appended automatically.
         top_k: Number of top-ranked expressions to retain in the result. Default ``20``.
-        adapted_state_path: Base path to the pre-adapted state for ``"once"``-scope
-            approaches. ``None`` means the approach will adapt from scratch on every run and the
-            state will not be saved.
+        adapted_state_path: Path to the pre-adapted state for ``"once"``-scope approaches; its
+            parent directories are created when the state is saved. ``None`` means the approach
+            will adapt from scratch on every run and the state will not be saved.
     """
 
     seed: int
@@ -551,21 +551,22 @@ class ExperimentJob:
           if a path is set and the file exists, otherwise adapts (and saves if a path is set).
         - ``"experiment"``: adapts fresh every run.
 
+        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] gets the dataset's ``X``,
+        ``background_knowledge`` and ``required_constraints``.
         The result is saved via
         [SR_results.save][SRToolkit.evaluation.sr_evaluator.SR_results.save] to ``result_path``.
         """
+        # The constructor sets exactly one of the instance and the dict of each.
         if self._dataset_instance is not None:
             dataset = self._dataset_instance
         else:
-            if self._dataset_dict is None:
-                raise ValueError("No dataset provided: pass a dataset instance or a dataset dict.")
+            assert self._dataset_dict is not None
             dataset = SR_dataset.from_dict(self._dataset_dict)
 
         if self._approach_instance is not None:
             approach = self._approach_instance
         else:
-            if self._approach_dict is None:
-                raise ValueError("No approach provided: pass an approach instance or an approach dict.")
+            assert self._approach_dict is not None
             approach = SR_approach.from_config_dict(self._approach_dict)
 
         # Honors the contract for callers passing a live instance; a no-op for the
@@ -575,18 +576,18 @@ class ExperimentJob:
         if approach.adaptation_scope == "once":
             state_path = self.info.adapted_state_path
             if state_path is None:
-                approach.adapt(dataset.X, dataset.symbol_library)
+                approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
             else:
                 if os.path.exists(state_path):
                     approach.load_adapted_state(state_path)
                 else:
-                    approach.adapt(dataset.X, dataset.symbol_library)
+                    approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
                     dir_name = os.path.dirname(state_path)
                     if dir_name:
                         os.makedirs(dir_name, exist_ok=True)
                     approach.save_adapted_state(state_path)
         elif approach.adaptation_scope == "experiment":
-            approach.adapt(dataset.X, dataset.symbol_library)
+            approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
 
         evaluator = dataset.create_evaluator(seed=self.info.seed)
         evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
@@ -666,10 +667,11 @@ class ExperimentGrid:
         adapted_states: Optional mapping ``{approach_name: {dataset_name: path}}``
             providing paths for pre-adapted state files. Jobs for listed
             (approach, dataset) pairs will load state from the given path if it
-            exists, or adapt and save to it otherwise. Pairs not listed will adapt
+            exists, or adapt and save to it otherwise (creating its parent directories). Pairs not listed will adapt
             on every run without saving.  Several datasets may deliberately share one
-            ``path`` for approaches that adapt per symbol space rather than per dataset
-            (e.g. EDHiE): the path is then adapted once on the first dataset listed for
+            ``path`` for approaches whose adaptation depends only on what those datasets share
+            (e.g. EDHiE, for datasets with the same symbol library, reference grammar and
+            required constraints): the path is then adapted once on the first dataset listed for
             it and the others reuse that state. An informational warning lists any such
             shared paths so an accidental collision can be spotted; give each dataset a
             distinct ``path`` if adaptation must differ per dataset.
@@ -815,8 +817,9 @@ class ExperimentGrid:
 
         When several pairs map to the *same* ``state_path``, only the first is returned and an
         informational warning is emitted: the path is adapted once on the first dataset listed
-        for it and the rest reuse the result. This is intended for approaches that adapt per
-        symbol space rather than per dataset (e.g. EDHiE); give each dataset a distinct
+        for it and the rest reuse the result. This is intended for approaches whose adaptation
+        depends only on what those datasets share (e.g. EDHiE, for datasets with the same symbol
+        library, reference grammar and required constraints); give each dataset a distinct
         ``state_path`` if adaptation must differ per dataset.
         """
         pairs: "List[tuple[str, str]]" = []
@@ -842,8 +845,9 @@ class ExperimentGrid:
             warnings.warn(
                 "[ExperimentGrid] Some datasets share an adapted-state path, so each such path is "
                 "adapted only once — on the first dataset listed for it — and the rest reuse that "
-                "state. This is the intended setup for approaches that adapt per symbol space "
-                "(e.g. EDHiE) rather than per dataset:\n" + "\n".join(conflicts) + "\n"
+                "state. This is the intended setup for approaches whose adaptation depends only on what "
+                "those datasets share (e.g. EDHiE with the same symbol library, reference grammar and "
+                "required constraints):\n" + "\n".join(conflicts) + "\n"
                 "If adaptation should instead differ per dataset, give each dataset a distinct "
                 "'state_path' in the 'adapted_states' mapping.",
                 stacklevel=2,
@@ -856,7 +860,8 @@ class ExperimentGrid:
         This is the unit the per-pair adaptation commands in ``prepare.txt`` invoke (via the
         ``adapt`` CLI with ``--dataset``/``--approach``), so independent pairs can adapt in
         parallel across a cluster. It loads the dataset, calls
-        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt], and saves the state via
+        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] with the dataset's ``X``,
+        background knowledge and required constraints, and saves the state via
         [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state].
 
         Silently returns (no-op) when there is nothing to do: the approach is not
@@ -887,7 +892,10 @@ class ExperimentGrid:
             return
         dataset = SR_dataset.from_dict(self.datasets[dataset_name])
         approach = SR_approach.from_config_dict(approach_config)
-        approach.adapt(dataset.X, dataset.symbol_library)
+        approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
+        dir_name = os.path.dirname(state_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
         approach.save_adapted_state(state_path)
 
     def adapt_if_missing(self):
@@ -895,7 +903,8 @@ class ExperimentGrid:
 
         For each (approach, dataset) pair whose state file does not yet exist on disk,
         this method loads the dataset, calls
-        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] once, then persists the
+        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] once with the dataset's ``X``,
+        background knowledge and required constraints, then persists the
         state via
         [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state].
         Pairs whose state file already exists are skipped.
@@ -1213,10 +1222,11 @@ class ExperimentGrid:
             adapted_states: Optional mapping ``{approach_name: {dataset_name: path}}``
                 providing paths for pre-adapted state files. Jobs for listed
                 (approach, dataset) pairs will load state from the given path if it
-                exists, or adapt and save to it otherwise. Pairs not listed will adapt
+                exists, or adapt and save to it otherwise (creating its parent directories). Pairs not listed will adapt
                 on every run without saving.  Several datasets may deliberately share one
-                ``path`` for approaches that adapt per symbol space rather than per dataset
-                (e.g. EDHiE): the path is then adapted once on the first dataset listed for
+                ``path`` for approaches whose adaptation depends only on what those datasets share
+                (e.g. EDHiE, for datasets with the same symbol library, reference grammar and
+                required constraints): the path is then adapted once on the first dataset listed for
                 it and the others reuse that state. An informational warning lists any such
                 shared paths so an accidental collision can be spotted; give each dataset a
                 distinct ``path`` if adaptation must differ per dataset.

@@ -3,14 +3,18 @@
 import importlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import SymbolLibrary
+from SRToolkit.utils.expression_constraints import ExpressionConstraint
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
+
+if TYPE_CHECKING:
+    # Imported for annotations only: SRToolkit.dataset imports this module.
+    from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 
 
 def check_dependencies(packages: List[str]) -> None:
@@ -130,33 +134,36 @@ class SR_approach(ABC):
 
     @property
     def adaptation_scope(self) -> str:
-        """Controls when ``adapt()`` is called by the framework, and whether
-        ``save_adapted_state()`` / ``load_adapted_state()`` are used.
+        """When the framework calls [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt].
 
-        - ``"never"``: ``adapt()`` is never called (default). ``save_adapted_state()`` and ``load_adapted_state()``
-                       do not need to be implemented.
-        - ``"once"``: ``adapt()`` is called once; the framework caches the result via ``save_adapted_state()`` and
-                      restores it via ``load_adapted_state()`` on subsequent experiments with the same library. Both
-                      methods must be implemented when this scope is used.
-        - ``"experiment"``: ``adapt()`` is called before every ``search()``. ``save_adapted_state()``
-                            is called only if ``save_adapted_model`` is also ``True``.
+        - ``"never"`` (default): never.
+        - ``"experiment"``: before every ``search``.
+        - ``"once"``: before the first experiment of each
+          [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] call or grid
+          job. With a state path (``adaptation_path`` or ``adapted_states``), what happens depends on
+          whether that file exists: if it does, the state is loaded from it with
+          [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state] and
+          ``adapt`` is not called; if not, the approach adapts and saves the state there with
+          [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state].
+          Without a path, it adapts every time.
 
-        For neural approaches, we recommend you save weights to disk with ``save_adapted_state()`` and
-        return an identifier (e.g. a file path). ``load_adapted_state()`` receives that identifier and loads the
-        weights from the disk, keeping the in-memory cache small.
+        A loaded state is not checked against the dataset: an existing file is used as is. To adapt
+        again after the dataset changed, delete the file or call
+        [adapt_one][SRToolkit.experiments.ExperimentGrid.adapt_one] with ``force=True``.
 
         Returns:
-            One of ``"never"``, ``"once"``, or ``"experiment"``.
+            ``"never"``, ``"once"`` or ``"experiment"``.
         """
         return "never"
 
     @property
     def save_adapted_model(self) -> bool:
-        """Whether the framework should call ``save_adapted_state()`` when ``adaptation_scope`` is ``"experiment"``.
-        Ignored for ``"never"`` and ``"once"`` scopes (the latter always saves). Default is ``False``.
+        """Whether the adapted state should be saved after each adaptation.
+
+        The framework does not read it; an approach may use it in its own code.
 
         Returns:
-            ``True`` if the adapted model should be saved after each adaptation.
+            ``False`` by default.
         """
         return False
 
@@ -167,7 +174,7 @@ class SR_approach(ABC):
         experiment, so any state accumulated during a previous run is cleared
         before the next one starts.
 
-        Three cases:
+        Three example cases:
 
         - **Stateless** (e.g. random sampling): implement as ``pass``.
         - **Stateful search** (e.g. GP): reset the population or any other
@@ -177,20 +184,29 @@ class SR_approach(ABC):
         """
         pass
 
-    def adapt(self, X: np.ndarray, symbol_library: SymbolLibrary) -> None:
-        """Adapt the approach to the target dataset's input space and symbols in the symbol library.
+    def adapt(
+        self,
+        X: np.ndarray,
+        background_knowledge: "BackgroundKnowledge",
+        required_constraints: Sequence[ExpressionConstraint],
+    ) -> None:
+        """Adapt the approach to a task before searching, without seeing the targets.
 
-        Called by the framework after ``prepare()`` and before ``search()``, according
-        to ``adaptation_scope``. This method must NOT access target values (y) or evaluate
-        expressions (e.g. by calling ``sr_evaluator.evaluate_expr()``) during adaptation —
-        only the points from the domain and the symbol library may be used.
+        The framework calls it after ``prepare()`` and before ``search()``, as
+        [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope] says. Use
+        what you need and ignore the rest. It must not fit or evaluate expressions on data (e.g.
+        through an evaluator kept from an earlier run); calling ``pre_check`` of a constraint is
+        allowed, since it only looks at the expression.
 
-        The default implementation does nothing. Override when ``adaptation_scope`` is
-        ``"once"`` or ``"experiment"``.
+        The default does nothing. Override it when ``adaptation_scope`` is ``"once"`` or
+        ``"experiment"``.
 
         Args:
-            X: input variables from the domain, shape ``(n_samples, n_variables)``.
-            symbol_library: The symbol library defining the available symbols/tokens.
+            X: Inputs of shape ``(n_samples, n_variables)``, columns in the symbol library's
+                variable order.
+            background_knowledge: What the task tells the approach besides the data (see
+                [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge]).
+            required_constraints: The constraints the evaluator will enforce.
         """
         pass
 
@@ -208,7 +224,12 @@ class SR_approach(ABC):
               (when ``max_evaluations > 0``)
             - The current best error has dropped below ``sr_evaluator.success_threshold``
 
-        The symbol library is available in ``sr_evaluator.symbol_library``.
+        The symbol library is available in ``sr_evaluator.symbol_library``. ``sr_evaluator.describe()``
+        gives the task as text (e.g. for an LLM prompt) and ``sr_evaluator.background_knowledge`` as
+        objects. Do not read ``sr_evaluator.ground_truth``: it is the answer.
+        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model] and
+        [check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints] do not
+        use the budget: use them to skip expressions that were already evaluated or would be rejected.
 
         Args:
             sr_evaluator: Evaluator used to score expressions. All results are
@@ -224,30 +245,27 @@ class SR_approach(ABC):
         """Save the adapted model/approach state to ``path``.
 
         The approach is free to choose any serialization format (e.g. ``torch.save``,
-        ``numpy.save``, JSON, pickle).  The framework passes ``path`` as a base path
-        without an extension; the approach may append its own extension (e.g.
-        ``path + ".pt"``), but must be consistent between ``save_adapted_state`` and
-        ``load_adapted_state``.
+        ``numpy.save``, JSON, pickle), but must write to exactly ``path``: the framework restores
+        a state only when a file exists at ``path``.
 
-        Must be implemented when ``adaptation_scope == "once"``, or when
-        ``adaptation_scope == "experiment"`` and ``save_adapted_model`` is ``True``.
+        Should be implemented when ``adaptation_scope == "once"``.
 
         The default raises ``NotImplementedError``. Override when needed.
 
         Args:
-            path: Base file path to save the adapted state to.
+            path: File path to save the adapted state to.
         """
         raise NotImplementedError
 
     def load_adapted_state(self, path: str) -> None:
         """Restore the previously saved adapted state from ``path``.
 
-        Must be implemented when ``adaptation_scope == "once"``.
+        Should be implemented when ``adaptation_scope == "once"``.
 
         The default raises ``NotImplementedError``. Override when needed.
 
         Args:
-            path: Base file path previously passed to ``save_adapted_state()``.
+            path: File path previously passed to ``save_adapted_state()``.
         """
         raise NotImplementedError
 

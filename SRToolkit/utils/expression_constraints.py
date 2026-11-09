@@ -125,6 +125,7 @@ therefore be importable by that path: define it at module level in an importable
 
 from __future__ import annotations
 
+import copy
 import importlib
 import re
 import warnings
@@ -167,6 +168,14 @@ def _require_setup(constraint: "ExpressionConstraint") -> SymbolLibrary:
     if constraint.symbol_library is None:
         raise RuntimeError(f"{type(constraint).__name__}: call setup(symbol_library) before checking expressions.")
     return constraint.symbol_library
+
+
+def _set_up_copy(constraint: "ExpressionConstraint", symbol_library: SymbolLibrary) -> "ExpressionConstraint":
+    # A shallow copy of constraint (data such as OutputBounds.points is shared) with setup called
+    # on it, so the given instance is not changed. Exceptions from setup propagate.
+    duplicate = copy.copy(constraint)
+    duplicate.setup(symbol_library)
+    return duplicate
 
 
 def _resolve_constraint_class(d: dict) -> Tuple[Type["ExpressionConstraint"], dict]:
