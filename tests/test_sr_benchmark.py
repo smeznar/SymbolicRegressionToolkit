@@ -318,3 +318,60 @@ def test_from_dict_does_not_modify_input():
     loaded = SR_benchmark.from_dict(d)
     assert "num_variables" not in d["datasets"]["a"]
     assert loaded.datasets["a"]["num_variables"] == 2
+
+
+# ── original_equation: stored only when given, derived when built or listed ────
+
+_NAMES = dict(variables={"X_0": VariableInfo("x")}, target=VariableInfo("z"))
+
+
+@pytest.mark.parametrize(
+    "add",
+    [
+        lambda bm: bm.add_dataset(_lib2c(), _XY, "a", ground_truth=_GT, **_NAMES),
+        lambda bm: bm.add_from_samplers(
+            _GT, [UniformSampling(0, 1)] * 2, symbol_library=_lib2c(), dataset_name="a", n_samples=5, seed=0, **_NAMES
+        ),
+    ],
+    ids=["add_dataset", "add_from_samplers"],
+)
+def test_entry_stores_none_and_dataset_derives(add):
+    bm = SR_benchmark("b")
+    add(bm)
+    assert bm.datasets["a"]["original_equation"] is None
+    assert bm.create_dataset("a").original_equation == "z = x+X_1"
+
+
+def test_list_datasets_prints_equations(capsys):
+    bm = SR_benchmark("b")
+    bm.add_dataset(_lib2c(), _XY, "given_entry", ground_truth=_GT, original_equation="z = x + y")
+    bm.add_dataset(_lib2c(), _XY, "derived_entry", ground_truth=_GT, **_NAMES)
+    bm.add_dataset(_lib2c(), _XY, "untargeted_entry", ground_truth=_GT, variables={"X_1": VariableInfo("v")})
+    instance = SR_dataset(
+        _X, _lib2c(), y=_XY[1], ground_truth=["X_0", "*", "X_1"],
+        variables={"X_0": VariableInfo("m")}, target=VariableInfo("F"),
+    )  # fmt: skip
+    bm.add_dataset_instance("instance_entry", instance)
+    bm.add_dataset(_lib2c(), _XY, "no_eq_entry")
+    bm.list_datasets(verbose=True)
+    out = capsys.readouterr().out
+    assert "z = x + y" in out
+    assert "z = x+X_1" in out
+    assert "F = m*X_1" in out
+    assert "y = X_0+v" in out
+    assert "None" not in out
+    [no_eq_line] = [line for line in out.splitlines() if "no_eq_entry" in line]
+    assert "Expression" not in no_eq_line
+
+
+def test_srsd_bonus_6_squares_epsilon():
+    # Regression: the ground truth had epsilon where the formula has epsilon**2.
+    from SRToolkit.dataset import SRSD_Feynman
+    from SRToolkit.utils.expression_compiler import compile_expr
+
+    entry = SRSD_Feynman().datasets["SRSD Bonus 6"]
+    library = SymbolLibrary.from_dict(entry["background_knowledge"]["symbol_library"])
+    eps, e_n, ang, m, z1, z2, q = 2.0, 3.0, 0.5, 1.5, 2.0, 3.0, 0.7
+    X = np.array([[eps, e_n, ang, m, z1, z2, q]])
+    expected = np.sqrt(1 + 2 * eps**2 * e_n * ang**2 / (m * (z1 * z2 * q**2) ** 2))
+    assert compile_expr(entry["ground_truth"], library)(X, None)[0] == pytest.approx(expected)

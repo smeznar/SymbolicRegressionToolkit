@@ -25,7 +25,7 @@ from . import data_cache
 from .background_knowledge import VariableInfo
 from .data_source import DataSource, SampleSource, _config_samplers
 from .sampling import Sampler
-from .sr_dataset import SR_dataset, _resolve_task
+from .sr_dataset import SR_dataset, _derive_equation, _resolve_task
 
 
 def _save_arrays_to_cache(
@@ -151,7 +151,8 @@ class SR_benchmark:
         [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]) and built by
         [create_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.create_dataset]. The
         arguments are validated as by ``SR_dataset`` before any cache file is written. Array data
-        given in ``dataset`` is written to the data cache.
+        given in ``dataset`` is written to the data cache. A ``UserWarning`` is issued when
+        ``ground_truth`` is ``None``.
 
         Args:
             symbol_library: The symbol library to use.
@@ -164,7 +165,10 @@ class SR_benchmark:
             ranking_function: ``"rmse"`` or ``"bed"``.
             max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
             ground_truth: Ground truth expression.
-            original_equation: Human-readable equation string.
+            original_equation: Human-readable answer, as for
+                [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]; ``None`` is stored as ``None``
+                and derived when the dataset is built (see
+                [SR_dataset.original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation]).
             success_threshold: Error threshold for success. ``None`` means no threshold.
             seed: Random seed.
             dataset_metadata: Optional dataset-level metadata dict, merged over the benchmark's
@@ -289,7 +293,6 @@ class SR_benchmark:
             "num_variables": _count_variables(symbol_library),
         }
 
-        # Derive a human-readable equation from a token-list ground truth if absent.
         if ground_truth is None:
             if ranking_function == "bed":
                 raise ValueError("[SR_benchmark.add_dataset] For 'bed' ranking, the ground truth must be provided.")
@@ -297,8 +300,6 @@ class SR_benchmark:
                 "[SR_benchmark.add_dataset] 'ground_truth' argument not provided. We recommend providing it "
                 "for more transparent evaluation."
             )
-        elif original_equation is None and isinstance(ground_truth, list):
-            entry["original_equation"] = "y = " + "".join(ground_truth)
 
         # Resolve the data source / write the arrays.
         if data_source is not None:
@@ -389,8 +390,8 @@ class SR_benchmark:
                 [SampleSource][SRToolkit.dataset.data_source.SampleSource].
             ranking_function: ``"rmse"`` or ``"bed"``.
             dataset_name: Name of the dataset. Auto-generated if ``None``.
-            original_equation: Human-readable equation string. Auto-filled from a token-list
-                ``ground_truth`` when ``None``.
+            original_equation: As for
+                [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset].
             success_threshold: Error threshold for success. ``None`` means no threshold.
             max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
             dataset_metadata: Optional dataset-level metadata dict.
@@ -530,7 +531,21 @@ class SR_benchmark:
             ) from e
 
     def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> List[str]:
-        """Lists the available datasets.
+        """Return the names of the datasets, optionally printing a line per dataset.
+
+        Nothing is built. With ``verbose``, each line gives the name, the number of variables and
+        the equation: the entry's ``original_equation``, or derived as for
+        [SR_dataset.original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation]
+        when not given (for an entry added with ``add_dataset_instance``, that dataset's
+        ``original_equation``). An entry without an equation shows only its name and number of
+        variables.
+
+        Args:
+            verbose: If ``True``, print one line per dataset.
+            num_variables: If not ``-1``, only return datasets with this many input variables.
+
+        Returns:
+            The dataset names, sorted by number of variables, then by name.
 
         Examples:
             >>> from SRToolkit.dataset import Feynman
@@ -540,13 +555,6 @@ class SR_benchmark:
             >>> datasets_with_8_vars = benchmark.list_datasets(num_variables=8, verbose=False)
             >>> datasets_with_8_vars[0]
             'II.36.38'
-
-        Args:
-            verbose: If ``True``, also prints a description of each dataset.
-            num_variables: If not ``-1``, only return datasets with this many input variables.
-
-        Returns:
-            A list of dataset names.
         """
         datasets = [
             dataset_name
@@ -577,14 +585,28 @@ class SR_benchmark:
                     variable_str = f"{nv} variables"
                 part1.append(d + ":")
                 part2.append(variable_str)
-                part3.append(self.datasets[d].get("original_equation"))
+                entry = self.datasets[d]
+                if "sr_dataset" in entry:
+                    equation = entry["sr_dataset"].original_equation
+                elif entry.get("original_equation") is not None or entry.get("ground_truth") is None:
+                    equation = entry.get("original_equation")
+                else:
+                    bk = entry.get("background_knowledge") or {}
+                    target = bk.get("target")
+                    equation = _derive_equation(
+                        entry["ground_truth"],
+                        {k: VariableInfo.from_dict(v) for k, v in (bk.get("variables") or {}).items()},
+                        VariableInfo.from_dict(target) if target is not None else None,
+                    )
+                part3.append(equation)
                 if len(d) + 1 > max_length_1:
                     max_length_1 = len(d) + 1
                 if len(variable_str) > max_length_2:
                     max_length_2 = len(variable_str)
 
             for p1, p2, p3 in zip(part1, part2, part3):
-                print(f"{p1:<{max_length_1}} {p2:<{max_length_2}}, Expression: {p3}")
+                line = f"{p1:<{max_length_1}} {p2:<{max_length_2}}"
+                print(line if p3 is None else f"{line}, Expression: {p3}")
         return datasets
 
     def to_dict(self) -> dict:

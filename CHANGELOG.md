@@ -30,6 +30,8 @@
 - `BackgroundKnowledge.reference_grammar` must use only symbols of the symbol library, brackets and numbers (`ValueError` otherwise; `Grammar.unknown_tokens(symbol_library)` lists the offending tokens), and `BackgroundKnowledge.sampling_grammar()` returns the grammar approaches sample from: the reference grammar, else a generic grammar for the library.
 - `SR_evaluator.get_model(expr)` returns the result of an already evaluated expression, or `None`, without using the budget.
 - `evaluate_approach` now calls `prepare()` before a `"once"` adaptation, as the docs say and `ExperimentJob.run` already did. `ExperimentGrid.adapt_one` creates the parent directories of the state path, like the other adaptation paths.
+- `SR_dataset.original_equation` is derived when not given, from the ground truth with the variable and target names (e.g. `F = m*a`); only a given string is saved. `SR_benchmark.list_datasets(verbose=True)` shows it, also for datasets added with `add_dataset_instance` (previously `None`).
+- Feynman and SRSD datasets carry a name and description for every variable and the target, and a task description. SRSD equations are now derived from these names.
 
 **Breaking changes:**
 - Removed the `RMSE`, `BED` and `R2` augmenters; use `HoldoutMetric`.
@@ -56,6 +58,7 @@
 - `max_constants` / `max_expr_length` must be ints (numpy ints accepted); other values raise a `ValueError` instead of being silently ignored. Giving one together with a required constraint of the same class and a different limit raises a `ValueError`; a negative setting adds no limit and never clashes.
 - Datasets are saved with `format_version: 4` (symbol library and samplers inside `"background_knowledge"`, limits in `"required_constraints"`). Files of format 2 and 3 still load, and their data cache stays valid. `SR_dataset.symbol_library`, `samplers` and `constant_bounds` are read-only, `samplers` is a tuple, and `kwargs` no longer contains `constant_bounds`, `max_constants` or `max_expr_length`. A sampler count that differs from the number of variables now raises a `ValueError`.
 - `SR_benchmark.add_dataset` raises a `ValueError` (instead of `Exception`) when the ground truth cannot be evaluated, and a `ValueError` when neither `dataset` nor `data_source` is given (such an entry could never be loaded).
+- `SR_dataset.original_equation` is a read-only property.
 
 **Fixes:**
 - `HoldoutMetric` no longer applies the estimator's default limit of 8 constants when fitting constants on held-out data: `max_constants` / `max_expr_length` apply only if given in `ranking_settings`. Before, a model the search accepted (e.g. under a required `MaxConstants(20)`) got `NaN` on the holdout.
@@ -83,6 +86,7 @@
 - `SR_dataset.evaluate_approach` seeds experiment `i` with `initial_seed + i` (or the dataset seed `+ i`), like `ExperimentGrid` does. It used `+ i + 1`, so the given seed itself was never used; runs with the same `initial_seed` now give different results than before (use `initial_seed + 1` to reproduce them).
 - `is_float` returns `False` for values `float` cannot convert (lists, complex numbers, arbitrary objects) instead of raising a `TypeError`.
 - An `SR_evaluator` whose required constraints allow more than 8 free constants no longer has its parameter estimator reject such expressions at its default limit of 8.
+- SRSD Bonus 6: the ground truth used `epsilon` instead of `epsilon**2`. Fixed together with its data (SRSD data version 1.0.1); its targets no longer contain NaN.
 
 ### SymbolicRegressionToolkit-1.6.0 (2026-06-23)
 - New backends for expression evaluations (about 1.5x speedup for parameter estimation)

@@ -171,13 +171,13 @@ class Nguyen(SR_benchmark):
 
         self.add_dataset(sl_2v, None, dataset_name="NG-9", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"],
-                         original_equation="y = sin(x)+sin(y^2)", success_threshold=1e-7, seed=seed,
+                         original_equation="z = sin(x)+sin(y^2)", success_threshold=1e-7, seed=seed,
                          dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
                          data_source=data_source)
 
         self.add_dataset(sl_2v, None, dataset_name="NG-10", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"],
-                         original_equation="y = 2*sin(x)*cos(y)", success_threshold=1e-7, seed=seed,
+                         original_equation="z = 2*sin(x)*cos(y)", success_threshold=1e-7, seed=seed,
                          dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
                          data_source=data_source)
 

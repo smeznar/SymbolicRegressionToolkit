@@ -523,7 +523,15 @@ class TestBackgroundKnowledgeArguments:
         assert ds.kwargs == {"method": "L-BFGS-B"}
 
     @pytest.mark.parametrize(
-        "name", ["background_knowledge", "symbol_library", "samplers", "constant_bounds", "required_constraints"]
+        "name",
+        [
+            "background_knowledge",
+            "symbol_library",
+            "samplers",
+            "constant_bounds",
+            "required_constraints",
+            "original_equation",
+        ],
     )
     def test_bk_properties_read_only(self, simple_dataset, name):
         with pytest.raises(AttributeError):
@@ -632,7 +640,9 @@ class TestDescribe:
         }
 
     def test_describe_independent_of_answer(self):
+        # b's equation is derived from its names: "F = m*X_1"; neither answer may leak into describe.
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
+        names = dict(variables={"X_0": VariableInfo("m")}, target=VariableInfo("F"))
         a = SR_dataset(
             X,
             _lib2c(),
@@ -640,17 +650,19 @@ class TestDescribe:
             ground_truth=["X_0", "+", "X_1"],
             original_equation="z = x + y",
             success_threshold=1e-6,
+            **names,
         )
         b = SR_dataset(
             X,
             _lib2c(),
             y=X.prod(axis=1),
             ground_truth=["X_0", "*", "X_1"],
-            original_equation="z = x * y",
             success_threshold=0.5,
+            **names,
         )
         assert a.describe() == b.describe()
         assert "z = x + y" not in a.describe()
+        assert "F = m*X_1" not in b.describe()
 
     def test_str_layout(self):
         ds = SR_dataset(
@@ -957,7 +969,7 @@ class TestFromSamplersStageC:
         np.testing.assert_array_equal(restored.test_X, ds.test_X)
 
     @pytest.mark.parametrize(
-        "original_equation, expected", [(None, "y = X_0+X_1"), ("z = x + y", "z = x + y")], ids=["auto", "given"]
+        "original_equation, expected", [(None, "z = x+X_1"), ("z = x + y", "z = x + y")], ids=["auto", "given"]
     )
     def test_from_samplers_forwards_arguments(self, original_equation, expected):
         ds = SR_dataset.from_samplers(
@@ -1020,6 +1032,110 @@ class TestFromSamplersStageC:
 
 
 # ── evaluate_approach ─────────────────────────────────────────────────────────
+
+
+# ── original_equation: given or derived from ground_truth and names ────────────
+
+_LIB_EQ = SymbolLibrary.default_symbols(2)
+_GT_EQ = ["X_0", "*", "X_1"]
+_M = {"X_0": VariableInfo("m")}
+
+
+def _eq_dataset(**kwargs):
+    return SR_dataset(np.zeros((3, 2)), _LIB_EQ, y=np.zeros(3), **kwargs)
+
+
+class TestOriginalEquation:
+    @pytest.mark.parametrize(
+        "kwargs, expected",
+        [
+            (dict(ground_truth=_GT_EQ, variables=_M, target=VariableInfo("F")), "F = m*X_1"),
+            (
+                dict(
+                    ground_truth=_GT_EQ,
+                    variables={"X_0": VariableInfo("", "mass"), "X_1": VariableInfo("a")},
+                    target=VariableInfo("F"),
+                ),
+                "F = X_0*a",
+            ),
+            (dict(ground_truth=_GT_EQ, variables=_M), "y = m*X_1"),
+            (dict(ground_truth=_GT_EQ, variables=_M, target=VariableInfo("", "force")), "y = m*X_1"),
+            (dict(ground_truth=_GT_EQ), "y = X_0*X_1"),
+            # Whole-token replacement: names that are other tokens must not be substituted again.
+            (
+                dict(ground_truth=_GT_EQ, variables={"X_0": VariableInfo("X_1"), "X_1": VariableInfo("X_0")}),
+                "y = X_1*X_0",
+            ),
+            # With the library to_list gives X_0 ^2; without it ( X_0 ) ^2.
+            (
+                dict(
+                    ground_truth=tokens_to_tree(["X_0", "^2"], _LIB_EQ),
+                    variables={"X_0": VariableInfo("v")},
+                    target=VariableInfo("E"),
+                ),
+                "E = v^2",
+            ),
+            # A token list is used exactly as given (redundant parentheses kept).
+            (dict(ground_truth=["(", "X_0", ")", "*", "X_1"], variables=_M), "y = (m)*X_1"),
+            (dict(ground_truth=["u-", "X_0", "*", "X_1"], variables=_M), "y = -m*X_1"),
+            # The default left side skips names taken by variables.
+            (
+                dict(ground_truth=_GT_EQ, variables={"X_0": VariableInfo("y"), "X_1": VariableInfo("y_1")}),
+                "y_2 = y*y_1",
+            ),
+            (dict(ground_truth=_GT_EQ, variables=_M, target=VariableInfo("F"), original_equation="F = m a"), "F = m a"),
+            (dict(ground_truth=_GT_EQ, variables=_M, original_equation=""), ""),
+            (dict(), None),
+        ],
+        ids=[
+            "spec-example",
+            "empty-var-name",
+            "no-target",
+            "empty-target-name",
+            "no-names",
+            "swapped-names",
+            "node-gt",
+            "token-list-verbatim",
+            "unary-minus",
+            "default-target-avoids-names",
+            "given-wins",
+            "empty-given-wins",
+            "no-gt",
+        ],
+    )
+    def test_original_equation_resolution(self, kwargs, expected):
+        assert _eq_dataset(**kwargs).original_equation == expected
+
+    @pytest.mark.parametrize(
+        "given, saved, value",
+        [("F = m a", "F = m a", "F = m a"), (None, None, "F = m*X_1")],
+        ids=["given", "derived"],
+    )
+    def test_to_dict_saves_only_given_equation(self, tmp_path, monkeypatch, given, saved, value):
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        ds = _eq_dataset(
+            ground_truth=_GT_EQ,
+            variables=_M,
+            target=VariableInfo("F"),
+            original_equation=given,
+            benchmark="b",
+            version="1",
+        )
+        d = ds.to_dict()
+        assert d["original_equation"] == saved
+        restored = SR_dataset.from_dict(d)
+        assert restored.original_equation == value
+        assert restored.to_dict() == d
+
+    def test_str_omits_equation_line_when_none(self):
+        # Metamorphic: without an equation, str is the same text minus the equation line.
+        with_equation = str(_eq_dataset(original_equation="F = m a"))
+        assert with_equation.startswith("Dataset for target expression F = m a.\n")
+        assert str(_eq_dataset()) == with_equation.split("\n", 1)[1]
+
+    def test_str_shows_derived_equation(self):
+        ds = _eq_dataset(ground_truth=_GT_EQ, variables=_M, target=VariableInfo("F"))
+        assert "F = m*X_1" in str(ds).split("\n")[0]
 
 
 class _SeedRecorder(SR_approach):

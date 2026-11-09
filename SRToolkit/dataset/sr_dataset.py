@@ -38,8 +38,9 @@ copies set up on the symbol library, so their checks can run.
 and the required constraints, so it can go into a prompt; an evaluator from ``create_evaluator``
 gives the same text with
 [SR_evaluator.describe][SRToolkit.evaluation.sr_evaluator.SR_evaluator.describe], so an approach
-can read it during the search. ``str(dataset)`` adds the answer (the target equation) and the
-ranking.
+can read it during the search. ``str(dataset)`` adds the ranking and the answer,
+[original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation]: given, or derived
+from ``ground_truth`` with the variable and target names.
 
 ## File format
 
@@ -114,6 +115,22 @@ def _resolve_task(
     return bk, tuple(_set_up_copy(c, bk.symbol_library) for c in required), dict(kwargs)
 
 
+def _derive_equation(tokens: List[str], variables: Mapping[str, VariableInfo], target: Optional[VariableInfo]) -> str:
+    """Return ``"<target name> = "`` plus ``tokens`` joined, variable tokens replaced by their names.
+
+    See [SR_dataset.original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation].
+    """
+    names = {"u-": "-", **{token: info.name for token, info in variables.items() if info.name}}
+    if target is not None and target.name:
+        lhs = target.name
+    else:
+        lhs, i = "y", 0
+        while lhs in names.values():
+            i += 1
+            lhs = f"y_{i}"
+    return f"{lhs} = " + "".join(names.get(token, token) for token in tokens)
+
+
 class SR_dataset:
     """One symbolic regression task: data splits, objective and background knowledge.
 
@@ -129,7 +146,8 @@ class SR_dataset:
         max_evaluations: Evaluation budget; negative means no limit.
         ground_truth: The answer as infix tokens or a [Node][SRToolkit.utils.expression_tree.Node], or
             ``None``.
-        original_equation: Human-readable answer, e.g. ``"z = x + y"``.
+        original_equation: Human-readable answer, e.g. ``"F = m*a"``; ``None`` derives it (see
+            [original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation]).
         success_threshold: Error below which an expression counts as a success; ``None`` for none.
         seed: Default seed of evaluators, experiments and the ranking; ``None`` for none.
         dataset_metadata: Metadata about the dataset artefact (e.g. citation).
@@ -192,7 +210,8 @@ class SR_dataset:
         max_evaluations: As given.
         success_threshold: As given.
         ground_truth: As given.
-        original_equation: As given.
+        original_equation: The given answer, or one derived from ``ground_truth``; ``None`` if
+            neither (read-only).
         seed: As given.
         dataset_metadata: As given.
         dataset_name: As given.
@@ -266,7 +285,7 @@ class SR_dataset:
                 "precomputed behaviour matrix is ranking-owned state — pass it to the BED ranking instead."
             )
         self.ground_truth = ground_truth
-        self.original_equation = original_equation
+        self._original_equation = original_equation
         self.kwargs = kwargs
         self.dataset_name = dataset_name
 
@@ -329,6 +348,35 @@ class SR_dataset:
     def required_constraints(self) -> Tuple[ExpressionConstraint, ...]:
         """The required constraints (read-only)."""
         return self._required_constraints
+
+    @property
+    def original_equation(self) -> Optional[str]:
+        """Human-readable answer, e.g. ``"F = m*a"`` (read-only).
+
+        The given ``original_equation`` if it is not ``None``. Otherwise ``"<target name> = "``
+        followed by the infix tokens of ``ground_truth`` (a ``Node`` is converted with the dataset's
+        symbol library) joined without spaces, each variable token replaced by its name in
+        ``background_knowledge.variables`` and the unary minus ``u-`` written ``-``. A variable with
+        no entry or an empty name keeps its token. With no target or an empty target name the left
+        side is the first of ``y``, ``y_1``, ``y_2``, … that is not a variable's name. ``None`` if no
+        ``original_equation`` was given and ``ground_truth`` is ``None``.
+
+        Examples:
+            >>> ds = SR_dataset(np.zeros((1, 2)), SymbolLibrary.default_symbols(2),
+            ...     ground_truth=["X_0", "*", "X_1"], variables={"X_0": VariableInfo("m")},
+            ...     target=VariableInfo("F"))
+            >>> ds.original_equation
+            'F = m*X_1'
+        """
+        if self._original_equation is not None or self.ground_truth is None:
+            return self._original_equation
+        tokens = (
+            self.ground_truth
+            if isinstance(self.ground_truth, list)
+            else self.ground_truth.to_list(symbol_library=self.symbol_library)
+        )
+        bk = self._background_knowledge
+        return _derive_equation(tokens, bk.variables, bk.target)
 
     # ── Data accessors ───────────────────────────────────────────────────────
     # X / y / test_X / test_y are shortcuts to the splits' arrays, and data_source is the train
@@ -618,14 +666,16 @@ class SR_dataset:
     def __str__(self) -> str:
         """Return a description of the dataset, including the answer.
 
-        It gives the target equation, the ranking with its success rule and non-default settings, then
+        It gives [original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation] (omitted
+        when ``None``), the ranking with its success rule and non-default settings, then
         [describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe] and a pointer to
         ``dataset_metadata``. Use ``describe`` for prompts.
 
         Returns:
             The multi-line description.
         """
-        text = f"Dataset for target expression {self.original_equation}.\n"
+        equation = self.original_equation
+        text = "" if equation is None else f"Dataset for target expression {equation}.\n"
         # Each ranking describes itself (and its success rule); no setup() is needed for that.
         text += build_ranking(self.ranking_function).describe(self.success_threshold)
         if not text.endswith("\n"):
@@ -722,8 +772,9 @@ class SR_dataset:
 
         Returns:
             A dict with ``format_version`` (``4``), ``dataset_name``, ``benchmark``, ``version``,
-            ``ranking_function``, ``max_evaluations``, ``success_threshold``, ``original_equation``,
-            ``seed``, ``dataset_metadata``, ``kwargs``, ``ground_truth`` (token list or ``None``),
+            ``ranking_function``, ``max_evaluations``, ``success_threshold``, ``original_equation``
+            (the given string, or ``None`` when derived), ``seed``, ``dataset_metadata``, ``kwargs``,
+            ``ground_truth`` (token list or ``None``),
             ``data_source``, ``test``, ``aux``, ``background_knowledge``
             ([BackgroundKnowledge.to_dict][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.to_dict])
             and ``required_constraints`` (each constraint's ``to_dict``, the limit ones included).
@@ -783,7 +834,7 @@ class SR_dataset:
             "ranking_function": self.ranking_function,
             "max_evaluations": self.max_evaluations,
             "success_threshold": self.success_threshold,
-            "original_equation": self.original_equation,
+            "original_equation": self._original_equation,
             "seed": self.seed,
             "dataset_metadata": self.dataset_metadata,
             "kwargs": kwargs_out,
@@ -1048,7 +1099,7 @@ class SR_dataset:
             n_test: Rows of a held-out test split drawn the same way with seed ``seed + 1``, with its own
                 ``SampleSource``; ``None`` for no test split.
             ranking_function: As for ``SR_dataset``; with ``"bed"`` no ``y`` is generated.
-            original_equation: ``None`` with a token-list ``ground_truth`` gives ``"y = <tokens>"``.
+            original_equation: As for ``SR_dataset``.
             success_threshold: As for ``SR_dataset``.
             max_evaluations: As for ``SR_dataset``.
             dataset_name: As for ``SR_dataset``.
@@ -1090,8 +1141,6 @@ class SR_dataset:
         n_vars = len(samplers)
         if symbol_library is None:
             symbol_library = SymbolLibrary.default_symbols(n_vars)
-        if original_equation is None and isinstance(ground_truth, list):
-            original_equation = "y = " + "".join(ground_truth)
 
         dataset = cls(
             np.empty((0, n_vars)),

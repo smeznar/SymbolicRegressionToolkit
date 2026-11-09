@@ -84,9 +84,9 @@ dataset = SR_dataset.from_samplers(
 print(dataset.X.shape)   # (1000, 2)
 ```
 
-`symbol_library` defaults to one variable per sampler and `original_equation` is filled in
-from a token-list ground truth, so the minimal call is just the expression and the
-samplers. Use `ranking_function="bed"` for a dataset that only needs inputs (no `y`). The
+`symbol_library` defaults to one variable per sampler and `original_equation`, when not
+given, is derived from the ground truth with the variable and target names (`y = X_0+X_1`
+without them), so the minimal call is just the expression and the samplers. Use `ranking_function="bed"` for a dataset that only needs inputs (no `y`). The
 same estimation settings as the constructor (`max_evaluations`, `success_threshold`,
 `constant_bounds`, …) are accepted as keyword arguments.
 
