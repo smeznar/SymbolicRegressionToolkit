@@ -32,9 +32,9 @@ class TestSymbolLibraryInit:
         assert lib.num_variables == 2
         assert all(lib.symbols[s]["type"] == "var" for s in lib.symbols)
 
-    def test_unknown_symbols_silently_dropped(self):
-        lib = SymbolLibrary(["not_a_real_symbol"], num_variables=0)
-        assert len(lib.symbols) == 0
+    def test_unknown_symbol_raises(self):
+        with pytest.raises(ValueError, match="not_a_real_symbol"):
+            SymbolLibrary(["not_a_real_symbol"], num_variables=0)
 
     def test_empty_list_produces_empty_library(self):
         lib = SymbolLibrary([])
@@ -213,6 +213,15 @@ class TestSymbolLibraryFromSymbolList:
     def test_variable_in_symbols_list_not_duplicated(self):
         lib = SymbolLibrary.from_symbol_list(["X_0"], num_variables=1)
         assert list(lib.symbols.keys()).count("X_0") == 1
+
+    def test_expression_as_symbol_raises(self):
+        # Issue #7: a whole expression is not a token and used to be dropped silently.
+        with pytest.raises(ValueError, match=r"x/\(a \+ x\)"):
+            SymbolLibrary.from_symbol_list(["+", "x/(a + x)"], num_variables=1)
+
+    def test_variable_beyond_num_variables_raises(self):
+        with pytest.raises(ValueError, match="X_3.*increase num_variables"):
+            SymbolLibrary.from_symbol_list(["+", "X_3"], num_variables=1)
 
     def test_default_num_variables_is_25(self):
         lib = SymbolLibrary.from_symbol_list([])

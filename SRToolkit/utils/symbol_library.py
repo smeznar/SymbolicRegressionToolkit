@@ -3,6 +3,7 @@ regression expressions.
 """
 
 import copy
+import re
 from contextvars import ContextVar
 from typing import Any, Dict, List, Optional
 
@@ -53,8 +54,7 @@ class SymbolLibrary:
         Args:
             symbols: Symbols to pre-populate from the default set. ``None`` with
                 ``num_variables=0`` produces an empty library; with ``num_variables > 0``,
-                only variable tokens are added. Symbols not present in the default set are
-                silently ignored. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
+                only variable tokens are added. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
             num_variables: Number of variable tokens to add, labeled ``X_0`` through
                 ``X_{num_variables-1}``. Default is ``0``.
             preamble: Import statements prepended to compiled expression functions.
@@ -63,6 +63,9 @@ class SymbolLibrary:
         Attributes:
             symbols: Mapping from token string to its property dict (type, precedence,
                 NumPy function string, LaTeX template).
+
+        Raises:
+            ValueError: If ``symbols`` contains a name that is not in the default set.
         """
         if preamble is None:
             self.preamble = ["import numpy as np"]
@@ -119,6 +122,14 @@ class SymbolLibrary:
             >>> library.add_symbol("C", "const", 5, "C[{}]", r"c_{}")
             >>> library.add_symbol("X_0", "var", 5, "X[:, 0]", r"X_0")
             >>> library.add_symbol("pi", "lit", 5, "np.pi", r"\pi")
+            >>> # A fixed composite function, here X_0 / (1 + X_0), as a single token. ``{0}`` is
+            >>> # its argument, may appear several times and is inserted as text, so bracket it.
+            >>> import numpy as np
+            >>> from SRToolkit.utils import FN_PREFIX, compile_expr
+            >>> library.add_symbol("sat", "fn", FN_PREFIX, "({0}) / (1 + ({0}))", r"\frac{{{0}}}{{1 + {0}}}")
+            >>> f = compile_expr(["sat", "(", "X_0", ")"], library)
+            >>> f(np.array([[1.0], [3.0]]), None)
+            array([0.5 , 0.75])
 
         Args:
             symbol: Token string to register.
@@ -358,17 +369,37 @@ class SymbolLibrary:
             5
 
         Args:
-            symbols: Token strings to include. Symbols not in the default set are silently ignored.
+            symbols: Token strings to include.
             num_variables: Number of variable tokens (``X_0`` through ``X_{num_variables-1}``).
                 Default is ``25``.
 
         Returns:
             A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] restricted to the requested symbols and variables.
+
+        Raises:
+            ValueError: If ``symbols`` contains a name that is not in the default set, such as a
+                whole expression like ``"x/(a + x)"``. Expressions are built from tokens
+                (``/``, ``+``, ``C``, variables), their shape can be restricted with a custom
+                [Grammar][SRToolkit.utils.grammar.Grammar], and custom tokens are added with
+                [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol].
         """
+        sl = SymbolLibrary.default_symbols(num_variables)
+        unknown = [s for s in symbols if s not in sl.symbols]
+        if unknown:
+            if any(re.fullmatch(r"X_\d+", s) for s in unknown):
+                hint = f"Only variables X_0..X_{num_variables - 1} exist; increase num_variables."
+            else:
+                hint = (
+                    "Build expressions such as 'X/(C + X)' from tokens ('/', '+', 'C', variables), "
+                    "restrict their shape with a custom Grammar, or add custom tokens with add_symbol."
+                )
+            raise ValueError(
+                f"Unknown symbols {unknown}: only default tokens are accepted "
+                f"(see SymbolLibrary.default_symbols). {hint}"
+            )
+
         variables = [f"X_{i}" for i in range(num_variables)]
         symbols = symbols + variables
-
-        sl = SymbolLibrary.default_symbols(num_variables)
 
         all_symbols = list(sl.symbols.keys())
         for symbol in all_symbols:
