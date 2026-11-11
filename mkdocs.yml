@@ -136,6 +136,7 @@ nav:
           - measures: references/utils/measures.md
           - types: references/utils/types.md
           - serialization: references/utils/serialization.md
+          - units: references/utils/units.md
           - grammar:
               - references/utils/grammar/index.md
               - grammar: references/utils/grammar/grammar.md

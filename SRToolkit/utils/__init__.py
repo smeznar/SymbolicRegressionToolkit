@@ -24,10 +24,13 @@ Modules:
         and Behavior-aware Expression Distance (BED).
     serialization: Which values can be saved in results and configs, and how they are stored as
         JSON.
+    units: Physical units ([Unit][SRToolkit.utils.units.Unit]) and how symbols combine them
+        ([UnitRule][SRToolkit.utils.units.UnitRule]).
 """
 
 from .expression_compiler import compile_expr, compile_expr_rmse
 from .expression_constraints import (
+    ConsistentUnits,
     ExpressionConstraint,
     MaxConstants,
     MaxSymbolCount,
@@ -90,6 +93,7 @@ from .types import (
     RankingSettings,
     Status,
 )
+from .units import Unit, UnitRule
 
 __all__ = [
     "Grammar",
@@ -114,6 +118,9 @@ __all__ = [
     "NoNesting",
     "OutputBounds",
     "RequiredVariables",
+    "ConsistentUnits",
+    "Unit",
+    "UnitRule",
     "CheckResult",
     "SymbolLibrary",
     "Node",

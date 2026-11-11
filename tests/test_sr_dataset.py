@@ -14,7 +14,9 @@ from SRToolkit.dataset.data_source import SampleSource
 from SRToolkit.dataset.data_split import DataSplit
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.dataset.sr_dataset import SR_dataset
+from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import (
+    ConsistentUnits,
     MaxConstants,
     MaxTokens,
     MaxTreeDepth,
@@ -27,6 +29,7 @@ from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
 from SRToolkit.utils.measures import create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.units import Unit
 
 
 @pytest.fixture
@@ -734,8 +737,14 @@ class TestCreateEvaluatorConstraints:
                 "rejected",
                 "MaxConstants: 2 constants, limit 1",
             ),
+            (
+                {"required_constraints": [ConsistentUnits({"X_0": u.m}, target_unit=u.s)]},
+                ["X_0"],
+                "rejected",
+                "ConsistentUnits: result has unit m, target s",
+            ),
         ],
-        ids=["default-limit", "no-limit", "listed-limit"],
+        ids=["default-limit", "no-limit", "listed-limit", "consistent-units"],
     )
     def test_create_evaluator_adds_no_limits(self, kwargs, expr, status, detail):
         X = np.random.default_rng(0).random((10, 1))
@@ -899,7 +908,8 @@ class TestFormat4:
         assert _dicts(ds.required_constraints) == _dicts(required)
         assert ds.kwargs == kept_kwargs
         assert _dicts(ds.samplers) == d["samplers"]
-        assert ds.symbol_library.to_dict() == d["symbol_library"]
+        # The golden file predates unit rules; loading fills in the predefined ones.
+        assert ds.symbol_library.to_dict() == _lib2c().to_dict()
         out = ds.to_dict()
         assert out["format_version"] == 4
         assert "samplers" not in out and "symbol_library" not in out
@@ -1318,3 +1328,35 @@ def test_evaluator_describes_task_like_dataset(make):
     assert ev.background_knowledge.to_dict() == ds.background_knowledge.to_dict()
     assert ev.describe() == ds.describe()
     assert ev.priors() == ds.priors()
+
+
+# ── Named constants and units: not lost on the way to the evaluator or through a save ──
+
+_PI = {"pi": VariableInfo("π", unit=Unit())}
+_UNIT_INFOS = dict(variables={"X_0": VariableInfo("x", unit=u.m)}, target=VariableInfo("y", unit=u.s), constants=_PI)
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda lib: SR_dataset(_X2, lib, y=_Y, benchmark="b", version="1", **_UNIT_INFOS),
+        lambda lib: SR_dataset.from_samplers(
+            ["X_0", "+", "X_1"],
+            [UniformSampling(0, 1), UniformSampling(0, 1)],
+            symbol_library=lib,
+            n_samples=5,
+            seed=0,
+            benchmark="b",
+            version="1",
+            **_UNIT_INFOS,
+        ),
+    ],
+    ids=["constructor", "from_samplers"],
+)
+def test_constants_and_units_survive(make, tmp_path, monkeypatch):
+    monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+    ds = make(SymbolLibrary.from_symbol_list(["+", "*", "C", "pi"], num_variables=2))
+    restored = SR_dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
+    bks = [ds.background_knowledge, ds.create_evaluator().background_knowledge, restored.background_knowledge]
+    assert [bk.constants for bk in bks] == [_PI] * 3
+    assert [(bk.variables["X_0"].unit, bk.target.unit) for bk in bks] == [(u.m, u.s)] * 3

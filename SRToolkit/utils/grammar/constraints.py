@@ -23,13 +23,17 @@ and threads them through every [allows][SRToolkit.utils.grammar.constraints.Gram
 carry only construction-time configuration and are safe to share across
 parallel derivations.
 
-Built-in constraints
---------------------
-- [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth]
-- [MaxNodes][SRToolkit.utils.grammar.constraints.MaxNodes]
-- [MaxOccurrences][SRToolkit.utils.grammar.constraints.MaxOccurrences]
-- [NoNested][SRToolkit.utils.grammar.constraints.NoNested]
-- [DimensionalConsistency][SRToolkit.utils.grammar.constraints.DimensionalConsistency]
+## Built-in constraints
+
+- [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth]: limit on the derivation depth
+- [MaxNodes][SRToolkit.utils.grammar.constraints.MaxNodes]: limit on the number of rule
+  applications
+- [MaxOccurrences][SRToolkit.utils.grammar.constraints.MaxOccurrences]: limit on how often a
+  terminal occurs
+- [NoNested][SRToolkit.utils.grammar.constraints.NoNested]: no symbol of a group nested inside one
+  of the group
+- [DimensionalConsistency][SRToolkit.utils.grammar.constraints.DimensionalConsistency]: units
+  consistent and equal to the target's
 
 """
 
@@ -37,13 +41,22 @@ from __future__ import annotations
 
 import importlib
 from dataclasses import dataclass
-from fractions import Fraction
-from typing import Generic, Iterable, Optional, TypeVar, cast
+from typing import Any, Generic, Iterable, Mapping, Optional, TypeVar, Union
 
 from ...bundle._relocate import _auto_bind
+from ..expression_constraints import (
+    _DIMENSIONLESS,
+    _check_unit_types,
+    _check_units_fit,
+    _expression_unit,
+    _leaf_unit,
+    _UnitConflict,
+)
+from ..expression_tree import is_float, tokens_to_tree
 from ..symbol_library import SymbolLibrary
-from ..types import CONST, FN, LIT, OP, OP_ADDITIVE, VAR
-from .grammar import ParseTreeNode, Rule
+from ..types import CONST, LIT, VAR
+from ..units import Unit, UnitRule
+from .grammar import ParseTree, ParseTreeNode, Rule
 
 L = TypeVar("L")
 G = TypeVar("G")
@@ -99,6 +112,11 @@ class ExpansionContext(Generic[L]):
         partial_tree: Root of the partially-built parse tree.  Read-only by
             contract — constraints must not mutate it.
         nonterminals: Frozen set of all non-terminal symbols in the grammar.
+        siblings: [ParseTreeNode][SRToolkit.utils.grammar.grammar.ParseTreeNode]s of the
+            non-terminal children of ``parent_rule`` that come before this slot, in order (``()``
+            for the first child and the start symbol), the same objects as in ``partial_tree``. They
+            are complete, because the derivation expands the leftmost slot first, so a constraint
+            can read what they derived.
         frontier_size: Number of open (unexpanded) non-terminal slots in the
             current derivation frontier, including this slot.  Useful for
             budget constraints such as
@@ -116,6 +134,7 @@ class ExpansionContext(Generic[L]):
     partial_tree: ParseTreeNode
     nonterminals: frozenset[str]
     frontier_size: int = 1
+    siblings: tuple[ParseTreeNode, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -508,316 +527,270 @@ class NoNested(GrammarConstraint[bool, None]):
 # DimensionalConsistency
 # ---------------------------------------------------------------------------
 
-TRANSCENDENTAL_FNS: frozenset[str] = frozenset(
-    {
-        "sin",
-        "cos",
-        "tan",
-        "asin",
-        "acos",
-        "atan",
-        "atan2",
-        "arcsin",
-        "arccos",
-        "arctan",
-        "sinh",
-        "cosh",
-        "tanh",
-        "arcsinh",
-        "arccosh",
-        "arctanh",
-        "exp",
-        "exp2",
-        "log",
-        "log2",
-        "log10",
-        "ln",
-    }
-)
-"""
-Functions that both require dimensionless input and produce dimensionless output.
-Used by [DimensionalConsistency][SRToolkit.utils.grammar.constraints.DimensionalConsistency].
-"""
 
-UNIT_PRESERVING_FNS: frozenset[str] = frozenset(
-    {
-        "abs",
-        "fabs",
-        "floor",
-        "ceil",
-        "round",
-        "sign",
-        "sgn",
-        "neg",
-    }
-)
-"""
-Functions whose output carries the same unit as their input.
-Used by [DimensionalConsistency][SRToolkit.utils.grammar.constraints.DimensionalConsistency].
-"""
-
-SQRT_FNS: frozenset[str] = frozenset({"sqrt"})
-"""
-Square-root functions: output unit = input unit raised to the power ½.
-Used by [DimensionalConsistency][SRToolkit.utils.grammar.constraints.DimensionalConsistency].
-"""
-
-CBRT_FNS: frozenset[str] = frozenset({"cbrt"})
-"""
-Cube-root functions: output unit = input unit raised to the power ⅓.
-Used by [DimensionalConsistency][SRToolkit.utils.grammar.constraints.DimensionalConsistency].
-"""
-
-Unit = dict[str, Fraction]
+@dataclass(frozen=True)
+class _Second:
+    # Local state of a second child: its required unit follows from the finished first sibling.
+    rule: UnitRule
+    parent: Optional[Unit]
 
 
-def _to_unit(raw: dict) -> Unit:
-    return {dim: Fraction(exp) for dim, exp in raw.items() if Fraction(exp) != 0}
+class DimensionalConsistency(GrammarConstraint[Any, None]):
+    """Generate only expressions whose units are consistent and equal to the target's.
 
+    Prunes a grammar's derivations so that every expression it completes passes
+    [ConsistentUnits][SRToolkit.utils.expression_constraints.ConsistentUnits] with the same units:
+    variables and named constants (``"lit"`` symbols) have the given units; free constants, numbers
+    and literals without a unit are dimensionless. How an operator or function combines units is
+    its [UnitRule][SRToolkit.utils.units.UnitRule] in ``symbol_library``. This holds for grammars
+    whose parse tree is the tree of the emitted expression, as with
+    [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library]; with an
+    ambiguous grammar such as ``E -> E + E | E * E`` the emitted tokens can parse to a different
+    tree.
 
-def _units_equal(a: Unit, b: Unit) -> bool:
-    return _to_unit(a) == _to_unit(b)
+    **Supported grammars.** A rule's role comes from its terminals, brackets ignored:
 
+    - one ``"op"`` or ``"fn"`` terminal, with as many non-terminals as its unit rule accepts: that
+      unit rule;
+    - no terminals and one non-terminal (``E -> F``, ``R -> ( E )``): the requirement passes on;
+    - one leaf terminal (a variable, literal, ``"const"`` symbol, or a number: any token ``float()``
+      accepts) and no non-terminals: a leaf, with the unit above.
 
-class DimensionalConsistency(GrammarConstraint[Optional[Unit], None]):
-    """Stateful constraint that enforces dimensional analysis during expression
-    generation.
+    Any other rule, e.g. ``E -> E + C`` or one with a terminal that is not a library symbol, bracket
+    or number, raises ``ValueError`` naming the rule when it is a candidate in a derivation;
+    [Grammar.generate_one][SRToolkit.utils.grammar.Grammar.generate_one] does not catch it.
 
-    .. warning::
-        **Experimental — currently unsound for multiplication and division.**
-        The units of ``*`` / ``/`` operands are not constrained (their child
-        units are left underdetermined), so an expression routed through a
-        multiplication or division can violate ``target_unit``. The constraint
-        is reliable only for grammars limited to leaves, additive operators
-        (``+`` / ``-``), transcendental functions, and postfix powers
-        (``^2``, ``^3``, …) — which excludes most grammars built with
-        [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library].
-        Do not rely on the unit guarantee until this is fixed.
+    **Required units.** Each open slot has a required unit, or "any": the slot may take any unit, but
+    its subtree must still have no conflict as ``ConsistentUnits`` counts them. The start slot
+    requires ``target_unit``. A slot with required unit ``P`` rejects a leaf whose unit is not ``P``,
+    and a rule whose result is dimensionless (``EXPONENT``, ``DIMENSIONLESS``, ``power(0)``) if ``P``
+    is not dimensionless. Every other rule fits; any rule fits an any slot. The children of a rule
+    with unit rule ``r`` must have these units, the second one decided when it is expanded, from the
+    finished first child's unit ``U`` (the derivation is leftmost):
 
-    Local state at each slot is the required unit (``Optional[Unit]``).
-    ``None`` means "any unit is acceptable here" — used for the children of
-    multiplicative operators, whose individual units are underdetermined.
+    | ``r`` | first child | second child |
+    |---|---|---|
+    | ``SAME`` | ``P`` | ``U`` |
+    | ``MULTIPLY`` | any | ``P / U`` |
+    | ``DIVIDE`` | any | ``U / P`` |
+    | ``power(k)`` | ``P ** (1/k)``; any for ``power(0)`` | |
+    | ``DIMENSIONLESS`` | dimensionless | dimensionless |
+    | ``EXPONENT`` | dimensionless | dimensionless |
 
-    **Unit representation**: units are ``dict[str, Fraction]`` mapping base
-    dimension names (e.g. ``"m"``, ``"s"``, ``"kg"``) to rational exponents.
-    Dimensionless is ``{}`` (empty dict).
+    Where ``P`` is any, a child given as ``P``, ``P / U``, ``U / P`` or ``P ** (1/k)`` is any too.
+    ``EXPONENT`` (the ``^`` operator) is stricter here than in ``ConsistentUnits``: a dimensional
+    base raised to a number (``X_0 ^ 2``) is never generated, even though ``ConsistentUnits``
+    accepts it; postfix powers such as ``^2`` cover it.
 
-    **Free constants** (``const`` type): treated as dimensionless by default.
-    Set ``allow_unit_polymorphic_constants=True`` to let them absorb any
-    required unit.
+    **Dead ends.** A required unit can turn out impossible once the first child is finished (e.g.
+    the second factor would need ``m^3`` but the depth limit leaves only a leaf). The slot then has
+    no allowed rule:
+    [Derivation.generate][SRToolkit.utils.grammar.derivation.Derivation.generate] raises
+    ``RuntimeError``, and ``generate_one`` starts again and returns ``None`` if every attempt
+    fails. With tight units or depth limits, raise its ``max_retries``.
 
-    **Named physical constants** (``lit`` type, e.g. ``"g"``, ``"c"``):
-    declared via ``constant_units``; checked like variables.
-
-    **Undeclared variables or literals**: conservatively accepted.
-
-    **Rule classification**: uses ``rule.name`` when available (see
-    [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library]
-    for the naming scheme).  Falls back to ``rhs``-shape heuristics for
-    unnamed rules.
-
-    Examples:
-        >>> from SRToolkit.utils.grammar import Grammar, Rule
-        >>> from SRToolkit.utils.grammar import DimensionalConsistency
-        >>> from fractions import Fraction
-        >>> g = Grammar()
-        >>> g.add_rule(Rule("E", ["E", "+", "F"], weight=0.6, name="E_add_+"))
-        >>> g.add_rule(Rule("E", ["F"], weight=0.4, name="E_to_F"))
-        >>> g.add_rule(Rule("F", ["v"], weight=0.5, name="F_v"))
-        >>> g.add_rule(Rule("F", ["t"], weight=0.5, name="F_t"))
-        >>> dc = DimensionalConsistency(
-        ...     variable_units={"v": {"m": 1, "s": -1}, "t": {"s": 1}},
-        ...     target_unit={"m": 1, "s": -1},
-        ... )
-        >>> g.add_constraint(dc)
-        >>> d = g.start_derivation("E")
-        >>> all(r.rhs != ["t"] for r in d.options())
-        True
+    Warning:
+        Generation is slow for target units that are products of several dimensions. The first
+        factor of a product is chosen without knowing whether the second can still reach the
+        required unit, so most derivations end in a dead end. With
+        ``Grammar.from_symbol_library`` and variables ``X_0`` in m and ``X_1`` in s, about a third
+        of the derivations succeed for target ``m``, about one in seven for a dimensionless target,
+        1–2 % for ``m s^-1``, and 0.3 % or less for ``m^2 s`` and for ``m^-2`` when both variables are
+        in m. Every
+        generated expression is correct; only the success rate is low. Raise ``max_retries`` or
+        give the grammar fewer choices.
 
     Args:
-        variable_units: Mapping from variable token to its unit.
-        target_unit: Required unit of the generated expression.
-        constant_units: Units for named physical constants (``lit`` type).
-        symbol_library: Used to classify tokens by type and precedence.
-        allow_unit_polymorphic_constants: If ``True``, free constants absorb
-            whatever unit their slot requires.  Default ``False``.
+        variable_units: The unit of every variable of ``symbol_library``, keyed by token.
+        target_unit: The unit of the generated expressions.
+        symbol_library: The library the grammar's terminals come from: their types and unit rules.
+        literal_units: Units of named constants, keyed by ``"lit"`` token; literals left out are
+            dimensionless. ``None`` means none.
+
+    Raises:
+        TypeError: If a unit is not a [Unit][SRToolkit.utils.units.Unit].
+        ValueError: If a variable of ``symbol_library`` has no unit, or a key of ``variable_units``
+            or ``literal_units`` is not a ``"var"`` or ``"lit"`` symbol of it; the message lists
+            every problem.
+
+    Attributes:
+        variable_units: A copy of ``variable_units`` as a dict.
+        target_unit: The target unit.
+        symbol_library: The symbol library, as given.
+        literal_units: The literal units as a dict; ``{}`` if none were given.
+
+    Examples:
+        >>> import numpy as np
+        >>> from SRToolkit.utils import ConsistentUnits, SymbolLibrary
+        >>> from SRToolkit.utils import units as u
+        >>> from SRToolkit.utils.grammar import Grammar, MaxDepth
+        >>> sl = SymbolLibrary.from_symbol_list(["+", "*", "/", "sin", "C"], num_variables=2)
+        >>> units = {"X_0": u.m, "X_1": u.s}
+        >>> g = Grammar.from_symbol_library(sl)
+        >>> g.add_constraint(DimensionalConsistency(units, u.m / u.s, sl))
+        >>> g.add_constraint(MaxDepth(8))
+        >>> np.random.seed(0)
+        >>> expr = g.generate_one(max_retries=50)
+        >>> check = ConsistentUnits(units, u.m / u.s)
+        >>> check.setup(sl)
+        >>> check.pre_check(expr).passed
+        True
     """
 
     def __init__(
         self,
-        variable_units: dict[str, dict],
-        target_unit: dict,
-        constant_units: Optional[dict[str, dict]] = None,
-        symbol_library: Optional[SymbolLibrary] = None,
-        allow_unit_polymorphic_constants: bool = False,
+        variable_units: Mapping[str, Unit],
+        target_unit: Unit,
+        symbol_library: SymbolLibrary,
+        literal_units: Optional[Mapping[str, Unit]] = None,
     ) -> None:
-        self._var_units: dict[str, Unit] = {k: _to_unit(v) for k, v in variable_units.items()}
-        self._target: Unit = _to_unit(target_unit)
-        self._const_units: dict[str, Unit] = {k: _to_unit(v) for k, v in (constant_units or {}).items()}
-        self._sl = symbol_library
-        self._allow_poly_const = allow_unit_polymorphic_constants
-
-    @staticmethod
-    def _unit_to_dict(unit: Unit) -> dict[str, str]:
-        return {dim: str(exp) for dim, exp in unit.items()}
+        _check_unit_types("DimensionalConsistency", variable_units, target_unit, literal_units)
+        self.variable_units = dict(variable_units)
+        self.target_unit = target_unit
+        self.symbol_library = symbol_library
+        self.literal_units = dict(literal_units or {})
+        self._sibling_units: dict[tuple[str, ...], Unit] = {}
+        _check_units_fit("DimensionalConsistency", symbol_library, self.variable_units, self.literal_units)
 
     def to_dict(self) -> dict:
+        """Return the saved form of this constraint.
+
+        Returns:
+            ``{"constraint_class": ..., "variable_units": ..., "target_unit": ..., "symbol_library":
+            ..., "literal_units": ...}``: each unit as [Unit.to_dict][SRToolkit.utils.units.Unit.to_dict],
+            ``variable_units`` and ``literal_units`` as ``{token: unit dict}`` (``{}`` if empty), and
+            the library as [SymbolLibrary.to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
+        """
         return {
             **super().to_dict(),
-            "variable_units": {k: self._unit_to_dict(v) for k, v in self._var_units.items()},
-            "target_unit": self._unit_to_dict(self._target),
-            "constant_units": {k: self._unit_to_dict(v) for k, v in self._const_units.items()} or None,
-            "allow_unit_polymorphic_constants": self._allow_poly_const,
+            "variable_units": {t: v.to_dict() for t, v in self.variable_units.items()},
+            "target_unit": self.target_unit.to_dict(),
+            "symbol_library": self.symbol_library.to_dict(),
+            "literal_units": {t: v.to_dict() for t, v in self.literal_units.items()},
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "DimensionalConsistency":
+        """Rebuild the constraint from the output of ``to_dict``; other keys are ignored.
+
+        Args:
+            d: A dictionary produced by ``to_dict``.
+
+        Returns:
+            The rebuilt constraint.
+
+        Raises:
+            ValueError: If ``d`` has no ``"symbol_library"`` (a file saved by an earlier version of
+                this class, which cannot be loaded), or a saved unit or the library is invalid.
+            KeyError: If another key is missing.
+        """
+        if "symbol_library" not in d:
+            raise ValueError(
+                "DimensionalConsistency.from_dict: no 'symbol_library'; the constraint was saved by an earlier "
+                "version, whose files cannot be loaded."
+            )
         return cls(
-            variable_units=d["variable_units"],
-            target_unit=d["target_unit"],
-            constant_units=d.get("constant_units"),
-            allow_unit_polymorphic_constants=d.get("allow_unit_polymorphic_constants", False),
+            {t: Unit.from_dict(v) for t, v in d["variable_units"].items()},
+            Unit.from_dict(d["target_unit"]),
+            SymbolLibrary.from_dict(d["symbol_library"]),
+            {t: Unit.from_dict(v) for t, v in d["literal_units"].items()},
         )
 
-    def initial_local(self, start: str) -> Optional[Unit]:
-        return self._target
+    def initial_local(self, start: str) -> Any:
+        return self.target_unit
 
-    def allows(self, slot: ExpansionContext[Optional[Unit]], rule: Rule, global_: None) -> bool:
-        if slot.local is None:
+    def allows(self, slot: ExpansionContext[Any], rule: Rule, global_: None) -> bool:
+        """Return whether ``rule`` fits the slot's required unit (see the class docstring).
+
+        Returns:
+            ``True`` if the rule fits.
+
+        Raises:
+            ValueError: If ``rule`` has a shape the constraint does not support (see "Supported
+                grammars" in the class docstring), or if the grammar is ambiguous: a finished
+                child's tokens parse to a tree with a unit conflict.
+        """
+        required = self._required(slot)
+        shape = self._shape(rule, slot.nonterminals)
+        if required is None or shape is None:
             return True
-        return self._is_compatible(rule, slot.local, slot.nonterminals)
-
-    def update(
-        self,
-        slot: ExpansionContext[Optional[Unit]],
-        rule: Rule,
-        global_: None,
-    ) -> tuple[list[Optional[Unit]], None]:
-        child_units = self._child_units(rule, slot.local, slot.nonterminals)
-        return child_units, None
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    def _is_compatible(self, rule: Rule, required: Unit, nonterminals: frozenset[str]) -> bool:
-        kind, info = self._classify_rule(rule, nonterminals)
-
-        if kind == "leaf":
-            return self._leaf_compatible(cast(list[str], info), required)
-
-        if kind == "function":
-            fn: str = cast(str, info)
-            if fn in TRANSCENDENTAL_FNS:
-                return _units_equal(required, {})
-            return True
-
+        if isinstance(shape, Unit):  # a leaf
+            return shape == required
+        if shape in (UnitRule.EXPONENT, UnitRule.DIMENSIONLESS) or shape.exponent == 0:
+            return required == _DIMENSIONLESS
         return True
 
-    def _leaf_compatible(self, terminals: list[str], required: Unit) -> bool:
-        for t in terminals:
-            if t in self._var_units:
-                return _units_equal(self._var_units[t], required)
-            if t in self._const_units:
-                return _units_equal(self._const_units[t], required)
-            if self._sl and t in self._sl.symbols:
-                sym_type = self._sl.symbols[t]["type"]
-                if sym_type == CONST:
-                    return self._allow_poly_const or _units_equal(required, {})
-                if sym_type == LIT:
-                    return _units_equal(required, {})
-                if sym_type == VAR:
-                    return True
-        return True
+    def update(self, slot: ExpansionContext[Any], rule: Rule, global_: None) -> tuple[list[Any], None]:
+        required = self._required(slot)
+        shape = self._shape(rule, slot.nonterminals)
+        if isinstance(shape, Unit):  # a leaf
+            return [], None
+        if shape is None:  # pass-through
+            return [required], None
+        n = sum(1 for s in rule.rhs if s in slot.nonterminals)
+        if shape == UnitRule.SAME:  # the second operand needs the first one's unit; no parent needed
+            return ([required] if n == 1 else [required, _Second(shape, None)]), None
+        if shape in (UnitRule.MULTIPLY, UnitRule.DIVIDE):
+            return [None, _Second(shape, required)], None
+        if shape.exponent is not None:  # power(k)
+            if shape.exponent == 0 or required is None:
+                return [None], None
+            return [required ** (1 / shape.exponent)], None
+        return [_DIMENSIONLESS] * n, None  # DIMENSIONLESS, EXPONENT
 
-    def _child_units(self, rule: Rule, required: Optional[Unit], nonterminals: frozenset[str]) -> list[Optional[Unit]]:
-        nt_count = sum(1 for s in rule.rhs if s in nonterminals)
-        if nt_count == 0:
-            return []
+    def _required(self, slot: ExpansionContext[Any]) -> Optional[Unit]:
+        # The unit the slot must have (None: any). A second child's requirement depends on the unit U
+        # of its finished first sibling.
+        local = slot.local
+        if not isinstance(local, _Second):
+            return local
+        tokens = tuple(ParseTree(slot.siblings[0]).to_token_list())
+        u = self._sibling_units.get(tokens)
+        if u is None:
+            u = self._tokens_unit(tokens)
+            if len(self._sibling_units) >= 4096:  # a cache, not a record: keep it bounded
+                self._sibling_units.clear()
+            self._sibling_units[tokens] = u
+        if local.rule == UnitRule.SAME:
+            return u
+        if local.parent is None:
+            return None
+        return local.parent / u if local.rule == UnitRule.MULTIPLY else u / local.parent
 
-        kind, info = self._classify_rule(rule, nonterminals)
+    def _tokens_unit(self, tokens: tuple[str, ...]) -> Unit:
+        # Unit of a finished subtree's tokens; computed once per distinct subtree (allows runs per candidate).
+        try:
+            u = _expression_unit(
+                tokens_to_tree(list(tokens), self.symbol_library),
+                self.symbol_library,
+                self.variable_units,
+                self.literal_units,
+            )
+        except _UnitConflict:
+            # Impossible if the emitted tokens parse to the derived tree (the documented precondition).
+            raise ValueError(
+                f"DimensionalConsistency: the finished subtree {' '.join(tokens)!r} parses to an expression with a "
+                "unit conflict; the grammar is ambiguous (its emitted tokens parse to another tree)."
+            ) from None
+        return u
 
-        if kind == "chain":
-            return [required]
-
-        if kind == "binary":
-            if self._is_additive(cast(str, info)):
-                return [required, required]
-            return [None, None]
-
-        if kind == "function":
-            return [self._fn_child_unit(cast(str, info), required)]
-
-        if kind == "postfix":
-            postfix: str = cast(str, info)
-            if postfix.startswith("^") and required is not None:
-                try:
-                    exp = Fraction(postfix[1:])
-                    return [{dim: Fraction(v) / exp for dim, v in required.items()}]
-                except (ValueError, ZeroDivisionError):
-                    pass
-            return [None]
-
-        return [None] * nt_count
-
-    def _classify_rule(self, rule: Rule, nonterminals: frozenset[str]) -> tuple[str, object]:
-        # Fast path: use stable rule name when available
-        if rule.name:
-            name = rule.name
-            if name.startswith("E_add_") or name.startswith("F_mul_") or name.startswith("B_pow_"):
-                op = name.split("_", 2)[-1]
-                return "binary", op
-            if name in ("E_to_F", "F_to_B", "B_to_T", "T_to_R", "T_to_K", "T_to_V", "R_to_P"):
-                return "chain", None
-            if name.startswith("R_fn_"):
-                return "function", name[5:]
-            if name.startswith("P_"):
-                return "postfix", name[2:]
-            if name.startswith("V_") or name.startswith("K_"):
-                terms = [s for s in rule.rhs if s not in nonterminals and s not in ("(", ")")]
-                return "leaf", terms
-
-        # Fallback: infer from rhs shape
-        nt_count = sum(1 for s in rule.rhs if s in nonterminals)
-        terms = [s for s in rule.rhs if s not in nonterminals and s not in ("(", ")")]
-
-        if nt_count == 0:
-            return "leaf", terms
-        if nt_count == 1 and not terms:
-            return "chain", None
-        if nt_count == 2 and len(terms) == 1:
-            return "binary", terms[0]
-        if nt_count == 1 and len(terms) == 1:
-            t = terms[0]
-            fn_type = self._sl.symbols.get(t, {}).get("type") if self._sl else None
-            if fn_type == FN or t in TRANSCENDENTAL_FNS or t in UNIT_PRESERVING_FNS or t in SQRT_FNS or t in CBRT_FNS:
-                return "function", t
-            if t.startswith("^"):
-                return "postfix", t
-        if nt_count == 1 and len(terms) > 1:
-            for t in terms:
-                if t.startswith("^"):
-                    return "postfix", t
-
-        return "unknown", None
-
-    def _fn_child_unit(self, fn: str, parent_unit: Optional[Unit]) -> Optional[Unit]:
-        if fn in TRANSCENDENTAL_FNS:
-            return {}
-        if fn in SQRT_FNS:
-            if parent_unit is None:
-                return None
-            return {dim: Fraction(v) * 2 for dim, v in parent_unit.items()}
-        if fn in CBRT_FNS:
-            if parent_unit is None:
-                return None
-            return {dim: Fraction(v) * 3 for dim, v in parent_unit.items()}
-        if fn in UNIT_PRESERVING_FNS:
-            return parent_unit
-        return None
-
-    def _is_additive(self, op: str) -> bool:
-        if self._sl:
-            info = self._sl.symbols.get(op, {})
-            return info.get("type") == OP and info.get("precedence") == OP_ADDITIVE
-        return op in {"+", "-"}
+    def _shape(self, rule: Rule, nonterminals: frozenset[str]) -> Union[None, Unit, UnitRule]:
+        # None for a pass-through rule, the leaf's Unit for a leaf, or the UnitRule of the rule's
+        # operator or function; ValueError for an unsupported shape.
+        terminals = [s for s in rule.rhs if s not in nonterminals and s not in ("(", ")")]
+        n = sum(1 for s in rule.rhs if s in nonterminals)
+        if not terminals and n == 1:
+            return None
+        if len(terminals) == 1:
+            token = terminals[0]
+            kind = self.symbol_library.get_type(token)
+            if n == 0 and (kind in (VAR, LIT, CONST) or is_float(token)):
+                return _leaf_unit(token, self.variable_units, self.literal_units)
+            unit_rule = self.symbol_library.get_unit_rule(token)
+            if unit_rule is not None and n in unit_rule.arities:
+                return unit_rule
+        raise ValueError(
+            f"DimensionalConsistency: unsupported rule {rule.lhs} -> {' '.join(rule.rhs)}; a rule needs one "
+            "operator or function terminal with as many non-terminals as its unit rule accepts, one leaf "
+            "terminal, or no terminals and one non-terminal."
+        )

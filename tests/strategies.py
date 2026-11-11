@@ -3,6 +3,8 @@
 Sizes are bounded so that property tests stay fast.
 """
 
+from fractions import Fraction
+
 import numpy as np
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
@@ -94,3 +96,27 @@ def serializable_values(max_leaves: int = 12):
         ),
         max_leaves=max_leaves,
     )
+
+
+# --- Physical units --------------------------------------------------------------------------
+
+BASE_UNITS = ["m", "kg", "s", "A", "K", "mol", "cd"]
+DERIVED_UNITS = ["N", "J", "W", "Pa", "Hz", "C", "V", "Ohm", "F", "T"]
+CUSTOM_DIMENSIONS = ["bit", "usd"]
+
+_EXPONENTS = st.builds(Fraction, st.integers(-3, 3), st.integers(1, 4))
+
+
+@st.composite
+def units(draw, custom: bool = False):
+    """A ``Unit`` from up to three names with exponents ``p/q``, ``|p| <= 3``, ``1 <= q <= 4``.
+
+    Names are base and derived units (derived ones expand to base dimensions), plus ``bit`` /
+    ``usd`` as confirmed custom units when ``custom``. ``units.py`` is imported lazily so that
+    modules using the other strategies do not depend on it.
+    """
+    from SRToolkit.utils.units import Unit
+
+    names = BASE_UNITS + DERIVED_UNITS + (CUSTOM_DIMENSIONS if custom else [])
+    exponents = draw(st.dictionaries(st.sampled_from(names), _EXPONENTS, max_size=3))
+    return Unit(exponents, custom_units=CUSTOM_DIMENSIONS if custom else ())

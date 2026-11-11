@@ -76,6 +76,7 @@ an error raised while a dataset or an evaluator is built says which constraint c
 | [MaxSymbolCount][SRToolkit.utils.expression_constraints.MaxSymbolCount] | pre | a symbol, or a group of symbols together, occurs more often than the limit |
 | [NoNesting][SRToolkit.utils.expression_constraints.NoNesting] | pre | a symbol of a group occurs below a symbol of the group, the same symbol included |
 | [OutputBounds][SRToolkit.utils.expression_constraints.OutputBounds] | post | the fitted model's output leaves the bounds at one of the given points |
+| [ConsistentUnits][SRToolkit.utils.expression_constraints.ConsistentUnits] | pre | the expression mixes physical units, or its unit is not the target's |
 
 Expression constraints are separate from the
 [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint]s that prune a grammar's
@@ -127,18 +128,51 @@ from __future__ import annotations
 
 import copy
 import importlib
+import math
 import re
 import warnings
-from typing import Any, List, Optional, Sequence, Tuple, Type, Union
+from fractions import Fraction
+from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 
 from ..bundle._relocate import _auto_bind
 from .expression_compiler import compile_expr
-from .expression_tree import Node, _as_tokens, _as_tree, _count_constants
+from .expression_tree import Node, _as_tokens, _as_tree, _count_constants, is_float
 from .serialization import _from_json_safe, _to_json_safe
 from .symbol_library import SymbolLibrary
-from .types import VAR, CheckResult, ModelResult
+from .types import LIT, VAR, CheckResult, ModelResult
+from .units import Unit, UnitRule
+
+if TYPE_CHECKING:  # background_knowledge imports this module
+    from ..dataset.background_knowledge import BackgroundKnowledge
+
+_DIMENSIONLESS = Unit()
+
+
+class _UnitConflict(Exception):
+    # Raised by ConsistentUnits._unit at the first conflict; its text is the check's message.
+    pass
+
+
+def _number_token(node: Node) -> bool:
+    # A leaf whose token is a finite number (the exponent of UnitRule.EXPONENT that scales the base).
+    # Fraction must accept it too: on Python 3.10 it rejects some tokens float() accepts ("1_0").
+    if node.left is not None or node.right is not None or not is_float(node.symbol):
+        return False
+    try:
+        Fraction(node.symbol)
+    except (ValueError, ZeroDivisionError):
+        return False
+    return math.isfinite(float(node.symbol))
+
+
+def _leaf_unit(token: str, variable_units: Mapping[str, Unit], literal_units: Mapping[str, Unit]) -> Unit:
+    # Unit of a leaf: a variable's or literal's unit; free constants, numbers and literals without a
+    # unit are dimensionless. Shared with the grammar's DimensionalConsistency.
+    if token in variable_units:
+        return variable_units[token]
+    return literal_units.get(token, _DIMENSIONLESS)
 
 
 def _predict(model: ModelResult, points: np.ndarray, symbol_library: SymbolLibrary) -> Union[np.ndarray, str]:
@@ -1278,3 +1312,255 @@ class OutputBounds(ExpressionConstraint):
             ValueError: If the values are invalid.
         """
         return cls(_from_json_safe(d["points"]), _from_json_safe(d["lower"]), _from_json_safe(d["upper"]))
+
+
+def _check_unit_types(
+    owner: str, variable_units: Mapping[str, Unit], target_unit: Unit, literal_units: Optional[Mapping[str, Unit]]
+) -> None:
+    # TypeError naming the first unit that is not a Unit; shared with the grammar's DimensionalConsistency.
+    for name, mapping in (("variable_units", variable_units), ("literal_units", literal_units or {})):
+        for token, unit in mapping.items():
+            if not isinstance(unit, Unit):
+                raise TypeError(f"{owner}: {name}[{token!r}] must be a Unit, got {type(unit).__name__}.")
+    if not isinstance(target_unit, Unit):
+        raise TypeError(f"{owner}: target_unit must be a Unit, got {type(target_unit).__name__}.")
+
+
+def _check_units_fit(
+    owner: str, symbol_library: SymbolLibrary, variable_units: Mapping[str, Unit], literal_units: Mapping[str, Unit]
+) -> None:
+    # ValueError listing every problem: variables without a unit, keys that are not variables or
+    # literals of the library. Shared with the grammar's DimensionalConsistency.
+    variables = symbol_library.get_symbols_of_type(VAR)
+    literals = symbol_library.get_symbols_of_type(LIT)
+    problems = [
+        f"{what}: {', '.join(tokens)}"
+        for what, tokens in (
+            ("variables without a unit", [v for v in variables if v not in variable_units]),
+            ("keys of variable_units that are not variables", [t for t in variable_units if t not in variables]),
+            ("keys of literal_units that are not literals", [t for t in literal_units if t not in literals]),
+        )
+        if tokens
+    ]
+    if problems:
+        raise ValueError(f"{owner}: does not fit the symbol library; {'; '.join(problems)}.")
+
+
+def _expression_unit(
+    node: Node, symbol_library: SymbolLibrary, variable_units: Mapping[str, Unit], literal_units: Mapping[str, Unit]
+) -> Unit:
+    # Unit of the expression tree at node, computed bottom-up by the library's unit rules; raises
+    # _UnitConflict at the first conflict in post-order. Shared by ConsistentUnits and the grammar's
+    # DimensionalConsistency.
+    if node.left is None and node.right is None:
+        return _leaf_unit(node.symbol, variable_units, literal_units)
+    rule = symbol_library.get_unit_rule(node.symbol) or UnitRule.DIMENSIONLESS
+    # Units of the arguments: [left] for a function, [left, right] for an operator.
+    units = [
+        _expression_unit(c, symbol_library, variable_units, literal_units)
+        for c in (node.left, node.right)
+        if c is not None
+    ]
+    exponent = node.right
+    if rule == UnitRule.EXPONENT and exponent is not None and _number_token(exponent):
+        return units[0] ** Fraction(exponent.symbol)
+    if rule == UnitRule.SAME:
+        if len(units) == 2 and units[0] != units[1]:
+            where = "".join(node.to_list(symbol_library))  # built only for the message
+            raise _UnitConflict(f"{where}: operands have units {units[0]} and {units[1]}")
+        return units[0]
+    if rule == UnitRule.MULTIPLY:
+        return units[0] * units[1]
+    if rule == UnitRule.DIVIDE:
+        return units[0] / units[1]
+    if rule.exponent is not None:  # power(k)
+        return units[0] ** rule.exponent
+    # What is left (DIMENSIONLESS, or EXPONENT with an exponent that is not a number) needs every
+    # argument to be dimensionless; the labels only name the argument in the message.
+    if rule == UnitRule.EXPONENT:
+        labels: Tuple[str, ...] = ("base", "exponent")
+    elif len(units) == 1:
+        labels = ("argument",)
+    else:
+        labels = ("left operand", "right operand")
+    for label, u in zip(labels, units):
+        if u != _DIMENSIONLESS:
+            where = "".join(node.to_list(symbol_library))  # built only for the message
+            raise _UnitConflict(f"{where}: {label} has unit {u}")
+    return _DIMENSIONLESS
+
+
+class ConsistentUnits(ExpressionConstraint):
+    """Require that the expression is dimensionally consistent and has the target's unit.
+
+    Variables have [Unit][SRToolkit.utils.units.Unit]s, and so may named constants (``"lit"``
+    symbols, e.g. ``c`` for the speed of light). Free constants, numbers and literals without a unit
+    (``pi``, ``e``) are dimensionless, so a fitted constant cannot repair the units: a physical
+    constant the answer needs must be a variable or a literal with a unit.
+
+    The unit of each subexpression is computed bottom-up by the
+    [UnitRule][SRToolkit.utils.units.UnitRule] of its operator or function, read from the symbol
+    library at each check. An argument that breaks its rule is a conflict, and so is a whole
+    expression whose unit is not ``target_unit``; the check fails at the first conflict. The exponent of ``EXPONENT`` is a number if it is
+    a single token with a finite value, taken exactly (``0.5`` is 1/2); ``X_0 ^ (u- 2)`` has no
+    number exponent.
+
+    Args:
+        variable_units: The unit of every variable, keyed by token, e.g. ``{"X_0": u.m / u.s}``.
+        target_unit: The unit the expression must have.
+        literal_units: Units of named constants, keyed by ``"lit"`` token; literals left out are
+            dimensionless. ``None`` means none.
+
+    Raises:
+        TypeError: If a unit is not a [Unit][SRToolkit.utils.units.Unit].
+
+    Attributes:
+        variable_units: A copy of ``variable_units`` as a dict.
+        target_unit: The target unit.
+        literal_units: The literal units as a dict; ``{}`` if none were given.
+
+    Examples:
+        >>> from SRToolkit.utils import SymbolLibrary
+        >>> from SRToolkit.utils import units as u
+        >>> c = ConsistentUnits({"X_0": u.m, "X_1": u.s}, target_unit=u.m / u.s)
+        >>> c.setup(SymbolLibrary.default_symbols(2))
+        >>> c.pre_check(["C", "*", "X_0", "/", "X_1"]).passed
+        True
+        >>> r = c.pre_check(["X_0", "+", "X_1"])
+        >>> r.message, r.amount
+        ('X_0+X_1: operands have units m and s', 1.0)
+    """
+
+    def __init__(
+        self,
+        variable_units: Mapping[str, Unit],
+        target_unit: Unit,
+        literal_units: Optional[Mapping[str, Unit]] = None,
+    ) -> None:
+        _check_unit_types("ConsistentUnits", variable_units, target_unit, literal_units)
+        self.variable_units = dict(variable_units)
+        self.target_unit = target_unit
+        self.literal_units = dict(literal_units or {})
+
+    @classmethod
+    def from_background_knowledge(cls, background_knowledge: BackgroundKnowledge) -> ConsistentUnits:
+        """Build the constraint from the units stated in background knowledge.
+
+        Reads ``variables[token].unit`` for every variable of the symbol library, ``target.unit``,
+        and the ``unit`` of each entry of ``constants`` that has one. The result is not set up.
+
+        Args:
+            background_knowledge: Background knowledge whose variables and target all have units.
+
+        Returns:
+            The constraint.
+
+        Raises:
+            ValueError: If a variable of the symbol library or the target has no unit (missing from
+                ``variables``, or ``unit`` is ``None``); the message names them.
+        """
+        bk = background_knowledge
+        variable_units = {t: info.unit for t, info in bk.variables.items() if info.unit is not None}
+        missing = [t for t in bk.symbol_library.get_symbols_of_type(VAR) if t not in variable_units]
+        target_unit = bk.target.unit if bk.target is not None else None
+        if missing or target_unit is None:
+            names = missing + (["target"] if target_unit is None else [])
+            raise ValueError(f"ConsistentUnits.from_background_knowledge: no unit for {', '.join(names)}.")
+        literal_units = {t: info.unit for t, info in bk.constants.items() if info.unit is not None}
+        return cls(variable_units, target_unit, literal_units)
+
+    def setup(self, symbol_library: SymbolLibrary) -> None:
+        """Store the symbol library and check that the units fit it.
+
+        Args:
+            symbol_library: The symbol library.
+
+        Raises:
+            ValueError: If a variable of ``symbol_library`` has no unit, a key of ``variable_units``
+                is not a variable of it, or a key of ``literal_units`` is not one of its ``"lit"``
+                symbols. The message lists every problem and names the tokens.
+        """
+        _check_units_fit("ConsistentUnits", symbol_library, self.variable_units, self.literal_units)
+        super().setup(symbol_library)
+
+    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+        """Fail if the expression has a unit conflict (see the class docstring).
+
+        Args:
+            expr: A well-formed expression, as a token list or a tree.
+
+        Returns:
+            Passed if there is no conflict. Otherwise failed with ``amount`` 1.0 and a message
+            describing the first conflict in post-order (left subtree, right subtree, then the
+            node; at one node the base or left operand before the exponent or right operand):
+
+            - ``SAME``: ``"<sub>: operands have units <u1> and <u2>"``;
+            - ``EXPONENT``: ``"<sub>: base has unit <u>"`` / ``"<sub>: exponent has unit <u>"``;
+            - ``DIMENSIONLESS`` on a function: ``"<sub>: argument has unit <u>"``;
+            - ``DIMENSIONLESS`` on an operator: ``"<sub>: left operand has unit <u>"`` (or ``right``);
+            - the whole expression: ``"result has unit <u>, target <t>"``.
+
+            ``<sub>`` is the subexpression at the conflict, written with the symbol library and
+            without spaces (e.g. ``sin(X_0)``); units are written with ``str`` (``m s^-1``, ``1``
+            if dimensionless).
+
+        Raises:
+            RuntimeError: If [setup][SRToolkit.utils.expression_constraints.ConsistentUnits.setup]
+                has not been called.
+            ExpressionParseError: If ``expr`` is a malformed token list.
+        """
+        symbol_library = _require_setup(self)
+        tree = _as_tree(expr, symbol_library)
+        try:
+            unit = _expression_unit(tree, symbol_library, self.variable_units, self.literal_units)
+        except _UnitConflict as conflict:
+            return CheckResult(passed=False, message=str(conflict), amount=1.0)
+        if unit != self.target_unit:
+            return CheckResult(passed=False, message=f"result has unit {unit}, target {self.target_unit}", amount=1.0)
+        return CheckResult()
+
+    def describe(self) -> str:
+        """Return ``"dimensionally consistent, with unit <target>"``.
+
+        Returns:
+            The phrase, e.g. ``"dimensionally consistent, with unit m s^-1"``.
+        """
+        return f"dimensionally consistent, with unit {self.target_unit}"
+
+    def to_dict(self) -> dict:
+        """Return ``{"constraint_class": ..., "variable_units": ..., "target_unit": ..., "literal_units": ...}``.
+
+        Every unit is saved with [Unit.to_dict][SRToolkit.utils.units.Unit.to_dict];
+        ``variable_units`` and ``literal_units`` as ``{token: unit dict}`` (``{}`` if empty).
+
+        Returns:
+            The saved form of this constraint.
+        """
+        return {
+            **super().to_dict(),
+            "variable_units": {t: u.to_dict() for t, u in self.variable_units.items()},
+            "target_unit": self.target_unit.to_dict(),
+            "literal_units": {t: u.to_dict() for t, u in self.literal_units.items()},
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ConsistentUnits:
+        """Rebuild the constraint from the output of ``to_dict``; other keys are ignored.
+
+        Args:
+            d: A dictionary with the keys ``"variable_units"``, ``"target_unit"`` and
+                ``"literal_units"``.
+
+        Returns:
+            The rebuilt constraint.
+
+        Raises:
+            KeyError: If a key is missing.
+            ValueError: If a saved unit is invalid (see
+                [Unit.from_dict][SRToolkit.utils.units.Unit.from_dict]).
+        """
+        return cls(
+            {t: Unit.from_dict(u) for t, u in d["variable_units"].items()},
+            Unit.from_dict(d["target_unit"]),
+            {t: Unit.from_dict(u) for t, u in d["literal_units"].items()},
+        )

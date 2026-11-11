@@ -13,10 +13,12 @@ from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth, RequiredVariables
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.units import Unit
 
 _GT = ["X_0", "+", "X_1"]
 _X = np.random.default_rng(0).random((5, 2))
@@ -375,3 +377,38 @@ def test_srsd_bonus_6_squares_epsilon():
     X = np.array([[eps, e_n, ang, m, z1, z2, q]])
     expected = np.sqrt(1 + 2 * eps**2 * e_n * ang**2 / (m * (z1 * z2 * q**2) ** 2))
     assert compile_expr(entry["ground_truth"], library)(X, None)[0] == pytest.approx(expected)
+
+
+# ── Named constants and units survive the benchmark entry ─────────────────────
+
+_UNIT_INFOS = dict(variables={"X_0": VariableInfo("x", unit=u.m)}, constants={"pi": VariableInfo("π", unit=Unit())})
+
+
+def _lib2pi():
+    return SymbolLibrary.from_symbol_list(["+", "*", "C", "pi"], num_variables=2)
+
+
+@pytest.mark.parametrize(
+    "add",
+    [
+        lambda bm: bm.add_dataset(_lib2pi(), _XY, "a", ground_truth=_GT, **_UNIT_INFOS),
+        lambda bm: bm.add_from_samplers(
+            _GT,
+            [UniformSampling(0, 1)] * 2,
+            symbol_library=_lib2pi(),
+            dataset_name="a",
+            n_samples=5,
+            seed=0,
+            **_UNIT_INFOS,
+        ),
+    ],
+    ids=["add_dataset", "add_from_samplers"],
+)
+def test_entry_keeps_constants_and_units(add, tmp_path):
+    bm = SR_benchmark("b")
+    add(bm)
+    path = tmp_path / "benchmark.json"
+    path.write_text(json.dumps(bm.to_dict()))
+    bk = SR_benchmark.from_dict(path).create_dataset("a").background_knowledge
+    assert bk.constants == {"pi": VariableInfo("π", unit=Unit())}
+    assert bk.variables["X_0"].unit == u.m

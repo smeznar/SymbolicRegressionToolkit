@@ -1,18 +1,23 @@
 """
 Tests for SRToolkit/utils/grammar/constraints.py.
 
-Covers: _to_unit, _units_equal, AncestorInfo, ExpansionContext, GrammarConstraint base
-class, MaxDepth, MaxNodes, MaxOccurrences, NoNested, and DimensionalConsistency
-(all internal helpers: _classify_rule named and fallback paths, _fn_child_unit,
-_leaf_compatible, _child_units, _is_additive, allows, update).
+Covers: AncestorInfo, ExpansionContext, GrammarConstraint base
+class, MaxDepth, MaxNodes, MaxOccurrences, NoNested, and DimensionalConsistency (through
+derivations: what each slot allows, child requirements, dead ends, and a ConsistentUnits oracle).
 """
 
 from __future__ import annotations
 
+import json
 from fractions import Fraction
 
+import numpy as np
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
+from SRToolkit.utils import units as u
+from SRToolkit.utils.expression_constraints import ConsistentUnits
 from SRToolkit.utils.grammar import (
     AncestorInfo,
     DimensionalConsistency,
@@ -26,12 +31,8 @@ from SRToolkit.utils.grammar import (
     ParseTreeNode,
     Rule,
 )
-from SRToolkit.utils.grammar.constraints import (
-    TRANSCENDENTAL_FNS,
-    _to_unit,
-    _units_equal,
-)
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.units import Unit, UnitRule
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -63,80 +64,6 @@ def _make_slot(
         nonterminals=nonterminals,
         frontier_size=frontier_size,
     )
-
-
-def _dc(
-    variable_units: dict | None = None,
-    target_unit: dict | None = None,
-    constant_units: dict | None = None,
-    symbol_library: SymbolLibrary | None = None,
-    allow_unit_polymorphic_constants: bool = False,
-) -> DimensionalConsistency:
-    return DimensionalConsistency(
-        variable_units=variable_units or {},
-        target_unit=target_unit or {},
-        constant_units=constant_units,
-        symbol_library=symbol_library,
-        allow_unit_polymorphic_constants=allow_unit_polymorphic_constants,
-    )
-
-
-# ---------------------------------------------------------------------------
-# _to_unit
-# ---------------------------------------------------------------------------
-
-
-class TestToUnit:
-    def test_nonzero_dimensions_preserved(self):
-        result = _to_unit({"m": 1, "s": -1})
-        assert result == {"m": Fraction(1), "s": Fraction(-1)}
-
-    def test_zero_exponent_dropped(self):
-        result = _to_unit({"m": 1, "s": 0})
-        assert "s" not in result
-        assert result == {"m": Fraction(1)}
-
-    def test_all_zero_gives_empty(self):
-        assert _to_unit({"m": 0, "s": 0}) == {}
-
-    def test_empty_input_stays_empty(self):
-        assert _to_unit({}) == {}
-
-    def test_fractional_exponent_preserved(self):
-        result = _to_unit({"m": Fraction(1, 2)})
-        assert result == {"m": Fraction(1, 2)}
-
-    def test_int_exponent_becomes_fraction(self):
-        result = _to_unit({"kg": 2})
-        assert isinstance(result["kg"], Fraction)
-
-
-# ---------------------------------------------------------------------------
-# _units_equal
-# ---------------------------------------------------------------------------
-
-
-class TestUnitsEqual:
-    def test_equal_units(self):
-        assert _units_equal({"m": 1, "s": -1}, {"m": 1, "s": -1})
-
-    def test_different_values_not_equal(self):
-        assert not _units_equal({"m": 1}, {"m": 2})
-
-    def test_different_dims_not_equal(self):
-        assert not _units_equal({"m": 1}, {"s": 1})
-
-    def test_zero_exp_normalized_before_comparison(self):
-        assert _units_equal({"m": 1, "s": 0}, {"m": 1})
-
-    def test_both_empty_equal(self):
-        assert _units_equal({}, {})
-
-    def test_one_empty_other_nonempty(self):
-        assert not _units_equal({}, {"m": 1})
-
-    def test_fractional_exponents(self):
-        assert _units_equal({"m": Fraction(1, 2)}, {"m": Fraction(1, 2)})
 
 
 # ---------------------------------------------------------------------------
@@ -556,533 +483,333 @@ class TestNoNested:
 
 
 # ---------------------------------------------------------------------------
-# DimensionalConsistency._classify_rule — named paths
+# DimensionalConsistency
 # ---------------------------------------------------------------------------
-
-
-class TestDCClassifyRuleNamed:
-    def _classify(self, rule: Rule, nts: frozenset[str] | None = None):
-        if nts is None:
-            nts = frozenset({"E", "F", "B", "T", "R", "P", "V", "C"})
-        return _dc()._classify_rule(rule, nts)
-
-    def test_e_add_is_binary(self):
-        assert self._classify(Rule("E", ["E", "+", "F"], name="E_add_+")) == ("binary", "+")
-
-    def test_f_mul_is_binary(self):
-        assert self._classify(Rule("F", ["F", "*", "B"], name="F_mul_*")) == ("binary", "*")
-
-    def test_b_pow_is_binary(self):
-        assert self._classify(Rule("B", ["B", "^", "T"], name="B_pow_^")) == ("binary", "^")
-
-    def test_e_to_f_is_chain(self):
-        assert self._classify(Rule("E", ["F"], name="E_to_F")) == ("chain", None)
-
-    def test_f_to_b_is_chain(self):
-        assert self._classify(Rule("F", ["B"], name="F_to_B")) == ("chain", None)
-
-    def test_b_to_t_is_chain(self):
-        assert self._classify(Rule("B", ["T"], name="B_to_T")) == ("chain", None)
-
-    def test_t_to_r_is_chain(self):
-        assert self._classify(Rule("T", ["R"], name="T_to_R")) == ("chain", None)
-
-    def test_t_to_k_is_chain(self):
-        assert self._classify(Rule("T", ["K"], name="T_to_K")) == ("chain", None)
-
-    def test_t_to_v_is_chain(self):
-        assert self._classify(Rule("T", ["V"], name="T_to_V")) == ("chain", None)
-
-    def test_r_to_p_is_chain(self):
-        assert self._classify(Rule("R", ["P"], name="R_to_P")) == ("chain", None)
-
-    def test_r_fn_sin_is_function(self):
-        assert self._classify(Rule("R", ["sin", "(", "P", ")"], name="R_fn_sin")) == ("function", "sin")
-
-    def test_r_fn_sqrt_is_function(self):
-        assert self._classify(Rule("R", ["sqrt", "(", "P", ")"], name="R_fn_sqrt")) == ("function", "sqrt")
-
-    def test_p_postfix_is_postfix(self):
-        assert self._classify(Rule("P", ["T", "^2"], name="P_^2")) == ("postfix", "^2")
-
-    def test_v_leaf(self):
-        kind, info = self._classify(Rule("V", ["x"], name="V_x"))
-        assert kind == "leaf"
-        assert "x" in info
-
-    def test_k_leaf(self):
-        kind, info = self._classify(Rule("K", ["C_const"], name="K_C_const"))
-        assert kind == "leaf"
-
-    def test_unrecognized_name_falls_to_fallback_terminal(self):
-        # Name doesn't match any known prefix → fallback; nt=0 → leaf
-        kind, _ = self._classify(Rule("E", ["x"], name="MyCustomRule"))
-        assert kind == "leaf"
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency._classify_rule — fallback paths
-# ---------------------------------------------------------------------------
-
-
-class TestDCClassifyRuleFallback:
-    def _classify(self, rule: Rule, nts: frozenset[str] | None = None, sl=None):
-        if nts is None:
-            nts = frozenset({"E", "F"})
-        return _dc(symbol_library=sl)._classify_rule(rule, nts)
-
-    def test_nt0_is_leaf(self):
-        kind, terms = self._classify(Rule("E", ["x", "y"]))
-        assert kind == "leaf"
-        assert "x" in terms and "y" in terms
-
-    def test_nt1_no_terms_is_chain(self):
-        assert self._classify(Rule("E", ["F"])) == ("chain", None)
-
-    def test_nt2_one_term_is_binary(self):
-        assert self._classify(Rule("E", ["E", "+", "F"])) == ("binary", "+")
-
-    def test_nt1_transcendental_fn_is_function(self):
-        kind, fn = self._classify(Rule("E", ["sin", "F"]))
-        assert kind == "function"
-        assert fn == "sin"
-
-    def test_nt1_unit_preserving_fn_is_function(self):
-        kind, fn = self._classify(Rule("E", ["abs", "F"]))
-        assert kind == "function"
-        assert fn == "abs"
-
-    def test_nt1_sqrt_fn_is_function(self):
-        kind, fn = self._classify(Rule("E", ["sqrt", "F"]))
-        assert kind == "function"
-        assert fn == "sqrt"
-
-    def test_nt1_cbrt_fn_is_function(self):
-        kind, fn = self._classify(Rule("E", ["cbrt", "F"]))
-        assert kind == "function"
-        assert fn == "cbrt"
-
-    def test_nt1_caret_term_is_postfix(self):
-        kind, info = self._classify(Rule("E", ["F", "^2"]))
-        assert kind == "postfix"
-        assert info == "^2"
-
-    def test_nt1_multiple_terms_one_caret_is_postfix(self):
-        kind, info = self._classify(Rule("E", ["x", "F", "^2"]))
-        assert kind == "postfix"
-        assert info == "^2"
-
-    def test_nt1_sl_fn_type_is_function(self):
-        sl = _sl("sin", "+")
-        kind, fn = self._classify(Rule("E", ["sin", "F"]), sl=sl)
-        assert kind == "function"
-        assert fn == "sin"
-
-    def test_nt1_unknown_term_is_unknown(self):
-        kind, _ = self._classify(Rule("E", ["F", "someop"]))
-        assert kind == "unknown"
-
-    def test_nt2_no_terms_is_unknown(self):
-        kind, _ = self._classify(Rule("E", ["E", "F"]))
-        assert kind == "unknown"
-
-    def test_nt1_multiple_terms_no_caret_is_unknown(self):
-        kind, _ = self._classify(Rule("E", ["a", "F", "b"]))
-        assert kind == "unknown"
-
-    def test_nt2_two_terms_is_unknown(self):
-        kind, _ = self._classify(Rule("E", ["E", "+", "-", "F"]))
-        assert kind == "unknown"
-
-    def test_parens_excluded_from_terms(self):
-        # Rule E -> ( F ) — after filtering parens, nt=1 and terms=[] → chain
-        kind, _ = self._classify(Rule("E", ["(", "F", ")"]))
-        assert kind == "chain"
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency._is_additive
-# ---------------------------------------------------------------------------
-
-
-class TestDCIsAdditive:
-    def test_plus_with_sl_is_additive(self):
-        sl = _sl("+", "*")
-        dc = _dc(symbol_library=sl)
-        assert dc._is_additive("+") is True
-
-    def test_minus_with_sl_is_additive(self):
-        sl = _sl("+", "-")
-        dc = _dc(symbol_library=sl)
-        assert dc._is_additive("-") is True
-
-    def test_mul_with_sl_not_additive(self):
-        sl = _sl("+", "*")
-        dc = _dc(symbol_library=sl)
-        assert dc._is_additive("*") is False
-
-    def test_div_with_sl_not_additive(self):
-        sl = _sl("+", "/")
-        dc = _dc(symbol_library=sl)
-        assert dc._is_additive("/") is False
-
-    def test_unknown_op_with_sl_not_additive(self):
-        sl = _sl("+")
-        dc = _dc(symbol_library=sl)
-        assert dc._is_additive("??") is False
-
-    def test_plus_without_sl_is_additive(self):
-        assert _dc()._is_additive("+") is True
-
-    def test_minus_without_sl_is_additive(self):
-        assert _dc()._is_additive("-") is True
-
-    def test_mul_without_sl_not_additive(self):
-        assert _dc()._is_additive("*") is False
-
-    def test_caret_without_sl_not_additive(self):
-        assert _dc()._is_additive("^") is False
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency._fn_child_unit
-# ---------------------------------------------------------------------------
-
-
-class TestDCFnChildUnit:
-    def test_transcendental_always_returns_dimensionless(self):
-        dc = _dc()
-        for fn in list(TRANSCENDENTAL_FNS)[:5]:
-            assert dc._fn_child_unit(fn, {"m": Fraction(1)}) == {}
-
-    def test_transcendental_with_none_parent_still_dimensionless(self):
-        assert _dc()._fn_child_unit("sin", None) == {}
-
-    def test_sqrt_with_none_parent_returns_none(self):
-        assert _dc()._fn_child_unit("sqrt", None) is None
-
-    def test_sqrt_doubles_exponents(self):
-        result = _dc()._fn_child_unit("sqrt", {"m": Fraction(1, 2)})
-        assert result == {"m": Fraction(1)}
-
-    def test_sqrt_with_multidim_unit(self):
-        result = _dc()._fn_child_unit("sqrt", {"m": Fraction(1), "s": Fraction(-2)})
-        assert result == {"m": Fraction(2), "s": Fraction(-4)}
-
-    def test_cbrt_with_none_parent_returns_none(self):
-        assert _dc()._fn_child_unit("cbrt", None) is None
-
-    def test_cbrt_triples_exponents(self):
-        result = _dc()._fn_child_unit("cbrt", {"m": Fraction(1, 3)})
-        assert result == {"m": Fraction(1)}
-
-    def test_unit_preserving_returns_same_unit(self):
-        unit = {"m": Fraction(1), "s": Fraction(-1)}
-        result = _dc()._fn_child_unit("abs", unit)
-        assert result == unit
-
-    def test_unit_preserving_with_none(self):
-        assert _dc()._fn_child_unit("abs", None) is None
-
-    def test_unknown_fn_returns_none(self):
-        assert _dc()._fn_child_unit("myfn", {"m": Fraction(1)}) is None
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency._leaf_compatible
-# ---------------------------------------------------------------------------
-
-
-class TestDCLeafCompatible:
-    def test_var_unit_matches(self):
-        dc = _dc(variable_units={"v": {"m": 1, "s": -1}})
-        assert dc._leaf_compatible(["v"], {"m": Fraction(1), "s": Fraction(-1)}) is True
-
-    def test_var_unit_mismatches(self):
-        dc = _dc(variable_units={"v": {"m": 1, "s": -1}})
-        assert dc._leaf_compatible(["v"], {"s": Fraction(1)}) is False
-
-    def test_const_units_match(self):
-        dc = _dc(constant_units={"g": {"m": 1, "s": -2}})
-        assert dc._leaf_compatible(["g"], {"m": Fraction(1), "s": Fraction(-2)}) is True
-
-    def test_const_units_mismatch(self):
-        dc = _dc(constant_units={"g": {"m": 1, "s": -2}})
-        assert dc._leaf_compatible(["g"], {"m": Fraction(1)}) is False
-
-    def test_sl_const_allow_poly_false_dimensionless_required(self):
-        sl = _sl("C")
-        dc = _dc(symbol_library=sl, allow_unit_polymorphic_constants=False)
-        assert dc._leaf_compatible(["C"], {}) is True
-
-    def test_sl_const_allow_poly_false_nondimensionless_required(self):
-        sl = _sl("C")
-        dc = _dc(symbol_library=sl, allow_unit_polymorphic_constants=False)
-        assert dc._leaf_compatible(["C"], {"m": Fraction(1)}) is False
-
-    def test_sl_const_allow_poly_true_any_required(self):
-        sl = _sl("C")
-        dc = _dc(symbol_library=sl, allow_unit_polymorphic_constants=True)
-        assert dc._leaf_compatible(["C"], {"m": Fraction(1), "s": Fraction(-2)}) is True
-
-    def test_sl_lit_dimensionless_required(self):
-        sl = _sl("pi")
-        dc = _dc(symbol_library=sl)
-        assert dc._leaf_compatible(["pi"], {}) is True
-
-    def test_sl_lit_nondimensionless_required(self):
-        sl = _sl("pi")
-        dc = _dc(symbol_library=sl)
-        assert dc._leaf_compatible(["pi"], {"m": Fraction(1)}) is False
-
-    def test_sl_var_always_true(self):
-        sl = _sl(n_vars=1)
-        dc = _dc(symbol_library=sl)
-        assert dc._leaf_compatible(["X_0"], {"m": Fraction(5)}) is True
-
-    def test_unknown_token_conservatively_true(self):
-        dc = _dc()
-        assert dc._leaf_compatible(["unknown_token"], {"m": Fraction(1)}) is True
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency._child_units
-# ---------------------------------------------------------------------------
-
-
-class TestDCChildUnits:
-    NTS = frozenset({"E", "F"})
-
-    def test_terminal_only_returns_empty(self):
-        dc = _dc()
-        assert dc._child_units(Rule("E", ["x"]), {"m": Fraction(1)}, self.NTS) == []
-
-    def test_chain_propagates_required(self):
-        dc = _dc()
-        required = {"m": Fraction(1)}
-        result = dc._child_units(Rule("E", ["F"]), required, self.NTS)
-        assert result == [required]
-
-    def test_additive_binary_both_get_required(self):
-        dc = _dc()
-        required = {"m": Fraction(1), "s": Fraction(-1)}
-        result = dc._child_units(Rule("E", ["E", "+", "F"]), required, self.NTS)
-        assert result == [required, required]
-
-    def test_multiplicative_binary_both_get_none(self):
-        dc = _dc()
-        result = dc._child_units(Rule("E", ["E", "*", "F"]), {"m": Fraction(1)}, self.NTS)
-        assert result == [None, None]
-
-    def test_function_transcendental_child_gets_dimensionless(self):
-        dc = _dc()
-        result = dc._child_units(Rule("E", ["sin", "F"]), {}, self.NTS)
-        assert result == [{}]
-
-    def test_function_sqrt_child_gets_doubled(self):
-        dc = _dc()
-        required = {"m": Fraction(1, 2)}
-        result = dc._child_units(Rule("R", ["sqrt", "F"], name="R_fn_sqrt"), required, self.NTS)
-        assert result == [{"m": Fraction(1)}]
-
-    def test_postfix_named_inverses_exponent(self):
-        dc = _dc()
-        required = {"m": Fraction(1)}
-        rule = Rule("P", ["F", "^2"], name="P_^2")
-        result = dc._child_units(rule, required, self.NTS)
-        assert result == [{"m": Fraction(1, 2)}]
-
-    def test_postfix_zero_exponent_returns_none(self):
-        dc = _dc()
-        rule = Rule("P", ["F", "^0"], name="P_^0")
-        result = dc._child_units(rule, {"m": Fraction(1)}, self.NTS)
-        assert result == [None]
-
-    def test_postfix_unparseable_exponent_returns_none(self):
-        dc = _dc()
-        rule = Rule("P", ["F", "^abc"], name="P_^abc")
-        result = dc._child_units(rule, {"m": Fraction(1)}, self.NTS)
-        assert result == [None]
-
-    def test_postfix_required_none_returns_none(self):
-        dc = _dc()
-        rule = Rule("P", ["F", "^2"], name="P_^2")
-        assert dc._child_units(rule, None, self.NTS) == [None]
-
-    def test_unknown_kind_returns_none_per_child(self):
-        dc = _dc()
-        # nt=2, no terms → unknown; 2 NT children
-        result = dc._child_units(Rule("E", ["E", "F"]), {"m": Fraction(1)}, self.NTS)
-        assert result == [None, None]
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency.allows
-# ---------------------------------------------------------------------------
-
-
-class TestDCAllows:
-    NTS = frozenset({"E", "F"})
-
-    def test_slot_local_none_always_true(self):
-        dc = _dc(variable_units={"t": {"s": 1}}, target_unit={"m": 1})
-        slot = _make_slot(local=None, nonterminals=self.NTS)
-        assert dc.allows(slot, Rule("F", ["t"]), None) is True
-
-    def test_transcendental_fn_with_dimensionless_required_true(self):
-        dc = _dc()
-        slot = _make_slot(local={}, nonterminals=self.NTS)
-        assert dc.allows(slot, Rule("E", ["sin", "F"], name="R_fn_sin"), None) is True
-
-    def test_transcendental_fn_with_nondimensionless_required_false(self):
-        dc = _dc()
-        slot = _make_slot(local={"m": Fraction(1)}, nonterminals=self.NTS)
-        assert dc.allows(slot, Rule("E", ["sin", "F"], name="R_fn_sin"), None) is False
-
-    def test_non_transcendental_fn_always_true(self):
-        dc = _dc()
-        slot = _make_slot(local={"m": Fraction(1)}, nonterminals=self.NTS)
-        assert dc.allows(slot, Rule("E", ["abs", "F"], name="R_fn_abs"), None) is True
-
-    def test_leaf_compatible_variable_true(self):
-        dc = _dc(variable_units={"v": {"m": 1, "s": -1}})
-        slot = _make_slot(local={"m": Fraction(1), "s": Fraction(-1)}, nonterminals=self.NTS)
-        assert dc.allows(slot, Rule("F", ["v"]), None) is True
-
-    def test_leaf_incompatible_variable_false(self):
-        dc = _dc(variable_units={"v": {"m": 1, "s": -1}})
-        slot = _make_slot(local={"s": Fraction(1)}, nonterminals=self.NTS)
-        assert dc.allows(slot, Rule("F", ["v"]), None) is False
-
-    def test_chain_rule_always_true(self):
-        dc = _dc(variable_units={}, target_unit={"m": 1})
-        slot = _make_slot(local={"m": Fraction(1)}, nonterminals=self.NTS)
-        assert dc.allows(slot, Rule("E", ["F"], name="E_to_F"), None) is True
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency.update
-# ---------------------------------------------------------------------------
-
-
-class TestDCUpdate:
-    NTS = frozenset({"E", "F"})
-
-    def test_chain_propagates_required(self):
-        dc = _dc()
-        required = {"m": Fraction(1)}
-        slot = _make_slot(local=required, nonterminals=self.NTS)
-        child_locals, _ = dc.update(slot, Rule("E", ["F"], name="E_to_F"), None)
-        assert child_locals == [required]
-
-    def test_additive_binary_gives_required_to_both(self):
-        dc = _dc()
-        required = {"m": Fraction(1), "s": Fraction(-1)}
-        slot = _make_slot(local=required, nonterminals=self.NTS)
-        child_locals, _ = dc.update(slot, Rule("E", ["E", "+", "F"]), None)
-        assert child_locals == [required, required]
-
-    def test_multiplicative_binary_gives_none_to_both(self):
-        dc = _dc()
-        slot = _make_slot(local={"m": Fraction(1)}, nonterminals=self.NTS)
-        child_locals, _ = dc.update(slot, Rule("E", ["E", "*", "F"]), None)
-        assert child_locals == [None, None]
-
-    def test_function_sin_gives_dimensionless_to_child(self):
-        dc = _dc()
-        slot = _make_slot(local={}, nonterminals=self.NTS)
-        child_locals, _ = dc.update(slot, Rule("E", ["sin", "F"]), None)
-        assert child_locals == [{}]
-
-    def test_terminal_rule_gives_empty_list(self):
-        dc = _dc()
-        slot = _make_slot(local={"m": Fraction(1)}, nonterminals=self.NTS)
-        child_locals, _ = dc.update(slot, Rule("E", ["x"]), None)
-        assert child_locals == []
-
-    def test_global_always_returns_none(self):
-        dc = _dc()
-        slot = _make_slot(local={}, nonterminals=self.NTS)
-        _, new_global = dc.update(slot, Rule("E", ["F"], name="E_to_F"), None)
-        assert new_global is None
-
-    def test_slot_local_none_propagates_none(self):
-        dc = _dc()
-        slot = _make_slot(local=None, nonterminals=self.NTS)
-        child_locals, _ = dc.update(slot, Rule("E", ["E", "+", "F"]), None)
-        assert child_locals == [None, None]
-
-
-# ---------------------------------------------------------------------------
-# DimensionalConsistency integration
-# ---------------------------------------------------------------------------
-
-
-class TestDCIntegration:
-    def test_full_derivation_respects_target_unit(self):
-        g = Grammar()
-        g.add_rule(Rule("E", ["E", "+", "F"], weight=0.5, name="E_add_+"))
-        g.add_rule(Rule("E", ["F"], weight=0.5, name="E_to_F"))
-        g.add_rule(Rule("F", ["v"], weight=0.5, name="F_v"))
-        g.add_rule(Rule("F", ["t"], weight=0.5, name="F_t"))
-        dc = DimensionalConsistency(
-            variable_units={"v": {"m": 1, "s": -1}, "t": {"s": 1}},
-            target_unit={"m": 1, "s": -1},
-        )
-        g.add_constraint(dc)
-        for _ in range(20):
-            tokens = g.start_derivation("E").generate(limit=100)
-            assert "t" not in tokens
-
-    def test_allow_unit_polymorphic_constants(self):
-        g = Grammar()
-        g.add_rule(Rule("E", ["F"], name="E_to_F"))
-        g.add_rule(Rule("F", ["C"], name="F_C"))
-        g.add_rule(Rule("F", ["v"], name="F_v"))
-        sl = _sl("C")
-        dc = DimensionalConsistency(
-            variable_units={"v": {"m": 1}},
-            target_unit={"m": 1},
-            symbol_library=sl,
-            allow_unit_polymorphic_constants=True,
-        )
-        g.add_constraint(dc)
-        for _ in range(10):
-            tokens = g.start_derivation("E").generate(limit=50)
-            assert tokens in [["C"], ["v"]]
-
-    def test_constant_units_declared_constant_behaves_like_variable(self):
-        g = Grammar()
-        g.add_rule(Rule("E", ["F"], name="E_to_F"))
-        g.add_rule(Rule("F", ["g"], name="F_g"))  # g = 9.81 m/s²
-        g.add_rule(Rule("F", ["t"], name="F_t"))  # t in seconds
-        dc = DimensionalConsistency(
-            variable_units={"t": {"s": 1}},
-            target_unit={"m": 1, "s": -2},
-            constant_units={"g": {"m": 1, "s": -2}},
-        )
-        g.add_constraint(dc)
-        for _ in range(10):
-            tokens = g.start_derivation("E").generate(limit=50)
-            assert tokens == ["g"]
-
-    def test_multiple_constraints_compose(self):
-        """MaxDepth and DimensionalConsistency together restrict generation correctly."""
-        g = Grammar()
-        g.add_rule(Rule("E", ["E", "+", "F"], name="E_add_+"))
-        g.add_rule(Rule("E", ["F"], name="E_to_F"))
-        g.add_rule(Rule("F", ["v"], name="F_v"))
-        g.add_rule(Rule("F", ["t"], name="F_t"))
-        dc = DimensionalConsistency(
-            variable_units={"v": {"m": 1, "s": -1}, "t": {"s": 1}},
-            target_unit={"m": 1, "s": -1},
-        )
-        g.add_constraint(dc)
-        g.add_constraint(MaxDepth(10))
-        for _ in range(20):
-            tokens = g.start_derivation("E").generate(limit=500)
-            assert "t" not in tokens
-            assert all(tok in {"v", "+"} for tok in tokens)
+# Library: X_0 [m], X_1 [s], literal c [m s^-1]; custom fns z (power(0)) and inv (power(-1)).
+# Expected values are derived from the class docstring's slot rules and child table.
+
+
+def _units_lib() -> SymbolLibrary:
+    sl = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "^", "u-", "sin", "sqrt", "^2", "^-1", "C", "pi"], 2)
+    sl.add_symbol("c", "lit", 1000, "299792458.0")
+    sl.add_symbol("z", "fn", 1000, "np.ones_like({})", unit_rule=UnitRule.power(0))
+    sl.add_symbol("inv", "fn", 1000, "1 / ({})", unit_rule=UnitRule.power(-1))
+    return sl
+
+
+_UNITS = {"X_0": u.m, "X_1": u.s}
+_LITERALS = {"c": u.m / u.s}
+_LEAF_KEYS = {"X_0", "X_1", "C", "pi", "c", "2", "F:X_0", "F:X_1"}
+_ALL_LEAVES = {"X_0", "X_1", "C", "pi", "c", "2"}
+
+
+def _g1_rules() -> dict[str, Rule]:
+    """An ambiguous one-non-terminal grammar, used only for slot-level checks."""
+    return {
+        "X_0": Rule("E", ["X_0"]),
+        "X_1": Rule("E", ["X_1"]),
+        "C": Rule("E", ["C"]),
+        "pi": Rule("E", ["pi"]),
+        "c": Rule("E", ["c"]),
+        "2": Rule("E", ["2"]),
+        "sin": Rule("E", ["sin", "(", "E", ")"]),
+        "^": Rule("E", ["E", "^", "E"]),
+        "z": Rule("E", ["z", "(", "E", ")"]),
+        "inv": Rule("E", ["inv", "(", "E", ")"]),
+        "sqrt": Rule("E", ["sqrt", "(", "E", ")"]),
+        "*": Rule("E", ["E", "*", "E"]),
+        "/": Rule("E", ["E", "/", "E"]),
+        "+": Rule("E", ["E", "+", "E"]),
+        "()": Rule("E", ["(", "E", ")"]),
+        "neg": Rule("E", ["u-", "E"]),
+        "F": Rule("E", ["F"]),
+        "F:X_0": Rule("F", ["X_0"]),
+        "F:X_1": Rule("F", ["X_1"]),
+    }
+
+
+def _allowed_after(target: Unit, steps: list[str], constraint: DimensionalConsistency | None = None) -> set[str]:
+    """Keys of the G1 rules allowed at the next slot after applying ``steps`` (keys of G1 rules)."""
+    rules = _g1_rules()
+    g = Grammar(list(rules.values()))
+    g.add_constraint(constraint or DimensionalConsistency(_UNITS, target, _units_lib(), _LITERALS))
+    d = g.start_derivation("E")
+    for key in steps:
+        d.apply(rules[key])
+    options = d.options()
+    return {key for key, rule in rules.items() if rule in options}
+
+
+def _generated(grammar: Grammar, seed: int, attempts: int, **generate_kwargs) -> list[list[str]]:
+    np.random.seed(seed)
+    results = [grammar.generate_one(**generate_kwargs) for _ in range(attempts)]
+    return [r for r in results if r is not None]
+
+
+def _passes_consistent_units(tokens: list[str], units: dict, target: Unit, sl: SymbolLibrary) -> bool:
+    check = ConsistentUnits(units, target)
+    check.setup(sl)
+    return check.pre_check(tokens).passed
+
+
+class TestDCInit:
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"variable_units": {"X_0": {"m": 1}, "X_1": u.s}, "target_unit": u.m},
+            {"variable_units": _UNITS, "target_unit": {"m": 1}},
+            {"variable_units": _UNITS, "target_unit": None},
+            {"variable_units": _UNITS, "target_unit": u.m, "literal_units": {"c": "m"}},
+        ],
+        ids=["variable-dict", "target-dict", "target-none", "literal-str"],
+    )
+    def test_dc_rejects_non_units(self, kwargs):
+        with pytest.raises(TypeError):
+            DimensionalConsistency(symbol_library=_units_lib(), **kwargs)
+
+    @pytest.mark.parametrize(
+        "variable_units, literal_units, match",
+        [
+            ({"X_0": u.m}, None, "X_1"),
+            ({"X_0": u.m, "X_1": u.s, "C": u.m}, None, "C"),
+            (_UNITS, {"X_0": u.m}, "X_0"),
+            ({"X_0": u.m, "C": u.m}, {"X_0": u.m}, r"(?s)(?=.*X_1)(?=.*\bC\b)(?=.*X_0)"),
+        ],
+        ids=["variable-without-unit", "non-variable-key", "non-literal-key", "every-problem-listed"],
+    )
+    def test_dc_value_errors_list_every_problem(self, variable_units, literal_units, match):
+        with pytest.raises(ValueError, match=match):
+            DimensionalConsistency(variable_units, u.m, _units_lib(), literal_units)
+
+    def test_dc_stores_copies(self):
+        units = dict(_UNITS)
+        sl = _units_lib()
+        dc = DimensionalConsistency(units, u.m, sl)
+        units["X_2"] = u.kg
+        assert dc.variable_units == _UNITS
+        assert type(dc.variable_units) is dict
+        assert dc.target_unit == u.m
+        assert dc.literal_units == {}
+        assert dc.symbol_library is sl
+
+
+class TestDCSlots:
+    def test_start_slot_with_dimensional_target(self):
+        # P = m: wrong-unit leaves and dimensionless-result rules (^, sin, z) are rejected.
+        assert _allowed_after(u.m, []) == {"X_0", "F", "inv", "sqrt", "neg", "*", "/", "+", "()"}
+
+    def test_start_slot_with_dimensionless_target(self):
+        assert _allowed_after(Unit(), []) == {
+            "C", "pi", "2", "sin", "^", "z", "inv", "sqrt", "neg", "*", "/", "+", "()", "F",
+        }  # fmt: skip
+
+    @pytest.mark.parametrize("op", ["*", "/"])
+    def test_any_slot_accepts_every_rule(self, op):
+        # The first child of MULTIPLY and DIVIDE may take any unit.
+        assert _allowed_after(u.m, [op]) == {k for k in _g1_rules() if not k.startswith("F:")}
+
+    @pytest.mark.parametrize(
+        "target, steps, expected",
+        [
+            (u.m, ["+"], {"X_0"}),
+            (u.m, ["+", "X_0"], {"X_0"}),
+            (u.m, ["*", "+", "X_1"], {"X_1"}),
+            (u.m * u.s, ["*", "X_0"], {"X_1"}),
+            (u.m, ["*", "X_1"], {"c"}),
+            (u.m, ["*", "*", "X_0"], _ALL_LEAVES),
+            (u.m / u.s, ["/", "X_0"], {"X_1"}),
+            (Unit(), ["/", "c"], {"c"}),
+            (u.m, ["*", "/", "X_1"], _ALL_LEAVES),
+            (u.s ** Fraction(1, 2), ["sqrt"], {"X_1"}),
+            (u.s**-1, ["inv"], {"X_1"}),
+            (Unit(), ["z"], _ALL_LEAVES),
+            (Unit(), ["sin"], {"C", "pi", "2"}),
+            (u.m, ["*", "^"], {"C", "pi", "2"}),
+            (u.m, ["*", "^", "C"], {"C", "pi", "2"}),
+            (u.m, ["()"], {"X_0"}),
+            (u.m, ["F"], {"F:X_0"}),
+            (u.m, ["neg"], {"X_0"}),
+        ],
+        ids=[
+            "same-first-is-P",
+            "same-second-is-U",
+            "same-second-under-any",
+            "multiply-second-P-over-U",
+            "multiply-second-needs-literal",
+            "multiply-under-any",
+            "divide-second-U-over-P",
+            "divide-dimensionless-target",
+            "divide-under-any",
+            "power-half",
+            "power-minus-one",
+            "power-zero-child-any",
+            "dimensionless-child",
+            "exponent-base-dimensionless-even-under-any",
+            "exponent-exponent-dimensionless",
+            "pass-through-paren",
+            "pass-through-chain",
+            "same-unary-child-is-P",
+        ],
+    )
+    def test_child_requirement_table(self, target, steps, expected):
+        assert _allowed_after(target, steps) & _LEAF_KEYS == expected
+
+
+class TestDCDerivations:
+    def test_dead_end_raises_in_generate(self):
+        to_product, f_x1 = Rule("E", ["F", "*", "F"]), Rule("F", ["X_1"])
+        g = Grammar([to_product, Rule("F", ["X_0"]), f_x1])
+        g.add_constraint(DimensionalConsistency(_UNITS, u.m, _units_lib()))
+        d = g.start_derivation("E")
+        d.apply(to_product)
+        d.apply(f_x1)  # the second factor would need m s^-1: no rule fits
+        assert d.options() == []
+        with pytest.raises(RuntimeError):
+            d.generate()
+
+    def test_impossible_target_generate_one_returns_none(self):
+        # Bug note §6: no variable provides kg.
+        sl = _units_lib()
+        g = Grammar.from_symbol_library(sl)
+        g.add_constraint(DimensionalConsistency(_UNITS, u.kg, sl))
+        g.add_constraint(MaxDepth(5))
+        np.random.seed(0)
+        assert g.generate_one(max_steps=200, max_retries=20) is None
+
+    @pytest.mark.parametrize(
+        "rules",
+        [
+            [
+                Rule("E", ["E", "*", "F"]),
+                Rule("E", ["F"]),
+                Rule("F", ["X_0"]),
+                Rule("F", ["X_1"]),
+                Rule("F", ["R", "^-1"]),
+                Rule("R", ["X_1"]),
+            ],
+            [Rule("E", ["E", "/", "F"]), Rule("E", ["F"]), Rule("F", ["X_0"]), Rule("F", ["X_1"])],
+        ],
+        ids=["multiplicative", "division"],
+    )
+    def test_bug_note_grammars_generate_only_target_unit(self, rules):
+        # Bug note §6: with target m, X_1*X_1, X_0/X_1 or X_0/X_0 must never appear.
+        sl = _units_lib()
+        g = Grammar(rules, start="E")
+        g.add_constraint(DimensionalConsistency(_UNITS, u.m, sl))
+        g.add_constraint(MaxDepth(6))
+        generated = _generated(g, seed=0, attempts=30, max_steps=200, max_retries=20)
+        assert generated
+        assert all(_passes_consistent_units(t, _UNITS, u.m, sl) for t in generated)
+
+    @settings(max_examples=25, deadline=None)
+    @given(
+        unit_0=st.sampled_from([u.m, u.s, u.m / u.s, Unit(), u.kg]),
+        unit_1=st.sampled_from([u.m, u.s, u.m / u.s, Unit(), u.kg]),
+        a=st.sampled_from([-1, 0, 1, 2]),
+        b=st.sampled_from([-1, 0, 1, 2]),
+        seed=st.integers(0, 2**31 - 1),
+    )
+    def test_generated_expressions_pass_consistent_units(self, unit_0, unit_1, a, b, seed):
+        # Oracle: everything the from_symbol_library grammar generates passes ConsistentUnits.
+        sl = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "^", "sin", "sqrt", "^2", "^-1", "C", "pi"], 2)
+        units = {"X_0": unit_0, "X_1": unit_1}
+        target = unit_0**a * unit_1**b  # reachable from the variables
+        g = Grammar.from_symbol_library(sl)
+        g.add_constraint(DimensionalConsistency(units, target, sl))
+        g.add_constraint(MaxDepth(15))
+        generated = _generated(g, seed=seed, attempts=5, max_steps=300, max_retries=50)
+        assert all(_passes_consistent_units(t, units, target, sl) for t in generated)
+        # Compound targets rarely succeed (see the class's Warning), so the guard against a vacuous
+        # pass covers only targets that are a variable's unit or dimensionless.
+        if target in (unit_0, unit_1, Unit()):
+            assert generated
+
+    @pytest.mark.parametrize(
+        "rhs, match",
+        [
+            (["E", "+", "C"], r"E\W+\+\W+C"),
+            (["foo"], "foo"),
+            (["*", "E"], r"\*\W+E"),
+            (["E", "E"], r"E\W+E"),
+            (["X_0", "E"], r"X_0\W+E"),
+        ],
+        ids=[
+            "two-terminals",
+            "unknown-terminal",
+            "op-with-one-non-terminal",
+            "no-terminal-two-children",
+            "leaf-with-child",
+        ],
+    )
+    def test_unsupported_rule_shape_raises_when_candidate(self, rhs, match):
+        g = Grammar([Rule("E", ["X_0"]), Rule("E", rhs)])
+        g.add_constraint(DimensionalConsistency(_UNITS, u.m, _units_lib()))
+        with pytest.raises(ValueError, match=match):
+            g.start_derivation("E").options()
+
+    def test_ambiguous_grammar_raises_when_a_finished_child_reparses_with_a_conflict(self):
+        # The tree (X_0 - X_0) * X_1 is consistent, but its tokens X_0 - X_0 * X_1 parse as
+        # X_0 - (X_0 * X_1): m against m s.
+        r = {
+            "+": Rule("E", ["E", "+", "E"]),
+            "-": Rule("E", ["E", "-", "E"]),
+            "*": Rule("E", ["E", "*", "E"]),
+            "X_0": Rule("E", ["X_0"]),
+            "X_1": Rule("E", ["X_1"]),
+        }
+        g = Grammar(list(r.values()))
+        g.add_constraint(DimensionalConsistency(_UNITS, u.m * u.s, _units_lib()))
+        d = g.start_derivation("E")
+        for key in ["+", "*", "-", "X_0", "X_0", "X_1"]:
+            d.apply(r[key])
+        with pytest.raises(ValueError, match="ambiguous"):
+            d.options()
+
+    def test_unsupported_rule_not_checked_until_candidate(self):
+        leaf = Rule("E", ["X_0"])
+        g = Grammar([leaf, Rule("Z", ["foo"])])
+        g.add_constraint(DimensionalConsistency(_UNITS, u.m, _units_lib()))
+        assert g.start_derivation("E").options() == [leaf]
+
+
+class TestDCSerialization:
+    def test_dc_round_trip(self):
+        sl = _units_lib()
+        original = DimensionalConsistency(_UNITS, u.m, sl, _LITERALS)
+        d = json.loads(json.dumps(original.to_dict()))
+        assert d == {
+            "constraint_class": "SRToolkit.utils.grammar.constraints.DimensionalConsistency",
+            "variable_units": {"X_0": {"m": "1"}, "X_1": {"s": "1"}},
+            "target_unit": {"m": "1"},
+            "symbol_library": sl.to_dict(),
+            "literal_units": {"c": {"m": "1", "s": "-1"}},
+        }
+        rebuilt = GrammarConstraint.from_dict({**d, "extra": 1, "allow_unit_polymorphic_constants": True})
+        assert isinstance(rebuilt, DimensionalConsistency)
+        assert (rebuilt.variable_units, rebuilt.target_unit, rebuilt.literal_units) == (_UNITS, u.m, _LITERALS)
+        assert rebuilt.symbol_library.to_dict() == sl.to_dict()
+        assert _allowed_after(u.m, [], rebuilt) == _allowed_after(u.m, [], original)
+
+    @pytest.mark.parametrize(
+        "change, error, match",
+        [
+            (
+                lambda d: d.pop("symbol_library"),
+                ValueError,
+                "earlier version",
+            ),
+            (lambda d: d.update(target_unit={"m": 0.5}), ValueError, None),
+            (lambda d: d["symbol_library"].update(format_version=2), ValueError, None),
+            (lambda d: d.pop("target_unit"), KeyError, "target_unit"),
+            (lambda d: d.pop("literal_units"), KeyError, "literal_units"),
+        ],
+        ids=["saved-by-earlier-version", "invalid-unit", "invalid-library", "missing-target", "missing-literals"],
+    )
+    def test_dc_from_dict_errors(self, change, error, match):
+        d = DimensionalConsistency(_UNITS, u.m, _units_lib()).to_dict()
+        change(d)
+        with pytest.raises(error, match=match):
+            DimensionalConsistency.from_dict(d)
 
 
 # ---------------------------------------------------------------------------
@@ -1158,46 +885,6 @@ class TestNoNestedSerialization:
         assert "NoNested" in NoNested("x").to_dict()["constraint_class"]
 
 
-class TestDimensionalConsistencySerialization:
-    def test_roundtrip(self):
-        c = DimensionalConsistency(
-            variable_units={"v": {"m": 1, "s": -1}, "t": {"s": 1}},
-            target_unit={"m": 1, "s": -1},
-            constant_units={"g": {"m": 1, "s": -2}},
-            allow_unit_polymorphic_constants=True,
-        )
-        d = c.to_dict()
-        c2 = DimensionalConsistency.from_dict(d)
-        from fractions import Fraction
-
-        assert c2._var_units == {"v": {"m": Fraction(1), "s": Fraction(-1)}, "t": {"s": Fraction(1)}}
-        assert c2._target == {"m": Fraction(1), "s": Fraction(-1)}
-        assert c2._const_units == {"g": {"m": Fraction(1), "s": Fraction(-2)}}
-        assert c2._allow_poly_const is True
-        assert c2._sl is None
-
-    def test_roundtrip_no_constant_units(self):
-        c = DimensionalConsistency(
-            variable_units={"x": {"m": 1}},
-            target_unit={"m": 1},
-        )
-        d = c.to_dict()
-        c2 = DimensionalConsistency.from_dict(d)
-        assert c2._const_units == {}
-
-    def test_fractions_serialized_as_strings(self):
-        c = DimensionalConsistency(
-            variable_units={"x": {"m": 1}},
-            target_unit={"m": 1},
-        )
-        d = c.to_dict()
-        assert d["target_unit"]["m"] == "1"
-
-    def test_constraint_class_key(self):
-        c = DimensionalConsistency(variable_units={}, target_unit={})
-        assert "DimensionalConsistency" in c.to_dict()["constraint_class"]
-
-
 class TestConstraintFromDict:
     def test_dispatch_max_depth(self):
         d = MaxDepth(4).to_dict()
@@ -1220,9 +907,10 @@ class TestConstraintFromDict:
         assert isinstance(c, NoNested)
 
     def test_dispatch_dimensional_consistency(self):
-        original = DimensionalConsistency(variable_units={"x": {"m": 1}}, target_unit={"m": 1})
+        original = DimensionalConsistency({"X_0": u.m}, u.m, _sl(n_vars=1))
         c = GrammarConstraint.from_dict(original.to_dict())
         assert isinstance(c, DimensionalConsistency)
+        assert c.target_unit == u.m
 
     def test_dispatch_user_defined(self):
         """GrammarConstraint.from_dict resolves classes via importlib, including user-defined ones."""

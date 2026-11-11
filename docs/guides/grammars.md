@@ -239,47 +239,18 @@ g.add_constraint(NoNested("exp"))           # no exp(exp(x))
 
 ## Dimensional consistency
 
-!!! warning "Experimental"
-    `DimensionalConsistency` is experimental and currently **unsound for multiplication and
-    division**: it does not constrain the units of `*`/`/` operands, so an expression routed
-    through a multiplication or division can violate the target unit. It is reliable only for
-    grammars limited to leaves, additive operators (`+`/`-`), transcendental functions, and
-    postfix powers (`^2`, `^3`, …) — which excludes most `from_symbol_library` grammars. Do
-    not rely on the unit guarantee until this is fixed.
-
-[DimensionalConsistency][SRToolkit.utils.grammar.DimensionalConsistency] enforces physical units during generation. It tracks the required unit at each open slot and rejects rules whose output unit would conflict.
-
-Units are represented as `dict[str, int | Fraction]` mapping base dimension names to exponents. Dimensionless is `{}`.
+[DimensionalConsistency][SRToolkit.utils.grammar.DimensionalConsistency] generates only expressions
+whose physical units are consistent and equal to the target's, using the unit rules of the symbol
+library. Its documentation covers the supported grammars, the rules and dead ends.
 
 ```python
+from SRToolkit.utils import units as u
 from SRToolkit.utils.grammar import DimensionalConsistency
 
-dc = DimensionalConsistency(
-    variable_units={
-        "v": {"m": 1, "s": -1},   # velocity [m/s]
-        "t": {"s": 1},             # time [s]
-    },
-    target_unit={"m": 1},          # target: length [m]
-)
-
 g = Grammar.from_symbol_library(sl)
-g.add_constraint(dc)
-
-tokens = g.generate_one()   # guaranteed to have unit [m]
+g.add_constraint(DimensionalConsistency({"X_0": u.m, "X_1": u.s}, u.m / u.s, sl))
+tokens = g.generate_one(max_retries=50)
 ```
-
-Named physical constants (type `lit`) are declared via `constant_units`. Free constants (type `const`) are treated as dimensionless by default; set `allow_unit_polymorphic_constants=True` to let them absorb any required unit.
-
-```python
-dc = DimensionalConsistency(
-    variable_units={"F": {"kg": 1, "m": 1, "s": -2}, "m": {"kg": 1}},
-    target_unit={"m": 1, "s": -2},     # acceleration [m/s²]
-    constant_units={"g": {"m": 1, "s": -2}},  # gravitational acceleration
-)
-```
-
-!!! note
-    `DimensionalConsistency` uses rule names (e.g. `E_add_+`, `R_fn_sin`) to classify rules efficiently. Grammars built with `Grammar.from_symbol_library` include these names automatically. For hand-written grammars, add names to rules whose classification matters; unnamed rules fall back to shape heuristics.
 
 ## Serialization
 
@@ -297,8 +268,6 @@ with open("grammar.json") as f:
 ```
 
 `to_dict` stores the start symbol, all rules (with names and weights), and all constraints. Constraints are identified by their fully-qualified class path, so `from_dict` uses `importlib` to reconstruct them — the same approach used for callbacks and samplers throughout SRToolkit.
-
-`DimensionalConsistency` serializes unit exponents as `"p/q"` strings for exact `Fraction` fidelity. The `symbol_library` reference is not serialized; reconstruct it from the original symbol set if needed.
 
 ## Custom constraints
 
@@ -384,7 +353,7 @@ class ApplicationCounter(GrammarConstraint):
         return [None] * n, global_ + 1          # increment counter after each application
 ```
 
-Both flavours can be combined in a single constraint by implementing all four methods together, as [DimensionalConsistency][SRToolkit.utils.grammar.DimensionalConsistency] does with its per-slot unit tracking.
+Both flavours can be combined in a single constraint by implementing all four methods together.
 
 To make a custom constraint serializable, implement `to_dict` and `from_dict`:
 

@@ -447,6 +447,7 @@ class SR_evaluator:
         advisory_constraints: Optional[Sequence[ExpressionConstraint]] = None,
         variables: Optional[Mapping[str, "VariableInfo"]] = None,
         target: Optional["VariableInfo"] = None,
+        constants: Optional[Mapping[str, "VariableInfo"]] = None,
         description: str = "",
         reference_grammar: Optional[Grammar] = None,
         **kwargs: Unpack[RankingSettings],
@@ -506,6 +507,7 @@ class SR_evaluator:
                 ``required_constraints``. ``None`` (default) means none.
             variables: Information per variable, keyed by token (e.g. ``"X_0"``).
             target: Information about the target.
+            constants: Information per named constant, keyed by ``"lit"`` token (e.g. ``"c"``).
             description: Free text about the task.
             reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
                 start from.
@@ -598,6 +600,7 @@ class SR_evaluator:
             description=description,
             variables={} if variables is None else variables,
             target=target,
+            constants={} if constants is None else constants,
         )
         # BackgroundKnowledge stores its constraints as a tuple; the field is typed Iterable.
         self._advisory_constraints = cast(Tuple[ExpressionConstraint, ...], self._background_knowledge.constraints)

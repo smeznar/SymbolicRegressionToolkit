@@ -581,12 +581,13 @@ class Grammar:
         [start_derivation][SRToolkit.utils.grammar.grammar.Grammar.start_derivation]
         and [Derivation.generate][SRToolkit.utils.grammar.derivation.Derivation.generate].
 
-        Each attempt runs a fresh derivation from scratch.  When a derivation
+        Each attempt runs a fresh derivation from scratch. When a derivation
         exceeds ``max_steps`` rule applications (e.g. because random sampling
-        kept choosing recursive rules), the attempt is discarded and a new one
-        starts.  ``None`` is returned only when every attempt fails, signalling
-        that the caller should either relax the grammar, add more liberal
-        constraints, or increase ``max_steps`` / ``max_retries``.
+        kept choosing recursive rules), or reaches a slot where the constraints
+        allow no rule, the attempt is discarded and a new one starts. ``None`` is
+        returned only when every attempt fails, signalling that the caller
+        should either relax the grammar or its constraints, or increase
+        ``max_steps`` / ``max_retries``.
 
         Examples:
             >>> from SRToolkit.utils.grammar import Grammar, Rule
@@ -600,13 +601,14 @@ class Grammar:
         Args:
             start: Start non-terminal. Defaults to ``self.start`` when ``None``.
             max_steps: Maximum rule applications per attempt. A negative number
-                means unlimited (no retry logic applies).
+                means unlimited; attempts that reach a slot with no allowed rule
+                are still retried.
             max_retries: Maximum number of fresh attempts before returning
                 ``None``. Must be at least ``1``.
 
         Returns:
             A list of terminal tokens in left-to-right order, or ``None`` if
-            every attempt exceeded ``max_steps``.
+            every attempt failed.
 
         Raises:
             ValueError: If the resolved start symbol is not a non-terminal in
@@ -685,6 +687,12 @@ class Grammar:
         Heuristic weights are calibrated against empirical expression distributions
         (e.g. Wikipedia mathematical formulae): E recursion ~30 %, F recursion ~40 %,
         B recursion ~5 %, custom-level recursion ~40 %.
+
+        The grammar is unambiguous: the tokens of every derived expression parse
+        ([tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree]) to the derived
+        structure. Every operator level recurses on the left, as the parser groups operators to the
+        left (``a ^ b ^ c`` is ``(a ^ b) ^ c``), and postfix functions bracket their argument
+        (``( E ) ^2``).
 
         Examples:
             >>> sl = SymbolLibrary.from_symbol_list(["+", "-", "*", "sin", "^2"], 2)
@@ -774,11 +782,9 @@ class Grammar:
             infix = _LEVEL_RULE_INFIXES.get(prec, "op")
 
             for sym in ops:
-                # Power is right-associative (a^b^c = a^(b^c)), so recurse on the right.
-                if prec == OP_POWER:
-                    g.add_rule(Rule(nt, [next_nt, sym, nt], weight=weight / len(ops), name=f"{nt}_{infix}_{sym}"))
-                else:
-                    g.add_rule(Rule(nt, [nt, sym, next_nt], weight=weight / len(ops), name=f"{nt}_{infix}_{sym}"))
+                # Every level recurses on the left, as tokens_to_tree groups every operator to the
+                # left (a^b^c is (a^b)^c), so the emitted tokens parse to the derived tree.
+                g.add_rule(Rule(nt, [nt, sym, next_nt], weight=weight / len(ops), name=f"{nt}_{infix}_{sym}"))
             g.add_rule(Rule(nt, [next_nt], weight=1.0 - weight, name=f"{nt}_to_{next_nt}"))
 
         # T level — leaf dispatcher; K and V branches added only when their symbols exist.
@@ -806,21 +812,26 @@ class Grammar:
             for sym in consts:
                 g.add_rule(Rule(k_nt, [sym], weight=1.0 / len(consts), name=f"{k_nt}_{sym}"))
 
-        # R level — prefix functions, postfix functions (top_nt sym), and parens.
+        # R level — prefix functions, postfix functions (( top_nt ) sym, bracketed so that the emitted
+        # tokens parse to the derived tree), and parens.
         # Postfix rules live here directly (no separate P non-terminal).
         if R_fns:
             for sym in R_fns:
                 g.add_rule(Rule(r_nt, [sym, "(", top_nt, ")"], weight=0.4 / len(R_fns), name=f"{r_nt}_fn_{sym}"))
             if P_fns:
                 for sym in P_fns:
-                    g.add_rule(Rule(r_nt, [top_nt, sym], weight=0.05 / len(P_fns), name=f"{r_nt}_postfix_{sym}"))
+                    g.add_rule(
+                        Rule(r_nt, ["(", top_nt, ")", sym], weight=0.05 / len(P_fns), name=f"{r_nt}_postfix_{sym}")
+                    )
                 g.add_rule(Rule(r_nt, ["(", top_nt, ")"], weight=0.55, name=f"{r_nt}_paren"))
             else:
                 g.add_rule(Rule(r_nt, ["(", top_nt, ")"], weight=0.6, name=f"{r_nt}_paren"))
         else:
             if P_fns:
                 for sym in P_fns:
-                    g.add_rule(Rule(r_nt, [top_nt, sym], weight=0.05 / len(P_fns), name=f"{r_nt}_postfix_{sym}"))
+                    g.add_rule(
+                        Rule(r_nt, ["(", top_nt, ")", sym], weight=0.05 / len(P_fns), name=f"{r_nt}_postfix_{sym}")
+                    )
                 g.add_rule(Rule(r_nt, ["(", top_nt, ")"], weight=0.95, name=f"{r_nt}_paren"))
             else:
                 g.add_rule(Rule(r_nt, ["(", top_nt, ")"], weight=1.0, name=f"{r_nt}_paren"))

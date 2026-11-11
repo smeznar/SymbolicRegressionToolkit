@@ -5,6 +5,7 @@ regression expressions.
 import copy
 import re
 from contextvars import ContextVar
+from fractions import Fraction
 from typing import Any, Dict, List, Optional
 
 from SRToolkit.utils.types import (
@@ -16,6 +17,31 @@ from SRToolkit.utils.types import (
     OP_POWER,
     VALID_SYMBOL_TYPES,
 )
+from SRToolkit.utils.units import UnitRule
+
+# Unit rules of the predefined symbols, keyed by (token, type); see default_symbols.
+_PREDEFINED_UNIT_RULES: Dict[tuple, UnitRule] = {
+    **{(t, "op"): UnitRule.SAME for t in ("+", "-")},
+    ("*", "op"): UnitRule.MULTIPLY,
+    ("/", "op"): UnitRule.DIVIDE,
+    ("^", "op"): UnitRule.EXPONENT,
+    **{(t, "fn"): UnitRule.SAME for t in ("u-", "floor", "ceil")},
+    ("sqrt", "fn"): UnitRule.power(Fraction(1, 2)),
+    **{(f"^{k}", "fn"): UnitRule.power(k) for k in (-1, 2, 3, 4, 5)},
+}
+
+
+def _resolve_unit_rule(symbol: str, symbol_type: str, unit_rule: Optional[UnitRule]) -> UnitRule:
+    # The unit rule of an "op" / "fn" symbol: the given one if it accepts the symbol's number of
+    # arguments (ValueError otherwise), or for None the predefined rule, else DIMENSIONLESS. Used by
+    # add_symbol and from_dict.
+    if unit_rule is None:
+        return _PREDEFINED_UNIT_RULES.get((symbol, symbol_type), UnitRule.DIMENSIONLESS)
+    arity = 2 if symbol_type == "op" else 1
+    if arity not in unit_rule.arities:
+        raise ValueError(f"Symbol '{symbol}': {unit_rule!r} does not accept {arity} argument(s).")
+    return unit_rule
+
 
 _active_sl: ContextVar["SymbolLibrary"] = ContextVar("active_symbol_library")
 _default_sl: Optional["SymbolLibrary"] = None
@@ -62,7 +88,8 @@ class SymbolLibrary:
 
         Attributes:
             symbols: Mapping from token string to its property dict (type, precedence,
-                NumPy function string, LaTeX template).
+                NumPy function string, LaTeX template and, for ``"op"`` and ``"fn"``, the unit rule
+                as [UnitRule.to_dict][SRToolkit.utils.units.UnitRule.to_dict]).
 
         Raises:
             ValueError: If ``symbols`` contains a name that is not in the default set.
@@ -90,6 +117,7 @@ class SymbolLibrary:
         np_fn: str,
         latex_str: Optional[str] = None,
         cython_id: int = -1,
+        unit_rule: Optional[UnitRule] = None,
     ):
         r"""Add a token to the library with its associated type, precedence, NumPy function
         string, and LaTeX template.
@@ -155,10 +183,21 @@ class SymbolLibrary:
                 should leave this at ``-1``; to redefine a built-in symbol while
                 preserving its Cython acceleration, look up its ID in the source of
                 [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+            unit_rule: How an ``"op"`` or ``"fn"`` symbol combines the physical units of its
+                arguments (see [UnitRule][SRToolkit.utils.units.UnitRule]), e.g.
+                ``UnitRule.power(Fraction(1, 3))`` for a cube root. ``None`` keeps the rule of the
+                predefined symbol with the same token and type (see
+                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]);
+                any other symbol gets ``UnitRule.DIMENSIONLESS``, so give a custom symbol that
+                accepts physical units its rule.
 
         Raises:
             ValueError: If ``symbol_type`` is not one of the valid types, or if an operator has a
-                negative precedence (infix reconstruction would then never bracket its operands).
+                negative precedence (infix reconstruction would then never bracket its operands);
+                if ``unit_rule`` is given for a symbol that is not an ``"op"`` or ``"fn"``, or does
+                not accept the symbol's number of arguments (2 for ``"op"``, 1 for ``"fn"``).
+            TypeError: If ``unit_rule`` is not a [UnitRule][SRToolkit.utils.units.UnitRule] or
+                ``None``.
         """
         if symbol_type not in VALID_SYMBOL_TYPES:
             raise ValueError(f"Invalid symbol type '{symbol_type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
@@ -172,6 +211,13 @@ class SymbolLibrary:
                 latex_str = r"\text{{" + symbol + r"}} {}"
             else:
                 latex_str = r"\text{{" + symbol + r"}}"
+
+        if unit_rule is not None and not isinstance(unit_rule, UnitRule):
+            raise TypeError(f"Symbol '{symbol}': unit_rule must be a UnitRule or None, got {type(unit_rule).__name__}.")
+        if symbol_type in ("op", "fn"):
+            unit_rule = _resolve_unit_rule(symbol, symbol_type, unit_rule)
+        elif unit_rule is not None:
+            raise ValueError(f"Symbol '{symbol}' of type '{symbol_type}' cannot have a unit rule.")
 
         if symbol_type == "var" and (np_fn is None or np_fn == ""):
             np_fn = "X[:, {}]".format(self.num_variables)
@@ -187,6 +233,8 @@ class SymbolLibrary:
             "latex_str": latex_str,
             "cython_id": cython_id,
         }
+        if unit_rule is not None:
+            self.symbols[symbol]["unit_rule"] = unit_rule.to_dict()
 
     def remove_symbol(self, symbol: str):
         """Remove a token from the library.
@@ -314,6 +362,23 @@ class SymbolLibrary:
         else:
             return ""
 
+    def get_unit_rule(self, symbol: str) -> Optional[UnitRule]:
+        """Return how a symbol combines the physical units of its arguments.
+
+        Args:
+            symbol: Token to look up.
+
+        Returns:
+            The [UnitRule][SRToolkit.utils.units.UnitRule] of an ``"op"`` or ``"fn"`` symbol;
+            ``None`` for other symbol types and for symbols not in the library.
+
+        Examples:
+            >>> SymbolLibrary.default_symbols(1).get_unit_rule("sqrt")
+            UnitRule.power(Fraction(1, 2))
+        """
+        rule = self.symbols.get(symbol, {}).get("unit_rule")
+        return None if rule is None else UnitRule.from_dict(rule)
+
     def get_symbols_of_type(self, symbol_type: str) -> List[str]:
         """Return all symbols of a given type.
 
@@ -422,6 +487,12 @@ class SymbolLibrary:
         - **Free constant** (``"const"``): ``C``
         - **Variables** (``"var"``): ``X_0`` through ``X_{num_variables-1}``,
           mapped to columns of the input array in order.
+
+        [Unit rules][SRToolkit.utils.units.UnitRule]: ``+``, ``-``, ``u-``, ``floor``, ``ceil``:
+        ``SAME``; ``*``: ``MULTIPLY``; ``/``: ``DIVIDE``; ``^``: ``EXPONENT``; ``sqrt``:
+        ``power(1/2)``; ``^-1``, ``^2`` ... ``^5``: ``power(-1)``, ``power(2)`` ... ``power(5)``;
+        all other functions: ``DIMENSIONLESS``. A postfix power that is not predefined (e.g. ``^6``)
+        is ``DIMENSIONLESS`` unless added with ``unit_rule=UnitRule.power(6)``.
 
         Examples:
             >>> library = SymbolLibrary.default_symbols()
@@ -715,6 +786,8 @@ class SymbolLibrary:
 
         Returns:
             A dictionary suitable for passing to [from_dict][SRToolkit.utils.symbol_library.SymbolLibrary.from_dict].
+            Each ``"op"`` and ``"fn"`` symbol's entry holds its unit rule under ``"unit_rule"``,
+            as [UnitRule.to_dict][SRToolkit.utils.units.UnitRule.to_dict].
         """
         return {
             "format_version": 1,
@@ -728,6 +801,11 @@ class SymbolLibrary:
     def from_dict(d: dict) -> "SymbolLibrary":
         """Reconstruct a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] from a dictionary produced by [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
 
+        An ``"op"`` or ``"fn"`` entry without ``"unit_rule"`` (saved before unit rules existed), or
+        with ``"unit_rule": None``, gets
+        the rule [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol] gives for
+        ``unit_rule=None``.
+
         Args:
             d: Dictionary representation of the library, as produced by
                 [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
@@ -736,14 +814,23 @@ class SymbolLibrary:
             The reconstructed [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
         Raises:
-            ValueError: If ``d["format_version"]`` is not ``1``.
+            ValueError: If ``d["format_version"]`` is not ``1``, or a saved unit rule is invalid
+                (see [UnitRule.from_dict][SRToolkit.utils.units.UnitRule.from_dict]) or does not
+                accept its symbol's number of arguments, as in
+                [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol].
         """
         if d.get("format_version", 1) != 1:
             raise ValueError(
                 f"[SymbolLibrary.from_dict] Unsupported format_version: {d.get('format_version')!r}. Expected 1."
             )
         sl = SymbolLibrary()
-        sl.symbols = d["symbols"]
+        sl.symbols = {token: dict(entry) for token, entry in d["symbols"].items()}
+        for token, entry in sl.symbols.items():
+            if entry["type"] not in ("op", "fn"):
+                continue
+            saved = entry.get("unit_rule")
+            rule = _resolve_unit_rule(token, entry["type"], UnitRule.from_dict(saved) if saved is not None else None)
+            entry["unit_rule"] = rule.to_dict()
         sl.preamble = d["preamble"]
         sl.num_variables = d["num_variables"]
         return sl

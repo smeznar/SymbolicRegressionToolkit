@@ -136,6 +136,7 @@ class SR_benchmark:
         data_source: Optional[DataSource] = None,
         variables: Optional[Mapping[str, VariableInfo]] = None,
         target: Optional[VariableInfo] = None,
+        constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
         reference_grammar: Optional[Grammar] = None,
@@ -188,6 +189,7 @@ class SR_benchmark:
             variables: Information per variable, keyed by token, as for
                 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].
             target: Information about the target, as for ``SR_dataset``.
+            constants: Information per named constant, as for ``SR_dataset``.
             description: Free text about the task, as for ``SR_dataset``.
             constant_bounds: Range free constants are fitted in, as for ``SR_dataset``.
             reference_grammar: A grammar an approach may start from, as for ``SR_dataset``.
@@ -240,6 +242,7 @@ class SR_benchmark:
                 "samplers": samplers,
                 "variables": variables,
                 "target": target,
+                "constants": constants,
                 "description": description,
                 "constant_bounds": constant_bounds,
                 "reference_grammar": reference_grammar,
@@ -358,6 +361,7 @@ class SR_benchmark:
         dataset_metadata: Optional[dict] = None,
         variables: Optional[Mapping[str, VariableInfo]] = None,
         target: Optional[VariableInfo] = None,
+        constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
         reference_grammar: Optional[Grammar] = None,
@@ -398,6 +402,7 @@ class SR_benchmark:
             variables: Information per variable, as for
                 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].
             target: Information about the target, as for ``SR_dataset``.
+            constants: Information per named constant, as for ``SR_dataset``.
             description: Free text about the task, as for ``SR_dataset``.
             constant_bounds: Range free constants are fitted in, as for ``SR_dataset``.
             reference_grammar: A grammar an approach may start from, as for ``SR_dataset``.
@@ -444,6 +449,7 @@ class SR_benchmark:
             data_source=SampleSource(n_samples=n_samples, seed=seed),
             variables=variables,
             target=target,
+            constants=constants,
             description=description,
             constant_bounds=constant_bounds,
             reference_grammar=reference_grammar,

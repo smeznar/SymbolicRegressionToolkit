@@ -10,8 +10,9 @@ dataset deliberately gives the approach that solves it:
   hints about the search space that an approach may use or ignore,
 - an optional reference [Grammar][SRToolkit.utils.grammar.grammar.Grammar] (rule weights a
   grammar-based approach can start from),
-- a description of the task, of each variable and of the target
-  ([VariableInfo][SRToolkit.dataset.background_knowledge.VariableInfo]: name and description).
+- a description of the task, of each variable, of named constants (literals) and of the target
+  ([VariableInfo][SRToolkit.dataset.background_knowledge.VariableInfo]: name, description and
+  physical [Unit][SRToolkit.utils.units.Unit]).
 
 Priors about the answer's form are advisory constraints: each has a text form
 ([describe][SRToolkit.utils.expression_constraints.ExpressionConstraint.describe]) and a record form
@@ -21,8 +22,14 @@ that cannot be checked is a constraint that implements neither check: the evalua
 is still described. Anything else goes into ``description``.
 
 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] builds one from its arguments
-(``symbol_library=``, ``samplers=``, ``advisory_constraints=``, ...). Physical units of variables
-are not part of it yet.
+(``symbol_library=``, ``samplers=``, ``advisory_constraints=``, ``variables=``, ``constants=``,
+...).
+
+Units are facts about the task: stating them does not constrain anything. To check expressions
+against them, build a
+[ConsistentUnits][SRToolkit.utils.expression_constraints.ConsistentUnits] constraint with
+[from_background_knowledge][SRToolkit.utils.expression_constraints.ConsistentUnits.from_background_knowledge]
+and register it as an advisory or a required constraint.
 
 ## What it does not hold
 
@@ -49,56 +56,72 @@ from SRToolkit.dataset.sampling import Sampler
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.units import Unit
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class VariableInfo:
-    """What the task says about one variable or the target.
+    """What the task says about one variable, named constant or the target.
 
-    Both fields are optional; an empty ``VariableInfo()`` says nothing. Instances compare equal
-    when both fields are equal, and are hashable.
+    All fields are optional; an empty ``VariableInfo()`` says nothing. Instances compare equal
+    when all fields are equal, and are hashable.
 
     Args:
         name: Human-readable name, e.g. ``"v"`` or ``"velocity"``. This is not the token
-            the expression uses (that is the key in ``BackgroundKnowledge.variables``).
+            the expression uses (that is the key in ``BackgroundKnowledge.variables`` or
+            ``BackgroundKnowledge.constants``).
         description: Free text, e.g. ``"velocity of the particle in the lab frame"``.
+        unit: The physical unit, e.g. ``u.m / u.s``, or ``None`` if not stated.
 
     Raises:
-        TypeError: If ``name`` or ``description`` is not a ``str``.
+        TypeError: If ``name`` or ``description`` is not a ``str``, or ``unit`` is not a
+            [Unit][SRToolkit.utils.units.Unit] or ``None``.
 
     Attributes:
         name: The name, as given.
         description: The description, as given.
+        unit: The unit, as given.
 
     Examples:
-        >>> v = VariableInfo("v", "velocity of the particle")
+        >>> from SRToolkit.utils import units as u
+        >>> v = VariableInfo("v", "velocity of the particle", u.m / u.s)
         >>> v.to_dict()
-        {'name': 'v', 'description': 'velocity of the particle'}
+        {'name': 'v', 'description': 'velocity of the particle', 'unit': {'m': '1', 's': '-1'}}
     """
 
     name: str = ""
     description: str = ""
+    unit: Optional[Unit] = None
 
     def __post_init__(self) -> None:
         for attr in ("name", "description"):
             if not isinstance(getattr(self, attr), str):
                 raise TypeError(f"[VariableInfo] '{attr}' must be a str, got {type(getattr(self, attr)).__name__}.")
+        if self.unit is not None and not isinstance(self.unit, Unit):
+            raise TypeError(f"[VariableInfo] 'unit' must be a Unit or None, got {type(self.unit).__name__}.")
 
     def to_dict(self) -> dict:
         """Return a JSON-safe dictionary of this variable's information.
 
         Returns:
-            ``{"name": name, "description": description}``.
+            ``{"name": name, "description": description, "unit": unit}``, with the unit as its
+            [to_dict][SRToolkit.utils.units.Unit.to_dict], or ``None``.
         """
-        return {"name": self.name, "description": self.description}
+        return {
+            "name": self.name,
+            "description": self.description,
+            "unit": self.unit.to_dict() if self.unit is not None else None,
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> "VariableInfo":
         """Rebuild a ``VariableInfo`` from the output of ``to_dict``.
 
-        Missing keys take their defaults; other keys are ignored.
+        Missing keys take their defaults; other keys are ignored. ``unit`` is read with
+        [Unit.from_dict][SRToolkit.utils.units.Unit.from_dict]; a missing or ``None`` unit gives
+        ``None``.
 
         Args:
             d: A dictionary produced by
@@ -109,24 +132,37 @@ class VariableInfo:
 
         Raises:
             TypeError: As for the constructor.
+            ValueError: If the saved unit is invalid (see
+                [Unit.from_dict][SRToolkit.utils.units.Unit.from_dict]).
         """
-        return cls(name=d.get("name", ""), description=d.get("description", ""))
+        unit = d.get("unit")
+        return cls(
+            name=d.get("name", ""),
+            description=d.get("description", ""),
+            unit=Unit.from_dict(unit) if unit is not None else None,
+        )
 
     def describe(self) -> str:
-        """Return a one-line description: ``"<name>: <description>"``.
+        """Return a one-line description: ``"<name>: <description> [<unit>]"``.
 
-        If only one of the two fields is non-empty, it is returned alone, without ``": "``.
+        If only one of ``name`` and ``description`` is non-empty, it is written alone, without
+        ``": "``. The unit, written with ``str``, is appended in brackets after a space, or alone if
+        both are empty; it is left out if ``None``.
 
         Returns:
-            The description, or ``""`` if both fields are empty.
+            The description, or ``""`` if all fields are empty.
 
         Examples:
-            >>> VariableInfo("v", "velocity").describe()
-            'v: velocity'
+            >>> from SRToolkit.utils import units as u
+            >>> VariableInfo("v", "velocity", u.m / u.s).describe()
+            'v: velocity [m s^-1]'
             >>> VariableInfo("v").describe()
             'v'
         """
-        return ": ".join(part for part in (self.name, self.description) if part)
+        text = ": ".join(part for part in (self.name, self.description) if part)
+        if self.unit is None:
+            return text
+        return f"{text} [{self.unit}]" if text else f"[{self.unit}]"
 
 
 @dataclass(frozen=True, eq=False)
@@ -151,13 +187,17 @@ class BackgroundKnowledge:
         variables: Information per variable, keyed by the variable's token in ``symbol_library``
             (e.g. ``"X_0"``). Variables may be left out.
         target: Information about the target, or ``None``.
+        constants: Information per named constant, keyed by the constant's token, which must be a
+            symbol of type ``"lit"`` in ``symbol_library`` (e.g. ``"c"`` for the speed of light).
+            Constants may be left out.
 
     Raises:
         TypeError: If an argument has the wrong type, e.g. a lone constraint or a string as
             ``constraints``, or ``bool`` as a bound.
         ValueError: If ``samplers`` does not give exactly one sampler per variable (the message
             names missing or unknown tokens); ``constant_bounds`` is not finite with
-            ``lower < upper``; a key of ``variables`` is not a variable of ``symbol_library``; a
+            ``lower < upper``; a key of ``variables`` is not a variable of ``symbol_library``, or a
+            key of ``constants`` is not one of its ``"lit"`` symbols; a
             constraint does not fit ``symbol_library`` (raised by its ``setup``); or
             ``reference_grammar`` has a terminal token that is not a symbol, bracket or number (the
             message names it).
@@ -172,6 +212,8 @@ class BackgroundKnowledge:
         variables: A copy of ``variables`` as a dict from token to ``VariableInfo``, in the
             library's variable order.
         target: The target information, or ``None``.
+        constants: A copy of ``constants`` as a dict from token to ``VariableInfo``, in the
+            library's order of ``"lit"`` symbols.
 
     Examples:
         >>> from SRToolkit.utils import SymbolLibrary
@@ -200,6 +242,7 @@ class BackgroundKnowledge:
     description: str = ""
     variables: Mapping[str, VariableInfo] = field(default_factory=dict)
     target: Optional[VariableInfo] = None
+    constants: Mapping[str, VariableInfo] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol_library, SymbolLibrary):
@@ -281,6 +324,24 @@ class BackgroundKnowledge:
                 )
         object.__setattr__(self, "variables", {t: variables[t] for t in var_tokens if t in variables})
 
+        # Constants: keyed by lit token, stored in the library's order of lit symbols.
+        constants = self.constants
+        if not isinstance(constants, Mapping):
+            raise TypeError("[BackgroundKnowledge] 'constants' must be a mapping from token to VariableInfo.")
+        lit_tokens = list(self.symbol_library.get_symbols_of_type("lit"))
+        unknown = [k for k in constants if k not in lit_tokens]
+        if unknown:
+            raise ValueError(
+                f"[BackgroundKnowledge] 'constants' has keys that are not literals ('lit' symbols) of the symbol "
+                f"library: {unknown}."
+            )
+        for k, v in constants.items():
+            if not isinstance(v, VariableInfo):
+                raise TypeError(
+                    f"[BackgroundKnowledge] 'constants[{k!r}]' must be a VariableInfo, got {type(v).__name__}."
+                )
+        object.__setattr__(self, "constants", {t: constants[t] for t in lit_tokens if t in constants})
+
         if self.target is not None and not isinstance(self.target, VariableInfo):
             raise TypeError(
                 f"[BackgroundKnowledge] 'target' must be a VariableInfo or None, got {type(self.target).__name__}."
@@ -337,6 +398,9 @@ class BackgroundKnowledge:
         - ``Variables:`` then one line ``  <token>: <VariableInfo.describe()>`` per entry of
           ``variables``, in the library's variable order (just ``  <token>`` if it describes to
           ``""``)
+        - ``Constants:`` then one line ``  <token>: <VariableInfo.describe()>`` per entry of
+          ``constants``, in the library's order of ``"lit"`` symbols (just ``  <token>`` if it
+          describes to ``""``)
         - ``Symbols: <str(symbol_library)>`` (always present)
         - ``Free constants are fitted in [<lower>, <upper>].``, bounds written with ``str`` of a
           ``float`` (only if the library has a ``"const"`` symbol)
@@ -378,6 +442,11 @@ class BackgroundKnowledge:
         if self.variables:
             lines.append("Variables:")
             for token, info in self.variables.items():
+                text = info.describe()
+                lines.append(f"  {token}: {text}" if text else f"  {token}")
+        if self.constants:
+            lines.append("Constants:")
+            for token, info in self.constants.items():
                 text = info.describe()
                 lines.append(f"  {token}: {text}" if text else f"  {token}")
         lines.append(f"Symbols: {self.symbol_library}")
@@ -427,8 +496,9 @@ class BackgroundKnowledge:
             ``symbol_library``, ``reference_grammar`` (or ``None``) and each sampler and constraint
             as their own ``to_dict``; ``samplers`` as a list in the library's variable order (or
             ``None``); ``constant_bounds`` as ``[lower, upper]``; ``variables`` as
-            ``{token: VariableInfo.to_dict()}`` in the library's variable order; ``target`` as its
-            ``to_dict`` (or ``None``); ``description`` as given.
+            ``{token: VariableInfo.to_dict()}`` in the library's variable order; ``constants``
+            likewise in the library's order of ``"lit"`` symbols (``{}`` if empty); ``target`` as its ``to_dict``
+            (or ``None``); ``description`` as given.
         """
         return {
             "format_version": 1,
@@ -442,6 +512,7 @@ class BackgroundKnowledge:
             "description": self.description,
             "variables": {token: info.to_dict() for token, info in self.variables.items()},
             "target": self.target.to_dict() if self.target is not None else None,
+            "constants": {token: info.to_dict() for token, info in self.constants.items()},
         }
 
     @classmethod
@@ -456,7 +527,8 @@ class BackgroundKnowledge:
                 [to_dict][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.to_dict].
 
         Returns:
-            Background knowledge whose ``to_dict`` equals ``d`` with missing keys filled in.
+            Background knowledge whose ``to_dict`` equals ``d`` with missing keys filled in, nested
+            ones included (e.g. a variable's ``unit``).
 
         Raises:
             KeyError: If ``symbol_library`` is missing.
@@ -480,4 +552,5 @@ class BackgroundKnowledge:
             description=d.get("description", ""),
             variables={k: VariableInfo.from_dict(v) for k, v in (d.get("variables") or {}).items()},
             target=VariableInfo.from_dict(target) if target is not None else None,
+            constants={k: VariableInfo.from_dict(v) for k, v in (d.get("constants") or {}).items()},
         )

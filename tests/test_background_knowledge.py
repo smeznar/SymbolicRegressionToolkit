@@ -9,14 +9,25 @@ import pytest
 
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
 from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTreeDepth, NoNesting, RequiredVariables
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.units import Unit
+
+u.m, S = u.m, u.s
 
 
 def _lib(num_variables=2, symbols=("+", "*", "C")):
     return SymbolLibrary.from_symbol_list(list(symbols), num_variables=num_variables)
+
+
+def _lib_with_c():
+    """Literals in library order: pi, e, c."""
+    lib = _lib(1, ("+", "*", "pi", "e"))
+    lib.add_symbol("c", "lit", 1000, "299792458.0")
+    return lib
 
 
 def _grammar():
@@ -30,45 +41,79 @@ class TestVariableInfo:
     @pytest.mark.parametrize(
         "d, expected",
         [
-            ({"name": "v", "description": "speed of the particle"}, VariableInfo("v", "speed of the particle")),
+            (
+                {"name": "v", "description": "speed", "unit": {"m": "1", "s": "-1"}},
+                VariableInfo("v", "speed", u.m / u.s),
+            ),
+            ({"name": "v", "description": "speed"}, VariableInfo("v", "speed")),
+            ({"name": "v", "unit": None}, VariableInfo("v")),
             ({}, VariableInfo()),
-            ({"name": "v", "unit": "m"}, VariableInfo("v")),
+            ({"name": "v", "other": "m"}, VariableInfo("v")),
         ],
-        ids=["saved", "missing-keys-default", "unknown-key-ignored"],
+        ids=["saved", "saved-before-units", "unit-none", "missing-keys-default", "unknown-key-ignored"],
     )
     def test_variable_info_dict_round_trip(self, d, expected):
         assert VariableInfo.from_dict(d) == expected
-        assert VariableInfo("v", "speed of the particle").to_dict() == {
+        assert VariableInfo("v", "speed", u.m / u.s).to_dict() == {
             "name": "v",
-            "description": "speed of the particle",
+            "description": "speed",
+            "unit": {"m": "1", "s": "-1"},
         }
+        assert VariableInfo("v").to_dict() == {"name": "v", "description": "", "unit": None}
 
     @pytest.mark.parametrize(
-        "name, description, expected",
-        [("v", "speed", "v: speed"), ("v", "", "v"), ("", "speed", "speed"), ("", "", "")],
-        ids=["both", "name-only", "description-only", "empty"],
+        "name, description, unit, expected",
+        [
+            ("v", "speed", None, "v: speed"),
+            ("v", "", None, "v"),
+            ("", "speed", None, "speed"),
+            ("", "", None, ""),
+            ("v", "velocity", u.m / u.s, "v: velocity [m s^-1]"),
+            ("v", "", u.m / u.s, "v [m s^-1]"),
+            ("", "velocity", u.m / u.s, "velocity [m s^-1]"),
+            ("", "", u.m / u.s, "[m s^-1]"),
+            ("v", "", Unit(), "v [1]"),
+        ],
+        ids=[
+            "both",
+            "name-only",
+            "description-only",
+            "empty",
+            "all-three",
+            "name-and-unit",
+            "description-and-unit",
+            "unit-only",
+            "dimensionless-shown",
+        ],
     )
-    def test_variable_info_describe(self, name, description, expected):
-        assert VariableInfo(name, description).describe() == expected
+    def test_variable_info_describe(self, name, description, unit, expected):
+        assert VariableInfo(name, description, unit).describe() == expected
 
     def test_variable_info_equality_and_hash(self):
         assert VariableInfo("a", "b") == VariableInfo("a", "b")
         assert hash(VariableInfo("a", "b")) == hash(VariableInfo("a", "b"))
         assert {VariableInfo("a", "b"): 1}[VariableInfo("a", "b")] == 1
         assert VariableInfo("a", "b") != VariableInfo("a", "c")
+        assert VariableInfo("a", "b", u.m) == VariableInfo("a", "b", Unit({"m": 1}))
+        assert hash(VariableInfo("a", "b", u.m)) == hash(VariableInfo("a", "b", Unit({"m": 1})))
+        assert VariableInfo("a", "b", u.m) != VariableInfo("a", "b")
+        assert VariableInfo("a", "b", u.m) != VariableInfo("a", "b", u.s)
 
     @pytest.mark.parametrize(
-        "make",
+        "make, error",
         [
-            lambda: VariableInfo(1),
-            lambda: VariableInfo("v", None),
-            lambda: VariableInfo(b"x"),
-            lambda: VariableInfo.from_dict({"name": 3}),
+            (lambda: VariableInfo(1), TypeError),
+            (lambda: VariableInfo("v", None), TypeError),
+            (lambda: VariableInfo(b"x"), TypeError),
+            (lambda: VariableInfo.from_dict({"name": 3}), TypeError),
+            (lambda: VariableInfo("v", unit="m"), TypeError),
+            (lambda: VariableInfo("v", unit={"m": 1}), TypeError),
+            (lambda: VariableInfo.from_dict({"unit": {"m": 0.5}}), ValueError),
         ],
-        ids=["int-name", "none-description", "bytes-name", "from_dict"],
+        ids=["int-name", "none-description", "bytes-name", "from_dict", "unit-str", "unit-dict", "invalid-saved-unit"],
     )
-    def test_variable_info_rejects_non_str(self, make):
-        with pytest.raises(TypeError):
+    def test_variable_info_error_contract(self, make, error):
+        with pytest.raises(error):
             make()
 
 
@@ -109,6 +154,13 @@ class TestBackgroundKnowledgeInit:
         bk = BackgroundKnowledge(_lib(), variables=variables)
         variables["X_1"] = VariableInfo("y")
         assert bk.variables == {"X_0": VariableInfo("x")}
+
+    def test_constants_are_a_copy_in_lit_order(self):
+        constants = {"c": VariableInfo("c", unit=u.m / u.s), "pi": VariableInfo("π")}
+        bk = BackgroundKnowledge(_lib_with_c(), constants=constants)
+        constants["e"] = VariableInfo("e")
+        assert list(bk.constants) == ["pi", "c"]
+        assert bk.constants == {"pi": VariableInfo("π"), "c": VariableInfo("c", unit=u.m / u.s)}
 
     def test_constraints_are_set_up_copies(self):
         given = MaxTreeDepth(4)
@@ -158,6 +210,8 @@ class TestBackgroundKnowledgeInit:
             ({"variables": {"X_0": "x"}}, None),
             ({"target": "U"}, None),
             ({"variables": [("X_0", VariableInfo())]}, None),
+            ({"constants": {"pi": "π"}}, None),
+            ({"constants": [("pi", VariableInfo())]}, None),
             ({"description": 3}, None),
             ({"constant_bounds": (True, 5)}, None),
             ({"constant_bounds": ("a", 5)}, None),
@@ -173,13 +227,15 @@ class TestBackgroundKnowledgeInit:
             "variable-not-info",
             "target-str",
             "variables-not-mapping",
+            "constant-not-info",
+            "constants-not-mapping",
             "description-int",
             "bound-bool",
             "bound-str",
         ],
     )
     def test_constructor_type_errors(self, kwargs, match):
-        args = {"symbol_library": _lib(), **kwargs}
+        args = {"symbol_library": _lib(symbols=("+", "*", "C", "pi")), **kwargs}
         with pytest.raises(TypeError, match=match):
             BackgroundKnowledge(**args)
 
@@ -206,6 +262,9 @@ class TestBackgroundKnowledgeInit:
             ({"constant_bounds": 5}, None),
             ({"variables": {"X_9": VariableInfo("x")}}, "X_9"),
             ({"variables": {"+": VariableInfo("plus")}}, None),
+            ({"constants": {"X_0": VariableInfo("x")}}, "X_0"),
+            ({"constants": {"C": VariableInfo("c")}}, "C"),
+            ({"constants": {"zz": VariableInfo("z")}}, "zz"),
         ],
         ids=[
             "too-few-samplers",
@@ -219,6 +278,9 @@ class TestBackgroundKnowledgeInit:
             "bounds-not-iterable",
             "variable-unknown",
             "variable-not-var",
+            "constant-is-variable",
+            "constant-is-free-constant",
+            "constant-unknown",
         ],
     )
     def test_constructor_value_errors(self, kwargs, match):
@@ -232,22 +294,25 @@ class TestBackgroundKnowledgeInit:
 class TestBackgroundKnowledgeDescribe:
     def test_describe_full_layout(self):
         bk = BackgroundKnowledge(
-            _lib(),
+            _lib(symbols=("+", "*", "C", "pi")),
             samplers=[UniformSampling(0.0, 5.0), UniformSampling(1.0, 2.0)],
             constant_bounds=(-2, 3),
             constraints=[MaxTreeDepth(4)],
             reference_grammar=_grammar(),
             description="Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.",
-            variables={"X_1": VariableInfo("R", "resistance"), "X_0": VariableInfo("I")},
+            variables={"X_1": VariableInfo("R", "resistance"), "X_0": VariableInfo("I", unit=u.A)},
             target=VariableInfo("U", "voltage"),
+            constants={"pi": VariableInfo("π")},
         )
         assert bk.describe([MaxConstants(2)]) == (
             "Task: Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.\n"
             "Target: U: voltage\n"
             "Variables:\n"
-            "  X_0: I\n"
+            "  X_0: I [A]\n"
             "  X_1: R: resistance\n"
-            "Symbols: +, *, C, X_0, X_1\n"
+            "Constants:\n"
+            "  pi: π\n"
+            "Symbols: +, *, pi, C, X_0, X_1\n"
             "Free constants are fitted in [-2.0, 3.0].\n"
             "Input distribution:\n"
             "  X_0: uniform on [-5, 5]\n"
@@ -282,8 +347,21 @@ class TestBackgroundKnowledgeDescribe:
                 "Symbols: +, *, X_0\nInput distribution:\n  X_0: uniform on [-1, 1]",
             ),
             (lambda: BackgroundKnowledge(_lib(0, ("+", "*")), samplers=[]), "Symbols: +, *"),
+            (
+                lambda: BackgroundKnowledge(
+                    _lib(1, ("+", "*", "pi")), variables={"X_0": VariableInfo()}, constants={"pi": VariableInfo()}
+                ),
+                "Variables:\n  X_0\nConstants:\n  pi\nSymbols: +, *, pi, X_0",
+            ),
         ],
-        ids=["library-only", "constants-default-bounds", "empty-infos", "one-sampler", "no-variables"],
+        ids=[
+            "library-only",
+            "constants-default-bounds",
+            "empty-infos",
+            "one-sampler",
+            "no-variables",
+            "empty-constant",
+        ],
     )
     def test_describe_omits_empty_sections(self, bk, expected):
         assert bk().describe() == expected
@@ -294,7 +372,7 @@ class TestBackgroundKnowledgeDescribe:
 
 class TestBackgroundKnowledgeSerialisation:
     def test_to_dict_layout(self):
-        lib = _lib()
+        lib = _lib(symbols=("+", "*", "C", "pi"))
         samplers = [UniformSampling(0.0, 5.0), UniformSampling(1.0, 2.0)]
         bk = BackgroundKnowledge(
             lib,
@@ -302,8 +380,9 @@ class TestBackgroundKnowledgeSerialisation:
             constant_bounds=(-2, 3),
             constraints=[MaxTreeDepth(4)],
             description="Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.",
-            variables={"X_0": VariableInfo("I", "current")},
+            variables={"X_0": VariableInfo("I", "current", u.A)},
             target=VariableInfo("U", "voltage"),
+            constants={"pi": VariableInfo("π")},
         )
         d = bk.to_dict()
         assert d == {
@@ -314,32 +393,61 @@ class TestBackgroundKnowledgeSerialisation:
             "constraints": [MaxTreeDepth(4).to_dict()],
             "reference_grammar": None,
             "description": "Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.",
-            "variables": {"X_0": {"name": "I", "description": "current"}},
-            "target": {"name": "U", "description": "voltage"},
+            "variables": {"X_0": {"name": "I", "description": "current", "unit": {"A": "1"}}},
+            "constants": {"pi": {"name": "π", "description": "", "unit": None}},
+            "target": {"name": "U", "description": "voltage", "unit": None},
         }
         json.dumps(d)
 
     def test_from_dict_round_trip(self):
         bk = BackgroundKnowledge(
-            _lib(),
+            _lib(symbols=("+", "*", "C", "pi")),
             samplers=[UniformSampling(0.0, 5.0), UniformSampling(1.0, 2.0)],
             constant_bounds=(-2, 3),
             constraints=[MaxTreeDepth(4)],
             reference_grammar=_grammar(),
             description="Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.",
-            variables={"X_0": VariableInfo("I", "current")},
-            target=VariableInfo("U", "voltage"),
+            variables={
+                "X_0": VariableInfo("I", "current", u.A),
+                "X_1": VariableInfo("R", unit=u.Ohm),
+            },
+            target=VariableInfo("U", "voltage", u.V),
+            constants={"pi": VariableInfo("π", unit=Unit())},
         )
         d = json.loads(json.dumps(bk.to_dict()))
         restored = BackgroundKnowledge.from_dict(d)
         assert restored.reference_grammar.to_dict() == bk.reference_grammar.to_dict()
         assert restored.to_dict() == d
+        assert restored.variables["X_0"].unit == u.A
+        assert restored.constants == bk.constants
 
     def test_from_dict_fills_defaults(self):
         # No "format_version" key either: it is read as 1.
         lib = _lib()
         loaded = BackgroundKnowledge.from_dict({"symbol_library": lib.to_dict(), "extra": 1})
         assert loaded.to_dict() == BackgroundKnowledge(lib).to_dict()
+
+    def test_from_dict_loads_dicts_saved_before_units(self):
+        # Saved before units and constants existed: no "constants", variable dicts without "unit".
+        lib = _lib()
+        old = {
+            "format_version": 1,
+            "symbol_library": lib.to_dict(),
+            "samplers": None,
+            "constant_bounds": [-5.0, 5.0],
+            "constraints": [],
+            "reference_grammar": None,
+            "description": "",
+            "variables": {"X_0": {"name": "I", "description": "current"}},
+            "target": {"name": "U", "description": "voltage"},
+        }
+        loaded = BackgroundKnowledge.from_dict(old)
+        assert loaded.to_dict() == {
+            **old,
+            "variables": {"X_0": {"name": "I", "description": "current", "unit": None}},
+            "target": {"name": "U", "description": "voltage", "unit": None},
+            "constants": {},
+        }
 
     @pytest.mark.parametrize(
         "change, exc",
@@ -349,8 +457,9 @@ class TestBackgroundKnowledgeSerialisation:
             (lambda d: d["samplers"][0].update(sampler_class="nope.Sampler"), ImportError),
             (lambda d: d["constraints"][0].update(constraint_class="nope.Constraint"), ImportError),
             (lambda d: d.update(constant_bounds=[5, -5]), ValueError),
+            (lambda d: d.update(variables={"X_0": {"unit": {"m": 0.5}}}), ValueError),
         ],
-        ids=["no-library", "format-version", "sampler-class", "constraint-class", "bad-bounds"],
+        ids=["no-library", "format-version", "sampler-class", "constraint-class", "bad-bounds", "bad-unit"],
     )
     def test_from_dict_errors(self, change, exc):
         d = BackgroundKnowledge(

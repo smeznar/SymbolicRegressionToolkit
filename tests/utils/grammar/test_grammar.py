@@ -609,8 +609,42 @@ class TestGrammarGenerateOne:
 # ---------------------------------------------------------------------------
 
 
+def _derived_prefix(node: ParseTreeNode, nonterminals: set) -> list:
+    # Prefix tokens of the expression a parse tree derives: brackets dropped, a rule's operator or
+    # function first, then its non-terminal children in order.
+    if node.rule_applied is None:
+        return [node.symbol]
+    kids = [c for c in node.children if c.symbol in nonterminals]
+    terminals = [c.symbol for c in node.children if c.symbol not in nonterminals and c.symbol not in ("(", ")")]
+    out = list(terminals)
+    for kid in kids:
+        out += _derived_prefix(kid, nonterminals)
+    return out
+
+
 class TestGrammarFromSymbolLibrary:
     # --- return type and basic properties ---
+
+    def test_emitted_tokens_parse_to_the_derived_tree(self):
+        # Regression: postfix rules emitted ``E ^2`` without brackets and ``^`` recursed on the right,
+        # so tokens re-parsed to another tree (``a*b + c ^-1``; ``a ^ b ^ c``).
+        from SRToolkit.utils.expression_tree import tokens_to_tree
+
+        sl = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "^", "sin", "sqrt", "^2", "^-1", "C", "pi"], 2)
+        g = Grammar.from_symbol_library(sl)
+        g.add_constraint(MaxDepth(10))
+        np.random.seed(0)
+        checked = 0
+        for _ in range(300):
+            d = g.start_derivation()
+            try:
+                tokens = d.generate(limit=300)
+            except RuntimeError:
+                continue
+            derived = _derived_prefix(d.to_parse_tree().root, g.nonterminals)
+            assert tokens_to_tree(tokens, sl).to_list(notation="prefix") == derived, tokens
+            checked += 1
+        assert checked > 100
 
     def test_returns_grammar_instance(self):
         g = Grammar.from_symbol_library(_sl("+"))

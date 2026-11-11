@@ -6,13 +6,18 @@ choices, so they use no global RNG.
 """
 
 import json
+import sys
+from fractions import Fraction
 
 import numpy as np
 import pytest
 from hypothesis import given, settings
 from strategies import infix_expressions
 
+from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
+from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import (
+    ConsistentUnits,
     ExpressionConstraint,
     MaxConstants,
     MaxSymbolCount,
@@ -27,7 +32,9 @@ from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
 from SRToolkit.utils.grammar import MaxDepth, MaxNodes
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import CheckResult, ModelResult
+from SRToolkit.utils.units import Unit, UnitRule
 
+u.m, S = u.m, u.s
 INF = float("inf")
 NAN = float("nan")
 PASS = CheckResult()
@@ -132,6 +139,12 @@ class TestProtocol:
             ),
             (lambda: MaxConstants(1), "post_check", _model(["X_0"]), "MaxConstants implements no post_check"),
             (
+                lambda: set_up(ConsistentUnits({"X_0": u.m}, u.m), lib(1)),
+                "post_check",
+                _model(["X_0"]),
+                "ConsistentUnits implements no post_check",
+            ),
+            (
                 lambda: set_up(OutputBounds([[0.0]], lower=0.0), lib(1)),
                 "pre_check",
                 ["X_0"],
@@ -150,6 +163,7 @@ class TestProtocol:
             "subclass-post",
             "OutputBounds-pre-no-setup",
             "MaxConstants-post-no-setup",
+            "ConsistentUnits-post",
             "OutputBounds-pre-after-setup",
             "MaxConstants-post-after-setup",
         ],
@@ -179,6 +193,7 @@ class TestProtocol:
             (lambda: MaxSymbolCount("X_0", 1), "pre_check", ["X_0"]),
             (lambda: NoNesting("sin"), "pre_check", ["X_0"]),
             (lambda: OutputBounds([[0.0]], lower=0.0), "post_check", _model(["X_0"])),
+            (lambda: ConsistentUnits({"X_0": u.m}, u.m), "pre_check", ["X_0"]),
             (lambda: ExpressionConstraint.from_dict(MaxTokens(3).to_dict()), "pre_check", ["X_0"]),
         ],
         ids=[
@@ -190,6 +205,7 @@ class TestProtocol:
             "MaxSymbolCount",
             "NoNesting",
             "OutputBounds",
+            "ConsistentUnits",
             "rebuilt-by-from_dict",
         ],
     )
@@ -239,8 +255,13 @@ class TestSharedContracts:
 
     @pytest.mark.parametrize(
         "make",
-        [lambda: MaxTreeDepth(5), lambda: MaxTreeSize(5), lambda: NoNesting("sin")],
-        ids=["MaxTreeDepth", "MaxTreeSize", "NoNesting"],
+        [
+            lambda: MaxTreeDepth(5),
+            lambda: MaxTreeSize(5),
+            lambda: NoNesting("sin"),
+            lambda: ConsistentUnits({"X_0": u.m}, u.m),
+        ],
+        ids=["MaxTreeDepth", "MaxTreeSize", "NoNesting", "ConsistentUnits"],
     )
     def test_tree_constraints_raise_parse_error_on_malformed_lists(self, make):
         constraint = set_up(make(), lib(1))
@@ -257,6 +278,7 @@ class TestSharedContracts:
             lambda: RequiredVariables(["X_0"]),
             lambda: MaxSymbolCount("X_0", 0),
             lambda: NoNesting(["sin", "+"]),
+            lambda: ConsistentUnits({"X_0": u.m}, u.m),
         ],
         ids=[
             "MaxConstants",
@@ -266,6 +288,7 @@ class TestSharedContracts:
             "RequiredVariables",
             "MaxSymbolCount",
             "NoNesting",
+            "ConsistentUnits",
         ],
     )
     def test_pre_check_does_not_modify_expr(self, make):
@@ -296,8 +319,17 @@ class TestSharedContracts:
             lambda: RequiredVariables(),
             lambda: NoNesting(["sin", "cos"]),
             lambda: MaxSymbolCount("X_0", 1),
+            lambda: ConsistentUnits({"X_0": u.m, "X_1": u.s}, Unit()),
         ],
-        ids=["MaxConstants", "MaxTreeDepth", "MaxTreeSize", "RequiredVariables", "NoNesting", "MaxSymbolCount"],
+        ids=[
+            "MaxConstants",
+            "MaxTreeDepth",
+            "MaxTreeSize",
+            "RequiredVariables",
+            "NoNesting",
+            "MaxSymbolCount",
+            "ConsistentUnits",
+        ],
     )
     def test_tree_and_token_list_give_same_result(self, make, tokens):
         library = lib(2)
@@ -754,6 +786,247 @@ class TestOutputBounds:
         assert_result(constraint.post_check(_model(["X_0"])), expected)
 
 
+# ── ConsistentUnits ──────────────────────────────────────────────────────────────────────────
+
+
+def _units_lib():
+    """lib(2) plus custom symbols with explicit unit rules, a literal ``c`` and an unruled op ``%``."""
+    library = lib(2)
+    library.add_symbol("abs", "fn", 1000, "np.abs({})", unit_rule=UnitRule.SAME)
+    library.add_symbol("cbrt", "fn", 1000, "np.cbrt({})", unit_rule=UnitRule.power(Fraction(1, 3)))
+    library.add_symbol("isqrt", "fn", 1000, "1 / np.sqrt({})", unit_rule=UnitRule.power(Fraction(-1, 2)))
+    # Binds tighter than "*", so the message's subexpression depends on the library's precedences.
+    library.add_symbol("max", "op", 500, "np.maximum({}, {})", unit_rule=UnitRule.SAME)
+    library.add_symbol("%", "op", 200, "np.mod({}, {})")
+    library.add_symbol("c", "lit", 1000, "299792458.0")
+    return library
+
+
+def _units_lib_sqrt_dimensionless():
+    library = _units_lib()
+    library.add_symbol("sqrt", "fn", 1000, "np.sqrt({})", unit_rule=UnitRule.DIMENSIONLESS)
+    return library
+
+
+def _lit_lib():
+    library = lib(2)
+    library.add_symbol("c", "lit", 1000, "299792458.0")
+    return library
+
+
+class TestConsistentUnits:
+    # X_0: m, X_1: s, literal c: m s^-1; the rules come from the library.
+    @pytest.mark.parametrize(
+        "make_lib, tokens, target, expected",
+        [
+            (_units_lib, ["X_0", "+", "X_0"], u.m, PASS),
+            (_units_lib, ["X_0", "-", "X_1"], u.m, fail("X_0-X_1: operands have units m and s", 1.0)),
+            (_units_lib, ["X_0", "*", "X_0", "/", "X_1"], Unit({"m": 2, "s": -1}), PASS),
+            (_units_lib, ["X_0", "^", "2"], Unit({"m": 2}), PASS),
+            (_units_lib, ["X_0", "^", "0.5"], Unit({"m": Fraction(1, 2)}), PASS),
+            (_units_lib, ["X_1", "^", "0.1"], Unit({"s": Fraction(1, 10)}), PASS),
+            (_units_lib, ["X_0", "^", "1e-3"], Unit({"m": Fraction(1, 1000)}), PASS),
+            (_units_lib, ["X_1", "^", "0"], Unit(), PASS),
+            (_units_lib, ["X_0", "^", "X_1"], Unit(), fail("X_0^X_1: base has unit m", 1.0)),
+            (_units_lib, ["2", "^", "X_1"], Unit(), fail("2^X_1: exponent has unit s", 1.0)),
+            (_units_lib, ["X_0", "^", "1e400"], Unit(), fail("X_0^1e400: base has unit m", 1.0)),
+            (_units_lib, ["X_0", "^", "inf"], Unit(), fail("X_0^inf: base has unit m", 1.0)),
+            (_units_lib, ["(", "X_0", "/", "X_0", ")", "^", "C"], Unit(), PASS),
+            (
+                _units_lib,
+                ["sqrt", "(", "X_0", ")", "*", "cbrt", "(", "X_1", ")"],
+                Unit({"m": Fraction(1, 2), "s": Fraction(1, 3)}),
+                PASS,
+            ),
+            (_units_lib, ["(", "X_0", ")", "^3", "*", "(", "X_1", ")", "^-1"], Unit({"m": 3, "s": -1}), PASS),
+            (_units_lib, ["abs", "(", "floor", "(", "ceil", "(", "u-", "X_0", ")", ")", ")"], u.m, PASS),
+            (_units_lib, ["ln", "(", "X_0", "/", "X_0", ")"], Unit(), PASS),
+            (_units_lib, ["sin", "(", "X_0", ")"], Unit(), fail("sin(X_0): argument has unit m", 1.0)),
+            (_units_lib, ["X_0", "%", "C"], Unit(), fail("X_0%C: left operand has unit m", 1.0)),
+            (_units_lib, ["C", "%", "X_1"], Unit(), fail("C%X_1: right operand has unit s", 1.0)),
+            (_units_lib, ["X_0", "max", "X_1"], u.m, fail("X_0maxX_1: operands have units m and s", 1.0)),
+            (
+                _units_lib,
+                ["sin", "(", "(", "X_0", "max", "X_0", ")", "*", "X_1", ")"],
+                Unit(),
+                fail("sin(X_0maxX_0*X_1): argument has unit m s", 1.0),
+            ),
+            (
+                _units_lib,
+                ["(", "X_0", "max", "X_0", ")", "*", "X_1", "-", "X_0"],
+                Unit(),
+                fail("X_0maxX_0*X_1-X_0: operands have units m s and m", 1.0),
+            ),
+            (
+                _units_lib,
+                ["(", "X_0", "+", "X_1", ")", "^", "2"],
+                Unit({"m": 2}),
+                fail("X_0+X_1: operands have units m and s", 1.0),
+            ),
+            (_units_lib, ["isqrt", "(", "X_0", ")"], Unit({"m": Fraction(-1, 2)}), PASS),
+            (
+                _units_lib_sqrt_dimensionless,
+                ["sqrt", "(", "X_0", ")"],
+                Unit(),
+                fail("sqrt(X_0): argument has unit m", 1.0),
+            ),
+            (_units_lib, ["c", "*", "X_1", "+", "pi", "*", "2", "*", "C", "*", "X_0"], u.m, PASS),
+            (_units_lib, ["C"], u.m, fail("result has unit 1, target m", 1.0)),
+            (_units_lib, ["X_0"], u.s, fail("result has unit m, target s", 1.0)),
+            (_units_lib, ["sin", "(", "X_0", ")", "+", "X_1"], Unit(), fail("sin(X_0): argument has unit m", 1.0)),
+            (_units_lib, ["X_0", "+", "sin", "(", "X_1", ")"], u.m, fail("sin(X_1): argument has unit s", 1.0)),
+        ],
+        ids=[
+            "same-equal",
+            "same-differ",
+            "multiply-divide",
+            "exponent-integer",
+            "exponent-decimal-half",
+            "exponent-exact-decimal",
+            "exponent-scientific",
+            "exponent-zero",
+            "exponent-not-number-base-before-exponent",
+            "exponent-not-number-exponent-conflict",
+            "exponent-not-finite",
+            "exponent-inf-not-a-number",
+            "exponent-not-number-dimensionless",
+            "power-sqrt-custom-cbrt",
+            "power-postfix-tokens",
+            "same-unary-chain-custom-abs",
+            "dimensionless-fn-dimensionless-arg",
+            "dimensionless-fn",
+            "unruled-op-left",
+            "unruled-op-right",
+            "custom-op-same",
+            "message-uses-library-precedence",
+            "same-message-uses-library-precedence",
+            "number-exponent-compound-base",
+            "custom-fn-power",
+            "builtin-rule-overridden",
+            "leaves-literal-number-const",
+            "const-cannot-repair",
+            "root-mismatch",
+            "post-order-left-subtree-first",
+            "post-order-subtrees-before-node",
+        ],
+    )
+    def test_consistent_units_pre_check_table(self, make_lib, tokens, target, expected):
+        constraint = ConsistentUnits({"X_0": u.m, "X_1": u.s}, target, literal_units={"c": u.m / u.s})
+        assert_result(set_up(constraint, make_lib()).pre_check(tokens), expected)
+
+    def test_consistent_units_exponent_token_float_accepts_but_fraction_may_not(self):
+        # Regression: on Python 3.10, Fraction rejects "1_0" although float() accepts it; the check
+        # must then treat it as no number exponent instead of raising.
+        constraint = set_up(ConsistentUnits({"X_0": u.m, "X_1": u.s}, u.m**10), lib(2))
+        result = constraint.pre_check(["X_0", "^", "1_0"])
+        if sys.version_info >= (3, 11):
+            assert result.passed
+        else:
+            assert_result(result, fail("X_0^1_0: base has unit m", 1.0))
+
+    def test_consistent_units_reads_rules_at_each_pre_check(self):
+        library = lib(1)
+        constraint = set_up(ConsistentUnits({"X_0": u.m}, u.m), library)
+        assert_result(constraint.pre_check(["sin", "(", "X_0", ")"]), fail("sin(X_0): argument has unit m", 1.0))
+        library.add_symbol("sin", "fn", 1000, "np.sin({})", unit_rule=UnitRule.SAME)
+        assert constraint.pre_check(["sin", "(", "X_0", ")"]) == PASS
+
+    @settings(max_examples=60)
+    @given(tokens=infix_expressions())
+    def test_consistent_units_dimensionless_task_accepts_everything(self, tokens):
+        constraint = set_up(ConsistentUnits({"X_0": Unit(), "X_1": Unit()}, Unit()), lib(2))
+        assert constraint.pre_check(tokens) == PASS
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"variable_units": {"X_0": "m"}, "target_unit": u.m},
+            {"variable_units": {"X_0": {"m": 1}}, "target_unit": u.m},
+            {"variable_units": {"X_0": u.m}, "target_unit": "m"},
+            {"variable_units": {"X_0": u.m}, "target_unit": None},
+            {"variable_units": {"X_0": u.m}, "target_unit": u.m, "literal_units": {"c": 1}},
+        ],
+        ids=["variable-str", "variable-dict", "target-str", "target-none", "literal-int"],
+    )
+    def test_consistent_units_constructor_rejects_non_units(self, kwargs):
+        with pytest.raises(TypeError):
+            ConsistentUnits(**kwargs)
+
+    def test_consistent_units_constructor_stores_copies(self):
+        given_units = {"X_0": u.m}
+        constraint = ConsistentUnits(given_units, u.s)
+        given_units["X_1"] = u.s
+        assert constraint.variable_units == {"X_0": u.m}
+        assert type(constraint.variable_units) is dict
+        assert constraint.target_unit == u.s
+        assert constraint.literal_units == {}
+
+    def test_consistent_units_from_background_knowledge(self):
+        bk = BackgroundKnowledge(
+            _lit_lib(),
+            variables={"X_0": VariableInfo("x", unit=u.m), "X_1": VariableInfo(unit=u.s)},
+            target=VariableInfo("v", unit=u.m / u.s),
+            constants={"c": VariableInfo("c", unit=u.m / u.s), "pi": VariableInfo("π")},
+        )
+        constraint = ConsistentUnits.from_background_knowledge(bk)
+        assert constraint.variable_units == {"X_0": u.m, "X_1": u.s}
+        assert constraint.target_unit == u.m / u.s
+        assert constraint.literal_units == {"c": u.m / u.s}
+        assert constraint.symbol_library is None
+
+    @pytest.mark.parametrize(
+        "variables, target, match",
+        [
+            ({"X_0": VariableInfo(unit=u.m)}, VariableInfo(unit=u.s), "X_1"),
+            ({"X_0": VariableInfo(unit=u.m), "X_1": VariableInfo("t")}, VariableInfo(unit=u.s), "X_1"),
+            ({"X_0": VariableInfo(unit=u.m), "X_1": VariableInfo(unit=u.s)}, None, "target"),
+            ({"X_0": VariableInfo(unit=u.m), "X_1": VariableInfo(unit=u.s)}, VariableInfo("v"), "target"),
+            ({"X_0": VariableInfo(unit=u.m)}, None, r"(?s)(?=.*X_1)(?=.*target)"),
+        ],
+        ids=["variable-missing", "variable-unit-none", "target-none", "target-unit-none", "both-named"],
+    )
+    def test_consistent_units_from_background_knowledge_errors(self, variables, target, match):
+        bk = BackgroundKnowledge(lib(2), variables=variables, target=target)
+        with pytest.raises(ValueError, match=match):
+            ConsistentUnits.from_background_knowledge(bk)
+
+    @pytest.mark.parametrize(
+        "make_lib, variable_units, literal_units, match",
+        [
+            (lambda: lib(2), {"X_0": u.m}, None, "X_1"),
+            (lambda: lib(3), {"X_0": u.m}, None, r"(?s)(?=.*X_1)(?=.*X_2)"),
+            (lambda: lib(2), {"X_0": u.m, "X_1": u.s, "X_9": u.m}, None, "X_9"),
+            (lambda: lib(2), {"X_0": u.m, "X_1": u.s, "C": u.m}, None, "C"),
+            (lambda: lib(2), {"X_0": u.m, "X_1": u.s}, {"X_0": u.m}, "X_0"),
+            (lambda: lib(2), {"X_0": u.m, "X_1": u.s}, {"c": u.m}, "c"),
+            (lambda: lib(2), {"X_0": u.m}, {"c": u.m}, r"(?s)(?=.*X_1)(?=.*c\b)"),
+        ],
+        ids=[
+            "variable-without-unit",
+            "all-variables-without-unit-named",
+            "unknown-variable",
+            "const-as-variable",
+            "variable-as-literal",
+            "unknown-literal",
+            "every-problem-listed",
+        ],
+    )
+    def test_consistent_units_setup_errors(self, make_lib, variable_units, literal_units, match):
+        constraint = ConsistentUnits(variable_units, u.m, literal_units)
+        with pytest.raises(ValueError, match=match):
+            constraint.setup(make_lib())
+
+    def test_consistent_units_round_trip_keeps_units(self):
+        original = ConsistentUnits(
+            {"X_0": u.m ** Fraction(1, 2), "X_1": Unit({"bit": 1}, custom_units=["bit"])}, u.m / u.s, {"c": u.m / u.s}
+        )
+        rebuilt = ExpressionConstraint.from_dict(json.loads(json.dumps(original.to_dict())))
+        assert rebuilt.variable_units == {"X_0": u.m ** Fraction(1, 2), "X_1": Unit({"bit": 1}, custom_units=["bit"])}
+        assert rebuilt.target_unit == u.m / u.s
+        assert rebuilt.literal_units == {"c": u.m / u.s}
+        assert rebuilt.symbol_library is None
+
+
 # ── Serialisation ────────────────────────────────────────────────────────────────────────────
 
 _EC = "SRToolkit.utils.expression_constraints"
@@ -772,6 +1045,15 @@ class TestSerialisation:
                 {"constraint_class": f"{_EC}.MaxSymbolCount", "symbols": ["sin"], "limit": 2},
             ),
             (lambda: NoNesting(["sin", "cos"]), {"constraint_class": f"{_EC}.NoNesting", "symbols": ["cos", "sin"]}),
+            (
+                lambda: ConsistentUnits({"X_0": u.m, "X_1": u.s}, u.m / u.s),
+                {
+                    "constraint_class": f"{_EC}.ConsistentUnits",
+                    "variable_units": {"X_0": {"m": "1"}, "X_1": {"s": "1"}},
+                    "target_unit": {"m": "1", "s": "-1"},
+                    "literal_units": {},
+                },
+            ),
         ],
         ids=[
             "set-up-no-library-key",
@@ -780,6 +1062,7 @@ class TestSerialisation:
             "all-variables",
             "MaxSymbolCount",
             "sorted-symbols",
+            "ConsistentUnits",
         ],
     )
     def test_to_dict_exact_form(self, make, expected):
@@ -798,6 +1081,9 @@ class TestSerialisation:
             lambda: MaxSymbolCount(["sin", "cos"], 2),
             lambda: NoNesting(["sin", "cos"]),
             lambda: OutputBounds(np.array([[0.0, 1.0], [2.0, 3.0]]), lower=-1.0, upper=None),
+            lambda: ConsistentUnits(
+                {"X_0": u.m ** Fraction(1, 2)}, Unit({"bit": 1}, custom_units=["bit"]), {"pi": u.m}
+            ),
             lambda: _Forbid("cos"),
         ],
         ids=[
@@ -809,6 +1095,7 @@ class TestSerialisation:
             "MaxSymbolCount",
             "NoNesting",
             "OutputBounds",
+            "ConsistentUnits",
             "user-defined",
         ],
     )
@@ -890,6 +1177,11 @@ class TestSerialisation:
                 lambda: without(OutputBounds([[0.0]], lower=0.0).to_dict(), "constraint_class"),
                 {"lower": 0.0, "upper": None},
             ),
+            (
+                ConsistentUnits.from_dict,
+                lambda: without(ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "constraint_class"),
+                {"variable_units": {"X_0": u.m}, "target_unit": u.s, "literal_units": {}},
+            ),
         ],
         ids=[
             "MaxConstants",
@@ -900,6 +1192,7 @@ class TestSerialisation:
             "MaxSymbolCount",
             "NoNesting",
             "OutputBounds",
+            "ConsistentUnits",
         ],
     )
     def test_subclass_from_dict_ignores_unused_keys(self, load, make_dict, expected):
@@ -923,7 +1216,31 @@ class TestSerialisation:
                 "upper",
             ),
             (MaxConstants.from_dict, lambda: {"limit": -1}, ValueError, "limit"),
+            (
+                ConsistentUnits.from_dict,
+                lambda: without(ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "variable_units"),
+                KeyError,
+                "variable_units",
+            ),
+            (
+                ConsistentUnits.from_dict,
+                lambda: without(ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "target_unit"),
+                KeyError,
+                "target_unit",
+            ),
+            (
+                ConsistentUnits.from_dict,
+                lambda: without(ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "literal_units"),
+                KeyError,
+                "literal_units",
+            ),
             (NoNesting.from_dict, lambda: {"symbols": []}, ValueError, "empty"),
+            (
+                ConsistentUnits.from_dict,
+                lambda: {**ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "target_unit": {"m": 0.5}},
+                ValueError,
+                None,
+            ),
             (
                 OutputBounds.from_dict,
                 lambda: {**OutputBounds([[0.0]], lower=0.0).to_dict(), "lower": NAN},
@@ -940,8 +1257,12 @@ class TestSerialisation:
             "NoNesting-missing",
             "RequiredVariables-missing",
             "OutputBounds-missing-upper",
+            "ConsistentUnits-missing-variable-units",
+            "ConsistentUnits-missing-target-unit",
+            "ConsistentUnits-missing-literal-units",
             "invalid-limit",
             "empty-group",
+            "ConsistentUnits-invalid-unit",
             "nan-bound",
         ],
     )
@@ -999,6 +1320,21 @@ class TestSerialisation:
             "output >= per-point bounds at 2 given points",
             {"kind": "output_bounds", "lower": "per point", "upper": None, "num_points": 2},
         ),
+        (
+            ConsistentUnits({"X_0": u.m}, u.m / u.s),
+            "dimensionally consistent, with unit m s^-1",
+            {
+                "kind": "consistent_units",
+                "variable_units": {"X_0": {"m": "1"}},
+                "target_unit": {"m": "1", "s": "-1"},
+                "literal_units": {},
+            },
+        ),
+        (
+            ConsistentUnits({"X_0": u.m}, Unit()),
+            "dimensionally consistent, with unit 1",
+            {"kind": "consistent_units", "variable_units": {"X_0": {"m": "1"}}, "target_unit": {}, "literal_units": {}},
+        ),
     ],
     ids=[
         "max-constants",
@@ -1015,6 +1351,8 @@ class TestSerialisation:
         "bounds-upper",
         "bounds-both",
         "bounds-per-point",
+        "consistent-units",
+        "consistent-units-dimensionless",
     ],
 )
 def test_builtin_describe_and_summary(constraint, text, record):

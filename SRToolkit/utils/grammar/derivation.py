@@ -37,6 +37,7 @@ class _Frame:
     ancestors: tuple[AncestorInfo, ...]
     parent_rule: Optional[Rule]
     child_index: Optional[int]
+    siblings: tuple[ParseTreeNode, ...] = ()
     locals: dict[int, Any] = field(default_factory=dict)
 
 
@@ -244,6 +245,7 @@ class Derivation:
                         ancestors=top.ancestors + (frame,),
                         parent_rule=rule,
                         child_index=nt_child_index,
+                        siblings=tuple(f.node for f in child_frames),
                     )
                 )
                 nt_child_index += 1
@@ -396,6 +398,7 @@ class Derivation:
             child_index=frame.child_index,
             ancestors=frame.ancestors,
             partial_tree=self._root,
+            siblings=frame.siblings,
             nonterminals=self._nonterminals,
             frontier_size=len(self._frames) if frontier_size is None else frontier_size,
         )

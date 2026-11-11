@@ -1,9 +1,12 @@
 import copy
+import json
+from fractions import Fraction
 
 import pytest
 
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.units import UnitRule
 
 
 class TestSymbolLibraryInit:
@@ -399,3 +402,155 @@ class TestSymbolLibrarySetDefault:
     def test_no_active_context_or_default_still_raises_for_get_active(self):
         with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
             SymbolLibrary.get_active()
+
+
+# ── Unit rules ────────────────────────────────────────────────────────────────
+
+
+def _empty_with(*symbols):
+    """An empty library with (token, type, unit_rule) symbols added."""
+    lib = SymbolLibrary()
+    for token, symbol_type, rule in symbols:
+        lib.add_symbol(token, symbol_type, 5, "np.abs({})", unit_rule=rule)
+    return lib
+
+
+class TestSymbolLibraryUnitRules:
+    def test_default_symbols_unit_rules(self):
+        lib = SymbolLibrary.default_symbols(1)
+        rules = {s: lib.get_unit_rule(s) for s in lib.get_symbols_of_type("op") + lib.get_symbols_of_type("fn")}
+        same, dimensionless = UnitRule.SAME, UnitRule.DIMENSIONLESS
+        assert rules == {
+            "+": same,
+            "-": same,
+            "*": UnitRule.MULTIPLY,
+            "/": UnitRule.DIVIDE,
+            "^": UnitRule.EXPONENT,
+            "u-": same,
+            "sqrt": UnitRule.power(Fraction(1, 2)),
+            "sin": dimensionless,
+            "cos": dimensionless,
+            "exp": dimensionless,
+            "tan": dimensionless,
+            "arcsin": dimensionless,
+            "arccos": dimensionless,
+            "arctan": dimensionless,
+            "sinh": dimensionless,
+            "cosh": dimensionless,
+            "tanh": dimensionless,
+            "floor": same,
+            "ceil": same,
+            "ln": dimensionless,
+            "log": dimensionless,
+            "^-1": UnitRule.power(-1),
+            "^2": UnitRule.power(2),
+            "^3": UnitRule.power(3),
+            "^4": UnitRule.power(4),
+            "^5": UnitRule.power(5),
+        }
+
+    @pytest.mark.parametrize("token", ["X_0", "C", "pi", "nope"], ids=["var", "const", "lit", "unknown"])
+    def test_get_unit_rule_none_for_leaves_and_unknown(self, token):
+        assert SymbolLibrary.default_symbols(1).get_unit_rule(token) is None
+
+    @pytest.mark.parametrize(
+        "make",
+        [lambda: SymbolLibrary(["+", "sqrt"]), lambda: SymbolLibrary.from_symbol_list(["+", "sqrt"], 1)],
+        ids=["constructor", "from_symbol_list"],
+    )
+    def test_selected_default_symbols_keep_rules(self, make):
+        lib = make()
+        assert (lib.get_unit_rule("+"), lib.get_unit_rule("sqrt")) == (UnitRule.SAME, UnitRule.power(Fraction(1, 2)))
+
+    @pytest.mark.parametrize(
+        "token, symbol_type, rule, expected",
+        [
+            ("sqrt", "fn", None, UnitRule.power(Fraction(1, 2))),
+            ("+", "op", None, UnitRule.SAME),
+            ("sqrt", "op", None, UnitRule.DIMENSIONLESS),
+            ("abs", "fn", None, UnitRule.DIMENSIONLESS),
+            ("^6", "fn", None, UnitRule.DIMENSIONLESS),
+            ("max", "op", UnitRule.SAME, UnitRule.SAME),
+            ("sqrt", "fn", UnitRule.DIMENSIONLESS, UnitRule.DIMENSIONLESS),
+        ],
+        ids=[
+            "predefined-fn",
+            "predefined-op",
+            "type-differs",
+            "not-predefined",
+            "postfix-not-predefined",
+            "explicit",
+            "override",
+        ],
+    )
+    def test_add_symbol_unit_rule_resolution(self, token, symbol_type, rule, expected):
+        assert _empty_with((token, symbol_type, rule)).get_unit_rule(token) == expected
+
+    def test_re_adding_with_none_resets_rule(self):
+        lib = _empty_with(("sqrt", "fn", UnitRule.DIMENSIONLESS), ("abs", "fn", UnitRule.SAME))
+        lib.add_symbol("sqrt", "fn", 5, "np.sqrt({})")
+        lib.add_symbol("abs", "fn", 5, "np.abs({})")
+        assert (lib.get_unit_rule("sqrt"), lib.get_unit_rule("abs")) == (
+            UnitRule.power(Fraction(1, 2)),
+            UnitRule.DIMENSIONLESS,
+        )
+
+    @pytest.mark.parametrize(
+        "symbol_type, rule, error",
+        [
+            ("var", UnitRule.SAME, ValueError),
+            ("const", UnitRule.DIMENSIONLESS, ValueError),
+            ("lit", UnitRule.SAME, ValueError),
+            ("op", UnitRule.power(2), ValueError),
+            ("fn", UnitRule.MULTIPLY, ValueError),
+            ("fn", UnitRule.DIVIDE, ValueError),
+            ("fn", UnitRule.EXPONENT, ValueError),
+            ("fn", "same", TypeError),
+            ("op", {"kind": "same"}, TypeError),
+        ],
+        ids=["var", "const", "lit", "op-power", "fn-multiply", "fn-divide", "fn-exponent", "str", "dict"],
+    )
+    def test_add_symbol_unit_rule_errors(self, symbol_type, rule, error):
+        with pytest.raises(error):
+            SymbolLibrary().add_symbol("t", symbol_type, 5, "t", unit_rule=rule)
+
+    def test_unit_rules_round_trip(self):
+        lib = SymbolLibrary.default_symbols(1)
+        lib.add_symbol("abs", "fn", 5, "np.abs({})", unit_rule=UnitRule.SAME)
+        lib.add_symbol("cbrt", "fn", 5, "np.cbrt({})", unit_rule=UnitRule.power(Fraction(1, 3)))
+        d = lib.to_dict()
+        assert d["symbols"]["sqrt"]["unit_rule"] == {"kind": "power", "exponent": "1/2"}
+        assert d["symbols"]["+"]["unit_rule"] == {"kind": "same"}
+        assert all("unit_rule" not in d["symbols"][s] for s in ["X_0", "C", "pi"])
+        restored = SymbolLibrary.from_dict(json.loads(json.dumps(d)))
+        assert restored.get_unit_rule("abs") == UnitRule.SAME
+        assert restored.get_unit_rule("cbrt") == UnitRule.power(Fraction(1, 3))
+
+    @pytest.mark.parametrize("saved", ["missing", None], ids=["missing-key", "none"])
+    def test_from_dict_without_unit_rules(self, saved):
+        # Libraries saved before unit rules existed: an op/fn entry gets the add_symbol(None) rule.
+        lib = SymbolLibrary(["+", "sqrt"], num_variables=1)
+        lib.add_symbol("abs", "fn", 5, "np.abs({})", unit_rule=UnitRule.SAME)
+        d = lib.to_dict()
+        for token in ["+", "sqrt", "abs"]:
+            if saved == "missing":
+                del d["symbols"][token]["unit_rule"]
+            else:
+                d["symbols"][token]["unit_rule"] = None
+        before = copy.deepcopy(d)
+        restored = SymbolLibrary.from_dict(d)
+        assert d == before
+        assert restored.get_unit_rule("+") == UnitRule.SAME
+        assert restored.get_unit_rule("sqrt") == UnitRule.power(Fraction(1, 2))
+        assert restored.get_unit_rule("abs") == UnitRule.DIMENSIONLESS
+
+    @pytest.mark.parametrize(
+        "token, rule",
+        [("sqrt", {"kind": "nope"}), ("+", {"kind": "power", "exponent": "2"}), ("sqrt", {"kind": "multiply"})],
+        ids=["unknown-kind", "op-with-power", "fn-with-multiply"],
+    )
+    def test_from_dict_invalid_unit_rule(self, token, rule):
+        d = SymbolLibrary(["sqrt", "+"]).to_dict()
+        d["symbols"][token]["unit_rule"] = rule
+        with pytest.raises(ValueError):
+            SymbolLibrary.from_dict(d)

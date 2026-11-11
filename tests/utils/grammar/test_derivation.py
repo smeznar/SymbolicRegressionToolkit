@@ -700,6 +700,51 @@ class TestAncestorChain:
 
 
 # ---------------------------------------------------------------------------
+# ExpansionContext.siblings
+# ---------------------------------------------------------------------------
+
+
+class _RecordSiblings(GrammarConstraint):
+    """Records (non-terminal, siblings, partial_tree) at every applied slot, and what the siblings
+    had derived at that moment."""
+
+    def __init__(self):
+        self.seen = []
+        self.derived_then = {}
+        self.fields = {}
+
+    def update(self, slot, rule, global_):
+        self.seen.append((slot.nonterminal, slot.siblings, slot.partial_tree))
+        self.fields[slot.nonterminal] = (slot.steps, slot.parent_rule, slot.child_index, slot.ancestors)
+        self.derived_then[slot.nonterminal] = [[c.symbol for c in sib.children] for sib in slot.siblings]
+        n = sum(1 for s in rule.rhs if s in slot.nonterminals)
+        return [None] * n, None
+
+
+class TestSiblings:
+    def test_siblings_are_earlier_complete_nt_children(self):
+        s_rule = Rule("S", ["A", "x", "B", "C"])
+        rules = [s_rule, Rule("A", ["a"]), Rule("B", ["b"]), Rule("C", ["c"])]
+        g = Grammar(rules)
+        recorder = _RecordSiblings()
+        g.add_constraint(recorder)
+        g.start_derivation("S").generate()
+        by_nt = {nt: siblings for nt, siblings, _ in recorder.seen}
+        root = recorder.seen[-1][2]
+        node_a, node_b = root.children[0], root.children[2]  # "x" is a terminal, not a sibling
+        assert by_nt["S"] == ()
+        assert by_nt["A"] == ()
+        assert len(by_nt["B"]) == 1 and by_nt["B"][0] is node_a
+        assert len(by_nt["C"]) == 2 and by_nt["C"][0] is node_a and by_nt["C"][1] is node_b
+        assert recorder.derived_then["C"] == [["a"], ["b"]]  # complete when C is expanded
+        # The other fields of the context a constraint receives, at B: S and A were applied before.
+        steps, parent_rule, child_index, ancestors = recorder.fields["B"]
+        assert (steps, child_index) == (2, 1)
+        assert parent_rule is s_rule
+        assert ancestors == (AncestorInfo("S", s_rule, 1),)
+
+
+# ---------------------------------------------------------------------------
 # Depth-first leftmost ordering
 # ---------------------------------------------------------------------------
 
