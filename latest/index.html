@@ -353,6 +353,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#citing-srtoolkit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Citing SRToolkit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#publications-using-srtoolkit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publications using SRToolkit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#installation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2372,6 +2394,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#citing-srtoolkit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Citing SRToolkit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#publications-using-srtoolkit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publications using SRToolkit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#installation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2507,95 +2551,110 @@
 <p><strong>Comparing</strong> and <strong>measuring the distance</strong> between expressions.</p>
 </li>
 </ul>
+<h2 id="citing-srtoolkit">Citing SRToolkit</h2>
+<p>If you use SRToolkit in your research, please cite:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nc">@inproceedings</span><span class="p">{</span><span class="nl">Meznar2026SRToolkit</span><span class="p">,</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="na">title</span><span class="w">     </span><span class="p">=</span><span class="w"> </span><span class="s">{{SRToolkit: Shared Infrastructure for Symbolic Regression Research}}</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="na">author</span><span class="w">    </span><span class="p">=</span><span class="w"> </span><span class="s">{Me{\v{z}}nar, Sebastian and Todorovski, Ljup{\v{c}}o and D{\v{z}}eroski, Sa{\v{s}}o}</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="na">booktitle</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{IEEE WCCI 2026 Workshop on Symbolic Regression (SymReg 2026)}</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="na">year</span><span class="w">      </span><span class="p">=</span><span class="w"> </span><span class="s">{2026}</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="na">url</span><span class="w">       </span><span class="p">=</span><span class="w"> </span><span class="s">{https://openreview.net/forum?id=du21XftP2Q}</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
+</code></pre></div>
+<h2 id="publications-using-srtoolkit">Publications using SRToolkit</h2>
+<ul>
+<li>T. Drnovšek. <em>Equation discovery with Monte Carlo tree search</em> (in Slovenian). Master's thesis, University of Ljubljana, 2026. <a href="http://hdl.handle.net/20.500.12556/RUL-187297">[link]</a> Implements the Grams approach (grammar-based Monte Carlo tree search) on SRToolkit.</li>
+</ul>
+<p>See the <a href="https://smeznar.github.io/SymbolicRegressionToolkit/citations/#cite-using-srtoolkit">Citations page</a> for BibTeX entries. Using SRToolkit in your work? Open an issue or a PR to have it listed.</p>
 <h2 id="installation">Installation</h2>
 <p>To install the latest stable release of the package, run the following command in your terminal:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip install symbolic-regression-toolkit
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip install symbolic-regression-toolkit
 </code></pre></div></p>
 <p>Some built-in approaches (currently <strong>EDHiE</strong>) require extra dependencies (<strong>PyTorch</strong> and <strong>pymoo</strong>).
 To install them alongside the package, use the <code>approaches</code> extra:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip install 'symbolic-regression-toolkit[approaches]'
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip install 'symbolic-regression-toolkit[approaches]'
 </code></pre></div></p>
 <p>Alternatively, you can install the latest build directly from the repository with the command (Recommended):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip install git+https://github.com/smeznar/SymbolicRegressionToolkit
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip install git+https://github.com/smeznar/SymbolicRegressionToolkit
 </code></pre></div>
 <h2 id="examples">Examples</h2>
 <h3 id="1-expression-manipulation-the-toolkit-core">1. Expression Manipulation (The Toolkit Core)</h3>
 <p>SRToolkit offers fundamental utilities for working with mathematical expressions as tokens, trees, and executable code—the building blocks for any SR approach.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">compile_expr</span><span class="p">,</span> <span class="n">tokens_to_tree</span><span class="p">,</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">expr_to_latex</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Create an executable function from the expression</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">expr</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Calculate the output at two points (1, 2) and (2, 5) with C=3</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">data_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">]])</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">]</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">output</span> <span class="o">=</span> <span class="n">expr</span><span class="p">(</span><span class="n">data_points</span><span class="p">,</span> <span class="n">constants</span><span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Variable "output" should now contain np.array([7, 17])</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Use a SymbolLibrary as a context manager to avoid passing it to every call</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">with</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="k">as</span> <span class="n">sl</span><span class="p">:</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="c1"># Create an expression tree from the token list</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">expr_tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="c1"># Transform the expression into a list of symbols in postfix notation</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">postfix_expr</span> <span class="o">=</span> <span class="n">expr_tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">"postfix"</span><span class="p">)</span>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="c1"># Create a LaTeX string of the expression for clear presentation</span>
-<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">expr_latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">(</span><span class="n">expr_tree</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">compile_expr</span><span class="p">,</span> <span class="n">tokens_to_tree</span><span class="p">,</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">expr_to_latex</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Create an executable function from the expression</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">expr</span> <span class="o">=</span> <span class="n">compile_expr</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Calculate the output at two points (1, 2) and (2, 5) with C=3</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">data_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">]])</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">constants</span> <span class="o">=</span> <span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">output</span> <span class="o">=</span> <span class="n">expr</span><span class="p">(</span><span class="n">data_points</span><span class="p">,</span> <span class="n">constants</span><span class="p">)</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1"># Variable "output" should now contain np.array([7, 17])</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># Use a SymbolLibrary as a context manager to avoid passing it to every call</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="k">with</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="k">as</span> <span class="n">sl</span><span class="p">:</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="c1"># Create an expression tree from the token list</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="n">expr_tree</span> <span class="o">=</span> <span class="n">tokens_to_tree</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">])</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>    <span class="c1"># Transform the expression into a list of symbols in postfix notation</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>    <span class="n">postfix_expr</span> <span class="o">=</span> <span class="n">expr_tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">notation</span><span class="o">=</span><span class="s2">"postfix"</span><span class="p">)</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>    <span class="c1"># Create a LaTeX string of the expression for clear presentation</span>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>    <span class="n">expr_latex</span> <span class="o">=</span> <span class="n">expr_to_latex</span><span class="p">(</span><span class="n">expr_tree</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="2-benchmarking-and-evaluation-the-main-use-case">2. Benchmarking and Evaluation (The Main Use Case)</h3>
 <p>The primary advantage of SRToolkit is its robust benchmarking framework, allowing you to quickly evaluate and compare different Symbolic Regression approaches.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.approaches</span><span class="w"> </span><span class="kn">import</span> <span class="n">EDHiE</span><span class="p">,</span> <span class="n">ProGED</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feynman</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoggingCallback</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.experiments</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExperimentGrid</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># Load the Feynman benchmark and pick two 2-variable datasets to run on.</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">Feynman</span><span class="p">()</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">ds_names</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">list_datasets</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">dataset1</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">dataset2</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="c1"># Define the SR approaches to benchmark.</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># EDHiE requires a pre-trained/adapted model state; ProGED needs no time consuming adaptation.</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">edhie</span> <span class="o">=</span> <span class="n">EDHiE</span><span class="p">()</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">proged</span> <span class="o">=</span> <span class="n">ProGED</span><span class="p">()</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="c1"># Map each (approach, dataset) pair to a file where the adapted model state will</span>
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="c1"># be saved. Both datasets reuse the same file here because they share the same</span>
-<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="c1"># number of variables, so one adapted state covers both.</span>
-<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="n">adapted_states</span> <span class="o">=</span> <span class="p">{</span><span class="n">edhie</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">{</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="s2">"edhie_2v.pt"</span><span class="p">,</span> <span class="n">ds_names</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s2">"edhie_2v.pt"</span><span class="p">}}</span>
-<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>
-<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="c1"># Build the experiment grid: every combination of approach × dataset will be run</span>
-<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="c1"># num_experiments times (with different random seeds). Results are written under</span>
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="c1"># results_dir, specifically to "results_dir/{dataset}/{approach}/exp_{seed}.json".</span>
-<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="n">eg</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="p">(</span>
-<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>    <span class="n">approaches</span><span class="o">=</span><span class="p">[</span><span class="n">proged</span><span class="p">,</span> <span class="n">edhie</span><span class="p">],</span>
-<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>    <span class="n">datasets</span><span class="o">=</span><span class="p">[</span><span class="n">dataset1</span><span class="p">,</span> <span class="n">dataset2</span><span class="p">],</span>
-<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>    <span class="n">num_experiments</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>    <span class="n">results_dir</span><span class="o">=</span><span class="s2">"results"</span><span class="p">,</span>
-<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>    <span class="n">adapted_states</span><span class="o">=</span><span class="n">adapted_states</span><span class="p">,</span>
-<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="p">)</span>
-<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>
-<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="c1"># Write a shell script of CLI commands that can be executed in parallel, e.g.:</span>
-<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a><span class="c1">#   cat commands.sh | parallel -j 4</span>
-<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="n">eg</span><span class="o">.</span><span class="n">save_commands</span><span class="p">(</span><span class="s2">"commands.sh"</span><span class="p">)</span>
-<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>
-<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="c1"># Run adaptation for any approach/dataset pair whose adapted state file is missing.</span>
-<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="c1"># This is a no-op if all state files already exist.</span>
-<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a><span class="n">eg</span><span class="o">.</span><span class="n">adapt_if_missing</span><span class="p">()</span>
-<a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a>
-<a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a><span class="c1"># Collect all pending jobs (skip any whose result file already exists on disk).</span>
-<a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a><span class="n">jobs</span> <span class="o">=</span> <span class="n">eg</span><span class="o">.</span><span class="n">create_jobs</span><span class="p">(</span><span class="n">skip_completed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a>
-<a id="__codelineno-4-44" name="__codelineno-4-44" href="#__codelineno-4-44"></a><span class="c1"># Run each job sequentially in this process. To parallelize, use the generated</span>
-<a id="__codelineno-4-45" name="__codelineno-4-45" href="#__codelineno-4-45"></a><span class="c1"># commands.sh instead.</span>
-<a id="__codelineno-4-46" name="__codelineno-4-46" href="#__codelineno-4-46"></a><span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">:</span>
-<a id="__codelineno-4-47" name="__codelineno-4-47" href="#__codelineno-4-47"></a>    <span class="n">job</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-<a id="__codelineno-4-48" name="__codelineno-4-48" href="#__codelineno-4-48"></a>
-<a id="__codelineno-4-49" name="__codelineno-4-49" href="#__codelineno-4-49"></a><span class="c1"># See how many jobs are completed</span>
-<a id="__codelineno-4-50" name="__codelineno-4-50" href="#__codelineno-4-50"></a><span class="n">eg</span><span class="o">.</span><span class="n">progress</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.approaches</span><span class="w"> </span><span class="kn">import</span> <span class="n">EDHiE</span><span class="p">,</span> <span class="n">ProGED</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feynman</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoggingCallback</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.experiments</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExperimentGrid</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1"># Load the Feynman benchmark and pick two 2-variable datasets to run on.</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">Feynman</span><span class="p">()</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">ds_names</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">list_datasets</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">dataset1</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">dataset2</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="c1"># Define the SR approaches to benchmark.</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># EDHiE requires a pre-trained/adapted model state; ProGED needs no time consuming adaptation.</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="n">edhie</span> <span class="o">=</span> <span class="n">EDHiE</span><span class="p">()</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">proged</span> <span class="o">=</span> <span class="n">ProGED</span><span class="p">()</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="c1"># Map each (approach, dataset) pair to a file where the adapted model state will</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="c1"># be saved. Both datasets reuse the same file here because they share the same</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="c1"># number of variables, so one adapted state covers both.</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="n">adapted_states</span> <span class="o">=</span> <span class="p">{</span><span class="n">edhie</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">{</span><span class="n">ds_names</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="s2">"edhie_2v.pt"</span><span class="p">,</span> <span class="n">ds_names</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s2">"edhie_2v.pt"</span><span class="p">}}</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="c1"># Build the experiment grid: every combination of approach × dataset will be run</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="c1"># num_experiments times (with different random seeds). Results are written under</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="c1"># results_dir, specifically to "results_dir/{dataset}/{approach}/exp_{seed}.json".</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="n">eg</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="p">(</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>    <span class="n">approaches</span><span class="o">=</span><span class="p">[</span><span class="n">proged</span><span class="p">,</span> <span class="n">edhie</span><span class="p">],</span>
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>    <span class="n">datasets</span><span class="o">=</span><span class="p">[</span><span class="n">dataset1</span><span class="p">,</span> <span class="n">dataset2</span><span class="p">],</span>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>    <span class="n">num_experiments</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>    <span class="n">results_dir</span><span class="o">=</span><span class="s2">"results"</span><span class="p">,</span>
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>    <span class="n">adapted_states</span><span class="o">=</span><span class="n">adapted_states</span><span class="p">,</span>
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="p">)</span>
+<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>
+<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="c1"># Write a shell script of CLI commands that can be executed in parallel, e.g.:</span>
+<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="c1">#   cat commands.sh | parallel -j 4</span>
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="n">eg</span><span class="o">.</span><span class="n">save_commands</span><span class="p">(</span><span class="s2">"commands.sh"</span><span class="p">)</span>
+<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a><span class="c1"># Run adaptation for any approach/dataset pair whose adapted state file is missing.</span>
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="c1"># This is a no-op if all state files already exist.</span>
+<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="n">eg</span><span class="o">.</span><span class="n">adapt_if_missing</span><span class="p">()</span>
+<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>
+<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="c1"># Collect all pending jobs (skip any whose result file already exists on disk).</span>
+<a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a><span class="n">jobs</span> <span class="o">=</span> <span class="n">eg</span><span class="o">.</span><span class="n">create_jobs</span><span class="p">(</span><span class="n">skip_completed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a>
+<a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a><span class="c1"># Run each job sequentially in this process. To parallelize, use the generated</span>
+<a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a><span class="c1"># commands.sh instead.</span>
+<a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a><span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">:</span>
+<a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a>    <span class="n">job</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a>
+<a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a><span class="c1"># See how many jobs are completed</span>
+<a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a><span class="n">eg</span><span class="o">.</span><span class="n">progress</span><span class="p">()</span>
 </code></pre></div>
 <p>Additional examples can be found in the <code>examples</code> folder or in the official documentation.</p>
 <h2 id="roadmap">Roadmap 🗺️</h2>
