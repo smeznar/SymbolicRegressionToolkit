@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use SRToolkit in your research, please cite it as below."
+title: "SRToolkit: Symbolic Regression / Equation Discovery Benchmark Toolkit"
+type: software
+authors:
+  - family-names: "Mežnar"
+    given-names: "Sebastian"
+version: 1.6.0
+date-released: 2026-06-23
+license: GPL-3.0-only
+repository-code: "https://github.com/smeznar/SymbolicRegressionToolkit"
+url: "https://smeznar.github.io/SymbolicRegressionToolkit/"
+keywords:
+  - symbolic regression
+  - equation discovery
+  - benchmarking
+  - parameter estimation
+  - machine learning
+preferred-citation:
+  type: conference-paper
+  title: "SRToolkit: Shared Infrastructure for Symbolic Regression Research"
+  authors:
+    - family-names: "Mežnar"
+      given-names: "Sebastian"
+    - family-names: "Todorovski"
+      given-names: "Ljupčo"
+    - family-names: "Džeroski"
+      given-names: "Sašo"
+  collection-title: "IEEE WCCI 2026 Workshop on Symbolic Regression (SymReg 2026)"
+  year: 2026
+  url: "https://openreview.net/forum?id=du21XftP2Q"

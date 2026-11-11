@@ -187,7 +187,8 @@ def _expr_to_executable_function(
         fun_string += f"\t_check_num_constants(C, {num_constants})\n"
     for c in code:
         fun_string += "\t" + c + "\n"
-    fun_string += "\treturn " + symbol
+    # An expression of numbers only evaluates to a scalar; broadcast it like the other backends.
+    fun_string += f"\t_out_ = {symbol}\n\treturn _out_ if np.ndim(_out_) else np.full(X.shape[0], _out_)"
 
     fun_assignment_dict: Dict[str, Callable] = {}
     exec(fun_string, {"np": np, "_check_num_constants": _check_num_constants}, fun_assignment_dict)
@@ -291,7 +292,7 @@ def _tree_to_function_rec(
             )
         else:
             if is_float(tree.symbol):
-                return [], tree.symbol, var_counter, const_counter
+                return [], f"({tree.symbol})", var_counter, const_counter
             else:
                 raise Exception(f"Encountered invalid symbol {tree.symbol} while converting to function.")
 

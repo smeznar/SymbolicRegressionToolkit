@@ -34,6 +34,26 @@ SRToolkit provides a straightforward interface for:
 
 * **Comparing** and **measuring the distance** between expressions.
 
+## Citing SRToolkit
+
+If you use SRToolkit in your research, please cite:
+
+```bibtex
+@inproceedings{Meznar2026SRToolkit,
+  title     = {{SRToolkit: Shared Infrastructure for Symbolic Regression Research}},
+  author    = {Me{\v{z}}nar, Sebastian and Todorovski, Ljup{\v{c}}o and D{\v{z}}eroski, Sa{\v{s}}o},
+  booktitle = {IEEE WCCI 2026 Workshop on Symbolic Regression (SymReg 2026)},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=du21XftP2Q}
+}
+```
+
+## Publications using SRToolkit
+
+* T. Drnovšek. *Equation discovery with Monte Carlo tree search* (in Slovenian). Master's thesis, University of Ljubljana, 2026. [[link]](http://hdl.handle.net/20.500.12556/RUL-187297) Implements the Grams approach (grammar-based Monte Carlo tree search) on SRToolkit.
+
+See the [Citations page](https://smeznar.github.io/SymbolicRegressionToolkit/citations/#cite-using-srtoolkit) for BibTeX entries. Using SRToolkit in your work? Open an issue or a PR to have it listed.
+
 ## Installation
 
 To install the latest stable release of the package, run the following command in your terminal:

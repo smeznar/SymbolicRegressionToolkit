@@ -87,11 +87,11 @@ class TestTreeToFunctionRec:
         assert "C[0]" in full_code or "0" in full_code
         assert "C[1]" in full_code or "1" in full_code
 
-    def test_float_leaf_returns_symbol_string(self):
+    def test_float_leaf_returns_bracketed_symbol_string(self):
         tree = Node("1.5")
         code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
         assert code == []
-        assert symbol == "1.5"
+        assert symbol == "(1.5)"
 
     def test_unknown_leaf_raises(self):
         tree = Node("??invalid??")
@@ -738,6 +738,26 @@ class TestCompileExpr:
         tree = Node("+", left=Node("X_0"), right=Node("X_1"))
         f = compile_expr(tree, self.sl, backend="stack")
         np.testing.assert_allclose(f(self.X, None), [3.0, 7.0, 11.0])
+
+    @pytest.mark.parametrize(
+        "expr, expected",
+        [
+            (["X_0", "*", "(", "-2", ")", "^2"], [4.0, 12.0, 20.0]),
+            (["X_0", "*", "(", "-2", ")", "^-1"], [-0.5, -1.5, -2.5]),
+            (["X_0", "*", "sq", "(", "-2", ")"], [4.0, 12.0, 20.0]),
+        ],
+    )
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    def test_negative_literal_under_tight_template(self, expr, expected, backend):
+        # "{}**2" binds tighter than unary minus, so a bare "-2" would give -4.
+        self.sl.add_symbol("sq", "fn", 5, "{0}**2")
+        f = compile_expr(expr, self.sl, backend=backend)
+        np.testing.assert_allclose(f(self.X, np.array([])), expected)
+
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    def test_numbers_only_expression_returns_one_value_per_row(self, backend):
+        f = compile_expr(["(", "-2", ")", "^2", "+", "1"], self.sl, backend=backend)
+        np.testing.assert_allclose(f(self.X, np.array([])), [5.0, 5.0, 5.0])
 
 
 # ---------------------------------------------------------------------------
