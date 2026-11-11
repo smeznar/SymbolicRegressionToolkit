@@ -707,6 +707,8 @@
       
         
       
+        
+      
     
     
     
@@ -1014,6 +1016,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../references/utils/units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    units
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1035,7 +1065,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_12" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1057,14 +1087,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_12" id="__nav_3_2_12_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_11">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2453,8 +2483,15 @@
 <li><code>evaluate_approach</code> now calls <code>prepare()</code> before a <code>"once"</code> adaptation, as the docs say and <code>ExperimentJob.run</code> already did. <code>ExperimentGrid.adapt_one</code> creates the parent directories of the state path, like the other adaptation paths.</li>
 <li><code>SR_dataset.original_equation</code> is derived when not given, from the ground truth with the variable and target names (e.g. <code>F = m*a</code>); only a given string is saved. <code>SR_benchmark.list_datasets(verbose=True)</code> shows it, also for datasets added with <code>add_dataset_instance</code> (previously <code>None</code>).</li>
 <li>Feynman and SRSD datasets carry a name and description for every variable and the target, and a task description. SRSD equations are now derived from these names.</li>
+<li>Physical units (<code>SRToolkit.utils.units</code>): <code>Unit</code> is an exact unit over base dimensions. Predefined units are module constants named by their SI symbols (<code>u.m / u.s</code>, <code>u.J / u.K</code>; the seven base units and <code>N</code>, <code>J</code>, <code>W</code>, <code>Pa</code>, <code>Hz</code>, <code>C</code>, <code>V</code>, <code>Ohm</code>, <code>F</code>, <code>T</code>). <code>Unit({"m": 1, "s": -1})</code> builds one from exponents; names that are not predefined must be confirmed (<code>Unit({"bit": 1, "s": -1}, custom_units=["bit"])</code>), so a typo such as <code>"meter"</code> is an error. <code>VariableInfo</code> takes a <code>unit</code>, and <code>BackgroundKnowledge</code> (and <code>SR_dataset</code>, <code>from_samplers</code>, <code>add_dataset</code>, <code>add_from_samplers</code>, <code>SR_evaluator</code>) takes <code>constants=</code>: information, including units, about named constants (<code>"lit"</code> symbols). <code>describe()</code> shows the units.</li>
+<li>Every operator and function of a <code>SymbolLibrary</code> has a <code>UnitRule</code> saying how it combines units (<code>SAME</code>, <code>MULTIPLY</code>, <code>DIVIDE</code>, <code>EXPONENT</code>, <code>UnitRule.power(k)</code>, <code>DIMENSIONLESS</code>). Predefined symbols have theirs built in, and a custom symbol can be given one with <code>add_symbol(..., unit_rule=...)</code>. Libraries saved earlier load with the built-in rules.</li>
+<li>New expression constraint <code>ConsistentUnits</code>: an expression must be dimensionally consistent and have the target's unit. Variables and named constants have units, while free constants and numbers are dimensionless. <code>ConsistentUnits.from_background_knowledge(dataset.background_knowledge)</code> builds it from a dataset's units.</li>
+<li><code>DimensionalConsistency</code> is rewritten and now sound: every expression a grammar generates under it passes <code>ConsistentUnits</code> with the same units (for unambiguous grammars such as <code>Grammar.from_symbol_library</code>). It reads how symbols combine units from the library's <code>UnitRule</code>s. Generation can be slow for targets that combine several dimensions (see its docs).</li>
+<li><code>Grammar.from_symbol_library</code> builds an unambiguous grammar: postfix functions bracket their argument (<code>( E ) ^2</code>) and <code>^</code> groups to the left, as the parser does. Before, emitted tokens could parse to a different expression than the one derived (e.g. <code>(a + b)^2</code> emitted as <code>a + b ^2</code>), so ProGED's grammar probabilities applied to the wrong structure.</li>
+<li><code>ExpansionContext.siblings</code> gives a grammar constraint the finished earlier children of the current rule.</li>
 </ul>
 <p><strong>Breaking changes:</strong>
+- <code>DimensionalConsistency</code> takes <code>(variable_units, target_unit, symbol_library, literal_units=None)</code> with <code>Unit</code> objects; <code>constant_units</code> is now <code>literal_units</code>, <code>allow_unit_polymorphic_constants</code> is removed (free constants are dimensionless), and the tables <code>TRANSCENDENTAL_FNS</code>, <code>UNIT_PRESERVING_FNS</code>, <code>SQRT_FNS</code> and <code>CBRT_FNS</code> are removed (unit rules come from the library). Files saved by earlier versions cannot be loaded and raise a <code>ValueError</code> saying so.
 - Removed the <code>RMSE</code>, <code>BED</code> and <code>R2</code> augmenters; use <code>HoldoutMetric</code>.
 - <code>EstimationSettings</code> is renamed to <code>RankingSettings</code>.
 - Removed the <code>bed_X</code> and <code>domain_bounds</code> settings; pass the points as <code>X</code> with <code>num_points_sampled=-1</code>, or give samplers.

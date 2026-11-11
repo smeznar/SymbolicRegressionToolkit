@@ -985,6 +985,8 @@
       
         
       
+        
+      
     
     
     
@@ -1292,6 +1294,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../references/utils/units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    units
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1313,7 +1343,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_12" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1335,14 +1365,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_2_11" id="__nav_3_2_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_2_12" id="__nav_3_2_12_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_2_11">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2989,70 +3019,42 @@
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">NoNested</span><span class="p">(</span><span class="s2">"exp"</span><span class="p">))</span>           <span class="c1"># no exp(exp(x))</span>
 </code></pre></div>
 <h2 id="dimensional-consistency">Dimensional consistency</h2>
-<div class="admonition warning">
-<p class="admonition-title">Experimental</p>
-<p><code>DimensionalConsistency</code> is experimental and currently <strong>unsound for multiplication and
-division</strong>: it does not constrain the units of <code>*</code>/<code>/</code> operands, so an expression routed
-through a multiplication or division can violate the target unit. It is reliable only for
-grammars limited to leaves, additive operators (<code>+</code>/<code>-</code>), transcendental functions, and
-postfix powers (<code>^2</code>, <code>^3</code>, …) — which excludes most <code>from_symbol_library</code> grammars. Do
-not rely on the unit guarantee until this is fixed.</p>
-</div>
-<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DimensionalConsistency&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.DimensionalConsistency">DimensionalConsistency</a> enforces physical units during generation. It tracks the required unit at each open slot and rejects rules whose output unit would conflict.</p>
-<p>Units are represented as <code>dict[str, int | Fraction]</code> mapping base dimension names to exponents. Dimensionless is <code>{}</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">DimensionalConsistency</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="n">dc</span> <span class="o">=</span> <span class="n">DimensionalConsistency</span><span class="p">(</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">variable_units</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>        <span class="s2">"v"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"m"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"s"</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="p">},</span>   <span class="c1"># velocity [m/s]</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>        <span class="s2">"t"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"s"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>             <span class="c1"># time [s]</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="p">},</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    <span class="n">target_unit</span><span class="o">=</span><span class="p">{</span><span class="s2">"m"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>          <span class="c1"># target: length [m]</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="p">)</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="n">g</span> <span class="o">=</span> <span class="n">Grammar</span><span class="o">.</span><span class="n">from_symbol_library</span><span class="p">(</span><span class="n">sl</span><span class="p">)</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">dc</span><span class="p">)</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>
-<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="n">tokens</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">generate_one</span><span class="p">()</span>   <span class="c1"># guaranteed to have unit [m]</span>
+<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DimensionalConsistency&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.DimensionalConsistency">DimensionalConsistency</a> generates only expressions
+whose physical units are consistent and equal to the target's, using the unit rules of the symbol
+library. Its documentation covers the supported grammars, the rules and dead ends.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span> <span class="k">as</span> <span class="n">u</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">DimensionalConsistency</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="n">g</span> <span class="o">=</span> <span class="n">Grammar</span><span class="o">.</span><span class="n">from_symbol_library</span><span class="p">(</span><span class="n">sl</span><span class="p">)</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">DimensionalConsistency</span><span class="p">({</span><span class="s2">"X_0"</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">m</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">},</span> <span class="n">u</span><span class="o">.</span><span class="n">m</span> <span class="o">/</span> <span class="n">u</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="n">sl</span><span class="p">))</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="n">tokens</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">generate_one</span><span class="p">(</span><span class="n">max_retries</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
 </code></pre></div>
-<p>Named physical constants (type <code>lit</code>) are declared via <code>constant_units</code>. Free constants (type <code>const</code>) are treated as dimensionless by default; set <code>allow_unit_polymorphic_constants=True</code> to let them absorb any required unit.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">dc</span> <span class="o">=</span> <span class="n">DimensionalConsistency</span><span class="p">(</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="n">variable_units</span><span class="o">=</span><span class="p">{</span><span class="s2">"F"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"kg"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"m"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"s"</span><span class="p">:</span> <span class="o">-</span><span class="mi">2</span><span class="p">},</span> <span class="s2">"m"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"kg"</span><span class="p">:</span> <span class="mi">1</span><span class="p">}},</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>    <span class="n">target_unit</span><span class="o">=</span><span class="p">{</span><span class="s2">"m"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"s"</span><span class="p">:</span> <span class="o">-</span><span class="mi">2</span><span class="p">},</span>     <span class="c1"># acceleration [m/s²]</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">constant_units</span><span class="o">=</span><span class="p">{</span><span class="s2">"g"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"m"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"s"</span><span class="p">:</span> <span class="o">-</span><span class="mi">2</span><span class="p">}},</span>  <span class="c1"># gravitational acceleration</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="p">)</span>
-</code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><code>DimensionalConsistency</code> uses rule names (e.g. <code>E_add_+</code>, <code>R_fn_sin</code>) to classify rules efficiently. Grammars built with <code>Grammar.from_symbol_library</code> include these names automatically. For hand-written grammars, add names to rules whose classification matters; unnamed rules fall back to shape heuristics.</p>
-</div>
 <h2 id="serialization">Serialization</h2>
 <p>Grammars and all built-in constraints support <code>to_dict</code> / <code>from_dict</code> for JSON round-trips:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="n">d</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"grammar.json"</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"grammar.json"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    <span class="n">g2</span> <span class="o">=</span> <span class="n">Grammar</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">d</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"grammar.json"</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"grammar.json"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="n">g2</span> <span class="o">=</span> <span class="n">Grammar</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">))</span>
 </code></pre></div>
 <p><code>to_dict</code> stores the start symbol, all rules (with names and weights), and all constraints. Constraints are identified by their fully-qualified class path, so <code>from_dict</code> uses <code>importlib</code> to reconstruct them — the same approach used for callbacks and samplers throughout SRToolkit.</p>
-<p><code>DimensionalConsistency</code> serializes unit exponents as <code>"p/q"</code> strings for exact <code>Fraction</code> fidelity. The <code>symbol_library</code> reference is not serialized; reconstruct it from the original symbol set if needed.</p>
 <h2 id="custom-constraints">Custom constraints</h2>
 <p>Subclass <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;GrammarConstraint&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.GrammarConstraint">GrammarConstraint</a> and override the methods you need:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">GrammarConstraint</span><span class="p">,</span> <span class="n">Grammar</span><span class="p">,</span> <span class="n">Rule</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="sd">"""Reject any rule whose rhs contains 'C'."""</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>        <span class="k">return</span> <span class="s2">"C"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="n">g</span> <span class="o">=</span> <span class="n">Grammar</span><span class="p">([</span><span class="n">Rule</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"C"</span><span class="p">]),</span> <span class="n">Rule</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"x"</span><span class="p">])])</span>
-<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">NoConstants</span><span class="p">())</span>
-<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="n">d</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">start_derivation</span><span class="p">(</span><span class="s2">"E"</span><span class="p">)</span>
-<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="nb">print</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">rhs</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">options</span><span class="p">()])</span>  <span class="c1"># [['x']]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils.grammar</span><span class="w"> </span><span class="kn">import</span> <span class="n">GrammarConstraint</span><span class="p">,</span> <span class="n">Grammar</span><span class="p">,</span> <span class="n">Rule</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">    </span><span class="sd">"""Reject any rule whose rhs contains 'C'."""</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>        <span class="k">return</span> <span class="s2">"C"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="n">g</span> <span class="o">=</span> <span class="n">Grammar</span><span class="p">([</span><span class="n">Rule</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"C"</span><span class="p">]),</span> <span class="n">Rule</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"x"</span><span class="p">])])</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="n">g</span><span class="o">.</span><span class="n">add_constraint</span><span class="p">(</span><span class="n">NoConstants</span><span class="p">())</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="n">d</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">start_derivation</span><span class="p">(</span><span class="s2">"E"</span><span class="p">)</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="nb">print</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">rhs</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">options</span><span class="p">()])</span>  <span class="c1"># [['x']]</span>
 </code></pre></div>
 <p>Constraint instances carry only construction-time configuration and are safe to share across parallel derivations. All per-derivation state is managed by the engine and passed through <code>allows</code> / <code>update</code> arguments.</p>
 <h3 id="the-slot-object-expansioncontext">The slot object (ExpansionContext)</h3>
@@ -3129,69 +3131,69 @@ not rely on the unit guarantee until this is fixed.</p>
 <p><strong>Local state</strong> is per-slot and inherited from parent to children. The engine maintains a stack of local values alongside the open frontier; each slot starts with the value propagated from its parent's <code>update</code> call. Use local state for anything that depends on position in the tree, such as a remaining depth budget.</p>
 <p><strong>Global state</strong> is a single value shared across the entire derivation. It is updated after every rule application and is useful for running counters and accumulators, such as a total node count.</p>
 <p>Both are initialised once per derivation — local state via <code>initial_local(start)</code>, global state via <code>initial_global()</code> — and the engine threads the current values into every <code>allows</code> and <code>update</code> call.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Local state: remaining depth budget inherited by each child slot</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">BudgetDepth</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initial_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">):</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span>                        <span class="c1"># every slot starts with full budget</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
-<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>        <span class="k">if</span> <span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>            <span class="k">return</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
-<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>        <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>
-<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
-<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span><span class="p">)</span>
-<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="n">global_</span>    <span class="c1"># children receive budget - 1</span>
-<a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a>
-<a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a>
-<a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a><span class="c1"># Global state: running count of rule applications across the whole derivation</span>
-<a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a><span class="k">class</span><span class="w"> </span><span class="nc">ApplicationCounter</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
-<a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
-<a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
-<a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a>
-<a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initial_global</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a>        <span class="k">return</span> <span class="mi">0</span>                                 <span class="c1"># counter starts at zero</span>
-<a id="__codelineno-20-26" name="__codelineno-20-26" href="#__codelineno-20-26"></a>
-<a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
-<a id="__codelineno-20-28" name="__codelineno-20-28" href="#__codelineno-20-28"></a>        <span class="k">return</span> <span class="n">global_</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span>
-<a id="__codelineno-20-29" name="__codelineno-20-29" href="#__codelineno-20-29"></a>
-<a id="__codelineno-20-30" name="__codelineno-20-30" href="#__codelineno-20-30"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
-<a id="__codelineno-20-31" name="__codelineno-20-31" href="#__codelineno-20-31"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span><span class="p">)</span>
-<a id="__codelineno-20-32" name="__codelineno-20-32" href="#__codelineno-20-32"></a>        <span class="k">return</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="n">global_</span> <span class="o">+</span> <span class="mi">1</span>          <span class="c1"># increment counter after each application</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Local state: remaining depth budget inherited by each child slot</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">BudgetDepth</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initial_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">):</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span>                        <span class="c1"># every slot starts with full budget</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>        <span class="k">if</span> <span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>            <span class="k">return</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span><span class="p">)</span>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="n">global_</span>    <span class="c1"># children receive budget - 1</span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="c1"># Global state: running count of rule applications across the whole derivation</span>
+<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a><span class="k">class</span><span class="w"> </span><span class="nc">ApplicationCounter</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
+<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
+<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
+<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a>
+<a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initial_global</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-19-25" name="__codelineno-19-25" href="#__codelineno-19-25"></a>        <span class="k">return</span> <span class="mi">0</span>                                 <span class="c1"># counter starts at zero</span>
+<a id="__codelineno-19-26" name="__codelineno-19-26" href="#__codelineno-19-26"></a>
+<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
+<a id="__codelineno-19-28" name="__codelineno-19-28" href="#__codelineno-19-28"></a>        <span class="k">return</span> <span class="n">global_</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span>
+<a id="__codelineno-19-29" name="__codelineno-19-29" href="#__codelineno-19-29"></a>
+<a id="__codelineno-19-30" name="__codelineno-19-30" href="#__codelineno-19-30"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
+<a id="__codelineno-19-31" name="__codelineno-19-31" href="#__codelineno-19-31"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span><span class="p">)</span>
+<a id="__codelineno-19-32" name="__codelineno-19-32" href="#__codelineno-19-32"></a>        <span class="k">return</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="n">global_</span> <span class="o">+</span> <span class="mi">1</span>          <span class="c1"># increment counter after each application</span>
 </code></pre></div>
-<p>Both flavours can be combined in a single constraint by implementing all four methods together, as <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DimensionalConsistency&lt;/span&gt;" href="../../references/utils/grammar/#SRToolkit.utils.grammar.DimensionalConsistency">DimensionalConsistency</a> does with its per-slot unit tracking.</p>
+<p>Both flavours can be combined in a single constraint by implementing all four methods together.</p>
 <p>To make a custom constraint serializable, implement <code>to_dict</code> and <code>from_dict</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()}</span>   <span class="c1"># constraint_class is enough</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="nd">@classmethod</span>
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">NoConstants</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>        <span class="k">return</span> <span class="p">{</span><span class="o">**</span><span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()}</span>   <span class="c1"># constraint_class is enough</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="nd">@classmethod</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">()</span>
 </code></pre></div>
 <p><code>GrammarConstraint.from_dict</code> dispatches via <code>importlib</code>, so any class reachable by its module path is supported automatically.</p>
 <h3 id="scoping">Scoping</h3>
 <p>Set <code>nonterminals</code> and/or <code>rule_names</code> on the class to limit when <code>allows</code> is called. Slots outside scope are accepted unconditionally; <code>update</code> is always called regardless of scope so that global counters stay accurate.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DepthLimitForE</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>    <span class="n">nonterminals</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"E"</span><span class="p">})</span>   <span class="c1"># only active at E slots</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>
-<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initial_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">):</span>
-<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span>
-<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
-<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>        <span class="k">if</span> <span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>            <span class="k">return</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
-<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a>        <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>
-<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
-<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span><span class="p">)</span>
-<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="n">global_</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DepthLimitForE</span><span class="p">(</span><span class="n">GrammarConstraint</span><span class="p">):</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="n">nonterminals</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"E"</span><span class="p">})</span>   <span class="c1"># only active at E slots</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">):</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">limit</span> <span class="o">=</span> <span class="n">limit</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">initial_local</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">):</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">limit</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">allows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>        <span class="k">if</span> <span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>            <span class="k">return</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span><span class="p">)</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a>        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>
+<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">global_</span><span class="p">):</span>
+<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a>        <span class="n">n</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rule</span><span class="o">.</span><span class="n">rhs</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slot</span><span class="o">.</span><span class="n">nonterminals</span><span class="p">)</span>
+<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">slot</span><span class="o">.</span><span class="n">local</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="n">global_</span>
 </code></pre></div>
 
 
