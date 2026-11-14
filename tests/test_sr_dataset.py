@@ -494,6 +494,8 @@ _GOLDEN = Path(__file__).parent / "data" / "v3_cache"
 #   data_cache.resolve("golden_bench", "1.0.0", "ds", config)
 # with data_root patched to tests/data/v3_cache/cache and `config` = config_v3.json. It is what a
 # user's cache written by an older version looks like: the .meta.json holds the old drift hash.
+# On 2026-11-14 the samplers in config_v3.json were converted from the old sign flags to `mirror` and
+# the .meta.json hash recomputed, since old-format sampler dicts are no longer read.
 
 _NINE_CONSTANTS = ["C", "*", "X_0", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C"]
 
@@ -986,7 +988,7 @@ class TestFromSamplersStageC:
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "a")
         ds = SR_dataset.from_samplers(
             ["sq", "(", "X_0", ")", "+", "X_1"],
-            {"X_1": UniformSampling(10, 11, uses_negative=False), "X_0": UniformSampling(0, 1, uses_negative=False)},
+            {"X_1": UniformSampling(10, 11), "X_0": UniformSampling(0, 1)},
             symbol_library=lib,
             n_samples=20,
             n_test=4,

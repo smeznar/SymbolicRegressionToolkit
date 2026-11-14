@@ -89,12 +89,12 @@ class Nguyen(SR_benchmark):
         self.add_dataset(sl_1v, None, dataset_name="NG-1", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3"], original_equation="y = x+x^2+x^3",
                          success_threshold=1e-7, seed=seed, dataset_metadata=self.metadata,
-                         samplers=[UniformSampling(0, 20)], data_source=data_source)
+                         samplers=[UniformSampling(0, 20, mirror=True)], data_source=data_source)
 
         self.add_dataset(sl_1v, None, dataset_name="NG-2", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["X_0", "+", "X_0", "^2", "+", "X_0", "^3", "+", "X_0", "*", "X_0", "^3"],
                          original_equation="y = x+x^2+x^3+x^4", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20, mirror=True)], data_source=data_source)
 
         self.add_dataset(sl_1v, None, dataset_name="NG-3", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=[
@@ -117,7 +117,7 @@ class Nguyen(SR_benchmark):
                              "X_0",
                              "^3",
                          ], original_equation="y = x+x^2+x^3+x^4+x^5", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20, mirror=True)], data_source=data_source)
 
         self.add_dataset(sl_1v, None, dataset_name="NG-4", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=[
@@ -146,39 +146,39 @@ class Nguyen(SR_benchmark):
                              "X_0",
                              "^3",
                          ], original_equation="y = x+x^2+x^3+x^4+x^5+x^6", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20, mirror=True)], data_source=data_source)
 
         self.add_dataset(sl_1v, None, dataset_name="NG-5", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["sin", "(", "X_0", "^2", ")", "*", "cos", "(", "X_0", ")", "-", "1"],
                          original_equation="y = sin(x^2)*cos(x)-1", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20, mirror=True)], data_source=data_source)
 
         self.add_dataset(sl_1v, None, dataset_name="NG-6", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_0", "+", "X_0", "^2", ")"],
                          original_equation="y = sin(x)+sin(x+x^2)", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20)], data_source=data_source)
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20, mirror=True)], data_source=data_source)
 
         self.add_dataset(sl_1v, None, dataset_name="NG-7", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["log", "(", "1", "+", "X_0", ")", "+", "log", "(", "1", "+", "X_0", "^2", ")"],
                          original_equation="y = log(1+x)+log(1+x^2)", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(1, 100, uses_negative=False)],
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(1, 100)],
                          data_source=data_source)
 
         self.add_dataset(sl_1v, None, dataset_name="NG-8", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["sqrt", "(", "X_0", ")"], original_equation="y = sqrt(x)",
                          success_threshold=1e-7, seed=seed, dataset_metadata=self.metadata,
-                         samplers=[UniformSampling(0, 100, uses_negative=False)], data_source=data_source)
+                         samplers=[UniformSampling(0, 100)], data_source=data_source)
 
         self.add_dataset(sl_2v, None, dataset_name="NG-9", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["sin", "(", "X_0", ")", "+", "sin", "(", "X_1", "^2", ")"],
                          original_equation="z = sin(x)+sin(y^2)", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20, mirror=True), UniformSampling(0, 20, mirror=True)],
                          data_source=data_source)
 
         self.add_dataset(sl_2v, None, dataset_name="NG-10", ranking_function="rmse", max_evaluations=100000,
                          ground_truth=["2", "*", "sin", "(", "X_0", ")", "*", "cos", "(", "X_1", ")"],
                          original_equation="z = 2*sin(x)*cos(y)", success_threshold=1e-7, seed=seed,
-                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20), UniformSampling(0, 20)],
+                         dataset_metadata=self.metadata, samplers=[UniformSampling(0, 20, mirror=True), UniformSampling(0, 20, mirror=True)],
                          data_source=data_source)
 
     # fmt: on

@@ -36,7 +36,7 @@ def _lib2c():
 
 
 def _samplers():
-    return {"X_1": UniformSampling(10, 11, uses_negative=False), "X_0": UniformSampling(0, 1, uses_negative=False)}
+    return {"X_1": UniformSampling(10, 11), "X_0": UniformSampling(0, 1)}
 
 
 def _dicts(items):

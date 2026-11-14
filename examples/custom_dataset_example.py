@@ -26,7 +26,7 @@ class MyBenchmark(SR_benchmark):
 
         self.add_from_samplers(
             ground_truth=["X_0", "^2", "+", "1"],
-            samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+            samplers=[UniformSampling(0.5, 5.0)],
             symbol_library=sl_1v,
             dataset_name="eq1",
             original_equation="x^2 + 1",

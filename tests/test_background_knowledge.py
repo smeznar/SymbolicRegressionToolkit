@@ -295,7 +295,7 @@ class TestBackgroundKnowledgeDescribe:
     def test_describe_full_layout(self):
         bk = BackgroundKnowledge(
             _lib(symbols=("+", "*", "C", "pi")),
-            samplers=[UniformSampling(0.0, 5.0), UniformSampling(1.0, 2.0)],
+            samplers=[UniformSampling(0.0, 5.0, mirror=True), UniformSampling(1.0, 2.0, mirror=True)],
             constant_bounds=(-2, 3),
             constraints=[MaxTreeDepth(4)],
             reference_grammar=_grammar(),
@@ -343,7 +343,7 @@ class TestBackgroundKnowledgeDescribe:
                 "Variables:\n  X_0\nSymbols: +, *, X_0",
             ),
             (
-                lambda: BackgroundKnowledge(_lib(1, ("+", "*")), samplers=[UniformSampling(0.0, 1.0)]),
+                lambda: BackgroundKnowledge(_lib(1, ("+", "*")), samplers=[UniformSampling(0.0, 1.0, mirror=True)]),
                 "Symbols: +, *, X_0\nInput distribution:\n  X_0: uniform on [-1, 1]",
             ),
             (lambda: BackgroundKnowledge(_lib(0, ("+", "*")), samplers=[]), "Symbols: +, *"),

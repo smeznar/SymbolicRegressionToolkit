@@ -116,7 +116,7 @@ class MyBenchmark(SR_benchmark):
 
         self.add_dataset(sl_1v, None, dataset_name="eq1", ranking_function="rmse", max_evaluations=50000,
                          ground_truth=["X_0", "^2", "+", "1"], original_equation="x^2 + 1", success_threshold=1e-6,
-                         seed=42, samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+                         seed=42, samplers=[UniformSampling(0.5, 5.0)],
                          data_source=SampleSource(n_samples=10000, seed=42))
         self.add_dataset(sl_2v, None, dataset_name="eq2", ranking_function="rmse", max_evaluations=50000,
                          ground_truth=["sin", "(", "X_0", ")", "+", "X_1", "^2"], original_equation="sin(x0) + x1^2",
@@ -136,7 +136,7 @@ the first `create_dataset()`.
 ```python
 self.add_from_samplers(
     ground_truth=["X_0", "^2", "+", "1"],
-    samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+    samplers=[UniformSampling(0.5, 5.0)],
     dataset_name="eq1",
     n_samples=10000,
     seed=42,

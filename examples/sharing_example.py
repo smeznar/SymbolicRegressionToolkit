@@ -19,7 +19,7 @@ if __name__ == "__main__":
     bm = SR_benchmark("shared_demo", version="1.0.0")
     bm.add_from_samplers(
         ground_truth=["X_0", "^2", "+", "1"],
-        samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+        samplers=[UniformSampling(0.5, 5.0)],
         dataset_name="eq1",
         original_equation="x^2 + 1",
         n_samples=2000,
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # The same pair exists for a single SR_dataset.
     ds = SR_dataset.from_samplers(
         ground_truth=["X_0", "^2", "+", "1"],
-        samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+        samplers=[UniformSampling(0.5, 5.0)],
         n_samples=2000,
         seed=42,
         dataset_name="single_eq",

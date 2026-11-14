@@ -26,7 +26,7 @@ def _make_dataset(name="ds1", benchmark="unit_test", version="1.0.0", max_evalua
     """A small, network-free sample-source dataset (no arrays embedded in config)."""
     return SR_dataset.from_samplers(
         ground_truth=["X_0", "*", "X_0"],
-        samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+        samplers=[UniformSampling(0.5, 5.0)],
         n_samples=64,
         seed=1,
         dataset_name=name,
@@ -585,7 +585,7 @@ def _export_grid(results_dir, benchmark):
     """Grid with one archived (seedless) and one referenced (seeded) dataset."""
     archived = SR_dataset.from_samplers(
         ground_truth=["X_0", "*", "X_0"],
-        samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+        samplers=[UniformSampling(0.5, 5.0)],
         n_samples=16,
         seed=None,
         dataset_name="vol",
@@ -594,7 +594,7 @@ def _export_grid(results_dir, benchmark):
     )
     referenced = SR_dataset.from_samplers(
         ground_truth=["X_0", "+", "X_0"],
-        samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+        samplers=[UniformSampling(0.5, 5.0)],
         n_samples=16,
         seed=5,
         dataset_name="rep",
@@ -917,7 +917,7 @@ def _task_dataset():
     """Grid dataset whose required list is _TASK_REQUIRED, with a hint and a description."""
     return SR_dataset.from_samplers(
         ground_truth=["X_0", "*", "X_0"],
-        samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+        samplers=[UniformSampling(0.5, 5.0)],
         n_samples=16,
         seed=1,
         dataset_name="ds1",

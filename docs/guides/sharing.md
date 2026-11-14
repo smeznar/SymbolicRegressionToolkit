@@ -233,7 +233,7 @@ from SRToolkit.dataset.sampling import UniformSampling
 
 ds = SR_dataset.from_samplers(
     ground_truth=["X_0", "^2", "+", "C"],
-    samplers=[UniformSampling(0.5, 5.0, uses_negative=False)],
+    samplers=[UniformSampling(0.5, 5.0)],
     n_samples=10000,
     seed=42,
     dataset_name="my_eq",
