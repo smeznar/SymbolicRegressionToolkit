@@ -2455,7 +2455,8 @@
 <li>BED:</li>
 <li>takes its evaluation points from the <code>samplers</code> setting (the input distribution) when its behaviour comes from a ground-truth expression and <code>num_points_sampled</code> is not <code>-1</code>, otherwise from <code>X</code>; datasets always pass their samplers;</li>
 <li>can rank expressions against the observed targets <code>y</code> when no ground-truth expression is given;</li>
-<li>is fixed per dataset by default (<code>ranking_seed</code>, the dataset's seed), so every run on a dataset is scored by the same objective; <code>bed_resample=True</code> resamples it per run.</li>
+<li>is fixed per dataset by default (<code>ranking_seed</code>, the dataset's seed), so every run on a dataset is scored by the same objective; <code>ranking_resample=True</code> resamples it per run.</li>
+<li>Constant fitting is deterministic per expression: each fit's random starting point is seeded by a hash of the seed and the expression's tokens, so an expression's fit no longer depends on what was fitted before it. Under a dataset, RMSE ranking uses <code>ranking_seed</code> (the dataset's seed) like BED, so the same token list gets the same score in every approach and run; <code>ranking_resample=True</code> seeds the fits from the run's seed instead. The evaluator passes <code>ranking_seed</code> to the ranking's <code>setup</code> as its seed, so custom rankings follow it too. Fitted values differ slightly from earlier versions.</li>
 <li>Added an <code>rmse</code> regression metric.</li>
 <li>Python 3.14 support: wheels are built for 3.10–3.14, and CI tests all five versions.</li>
 <li>Removed the <code>editdistance</code> dependency (no wheels for Python ≥ 3.13); <code>edit_distance</code> now uses a pure-Python Levenshtein implementation.</li>
