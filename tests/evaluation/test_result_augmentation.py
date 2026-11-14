@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import BEDRanking, RMSERanking
 from SRToolkit.evaluation.result_augmentation import (
     ExpressionSimplifier,
@@ -663,6 +664,37 @@ class TestHoldoutMetricRefitConstants:
         HoldoutMetric((_X_TEST, _y_TEST), scope="top", symbol_library=_sl, refit_constants=True).write_results(result)
         assert result.augmentations["HoldoutMetric"]["refit_constants"] is True
         assert result.top_models()[0].augmentations["HoldoutMetric"]["refit_constants"] is True
+
+    def test_refit_seed_is_holdout_seed_not_ranking_seed(self, fit_starts):
+        se, result = _one_model_result()
+        fits_before = len(fit_starts)
+        aug = HoldoutMetric(
+            (_X_TEST, _y_TEST),
+            scope="best",
+            symbol_library=_sl,
+            ranking_settings={"ranking_seed": 5},
+            seed=7,
+            refit_constants=True,
+        )
+        aug.write_results(result)
+        assert len(fit_starts) == fits_before + 1
+        ParameterEstimator(_X_TEST, _y_TEST, _sl, seed=7).estimate_parameters(_BEST_EXPR)
+        np.testing.assert_array_equal(fit_starts[-2], fit_starts[-1])
+
+    def test_ranking_metric_seed_is_ranking_seed(self, fit_starts):
+        se, result = _one_model_result()
+        fits_before = len(fit_starts)
+        HoldoutMetric(
+            (_X_TEST, _y_TEST),
+            metric=RMSERanking(),
+            scope="best",
+            symbol_library=_sl,
+            ranking_settings={"ranking_seed": 5},
+            seed=7,
+        ).write_results(result)
+        assert len(fit_starts) == fits_before + 1
+        ParameterEstimator(_X_TEST, _y_TEST, _sl, seed=5).estimate_parameters(_BEST_EXPR)
+        np.testing.assert_array_equal(fit_starts[-2], fit_starts[-1])
 
     def test_refit_constants_with_ranking_function_raises(self):
         with pytest.raises(ValueError, match="refit_constants applies to string/callable metrics only"):

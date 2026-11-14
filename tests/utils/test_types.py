@@ -88,7 +88,7 @@ class TestRankingSettings:
             "samplers",
             "bed_gt",
             "ranking_seed",
-            "bed_resample",
+            "ranking_resample",
             "num_consts_sampled",
         }
         assert RankingSettings.__optional_keys__ == documented

@@ -371,7 +371,8 @@ class HoldoutMetric(ResultAugmenter):
                 search already enforced its limits (including its required constraints) on every
                 model it scored ``"ok"``.
             seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
-                Default ``0``.
+                A ``ranking_seed`` in ``ranking_settings`` overrides it for a ranking metric, but
+                not for the refit of a string or callable metric. Default ``0``.
             refit_constants: Fit every model's constants on the held-out data instead of reusing
                 those from the search. Only for built-in or callable metrics. Default ``False``.
             name: Key under which the values are stored in ``augmentations``. Default
@@ -426,7 +427,16 @@ class HoldoutMetric(ResultAugmenter):
             # Deep-copy so setup() mutates our own instance, not the caller's (which may be shared
             # with an SR_evaluator or another HoldoutMetric).
             self.metric = copy.deepcopy(metric)
-            self.metric.setup(self._X, self._y, ground_truth, symbol_library, seed, self._fit_settings)
+            # As in SR_evaluator, a ranking_seed replaces the seed for the ranking.
+            ranking_seed = self._fit_settings.get("ranking_seed")
+            self.metric.setup(
+                self._X,
+                self._y,
+                ground_truth,
+                symbol_library,
+                seed if ranking_seed is None else ranking_seed,
+                self._fit_settings,
+            )
         elif isinstance(metric, str):
             self._ranking_mode = False
             self._metric_label = metric

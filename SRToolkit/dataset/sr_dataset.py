@@ -560,9 +560,10 @@ class SR_dataset:
         """Return the settings the ranking function gets, as in an evaluator from ``create_evaluator``.
 
         They are ``kwargs`` plus ``constant_bounds``, plus ``samplers`` if the dataset has them
-        (BED draws its points from them when it can; other rankings ignore them). Unless ``bed_resample``
-        is set, ``ranking_seed`` defaults to the dataset seed (``0`` if ``None``), so every run is
-        scored by the same objective. Pass them to
+        (BED draws its points from them when it can; other rankings ignore them). Unless
+        ``ranking_resample=True``, ``ranking_seed`` defaults to the dataset seed (``0`` if
+        ``None``), so every run is scored by the same objective: the same BED points and
+        behaviours, and the same starting point for each expression's fit. Pass them to
         [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] to score held-out
         data under the search's settings.
 
@@ -575,7 +576,7 @@ class SR_dataset:
         if self.samplers is not None:
             settings["samplers"] = list(self.samplers)
         # Fix the ranking's randomness per dataset, unless the user asked for it to be resampled each run.
-        if not settings.get("bed_resample", False):
+        if not settings.get("ranking_resample", False):
             settings.setdefault("ranking_seed", self.seed if self.seed is not None else 0)
         return settings
 

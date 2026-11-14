@@ -137,8 +137,35 @@ class TestSRDatasetEvaluator:
     def test_bed_ranking_seed_is_dataset_seed(self, dataset_seed, expected):
         assert _bed_dataset(seed=dataset_seed).create_evaluator(seed=1).ranking.seed == expected
 
-    def test_bed_resample_uses_run_seed(self):
-        dataset = _bed_dataset(num_points_sampled=8, bed_resample=True)
+    @pytest.mark.parametrize("resample, same", [(False, True), (True, False)], ids=["fixed", "resample"])
+    def test_rmse_score_same_across_run_seeds_unless_resampled(self, resample, same):
+        # One optimizer iteration on a multimodal fit leaves the score dependent on the start.
+        X = np.random.default_rng(0).random((10, 1))
+        dataset = SR_dataset(
+            X, SymbolLibrary.default_symbols(1), y=np.sin(7 * X[:, 0]), seed=4, ranking_resample=resample, max_iter=1
+        )
+        expr = ["sin", "(", "C", "*", "X_0", ")"]
+        a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
+        assert (a.evaluate_expr(expr) == b.evaluate_expr(expr)) is same
+
+    @pytest.mark.parametrize(
+        "dataset_seed, kwargs, expected",
+        [
+            (4, {}, 4),
+            (None, {}, 0),
+            (4, {"ranking_resample": True}, None),
+            (4, {"ranking_seed": 7}, 7),
+            (None, {"ranking_seed": 7}, 7),
+        ],
+        ids=["dataset-seed", "no-seed-zero", "resample-none", "explicit-wins", "explicit-wins-no-seed"],
+    )
+    def test_ranking_settings_ranking_seed(self, dataset_seed, kwargs, expected):
+        X = np.random.default_rng(0).random((5, 1))
+        dataset = SR_dataset(X, SymbolLibrary.default_symbols(1), y=X[:, 0], seed=dataset_seed, **kwargs)
+        assert dataset.ranking_settings().get("ranking_seed") == expected
+
+    def test_ranking_resample_uses_run_seed(self):
+        dataset = _bed_dataset(num_points_sampled=8, ranking_resample=True)
         a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
         assert not np.array_equal(a.ranking.bed_X, b.ranking.bed_X)
 

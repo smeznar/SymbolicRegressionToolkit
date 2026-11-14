@@ -454,6 +454,16 @@ class TestSREvaluatorInitBed:
                 seed=0,
             )
 
+    @pytest.mark.parametrize(
+        "settings, expected",
+        [({"ranking_seed": 5}, 5), ({"ranking_seed": None}, 1), ({}, 1)],
+        ids=["ranking-seed", "ranking-seed-none", "no-ranking-seed"],
+    )
+    def test_ranking_setup_gets_ranking_seed_else_evaluator_seed(self, settings, expected):
+        # Custom rankings get the per-dataset seed without reading ranking_seed themselves.
+        se = SR_evaluator(_X, _y, ranking_function=_SeedRecordingRanking(), seed=1, **settings)
+        assert se.ranking.seed == expected
+
     def test_bed_ranking_seed_overrides_evaluator_seed(self):
         def build(seed):
             return SR_evaluator(
@@ -762,6 +772,18 @@ class TestEvaluationTrace:
         assert loaded.top_k == 1
         assert loaded.success is True
         assert loaded.best_expr == "C*X_1-X_0"
+
+
+class _SeedRecordingRanking(RankingFunction):
+    """Records the seed its setup receives; scores every expression 0."""
+
+    name = "seed_recording"
+
+    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+        self.seed = seed
+
+    def score(self, expr):
+        return RankingResult(score=0.0)
 
 
 class _FixedRanking(RankingFunction):

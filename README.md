@@ -52,7 +52,7 @@ If you use SRToolkit in your research, please cite:
 
 * T. Drnovšek. *Equation discovery with Monte Carlo tree search* (in Slovenian). Master's thesis, University of Ljubljana, 2026. [[link]](http://hdl.handle.net/20.500.12556/RUL-187297) Implements the Grams approach (grammar-based Monte Carlo tree search) on SRToolkit.
 
-See the [Citations page](https://smeznar.github.io/SymbolicRegressionToolkit/citations/#cite-using-srtoolkit) for BibTeX entries. Using SRToolkit in your work? Open an issue or a PR to have it listed.
+See the [Citations page](https://smeznar.github.io/SymbolicRegressionToolkit/latest/citations/#cite-using-srtoolkit) for BibTeX entries. Using SRToolkit in your work? Open an issue or a PR to have it listed.
 
 ## Installation
 

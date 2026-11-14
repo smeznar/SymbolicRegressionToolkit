@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import (
     BEDRanking,
     RankingFunction,
@@ -86,6 +87,19 @@ class TestCustomRankingSettings:
         se = SR_evaluator(X, ranking_function=path, success_threshold=-1, my_param=0.5)
         assert se.ranking.my_param == 0.5
         assert se.evaluate_expr(["X_0"]) == 0.5
+
+
+class TestRMSERankingSetup:
+    def test_fit_starts_from_setup_seed(self, fit_starts):
+        X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+        y = 2.0 * X[:, 0]
+        expr = ["C", "*", "X_0", "+", "C"]
+        lib = SymbolLibrary.default_symbols(2)
+        ranking = RMSERanking()
+        ranking.setup(X, y, None, lib, 1, {})
+        ranking.score(expr)
+        ParameterEstimator(X, y, lib, seed=1).estimate_parameters(expr)
+        np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
 
 
 class TestBEDRankingBackend:

@@ -1,4 +1,6 @@
-from unittest.mock import patch
+import os
+import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -209,9 +211,9 @@ class TestLimitValidation:
 
 class TestEstimateParametersWithInfo:
     def test_converged_fit(self):
-        # Seeded: from about 1 in 10 random starts L-BFGS-B reports an abnormal end even at the
-        # exact optimum (see test_exact_fit_can_report_not_converged).
-        pe = ParameterEstimator(_X, _y_linear, seed=0)
+        # Fixed midpoint start C = 0: from about 1 in 10 random starts L-BFGS-B reports an abnormal
+        # end even at the exact optimum (see test_exact_fit_can_report_not_converged).
+        pe = ParameterEstimator(_X, _y_linear, initialization="mean")
         rmse, params, info = pe.estimate_parameters_with_info(["C", "*", "X_0"])
         assert rmse < 1e-6
         assert info["converged"] is True and "message" not in info
@@ -219,7 +221,8 @@ class TestEstimateParametersWithInfo:
 
     def test_exact_fit_can_report_not_converged(self):
         # RMSE has no gradient at a perfect fit, so the line search can fail right at the optimum.
-        pe = ParameterEstimator(_X, _y_linear, seed=26)
+        # The midpoint start C = -2 is one where this happens; the outcome is independent of seeding.
+        pe = ParameterEstimator(_X, _y_linear, initialization="mean", constant_bounds=(-7, 3))
         rmse, params, info = pe.estimate_parameters_with_info(["C", "*", "X_0"])
         assert rmse < 1e-6
         assert params[0] == pytest.approx(2.0)
@@ -264,6 +267,7 @@ class TestEstimateParametersWithInfo:
         )
         rmse, params, info = pe.estimate_parameters_with_info(_SQRT_EXPR)
         assert not np.isfinite(rmse)
+        assert not np.isfinite(pe.estimate_parameters(_SQRT_EXPR)[0])
         assert params.size == 1
         assert info["converged"] is False
 
@@ -290,14 +294,6 @@ class TestOptimizeParameters:
         assert rmse < 1e-4
         assert abs(params[0] - 2.0) < 0.01
 
-    def test_random_initialization_is_reproducible_with_seed(self):
-        pe1 = ParameterEstimator(_X, _y_linear, seed=42)
-        pe2 = ParameterEstimator(_X, _y_linear, seed=42)
-        rmse1, params1 = pe1.estimate_parameters(["C", "*", "X_0"])
-        rmse2, params2 = pe2.estimate_parameters(["C", "*", "X_0"])
-        assert rmse1 == rmse2
-        assert np.array_equal(params1, params2)
-
     def test_custom_constant_bounds_respected(self):
         X = np.array([[1.0], [2.0], [3.0], [4.0]])
         y = 10.0 * X[:, 0]
@@ -306,17 +302,70 @@ class TestOptimizeParameters:
         assert rmse < 1e-4
         assert 9.9 < params[0] < 10.1
 
-    def test_random_initialization_differs_across_seeds(self):
-        x0_values = []
+    def test_random_start_does_not_depend_on_earlier_fits(self, fit_starts):
+        expr = ["C", "*", "X_0"]
+        ParameterEstimator(_X, _y_linear, seed=42).estimate_parameters(expr)
+        used = ParameterEstimator(_X, _y_linear, seed=42)
+        used.estimate_parameters(["C", "+", "X_1"])
+        used.estimate_parameters(expr)
+        np.testing.assert_array_equal(fit_starts[0], fit_starts[2])
 
-        from scipy.optimize import minimize as real_minimize
+    @pytest.mark.parametrize(
+        "seed_b, expr_b",
+        [(99, ["C", "*", "X_0"]), (1, ["C", "*", "X_1"])],
+        ids=["other-seed", "other-expression"],
+    )
+    def test_random_start_differs_by_seed_and_expression(self, fit_starts, seed_b, expr_b):
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(["C", "*", "X_0"])
+        ParameterEstimator(_X, _y_linear, seed=seed_b).estimate_parameters(expr_b)
+        assert not np.allclose(fit_starts[0], fit_starts[1])
 
-        def capture_x0(fn, x0, **kwargs):
-            x0_values.append(x0.copy())
-            return real_minimize(fn, x0, **kwargs)
+    def test_random_start_without_seed_is_random(self, fit_starts):
+        # Same estimator, same expression: each fit draws anew (not one draw per estimator).
+        pe = ParameterEstimator(_X, _y_linear)
+        pe.estimate_parameters(["C", "*", "X_0"])
+        pe.estimate_parameters(["C", "*", "X_0"])
+        assert not np.allclose(fit_starts[0], fit_starts[1])
 
-        with patch("SRToolkit.evaluation.parameter_estimator.minimize", side_effect=capture_x0):
-            ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(["C", "*", "X_0"])
-            ParameterEstimator(_X, _y_linear, seed=99).estimate_parameters(["C", "*", "X_0"])
+    def test_random_start_of_tree_equals_its_tokens(self, fit_starts):
+        # Infix order with brackets differs from the tree's prefix order (* + X_0 C C).
+        tokens = ["(", "X_0", "+", "C", ")", "*", "C"]
+        pe = ParameterEstimator(_X, _y_linear, seed=3)
+        pe.estimate_parameters(tokens_to_tree(tokens, pe.symbol_library))
+        pe.estimate_parameters(tokens)
+        np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
 
-        assert not np.allclose(x0_values[0], x0_values[1])
+    @pytest.mark.parametrize("seed", [None, 1], ids=["no-seed", "seed"])
+    def test_random_start_within_constant_bounds(self, fit_starts, seed):
+        pe = ParameterEstimator(_X, _y_linear, seed=seed, constant_bounds=(10, 11))
+        pe.estimate_parameters(["C", "*", "X_0", "+", "C", "*", "X_1", "+", "C"])
+        assert fit_starts[0].shape == (3,)
+        assert np.all((fit_starts[0] >= 10) & (fit_starts[0] <= 11))
+
+    @pytest.mark.parametrize("seed", [None, 1, 2], ids=["no-seed", "seed-1", "seed-2"])
+    def test_mean_start_is_midpoint_for_any_seed(self, fit_starts, seed):
+        pe = ParameterEstimator(_X, _y_linear, seed=seed, initialization="mean", constant_bounds=(-2, 10))
+        pe.estimate_parameters(["C", "*", "X_0", "+", "C"])
+        np.testing.assert_array_equal(fit_starts[0], [4.0, 4.0])  # (-2 + 10) / 2
+
+    @pytest.mark.slow
+    def test_random_start_same_across_processes(self):
+        # The start must not depend on Python's per-process string hashing.
+        code = (
+            "import numpy as np\n"
+            "from SRToolkit.evaluation.parameter_estimator import ParameterEstimator\n"
+            "X = np.array([[1.0, 2.0], [3.0, 4.0]])\n"
+            "pe = ParameterEstimator(X, X[:, 0], seed=1, max_iter=1)\n"
+            "print(repr(pe.estimate_parameters(['C', '*', 'X_0', '+', 'C'])[1].tolist()))\n"
+        )
+        outputs = [
+            subprocess.run(
+                [sys.executable, "-c", code],
+                env={**os.environ, "PYTHONHASHSEED": hash_seed},
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            for hash_seed in ("1", "2")
+        ]
+        assert outputs[0] == outputs[1]

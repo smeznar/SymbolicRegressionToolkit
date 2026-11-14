@@ -1,6 +1,7 @@
 """Shared pytest fixtures and Hypothesis configuration for the test suite."""
 
 import sys
+from unittest.mock import patch
 
 import pytest
 from hypothesis import HealthCheck, settings
@@ -20,6 +21,21 @@ settings.register_profile(
 )
 if "mutmut" in sys.modules:
     settings.load_profile("mutmut")
+
+
+@pytest.fixture
+def fit_starts():
+    """Record the starting point of every constant fit run during the test, in order."""
+    from scipy.optimize import minimize as real_minimize
+
+    starts = []
+
+    def capture_x0(fn, x0, **kwargs):
+        starts.append(x0.copy())
+        return real_minimize(fn, x0, **kwargs)
+
+    with patch("SRToolkit.evaluation.parameter_estimator.minimize", side_effect=capture_x0):
+        yield starts
 
 
 @pytest.fixture(autouse=True)

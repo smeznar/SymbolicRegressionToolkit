@@ -136,13 +136,15 @@ class RankingSettings(TypedDict, total=False):
             ``num_consts_sampled`` columns (so ``X`` must be the points it was computed on;
             ``samplers`` are ignored with it). If ``None``, the behavior is computed from the ground
             truth, or taken from ``y``. Default: ``None``.
-        ranking_seed: Seed for the ranking's own randomness (BED points, behavior matrices,
-            threshold), overriding the evaluator's seed. Set by
+        ranking_seed: Seed for the ranking's own randomness (BED points, behavior matrices and
+            threshold; the starting points of RMSE's fits), overriding the evaluator's seed;
+            ``None`` uses the evaluator's seed. Set by
             [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]
-            to the dataset's seed. Read only by BED. Default: ``None``.
-        bed_resample: Read by [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]. ``False``
-            fixes the BED objective per dataset (``ranking_seed`` = dataset seed, ``0`` if unset);
-            ``True`` resamples it every run from the run's seed. Default: ``False``.
+            as described under ``ranking_resample``. Default: ``None``.
+        ranking_resample: Read by [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]. ``False``
+            fixes the objective per dataset (``ranking_seed`` = dataset seed, ``0`` if unset);
+            ``True`` resamples it every run from the evaluator's seed (``create_evaluator(seed=...)``,
+            random if ``None``). An explicit ``ranking_seed`` wins in both cases. Default: ``False``.
         num_consts_sampled: Number of constant vectors sampled per expression for
             BED. Default: ``32``.
 
@@ -163,7 +165,7 @@ class RankingSettings(TypedDict, total=False):
     samplers: Optional[List[Any]]
     bed_gt: Optional[np.ndarray]
     ranking_seed: Optional[int]
-    bed_resample: bool
+    ranking_resample: bool
     num_consts_sampled: int
 
 

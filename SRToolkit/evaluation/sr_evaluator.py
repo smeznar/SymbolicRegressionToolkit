@@ -492,7 +492,8 @@ class SR_evaluator:
                 [Node][SRToolkit.utils.expression_tree.Node]. BED compares against it; RMSE uses it
                 to generate ``y`` when ``y`` is not given.
             seed: Random seed. If given, the constructor also calls ``np.random.seed(seed)``, which
-                sets NumPy's global random state.
+                sets NumPy's global random state. The ranking gets it too, unless the
+                ``ranking_seed`` setting is given.
             metadata: Optional information about this evaluation (e.g. dataset name). A
                 ``"dataset_name"`` key is copied to
                 [EvalResult][SRToolkit.utils.types.EvalResult] ``dataset_name``.
@@ -615,7 +616,12 @@ class SR_evaluator:
         ranking_settings["max_constants"] = -1
         ranking_settings["max_expr_length"] = -1
         self.ranking: RankingFunction = build_ranking(ranking_function)
-        self.ranking.setup(X, y, ground_truth, symbol_library, seed, ranking_settings)
+        # A ranking_seed (fixed per dataset) replaces the evaluator's seed here, so every ranking,
+        # custom ones included, follows it without reading the setting itself.
+        ranking_seed = kwargs.get("ranking_seed")
+        self.ranking.setup(
+            X, y, ground_truth, symbol_library, seed if ranking_seed is None else ranking_seed, ranking_settings
+        )
 
         if self.success_threshold is None:
             self.success_threshold = self.ranking.default_success_threshold()
