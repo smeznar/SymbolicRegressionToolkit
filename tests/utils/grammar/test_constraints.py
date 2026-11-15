@@ -485,7 +485,7 @@ class TestNoNested:
 # ---------------------------------------------------------------------------
 # DimensionalConsistency
 # ---------------------------------------------------------------------------
-# Library: X_0 [m], X_1 [s], literal c [m s^-1]; custom fns z (power(0)) and inv (power(-1)).
+# Library: X_0 [m], X_1 [s], named constant c [m s^-1]; custom fns z (power(0)) and inv (power(-1)).
 # Expected values are derived from the class docstring's slot rules and child table.
 
 
@@ -498,7 +498,7 @@ def _units_lib() -> SymbolLibrary:
 
 
 _UNITS = {"X_0": u.m, "X_1": u.s}
-_LITERALS = {"c": u.m / u.s}
+_NAMED_CONSTANT_UNITS = {"c": u.m / u.s}
 _LEAF_KEYS = {"X_0", "X_1", "C", "pi", "c", "2", "F:X_0", "F:X_1"}
 _ALL_LEAVES = {"X_0", "X_1", "C", "pi", "c", "2"}
 
@@ -532,7 +532,7 @@ def _allowed_after(target: Unit, steps: list[str], constraint: DimensionalConsis
     """Keys of the G1 rules allowed at the next slot after applying ``steps`` (keys of G1 rules)."""
     rules = _g1_rules()
     g = Grammar(list(rules.values()))
-    g.add_constraint(constraint or DimensionalConsistency(_UNITS, target, _units_lib(), _LITERALS))
+    g.add_constraint(constraint or DimensionalConsistency(_UNITS, target, _units_lib(), _NAMED_CONSTANT_UNITS))
     d = g.start_derivation("E")
     for key in steps:
         d.apply(rules[key])
@@ -559,27 +559,27 @@ class TestDCInit:
             {"variable_units": {"X_0": {"m": 1}, "X_1": u.s}, "target_unit": u.m},
             {"variable_units": _UNITS, "target_unit": {"m": 1}},
             {"variable_units": _UNITS, "target_unit": None},
-            {"variable_units": _UNITS, "target_unit": u.m, "literal_units": {"c": "m"}},
+            {"variable_units": _UNITS, "target_unit": u.m, "named_constant_units": {"c": "m"}},
         ],
-        ids=["variable-dict", "target-dict", "target-none", "literal-str"],
+        ids=["variable-dict", "target-dict", "target-none", "named-constant-str"],
     )
     def test_dc_rejects_non_units(self, kwargs):
         with pytest.raises(TypeError):
             DimensionalConsistency(symbol_library=_units_lib(), **kwargs)
 
     @pytest.mark.parametrize(
-        "variable_units, literal_units, match",
+        "variable_units, named_constant_units, match",
         [
             ({"X_0": u.m}, None, "X_1"),
             ({"X_0": u.m, "X_1": u.s, "C": u.m}, None, "C"),
             (_UNITS, {"X_0": u.m}, "X_0"),
             ({"X_0": u.m, "C": u.m}, {"X_0": u.m}, r"(?s)(?=.*X_1)(?=.*\bC\b)(?=.*X_0)"),
         ],
-        ids=["variable-without-unit", "non-variable-key", "non-literal-key", "every-problem-listed"],
+        ids=["variable-without-unit", "non-variable-key", "non-named-constant-key", "every-problem-listed"],
     )
-    def test_dc_value_errors_list_every_problem(self, variable_units, literal_units, match):
+    def test_dc_value_errors_list_every_problem(self, variable_units, named_constant_units, match):
         with pytest.raises(ValueError, match=match):
-            DimensionalConsistency(variable_units, u.m, _units_lib(), literal_units)
+            DimensionalConsistency(variable_units, u.m, _units_lib(), named_constant_units)
 
     def test_dc_stores_copies(self):
         units = dict(_UNITS)
@@ -589,7 +589,7 @@ class TestDCInit:
         assert dc.variable_units == _UNITS
         assert type(dc.variable_units) is dict
         assert dc.target_unit == u.m
-        assert dc.literal_units == {}
+        assert dc.named_constant_units == {}
         assert dc.symbol_library is sl
 
 
@@ -635,7 +635,7 @@ class TestDCSlots:
             "same-second-is-U",
             "same-second-under-any",
             "multiply-second-P-over-U",
-            "multiply-second-needs-literal",
+            "multiply-second-needs-named-constant",
             "multiply-under-any",
             "divide-second-U-over-P",
             "divide-dimensionless-target",
@@ -775,18 +775,22 @@ class TestDCDerivations:
 class TestDCSerialization:
     def test_dc_round_trip(self):
         sl = _units_lib()
-        original = DimensionalConsistency(_UNITS, u.m, sl, _LITERALS)
+        original = DimensionalConsistency(_UNITS, u.m, sl, _NAMED_CONSTANT_UNITS)
         d = json.loads(json.dumps(original.to_dict()))
         assert d == {
             "constraint_class": "SRToolkit.utils.grammar.constraints.DimensionalConsistency",
             "variable_units": {"X_0": {"m": "1"}, "X_1": {"s": "1"}},
             "target_unit": {"m": "1"},
             "symbol_library": sl.to_dict(),
-            "literal_units": {"c": {"m": "1", "s": "-1"}},
+            "named_constant_units": {"c": {"m": "1", "s": "-1"}},
         }
         rebuilt = GrammarConstraint.from_dict({**d, "extra": 1, "allow_unit_polymorphic_constants": True})
         assert isinstance(rebuilt, DimensionalConsistency)
-        assert (rebuilt.variable_units, rebuilt.target_unit, rebuilt.literal_units) == (_UNITS, u.m, _LITERALS)
+        assert (rebuilt.variable_units, rebuilt.target_unit, rebuilt.named_constant_units) == (
+            _UNITS,
+            u.m,
+            _NAMED_CONSTANT_UNITS,
+        )
         assert rebuilt.symbol_library.to_dict() == sl.to_dict()
         assert _allowed_after(u.m, [], rebuilt) == _allowed_after(u.m, [], original)
 
@@ -801,9 +805,15 @@ class TestDCSerialization:
             (lambda d: d.update(target_unit={"m": 0.5}), ValueError, None),
             (lambda d: d["symbol_library"].update(format_version=2), ValueError, None),
             (lambda d: d.pop("target_unit"), KeyError, "target_unit"),
-            (lambda d: d.pop("literal_units"), KeyError, "literal_units"),
+            (lambda d: d.pop("named_constant_units"), KeyError, "named_constant_units"),
         ],
-        ids=["saved-by-earlier-version", "invalid-unit", "invalid-library", "missing-target", "missing-literals"],
+        ids=[
+            "saved-by-earlier-version",
+            "invalid-unit",
+            "invalid-library",
+            "missing-target",
+            "missing-named-constant-units",
+        ],
     )
     def test_dc_from_dict_errors(self, change, error, match):
         d = DimensionalConsistency(_UNITS, u.m, _units_lib()).to_dict()

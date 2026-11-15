@@ -167,12 +167,12 @@ def _number_token(node: Node) -> bool:
     return math.isfinite(float(node.symbol))
 
 
-def _leaf_unit(token: str, variable_units: Mapping[str, Unit], literal_units: Mapping[str, Unit]) -> Unit:
-    # Unit of a leaf: a variable's or literal's unit; free constants, numbers and literals without a
-    # unit are dimensionless. Shared with the grammar's DimensionalConsistency.
+def _leaf_unit(token: str, variable_units: Mapping[str, Unit], named_constant_units: Mapping[str, Unit]) -> Unit:
+    # Unit of a leaf: a variable's or named constant's unit; free constants, numbers and named
+    # constants without a unit are dimensionless. Shared with the grammar's DimensionalConsistency.
     if token in variable_units:
         return variable_units[token]
-    return literal_units.get(token, _DIMENSIONLESS)
+    return named_constant_units.get(token, _DIMENSIONLESS)
 
 
 def _predict(model: ModelResult, points: np.ndarray, symbol_library: SymbolLibrary) -> Union[np.ndarray, str]:
@@ -461,7 +461,7 @@ class MaxConstants(ExpressionConstraint):
     """Limit the number of free constants in an expression.
 
     Counts the tokens of type ``"const"`` (e.g. ``C``); each occurrence is a separate free
-    parameter. Literals such as ``pi`` and numbers such as ``2`` are not counted. Only looks at
+    parameter. Named constants such as ``pi`` and numbers such as ``2`` are not counted. Only looks at
     tokens; does not parse. This is the check behind the evaluator's ``max_constants`` setting.
 
     Args:
@@ -712,7 +712,7 @@ class MaxTreeDepth(ExpressionConstraint):
 class MaxTreeSize(ExpressionConstraint):
     """Limit the number of nodes in the expression tree.
 
-    Every operator, function, variable, constant, literal and number is one node; brackets are not
+    Every operator, function, variable, free constant, named constant and number is one node; brackets are not
     nodes. Unlike the grammar constraint [MaxNodes][SRToolkit.utils.grammar.constraints.MaxNodes],
     which counts rule applications, it does not depend on how a grammar derives the expression.
 
@@ -1315,10 +1315,13 @@ class OutputBounds(ExpressionConstraint):
 
 
 def _check_unit_types(
-    owner: str, variable_units: Mapping[str, Unit], target_unit: Unit, literal_units: Optional[Mapping[str, Unit]]
+    owner: str,
+    variable_units: Mapping[str, Unit],
+    target_unit: Unit,
+    named_constant_units: Optional[Mapping[str, Unit]],
 ) -> None:
     # TypeError naming the first unit that is not a Unit; shared with the grammar's DimensionalConsistency.
-    for name, mapping in (("variable_units", variable_units), ("literal_units", literal_units or {})):
+    for name, mapping in (("variable_units", variable_units), ("named_constant_units", named_constant_units or {})):
         for token, unit in mapping.items():
             if not isinstance(unit, Unit):
                 raise TypeError(f"{owner}: {name}[{token!r}] must be a Unit, got {type(unit).__name__}.")
@@ -1327,18 +1330,24 @@ def _check_unit_types(
 
 
 def _check_units_fit(
-    owner: str, symbol_library: SymbolLibrary, variable_units: Mapping[str, Unit], literal_units: Mapping[str, Unit]
+    owner: str,
+    symbol_library: SymbolLibrary,
+    variable_units: Mapping[str, Unit],
+    named_constant_units: Mapping[str, Unit],
 ) -> None:
     # ValueError listing every problem: variables without a unit, keys that are not variables or
-    # literals of the library. Shared with the grammar's DimensionalConsistency.
+    # named constants of the library. Shared with the grammar's DimensionalConsistency.
     variables = symbol_library.get_symbols_of_type(VAR)
-    literals = symbol_library.get_symbols_of_type(LIT)
+    named_constants = symbol_library.get_symbols_of_type(LIT)
     problems = [
         f"{what}: {', '.join(tokens)}"
         for what, tokens in (
             ("variables without a unit", [v for v in variables if v not in variable_units]),
             ("keys of variable_units that are not variables", [t for t in variable_units if t not in variables]),
-            ("keys of literal_units that are not literals", [t for t in literal_units if t not in literals]),
+            (
+                "keys of named_constant_units that are not named constants",
+                [t for t in named_constant_units if t not in named_constants],
+            ),
         )
         if tokens
     ]
@@ -1347,17 +1356,20 @@ def _check_units_fit(
 
 
 def _expression_unit(
-    node: Node, symbol_library: SymbolLibrary, variable_units: Mapping[str, Unit], literal_units: Mapping[str, Unit]
+    node: Node,
+    symbol_library: SymbolLibrary,
+    variable_units: Mapping[str, Unit],
+    named_constant_units: Mapping[str, Unit],
 ) -> Unit:
     # Unit of the expression tree at node, computed bottom-up by the library's unit rules; raises
     # _UnitConflict at the first conflict in post-order. Shared by ConsistentUnits and the grammar's
     # DimensionalConsistency.
     if node.left is None and node.right is None:
-        return _leaf_unit(node.symbol, variable_units, literal_units)
+        return _leaf_unit(node.symbol, variable_units, named_constant_units)
     rule = symbol_library.get_unit_rule(node.symbol) or UnitRule.DIMENSIONLESS
     # Units of the arguments: [left] for a function, [left, right] for an operator.
     units = [
-        _expression_unit(c, symbol_library, variable_units, literal_units)
+        _expression_unit(c, symbol_library, variable_units, named_constant_units)
         for c in (node.left, node.right)
         if c is not None
     ]
@@ -1394,9 +1406,9 @@ class ConsistentUnits(ExpressionConstraint):
     """Require that the expression is dimensionally consistent and has the target's unit.
 
     Variables have [Unit][SRToolkit.utils.units.Unit]s, and so may named constants (``"lit"``
-    symbols, e.g. ``c`` for the speed of light). Free constants, numbers and literals without a unit
-    (``pi``, ``e``) are dimensionless, so a fitted constant cannot repair the units: a physical
-    constant the answer needs must be a variable or a literal with a unit.
+    symbols, e.g. ``c`` for the speed of light). Free constants, numbers and named constants without a
+    unit (``pi``, ``e``) are dimensionless, so a fitted constant cannot repair the units: a physical
+    constant the answer needs must be a variable or a named constant with a unit.
 
     The unit of each subexpression is computed bottom-up by the
     [UnitRule][SRToolkit.utils.units.UnitRule] of its operator or function, read from the symbol
@@ -1408,7 +1420,7 @@ class ConsistentUnits(ExpressionConstraint):
     Args:
         variable_units: The unit of every variable, keyed by token, e.g. ``{"X_0": u.m / u.s}``.
         target_unit: The unit the expression must have.
-        literal_units: Units of named constants, keyed by ``"lit"`` token; literals left out are
+        named_constant_units: Units of named constants, keyed by ``"lit"`` token; named constants left out are
             dimensionless. ``None`` means none.
 
     Raises:
@@ -1417,7 +1429,7 @@ class ConsistentUnits(ExpressionConstraint):
     Attributes:
         variable_units: A copy of ``variable_units`` as a dict.
         target_unit: The target unit.
-        literal_units: The literal units as a dict; ``{}`` if none were given.
+        named_constant_units: A copy of ``named_constant_units`` as a dict; ``{}`` if none were given.
 
     Examples:
         >>> from SRToolkit.utils import SymbolLibrary
@@ -1435,12 +1447,12 @@ class ConsistentUnits(ExpressionConstraint):
         self,
         variable_units: Mapping[str, Unit],
         target_unit: Unit,
-        literal_units: Optional[Mapping[str, Unit]] = None,
+        named_constant_units: Optional[Mapping[str, Unit]] = None,
     ) -> None:
-        _check_unit_types("ConsistentUnits", variable_units, target_unit, literal_units)
+        _check_unit_types("ConsistentUnits", variable_units, target_unit, named_constant_units)
         self.variable_units = dict(variable_units)
         self.target_unit = target_unit
-        self.literal_units = dict(literal_units or {})
+        self.named_constant_units = dict(named_constant_units or {})
 
     @classmethod
     def from_background_knowledge(cls, background_knowledge: BackgroundKnowledge) -> ConsistentUnits:
@@ -1466,8 +1478,8 @@ class ConsistentUnits(ExpressionConstraint):
         if missing or target_unit is None:
             names = missing + (["target"] if target_unit is None else [])
             raise ValueError(f"ConsistentUnits.from_background_knowledge: no unit for {', '.join(names)}.")
-        literal_units = {t: info.unit for t, info in bk.constants.items() if info.unit is not None}
-        return cls(variable_units, target_unit, literal_units)
+        named_constant_units = {t: info.unit for t, info in bk.named_constants.items() if info.unit is not None}
+        return cls(variable_units, target_unit, named_constant_units)
 
     def setup(self, symbol_library: SymbolLibrary) -> None:
         """Store the symbol library and check that the units fit it.
@@ -1477,10 +1489,10 @@ class ConsistentUnits(ExpressionConstraint):
 
         Raises:
             ValueError: If a variable of ``symbol_library`` has no unit, a key of ``variable_units``
-                is not a variable of it, or a key of ``literal_units`` is not one of its ``"lit"``
+                is not a variable of it, or a key of ``named_constant_units`` is not one of its ``"lit"``
                 symbols. The message lists every problem and names the tokens.
         """
-        _check_units_fit("ConsistentUnits", symbol_library, self.variable_units, self.literal_units)
+        _check_units_fit("ConsistentUnits", symbol_library, self.variable_units, self.named_constant_units)
         super().setup(symbol_library)
 
     def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
@@ -1512,7 +1524,7 @@ class ConsistentUnits(ExpressionConstraint):
         symbol_library = _require_setup(self)
         tree = _as_tree(expr, symbol_library)
         try:
-            unit = _expression_unit(tree, symbol_library, self.variable_units, self.literal_units)
+            unit = _expression_unit(tree, symbol_library, self.variable_units, self.named_constant_units)
         except _UnitConflict as conflict:
             return CheckResult(passed=False, message=str(conflict), amount=1.0)
         if unit != self.target_unit:
@@ -1528,10 +1540,10 @@ class ConsistentUnits(ExpressionConstraint):
         return f"dimensionally consistent, with unit {self.target_unit}"
 
     def to_dict(self) -> dict:
-        """Return ``{"constraint_class": ..., "variable_units": ..., "target_unit": ..., "literal_units": ...}``.
+        """Return ``{"constraint_class": ..., "variable_units": ..., "target_unit": ..., "named_constant_units": ...}``.
 
         Every unit is saved with [Unit.to_dict][SRToolkit.utils.units.Unit.to_dict];
-        ``variable_units`` and ``literal_units`` as ``{token: unit dict}`` (``{}`` if empty).
+        ``variable_units`` and ``named_constant_units`` as ``{token: unit dict}`` (``{}`` if empty).
 
         Returns:
             The saved form of this constraint.
@@ -1540,7 +1552,7 @@ class ConsistentUnits(ExpressionConstraint):
             **super().to_dict(),
             "variable_units": {t: u.to_dict() for t, u in self.variable_units.items()},
             "target_unit": self.target_unit.to_dict(),
-            "literal_units": {t: u.to_dict() for t, u in self.literal_units.items()},
+            "named_constant_units": {t: u.to_dict() for t, u in self.named_constant_units.items()},
         }
 
     @classmethod
@@ -1549,7 +1561,7 @@ class ConsistentUnits(ExpressionConstraint):
 
         Args:
             d: A dictionary with the keys ``"variable_units"``, ``"target_unit"`` and
-                ``"literal_units"``.
+                ``"named_constant_units"``.
 
         Returns:
             The rebuilt constraint.
@@ -1562,5 +1574,5 @@ class ConsistentUnits(ExpressionConstraint):
         return cls(
             {t: Unit.from_dict(u) for t, u in d["variable_units"].items()},
             Unit.from_dict(d["target_unit"]),
-            {t: Unit.from_dict(u) for t, u in d["literal_units"].items()},
+            {t: Unit.from_dict(u) for t, u in d["named_constant_units"].items()},
         )

@@ -381,7 +381,9 @@ def test_srsd_bonus_6_squares_epsilon():
 
 # ── Named constants and units survive the benchmark entry ─────────────────────
 
-_UNIT_INFOS = dict(variables={"X_0": VariableInfo("x", unit=u.m)}, constants={"pi": VariableInfo("π", unit=Unit())})
+_UNIT_INFOS = dict(
+    variables={"X_0": VariableInfo("x", unit=u.m)}, named_constants={"pi": VariableInfo("π", unit=Unit())}
+)
 
 
 def _lib2pi():
@@ -410,5 +412,5 @@ def test_entry_keeps_constants_and_units(add, tmp_path):
     path = tmp_path / "benchmark.json"
     path.write_text(json.dumps(bm.to_dict()))
     bk = SR_benchmark.from_dict(path).create_dataset("a").background_knowledge
-    assert bk.constants == {"pi": VariableInfo("π", unit=Unit())}
+    assert bk.named_constants == {"pi": VariableInfo("π", unit=Unit())}
     assert bk.variables["X_0"].unit == u.m

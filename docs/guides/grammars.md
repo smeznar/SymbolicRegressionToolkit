@@ -155,7 +155,7 @@ The resulting grammar uses heuristic weights that favour shallower, more readabl
 | `R_fn_{fn}` | `R_fn_sin` | Prefix function |
 | `R_postfix_{op}` | `R_postfix_^2` | Postfix unary operator |
 | `V_{var}` | `V_X_0` | Variable leaf |
-| `K_{sym}` | `K_C`, `K_pi` | Constant or literal leaf |
+| `K_{sym}` | `K_C`, `K_pi` | Free constant or named constant leaf |
 
 ## Grammar from a string
 

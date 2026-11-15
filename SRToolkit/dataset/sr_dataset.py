@@ -165,7 +165,7 @@ class SR_dataset:
             ``{key: DataSplit}``. Saved with the dataset; nothing in the toolkit reads it.
         variables: Information per variable, keyed by token (e.g. ``"X_0"``).
         target: Information about the target.
-        constants: Information per named constant, keyed by ``"lit"`` token (e.g. ``"c"``).
+        named_constants: Information per named constant, keyed by ``"lit"`` token (e.g. ``"c"``).
         description: Free text about the task.
         constant_bounds: ``(lower, upper)`` range free constants are fitted in; ``None``:
             ``(-5, 5)``.
@@ -249,7 +249,7 @@ class SR_dataset:
         aux_data: Optional[Dict[str, Union[Dict[str, np.ndarray], DataSplit]]] = None,
         variables: Optional[Mapping[str, VariableInfo]] = None,
         target: Optional[VariableInfo] = None,
-        constants: Optional[Mapping[str, VariableInfo]] = None,
+        named_constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
         reference_grammar: Optional[Grammar] = None,
@@ -265,7 +265,7 @@ class SR_dataset:
                 "samplers": samplers,
                 "variables": variables,
                 "target": target,
-                "constants": constants,
+                "named_constants": named_constants,
                 "description": description,
                 "constant_bounds": constant_bounds,
                 "reference_grammar": reference_grammar,
@@ -628,7 +628,7 @@ class SR_dataset:
             advisory_constraints=tuple(self.background_knowledge.constraints),
             variables=self.background_knowledge.variables,
             target=self.background_knowledge.target,
-            constants=self.background_knowledge.constants,
+            named_constants=self.background_knowledge.named_constants,
             description=self.background_knowledge.description,
             reference_grammar=self.background_knowledge.reference_grammar,
             # The limits are already in required_constraints; -1 adds none of the evaluator's own.
@@ -917,7 +917,7 @@ class SR_dataset:
                 description=bk.description,
                 variables=bk.variables,
                 target=bk.target,
-                constants=bk.constants,
+                named_constants=bk.named_constants,
                 required_constraints=required,
                 # The saved list holds the effective limits; -1 adds no default to it.
                 max_constants=-1,
@@ -1076,7 +1076,7 @@ class SR_dataset:
         version: Optional[str] = None,
         variables: Optional[Mapping[str, VariableInfo]] = None,
         target: Optional[VariableInfo] = None,
-        constants: Optional[Mapping[str, VariableInfo]] = None,
+        named_constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
         reference_grammar: Optional[Grammar] = None,
@@ -1115,7 +1115,7 @@ class SR_dataset:
             version: As for ``SR_dataset``.
             variables: As for ``SR_dataset``.
             target: As for ``SR_dataset``.
-            constants: As for ``SR_dataset``.
+            named_constants: As for ``SR_dataset``.
             description: As for ``SR_dataset``.
             constant_bounds: As for ``SR_dataset``.
             reference_grammar: As for ``SR_dataset``.
@@ -1165,7 +1165,7 @@ class SR_dataset:
             version=version,
             variables=variables,
             target=target,
-            constants=constants,
+            named_constants=named_constants,
             description=description,
             constant_bounds=constant_bounds,
             reference_grammar=reference_grammar,

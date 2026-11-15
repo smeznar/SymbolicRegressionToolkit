@@ -10,7 +10,7 @@ dataset deliberately gives the approach that solves it:
   hints about the search space that an approach may use or ignore,
 - an optional reference [Grammar][SRToolkit.utils.grammar.grammar.Grammar] (rule weights a
   grammar-based approach can start from),
-- a description of the task, of each variable, of named constants (literals) and of the target
+- a description of the task, of each variable, of named constants and of the target
   ([VariableInfo][SRToolkit.dataset.background_knowledge.VariableInfo]: name, description and
   physical [Unit][SRToolkit.utils.units.Unit]).
 
@@ -22,7 +22,7 @@ that cannot be checked is a constraint that implements neither check: the evalua
 is still described. Anything else goes into ``description``.
 
 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] builds one from its arguments
-(``symbol_library=``, ``samplers=``, ``advisory_constraints=``, ``variables=``, ``constants=``,
+(``symbol_library=``, ``samplers=``, ``advisory_constraints=``, ``variables=``, ``named_constants=``,
 ...).
 
 Units are facts about the task: stating them does not constrain anything. To check expressions
@@ -71,7 +71,7 @@ class VariableInfo:
     Args:
         name: Human-readable name, e.g. ``"v"`` or ``"velocity"``. This is not the token
             the expression uses (that is the key in ``BackgroundKnowledge.variables`` or
-            ``BackgroundKnowledge.constants``).
+            ``BackgroundKnowledge.named_constants``).
         description: Free text, e.g. ``"velocity of the particle in the lab frame"``.
         unit: The physical unit, e.g. ``u.m / u.s``, or ``None`` if not stated.
 
@@ -187,9 +187,9 @@ class BackgroundKnowledge:
         variables: Information per variable, keyed by the variable's token in ``symbol_library``
             (e.g. ``"X_0"``). Variables may be left out.
         target: Information about the target, or ``None``.
-        constants: Information per named constant, keyed by the constant's token, which must be a
+        named_constants: Information per named constant, keyed by the constant's token, which must be a
             symbol of type ``"lit"`` in ``symbol_library`` (e.g. ``"c"`` for the speed of light).
-            Constants may be left out.
+            Named constants may be left out.
 
     Raises:
         TypeError: If an argument has the wrong type, e.g. a lone constraint or a string as
@@ -197,7 +197,7 @@ class BackgroundKnowledge:
         ValueError: If ``samplers`` does not give exactly one sampler per variable (the message
             names missing or unknown tokens); ``constant_bounds`` is not finite with
             ``lower < upper``; a key of ``variables`` is not a variable of ``symbol_library``, or a
-            key of ``constants`` is not one of its ``"lit"`` symbols; a
+            key of ``named_constants`` is not one of its ``"lit"`` symbols; a
             constraint does not fit ``symbol_library`` (raised by its ``setup``); or
             ``reference_grammar`` has a terminal token that is not a symbol, bracket or number (the
             message names it).
@@ -212,7 +212,7 @@ class BackgroundKnowledge:
         variables: A copy of ``variables`` as a dict from token to ``VariableInfo``, in the
             library's variable order.
         target: The target information, or ``None``.
-        constants: A copy of ``constants`` as a dict from token to ``VariableInfo``, in the
+        named_constants: A copy of ``named_constants`` as a dict from token to ``VariableInfo``, in the
             library's order of ``"lit"`` symbols.
 
     Examples:
@@ -242,7 +242,7 @@ class BackgroundKnowledge:
     description: str = ""
     variables: Mapping[str, VariableInfo] = field(default_factory=dict)
     target: Optional[VariableInfo] = None
-    constants: Mapping[str, VariableInfo] = field(default_factory=dict)
+    named_constants: Mapping[str, VariableInfo] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol_library, SymbolLibrary):
@@ -324,23 +324,23 @@ class BackgroundKnowledge:
                 )
         object.__setattr__(self, "variables", {t: variables[t] for t in var_tokens if t in variables})
 
-        # Constants: keyed by lit token, stored in the library's order of lit symbols.
-        constants = self.constants
-        if not isinstance(constants, Mapping):
-            raise TypeError("[BackgroundKnowledge] 'constants' must be a mapping from token to VariableInfo.")
+        # Named constants: keyed by lit token, stored in the library's order of lit symbols.
+        named_constants = self.named_constants
+        if not isinstance(named_constants, Mapping):
+            raise TypeError("[BackgroundKnowledge] 'named_constants' must be a mapping from token to VariableInfo.")
         lit_tokens = list(self.symbol_library.get_symbols_of_type("lit"))
-        unknown = [k for k in constants if k not in lit_tokens]
+        unknown = [k for k in named_constants if k not in lit_tokens]
         if unknown:
             raise ValueError(
-                f"[BackgroundKnowledge] 'constants' has keys that are not literals ('lit' symbols) of the symbol "
+                f"[BackgroundKnowledge] 'named_constants' has keys that are not named constants ('lit' symbols) of the symbol "
                 f"library: {unknown}."
             )
-        for k, v in constants.items():
+        for k, v in named_constants.items():
             if not isinstance(v, VariableInfo):
                 raise TypeError(
-                    f"[BackgroundKnowledge] 'constants[{k!r}]' must be a VariableInfo, got {type(v).__name__}."
+                    f"[BackgroundKnowledge] 'named_constants[{k!r}]' must be a VariableInfo, got {type(v).__name__}."
                 )
-        object.__setattr__(self, "constants", {t: constants[t] for t in lit_tokens if t in constants})
+        object.__setattr__(self, "named_constants", {t: named_constants[t] for t in lit_tokens if t in named_constants})
 
         if self.target is not None and not isinstance(self.target, VariableInfo):
             raise TypeError(
@@ -398,8 +398,8 @@ class BackgroundKnowledge:
         - ``Variables:`` then one line ``  <token>: <VariableInfo.describe()>`` per entry of
           ``variables``, in the library's variable order (just ``  <token>`` if it describes to
           ``""``)
-        - ``Constants:`` then one line ``  <token>: <VariableInfo.describe()>`` per entry of
-          ``constants``, in the library's order of ``"lit"`` symbols (just ``  <token>`` if it
+        - ``Named constants:`` then one line ``  <token>: <VariableInfo.describe()>`` per entry of
+          ``named_constants``, in the library's order of ``"lit"`` symbols (just ``  <token>`` if it
           describes to ``""``)
         - ``Symbols: <str(symbol_library)>`` (always present)
         - ``Free constants are fitted in [<lower>, <upper>].``, bounds written with ``str`` of a
@@ -444,9 +444,9 @@ class BackgroundKnowledge:
             for token, info in self.variables.items():
                 text = info.describe()
                 lines.append(f"  {token}: {text}" if text else f"  {token}")
-        if self.constants:
-            lines.append("Constants:")
-            for token, info in self.constants.items():
+        if self.named_constants:
+            lines.append("Named constants:")
+            for token, info in self.named_constants.items():
                 text = info.describe()
                 lines.append(f"  {token}: {text}" if text else f"  {token}")
         lines.append(f"Symbols: {self.symbol_library}")
@@ -496,7 +496,7 @@ class BackgroundKnowledge:
             ``symbol_library``, ``reference_grammar`` (or ``None``) and each sampler and constraint
             as their own ``to_dict``; ``samplers`` as a list in the library's variable order (or
             ``None``); ``constant_bounds`` as ``[lower, upper]``; ``variables`` as
-            ``{token: VariableInfo.to_dict()}`` in the library's variable order; ``constants``
+            ``{token: VariableInfo.to_dict()}`` in the library's variable order; ``named_constants``
             likewise in the library's order of ``"lit"`` symbols (``{}`` if empty); ``target`` as its ``to_dict``
             (or ``None``); ``description`` as given.
         """
@@ -512,7 +512,7 @@ class BackgroundKnowledge:
             "description": self.description,
             "variables": {token: info.to_dict() for token, info in self.variables.items()},
             "target": self.target.to_dict() if self.target is not None else None,
-            "constants": {token: info.to_dict() for token, info in self.constants.items()},
+            "named_constants": {token: info.to_dict() for token, info in self.named_constants.items()},
         }
 
     @classmethod
@@ -552,5 +552,5 @@ class BackgroundKnowledge:
             description=d.get("description", ""),
             variables={k: VariableInfo.from_dict(v) for k, v in (d.get("variables") or {}).items()},
             target=VariableInfo.from_dict(target) if target is not None else None,
-            constants={k: VariableInfo.from_dict(v) for k, v in (d.get("constants") or {}).items()},
+            named_constants={k: VariableInfo.from_dict(v) for k, v in (d.get("named_constants") or {}).items()},
         )

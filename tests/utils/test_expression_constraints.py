@@ -370,7 +370,7 @@ class TestMaxConstants:
             (0, ["pi", "*", "X_0", "+", "2"], lambda: lib(1), PASS),
             (1, ["K", "*", "C"], lib_with_extra_const, fail("2 constants, limit 1", 1.0)),
         ],
-        ids=["over", "at-limit", "zero-limit", "literals-not-counted", "library-decides"],
+        ids=["over", "at-limit", "zero-limit", "named-constants-not-counted", "library-decides"],
     )
     def test_max_constants_pre_check_table(self, limit, tokens, make_lib, expected):
         assert_result(set_up(MaxConstants(limit), make_lib()).pre_check(tokens), expected)
@@ -428,7 +428,7 @@ class TestMaxTreeSize:
             (1, ["2", "*", "pi"], fail("3 nodes, limit 1", 2.0)),
             (0, ["X_0"], fail("1 nodes, limit 0", 1.0)),
         ],
-        ids=["over", "brackets-not-nodes", "literals-and-numbers-are-nodes", "zero-limit"],
+        ids=["over", "brackets-not-nodes", "named-constants-and-numbers-are-nodes", "zero-limit"],
     )
     def test_max_tree_size_pre_check_table(self, limit, tokens, expected):
         assert_result(set_up(MaxTreeSize(limit), lib(1)).pre_check(tokens), expected)
@@ -790,7 +790,7 @@ class TestOutputBounds:
 
 
 def _units_lib():
-    """lib(2) plus custom symbols with explicit unit rules, a literal ``c`` and an unruled op ``%``."""
+    """lib(2) plus custom symbols with explicit unit rules, a named constant ``c`` and an unruled op ``%``."""
     library = lib(2)
     library.add_symbol("abs", "fn", 1000, "np.abs({})", unit_rule=UnitRule.SAME)
     library.add_symbol("cbrt", "fn", 1000, "np.cbrt({})", unit_rule=UnitRule.power(Fraction(1, 3)))
@@ -815,7 +815,7 @@ def _lit_lib():
 
 
 class TestConsistentUnits:
-    # X_0: m, X_1: s, literal c: m s^-1; the rules come from the library.
+    # X_0: m, X_1: s, named constant c: m s^-1; the rules come from the library.
     @pytest.mark.parametrize(
         "make_lib, tokens, target, expected",
         [
@@ -903,7 +903,7 @@ class TestConsistentUnits:
             "number-exponent-compound-base",
             "custom-fn-power",
             "builtin-rule-overridden",
-            "leaves-literal-number-const",
+            "leaves-named-constant-number-const",
             "const-cannot-repair",
             "root-mismatch",
             "post-order-left-subtree-first",
@@ -911,7 +911,7 @@ class TestConsistentUnits:
         ],
     )
     def test_consistent_units_pre_check_table(self, make_lib, tokens, target, expected):
-        constraint = ConsistentUnits({"X_0": u.m, "X_1": u.s}, target, literal_units={"c": u.m / u.s})
+        constraint = ConsistentUnits({"X_0": u.m, "X_1": u.s}, target, named_constant_units={"c": u.m / u.s})
         assert_result(set_up(constraint, make_lib()).pre_check(tokens), expected)
 
     def test_consistent_units_exponent_token_float_accepts_but_fraction_may_not(self):
@@ -944,9 +944,9 @@ class TestConsistentUnits:
             {"variable_units": {"X_0": {"m": 1}}, "target_unit": u.m},
             {"variable_units": {"X_0": u.m}, "target_unit": "m"},
             {"variable_units": {"X_0": u.m}, "target_unit": None},
-            {"variable_units": {"X_0": u.m}, "target_unit": u.m, "literal_units": {"c": 1}},
+            {"variable_units": {"X_0": u.m}, "target_unit": u.m, "named_constant_units": {"c": 1}},
         ],
-        ids=["variable-str", "variable-dict", "target-str", "target-none", "literal-int"],
+        ids=["variable-str", "variable-dict", "target-str", "target-none", "named-constant-int"],
     )
     def test_consistent_units_constructor_rejects_non_units(self, kwargs):
         with pytest.raises(TypeError):
@@ -959,19 +959,19 @@ class TestConsistentUnits:
         assert constraint.variable_units == {"X_0": u.m}
         assert type(constraint.variable_units) is dict
         assert constraint.target_unit == u.s
-        assert constraint.literal_units == {}
+        assert constraint.named_constant_units == {}
 
     def test_consistent_units_from_background_knowledge(self):
         bk = BackgroundKnowledge(
             _lit_lib(),
             variables={"X_0": VariableInfo("x", unit=u.m), "X_1": VariableInfo(unit=u.s)},
             target=VariableInfo("v", unit=u.m / u.s),
-            constants={"c": VariableInfo("c", unit=u.m / u.s), "pi": VariableInfo("π")},
+            named_constants={"c": VariableInfo("c", unit=u.m / u.s), "pi": VariableInfo("π")},
         )
         constraint = ConsistentUnits.from_background_knowledge(bk)
         assert constraint.variable_units == {"X_0": u.m, "X_1": u.s}
         assert constraint.target_unit == u.m / u.s
-        assert constraint.literal_units == {"c": u.m / u.s}
+        assert constraint.named_constant_units == {"c": u.m / u.s}
         assert constraint.symbol_library is None
 
     @pytest.mark.parametrize(
@@ -991,7 +991,7 @@ class TestConsistentUnits:
             ConsistentUnits.from_background_knowledge(bk)
 
     @pytest.mark.parametrize(
-        "make_lib, variable_units, literal_units, match",
+        "make_lib, variable_units, named_constant_units, match",
         [
             (lambda: lib(2), {"X_0": u.m}, None, "X_1"),
             (lambda: lib(3), {"X_0": u.m}, None, r"(?s)(?=.*X_1)(?=.*X_2)"),
@@ -1006,13 +1006,13 @@ class TestConsistentUnits:
             "all-variables-without-unit-named",
             "unknown-variable",
             "const-as-variable",
-            "variable-as-literal",
-            "unknown-literal",
+            "variable-as-named-constant",
+            "unknown-named-constant",
             "every-problem-listed",
         ],
     )
-    def test_consistent_units_setup_errors(self, make_lib, variable_units, literal_units, match):
-        constraint = ConsistentUnits(variable_units, u.m, literal_units)
+    def test_consistent_units_setup_errors(self, make_lib, variable_units, named_constant_units, match):
+        constraint = ConsistentUnits(variable_units, u.m, named_constant_units)
         with pytest.raises(ValueError, match=match):
             constraint.setup(make_lib())
 
@@ -1023,7 +1023,7 @@ class TestConsistentUnits:
         rebuilt = ExpressionConstraint.from_dict(json.loads(json.dumps(original.to_dict())))
         assert rebuilt.variable_units == {"X_0": u.m ** Fraction(1, 2), "X_1": Unit({"bit": 1}, custom_units=["bit"])}
         assert rebuilt.target_unit == u.m / u.s
-        assert rebuilt.literal_units == {"c": u.m / u.s}
+        assert rebuilt.named_constant_units == {"c": u.m / u.s}
         assert rebuilt.symbol_library is None
 
 
@@ -1051,7 +1051,7 @@ class TestSerialisation:
                     "constraint_class": f"{_EC}.ConsistentUnits",
                     "variable_units": {"X_0": {"m": "1"}, "X_1": {"s": "1"}},
                     "target_unit": {"m": "1", "s": "-1"},
-                    "literal_units": {},
+                    "named_constant_units": {},
                 },
             ),
         ],
@@ -1180,7 +1180,7 @@ class TestSerialisation:
             (
                 ConsistentUnits.from_dict,
                 lambda: without(ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "constraint_class"),
-                {"variable_units": {"X_0": u.m}, "target_unit": u.s, "literal_units": {}},
+                {"variable_units": {"X_0": u.m}, "target_unit": u.s, "named_constant_units": {}},
             ),
         ],
         ids=[
@@ -1230,9 +1230,9 @@ class TestSerialisation:
             ),
             (
                 ConsistentUnits.from_dict,
-                lambda: without(ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "literal_units"),
+                lambda: without(ConsistentUnits({"X_0": u.m}, u.s).to_dict(), "named_constant_units"),
                 KeyError,
-                "literal_units",
+                "named_constant_units",
             ),
             (NoNesting.from_dict, lambda: {"symbols": []}, ValueError, "empty"),
             (
@@ -1259,7 +1259,7 @@ class TestSerialisation:
             "OutputBounds-missing-upper",
             "ConsistentUnits-missing-variable-units",
             "ConsistentUnits-missing-target-unit",
-            "ConsistentUnits-missing-literal-units",
+            "ConsistentUnits-missing-named-constant-units",
             "invalid-limit",
             "empty-group",
             "ConsistentUnits-invalid-unit",
@@ -1327,13 +1327,18 @@ class TestSerialisation:
                 "kind": "consistent_units",
                 "variable_units": {"X_0": {"m": "1"}},
                 "target_unit": {"m": "1", "s": "-1"},
-                "literal_units": {},
+                "named_constant_units": {},
             },
         ),
         (
             ConsistentUnits({"X_0": u.m}, Unit()),
             "dimensionally consistent, with unit 1",
-            {"kind": "consistent_units", "variable_units": {"X_0": {"m": "1"}}, "target_unit": {}, "literal_units": {}},
+            {
+                "kind": "consistent_units",
+                "variable_units": {"X_0": {"m": "1"}},
+                "target_unit": {},
+                "named_constant_units": {},
+            },
         ),
     ],
     ids=[

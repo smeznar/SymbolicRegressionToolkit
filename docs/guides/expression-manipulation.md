@@ -22,7 +22,7 @@ SRToolkit recognises five token types. The examples below are illustrative, not 
 | `fn` | `sin` `cos` `exp` `sqrt` `ln` `^2` `^3` | Unary functions and postfix powers |
 | `var` | `X_0` `X_1` … | Input variables, mapped to columns of `X` in order |
 | `const` | `C` | Free constant optimised during parameter estimation |
-| `lit` | `pi` `e` | Fixed numeric literals |
+| `lit` | `pi` `e` | Named constants (fixed values) |
 
 Postfix power tokens (`^2`, `^3`, `^4`, `^5`, `^-1`) are written after their operand:
 

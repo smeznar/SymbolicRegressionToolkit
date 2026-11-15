@@ -35,7 +35,7 @@ FN = "fn"
 OP = "op"
 """Symbol type of a binary operator (e.g. ``+``)."""
 LIT = "lit"
-"""Symbol type of a literal with a fixed value (e.g. ``pi``, ``1``)."""
+"""Symbol type of a named constant, a symbol with a fixed value (e.g. ``pi``, ``e``)."""
 VALID_SYMBOL_TYPES: Set[str] = {VAR, CONST, FN, OP, LIT}
 """The set of valid symbol types: ``VAR``, ``CONST``, ``FN``, ``OP`` and ``LIT``."""
 

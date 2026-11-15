@@ -748,7 +748,7 @@ class TestGrammarFromSymbolLibrary:
         names = {r.name for r in Grammar.from_symbol_library(_sl("+")).rules_for("T")}
         assert "T_to_R" in names
 
-    # --- K level (constants and literals) ---
+    # --- K level (free constants and named constants) ---
 
     def test_only_const_K_rule(self):
         names = {r.name for r in Grammar.from_symbol_library(_sl("+", "C")).rules_for("K")}
@@ -822,7 +822,7 @@ class TestGrammarFromSymbolLibrary:
 
     def test_no_terminals_raises(self):
         """A library with only operators and no leaf symbols must raise."""
-        with pytest.raises(ValueError, match="no variables, constants, or literals"):
+        with pytest.raises(ValueError, match="no variables, free constants, or named constants"):
             Grammar.from_symbol_library(_sl("+", n_vars=0))
 
     # --- end-to-end generation ---

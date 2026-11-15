@@ -35,7 +35,7 @@ class Node:
 
         - Binary operators (``"op"``) set both ``left`` and ``right``.
         - Unary functions (``"fn"``) set only ``left``; ``right`` is ``None``.
-        - Leaves (variables, constants, literals, numeric values) have both children as ``None``.
+        - Leaves (variables, free constants, named constants, numeric values) have both children as ``None``.
 
         Examples:
             >>> node = Node("+", Node("x"), Node("1"))
@@ -473,7 +473,7 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notati
     Infix token lists are parsed with the shunting-yard algorithm; prefix and
     postfix lists are parsed with a single stack pass using the arity implied by
     each token's type (``"op"`` is binary, ``"fn"`` is unary, and variables,
-    constants, literals, and numeric literals are leaves). This is the inverse of
+    free constants, named constants and numbers are leaves). This is the inverse of
     [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], so a tree
     survives a round trip through any of the three notations.
 

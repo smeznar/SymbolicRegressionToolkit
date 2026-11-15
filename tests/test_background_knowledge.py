@@ -24,7 +24,7 @@ def _lib(num_variables=2, symbols=("+", "*", "C")):
 
 
 def _lib_with_c():
-    """Literals in library order: pi, e, c."""
+    """Named constants in library order: pi, e, c."""
     lib = _lib(1, ("+", "*", "pi", "e"))
     lib.add_symbol("c", "lit", 1000, "299792458.0")
     return lib
@@ -155,12 +155,12 @@ class TestBackgroundKnowledgeInit:
         variables["X_1"] = VariableInfo("y")
         assert bk.variables == {"X_0": VariableInfo("x")}
 
-    def test_constants_are_a_copy_in_lit_order(self):
-        constants = {"c": VariableInfo("c", unit=u.m / u.s), "pi": VariableInfo("π")}
-        bk = BackgroundKnowledge(_lib_with_c(), constants=constants)
-        constants["e"] = VariableInfo("e")
-        assert list(bk.constants) == ["pi", "c"]
-        assert bk.constants == {"pi": VariableInfo("π"), "c": VariableInfo("c", unit=u.m / u.s)}
+    def test_named_constants_are_a_copy_in_lit_order(self):
+        named_constants = {"c": VariableInfo("c", unit=u.m / u.s), "pi": VariableInfo("π")}
+        bk = BackgroundKnowledge(_lib_with_c(), named_constants=named_constants)
+        named_constants["e"] = VariableInfo("e")
+        assert list(bk.named_constants) == ["pi", "c"]
+        assert bk.named_constants == {"pi": VariableInfo("π"), "c": VariableInfo("c", unit=u.m / u.s)}
 
     def test_constraints_are_set_up_copies(self):
         given = MaxTreeDepth(4)
@@ -210,8 +210,8 @@ class TestBackgroundKnowledgeInit:
             ({"variables": {"X_0": "x"}}, None),
             ({"target": "U"}, None),
             ({"variables": [("X_0", VariableInfo())]}, None),
-            ({"constants": {"pi": "π"}}, None),
-            ({"constants": [("pi", VariableInfo())]}, None),
+            ({"named_constants": {"pi": "π"}}, None),
+            ({"named_constants": [("pi", VariableInfo())]}, None),
             ({"description": 3}, None),
             ({"constant_bounds": (True, 5)}, None),
             ({"constant_bounds": ("a", 5)}, None),
@@ -228,7 +228,7 @@ class TestBackgroundKnowledgeInit:
             "target-str",
             "variables-not-mapping",
             "constant-not-info",
-            "constants-not-mapping",
+            "named-constants-not-mapping",
             "description-int",
             "bound-bool",
             "bound-str",
@@ -262,9 +262,9 @@ class TestBackgroundKnowledgeInit:
             ({"constant_bounds": 5}, None),
             ({"variables": {"X_9": VariableInfo("x")}}, "X_9"),
             ({"variables": {"+": VariableInfo("plus")}}, None),
-            ({"constants": {"X_0": VariableInfo("x")}}, "X_0"),
-            ({"constants": {"C": VariableInfo("c")}}, "C"),
-            ({"constants": {"zz": VariableInfo("z")}}, "zz"),
+            ({"named_constants": {"X_0": VariableInfo("x")}}, "X_0"),
+            ({"named_constants": {"C": VariableInfo("c")}}, "C"),
+            ({"named_constants": {"zz": VariableInfo("z")}}, "zz"),
         ],
         ids=[
             "too-few-samplers",
@@ -302,7 +302,7 @@ class TestBackgroundKnowledgeDescribe:
             description="Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.",
             variables={"X_1": VariableInfo("R", "resistance"), "X_0": VariableInfo("I", unit=u.A)},
             target=VariableInfo("U", "voltage"),
-            constants={"pi": VariableInfo("π")},
+            named_constants={"pi": VariableInfo("π")},
         )
         assert bk.describe([MaxConstants(2)]) == (
             "Task: Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.\n"
@@ -310,7 +310,7 @@ class TestBackgroundKnowledgeDescribe:
             "Variables:\n"
             "  X_0: I [A]\n"
             "  X_1: R: resistance\n"
-            "Constants:\n"
+            "Named constants:\n"
             "  pi: π\n"
             "Symbols: +, *, pi, C, X_0, X_1\n"
             "Free constants are fitted in [-2.0, 3.0].\n"
@@ -349,14 +349,14 @@ class TestBackgroundKnowledgeDescribe:
             (lambda: BackgroundKnowledge(_lib(0, ("+", "*")), samplers=[]), "Symbols: +, *"),
             (
                 lambda: BackgroundKnowledge(
-                    _lib(1, ("+", "*", "pi")), variables={"X_0": VariableInfo()}, constants={"pi": VariableInfo()}
+                    _lib(1, ("+", "*", "pi")), variables={"X_0": VariableInfo()}, named_constants={"pi": VariableInfo()}
                 ),
-                "Variables:\n  X_0\nConstants:\n  pi\nSymbols: +, *, pi, X_0",
+                "Variables:\n  X_0\nNamed constants:\n  pi\nSymbols: +, *, pi, X_0",
             ),
         ],
         ids=[
             "library-only",
-            "constants-default-bounds",
+            "named-constants-default-bounds",
             "empty-infos",
             "one-sampler",
             "no-variables",
@@ -382,7 +382,7 @@ class TestBackgroundKnowledgeSerialisation:
             description="Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.",
             variables={"X_0": VariableInfo("I", "current", u.A)},
             target=VariableInfo("U", "voltage"),
-            constants={"pi": VariableInfo("π")},
+            named_constants={"pi": VariableInfo("π")},
         )
         d = bk.to_dict()
         assert d == {
@@ -394,7 +394,7 @@ class TestBackgroundKnowledgeSerialisation:
             "reference_grammar": None,
             "description": "Voltage measured across metal conductors of different resistance, each carrying a steady current, at room temperature. Without current there is no voltage; the voltage grows with the current and with the resistance.",
             "variables": {"X_0": {"name": "I", "description": "current", "unit": {"A": "1"}}},
-            "constants": {"pi": {"name": "π", "description": "", "unit": None}},
+            "named_constants": {"pi": {"name": "π", "description": "", "unit": None}},
             "target": {"name": "U", "description": "voltage", "unit": None},
         }
         json.dumps(d)
@@ -412,14 +412,14 @@ class TestBackgroundKnowledgeSerialisation:
                 "X_1": VariableInfo("R", unit=u.Ohm),
             },
             target=VariableInfo("U", "voltage", u.V),
-            constants={"pi": VariableInfo("π", unit=Unit())},
+            named_constants={"pi": VariableInfo("π", unit=Unit())},
         )
         d = json.loads(json.dumps(bk.to_dict()))
         restored = BackgroundKnowledge.from_dict(d)
         assert restored.reference_grammar.to_dict() == bk.reference_grammar.to_dict()
         assert restored.to_dict() == d
         assert restored.variables["X_0"].unit == u.A
-        assert restored.constants == bk.constants
+        assert restored.named_constants == bk.named_constants
 
     def test_from_dict_fills_defaults(self):
         # No "format_version" key either: it is read as 1.
@@ -428,7 +428,7 @@ class TestBackgroundKnowledgeSerialisation:
         assert loaded.to_dict() == BackgroundKnowledge(lib).to_dict()
 
     def test_from_dict_loads_dicts_saved_before_units(self):
-        # Saved before units and constants existed: no "constants", variable dicts without "unit".
+        # Saved before units and named constants existed: no "named_constants", variable dicts without "unit".
         lib = _lib()
         old = {
             "format_version": 1,
@@ -446,7 +446,7 @@ class TestBackgroundKnowledgeSerialisation:
             **old,
             "variables": {"X_0": {"name": "I", "description": "current", "unit": None}},
             "target": {"name": "U", "description": "voltage", "unit": None},
-            "constants": {},
+            "named_constants": {},
         }
 
     @pytest.mark.parametrize(

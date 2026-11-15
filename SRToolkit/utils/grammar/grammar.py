@@ -713,8 +713,8 @@ class Grammar:
             A [Grammar][SRToolkit.utils.grammar.Grammar] with heuristic PCFG weights.
 
         Raises:
-            ValueError: If the symbol library contains no variables, constants, or
-                literals, making it impossible to generate any terminal expression.
+            ValueError: If the symbol library contains no variables, free constants,
+                or named constants, making it impossible to generate any terminal expression.
         """
         if symbol_library is None:
             symbol_library = SymbolLibrary.get_active()
@@ -736,7 +736,7 @@ class Grammar:
 
         if not variables and not consts and not lits:
             raise ValueError(
-                "Symbol library has no variables, constants, or literals; "
+                "Symbol library has no variables, free constants, or named constants; "
                 "the grammar cannot generate any terminal expression."
             )
 
@@ -799,7 +799,7 @@ class Grammar:
             g.add_rule(Rule(t_nt, [r_nt], weight=0.3, name=f"{t_nt}_to_{r_nt}"))
             g.add_rule(Rule(t_nt, [v_nt], weight=0.7, name=f"{t_nt}_to_{v_nt}"))
 
-        # K level — constants and literals
+        # K level — free constants and named constants
         if lits and consts:
             for sym in lits:
                 g.add_rule(Rule(k_nt, [sym], weight=0.2 / len(lits), name=f"{k_nt}_{sym}"))

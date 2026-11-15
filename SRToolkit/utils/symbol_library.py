@@ -126,7 +126,8 @@ class SymbolLibrary:
 
         - ``"op"``: binary operator (e.g. ``+``, ``*``).
         - ``"fn"``: unary function (e.g. ``sin``, ``sqrt``).
-        - ``"lit"``: literal with a fixed value (e.g. ``pi``, ``e``).
+        - ``"lit"``: named constant, a symbol with a fixed value (e.g. ``pi``, ``e``). Elsewhere in
+          the toolkit "named constant" always means a ``"lit"`` symbol.
         - ``"const"``: free constant whose value is optimised during parameter estimation
           (e.g. ``C``). Using a single ``"const"`` token is recommended; multiple tokens
           increase complexity and reduce readability.
@@ -483,7 +484,7 @@ class SymbolLibrary:
         - **Functions** (``"fn"``): ``u-``, ``sqrt``, ``sin``, ``cos``, ``exp``, ``tan``,
           ``arcsin``, ``arccos``, ``arctan``, ``sinh``, ``cosh``, ``tanh``, ``floor``,
           ``ceil``, ``ln``, ``log``, ``^-1``, ``^2``, ``^3``, ``^4``, ``^5``
-        - **Literals** (``"lit"``): ``pi``, ``e``
+        - **Named constants** (``"lit"``): ``pi``, ``e``
         - **Free constant** (``"const"``): ``C``
         - **Variables** (``"var"``): ``X_0`` through ``X_{num_variables-1}``,
           mapped to columns of the input array in order.

@@ -174,7 +174,7 @@ class TestLimitsMatchEvaluator:
             ({"max_expr_length": 0}, lambda sl: ["X_0"], True),
         ],
         ids=[
-            "literals-not-constants",
+            "named-constants-not-free",
             "tree-redundant-brackets-dropped",
             "list-brackets-counted",
             "tree-constants",

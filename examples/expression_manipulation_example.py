@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     # SRToolkit recognises five token types: binary operators (op: + - * / ^), unary functions and postfix
     # powers (fn: sin cos exp sqrt ln ^2 ^3), input variables (var: X_0 X_1 ...), free constants optimised
-    # during parameter estimation (const: C), and fixed numeric literals (lit: pi e).
+    # during parameter estimation (const: C), and named constants with fixed values (lit: pi e).
 
     # ------------------------------------- The symbol library -------------------------------------------------
     # A SymbolLibrary defines which tokens are valid and how they compile to NumPy. The two factory methods

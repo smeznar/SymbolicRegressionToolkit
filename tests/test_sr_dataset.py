@@ -1362,7 +1362,9 @@ def test_evaluator_describes_task_like_dataset(make):
 # ── Named constants and units: not lost on the way to the evaluator or through a save ──
 
 _PI = {"pi": VariableInfo("π", unit=Unit())}
-_UNIT_INFOS = dict(variables={"X_0": VariableInfo("x", unit=u.m)}, target=VariableInfo("y", unit=u.s), constants=_PI)
+_UNIT_INFOS = dict(
+    variables={"X_0": VariableInfo("x", unit=u.m)}, target=VariableInfo("y", unit=u.s), named_constants=_PI
+)
 
 
 @pytest.mark.parametrize(
@@ -1387,5 +1389,5 @@ def test_constants_and_units_survive(make, tmp_path, monkeypatch):
     ds = make(SymbolLibrary.from_symbol_list(["+", "*", "C", "pi"], num_variables=2))
     restored = SR_dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
     bks = [ds.background_knowledge, ds.create_evaluator().background_knowledge, restored.background_knowledge]
-    assert [bk.constants for bk in bks] == [_PI] * 3
+    assert [bk.named_constants for bk in bks] == [_PI] * 3
     assert [(bk.variables["X_0"].unit, bk.target.unit) for bk in bks] == [(u.m, u.s)] * 3

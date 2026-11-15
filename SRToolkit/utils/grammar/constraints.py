@@ -541,7 +541,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
     Prunes a grammar's derivations so that every expression it completes passes
     [ConsistentUnits][SRToolkit.utils.expression_constraints.ConsistentUnits] with the same units:
     variables and named constants (``"lit"`` symbols) have the given units; free constants, numbers
-    and literals without a unit are dimensionless. How an operator or function combines units is
+    and named constants without a unit are dimensionless. How an operator or function combines units is
     its [UnitRule][SRToolkit.utils.units.UnitRule] in ``symbol_library``. This holds for grammars
     whose parse tree is the tree of the emitted expression, as with
     [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library]; with an
@@ -553,7 +553,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
     - one ``"op"`` or ``"fn"`` terminal, with as many non-terminals as its unit rule accepts: that
       unit rule;
     - no terminals and one non-terminal (``E -> F``, ``R -> ( E )``): the requirement passes on;
-    - one leaf terminal (a variable, literal, ``"const"`` symbol, or a number: any token ``float()``
+    - one leaf terminal (a variable, named constant, ``"const"`` symbol, or a number: any token ``float()``
       accepts) and no non-terminals: a leaf, with the unit above.
 
     Any other rule, e.g. ``E -> E + C`` or one with a terminal that is not a library symbol, bracket
@@ -604,20 +604,20 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
         variable_units: The unit of every variable of ``symbol_library``, keyed by token.
         target_unit: The unit of the generated expressions.
         symbol_library: The library the grammar's terminals come from: their types and unit rules.
-        literal_units: Units of named constants, keyed by ``"lit"`` token; literals left out are
+        named_constant_units: Units of named constants, keyed by ``"lit"`` token; named constants left out are
             dimensionless. ``None`` means none.
 
     Raises:
         TypeError: If a unit is not a [Unit][SRToolkit.utils.units.Unit].
         ValueError: If a variable of ``symbol_library`` has no unit, or a key of ``variable_units``
-            or ``literal_units`` is not a ``"var"`` or ``"lit"`` symbol of it; the message lists
+            or ``named_constant_units`` is not a ``"var"`` or ``"lit"`` symbol of it; the message lists
             every problem.
 
     Attributes:
         variable_units: A copy of ``variable_units`` as a dict.
         target_unit: The target unit.
         symbol_library: The symbol library, as given.
-        literal_units: The literal units as a dict; ``{}`` if none were given.
+        named_constant_units: A copy of ``named_constant_units`` as a dict; ``{}`` if none were given.
 
     Examples:
         >>> import numpy as np
@@ -642,23 +642,23 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
         variable_units: Mapping[str, Unit],
         target_unit: Unit,
         symbol_library: SymbolLibrary,
-        literal_units: Optional[Mapping[str, Unit]] = None,
+        named_constant_units: Optional[Mapping[str, Unit]] = None,
     ) -> None:
-        _check_unit_types("DimensionalConsistency", variable_units, target_unit, literal_units)
+        _check_unit_types("DimensionalConsistency", variable_units, target_unit, named_constant_units)
         self.variable_units = dict(variable_units)
         self.target_unit = target_unit
         self.symbol_library = symbol_library
-        self.literal_units = dict(literal_units or {})
+        self.named_constant_units = dict(named_constant_units or {})
         self._sibling_units: dict[tuple[str, ...], Unit] = {}
-        _check_units_fit("DimensionalConsistency", symbol_library, self.variable_units, self.literal_units)
+        _check_units_fit("DimensionalConsistency", symbol_library, self.variable_units, self.named_constant_units)
 
     def to_dict(self) -> dict:
         """Return the saved form of this constraint.
 
         Returns:
             ``{"constraint_class": ..., "variable_units": ..., "target_unit": ..., "symbol_library":
-            ..., "literal_units": ...}``: each unit as [Unit.to_dict][SRToolkit.utils.units.Unit.to_dict],
-            ``variable_units`` and ``literal_units`` as ``{token: unit dict}`` (``{}`` if empty), and
+            ..., "named_constant_units": ...}``: each unit as [Unit.to_dict][SRToolkit.utils.units.Unit.to_dict],
+            ``variable_units`` and ``named_constant_units`` as ``{token: unit dict}`` (``{}`` if empty), and
             the library as [SymbolLibrary.to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
         """
         return {
@@ -666,7 +666,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
             "variable_units": {t: v.to_dict() for t, v in self.variable_units.items()},
             "target_unit": self.target_unit.to_dict(),
             "symbol_library": self.symbol_library.to_dict(),
-            "literal_units": {t: v.to_dict() for t, v in self.literal_units.items()},
+            "named_constant_units": {t: v.to_dict() for t, v in self.named_constant_units.items()},
         }
 
     @classmethod
@@ -693,7 +693,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
             {t: Unit.from_dict(v) for t, v in d["variable_units"].items()},
             Unit.from_dict(d["target_unit"]),
             SymbolLibrary.from_dict(d["symbol_library"]),
-            {t: Unit.from_dict(v) for t, v in d["literal_units"].items()},
+            {t: Unit.from_dict(v) for t, v in d["named_constant_units"].items()},
         )
 
     def initial_local(self, start: str) -> Any:
@@ -764,7 +764,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
                 tokens_to_tree(list(tokens), self.symbol_library),
                 self.symbol_library,
                 self.variable_units,
-                self.literal_units,
+                self.named_constant_units,
             )
         except _UnitConflict:
             # Impossible if the emitted tokens parse to the derived tree (the documented precondition).
@@ -785,7 +785,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
             token = terminals[0]
             kind = self.symbol_library.get_type(token)
             if n == 0 and (kind in (VAR, LIT, CONST) or is_float(token)):
-                return _leaf_unit(token, self.variable_units, self.literal_units)
+                return _leaf_unit(token, self.variable_units, self.named_constant_units)
             unit_rule = self.symbol_library.get_unit_rule(token)
             if unit_rule is not None and n in unit_rule.arities:
                 return unit_rule
