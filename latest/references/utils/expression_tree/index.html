@@ -2670,7 +2670,7 @@ as <code>invalid</code>.</p>
 <ul>
 <li>Binary operators (<code>"op"</code>) set both <code>left</code> and <code>right</code>.</li>
 <li>Unary functions (<code>"fn"</code>) set only <code>left</code>; <code>right</code> is <code>None</code>.</li>
-<li>Leaves (variables, constants, literals, numeric values) have both children as <code>None</code>.</li>
+<li>Leaves (variables, free constants, named constants, numeric values) have both children as <code>None</code>.</li>
 </ul>
 
 
@@ -2790,7 +2790,7 @@ Use keyword arguments to avoid confusion: <code>Node("+", right=Node("a"), left=
 <a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-35" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-35"></a>
 <a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-36" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-36"></a><span class="sd">    - Binary operators (``"op"``) set both ``left`` and ``right``.</span>
 <a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-37" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-37"></a><span class="sd">    - Unary functions (``"fn"``) set only ``left``; ``right`` is ``None``.</span>
-<a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-38" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-38"></a><span class="sd">    - Leaves (variables, constants, literals, numeric values) have both children as ``None``.</span>
+<a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-38" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-38"></a><span class="sd">    - Leaves (variables, free constants, named constants, numeric values) have both children as ``None``.</span>
 <a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-39" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-39"></a>
 <a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-40" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-40"></a><span class="sd">    Examples:</span>
 <a id="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-41" name="SRToolkit.utils.expression_tree.Node--source--__codelineno-0-41"></a><span class="sd">        &gt;&gt;&gt; node = Node("+", Node("x"), Node("1"))</span>
@@ -3954,7 +3954,7 @@ If None, falls back to the currently active library set via
 <p>Infix token lists are parsed with the shunting-yard algorithm; prefix and
 postfix lists are parsed with a single stack pass using the arity implied by
 each token's type (<code>"op"</code> is binary, <code>"fn"</code> is unary, and variables,
-constants, literals, and numeric literals are leaves). This is the inverse of
+free constants, named constants and numbers are leaves). This is the inverse of
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_list&lt;/span&gt;" href="#SRToolkit.utils.expression_tree.Node.to_list">Node.to_list</a>, so a tree
 survives a round trip through any of the three notations.</p>
 
@@ -4203,7 +4203,7 @@ tokens remain unconsumed).</p>
 <a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-473" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-473"></a><span class="sd">    Infix token lists are parsed with the shunting-yard algorithm; prefix and</span>
 <a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-474" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-474"></a><span class="sd">    postfix lists are parsed with a single stack pass using the arity implied by</span>
 <a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-475" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-475"></a><span class="sd">    each token's type (``"op"`` is binary, ``"fn"`` is unary, and variables,</span>
-<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476"></a><span class="sd">    constants, literals, and numeric literals are leaves). This is the inverse of</span>
+<a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-476"></a><span class="sd">    free constants, named constants and numbers are leaves). This is the inverse of</span>
 <a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-477" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-477"></a><span class="sd">    [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], so a tree</span>
 <a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-478" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-478"></a><span class="sd">    survives a round trip through any of the three notations.</span>
 <a id="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-479" name="SRToolkit.utils.expression_tree.tokens_to_tree--source--__codelineno-0-479"></a>

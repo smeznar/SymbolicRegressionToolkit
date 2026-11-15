@@ -3296,7 +3296,7 @@ current slot, counting only non-terminal positions.</p>
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DimensionalConsistency</span><span class="p">(</span><span class="n">variable_units</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">],</span> <span class="n">target_unit</span><span class="p">:</span> <span class="n">Unit</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">literal_units</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DimensionalConsistency</span><span class="p">(</span><span class="n">variable_units</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">],</span> <span class="n">target_unit</span><span class="p">:</span> <span class="n">Unit</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span><span class="p">,</span> <span class="n">named_constant_units</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3309,7 +3309,7 @@ current slot, counting only non-terminal positions.</p>
 <p>Prunes a grammar's derivations so that every expression it completes passes
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ConsistentUnits&lt;/span&gt;" href="../expression_constraints/#SRToolkit.utils.expression_constraints.ConsistentUnits">ConsistentUnits</a> with the same units:
 variables and named constants (<code>"lit"</code> symbols) have the given units; free constants, numbers
-and literals without a unit are dimensionless. How an operator or function combines units is
+and named constants without a unit are dimensionless. How an operator or function combines units is
 its <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;UnitRule&lt;/span&gt;
 
 
@@ -3330,7 +3330,7 @@ tree.</p>
 <li>one <code>"op"</code> or <code>"fn"</code> terminal, with as many non-terminals as its unit rule accepts: that
   unit rule;</li>
 <li>no terminals and one non-terminal (<code>E -&gt; F</code>, <code>R -&gt; ( E )</code>): the requirement passes on;</li>
-<li>one leaf terminal (a variable, literal, <code>"const"</code> symbol, or a number: any token <code>float()</code>
+<li>one leaf terminal (a variable, named constant, <code>"const"</code> symbol, or a number: any token <code>float()</code>
   accepts) and no non-terminals: a leaf, with the unit above.</li>
 </ul>
 <p>Any other rule, e.g. <code>E -&gt; E + C</code> or one with a terminal that is not a library symbol, bracket
@@ -3480,7 +3480,7 @@ give the grammar fewer choices.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>literal_units</code>
+                <code>named_constant_units</code>
             </td>
             <td>
                   <code><span title="typing.Optional">Optional</span>[<span title="typing.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Unit&lt;/span&gt;
@@ -3492,7 +3492,7 @@ give the grammar fewer choices.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Units of named constants, keyed by <code>"lit"</code> token; literals left out are
+                <p>Units of named constants, keyed by <code>"lit"</code> token; named constants left out are
 dimensionless. <code>None</code> means none.</p>
               </div>
             </td>
@@ -3535,7 +3535,7 @@ dimensionless. <code>None</code> means none.</p>
             <td>
               <div class="doc-md-description">
                 <p>If a variable of <code>symbol_library</code> has no unit, or a key of <code>variable_units</code>
-or <code>literal_units</code> is not a <code>"var"</code> or <code>"lit"</code> symbol of it; the message lists
+or <code>named_constant_units</code> is not a <code>"var"</code> or <code>"lit"</code> symbol of it; the message lists
 every problem.</p>
               </div>
             </td>
@@ -3585,12 +3585,12 @@ every problem.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code><span title="SRToolkit.utils.grammar.DimensionalConsistency.literal_units">literal_units</span></code></td>
+            <td><code><span title="SRToolkit.utils.grammar.DimensionalConsistency.named_constant_units">named_constant_units</span></code></td>
             <td>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The literal units as a dict; <code>{}</code> if none were given.</p>
+                <p>A copy of <code>named_constant_units</code> as a dict; <code>{}</code> if none were given.</p>
               </div>
             </td>
           </tr>
@@ -3643,15 +3643,15 @@ every problem.</p>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-642" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-642"></a>    <span class="n">variable_units</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">],</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-643" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-643"></a>    <span class="n">target_unit</span><span class="p">:</span> <span class="n">Unit</span><span class="p">,</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-644" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-644"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span><span class="p">,</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-645" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-645"></a>    <span class="n">literal_units</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-645" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-645"></a>    <span class="n">named_constant_units</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Unit</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-646" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-646"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-647" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-647"></a>    <span class="n">_check_unit_types</span><span class="p">(</span><span class="s2">"DimensionalConsistency"</span><span class="p">,</span> <span class="n">variable_units</span><span class="p">,</span> <span class="n">target_unit</span><span class="p">,</span> <span class="n">literal_units</span><span class="p">)</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-647" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-647"></a>    <span class="n">_check_unit_types</span><span class="p">(</span><span class="s2">"DimensionalConsistency"</span><span class="p">,</span> <span class="n">variable_units</span><span class="p">,</span> <span class="n">target_unit</span><span class="p">,</span> <span class="n">named_constant_units</span><span class="p">)</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-648" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-648"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">variable_units</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">variable_units</span><span class="p">)</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-649" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-649"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">target_unit</span> <span class="o">=</span> <span class="n">target_unit</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-650" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-650"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span> <span class="o">=</span> <span class="n">symbol_library</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-651" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-651"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">literal_units</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">literal_units</span> <span class="ow">or</span> <span class="p">{})</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-651" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-651"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">named_constant_units</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">named_constant_units</span> <span class="ow">or</span> <span class="p">{})</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-652" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-652"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_sibling_units</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="n">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-653" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-653"></a>    <span class="n">_check_units_fit</span><span class="p">(</span><span class="s2">"DimensionalConsistency"</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">variable_units</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">literal_units</span><span class="p">)</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-653" name="SRToolkit.utils.grammar.DimensionalConsistency--source--__codelineno-0-653"></a>    <span class="n">_check_units_fit</span><span class="p">(</span><span class="s2">"DimensionalConsistency"</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">variable_units</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">named_constant_units</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3709,7 +3709,7 @@ every problem.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>..., "literal_units": ...}``: each unit as <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../units/#SRToolkit.utils.units.Unit.to_dict">Unit.to_dict</a>,</p>
+                <p>..., "named_constant_units": ...}``: each unit as <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../units/#SRToolkit.utils.units.Unit.to_dict">Unit.to_dict</a>,</p>
               </div>
             </td>
           </tr>
@@ -3719,7 +3719,7 @@ every problem.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>variable_units</code> and <code>literal_units</code> as <code>{token: unit dict}</code> (<code>{}</code> if empty), and</p>
+                <p><code>variable_units</code> and <code>named_constant_units</code> as <code>{token: unit dict}</code> (<code>{}</code> if empty), and</p>
               </div>
             </td>
           </tr>
@@ -3759,8 +3759,8 @@ every problem.</p>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-657" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-657"></a>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-658" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-658"></a><span class="sd">    Returns:</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-659" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-659"></a><span class="sd">        ``{"constraint_class": ..., "variable_units": ..., "target_unit": ..., "symbol_library":</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-660" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-660"></a><span class="sd">        ..., "literal_units": ...}``: each unit as [Unit.to_dict][SRToolkit.utils.units.Unit.to_dict],</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-661" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-661"></a><span class="sd">        ``variable_units`` and ``literal_units`` as ``{token: unit dict}`` (``{}`` if empty), and</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-660" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-660"></a><span class="sd">        ..., "named_constant_units": ...}``: each unit as [Unit.to_dict][SRToolkit.utils.units.Unit.to_dict],</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-661" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-661"></a><span class="sd">        ``variable_units`` and ``named_constant_units`` as ``{token: unit dict}`` (``{}`` if empty), and</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-662" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-662"></a><span class="sd">        the library as [SymbolLibrary.to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-663" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-663"></a><span class="sd">    """</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-664" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-664"></a>    <span class="k">return</span> <span class="p">{</span>
@@ -3768,7 +3768,7 @@ every problem.</p>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-666" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-666"></a>        <span class="s2">"variable_units"</span><span class="p">:</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">variable_units</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-667" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-667"></a>        <span class="s2">"target_unit"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_unit</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-668" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-668"></a>        <span class="s2">"symbol_library"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-669" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-669"></a>        <span class="s2">"literal_units"</span><span class="p">:</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">literal_units</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-669" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-669"></a>        <span class="s2">"named_constant_units"</span><span class="p">:</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">named_constant_units</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-670" name="SRToolkit.utils.grammar.DimensionalConsistency.to_dict--source--__codelineno-0-670"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3935,7 +3935,7 @@ this class, which cannot be loaded), or a saved unit or the library is invalid.<
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-693" name="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-693"></a>        <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">Unit</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="s2">"variable_units"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-694" name="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-694"></a>        <span class="n">Unit</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"target_unit"</span><span class="p">]),</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-695" name="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-695"></a>        <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"symbol_library"</span><span class="p">]),</span>
-<a id="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-696" name="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-696"></a>        <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">Unit</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="s2">"literal_units"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+<a id="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-696" name="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-696"></a>        <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">Unit</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="p">[</span><span class="s2">"named_constant_units"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
 <a id="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-697" name="SRToolkit.utils.grammar.DimensionalConsistency.from_dict--source--__codelineno-0-697"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -11424,8 +11424,8 @@ from the precedence constants (<code>"E"</code> for standard libraries).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the symbol library contains no variables, constants, or
-literals, making it impossible to generate any terminal expression.</p>
+                <p>If the symbol library contains no variables, free constants,
+or named constants, making it impossible to generate any terminal expression.</p>
               </div>
             </td>
           </tr>
@@ -11665,8 +11665,8 @@ literals, making it impossible to generate any terminal expression.</p>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-713" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-713"></a><span class="sd">        A [Grammar][SRToolkit.utils.grammar.Grammar] with heuristic PCFG weights.</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-714" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-714"></a>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-715" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-715"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-716" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-716"></a><span class="sd">        ValueError: If the symbol library contains no variables, constants, or</span>
-<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-717" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-717"></a><span class="sd">            literals, making it impossible to generate any terminal expression.</span>
+<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-716" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-716"></a><span class="sd">        ValueError: If the symbol library contains no variables, free constants,</span>
+<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-717" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-717"></a><span class="sd">            or named constants, making it impossible to generate any terminal expression.</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-718" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-718"></a><span class="sd">    """</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-719" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-719"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-720" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-720"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_active</span><span class="p">()</span>
@@ -11688,7 +11688,7 @@ literals, making it impossible to generate any terminal expression.</p>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-736" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-736"></a>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-737" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-737"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">variables</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">consts</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lits</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-738" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-738"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-739" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-739"></a>            <span class="s2">"Symbol library has no variables, constants, or literals; "</span>
+<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-739" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-739"></a>            <span class="s2">"Symbol library has no variables, free constants, or named constants; "</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-740" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-740"></a>            <span class="s2">"the grammar cannot generate any terminal expression."</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-741" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-741"></a>        <span class="p">)</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-742" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-742"></a>
@@ -11751,7 +11751,7 @@ literals, making it impossible to generate any terminal expression.</p>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-799" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-799"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">r_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">r_nt</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-800" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-800"></a>        <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">t_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">v_nt</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">t_nt</span><span class="si">}</span><span class="s2">_to_</span><span class="si">{</span><span class="n">v_nt</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-801" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-801"></a>
-<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-802" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-802"></a>    <span class="c1"># K level — constants and literals</span>
+<a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-802" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-802"></a>    <span class="c1"># K level — free constants and named constants</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-803" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-803"></a>    <span class="k">if</span> <span class="n">lits</span> <span class="ow">and</span> <span class="n">consts</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-804" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-804"></a>        <span class="k">for</span> <span class="n">sym</span> <span class="ow">in</span> <span class="n">lits</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-805" name="SRToolkit.utils.grammar.Grammar.from_symbol_library--source--__codelineno-0-805"></a>            <span class="n">g</span><span class="o">.</span><span class="n">add_rule</span><span class="p">(</span><span class="n">Rule</span><span class="p">(</span><span class="n">k_nt</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">],</span> <span class="n">weight</span><span class="o">=</span><span class="mf">0.2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">lits</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">k_nt</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sym</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
