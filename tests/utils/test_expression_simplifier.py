@@ -4,8 +4,6 @@ from sympy import symbols as sp_symbols
 
 from SRToolkit.utils.expression_simplifier import (
     _check_tree,
-    _denumerate_constants,
-    _enumerate_constants,
     _sympy_to_number,
     _sympy_to_sr,
     simplify,
@@ -51,6 +49,28 @@ class TestSimplify:
         result = simplify(["sin", "(", "C", "+", "X_0", ")"])
         assert "sin" in "".join(result)
         assert "X_0" in "".join(result)
+
+    @pytest.mark.parametrize(
+        "expr, expected",
+        [
+            ("C_0 - C_0 + X_0", "X_0"),  # one symbol per label, so it cancels
+            ("C_0 * X_0 + C_0 * X_1", "C_0*X_0+C_0*X_1"),  # a shared label is kept: one parameter, not two
+            ("C_0 - C_1 + X_0", "C+X_0"),  # distinct labels are distinct symbols: no cancelling, folded
+        ],
+    )
+    def test_labelled_constant(self, expr, expected):
+        assert "".join(simplify(expr.split(), self.sl)) == expected
+
+    @pytest.mark.parametrize(
+        "name, expr, expected",
+        [
+            ("E", "E * X_0 + E * E", "E*X_0+E"),  # a name SymPy would parse as Euler's number
+            ("theta", "theta_0 - theta_0 + theta * X_0", "X_0*theta"),
+        ],
+    )
+    def test_renamed_constant(self, name, expr, expected):
+        sl = SymbolLibrary.default_symbols(1, const_symbol=name)
+        assert "".join(simplify(expr.split(), sl)) == expected
 
     def test_raises_on_invalid_symbol_in_result(self):
         # X_0 * X_0 * X_0 simplifies to X_0**3, which introduces "^" not in the library
@@ -151,24 +171,3 @@ class TestSympyToSr:
         node = _sympy_to_sr(x**2)
         assert node.symbol == "^"
         assert len(node) == 3
-
-
-class TestEnumerateConstants:
-    def test_single_constant(self):
-        expr, constants = _enumerate_constants("C+X_0", "C")
-        assert constants == ("C0",)
-        assert "C0" in str(expr)
-
-    def test_multiple_constants(self):
-        expr, constants = _enumerate_constants("C*X_0+C", "C")
-        assert constants == ("C0", "C1")
-        assert "C0" in str(expr)
-        assert "C1" in str(expr)
-
-
-class TestDenumerateConstants:
-    def test_removes_numeric_suffix(self):
-        assert _denumerate_constants("C0*X_0 + C1", "C") == "C*X_0 + C"
-
-    def test_no_constants_unchanged(self):
-        assert _denumerate_constants("X_0 + X_1", "C") == "X_0 + X_1"

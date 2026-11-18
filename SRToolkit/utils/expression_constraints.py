@@ -68,7 +68,7 @@ an error raised while a dataset or an evaluator is built says which constraint c
 
 | Constraint | Check | Fails when |
 |---|---|---|
-| [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] | pre | more free constants (tokens of type ``"const"``) than the limit |
+| [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] | pre | more free constants (bare constants plus distinct labelled constants) than the limit |
 | [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] | pre | more infix tokens, brackets included, than the limit |
 | [MaxTreeDepth][SRToolkit.utils.expression_constraints.MaxTreeDepth] | pre | the tree is higher than the limit (a single leaf has height 1) |
 | [MaxTreeSize][SRToolkit.utils.expression_constraints.MaxTreeSize] | pre | the tree has more nodes than the limit |
@@ -138,7 +138,7 @@ import numpy as np
 
 from ..bundle._relocate import _auto_bind
 from .expression_compiler import compile_expr
-from .expression_tree import Node, _as_tokens, _as_tree, _count_constants, is_float
+from .expression_tree import Node, _as_tokens, _as_tree, _constant_indices, is_float
 from .serialization import _from_json_safe, _to_json_safe
 from .symbol_library import SymbolLibrary
 from .types import LIT, VAR, CheckResult, ModelResult
@@ -181,7 +181,7 @@ def _predict(model: ModelResult, points: np.ndarray, symbol_library: SymbolLibra
     # the expression has free constants but model.parameters is None ("no fitted parameters") or
     # has the wrong length ("<n> fitted parameters, expression has <m> constants"). Shared by
     # post-check constraints.
-    n_constants = _count_constants(model.expr, symbol_library)
+    n_constants = len(set(_constant_indices(model.expr, symbol_library)))
     if model.parameters is None:
         if n_constants > 0:
             return "no fitted parameters"
@@ -460,12 +460,13 @@ class ExpressionConstraint:
 class MaxConstants(ExpressionConstraint):
     """Limit the number of free constants in an expression.
 
-    Counts the tokens of type ``"const"`` (e.g. ``C``); each occurrence is a separate free
-    parameter. Named constants such as ``pi`` and numbers such as ``2`` are not counted. Only looks at
-    tokens; does not parse. This is the check behind the evaluator's ``max_constants`` setting.
+    Counts free constants: each occurrence of a bare constant (``C``) is one, a labelled constant
+    (``C_1``) is one however often it occurs, so ``C_1*X_0 + C_1*X_1 + C`` has 2. Named constants
+    such as ``pi`` and numbers such as ``2`` are not counted. Only looks at tokens; does not parse.
+    This is the check behind the evaluator's ``max_constants`` setting.
 
     Args:
-        limit: The largest number of free constants allowed. ``0`` forbids free constants.
+        limit: The largest number of free constants allowed. ``0`` forbids them.
 
     Raises:
         ValueError: If ``limit`` is not a non-negative ``int`` or numpy integer (``bool`` is
@@ -478,7 +479,7 @@ class MaxConstants(ExpressionConstraint):
         >>> from SRToolkit.utils import SymbolLibrary
         >>> c = MaxConstants(1)
         >>> c.setup(SymbolLibrary.default_symbols(1))
-        >>> c.pre_check(["C", "*", "X_0", "+", "C"]).message
+        >>> c.pre_check(["C_1", "*", "X_0", "+", "C_1", "+", "C"]).message
         '2 constants, limit 1'
         >>> c.pre_check(["C", "*", "X_0"]).passed
         True
@@ -502,7 +503,7 @@ class MaxConstants(ExpressionConstraint):
                 has not been called.
         """
         symbol_library = _require_setup(self)
-        n = _count_constants(_as_tokens(expr, symbol_library), symbol_library)
+        n = len(set(_constant_indices(_as_tokens(expr, symbol_library), symbol_library)))
         if n <= self.limit:
             return CheckResult()
         return CheckResult(passed=False, message=f"{n} constants, limit {self.limit}", amount=float(n - self.limit))
@@ -917,8 +918,10 @@ class MaxSymbolCount(ExpressionConstraint):
     with [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list]. For a group, the occurrences
     of all its symbols are added up: ``MaxSymbolCount(["sin", "cos", "exp"], 2)`` allows at most two
     of these functions in total. To limit several symbols separately (e.g. at most one ``sin`` and
-    at most one ``cos``), create one ``MaxSymbolCount`` per symbol. Tracking a bracket counts
-    brackets, which a tree does not determine uniquely. Only looks at tokens; does not parse.
+    at most one ``cos``), create one ``MaxSymbolCount`` per symbol. The free constant (``C``) counts
+    its parameters, as [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] does:
+    labelled constants (``C_1``) included, each once however often it occurs. Tracking a bracket
+    counts brackets, which a tree does not determine uniquely. Only looks at tokens; does not parse.
 
     Args:
         symbols: The token to count, e.g. ``"sin"`` or ``"X_0"``, or an iterable of tokens whose
@@ -968,7 +971,12 @@ class MaxSymbolCount(ExpressionConstraint):
                 has not been called.
         """
         symbol_library = _require_setup(self)
-        n = sum(1 for token in _as_tokens(expr, symbol_library) if token in self.symbols)
+        tokens = _as_tokens(expr, symbol_library)
+        if symbol_library.constant_symbol in self.symbols:
+            n = len(set(_constant_indices(tokens, symbol_library)))
+            n += sum(1 for token in tokens if token in self.symbols and symbol_library.get_type(token) != "const")
+        else:
+            n = sum(1 for token in tokens if token in self.symbols)
         if n <= self.limit:
             return CheckResult()
         names = ", ".join(repr(symbol) for symbol in sorted(self.symbols))
@@ -1024,7 +1032,8 @@ class NoNesting(ExpressionConstraint):
     ``sin(X_0 + cos(X_0))`` nests ``cos`` in ``sin``; with a single-symbol group, ``sin(sin(X_0))``
     nests ``sin`` in itself. Siblings are fine: ``sin(X_0) + cos(X_0)`` passes. To forbid only
     self-nesting of several symbols (``sin(sin(x))`` and ``cos(cos(x))``, but allow ``sin(cos(x))``),
-    create one ``NoNesting`` per symbol.
+    create one ``NoNesting`` per symbol. A labelled constant (``C_1``) belongs to the group when
+    the free constant (``C``) does.
 
     Args:
         symbols: A single token, or an iterable of tokens, forming the group. Not checked against the
@@ -1073,23 +1082,26 @@ class NoNesting(ExpressionConstraint):
         """
         symbol_library = _require_setup(self)
         nested: List[Tuple[str, str]] = []
-        self._collect_nested(_as_tree(expr, symbol_library), None, nested)
+        self._collect_nested(_as_tree(expr, symbol_library), None, nested, symbol_library)
         if not nested:
             return CheckResult()
         inner, outer = nested[0]
         return CheckResult(passed=False, message=f"{inner!r} nested inside {outer!r}", amount=float(len(nested)))
 
-    def _collect_nested(self, node: Optional[Node], outer: Optional[str], nested: List[Tuple[str, str]]) -> None:
+    def _collect_nested(
+        self, node: Optional[Node], outer: Optional[str], nested: List[Tuple[str, str]], symbol_library: SymbolLibrary
+    ) -> None:
         # Pre-order walk (node, left, right); ``outer`` is the nearest group symbol above ``node``.
         # Appends (inner, outer) for every group symbol that has a group symbol above it.
         if node is None:
             return
-        if node.symbol in self.symbols:
+        is_const = symbol_library.get_type(node.symbol) == "const"
+        if (symbol_library.constant_symbol if is_const else node.symbol) in self.symbols:
             if outer is not None:
                 nested.append((node.symbol, outer))
             outer = node.symbol
-        self._collect_nested(node.left, outer, nested)
-        self._collect_nested(node.right, outer, nested)
+        self._collect_nested(node.left, outer, nested, symbol_library)
+        self._collect_nested(node.right, outer, nested, symbol_library)
 
     def describe(self) -> str:
         """Return ``"no <group> inside another <group>"``, the group's symbols sorted and joined with ``or``.

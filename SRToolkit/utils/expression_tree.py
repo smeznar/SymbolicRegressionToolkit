@@ -1,13 +1,15 @@
 """Binary expression tree ([Node][SRToolkit.utils.expression_tree.Node]) and conversion utilities between token
-lists, trees, and LaTeX strings.
+lists, trees, and LaTeX strings, and [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels],
+the order of an expression's free parameters.
 """
 
+import itertools
 import math
 import string
 import warnings
 from copy import copy
 from functools import lru_cache
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -176,21 +178,22 @@ class Node:
             )
 
     def to_latex(self, symbol_library: Optional[SymbolLibrary] = None) -> str:
-        r"""Transforms the tree rooted at this node into a LaTeX expression.
+        r"""Return the tree rooted at this node as a LaTeX string.
+
+        A labelled constant shows its label's digits as written (``C_5`` → ``C_{5}``), and bare
+        constants get, in order of appearance, the lowest numbers that no labelled constant in the
+        expression uses, so the numbers are not parameter indices.
 
         Examples:
-            >>> node = Node("+", right=Node("X_0"), left=Node("1"))
-            >>> node.to_latex(symbol_library=SymbolLibrary.default_symbols())
-            '$1 + X_{0}$'
             >>> node = Node("+", right=Node("*", right=Node("X_0"), left=Node("X_1")), left=Node("1"))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
             $1 + X_{1} \cdot X_{0}$
             >>> node = Node("sin", None, Node("X_0"))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
             $\sin X_{0}$
-            >>> node = Node("+", right=Node("*", right=Node("X_0"), left=Node("C")), left=Node("C"))
+            >>> node = Node("+", right=Node("C_0"), left=Node("*", right=Node("X_0"), left=Node("C")))
             >>> print(node.to_latex(symbol_library=SymbolLibrary.default_symbols()))
-            $C_{0} + C_{1} \cdot X_{0}$
+            $C_{1} \cdot X_{0} + C_{0}$
 
         Args:
             symbol_library: Symbol library providing LaTeX templates for each token.
@@ -206,26 +209,29 @@ class Node:
         """
         if symbol_library is None:
             symbol_library = SymbolLibrary.get_active()
-        return f"${self.__to_latex_rec(symbol_library)[0]}$"
+        used = {label.rpartition("_")[2] for label in parameter_labels(self, symbol_library) if label is not None}
+        bare_numbers = (str(n) for n in itertools.count() if str(n) not in used)
+        return f"${self.__to_latex_rec(symbol_library, bare_numbers)}$"
 
-    def __to_latex_rec(self, symbol_library, num_const=0) -> Tuple[str, int]:
-        left, num_const = ("", num_const) if self.left is None else self.left.__to_latex_rec(symbol_library, num_const)
-        right, num_const = (
-            ("", num_const) if self.right is None else self.right.__to_latex_rec(symbol_library, num_const)
-        )
+    def __to_latex_rec(self, symbol_library: SymbolLibrary, bare_numbers: Iterator[str]) -> str:
+        left = "" if self.left is None else self.left.__to_latex_rec(symbol_library, bare_numbers)
+        right = "" if self.right is None else self.right.__to_latex_rec(symbol_library, bare_numbers)
 
         if is_float(self.symbol):
-            return str(self.symbol), num_const
+            return str(self.symbol)
         elif symbol_library.get_type(self.symbol) == "const":
-            return symbol_library.get_latex_str(self.symbol).format(num_const), num_const + 1
+            # A labelled constant shows its label's number, a bare one the next unused number.
+            labelled = self.symbol not in symbol_library.symbols
+            number = self.symbol.rpartition("_")[2] if labelled else next(bare_numbers)
+            return symbol_library.get_latex_str(self.symbol).format(number)
         elif symbol_library.get_type(self.symbol) in ["var", "lit"]:
-            return symbol_library.get_latex_str(self.symbol), num_const
+            return symbol_library.get_latex_str(self.symbol)
         elif symbol_library.get_type(self.symbol) == "fn":
             template = symbol_library.get_latex_str(self.symbol)
             grouped, _ = (_latex_placeholders(template) or ((False, False),))[0]
             if self.left is not None and not grouped and not _is_latex_atom(self.left, symbol_library):
                 left = f"({left})"
-            return template.format(left), num_const
+            return template.format(left)
         elif symbol_library.get_type(self.symbol) == "op":
             template = symbol_library.get_latex_str(self.symbol)
             placeholders = _latex_placeholders(template) + ((False, False),) * 2
@@ -238,7 +244,7 @@ class Node:
                 self.right, placeholders[1], precedence, True, symbol_library
             ):
                 right = f"({right})"
-            return template.format(left, right), num_const
+            return template.format(left, right)
         else:
             raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
 
@@ -458,13 +464,72 @@ def _as_tokens(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: 
     return expr
 
 
-def _count_constants(tokens: List[str], symbol_library: SymbolLibrary) -> int:
-    """Return the number of free constants in a token list: the tokens of type ``"const"``.
+def _constant_indices(tokens: List[str], symbol_library: SymbolLibrary) -> List[int]:
+    """Return the parameter index of each free constant in ``tokens``, in token order.
 
-    Each occurrence counts, since each is a separate free parameter. The single definition of the
-    count, shared by the ``max_constants`` limit, the parameter estimator and BED.
+    Parameters are numbered by first appearance: every bare constant (a registered ``"const"``
+    symbol, e.g. ``C``) is a new parameter, a labelled constant (``C_5``) gets one at its first
+    occurrence and keeps it. Operands keep their order in infix, prefix and postfix, so the
+    numbering is the same in every notation. The single definition of the order, shared by the
+    compiler and [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels].
     """
-    return sum(1 for token in tokens if symbol_library.get_type(token) == "const")
+    slots: Dict[str, int] = {}
+    indices: List[int] = []
+    num_parameters = 0
+    for token in tokens:
+        if symbol_library.get_type(token) != "const":
+            continue
+        if token in symbol_library.symbols:
+            indices.append(num_parameters)
+            num_parameters += 1
+        else:
+            if token not in slots:
+                slots[token] = num_parameters
+                num_parameters += 1
+            indices.append(slots[token])
+    return indices
+
+
+def parameter_labels(
+    expr: Union[List[str], "Node"], symbol_library: Optional[SymbolLibrary] = None
+) -> List[Optional[str]]:
+    """Name the entries of a parameter vector.
+
+    The fitted values of an expression ([ModelResult.parameters][SRToolkit.utils.types.ModelResult],
+    the ``C`` argument of [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]) are a flat
+    array. This function says which constant each entry belongs to: its label (``C_5``), or ``None``
+    for a bare ``C``. A label is one entry however often it occurs; each bare ``C`` is its own entry.
+
+    Args:
+        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].
+        symbol_library: Symbol library used to recognise constants. ``None`` uses the active or
+            default library.
+
+    Returns:
+        One entry per parameter, in the order of the parameter vector.
+
+    Raises:
+        TypeError: If ``expr`` is neither a list of token strings nor a
+            [Node][SRToolkit.utils.expression_tree.Node].
+
+    Examples:
+        >>> expr = ["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C", "*", "C_5"]
+        >>> labels = parameter_labels(expr)
+        >>> labels
+        [None, 'C_5', None]
+        >>> {label: v for label, v in zip(labels, [0.5, 2.0, -1.0]) if label is not None}
+        {'C_5': 2.0}
+    """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
+    tokens = _as_tokens(expr, symbol_library)
+    constants = [token for token in tokens if symbol_library.get_type(token) == "const"]
+    indices = _constant_indices(tokens, symbol_library)
+    labels: List[Optional[str]] = [None] * len(set(indices))
+    for token, index in zip(constants, indices):
+        if token not in symbol_library.symbols:
+            labels[index] = token
+    return labels
 
 
 def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notation: str = "infix") -> Node:
@@ -713,6 +778,8 @@ def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str)
 
 def expr_to_latex(expr: Union[Node, List[str]], symbol_library: Optional[SymbolLibrary] = None) -> str:
     """Convert an expression to a LaTeX string.
+
+    Constants are numbered as in [Node.to_latex][SRToolkit.utils.expression_tree.Node.to_latex].
 
     Examples:
         >>> expr_to_latex(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())

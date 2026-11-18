@@ -19,7 +19,7 @@ from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
 from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult, ResultAugmenter, evaluate_metric
 from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
-from SRToolkit.utils.expression_tree import _count_constants
+from SRToolkit.utils.expression_tree import _constant_indices
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 if TYPE_CHECKING:
@@ -495,7 +495,7 @@ class HoldoutMetric(ResultAugmenter):
             return float("nan")
 
     def _has_constants(self, expr: list) -> bool:
-        return _count_constants(expr, self.symbol_library) > 0
+        return len(_constant_indices(expr, self.symbol_library)) > 0
 
     def _fit_parameters(self, expr: list) -> Tuple[float, np.ndarray]:
         """Fit the free constants in *expr* against the held-out data (used when a model carries no

@@ -3,7 +3,8 @@
 The primary interface are two functions:
 
 - [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]:
-  returns a callable ``f(X, C) → np.ndarray``.
+  returns a callable ``f(X, C) → np.ndarray``; ``C`` holds one value per free parameter (see
+  [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]).
 - [compile_expr_rmse][SRToolkit.utils.expression_compiler.compile_expr_rmse]:
   returns an RMSE callable ``f(X, C, y) → float``.
 
@@ -36,7 +37,7 @@ single vectorised NumPy function with less per-instruction dispatch overhead.
 import importlib.util as _ilu
 import pathlib as _pl
 import warnings
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -48,6 +49,7 @@ from SRToolkit.utils import _eval_cython as _eval  # type: ignore[attr-defined]
 from SRToolkit.utils.expression_tree import (
     Node,
     _as_tree,
+    _constant_indices,
     is_float,
     tokens_to_tree,  # noqa: F401  (used by the doctests)
 )
@@ -111,8 +113,14 @@ def _columns_used(token_ids: np.ndarray, extra_int: np.ndarray) -> int:
     return int(var_columns.max()) + 1 if var_columns.size else 0
 
 
+def _num_parameters(token_ids: np.ndarray, extra_int: np.ndarray) -> int:
+    """Return the number of parameters an instruction array reads from ``C`` (highest index + 1)."""
+    indices = extra_int[token_ids == _eval.CONST]
+    return int(indices.max()) + 1 if indices.size else 0
+
+
 def _check_num_constants(C: Optional[np.ndarray], num_constants: int) -> None:
-    """Raise if *C* holds fewer values than the expression has free constants.
+    """Raise if *C* holds fewer values than the expression has free parameters.
 
     Every backend calls this, so they fail the same way; the Cython evaluator does not
     bounds-check ``C`` and would otherwise read past the end of the array.
@@ -180,7 +188,9 @@ def _expr_to_executable_function(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     tree = _as_tree(expr, symbol_library)
-    code, symbol, _, num_constants = _tree_to_function_rec(tree, symbol_library)
+    slots = _constant_indices(tree.to_list(symbol_library, notation="postfix"), symbol_library)
+    code, symbol, _ = _tree_to_function_rec(tree, symbol_library, iter(slots))
+    num_constants = len(set(slots))
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C):\n"
     if num_constants > 0:
@@ -235,7 +245,9 @@ def _expr_to_error_function(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     tree = _as_tree(expr, symbol_library)
-    code, symbol, _, num_constants = _tree_to_function_rec(tree, symbol_library)
+    slots = _constant_indices(tree.to_list(symbol_library, notation="postfix"), symbol_library)
+    code, symbol, _ = _tree_to_function_rec(tree, symbol_library, iter(slots))
+    num_constants = len(set(slots))
 
     fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C, y):\n"
     if num_constants > 0:
@@ -252,9 +264,9 @@ def _expr_to_error_function(
 def _tree_to_function_rec(
     tree: Node,
     symbol_library: SymbolLibrary,
+    const_slots: Iterator[int],
     var_counter: int = 0,
-    const_counter: int = 0,
-) -> Tuple[List[str], str, int, int]:
+) -> Tuple[List[str], str, int]:
     """Recursively convert a parse tree into lines of Python code for expression evaluation.
 
     This is a low-level helper used by the codegen backend of [compile_expr][SRToolkit.utils.expression_compiler.compile_expr] and
@@ -264,13 +276,13 @@ def _tree_to_function_rec(
     Args:
         tree: Root of the subtree to convert.
         symbol_library: Provides NumPy function strings for each token.
+        const_slots: Index into ``C`` of each remaining constant, in traversal order (see
+            ``_constant_indices``); one is consumed per constant leaf.
         var_counter: Running count of intermediate variables, used to generate unique
             names. Default ``0``.
-        const_counter: Running count of constants consumed; used to index into the ``C``
-            array. Default ``0``.
 
     Returns:
-        A 4-tuple ``(code, symbol, var_counter, const_counter)`` where ``code`` is a list of Python assignment strings forming the expression body, ``symbol`` is the name of the variable holding this subtree's result, and ``var_counter`` / ``const_counter`` are the updated counters.
+        A 3-tuple ``(code, symbol, var_counter)`` where ``code`` is a list of Python assignment strings forming the expression body, ``symbol`` is the name of the variable holding this subtree's result, and ``var_counter`` is the updated counter.
 
     Raises:
         Exception: If the tree contains a token that is neither a recognized symbol nor
@@ -278,45 +290,36 @@ def _tree_to_function_rec(
     """
     if tree.left is None and tree.right is None:
         if symbol_library.get_type(tree.symbol) == "var":
-            return [], symbol_library.get_np_fn(tree.symbol), var_counter, const_counter
+            return [], symbol_library.get_np_fn(tree.symbol), var_counter
         elif symbol_library.get_type(tree.symbol) == "lit":
             output_symbol = "y_{}".format(var_counter)
             code = [f"{output_symbol} = np.full(X.shape[0], {symbol_library.get_np_fn(tree.symbol)})"]
-            return code, output_symbol, var_counter + 1, const_counter
+            return code, output_symbol, var_counter + 1
         elif symbol_library.get_type(tree.symbol) == "const":
-            return (
-                [],
-                symbol_library.get_np_fn(tree.symbol).format(const_counter),
-                var_counter,
-                const_counter + 1,
-            )
+            return [], symbol_library.get_np_fn(tree.symbol).format(next(const_slots)), var_counter
         else:
             if is_float(tree.symbol):
-                return [], f"({tree.symbol})", var_counter, const_counter
+                return [], f"({tree.symbol})", var_counter
             else:
                 raise Exception(f"Encountered invalid symbol {tree.symbol} while converting to function.")
 
     elif tree.left is not None and tree.right is None:
-        code, symbol, var_counter, const_counter = _tree_to_function_rec(
-            tree.left, symbol_library, var_counter, const_counter
-        )
+        code, symbol, var_counter = _tree_to_function_rec(tree.left, symbol_library, const_slots, var_counter)
         output_symbol = "y_{}".format(var_counter)
         code.append(f"{output_symbol} = " + symbol_library.get_np_fn(tree.symbol).format(symbol))
-        return code, output_symbol, var_counter + 1, const_counter
+        return code, output_symbol, var_counter + 1
 
     else:
         assert tree.right is not None, "Right child should be present in this branch."
         assert tree.left is not None, "Left child should be present if right child is present."
-        left_code, left_symbol, var_counter, const_counter = _tree_to_function_rec(
-            tree.left, symbol_library, var_counter, const_counter
-        )
-        right_code, right_symbol, var_counter, const_counter = _tree_to_function_rec(
-            tree.right, symbol_library, var_counter, const_counter
+        left_code, left_symbol, var_counter = _tree_to_function_rec(tree.left, symbol_library, const_slots, var_counter)
+        right_code, right_symbol, var_counter = _tree_to_function_rec(
+            tree.right, symbol_library, const_slots, var_counter
         )
         output_symbol = "y_{}".format(var_counter)
         code = left_code + right_code
         code.append(f"{output_symbol} = " + symbol_library.get_np_fn(tree.symbol).format(left_symbol, right_symbol))
-        return code, output_symbol, var_counter + 1, const_counter
+        return code, output_symbol, var_counter + 1
 
 
 # ── Stack evaluator backend ──────────────────────────────────────────────
@@ -378,7 +381,7 @@ def _build_partial_instructions(
     extra_int_list: List,
     float_vals_list: List,
     python_ops_list: List,
-    const_counter: List,  # one-element list used as a mutable int
+    const_slots: Iterator[int],
 ) -> None:
     """Recursively emit postfix instructions, substituting CACHED leaves for
     pre-evaluated constant-free subtrees.
@@ -397,10 +400,9 @@ def _build_partial_instructions(
     if stype == "const":
         token_ids_list.append(_eval.CONST)
         arities_list.append(0)
-        extra_int_list.append(const_counter[0])
+        extra_int_list.append(next(const_slots))
         float_vals_list.append(0.0)
         python_ops_list.append(None)
-        const_counter[0] += 1
 
     elif stype == "fn":  # unary: recurse into left child, then emit fn
         assert node.left is not None
@@ -414,7 +416,7 @@ def _build_partial_instructions(
             extra_int_list,
             float_vals_list,
             python_ops_list,
-            const_counter,
+            const_slots,
         )
         cython_id = symbol_library.get_cython_id(sym)
         arities_list.append(1)
@@ -439,7 +441,7 @@ def _build_partial_instructions(
             extra_int_list,
             float_vals_list,
             python_ops_list,
-            const_counter,
+            const_slots,
         )
         _build_partial_instructions(
             node.right,
@@ -451,7 +453,7 @@ def _build_partial_instructions(
             extra_int_list,
             float_vals_list,
             python_ops_list,
-            const_counter,
+            const_slots,
         )
         cython_id = symbol_library.get_cython_id(sym)
         arities_list.append(2)
@@ -518,7 +520,6 @@ def _prepare_cython_traversal_partial(
     extra_int_list: List = []
     float_vals_list: List = []
     python_ops_list: List = []
-    const_counter = [0]
 
     _build_partial_instructions(
         tree,
@@ -530,7 +531,7 @@ def _prepare_cython_traversal_partial(
         extra_int_list,
         float_vals_list,
         python_ops_list,
-        const_counter,
+        iter(_constant_indices(tree.to_list(symbol_library, notation="postfix"), symbol_library)),
     )
 
     return (
@@ -549,9 +550,8 @@ def _prepare_cython_traversal(
     """Convert an expression into the postfix instruction arrays consumed by the
     Cython evaluator.
 
-    The const-index assignment order matches ``_tree_to_function_rec``: constants
-    are numbered in left-first depth-first traversal order, which is identical
-    to their order of appearance in the postfix token list.
+    Constants read ``C`` at the index ``_constant_indices`` gives them (parameters by first
+    appearance), as in ``_tree_to_function_rec``.
 
     Args:
         expr: Expression as a token list or a Node tree.
@@ -573,7 +573,7 @@ def _prepare_cython_traversal(
     float_vals = np.zeros(n, dtype=np.float64)
     python_ops: List = [None] * n
 
-    const_counter = 0
+    const_slots = iter(_constant_indices(postfix, symbol_library))
 
     for i, token in enumerate(postfix):
         stype = symbol_library.get_type(token)
@@ -585,8 +585,7 @@ def _prepare_cython_traversal(
 
         elif stype == "const":
             token_ids[i] = _eval.CONST
-            extra_int[i] = const_counter
-            const_counter += 1
+            extra_int[i] = next(const_slots)
 
         elif stype == "lit":
             token_ids[i] = _eval.FLOAT
@@ -658,7 +657,7 @@ def _expr_to_cython_callable(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
-    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
+    num_constants = _num_parameters(token_ids, extra_int)
     num_columns = _columns_used(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
@@ -715,7 +714,7 @@ def _expr_to_cython_error_callable(
         )
     else:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
-    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
+    num_constants = _num_parameters(token_ids, extra_int)
     num_columns = _columns_used(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray], y: np.ndarray) -> float:
@@ -767,7 +766,7 @@ def _expr_to_python_callable(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
-    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
+    num_constants = _num_parameters(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
         if num_constants > 0:
@@ -823,7 +822,7 @@ def _expr_to_python_stack_error_callable(
         )
     else:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
-    num_constants = int(np.count_nonzero(token_ids == _eval.CONST))
+    num_constants = _num_parameters(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: Optional[np.ndarray], y: np.ndarray) -> float:
         if num_constants > 0:
@@ -870,10 +869,12 @@ def compile_expr(
               custom symbols.
 
     Returns:
-        A callable ``f(X, C)`` where ``X`` is a 2-D array of shape
-        ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values
-        (pass ``None`` or an empty array for constant-free expressions).
-        Returns a 1-D output array of shape ``(n_samples,)``.
+        A callable ``f(X, C)`` where ``X`` has shape ``(n_samples, n_features)`` and ``C`` holds at
+        least one value per free parameter, in the order of
+        [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] (every occurrence of a
+        labelled constant reads the same entry). Pass ``None`` or an empty array for a
+        constant-free expression; too few values raise ``ValueError`` when ``f`` is called.
+        ``f`` returns an array of shape ``(n_samples,)``.
 
     Raises:
         ValueError: If ``backend`` is not one of the supported values.
@@ -930,9 +931,8 @@ def compile_expr_rmse(
             (e.g. inside an optimiser loop). Ignored for ``backend="codegen"``.
 
     Returns:
-        A callable ``f(X, C, y)`` returning the scalar RMSE as a float. ``C`` is a 1-D
-        array of constant values (pass ``None`` or an empty array for constant-free
-        expressions).
+        A callable ``f(X, C, y)`` returning the scalar RMSE as a float, with ``X`` and ``C`` as in
+        [compile_expr][SRToolkit.utils.expression_compiler.compile_expr].
 
     Raises:
         ValueError: If ``backend`` is not one of the supported values.

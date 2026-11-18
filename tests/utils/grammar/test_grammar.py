@@ -54,7 +54,8 @@ def _two_level_grammar() -> Grammar:
 
 
 def _sl(*symbols: str, n_vars: int = 1) -> SymbolLibrary:
-    return SymbolLibrary.from_symbol_list(list(symbols), n_vars)
+    # The library has the free constant only when "C" is listed.
+    return SymbolLibrary.from_symbol_list(list(symbols), n_vars, const_symbol="C" if "C" in symbols else None)
 
 
 # ---------------------------------------------------------------------------
@@ -1142,7 +1143,7 @@ class TestUnknownTokens:
     def test_symbols_brackets_and_numbers_are_known(self):
         lib = SymbolLibrary.from_symbol_list(["+", "sin"], num_variables=1)
         grammar = Grammar(
-            Rule.from_line("E -> 'sin' '(' E ')' [0.5] | E '+' '2.5' [0.2] | 'X_0' [0.2] | '-1e-3' [0.1]")
+            Rule.from_line("E -> 'sin' '(' E ')' [0.5] | E '+' '2.5' [0.2] | 'C_0' '+' 'X_0' [0.2] | '-1e-3' [0.1]")
         )
         assert grammar.unknown_tokens(lib) == set()
 

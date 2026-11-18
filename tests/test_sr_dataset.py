@@ -75,11 +75,9 @@ class TestSRDatasetInit:
         assert simple_dataset.ranking_function == "rmse"
         assert simple_dataset.success_threshold == 1e-6
 
-    @pytest.mark.parametrize(
-        "symbols, expected", [(["+", "C"], True), (["+", "*"], False)], ids=["with-C", "without-C"]
-    )
-    def test_contains_constants(self, symbols, expected):
-        lib = SymbolLibrary.from_symbol_list(symbols, num_variables=1)
+    @pytest.mark.parametrize("const_symbol, expected", [("C", True), (None, False)], ids=["with-C", "without-C"])
+    def test_contains_constants(self, const_symbol, expected):
+        lib = SymbolLibrary.from_symbol_list(["+"], num_variables=1, const_symbol=const_symbol)
         assert SR_dataset(np.zeros((2, 1)), lib, y=np.zeros(2)).contains_constants is expected
 
     def test_str_bed_describes_bed(self):
@@ -251,13 +249,18 @@ class TestSRDatasetResample:
         with pytest.raises(ValueError, match="samplers"):
             simple_dataset.resample(10)
 
-    def test_resample_free_constant_raises(self):
+    @pytest.mark.parametrize(
+        "ground_truth",
+        [["X_0", "*", "C"], tokens_to_tree(["X_0", "*", "C_1"], SymbolLibrary.default_symbols(1))],
+        ids=["tokens", "tree-with-label"],
+    )
+    def test_resample_free_constant_raises(self, ground_truth):
         # A free constant ("C") has no value to evaluate against during generation.
         # This must raise clearly rather than pass an empty constant array (which the
         # compiled Cython backend would read out of bounds, silently producing garbage).
-        with pytest.raises(ValueError, match="free constant"):
+        with pytest.raises(ValueError, match="ground truth contains a free constant"):
             SR_dataset.from_samplers(
-                ground_truth=["X_0", "*", "C"],
+                ground_truth=ground_truth,
                 samplers=[UniformSampling(0.5, 5.0)],
                 n_samples=16,
                 seed=1,

@@ -101,6 +101,27 @@ class TestEstimateParametersWithConstants:
         assert abs(params[0] - 2.0) < 0.01
 
 
+class TestLabelledConstants:
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    def test_label_is_fitted_as_one_parameter(self, backend):
+        # max_constants=1: the label is one parameter for the limit as well (counted as by MaxConstants).
+        pe = ParameterEstimator(
+            _X, 2.0 * _y_exact, SymbolLibrary.default_symbols(2), seed=0, backend=backend, max_constants=1
+        )
+        error, params = pe.estimate_parameters(["C_0", "*", "X_0", "+", "C_0", "*", "X_1"])
+        assert error < 1e-6
+        np.testing.assert_allclose(params, [2.0], atol=1e-5)
+
+    def test_parameters_follow_first_appearance(self):
+        # Reason: implied (parameters are in parameter_labels order: [C_1, None]).
+        # X_1 = X_0 + 1 on _X, so 5*X_1 + 3*X_0 = 8*X_0 + 5 identifies both constants.
+        y = 5.0 * _X[:, 1] + 3.0 * _X[:, 0]
+        pe = ParameterEstimator(_X, y, SymbolLibrary.default_symbols(2), seed=0)
+        error, params = pe.estimate_parameters(["C_1", "*", "X_1", "+", "C", "*", "X_0"])
+        assert error < 1e-6
+        np.testing.assert_allclose(params, [5.0, 3.0], atol=1e-4)
+
+
 class TestEstimateParametersGuards:
     def test_max_constants_exceeded_returns_nan(self):
         pe = ParameterEstimator(_X, _y_linear, max_constants=0)

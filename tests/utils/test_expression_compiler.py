@@ -47,67 +47,45 @@ class TestTreeToFunctionRec:
 
     def test_var_leaf_returns_np_fn_directly(self):
         tree = Node("X_0")
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
+        code, symbol, vc = _tree_to_function_rec(tree, self.sl, iter([]))
         assert code == []
         assert symbol == "X[:, 0]"
         assert vc == 0
-        assert cc == 0
 
     def test_var_second_column(self):
         tree = Node("X_1")
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
+        code, symbol, vc = _tree_to_function_rec(tree, self.sl, iter([]))
         assert symbol == "X[:, 1]"
 
     def test_lit_leaf_generates_np_full(self):
         tree = Node("pi")
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
+        code, symbol, vc = _tree_to_function_rec(tree, self.sl, iter([]))
         assert len(code) == 1
         assert "np.full" in code[0]
         assert symbol == "y_0"
         assert vc == 1
-        assert cc == 0
-
-    def test_const_leaf_returns_c_index(self):
-        tree = Node("C")
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
-        assert code == []
-        assert "0" in symbol
-        assert vc == 0
-        assert cc == 1
-
-    def test_multiple_consts_get_sequential_indices(self):
-        # C + C  ->  two consts, indexed 0 and 1
-        left = Node("C")
-        right = Node("C")
-        tree = Node("+", right=right, left=left)
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
-        assert cc == 2
-        # both C[0] and C[1] should appear in the generated code
-        full_code = " ".join(code)
-        assert "C[0]" in full_code or "0" in full_code
-        assert "C[1]" in full_code or "1" in full_code
 
     def test_float_leaf_returns_bracketed_symbol_string(self):
         tree = Node("1.5")
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
+        code, symbol, vc = _tree_to_function_rec(tree, self.sl, iter([]))
         assert code == []
         assert symbol == "(1.5)"
 
     def test_unknown_leaf_raises(self):
         tree = Node("??invalid??")
         with pytest.raises(Exception, match="invalid symbol"):
-            _tree_to_function_rec(tree, self.sl)
+            _tree_to_function_rec(tree, self.sl, iter([]))
 
     def test_unary_fn(self):
         tree = Node("sin", left=Node("X_0"))
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
+        code, symbol, vc = _tree_to_function_rec(tree, self.sl, iter([]))
         assert len(code) == 1
         assert "np.sin" in code[0]
         assert "X[:, 0]" in code[0]
 
     def test_binary_op(self):
         tree = Node("+", left=Node("X_0"), right=Node("X_1"))
-        code, symbol, vc, cc = _tree_to_function_rec(tree, self.sl)
+        code, symbol, vc = _tree_to_function_rec(tree, self.sl, iter([]))
         assert len(code) == 1
         assert "X[:, 0]" in code[0]
         assert "X[:, 1]" in code[0]
@@ -116,7 +94,7 @@ class TestTreeToFunctionRec:
         # sin(sin(X_0)) — two intermediates
         inner = Node("sin", left=Node("X_0"))
         outer = Node("sin", left=inner)
-        code, symbol, vc, cc = _tree_to_function_rec(outer, self.sl)
+        code, symbol, vc = _tree_to_function_rec(outer, self.sl, iter([]))
         assert vc == 2
         assert symbol == "y_1"
 
@@ -292,7 +270,7 @@ class TestBuildPartialInstructions:
         self.sl = _sl(2)
 
     def _empty_lists(self):
-        return [], [], [], [], [], [0]
+        return [], [], [], [], [], iter([0, 1])
 
     def test_cached_node_emits_cached(self):
         node = Node("X_0")
@@ -304,14 +282,6 @@ class TestBuildPartialInstructions:
         assert tok[0] == _eval.CACHED
         assert ari[0] == 0
         assert po[0] is cached_array
-
-    def test_const_node_emits_const_and_increments_counter(self):
-        node = Node("C")
-        tok, ari, ei, fv, po, cc = self._empty_lists()
-        _build_partial_instructions(node, self.sl, set(), {}, tok, ari, ei, fv, po, cc)
-        assert tok[0] == _eval.CONST
-        assert ei[0] == 0
-        assert cc[0] == 1
 
     def test_fn_with_cython_id_emits_cython_id(self):
         # sin(C): sin has a positive cython_id
@@ -330,7 +300,7 @@ class TestBuildPartialInstructions:
         sl.add_symbol("myfn", "fn", 5, "np.sin({})")
         c = Node("C")
         tree = Node("myfn", left=c)
-        tok, ari, ei, fv, po, cc = [], [], [], [], [], [0]
+        tok, ari, ei, fv, po, cc = [], [], [], [], [], iter([0, 1])
         _build_partial_instructions(tree, sl, set(), {}, tok, ari, ei, fv, po, cc)
         assert tok[1] == _eval.PYTHON
         assert callable(po[1])
@@ -352,7 +322,7 @@ class TestBuildPartialInstructions:
         c1 = Node("C")
         c2 = Node("C")
         tree = Node("myop", left=c1, right=c2)
-        tok, ari, ei, fv, po, cc = [], [], [], [], [], [0]
+        tok, ari, ei, fv, po, cc = [], [], [], [], [], iter([0, 1])
         _build_partial_instructions(tree, sl, set(), {}, tok, ari, ei, fv, po, cc)
         assert tok[2] == _eval.PYTHON
         assert callable(po[2])
@@ -822,9 +792,22 @@ class TestTooFewConstants:
 
     @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
     @pytest.mark.parametrize("C", [np.array([]), np.array([1.0]), None])
-    def test_compile_expr_raises(self, backend, C):
-        f = compile_expr(self.expr, self.sl, backend=backend)
+    @pytest.mark.parametrize(
+        "expr",
+        [["X_0", "*", "C", "+", "C"], ["C_0", "+", "C_0", "+", "C"]],
+        ids=["bare", "label-counted-once"],
+    )
+    def test_compile_expr_raises(self, backend, C, expr):
+        f = compile_expr(expr, self.sl, backend=backend)
         with pytest.raises(ValueError, match="2 free constant"):
+            f(self.X, C)
+
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    @pytest.mark.parametrize("C", [np.array([]), None], ids=["empty", "none"])
+    def test_one_parameter_raises(self, backend, C):
+        # Boundary: one parameter (a label read twice) with no value for it.
+        f = compile_expr(["C_0", "*", "X_0", "+", "C_0"], self.sl, backend=backend)
+        with pytest.raises(ValueError, match="1 free constant"):
             f(self.X, C)
 
     @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
@@ -838,3 +821,31 @@ class TestTooFewConstants:
     def test_enough_constants_evaluates(self, backend):
         f = compile_expr(self.expr, self.sl, backend=backend)
         np.testing.assert_allclose(f(self.X, np.array([2.0, 0.0])), [2.0, 4.0, 6.0])
+
+
+# ---------------------------------------------------------------------------
+# Labelled constants: one parameter per label, same order on every backend
+# ---------------------------------------------------------------------------
+
+_BACKENDS = ["stack", "stack_py", "codegen"]
+
+
+class TestLabelledConstants:
+    X = _X([1.0, 2.0], [3.0, -4.0], [0.5, 6.0])
+
+    @pytest.mark.parametrize("backend", _BACKENDS)
+    def test_mixed_expression_reads_parameters_by_first_appearance(self, backend):
+        # Parameters: C (0), C_1 (1), C (2); C_1 is read twice.
+        tokens = ["C", "*", "X_0", "+", "C_1", "*", "X_1", "+", "C", "+", "C_1"]
+        C = np.array([1.0, 10.0, 100.0])
+        expected = self.X[:, 0] + 10.0 * self.X[:, 1] + 100.0 + 10.0
+        np.testing.assert_allclose(compile_expr(tokens, _sl(), backend=backend)(self.X, C), expected)
+
+    @pytest.mark.parametrize("backend", _BACKENDS)
+    @pytest.mark.parametrize("precompute", [False, True], ids=["plain", "precomputed-subtrees"])
+    def test_rmse_reads_parameters_by_first_appearance(self, backend, precompute):
+        # Parameters: C (0), C_1 (1), C (2); sin(X_0) and X_1 are constant-free subtrees.
+        tokens = ["C", "*", "sin", "(", "X_0", ")", "+", "C_1", "*", "X_1", "+", "C", "+", "C_1"]
+        y = np.sin(self.X[:, 0]) + 10.0 * self.X[:, 1] + 100.0 + 10.0
+        f = compile_expr_rmse(tokens, _sl(), backend=backend, X=self.X if precompute else None)
+        assert f(self.X, np.array([1.0, 10.0, 100.0]), y) == pytest.approx(0.0, abs=1e-12)

@@ -54,7 +54,7 @@ import zss
 from scipy.stats.qmc import LatinHypercube
 
 from .expression_compiler import _variable_column, compile_expr
-from .expression_tree import Node, _as_tree, _count_constants
+from .expression_tree import Node, _as_tree, _constant_indices
 from .symbol_library import SymbolLibrary
 
 _NOTATIONS = ("infix", "prefix", "postfix")
@@ -211,10 +211,10 @@ def create_behavior_matrix(
 ) -> np.ndarray:
     """Evaluate an expression at the points ``X`` for many sampled constant vectors.
 
-    Column ``j`` holds the expression's values at ``X`` with the ``j``-th constant vector. Each
-    occurrence of a constant symbol is a separate free parameter; with ``n_consts`` occurrences, the
+    Column ``j`` holds the expression's values at ``X`` with the ``j``-th constant vector. With
+    ``n_consts`` free parameters (see [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]), the
     constant vectors are one Latin Hypercube sample of ``num_consts_sampled`` points in the
-    ``n_consts``-dimensional box with every constant in ``[lower, upper)`` (``consts_bounds``). A
+    ``n_consts``-dimensional box with every parameter in ``[lower, upper)`` (``consts_bounds``). A
     constant-free expression gives ``num_consts_sampled`` identical columns. Non-finite outputs
     (``nan``, ``±inf``) are kept. NumPy floating-point warnings are suppressed during the call, and
     NumPy's error settings are restored afterwards. Sampling is random unless ``seed`` is set.
@@ -263,7 +263,7 @@ def create_behavior_matrix(
 
     tree = _as_tree(expr, symbol_library, "expr")
     tokens = tree.to_list(symbol_library=symbol_library, notation="postfix")
-    num_constants = _count_constants(tokens, symbol_library)
+    num_constants = len(set(_constant_indices(tokens, symbol_library)))
     callable_expr = compile_expr(tree, symbol_library, backend=backend)
 
     with np.errstate(all="ignore"):

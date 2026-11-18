@@ -2,12 +2,10 @@
 The functions in this script are work in progress and will be improved in the future for better accuracy and performance.
 """
 
-import re
+import itertools
 from typing import List, Optional, Union
 
-import numpy as np
-from sympy import Basic, Expr, expand, sympify
-from sympy import symbols as sp_symbols
+from sympy import Basic, Expr, Symbol, expand, sympify
 from sympy.core import Add, Mul, Pow
 
 from SRToolkit.utils.expression_tree import Node, _as_tokens, is_float
@@ -26,6 +24,10 @@ def simplify(
        (e.g. ``X_0 * X_1 / X_0`` → ``X_1``).
     2. **Constant folding** — collapses any sub-expression containing no variables
        into a single free constant ``C`` (e.g. ``C * C + C`` → ``C``).
+
+    A labelled constant (``C_0``) is one symbol however often it occurs, so ``C_0 - C_0``
+    cancels. A label that still occurs more than once is kept and not folded, since folding it
+    would add parameters; every other constant folds into the bare free constant.
 
     Examples:
         >>> expr = ["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"]
@@ -49,19 +51,20 @@ def simplify(
     is_tree = isinstance(expr, Node)
     expr = _as_tokens(expr, symbol_library)
 
-    variables = symbol_library.get_symbols_of_type("var")
+    variables = [Symbol(v) for v in symbol_library.get_symbols_of_type("var")]
+    c = Symbol(symbol_library.constant_symbol or "__C__")
 
-    # We expect only one symbol for constants
-    if len(symbol_library.get_symbols_of_type("const")) > 0:
-        constant = symbol_library.get_symbols_of_type("const")[0]
-    else:
-        # In this case constants shouldn't be problematic as they are not in the SymbolLibrary
-        # Just in case and to not change other functions, I changed it to __C__.
-        constant = "__C__"
+    # A shared label is kept as its own symbol and never folded, like a variable. Every other
+    # constant gets a symbol of its own and folds freely.
+    labels = [t for t in expr if symbol_library.get_type(t) == "const" and t not in symbol_library.symbols]
+    shared = {t for t in labels if labels.count(t) > 1}
+    variables += [Symbol(t) for t in shared]
+    counter = itertools.count()
+    tokens = [f"_{next(counter)}_" if symbol_library.get_type(t) == "const" and t not in shared else t for t in expr]
 
-    expr = _simplify_expression("".join(expr), constant, variables)
-    expr = sympify(_denumerate_constants(str(expr), constant), evaluate=False)
-    expr = _sympy_to_sr(expr)
+    eq = _simplify_constants(sympify("".join(tokens)), c, variables)[2][0][1]
+    eq = _simplify_constants(expand(_enumerate_constants(eq, c)), c, variables)[2][0][1]
+    expr = _sympy_to_sr(eq)
     if not _check_tree(expr, symbol_library):
         raise Exception(
             "Simplified expression contains invalid symbols. Possibly skip its simplification or add symbols to the SymbolLibrary."
@@ -83,7 +86,7 @@ def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
     Returns:
         ``True`` if all nodes are valid, ``False`` if any token is absent and non-numeric.
     """
-    if expr.symbol not in symbol_library.symbols and not is_float(expr.symbol):
+    if symbol_library.get_type(expr.symbol) == "" and not is_float(expr.symbol):
         return False
     if isinstance(expr.left, Node) and not _check_tree(expr.left, symbol_library):
         return False
@@ -207,64 +210,13 @@ def _simplify_constants(eq, c, var):
             return True in has_var, True in has_c, [(eq, eq.func(*args))]
 
 
-def _enumerate_constants(expr, constant):
-    """Replace each occurrence of the constant token with a uniquely numbered version.
+def _enumerate_constants(eq: Basic, c: Symbol) -> Basic:
+    """Replace each occurrence of ``c`` in ``eq`` with a new symbol, so folding treats them apart."""
+    counter = itertools.count()
 
-    Example: ``C*x**2 + C*x + C`` → ``C0*x**2 + C1*x + C2``
+    def rec(e: Basic) -> Basic:
+        if e == c:
+            return Symbol(f"_{next(counter)}_")
+        return e.func(*[rec(a) for a in e.args]) if e.args else e
 
-    Args:
-        expr: String or SymPy expression containing unnumbered constants
-            (converted to a string via ``str()`` before processing).
-        constant: Character string used as the constant token (e.g. ``"C"``).
-
-    Returns:
-        A 2-tuple ``(numbered_expr, constants)`` where ``numbered_expr`` is the SymPy
-        expression with enumerated constants and ``constants`` is a tuple of the
-        generated constant name strings.
-    """
-    char_list = np.array(list(str(expr)), dtype="<U16")
-    constind = np.where(char_list == constant)[0]
-    # Rename all constants: C -> C0, C1, ... by index
-    constants = [constant + str(i) for i in range(len(constind))]
-    char_list[constind] = constants
-    return sympify("".join(char_list)), tuple(constants)
-
-
-def _denumerate_constants(expr, constant):
-    """Remove the numeric suffix from all constant tokens in a string expression.
-
-    Inverse of ``_enumerate_constants``: ``"C0*x + C1"`` → ``"C*x + C"``.
-
-    Args:
-        expr: String representation of the expression with enumerated constants.
-        constant: Base constant token string (e.g. ``"C"``).
-
-    Returns:
-        Expression string with all ``C<n>`` occurrences replaced by ``C``.
-    """
-    return re.sub(f"{constant}\\d", constant, expr)
-
-
-def _simplify_expression(expr_str, constant, variables):
-    """Apply full algebraic simplification to an expression string.
-
-    Performs two rounds of constant folding around a SymPy ``expand`` call to produce
-    a canonical form.
-
-    Args:
-        expr_str: Infix expression as a concatenated token string (no spaces).
-        constant: Token string representing the free constant (e.g. ``"C"``).
-        variables: Token strings representing the input variables.
-
-    Returns:
-        Simplified SymPy expression object.
-    """
-    x = [sp_symbols(s.strip("'")) for s in variables]
-    c = sp_symbols(constant)
-
-    expr, _ = _enumerate_constants(expr_str, constant)
-    expr = _simplify_constants(expr, c, x)[2][0][1]
-    expr, _ = _enumerate_constants(expr, constant)
-    expr = expand(expr)
-    expr = _simplify_constants(expr, c, x)[2][0][1]
-    return expr
+    return rec(eq)

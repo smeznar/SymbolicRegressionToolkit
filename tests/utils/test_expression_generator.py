@@ -12,7 +12,7 @@ class TestGenerateNExpressions:
         assert len(exprs) == 10
 
     def test_non_unique_allows_duplicates(self):
-        sl = SymbolLibrary.from_symbol_list([], num_variables=1)
+        sl = SymbolLibrary.from_symbol_list([], num_variables=1, const_symbol=None)
         exprs = generate_n_expressions(sl, 3, unique=False, verbose=False, max_expression_length=1)
         assert exprs == [["X_0"], ["X_0"], ["X_0"]]
 

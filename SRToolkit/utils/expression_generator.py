@@ -28,7 +28,7 @@ def generate_n_expressions(
     Examples:
         >>> len(generate_n_expressions(SymbolLibrary.default_symbols(5), 100, verbose=False))
         100
-        >>> generate_n_expressions(SymbolLibrary.from_symbol_list([], 1), 3, unique=False, verbose=False, max_expression_length=1)
+        >>> generate_n_expressions(SymbolLibrary.from_symbol_list([], 1, const_symbol=None), 3, unique=False, verbose=False, max_expression_length=1)
         [['X_0'], ['X_0'], ['X_0']]
 
     Args:

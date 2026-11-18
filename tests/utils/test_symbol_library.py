@@ -5,14 +5,14 @@ from fractions import Fraction
 import pytest
 
 from SRToolkit.utils.expression_tree import tokens_to_tree
-from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.symbol_library import LEAF, SymbolLibrary
 from SRToolkit.utils.units import UnitRule
 
 
 class TestSymbolLibraryInit:
     def test_empty_init(self):
         lib = SymbolLibrary()
-        assert lib.symbols == {}
+        assert list(lib.symbols) == ["C"]  # every library gets the free constant
         assert lib.num_variables == 0
         assert lib.preamble == ["import numpy as np"]
 
@@ -29,7 +29,7 @@ class TestSymbolLibraryInit:
         assert lib.num_variables == 2
 
     def test_only_num_variables(self):
-        lib = SymbolLibrary(num_variables=2)
+        lib = SymbolLibrary(num_variables=2, const_symbol=None)
         assert "X_0" in lib.symbols
         assert "X_1" in lib.symbols
         assert lib.num_variables == 2
@@ -40,7 +40,7 @@ class TestSymbolLibraryInit:
             SymbolLibrary(["not_a_real_symbol"], num_variables=0)
 
     def test_empty_list_produces_empty_library(self):
-        lib = SymbolLibrary([])
+        lib = SymbolLibrary([], const_symbol=None)
         assert lib.symbols == {}
         assert lib.num_variables == 0
 
@@ -60,6 +60,12 @@ class TestSymbolLibraryAddSymbol:
         lib = SymbolLibrary()
         lib.add_symbol("sin", "fn", 5, "np.sin({})")
         assert lib.symbols["sin"]["latex_str"] == r"\text{{sin}} {}"
+
+    def test_auto_latex_const_numbers_constants(self):
+        # Reason: spec (the free constant's default template takes the constant's number).
+        lib = SymbolLibrary.from_symbol_list(["+"], 0, const_symbol=None)
+        lib.add_symbol("C", "const", LEAF, "C[{}]")
+        assert tokens_to_tree(["C_1", "+", "C"], lib).to_latex(lib) == r"$C_{1} + C_{0}$"
 
     def test_auto_latex_other(self):
         lib = SymbolLibrary()
@@ -92,7 +98,7 @@ class TestSymbolLibraryAddSymbol:
         assert lib.num_variables == 2
 
     def test_duplicate_token_overwrites(self):
-        lib = SymbolLibrary()
+        lib = SymbolLibrary(const_symbol=None)
         lib.add_symbol("+", "op", 0, "first")
         lib.add_symbol("+", "op", 1, "second")
         assert lib.symbols["+"]["np_fn"] == "second"
@@ -134,6 +140,91 @@ class TestSymbolLibraryGetType:
     def test_returns_empty_string_for_unknown_symbol(self):
         lib = SymbolLibrary()
         assert lib.get_type("unknown") == ""
+
+
+class TestLabelledConstants:
+    @pytest.mark.parametrize(
+        "label, base",
+        [("C_3", "C"), ("C_017", "C"), ("K_2", "K"), ("K_a_3", "K_a")],
+        ids=["C", "leading-zeros", "renamed-constant", "name-with-underscore"],
+    )
+    def test_label_resolves_to_its_const_symbol(self, label, base):
+        lib = SymbolLibrary.default_symbols(1, const_symbol=base)
+        getters = [
+            lib.get_type, lib.get_precedence, lib.get_np_fn, lib.get_cython_id, lib.get_latex_str, lib.get_unit_rule,
+        ]  # fmt: skip
+        assert [g(label) for g in getters] == [g(base) for g in getters]
+        # Labels are recognised, not registered.
+        assert lib.get_symbols_of_type("const") == [base]
+        assert label not in lib.symbols2index()
+
+    @pytest.mark.parametrize(
+        "token",
+        [
+            "C_", "C_a", "C_1.5", "C_-1", "C_\u0661", "pi_1", "X_0_1", "D_1",
+            "C_1\n", "C_+1", "C_ 1", "C_1_0", "C_\u00b2",
+        ],
+    )  # fmt: skip
+    def test_other_suffixed_tokens_are_unknown(self, token):
+        assert SymbolLibrary.default_symbols(1).get_type(token) == ""
+
+    def test_registered_symbol_takes_precedence(self):
+        lib = SymbolLibrary.from_symbol_list(["+", "C"], num_variables=1)
+        lib.add_symbol("C_1", "lit", 1000, "1.5")
+        assert lib.get_type("C_1") == "lit"
+        assert lib.get_type("C_2") == "const"
+
+
+_CONSTRUCTORS = {
+    "init": lambda const_symbol: SymbolLibrary(["+"], 1, const_symbol=const_symbol),
+    "from_symbol_list": lambda const_symbol: SymbolLibrary.from_symbol_list(["+"], 1, const_symbol=const_symbol),
+    "default_symbols": lambda const_symbol: SymbolLibrary.default_symbols(1, const_symbol=const_symbol),
+}
+
+
+class TestOneFreeConstant:
+    @pytest.mark.parametrize("constructor", list(_CONSTRUCTORS))
+    @pytest.mark.parametrize(
+        "const_symbol, consts", [("C", ["C"]), ("K", ["K"]), (None, [])], ids=["default", "renamed", "none"]
+    )
+    def test_const_symbol_names_the_only_constant(self, constructor, const_symbol, consts):
+        lib = _CONSTRUCTORS[constructor](const_symbol)
+        assert lib.constant_symbol == const_symbol
+        assert lib.get_symbols_of_type("const") == consts
+
+    def test_listing_the_constant_is_allowed(self):
+        lib = SymbolLibrary.from_symbol_list(["C", "+"], num_variables=1)
+        assert lib.get_symbols_of_type("const") == ["C"]
+
+    def test_redefining_the_constant_is_allowed(self):
+        lib = SymbolLibrary()
+        lib.add_symbol("C", "const", 1000, "C[{}]", r"c_{{{}}}")
+        assert (lib.constant_symbol, lib.get_latex_str("C")) == ("C", r"c_{{{}}}")
+
+    def test_adding_a_constant_to_a_library_without_one(self):
+        lib = SymbolLibrary(const_symbol=None)
+        lib.add_symbol("K", "const", 1000, "K[{}]")
+        assert lib.constant_symbol == "K"
+
+    @pytest.mark.parametrize(
+        "make, match",
+        [
+            (lambda: SymbolLibrary().add_symbol("K", "const", 1000, "K[{}]"), "at most one"),
+            (lambda: SymbolLibrary.from_symbol_list(["C"], 1, const_symbol="K"), r"Unknown symbols \['C'\]"),
+            (lambda: SymbolLibrary.from_symbol_list(["C"], 1, const_symbol=None), r"Unknown symbols \['C'\]"),
+            (lambda: SymbolLibrary.from_dict(_dict_with_two_constants()), "At most one free constant"),
+        ],
+        ids=["add-second", "listed-C-renamed", "listed-C-none", "from-dict-two"],
+    )
+    def test_second_constant_raises(self, make, match):
+        with pytest.raises(ValueError, match=match):
+            make()
+
+
+def _dict_with_two_constants():
+    d = SymbolLibrary(["+"], 1).to_dict()
+    d["symbols"]["K"] = {**d["symbols"]["C"], "symbol": "K"}
+    return d
 
 
 class TestSymbolLibraryGetPrecedence:
@@ -186,7 +277,7 @@ class TestSymbolLibraryGetSymbolsOfType:
 
 class TestSymbolLibrarySymbols2Index:
     def test_returns_correct_index_mapping(self):
-        lib = SymbolLibrary()
+        lib = SymbolLibrary(const_symbol=None)
         lib.add_symbol("x", "var", 0, "x")
         lib.add_symbol("y", "var", 0, "y")
         lib.add_symbol("+", "op", 0, "{} + {}")
@@ -195,7 +286,7 @@ class TestSymbolLibrarySymbols2Index:
         assert lib.symbols2index() == {"y": 0, "+": 1}
 
     def test_empty_library_returns_empty_dict(self):
-        lib = SymbolLibrary()
+        lib = SymbolLibrary(const_symbol=None)
         assert lib.symbols2index() == {}
 
 
@@ -277,7 +368,7 @@ class TestSymbolLibraryFromDict:
 
 class TestSymbolLibraryLen:
     def test_returns_symbol_count(self):
-        lib = SymbolLibrary()
+        lib = SymbolLibrary(const_symbol=None)
         assert len(lib) == 0
         lib.add_symbol("x", "var", 0, "x")
         assert len(lib) == 1
@@ -289,13 +380,13 @@ class TestSymbolLibraryLen:
 
 class TestSymbolLibraryStr:
     def test_returns_comma_separated_tokens(self):
-        lib = SymbolLibrary()
+        lib = SymbolLibrary(const_symbol=None)
         lib.add_symbol("x", "var", 0, "x")
         lib.add_symbol("+", "op", 0, "{} + {}")
         assert str(lib) == "x, +"
 
     def test_empty_library_returns_empty_string(self):
-        assert str(SymbolLibrary()) == ""
+        assert str(SymbolLibrary(const_symbol=None)) == ""
 
 
 class TestSymbolLibraryCopy:

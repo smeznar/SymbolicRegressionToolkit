@@ -176,8 +176,9 @@ class TestSREvaluatorInitRmse:
         assert se.evaluate_expr(["X_0", "+", "X_1"]) == pytest.approx(0.0)
 
     def test_rmse_ground_truth_with_free_constant_rejected(self):
-        with pytest.raises(ValueError, match="free constant"):
-            SR_evaluator(_X, ground_truth=["X_0", "+", "C"], ranking_function="rmse", seed=0)
+        # The message names the offending tokens.
+        with pytest.raises(ValueError, match=r"containing a free constant \(C, C_1\)"):
+            SR_evaluator(_X, ground_truth=["X_0", "+", "C_1", "+", "C"], ranking_function="rmse", seed=0)
 
     def test_rmse_default_success_threshold_is_1e7(self):
         se = SR_evaluator(_X, _y, seed=0, success_threshold=None)

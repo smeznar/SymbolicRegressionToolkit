@@ -293,6 +293,13 @@ class TestCreateBehaviorMatrix:
         X = np.zeros((n, 1))
         assert create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=k, seed=0).shape == (n, k)
 
+    def test_label_is_sampled_as_one_constant(self):
+        # Reason: clause (n_consts counts parameters; a label is one dimension of the sample).
+        X = np.random.default_rng(0).normal(size=(5, 2))
+        labelled = create_behavior_matrix(["C_0", "*", "X_0", "+", "C_0", "*", "X_1"], X, seed=0)
+        bare = create_behavior_matrix(["C", "*", "(", "X_0", "+", "X_1", ")"], X, seed=0)
+        np.testing.assert_allclose(labelled, bare)
+
     def test_constant_free_columns_equal_direct_evaluation(self):
         # Reason: clause (constant-free gives identical columns; X_i reads column i).
         X = np.random.default_rng(0).normal(size=(6, 3))

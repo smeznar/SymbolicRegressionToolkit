@@ -61,7 +61,7 @@ def _check_no_free_constants(ground_truth: Union[List[str], Node], symbol_librar
     """Raise if *ground_truth* contains a free constant, which leaves ``y`` undefined.
 
     Generating ``y`` requires a fully specified ground truth: a free constant ("const" token,
-    e.g. ``C``) has no value to evaluate.
+    e.g. ``C`` or ``C_1``) has no value to evaluate.
 
     Args:
         ground_truth: Ground-truth expression as a token list or a Node tree.
@@ -72,10 +72,10 @@ def _check_no_free_constants(ground_truth: Union[List[str], Node], symbol_librar
         ValueError: If the ground truth contains a free constant.
     """
     tokens = ground_truth if isinstance(ground_truth, list) else ground_truth.to_list(symbol_library)
-    const_symbols = set(symbol_library.get_symbols_of_type("const"))
-    if any(tok in const_symbols for tok in tokens):
+    found = sorted({t for t in tokens if symbol_library.get_type(t) == "const"})
+    if found:
         raise ValueError(
-            f"{context} ground truth contains a free constant ({', '.join(sorted(const_symbols))}), which has "
+            f"{context} ground truth contains a free constant ({', '.join(found)}), which has "
             "no value to evaluate. Sampler-based generation requires a fully specified ground truth — replace "
             "the free constant with a concrete value (e.g. a literal) or a sub-expression."
         )

@@ -43,7 +43,7 @@ from .expression_constraints import (
 )
 from .expression_generator import generate_n_expressions
 from .expression_simplifier import simplify
-from .expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, tokens_to_tree
+from .expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, parameter_labels, tokens_to_tree
 from .grammar import (
     AncestorInfo,
     Derivation,
@@ -127,6 +127,7 @@ __all__ = [
     "tokens_to_tree",
     "ExpressionParseError",
     "is_float",
+    "parameter_labels",
     "compile_expr",
     "compile_expr_rmse",
     "simplify",

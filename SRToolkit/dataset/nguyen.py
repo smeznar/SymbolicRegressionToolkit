@@ -63,9 +63,10 @@ class Nguyen(SR_benchmark):
                 [UrlSource(url), SampleSource(n_samples=self._n_samples, seed=seed)]
             )
         # we create a SymbolLibrary with 1 and with 2 variables
-        # Each library contains +, -, *, /, sin, cos, exp, log, sqrt, ^2, ^3
-        sl_1v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt", "^2", "^3"], 1)
-        sl_2v = SymbolLibrary.from_symbol_list(["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt", "^2", "^3"], 2)
+        # Each library contains +, -, *, /, sin, cos, exp, log, sqrt, ^2, ^3 and no free constant
+        symbols = ["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt", "^2", "^3"]
+        sl_1v = SymbolLibrary.from_symbol_list(symbols, 1, const_symbol=None)
+        sl_2v = SymbolLibrary.from_symbol_list(symbols, 2, const_symbol=None)
 
         self.metadata = {
             "description": "Symbolic regression benchmark with 10 expressions that don't contain constant "

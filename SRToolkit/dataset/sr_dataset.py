@@ -309,9 +309,7 @@ class SR_dataset:
             self._validate_aux_key(key)
             self.aux_data[key] = value if isinstance(value, DataSplit) else DataSplit(dict(value))
 
-        # See if symbols contain a symbol for constants
-        symbols_metadata = self.symbol_library.symbols.values()
-        self.contains_constants = any([symbol["type"] == "const" for symbol in symbols_metadata])
+        self.contains_constants = self.symbol_library.constant_symbol is not None
 
         self.seed = seed
         self.dataset_metadata = dataset_metadata

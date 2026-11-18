@@ -426,7 +426,7 @@ class BackgroundKnowledge:
 
         Examples:
             >>> from SRToolkit.utils import SymbolLibrary
-            >>> bk = BackgroundKnowledge(SymbolLibrary.from_symbol_list(["+", "*"], num_variables=1),
+            >>> bk = BackgroundKnowledge(SymbolLibrary.from_symbol_list(["+", "*"], num_variables=1, const_symbol=None),
             ...     description="Toy task", variables={"X_0": VariableInfo("x", "position")})
             >>> print(bk.describe())
             Task: Toy task
@@ -450,7 +450,7 @@ class BackgroundKnowledge:
                 text = info.describe()
                 lines.append(f"  {token}: {text}" if text else f"  {token}")
         lines.append(f"Symbols: {self.symbol_library}")
-        if self.symbol_library.get_symbols_of_type("const"):
+        if self.symbol_library.constant_symbol is not None:
             lower, upper = self.constant_bounds
             lines.append(f"Free constants are fitted in [{lower}, {upper}].")
         if self.samplers is not None and len(self.samplers) > 0:

@@ -390,7 +390,7 @@ class Grammar:
     def unknown_tokens(self, symbol_library: SymbolLibrary) -> set[str]:
         """Return the terminal tokens that expressions over ``symbol_library`` cannot contain.
 
-        A terminal is known if it is a symbol of the library, a bracket or a number (any token
+        A terminal is known if it is a symbol of the library or a labelled constant, a bracket or a number (any token
         ``float()`` accepts except ``nan``, as in
         [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree]). Library symbols the
         grammar does not use are fine.
@@ -408,11 +408,10 @@ class Grammar:
         Returns:
             The unknown terminal tokens; empty if the grammar fits the library.
         """
-        known = set(symbol_library.symbols2index()) | {"(", ")"}
         unknown = set()
         for rule in self._rules:
             for token in rule.rhs:
-                if token in self.nonterminals or token in known:
+                if token in self.nonterminals or token in ("(", ")") or symbol_library.get_type(token) != "":
                     continue
                 try:
                     if not math.isnan(float(token)):
@@ -731,7 +730,7 @@ class Grammar:
         R_fns = [s["symbol"] for s in symbols if s["type"] == FN and s["precedence"] == FN_PREFIX]
         P_fns = [s["symbol"] for s in symbols if s["type"] == FN and s["precedence"] == FN_POSTFIX]
         variables = [s["symbol"] for s in symbols if s["type"] == VAR]
-        consts = [s["symbol"] for s in symbols if s["type"] == CONST]
+        consts = [s["symbol"] for s in symbols if s["type"] == CONST]  # at most one
         lits = [s["symbol"] for s in symbols if s["type"] == LIT]
 
         if not variables and not consts and not lits:

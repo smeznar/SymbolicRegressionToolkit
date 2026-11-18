@@ -49,13 +49,29 @@ _default_sl: Optional["SymbolLibrary"] = None
 
 class SymbolLibrary:
     def __init__(
-        self, symbols: Optional[List[str]] = None, num_variables: int = 0, preamble: Optional[List[str]] = None
+        self,
+        symbols: Optional[List[str]] = None,
+        num_variables: int = 0,
+        preamble: Optional[List[str]] = None,
+        const_symbol: Optional[str] = "C",
     ) -> None:
         """A registry of tokens and their properties, used throughout the toolkit to parse,
         compile, and generate symbolic expressions.
 
         By default, the library uses NumPy for operator and function evaluation. To use a
         different backend, pass the required import statements via ``preamble``.
+
+        A library has at most one free constant, a ``"const"`` symbol ``s`` (``C`` by default, see
+        ``const_symbol``). It also knows the *labelled constants* ``<s>_<n>``, ``n`` one or more
+        digits (``C_0``, ``C_17``). They are not entries of ``symbols``, but every token lookup
+        (``get_type``, ``get_precedence``, ``get_np_fn``, ``get_cython_id``, ``get_latex_str``,
+        ``get_unit_rule``) treats them as ``s``. All occurrences of a labelled constant are one
+        parameter, each occurrence of ``s`` is a new one.
+        The label is the whole token, so ``C_1`` and ``C_01`` are different parameters. A registered
+        symbol takes precedence: in a library with a ``"lit"`` named ``C_1``, ``C_1`` is that named
+        constant. Free constants, bare or labelled, are parameters of an expression; a known value
+        that belongs to the task and has a name of its own (e.g. ``g``) is a named constant
+        (``"lit"``) instead.
 
         Examples:
             >>> library = SymbolLibrary()
@@ -71,20 +87,24 @@ class SymbolLibrary:
             >>> # You can also initialize the library with a list of symbols (listed in SymbolLibrary.default_symbols)
             >>> # and the number of variables.
             >>> library2 = SymbolLibrary(["+", "*", "sin"], num_variables=2)
-            >>> len(library2)
-            5
+            >>> len(library2)  # with the free constant C
+            6
             >>> # Use as a context manager to avoid passing sl explicitly
             >>> # with SymbolLibrary.default_symbols(num_variables=2) as sl:
             >>> #     tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
 
         Args:
-            symbols: Symbols to pre-populate from the default set. ``None`` with
-                ``num_variables=0`` produces an empty library; with ``num_variables > 0``,
-                only variable tokens are added. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
+            symbols: Symbols to pre-populate from the default set. ``None`` adds none besides the
+                variables and the free constant. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
             num_variables: Number of variable tokens to add, labeled ``X_0`` through
                 ``X_{num_variables-1}``. Default is ``0``.
             preamble: Import statements prepended to compiled expression functions.
                 Defaults to ``["import numpy as np"]``.
+            const_symbol: Name of the free constant; ``None`` for a library without one. A renamed
+                constant ``K`` is shown in LaTeX as ``K_{0}``, ``K_{1}``, … (``{K_a}_{0}`` for
+                ``K_a``); use
+                [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol] for other
+                properties.
 
         Attributes:
             symbols: Mapping from token string to its property dict (type, precedence,
@@ -102,12 +122,14 @@ class SymbolLibrary:
         if symbols is None and num_variables == 0:
             self.symbols: Dict[str, Any] = dict()
             self.num_variables = 0
+            if const_symbol is not None:
+                self._add_constant(const_symbol)
         else:
-            if symbols is None:
-                symbols = []
-
-            self.symbols = SymbolLibrary.from_symbol_list(symbols, num_variables).symbols
+            self.symbols = SymbolLibrary.from_symbol_list(symbols or [], num_variables, const_symbol).symbols
             self.num_variables = num_variables
+
+    def _add_constant(self, name: str) -> None:
+        self.add_symbol(name, "const", LEAF, "np.full(X.shape[0], C[{}])")
 
     def add_symbol(
         self,
@@ -129,13 +151,17 @@ class SymbolLibrary:
         - ``"lit"``: named constant, a symbol with a fixed value (e.g. ``pi``, ``e``). Elsewhere in
           the toolkit "named constant" always means a ``"lit"`` symbol.
         - ``"const"``: free constant whose value is optimised during parameter estimation
-          (e.g. ``C``). Using a single ``"const"`` token is recommended; multiple tokens
-          increase complexity and reduce readability.
+          (e.g. ``C``). Each occurrence is a separate parameter; a labelled constant (``C_0``) is
+          one parameter however often it occurs (see
+          [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]). A library has at most
+          one ``"const"`` symbol.
         - ``"var"``: input variable whose values are read from the data array ``X``.
 
         If ``latex_str`` is omitted, a default template is generated based on the symbol type:
         ``"{} \text{symb} {}"`` for operators (e.g. ``+`` → ``{} \text{+} {}``),
         ``"\text{symb} {}"`` for functions (e.g. ``sin`` → ``\text{sin} {}``),
+        ``"symb_{}"`` for the free constant (``{}`` takes the constant's number, see
+        [Node.to_latex][SRToolkit.utils.expression_tree.Node.to_latex]),
         and ``"\text{symb}"`` for all other types.
 
         Note:
@@ -195,6 +221,8 @@ class SymbolLibrary:
         Raises:
             ValueError: If ``symbol_type`` is not one of the valid types, or if an operator has a
                 negative precedence (infix reconstruction would then never bracket its operands);
+                if ``symbol_type`` is ``"const"`` and the library already has another ``"const"``
+                symbol;
                 if ``unit_rule`` is given for a symbol that is not an ``"op"`` or ``"fn"``, or does
                 not accept the symbol's number of arguments (2 for ``"op"``, 1 for ``"fn"``).
             TypeError: If ``unit_rule`` is not a [UnitRule][SRToolkit.utils.units.UnitRule] or
@@ -204,12 +232,19 @@ class SymbolLibrary:
             raise ValueError(f"Invalid symbol type '{symbol_type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
         if symbol_type == "op" and precedence < 0:
             raise ValueError(f"Operator '{symbol}' has precedence {precedence}; operators need a precedence >= 0.")
+        if symbol_type == "const" and self.constant_symbol not in (None, symbol):
+            raise ValueError(
+                f"Cannot add free constant '{symbol}': the library already has '{self.constant_symbol}', "
+                "and a library has at most one. Use labelled constants (C_0, C_1, ...) for shared parameters."
+            )
 
         if latex_str is None:
             if symbol_type == "op":
                 latex_str = r"{} \text{{" + symbol + r"}} {}"
             elif symbol_type == "fn":
                 latex_str = r"\text{{" + symbol + r"}} {}"
+            elif symbol_type == "const":
+                latex_str = ("{{" + symbol + "}}" if "_" in symbol else symbol) + "_{{{}}}"
             else:
                 latex_str = r"\text{{" + symbol + r"}}"
 
@@ -241,7 +276,7 @@ class SymbolLibrary:
         """Remove a token from the library.
 
         Examples:
-            >>> library = SymbolLibrary()
+            >>> library = SymbolLibrary(const_symbol=None)
             >>> library.add_symbol("x", "var", 0, "x")
             >>> len(library.symbols)
             1
@@ -257,6 +292,30 @@ class SymbolLibrary:
         """
         del self.symbols[symbol]
 
+    @property
+    def constant_symbol(self) -> Optional[str]:
+        """The free constant (the ``"const"`` symbol), or ``None`` if the library has none.
+
+        Examples:
+            >>> SymbolLibrary.default_symbols().constant_symbol
+            'C'
+            >>> print(SymbolLibrary(["+"], 1, const_symbol=None).constant_symbol)
+            None
+        """
+        return next((s for s, entry in self.symbols.items() if entry["type"] == "const"), None)
+
+    def _entry(self, symbol: str) -> Optional[Dict[str, Any]]:
+        # The entry of a registered symbol, else that of the free constant s for a labelled
+        # constant "<s>_<digits>", else None. Every getter resolves tokens through this.
+        entry = self.symbols.get(symbol)
+        if entry is not None:
+            return entry
+        base, _, label = symbol.rpartition("_")
+        entry = self.symbols.get(base)
+        if entry is not None and entry["type"] == "const" and label.isascii() and label.isdigit():
+            return entry
+        return None
+
     def get_type(self, symbol: str) -> str:
         """Return the type of a symbol.
 
@@ -265,17 +324,18 @@ class SymbolLibrary:
             >>> library.add_symbol("x", "var", 0, "x")
             >>> library.get_type("x")
             'var'
+            >>> SymbolLibrary.default_symbols(1).get_type("C_3")  # a labelled constant
+            'const'
 
         Args:
             symbol: Token to look up.
 
         Returns:
-            The type string (``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``) if the symbol is in the library, otherwise an empty string.
+            The type string (``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``) if ``symbol`` is a symbol of the library or a labelled
+            constant, otherwise an empty string.
         """
-        if symbol in self.symbols:
-            return self.symbols[symbol]["type"]
-        else:
-            return ""
+        entry = self._entry(symbol)
+        return "" if entry is None else entry["type"]
 
     def get_precedence(self, symbol: str) -> int:
         """Return the precedence of a symbol.
@@ -292,10 +352,8 @@ class SymbolLibrary:
         Returns:
             The precedence value if the symbol is in the library, otherwise ``-1``.
         """
-        if symbol in self.symbols:
-            return self.symbols[symbol]["precedence"]
-        else:
-            return -1
+        entry = self._entry(symbol)
+        return -1 if entry is None else entry["precedence"]
 
     def get_np_fn(self, symbol: str) -> str:
         """Return the NumPy function string for a symbol.
@@ -312,10 +370,8 @@ class SymbolLibrary:
         Returns:
             The NumPy function string if the symbol is in the library, otherwise an empty string.
         """
-        if symbol in self.symbols:
-            return self.symbols[symbol]["np_fn"]
-        else:
-            return ""
+        entry = self._entry(symbol)
+        return "" if entry is None else entry["np_fn"]
 
     def get_cython_id(self, symbol: str) -> int:
         """Return the Cython stack machine dispatch ID for a symbol.
@@ -339,9 +395,8 @@ class SymbolLibrary:
             Integer dispatch ID, or ``-1`` if the symbol is not in the library
             or has no Cython implementation.
         """
-        if symbol in self.symbols:
-            return self.symbols[symbol].get("cython_id", -1)
-        return -1
+        entry = self._entry(symbol)
+        return -1 if entry is None else entry.get("cython_id", -1)
 
     def get_latex_str(self, symbol: str) -> str:
         """Return the LaTeX template string for a symbol.
@@ -358,10 +413,8 @@ class SymbolLibrary:
         Returns:
             The LaTeX template string if the symbol is in the library, otherwise an empty string.
         """
-        if symbol in self.symbols:
-            return self.symbols[symbol]["latex_str"]
-        else:
-            return ""
+        entry = self._entry(symbol)
+        return "" if entry is None else entry["latex_str"]
 
     def get_unit_rule(self, symbol: str) -> Optional[UnitRule]:
         """Return how a symbol combines the physical units of its arguments.
@@ -377,7 +430,7 @@ class SymbolLibrary:
             >>> SymbolLibrary.default_symbols(1).get_unit_rule("sqrt")
             UnitRule.power(Fraction(1, 2))
         """
-        rule = self.symbols.get(symbol, {}).get("unit_rule")
+        rule = (self._entry(symbol) or {}).get("unit_rule")
         return None if rule is None else UnitRule.from_dict(rule)
 
     def get_symbols_of_type(self, symbol_type: str) -> List[str]:
@@ -409,7 +462,7 @@ class SymbolLibrary:
         """Return a mapping from each token to its index in insertion order.
 
         Examples:
-            >>> library = SymbolLibrary()
+            >>> library = SymbolLibrary(const_symbol=None)
             >>> library.add_symbol("x", "var", 0, "x")
             >>> library.add_symbol("y", "var", 0, "y")
             >>> print(library.symbols2index())
@@ -424,36 +477,48 @@ class SymbolLibrary:
         return {s: i for i, s in enumerate(self.symbols.keys())}
 
     @staticmethod
-    def from_symbol_list(symbols: List[str], num_variables: int = 25) -> "SymbolLibrary":
+    def from_symbol_list(
+        symbols: List[str], num_variables: int = 25, const_symbol: Optional[str] = "C"
+    ) -> "SymbolLibrary":
         """Create a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] containing only the specified subset of default symbols.
 
         The supported token names are those defined in [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        The free constant is always included (listing it is allowed); ``const_symbol=None`` leaves
+        it out.
 
         Examples:
-            >>> library = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
-            >>> len(library.symbols)
-            5
+            >>> library = SymbolLibrary.from_symbol_list(["+", "*"], num_variables=2)
+            >>> library.symbols.keys()
+            dict_keys(['+', '*', 'C', 'X_0', 'X_1'])
+            >>> SymbolLibrary.from_symbol_list(["+"], num_variables=1, const_symbol=None).symbols.keys()
+            dict_keys(['+', 'X_0'])
 
         Args:
             symbols: Token strings to include.
             num_variables: Number of variable tokens (``X_0`` through ``X_{num_variables-1}``).
                 Default is ``25``.
+            const_symbol: Name of the free constant, as in
+                [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
         Returns:
-            A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] restricted to the requested symbols and variables.
+            A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] restricted to the requested symbols, the variables
+            and the free constant.
 
         Raises:
-            ValueError: If ``symbols`` contains a name that is not in the default set, such as a
+            ValueError: If ``symbols`` contains a name that is not in the default set (``C`` is
+                not when ``const_symbol`` names another constant or is ``None``), such as a
                 whole expression like ``"x/(a + x)"``. Expressions are built from tokens
                 (``/``, ``+``, ``C``, variables), their shape can be restricted with a custom
                 [Grammar][SRToolkit.utils.grammar.Grammar], and custom tokens are added with
                 [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol].
         """
-        sl = SymbolLibrary.default_symbols(num_variables)
+        sl = SymbolLibrary.default_symbols(num_variables, const_symbol)
         unknown = [s for s in symbols if s not in sl.symbols]
         if unknown:
             if any(re.fullmatch(r"X_\d+", s) for s in unknown):
                 hint = f"Only variables X_0..X_{num_variables - 1} exist; increase num_variables."
+            elif "C" in unknown:
+                hint = f"The free constant is named by const_symbol (here {const_symbol!r})."
             else:
                 hint = (
                     "Build expressions such as 'X/(C + X)' from tokens ('/', '+', 'C', variables), "
@@ -464,8 +529,7 @@ class SymbolLibrary:
                 f"(see SymbolLibrary.default_symbols). {hint}"
             )
 
-        variables = [f"X_{i}" for i in range(num_variables)]
-        symbols = symbols + variables
+        symbols = symbols + [f"X_{i}" for i in range(num_variables)] + ([const_symbol] if const_symbol else [])
 
         all_symbols = list(sl.symbols.keys())
         for symbol in all_symbols:
@@ -475,7 +539,7 @@ class SymbolLibrary:
         return sl
 
     @staticmethod
-    def default_symbols(num_variables: int = 25) -> "SymbolLibrary":
+    def default_symbols(num_variables: int = 25, const_symbol: Optional[str] = "C") -> "SymbolLibrary":
         """Return a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] pre-populated with standard mathematical symbols.
 
         Supported tokens:
@@ -485,7 +549,7 @@ class SymbolLibrary:
           ``arcsin``, ``arccos``, ``arctan``, ``sinh``, ``cosh``, ``tanh``, ``floor``,
           ``ceil``, ``ln``, ``log``, ``^-1``, ``^2``, ``^3``, ``^4``, ``^5``
         - **Named constants** (``"lit"``): ``pi``, ``e``
-        - **Free constant** (``"const"``): ``C``
+        - **Free constant** (``"const"``): ``C``, or ``const_symbol``
         - **Variables** (``"var"``): ``X_0`` through ``X_{num_variables-1}``,
           mapped to columns of the input array in order.
 
@@ -502,11 +566,13 @@ class SymbolLibrary:
 
         Args:
             num_variables: Number of variable tokens to include. Default is ``25``.
+            const_symbol: Name of the free constant, as in
+                [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
         Returns:
             A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] populated with the symbols listed above.
         """
-        sl = SymbolLibrary()
+        sl = SymbolLibrary(const_symbol=None)
         sl.add_symbol(
             "+",
             symbol_type="op",
@@ -694,13 +760,8 @@ class SymbolLibrary:
             np_fn="np.e",
             latex_str=r"e",
         )
-        sl.add_symbol(
-            "C",
-            symbol_type="const",
-            precedence=LEAF,
-            np_fn="np.full(X.shape[0], C[{}])",
-            latex_str=r"C_{{{}}}",
-        )
+        if const_symbol is not None:
+            sl._add_constant(const_symbol)
 
         if num_variables > 0:
             for i in range(num_variables):
@@ -815,7 +876,8 @@ class SymbolLibrary:
             The reconstructed [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
         Raises:
-            ValueError: If ``d["format_version"]`` is not ``1``, or a saved unit rule is invalid
+            ValueError: If ``d["format_version"]`` is not ``1``, the library has more than one
+                ``"const"`` symbol, or a saved unit rule is invalid
                 (see [UnitRule.from_dict][SRToolkit.utils.units.UnitRule.from_dict]) or does not
                 accept its symbol's number of arguments, as in
                 [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol].
@@ -824,8 +886,11 @@ class SymbolLibrary:
             raise ValueError(
                 f"[SymbolLibrary.from_dict] Unsupported format_version: {d.get('format_version')!r}. Expected 1."
             )
-        sl = SymbolLibrary()
+        sl = SymbolLibrary(const_symbol=None)
         sl.symbols = {token: dict(entry) for token, entry in d["symbols"].items()}
+        consts = [token for token, entry in sl.symbols.items() if entry["type"] == "const"]
+        if len(consts) > 1:
+            raise ValueError(f"[SymbolLibrary.from_dict] At most one free constant is allowed, got {consts}.")
         for token, entry in sl.symbols.items():
             if entry["type"] not in ("op", "fn"):
                 continue
@@ -856,7 +921,7 @@ class SymbolLibrary:
         r"""Return a comma-separated string of all registered token strings.
 
         Examples:
-            >>> library = SymbolLibrary()
+            >>> library = SymbolLibrary(const_symbol=None)
             >>> library.add_symbol("x", "var", 0, "x", "x")
             >>> str(library)
             'x'
@@ -873,7 +938,7 @@ class SymbolLibrary:
         r"""Return a copy of the library with independent copies of all attributes.
 
         Examples:
-            >>> old_symbols = SymbolLibrary()
+            >>> old_symbols = SymbolLibrary(const_symbol=None)
             >>> old_symbols.add_symbol("x", "var", 0, "x", "x")
             >>> print(old_symbols)
             x
@@ -887,7 +952,7 @@ class SymbolLibrary:
         Returns:
             A new [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] instance with deep-copied symbols and preamble.
         """
-        sl = SymbolLibrary()
+        sl = SymbolLibrary(const_symbol=None)
         sl.symbols = copy.deepcopy(self.symbols)
         sl.preamble = copy.deepcopy(self.preamble)
         sl.num_variables = self.num_variables

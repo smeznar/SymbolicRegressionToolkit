@@ -106,7 +106,8 @@ class RankingSettings(TypedDict, total=False):
         initialization: Constant initialization strategy. ``"random"`` samples
             uniformly within ``constant_bounds``; ``"mean"`` sets all constants
             to the midpoint. Default: ``"random"``.
-        max_constants: Maximum number of free constants in an expression, an ``int`` or numpy
+        max_constants: Maximum number of free constants in an expression (counted as by
+            [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]), an ``int`` or numpy
             integer (``bool`` and other types raise ``ValueError``). For the evaluator, a
             shorthand for the required constraint
             [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]: an expression
@@ -235,8 +236,9 @@ class ModelResult:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
         error: Numeric error under the ranking function (RMSE or BED). By convention ``+inf``
             unless ``status`` is ``"ok"``; this is not validated.
-        parameters: Fitted constant values, shape ``(n_constants,)``. Set by the RMSE ranking
-            only. ``None`` for other rankings and when nothing was fitted.
+        parameters: Fitted values, one per free parameter in the order of
+            [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels], shape
+            ``(n_parameters,)``. Set by the RMSE ranking only. ``None`` for other rankings and when nothing was fitted.
         ranking_data: Freeform payload carried over from the
             [RankingResult][SRToolkit.evaluation.ranking.RankingResult] ``extra`` dict of the
             ranking function that scored this expression. Empty for rankings that emit nothing

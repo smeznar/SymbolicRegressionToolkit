@@ -9,7 +9,7 @@ from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
 from SRToolkit.utils.expression_constraints import _validate_limit
-from SRToolkit.utils.expression_tree import Node, _as_tokens, _count_constants
+from SRToolkit.utils.expression_tree import Node, _as_tokens, _constant_indices
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import RankingSettings
 
@@ -114,8 +114,10 @@ class ParameterEstimator:
                 [Node][SRToolkit.utils.expression_tree.Node] tree.
 
         Returns:
-            A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the 1-D array of
-            constants that gave it (empty if the expression has none). If no evaluation was finite
+            A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the parameter
+            values that gave it, one per free parameter in the order of
+            [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] (empty if there
+            are none). If no evaluation was finite
             (e.g. the expression is undefined on ``X``), ``rmse`` is non-finite (``nan`` or
             ``inf``) and ``parameters`` is the optimizer's final point. ``(NaN, [])`` if the
             expression violates ``max_constants`` or ``max_expr_length``.
@@ -173,7 +175,7 @@ class ParameterEstimator:
         # Count on the infix token list, brackets included, as SR_evaluator does, so both apply the
         # limits identically. (For a Node, len() would count tree nodes, without brackets.)
         tokens = _as_tokens(expr, self.symbol_library)
-        num_constants = _count_constants(tokens, self.symbol_library)
+        num_constants = len(set(_constant_indices(tokens, self.symbol_library)))
         if 0 <= self.estimation_settings["max_constants"] < num_constants:
             return np.nan, np.array([]), {}
         if 0 <= self.estimation_settings["max_expr_length"] < len(tokens):

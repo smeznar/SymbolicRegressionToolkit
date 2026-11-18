@@ -20,7 +20,10 @@ u.m, S = u.m, u.s
 
 
 def _lib(num_variables=2, symbols=("+", "*", "C")):
-    return SymbolLibrary.from_symbol_list(list(symbols), num_variables=num_variables)
+    # A library has the free constant only when "C" is listed, as before libraries always had one.
+    return SymbolLibrary.from_symbol_list(
+        list(symbols), num_variables=num_variables, const_symbol="C" if "C" in symbols else None
+    )
 
 
 def _lib_with_c():

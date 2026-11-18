@@ -68,10 +68,8 @@ def assert_result(result, expected):
     assert type(result.amount) is float
 
 
-def lib_with_extra_const():
-    library = lib(1)
-    library.add_symbol("K", "const", 5, "C[{}]")
-    return library
+def lib_with_renamed_const():
+    return SymbolLibrary.default_symbols(1, const_symbol="K")
 
 
 def lib_vars_y_then_x():
@@ -368,9 +366,22 @@ class TestMaxConstants:
             (2, ["C", "*", "X_0", "+", "C"], lambda: lib(1), PASS),
             (0, ["C"], lambda: lib(1), fail("1 constants, limit 0", 1.0)),
             (0, ["pi", "*", "X_0", "+", "2"], lambda: lib(1), PASS),
-            (1, ["K", "*", "C"], lib_with_extra_const, fail("2 constants, limit 1", 1.0)),
+            (1, ["K", "*", "K_1", "*", "C"], lib_with_renamed_const, fail("2 constants, limit 1", 1.0)),
+            (
+                1,
+                ["C_1", "*", "X_0", "+", "C_1", "*", "X_0", "+", "C"],
+                lambda: lib(1),
+                fail("2 constants, limit 1", 1.0),
+            ),
         ],
-        ids=["over", "at-limit", "zero-limit", "named-constants-not-counted", "library-decides"],
+        ids=[
+            "over",
+            "at-limit",
+            "zero-limit",
+            "named-constants-not-counted",
+            "library-decides",
+            "label-counted-once-over",
+        ],
     )
     def test_max_constants_pre_check_table(self, limit, tokens, make_lib, expected):
         assert_result(set_up(MaxConstants(limit), make_lib()).pre_check(tokens), expected)
@@ -508,6 +519,13 @@ class TestMaxSymbolCount:
                 fail("'cos', 'sin' occur 1 times together, limit 0", 1.0),
             ),
             (["sin"], 0, ["sin", "(", "X_0", ")"], fail("'sin' occurs 1 times, limit 0", 1.0)),
+            ("C", 1, ["C_0", "*", "X_0", "+", "C_0"], PASS),
+            (
+                ["C", "sin"],
+                2,
+                ["C_0", "*", "sin", "(", "X_0", ")", "+", "C_0", "+", "C"],
+                fail("'C', 'sin' occur 3 times together, limit 2", 1.0),
+            ),
         ],
         ids=[
             "over",
@@ -520,6 +538,8 @@ class TestMaxSymbolCount:
             "group-at-limit",
             "group-duplicates-dropped",
             "group-of-one-like-single",
+            "constant-counts-parameters",
+            "constant-parameters-plus-other-symbols",
         ],
     )
     def test_max_symbol_count_pre_check_table(self, symbol, limit, tokens, expected):
@@ -583,6 +603,7 @@ class TestNoNesting:
                 ["cos", "(", "sin", "(", "X_0", ")", ")", "+", "sin", "(", "cos", "(", "X_0", ")", ")"],
                 fail("'sin' nested inside 'cos'", 2.0),
             ),
+            (["sin", "C"], ["sin", "(", "C_0", "*", "X_0", ")"], fail("'C_0' nested inside 'sin'", 1.0)),
         ],
         ids=[
             "cross-nesting",
@@ -596,6 +617,7 @@ class TestNoNesting:
             "outer-is-first-in-pre-order",
             "inner-is-first-below-outer",
             "left-operand-before-right",
+            "label-belongs-to-constant-group",
         ],
     )
     def test_no_nesting_pre_check_table(self, group, tokens, expected):

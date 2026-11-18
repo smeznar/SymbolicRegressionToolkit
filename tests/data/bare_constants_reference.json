@@ -1,0 +1,1834 @@
+{
+ "environment": {
+  "numpy": "2.3.1",
+  "platform": "Linux-x86_64",
+  "python": "3.12",
+  "scipy": "1.15.3"
+ },
+ "values": {
+  "bed|NG-10|codegen|C": "0x1.4d0dad3e38886p+1",
+  "bed|NG-10|codegen|C * X_0": "0x1.81c4b02215996p+4",
+  "bed|NG-10|codegen|C * X_0 + C": "0x1.833daa9f69a7ep+4",
+  "bed|NG-10|codegen|C * X_0 ^2 + C * X_0 + C": "0x1.4237a52e70d74p+8",
+  "bed|NG-10|codegen|C * sin ( X_0 ) + C * cos ( X_1 )": "0x1.2e430103b67dap+1",
+  "bed|NG-10|codegen|C + C + C + C + C + C + C + C + C": "inf",
+  "bed|NG-10|codegen|C / ( X_0 + C )": "0x1.f709691e13ceap+1",
+  "bed|NG-10|codegen|X_0 + C": "0x1.3f84144a5f420p+3",
+  "bed|NG-10|codegen|exp ( C * X_0 ) * C + X_1 * C": "0x1.8ca396f9ccedap+129",
+  "bed|NG-10|codegen|log ( C * X_0 )": "0x1.4ab736217043ep+0",
+  "bed|NG-10|codegen|pi * C * X_0": "0x1.2ebf3775b52a2p+6",
+  "bed|NG-10|codegen|sin ( C * X_0 ) + C": "0x1.53ad3277ab298p+1",
+  "bed|NG-10|stack_py|C": "0x1.4d0dad3e38886p+1",
+  "bed|NG-10|stack_py|C * X_0": "0x1.81c4b02215996p+4",
+  "bed|NG-10|stack_py|C * X_0 + C": "0x1.833daa9f69a7ep+4",
+  "bed|NG-10|stack_py|C * X_0 ^2 + C * X_0 + C": "0x1.4237a52e70d74p+8",
+  "bed|NG-10|stack_py|C * sin ( X_0 ) + C * cos ( X_1 )": "0x1.2e430103b67dap+1",
+  "bed|NG-10|stack_py|C + C + C + C + C + C + C + C + C": "inf",
+  "bed|NG-10|stack_py|C / ( X_0 + C )": "0x1.f709691e13ceap+1",
+  "bed|NG-10|stack_py|X_0 + C": "0x1.3f84144a5f420p+3",
+  "bed|NG-10|stack_py|exp ( C * X_0 ) * C + X_1 * C": "0x1.8ca396f9ccedap+129",
+  "bed|NG-10|stack_py|log ( C * X_0 )": "0x1.4ab736217043ep+0",
+  "bed|NG-10|stack_py|pi * C * X_0": "0x1.2ebf3775b52a2p+6",
+  "bed|NG-10|stack_py|sin ( C * X_0 ) + C": "0x1.53ad3277ab298p+1",
+  "bed|NG-10|stack|C": "0x1.4d0dad3e38886p+1",
+  "bed|NG-10|stack|C * X_0": "0x1.81c4b02215996p+4",
+  "bed|NG-10|stack|C * X_0 + C": "0x1.833daa9f69a7ep+4",
+  "bed|NG-10|stack|C * X_0 ^2 + C * X_0 + C": "0x1.4237a52e70d74p+8",
+  "bed|NG-10|stack|C * sin ( X_0 ) + C * cos ( X_1 )": "0x1.2e430103b67dap+1",
+  "bed|NG-10|stack|C + C + C + C + C + C + C + C + C": "inf",
+  "bed|NG-10|stack|C / ( X_0 + C )": "0x1.f709691e13ceap+1",
+  "bed|NG-10|stack|X_0 + C": "0x1.3f84144a5f420p+3",
+  "bed|NG-10|stack|exp ( C * X_0 ) * C + X_1 * C": "0x1.8ca396f9ccedap+129",
+  "bed|NG-10|stack|log ( C * X_0 )": "0x1.4ab736217043ep+0",
+  "bed|NG-10|stack|pi * C * X_0": "0x1.2ebf3775b52a2p+6",
+  "bed|NG-10|stack|sin ( C * X_0 ) + C": "0x1.53ad3277ab298p+1",
+  "bed|NG-1|codegen|C": "0x1.0f6f05c9c2660p+11",
+  "bed|NG-1|codegen|C * X_0": "0x1.0f718e1d49c54p+11",
+  "bed|NG-1|codegen|C * X_0 + C": "0x1.0f73f290c5edcp+11",
+  "bed|NG-1|codegen|C * X_0 ^2 + C * X_0 + C": "0x1.0f8df0296ab53p+11",
+  "bed|NG-1|codegen|C + C + C + C + C + C + C + C + C": "inf",
+  "bed|NG-1|codegen|C / ( X_0 + C )": "0x1.0f7d9decb30acp+11",
+  "bed|NG-1|codegen|X_0 + C": "0x1.0e24be2a1f3dcp+11",
+  "bed|NG-1|codegen|log ( C * X_0 )": "0x1.0f6af177fa97cp+11",
+  "bed|NG-1|codegen|pi * C * X_0": "0x1.0f9b9e35f2990p+11",
+  "bed|NG-1|codegen|sin ( C * X_0 ) + C": "0x1.0f6f46de8b39cp+11",
+  "bed|NG-1|stack_py|C": "0x1.0f6f05c9c2660p+11",
+  "bed|NG-1|stack_py|C * X_0": "0x1.0f718e1d49c54p+11",
+  "bed|NG-1|stack_py|C * X_0 + C": "0x1.0f73f290c5edep+11",
+  "bed|NG-1|stack_py|C * X_0 ^2 + C * X_0 + C": "0x1.0f8df0296ab53p+11",
+  "bed|NG-1|stack_py|C + C + C + C + C + C + C + C + C": "inf",
+  "bed|NG-1|stack_py|C / ( X_0 + C )": "0x1.0f7d9decb30acp+11",
+  "bed|NG-1|stack_py|X_0 + C": "0x1.0e24be2a1f3dcp+11",
+  "bed|NG-1|stack_py|log ( C * X_0 )": "0x1.0f6af177fa97cp+11",
+  "bed|NG-1|stack_py|pi * C * X_0": "0x1.0f9b9e35f2990p+11",
+  "bed|NG-1|stack_py|sin ( C * X_0 ) + C": "0x1.0f6f46de8b39cp+11",
+  "bed|NG-1|stack|C": "0x1.0f6f05c9c2660p+11",
+  "bed|NG-1|stack|C * X_0": "0x1.0f718e1d49c54p+11",
+  "bed|NG-1|stack|C * X_0 + C": "0x1.0f73f290c5edep+11",
+  "bed|NG-1|stack|C * X_0 ^2 + C * X_0 + C": "0x1.0f8df0296ab53p+11",
+  "bed|NG-1|stack|C + C + C + C + C + C + C + C + C": "inf",
+  "bed|NG-1|stack|C / ( X_0 + C )": "0x1.0f7d9decb30acp+11",
+  "bed|NG-1|stack|X_0 + C": "0x1.0e24be2a1f3dcp+11",
+  "bed|NG-1|stack|log ( C * X_0 )": "0x1.0f6af177fa97cp+11",
+  "bed|NG-1|stack|pi * C * X_0": "0x1.0f9b9e35f2990p+11",
+  "bed|NG-1|stack|sin ( C * X_0 ) + C": "0x1.0f6f46de8b39cp+11",
+  "matrix|NG-10|codegen|C": "5ed56d56238f0bfcb2ee69ba502ba16ea7862227be06c548259854069f6f7dda",
+  "matrix|NG-10|codegen|C * X_0": "e007d2b374cc4251d291afd30050f4a6969493c8297fbf0f1de9add7ae529858",
+  "matrix|NG-10|codegen|C * X_0 + C": "68e143cb9a7fe079c20ab4f6c7f55fa9f2ae3066fa1394f2e2b6dba259e8f7af",
+  "matrix|NG-10|codegen|C * X_0 ^2 + C * X_0 + C": "1598418762a7088d77dbda4e2a75c480fc01768b2d3591f0bcf2808a7e63d03f",
+  "matrix|NG-10|codegen|C * sin ( X_0 ) + C * cos ( X_1 )": "c072242837ac1cf52d755eb51ade4d3aaadefb04dafba13abbe1e9566844d808",
+  "matrix|NG-10|codegen|C + C + C + C + C + C + C + C + C": "867eba46e147a36a9ace74b0973f58090f1565310f2de61f780c8bd51b0c5dae",
+  "matrix|NG-10|codegen|C / ( X_0 + C )": "f54a99de77041c963658395317c2efc933fec75fdb73068c1b116cc4a00b2014",
+  "matrix|NG-10|codegen|X_0 + C": "1cd586946d492c7e6fb7ccd2426a7b088e8fa280b4d8c49ec0da4b451f3181c1",
+  "matrix|NG-10|codegen|exp ( C * X_0 ) * C + X_1 * C": "5742e803af575065670f0d7280ad69d6c0f2f8139fbc1ae49105cc730bbbdd14",
+  "matrix|NG-10|codegen|log ( C * X_0 )": "518bcbb3aa495fd24ea3972c7a0c2a431d88f7a3c0c73fd57960307e8be4b33f",
+  "matrix|NG-10|codegen|pi * C * X_0": "069e3c0d2acdc08e45f36caa268fb8d040519263f3dd49069f56faab96caff7b",
+  "matrix|NG-10|codegen|sin ( C * X_0 ) + C": "12c37bf7d4308beba6d6393b54a0148385abcb2f8385468e6b5d0f6264bba1ab",
+  "matrix|NG-10|stack_py|C": "5ed56d56238f0bfcb2ee69ba502ba16ea7862227be06c548259854069f6f7dda",
+  "matrix|NG-10|stack_py|C * X_0": "e007d2b374cc4251d291afd30050f4a6969493c8297fbf0f1de9add7ae529858",
+  "matrix|NG-10|stack_py|C * X_0 + C": "68e143cb9a7fe079c20ab4f6c7f55fa9f2ae3066fa1394f2e2b6dba259e8f7af",
+  "matrix|NG-10|stack_py|C * X_0 ^2 + C * X_0 + C": "1598418762a7088d77dbda4e2a75c480fc01768b2d3591f0bcf2808a7e63d03f",
+  "matrix|NG-10|stack_py|C * sin ( X_0 ) + C * cos ( X_1 )": "c072242837ac1cf52d755eb51ade4d3aaadefb04dafba13abbe1e9566844d808",
+  "matrix|NG-10|stack_py|C + C + C + C + C + C + C + C + C": "867eba46e147a36a9ace74b0973f58090f1565310f2de61f780c8bd51b0c5dae",
+  "matrix|NG-10|stack_py|C / ( X_0 + C )": "f54a99de77041c963658395317c2efc933fec75fdb73068c1b116cc4a00b2014",
+  "matrix|NG-10|stack_py|X_0 + C": "1cd586946d492c7e6fb7ccd2426a7b088e8fa280b4d8c49ec0da4b451f3181c1",
+  "matrix|NG-10|stack_py|exp ( C * X_0 ) * C + X_1 * C": "5742e803af575065670f0d7280ad69d6c0f2f8139fbc1ae49105cc730bbbdd14",
+  "matrix|NG-10|stack_py|log ( C * X_0 )": "518bcbb3aa495fd24ea3972c7a0c2a431d88f7a3c0c73fd57960307e8be4b33f",
+  "matrix|NG-10|stack_py|pi * C * X_0": "069e3c0d2acdc08e45f36caa268fb8d040519263f3dd49069f56faab96caff7b",
+  "matrix|NG-10|stack_py|sin ( C * X_0 ) + C": "12c37bf7d4308beba6d6393b54a0148385abcb2f8385468e6b5d0f6264bba1ab",
+  "matrix|NG-10|stack|C": "5ed56d56238f0bfcb2ee69ba502ba16ea7862227be06c548259854069f6f7dda",
+  "matrix|NG-10|stack|C * X_0": "e007d2b374cc4251d291afd30050f4a6969493c8297fbf0f1de9add7ae529858",
+  "matrix|NG-10|stack|C * X_0 + C": "68e143cb9a7fe079c20ab4f6c7f55fa9f2ae3066fa1394f2e2b6dba259e8f7af",
+  "matrix|NG-10|stack|C * X_0 ^2 + C * X_0 + C": "1598418762a7088d77dbda4e2a75c480fc01768b2d3591f0bcf2808a7e63d03f",
+  "matrix|NG-10|stack|C * sin ( X_0 ) + C * cos ( X_1 )": "c072242837ac1cf52d755eb51ade4d3aaadefb04dafba13abbe1e9566844d808",
+  "matrix|NG-10|stack|C + C + C + C + C + C + C + C + C": "867eba46e147a36a9ace74b0973f58090f1565310f2de61f780c8bd51b0c5dae",
+  "matrix|NG-10|stack|C / ( X_0 + C )": "f54a99de77041c963658395317c2efc933fec75fdb73068c1b116cc4a00b2014",
+  "matrix|NG-10|stack|X_0 + C": "1cd586946d492c7e6fb7ccd2426a7b088e8fa280b4d8c49ec0da4b451f3181c1",
+  "matrix|NG-10|stack|exp ( C * X_0 ) * C + X_1 * C": "5742e803af575065670f0d7280ad69d6c0f2f8139fbc1ae49105cc730bbbdd14",
+  "matrix|NG-10|stack|log ( C * X_0 )": "518bcbb3aa495fd24ea3972c7a0c2a431d88f7a3c0c73fd57960307e8be4b33f",
+  "matrix|NG-10|stack|pi * C * X_0": "069e3c0d2acdc08e45f36caa268fb8d040519263f3dd49069f56faab96caff7b",
+  "matrix|NG-10|stack|sin ( C * X_0 ) + C": "12c37bf7d4308beba6d6393b54a0148385abcb2f8385468e6b5d0f6264bba1ab",
+  "matrix|NG-1|codegen|C": "5ed56d56238f0bfcb2ee69ba502ba16ea7862227be06c548259854069f6f7dda",
+  "matrix|NG-1|codegen|C * X_0": "707a9b302cfdb98e1f5f2064438f0797ab1ba5c64f622f0b4fc82e353257bcea",
+  "matrix|NG-1|codegen|C * X_0 + C": "09ea3014ef496b54d581988d5be8cc71b602ecd51d39b9c09f53bf88938957f5",
+  "matrix|NG-1|codegen|C * X_0 ^2 + C * X_0 + C": "a8ced079d2c9466aabd0d26364be363ff95f9daf34013d1fece88c9add5c537b",
+  "matrix|NG-1|codegen|C + C + C + C + C + C + C + C + C": "867eba46e147a36a9ace74b0973f58090f1565310f2de61f780c8bd51b0c5dae",
+  "matrix|NG-1|codegen|C / ( X_0 + C )": "ff4c4a48f88f7acee13a5ade7f01854e440ae6c495ffeee39925799ef26e77ce",
+  "matrix|NG-1|codegen|X_0 + C": "b88c95ed57aa8e87f38bb8cfd98aa1b69e03feaf1e9a0e3e87252fb131a8d5ee",
+  "matrix|NG-1|codegen|log ( C * X_0 )": "934a0c6fa0d5ffa6e9da98c20baccd7fba6ff37d61a33cba4d78ad31b36c1343",
+  "matrix|NG-1|codegen|pi * C * X_0": "f0c38d0986d9a7effebf2e57f0a964e7b2a76a917de087213098209c246e2cdd",
+  "matrix|NG-1|codegen|sin ( C * X_0 ) + C": "1930aa8ed38278b74ae285d13635bf25588ac33a92d6a5cf52b33544d1d9adba",
+  "matrix|NG-1|stack_py|C": "5ed56d56238f0bfcb2ee69ba502ba16ea7862227be06c548259854069f6f7dda",
+  "matrix|NG-1|stack_py|C * X_0": "707a9b302cfdb98e1f5f2064438f0797ab1ba5c64f622f0b4fc82e353257bcea",
+  "matrix|NG-1|stack_py|C * X_0 + C": "09ea3014ef496b54d581988d5be8cc71b602ecd51d39b9c09f53bf88938957f5",
+  "matrix|NG-1|stack_py|C * X_0 ^2 + C * X_0 + C": "a8ced079d2c9466aabd0d26364be363ff95f9daf34013d1fece88c9add5c537b",
+  "matrix|NG-1|stack_py|C + C + C + C + C + C + C + C + C": "867eba46e147a36a9ace74b0973f58090f1565310f2de61f780c8bd51b0c5dae",
+  "matrix|NG-1|stack_py|C / ( X_0 + C )": "ff4c4a48f88f7acee13a5ade7f01854e440ae6c495ffeee39925799ef26e77ce",
+  "matrix|NG-1|stack_py|X_0 + C": "b88c95ed57aa8e87f38bb8cfd98aa1b69e03feaf1e9a0e3e87252fb131a8d5ee",
+  "matrix|NG-1|stack_py|log ( C * X_0 )": "934a0c6fa0d5ffa6e9da98c20baccd7fba6ff37d61a33cba4d78ad31b36c1343",
+  "matrix|NG-1|stack_py|pi * C * X_0": "f0c38d0986d9a7effebf2e57f0a964e7b2a76a917de087213098209c246e2cdd",
+  "matrix|NG-1|stack_py|sin ( C * X_0 ) + C": "1930aa8ed38278b74ae285d13635bf25588ac33a92d6a5cf52b33544d1d9adba",
+  "matrix|NG-1|stack|C": "5ed56d56238f0bfcb2ee69ba502ba16ea7862227be06c548259854069f6f7dda",
+  "matrix|NG-1|stack|C * X_0": "707a9b302cfdb98e1f5f2064438f0797ab1ba5c64f622f0b4fc82e353257bcea",
+  "matrix|NG-1|stack|C * X_0 + C": "09ea3014ef496b54d581988d5be8cc71b602ecd51d39b9c09f53bf88938957f5",
+  "matrix|NG-1|stack|C * X_0 ^2 + C * X_0 + C": "a8ced079d2c9466aabd0d26364be363ff95f9daf34013d1fece88c9add5c537b",
+  "matrix|NG-1|stack|C + C + C + C + C + C + C + C + C": "867eba46e147a36a9ace74b0973f58090f1565310f2de61f780c8bd51b0c5dae",
+  "matrix|NG-1|stack|C / ( X_0 + C )": "ff4c4a48f88f7acee13a5ade7f01854e440ae6c495ffeee39925799ef26e77ce",
+  "matrix|NG-1|stack|X_0 + C": "b88c95ed57aa8e87f38bb8cfd98aa1b69e03feaf1e9a0e3e87252fb131a8d5ee",
+  "matrix|NG-1|stack|log ( C * X_0 )": "934a0c6fa0d5ffa6e9da98c20baccd7fba6ff37d61a33cba4d78ad31b36c1343",
+  "matrix|NG-1|stack|pi * C * X_0": "f0c38d0986d9a7effebf2e57f0a964e7b2a76a917de087213098209c246e2cdd",
+  "matrix|NG-1|stack|sin ( C * X_0 ) + C": "1930aa8ed38278b74ae285d13635bf25588ac33a92d6a5cf52b33544d1d9adba",
+  "rmse|NG-10|codegen|mean|0|C": {
+   "error": "0x1.04f11375f7de6p+0",
+   "parameters": [
+    "-0x1.82418b6752000p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|C * X_0": {
+   "error": "0x1.04a3dba2f1935p+0",
+   "parameters": [
+    "-0x1.7a2f13931d832p-8"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|C * X_0 + C": {
+   "error": "0x1.04a2bf11dc96dp+0",
+   "parameters": [
+    "-0x1.7ba1c9dc0c0ccp-8",
+    "-0x1.6618fa601126fp-12"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.04fe348fe4355p+0",
+   "parameters": [
+    "-0x1.ec6ce0b11a229p-13",
+    "-0x1.3b13a4ac68fcep-15",
+    "-0x1.2934235013f56p-19"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.037d9b3353e7cp+0",
+   "parameters": [
+    "0x1.400ab740c2dc4p-4",
+    "0x1.b0a571ad84000p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|codegen|mean|0|C / ( X_0 + C )": {
+   "error": "0x1.053815cb513ecp+0",
+   "parameters": [
+    "0x1.173f956149013p-8",
+    "0x1.5798ee2308c3ap-27"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|X_0 + C": {
+   "error": "0x1.7fe46376ea6e4p+3",
+   "parameters": [
+    "0x1.1973fa6cb3b89p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.0523c9163644cp+0",
+   "parameters": [
+    "0x0.0p+0",
+    "-0x1.39fc90340e668p-11",
+    "-0x1.83cd42ab7e483p-8"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|pi * C * X_0": {
+   "error": "0x1.04a443edf7c78p+0",
+   "parameters": [
+    "-0x1.c90f53d6d8b4dp-10"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.04a2bf57f0f32p+0",
+   "parameters": [
+    "-0x1.7c36fcd9f3481p-8",
+    "-0x1.66a5b6b70640ep-12"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|C": {
+   "error": "0x1.04f11375f7de6p+0",
+   "parameters": [
+    "-0x1.82418b6752000p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|C * X_0": {
+   "error": "0x1.04a3dba2f1935p+0",
+   "parameters": [
+    "-0x1.7a2f13931d832p-8"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|C * X_0 + C": {
+   "error": "0x1.0450b634a4b0cp+0",
+   "parameters": [
+    "-0x1.85755a07c1374p-8",
+    "-0x1.a08f33f9d7dfdp-5"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.044dcf443bd1cp+0",
+   "parameters": [
+    "-0x1.483e20969ce81p-14",
+    "-0x1.8536fe40cc0cbp-8",
+    "-0x1.46427c2a10546p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.02d39d841cb73p+0",
+   "parameters": [
+    "0x1.5316a6089f3d3p-3",
+    "0x1.ca5f7c3660203p-4"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|codegen|mean|100|C / ( X_0 + C )": {
+   "error": "0x1.052f68dd0b0dep+0",
+   "parameters": [
+    "0x1.b594c708be5ddp-7",
+    "0x1.502a6d3ce8828p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|X_0 + C": {
+   "error": "0x1.7fb3a16735799p+3",
+   "parameters": [
+    "0x1.a68a37201536bp-2"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.041dfc9c49cf1p+0",
+   "parameters": [
+    "0x1.e2f0efd90b930p-4",
+    "-0x1.8f161f0941915p-6",
+    "-0x1.c554870f79bcfp-9"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|pi * C * X_0": {
+   "error": "0x1.04a3db9757505p+0",
+   "parameters": [
+    "-0x1.e219dcf96d97bp-10"
+   ]
+  },
+  "rmse|NG-10|codegen|mean|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.0450b55dc44e0p+0",
+   "parameters": [
+    "-0x1.8609ba5aa6d64p-8",
+    "-0x1.a09366dd01546p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|C": {
+   "error": "0x1.04f11c41e3ec6p+0",
+   "parameters": [
+    "-0x1.7e927f1a6d738p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|C * X_0": {
+   "error": "0x1.094da36a0113ap+0",
+   "parameters": [
+    "0x1.58072e2f27200p-7"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|C * X_0 + C": {
+   "error": "0x1.231fe19526d34p+2",
+   "parameters": [
+    "-0x1.99c11e291de17p-5",
+    "0x1.15383c4a462e3p+2"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.dd2a3c62e1430p+3",
+   "parameters": [
+    "0x1.1a88373bc7200p-5",
+    "-0x1.2de73d4789831p+0",
+    "-0x1.22bae51c993c1p+1"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.8ad8feaec1bf9p+1",
+   "parameters": [
+    "0x1.f390cf30dc4a7p+1",
+    "0x1.fb448686b2e6bp+0"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|codegen|random|0|C / ( X_0 + C )": {
+   "error": "0x1.1a0233dc4b9e8p+0",
+   "parameters": [
+    "-0x1.5d7e07b00c441p-2",
+    "0x1.46be1c1859e06p+0"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|X_0 + C": {
+   "error": "0x1.80da1a853db15p+3",
+   "parameters": [
+    "-0x1.08adf00fd596bp-1"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.74c6b8296bbe7p+6",
+   "parameters": [
+    "-0x1.fb8588edbd9b2p-3",
+    "0x1.1dda962d93af6p+1",
+    "0x1.1f7957c19d72dp+2"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|pi * C * X_0": {
+   "error": "0x1.04a5ead800fa6p+0",
+   "parameters": [
+    "-0x1.a9e1e02024800p-10"
+   ]
+  },
+  "rmse|NG-10|codegen|random|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.f8e99ed4b20d5p+0",
+   "parameters": [
+    "0x1.c50558e0960edp+0",
+    "-0x1.8fadb8e4d3332p+0"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|C": {
+   "error": "0x1.04f10bd194f28p+0",
+   "parameters": [
+    "-0x1.8a2d0855f8f8dp-5"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|C * X_0": {
+   "error": "0x1.04a3db998665ap+0",
+   "parameters": [
+    "-0x1.7ac755c5c47f4p-8"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|C * X_0 + C": {
+   "error": "0x1.0450b634d3870p+0",
+   "parameters": [
+    "-0x1.856c8b04d2f2cp-8",
+    "-0x1.a07ece5ebe00fp-5"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.044dcf554c5f3p+0",
+   "parameters": [
+    "-0x1.4810c7e8606f3p-14",
+    "-0x1.84c7f2633663ap-8",
+    "-0x1.46640438f3706p-5"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.02d394bb6b8a9p+0",
+   "parameters": [
+    "0x1.5067ed19f84b7p-3",
+    "0x1.c70c5c53d53bcp-4"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|codegen|random|100|C / ( X_0 + C )": {
+   "error": "0x1.04d4f5919393fp+0",
+   "parameters": [
+    "0x1.c042c8798d104p-10",
+    "0x1.6178c9b25bd88p+0"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|X_0 + C": {
+   "error": "0x1.7fb3a4f3738a5p+3",
+   "parameters": [
+    "0x1.aca313445d08ep-2"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.04201742a2940p+0",
+   "parameters": [
+    "0x1.d931c869452b5p-3",
+    "-0x1.cce1a48c4ffd3p-9",
+    "-0x1.ab524db3f870cp-9"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|pi * C * X_0": {
+   "error": "0x1.04a3db9731f97p+0",
+   "parameters": [
+    "-0x1.e20a975dad73fp-10"
+   ]
+  },
+  "rmse|NG-10|codegen|random|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.2cce1a269e6c6p+0",
+   "parameters": [
+    "0x1.68ab02ed5ed65p+0",
+    "-0x1.b41860779e28cp-4"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|C": {
+   "error": "0x1.04f11375f7de6p+0",
+   "parameters": [
+    "-0x1.82418b6752000p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|C * X_0": {
+   "error": "0x1.04a3dba2f1935p+0",
+   "parameters": [
+    "-0x1.7a2f13931d832p-8"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|C * X_0 + C": {
+   "error": "0x1.04a2bf11dc96dp+0",
+   "parameters": [
+    "-0x1.7ba1c9dc0c0ccp-8",
+    "-0x1.6618fa601126fp-12"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.04fe348fe4355p+0",
+   "parameters": [
+    "-0x1.ec6ce0b11a229p-13",
+    "-0x1.3b13a4ac68fcep-15",
+    "-0x1.2934235013f56p-19"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.037d9b3353e7cp+0",
+   "parameters": [
+    "0x1.400ab740c2dc4p-4",
+    "0x1.b0a571ad84000p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack_py|mean|0|C / ( X_0 + C )": {
+   "error": "0x1.053815cb513ecp+0",
+   "parameters": [
+    "0x1.173f956149013p-8",
+    "0x1.5798ee2308c3ap-27"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|X_0 + C": {
+   "error": "0x1.7fe46376ea6e4p+3",
+   "parameters": [
+    "0x1.1973fa6cb3b89p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.0523c9163644cp+0",
+   "parameters": [
+    "0x0.0p+0",
+    "-0x1.39fc90340e668p-11",
+    "-0x1.83cd42ab7e483p-8"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|pi * C * X_0": {
+   "error": "0x1.04a443edf7c78p+0",
+   "parameters": [
+    "-0x1.c90f53d6d8b4dp-10"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.04a2bf57f0f32p+0",
+   "parameters": [
+    "-0x1.7c36fcd9f3481p-8",
+    "-0x1.66a5b6b70640ep-12"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|C": {
+   "error": "0x1.04f11375f7de6p+0",
+   "parameters": [
+    "-0x1.82418b6752000p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|C * X_0": {
+   "error": "0x1.04a3dba2f1935p+0",
+   "parameters": [
+    "-0x1.7a2f13931d832p-8"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|C * X_0 + C": {
+   "error": "0x1.0450b634a4b0cp+0",
+   "parameters": [
+    "-0x1.85755a07c1374p-8",
+    "-0x1.a08f33f9d7dfdp-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.044dcf443bd1cp+0",
+   "parameters": [
+    "-0x1.483e20969ce81p-14",
+    "-0x1.8536fe40cc0cbp-8",
+    "-0x1.46427c2a10546p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.02d39d841cb73p+0",
+   "parameters": [
+    "0x1.5316a6089f3d3p-3",
+    "0x1.ca5f7c3660203p-4"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack_py|mean|100|C / ( X_0 + C )": {
+   "error": "0x1.052f68dd0b0dep+0",
+   "parameters": [
+    "0x1.b594c708be5ddp-7",
+    "0x1.502a6d3ce8828p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|X_0 + C": {
+   "error": "0x1.7fb3a16735799p+3",
+   "parameters": [
+    "0x1.a68a37201536bp-2"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.041dfc9c49cf1p+0",
+   "parameters": [
+    "0x1.e2f0efd90b930p-4",
+    "-0x1.8f161f0941915p-6",
+    "-0x1.c554870f79bcfp-9"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|pi * C * X_0": {
+   "error": "0x1.04a3db9757505p+0",
+   "parameters": [
+    "-0x1.e219dcf96d97bp-10"
+   ]
+  },
+  "rmse|NG-10|stack_py|mean|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.0450b55dc44e0p+0",
+   "parameters": [
+    "-0x1.8609ba5aa6d64p-8",
+    "-0x1.a09366dd01546p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|C": {
+   "error": "0x1.04f11c41e3ec6p+0",
+   "parameters": [
+    "-0x1.7e927f1a6d738p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|C * X_0": {
+   "error": "0x1.094da36a0113ap+0",
+   "parameters": [
+    "0x1.58072e2f27200p-7"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|C * X_0 + C": {
+   "error": "0x1.231fe19526d34p+2",
+   "parameters": [
+    "-0x1.99c11e291de17p-5",
+    "0x1.15383c4a462e3p+2"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.dd2a3c62e1430p+3",
+   "parameters": [
+    "0x1.1a88373bc7200p-5",
+    "-0x1.2de73d4789831p+0",
+    "-0x1.22bae51c993c1p+1"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.8ad8feaec1bf9p+1",
+   "parameters": [
+    "0x1.f390cf30dc4a7p+1",
+    "0x1.fb448686b2e6bp+0"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack_py|random|0|C / ( X_0 + C )": {
+   "error": "0x1.1a0233dc4b9e8p+0",
+   "parameters": [
+    "-0x1.5d7e07b00c441p-2",
+    "0x1.46be1c1859e06p+0"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|X_0 + C": {
+   "error": "0x1.80da1a853db15p+3",
+   "parameters": [
+    "-0x1.08adf00fd596bp-1"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.74c6b8296bbe7p+6",
+   "parameters": [
+    "-0x1.fb8588edbd9b2p-3",
+    "0x1.1dda962d93af6p+1",
+    "0x1.1f7957c19d72dp+2"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|pi * C * X_0": {
+   "error": "0x1.04a5ead800fa6p+0",
+   "parameters": [
+    "-0x1.a9e1e02024800p-10"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.f8e99ed4b20d5p+0",
+   "parameters": [
+    "0x1.c50558e0960edp+0",
+    "-0x1.8fadb8e4d3332p+0"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|C": {
+   "error": "0x1.04f10bd194f28p+0",
+   "parameters": [
+    "-0x1.8a2d0855f8f8dp-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|C * X_0": {
+   "error": "0x1.04a3db998665ap+0",
+   "parameters": [
+    "-0x1.7ac755c5c47f4p-8"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|C * X_0 + C": {
+   "error": "0x1.0450b634d3870p+0",
+   "parameters": [
+    "-0x1.856c8b04d2f2cp-8",
+    "-0x1.a07ece5ebe00fp-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.044dcf554c5f3p+0",
+   "parameters": [
+    "-0x1.4810c7e8606f3p-14",
+    "-0x1.84c7f2633663ap-8",
+    "-0x1.46640438f3706p-5"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.02d394bb6b8a9p+0",
+   "parameters": [
+    "0x1.5067ed19f84b7p-3",
+    "0x1.c70c5c53d53bcp-4"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack_py|random|100|C / ( X_0 + C )": {
+   "error": "0x1.04d4f5919393fp+0",
+   "parameters": [
+    "0x1.c042c8798d104p-10",
+    "0x1.6178c9b25bd88p+0"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|X_0 + C": {
+   "error": "0x1.7fb3a4f3738a5p+3",
+   "parameters": [
+    "0x1.aca313445d08ep-2"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.04201742a2940p+0",
+   "parameters": [
+    "0x1.d931c869452b5p-3",
+    "-0x1.cce1a48c4ffd3p-9",
+    "-0x1.ab524db3f870cp-9"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|pi * C * X_0": {
+   "error": "0x1.04a3db9731f97p+0",
+   "parameters": [
+    "-0x1.e20a975dad73fp-10"
+   ]
+  },
+  "rmse|NG-10|stack_py|random|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.2cce1a269e6c6p+0",
+   "parameters": [
+    "0x1.68ab02ed5ed65p+0",
+    "-0x1.b41860779e28cp-4"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|C": {
+   "error": "0x1.04f11375e0c9bp+0",
+   "parameters": [
+    "-0x1.8241975314000p-5"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|C * X_0": {
+   "error": "0x1.04a3dba2f1966p+0",
+   "parameters": [
+    "-0x1.7a2f13859f1bbp-8"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|C * X_0 + C": {
+   "error": "0x1.04a2bf11d3cebp+0",
+   "parameters": [
+    "-0x1.7ba1c9f4035abp-8",
+    "-0x1.66190583f47f5p-12"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.04fe348fe4311p+0",
+   "parameters": [
+    "-0x1.ec6ce0b04bab2p-13",
+    "-0x1.3b13a4abe4e47p-15",
+    "-0x1.29342c7bc2102p-19"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.037d9b2e1e094p+0",
+   "parameters": [
+    "0x1.400ac32c84dc4p-4",
+    "0x1.b0a565c1c2000p-5"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack|mean|0|C / ( X_0 + C )": {
+   "error": "0x1.053815cb51414p+0",
+   "parameters": [
+    "0x1.173f9185f106ap-8",
+    "0x1.5798ee2308c3ap-27"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|X_0 + C": {
+   "error": "0x1.7fe46376ea6e4p+3",
+   "parameters": [
+    "0x1.1973fa6cb3b89p-5"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.0523c9163127cp+0",
+   "parameters": [
+    "0x0.0p+0",
+    "-0x1.39fc99fddaad7p-11",
+    "-0x1.83cd42ca68da2p-8"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|pi * C * X_0": {
+   "error": "0x1.04a443edf9e3dp+0",
+   "parameters": [
+    "-0x1.c90f539628384p-10"
+   ]
+  },
+  "rmse|NG-10|stack|mean|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.04a2bf57e8262p+0",
+   "parameters": [
+    "-0x1.7c36fcfde3b90p-8",
+    "-0x1.66a5c1ea8ccc3p-12"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|C": {
+   "error": "0x1.04f11375e0c9bp+0",
+   "parameters": [
+    "-0x1.8241975314000p-5"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|C * X_0": {
+   "error": "0x1.04a3dba2f1966p+0",
+   "parameters": [
+    "-0x1.7a2f13859f1bbp-8"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|C * X_0 + C": {
+   "error": "0x1.0450b634a4b18p+0",
+   "parameters": [
+    "-0x1.85755b876fa7ap-8",
+    "-0x1.a08f4c04eb65fp-5"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.044dcf443c2ffp+0",
+   "parameters": [
+    "-0x1.483e15fec13f5p-14",
+    "-0x1.8536fe0e5cc17p-8",
+    "-0x1.4642815d67cf6p-5"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.02d39d8402f91p+0",
+   "parameters": [
+    "0x1.53169725d01d9p-3",
+    "0x1.ca5f987a58008p-4"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack|mean|100|C / ( X_0 + C )": {
+   "error": "0x1.052f68d9f9b53p+0",
+   "parameters": [
+    "0x1.b597f78f6420bp-7",
+    "0x1.502c05bd2a54ep-5"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|X_0 + C": {
+   "error": "0x1.7fb3a167b7754p+3",
+   "parameters": [
+    "0x1.a690eec74ba89p-2"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.041dfc9c51ebcp+0",
+   "parameters": [
+    "0x1.e2f0b22436d54p-4",
+    "-0x1.8f167a7a02afap-6",
+    "-0x1.c5549209f3f1dp-9"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|pi * C * X_0": {
+   "error": "0x1.04a3db97574efp+0",
+   "parameters": [
+    "-0x1.e219dcb531b44p-10"
+   ]
+  },
+  "rmse|NG-10|stack|mean|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.0450b55dc44d6p+0",
+   "parameters": [
+    "-0x1.8609b99a31967p-8",
+    "-0x1.a09359d852057p-5"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|C": {
+   "error": "0x1.04f11c41c2128p+0",
+   "parameters": [
+    "-0x1.7e928b062f738p-5"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|C * X_0": {
+   "error": "0x1.094da42b1d45fp+0",
+   "parameters": [
+    "0x1.580759b3f4a00p-7"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|C * X_0 + C": {
+   "error": "0x1.231fe18139d39p+2",
+   "parameters": [
+    "-0x1.99c12d3dbbe77p-5",
+    "0x1.15383bfd35ccdp+2"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.dd2a91968dd7cp+3",
+   "parameters": [
+    "0x1.1a87e659f8b40p-5",
+    "-0x1.2de78a101bb57p+0",
+    "-0x1.22bb0bb62ff80p+1"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.8ad8ff02a6e5bp+1",
+   "parameters": [
+    "0x1.f390cf903a5a7p+1",
+    "0x1.fb4487456f06cp+0"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack|random|0|C / ( X_0 + C )": {
+   "error": "0x1.1a022a2949034p+0",
+   "parameters": [
+    "-0x1.5d7d66439dcdbp-2",
+    "0x1.46becd583c83cp+0"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|X_0 + C": {
+   "error": "0x1.80da1a853db17p+3",
+   "parameters": [
+    "-0x1.08adf00fd596bp-1"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.74c6b70c5bddap+6",
+   "parameters": [
+    "-0x1.fb8588e8d763ep-3",
+    "0x1.1dda962e0affcp+1",
+    "0x1.1f79553bbbe35p+2"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|pi * C * X_0": {
+   "error": "0x1.04a5eb03e4731p+0",
+   "parameters": [
+    "-0x1.a9df89cae0800p-10"
+   ]
+  },
+  "rmse|NG-10|stack|random|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.f8e99ed4b20d4p+0",
+   "parameters": [
+    "0x1.c50558e0960edp+0",
+    "-0x1.8fadb8e4d3332p+0"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|C": {
+   "error": "0x1.04f10bd194f1ap+0",
+   "parameters": [
+    "-0x1.8a2d07cf8e4fdp-5"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|C * X_0": {
+   "error": "0x1.04a3db99867f9p+0",
+   "parameters": [
+    "-0x1.7ac756c9fc320p-8"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|C * X_0 + C": {
+   "error": "0x1.0450b634d35cep+0",
+   "parameters": [
+    "-0x1.856c8b949a3a0p-8",
+    "-0x1.a07ed88dfeb90p-5"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.044dcf51a7cddp+0",
+   "parameters": [
+    "-0x1.4825c78a28f2cp-14",
+    "-0x1.84d00d59cfc94p-8",
+    "-0x1.465024bfcdf9dp-5"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|C * sin ( X_0 ) + C * cos ( X_1 )": {
+   "error": "0x1.02d394bb6c106p+0",
+   "parameters": [
+    "0x1.5067ea4c97dbbp-3",
+    "0x1.c70c5227935efp-4"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-10|stack|random|100|C / ( X_0 + C )": {
+   "error": "0x1.04d4f2b5714acp+0",
+   "parameters": [
+    "0x1.c81267cb47c64p-11",
+    "0x1.61a469698fb86p+0"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|X_0 + C": {
+   "error": "0x1.7fb3a4dd41032p+3",
+   "parameters": [
+    "0x1.ac8e97a23cbacp-2"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|exp ( C * X_0 ) * C + X_1 * C": {
+   "error": "0x1.0420174042b7ep+0",
+   "parameters": [
+    "0x1.d93276e1ae6c4p-3",
+    "-0x1.ccdeebf8c369fp-9",
+    "-0x1.ab5242cb19a8cp-9"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|pi * C * X_0": {
+   "error": "0x1.04a3db9731f95p+0",
+   "parameters": [
+    "-0x1.e20a977873198p-10"
+   ]
+  },
+  "rmse|NG-10|stack|random|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.2cce1a269e908p+0",
+   "parameters": [
+    "0x1.68ab02ed19787p+0",
+    "-0x1.b418620d77d6ap-4"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|C": {
+   "error": "0x1.874fc318c8e32p+11",
+   "parameters": [
+    "0x1.44d8692f31dc4p-4"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|C * X_0 + C": {
+   "error": "0x1.807d4a0e5e687p+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.44d8692f2f8cfp-4"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.858d0eb94415cp+11",
+   "parameters": [
+    "0x1.3ffffff543389p+2",
+    "0x1.4000000000000p+2",
+    "0x1.44d8667ff5f1bp-4"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|codegen|mean|0|C / ( X_0 + C )": {
+   "error": "0x1.874fe5a365140p+11",
+   "parameters": [
+    "0x1.75462ffe63b89p-5",
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|X_0 + C": {
+   "error": "0x1.85f205055c4c6p+11",
+   "parameters": [
+    "0x1.4508183731dc4p-4"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.874c3ace8b4fap+11",
+   "parameters": [
+    "0x1.b5d71bde33707p+0",
+    "0x1.bc78497d7aa25p-6"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|C": {
+   "error": "0x1.874367cd4036cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|C * X_0 + C": {
+   "error": "0x1.8070dcc5f0cbbp+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.7e5701c1b18d2p+11",
+   "parameters": [
+    "0x1.c31d4864dda79p+0",
+    "0x1.4000000000000p+2",
+    "0x1.7cf3ffb3d0cf1p-5"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|codegen|mean|100|C / ( X_0 + C )": {
+   "error": "0x1.874fe5a365140p+11",
+   "parameters": [
+    "0x1.75462ffe63b89p-5",
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|X_0 + C": {
+   "error": "0x1.85e5a631ab680p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|mean|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.874c35c7466d3p+11",
+   "parameters": [
+    "0x1.b73c7f767194fp+0",
+    "0x1.e37883ca9d1eep-6"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|C": {
+   "error": "0x1.874fb6c9e0863p+11",
+   "parameters": [
+    "0x1.927f887e46e06p-4"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|C * X_0 + C": {
+   "error": "0x1.807235322d5b9p+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.1d988cf08a150p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.85001f6e87a0dp+11",
+   "parameters": [
+    "0x1.0fbf1c96f6234p+0",
+    "0x1.84ac267b92d19p-2",
+    "-0x1.fc6855d3eedf5p+0"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|codegen|random|0|C / ( X_0 + C )": {
+   "error": "0x1.8751e15d0a25ap+11",
+   "parameters": [
+    "-0x1.36a4634bd0a7fp+0",
+    "-0x1.4ddc03e6afeaap+1"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|X_0 + C": {
+   "error": "0x1.85f38c21a6db6p+11",
+   "parameters": [
+    "-0x1.0b130cf8dee70p-1"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.87411f3ae1815p+11",
+   "parameters": [
+    "0x1.7248ca3506384p-4",
+    "-0x1.2e2f902a80394p+1"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|C": {
+   "error": "0x1.874367cd4036cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|C * X_0 + C": {
+   "error": "0x1.8070dcc5f0cbbp+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.7e56f2a2f2e32p+11",
+   "parameters": [
+    "0x1.c547d4dcc40dap+0",
+    "0x1.4000000000000p+2",
+    "-0x1.fde2cffc2ef30p+0"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|codegen|random|100|C / ( X_0 + C )": {
+   "error": "0x1.8751e15d0a25ap+11",
+   "parameters": [
+    "-0x1.36a4634bd0a7fp+0",
+    "-0x1.4ddc03e6afeaap+1"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|X_0 + C": {
+   "error": "0x1.85e5a631ab680p+11",
+   "parameters": [
+    "0x1.3ffffffffffffp+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|codegen|random|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.8741138933341p+11",
+   "parameters": [
+    "0x1.82487879ca4c2p-4",
+    "-0x1.2e26cf868a52cp+1"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|C": {
+   "error": "0x1.874fc318c8e32p+11",
+   "parameters": [
+    "0x1.44d8692f31dc4p-4"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|C * X_0 + C": {
+   "error": "0x1.807d4a0e5e687p+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.44d8692f2f8cfp-4"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.858d0eb94415cp+11",
+   "parameters": [
+    "0x1.3ffffff543389p+2",
+    "0x1.4000000000000p+2",
+    "0x1.44d8667ff5f1bp-4"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack_py|mean|0|C / ( X_0 + C )": {
+   "error": "0x1.874fe5a365140p+11",
+   "parameters": [
+    "0x1.75462ffe63b89p-5",
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|X_0 + C": {
+   "error": "0x1.85f205055c4c6p+11",
+   "parameters": [
+    "0x1.4508183731dc4p-4"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.874c3ace8b4fap+11",
+   "parameters": [
+    "0x1.b5d71bde33707p+0",
+    "0x1.bc78497d7aa25p-6"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|C": {
+   "error": "0x1.874367cd4036cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|C * X_0 + C": {
+   "error": "0x1.8070dcc5f0cbbp+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.7e5701c1b18d2p+11",
+   "parameters": [
+    "0x1.c31d4864dda79p+0",
+    "0x1.4000000000000p+2",
+    "0x1.7cf3ffb3d0cf1p-5"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack_py|mean|100|C / ( X_0 + C )": {
+   "error": "0x1.874fe5a365140p+11",
+   "parameters": [
+    "0x1.75462ffe63b89p-5",
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|X_0 + C": {
+   "error": "0x1.85e5a631ab680p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|mean|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.874c35c7466d3p+11",
+   "parameters": [
+    "0x1.b73c7f767194fp+0",
+    "0x1.e37883ca9d1eep-6"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|C": {
+   "error": "0x1.874fb6c9e0863p+11",
+   "parameters": [
+    "0x1.927f887e46e06p-4"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|C * X_0 + C": {
+   "error": "0x1.807235322d5b9p+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.1d988cf08a150p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.85001f6e87a0dp+11",
+   "parameters": [
+    "0x1.0fbf1c96f6234p+0",
+    "0x1.84ac267b92d19p-2",
+    "-0x1.fc6855d3eedf5p+0"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack_py|random|0|C / ( X_0 + C )": {
+   "error": "0x1.8751e15d0a25ap+11",
+   "parameters": [
+    "-0x1.36a4634bd0a7fp+0",
+    "-0x1.4ddc03e6afeaap+1"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|X_0 + C": {
+   "error": "0x1.85f38c21a6db6p+11",
+   "parameters": [
+    "-0x1.0b130cf8dee70p-1"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.87411f3ae1815p+11",
+   "parameters": [
+    "0x1.7248ca3506384p-4",
+    "-0x1.2e2f902a80394p+1"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|C": {
+   "error": "0x1.874367cd4036cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|C * X_0 + C": {
+   "error": "0x1.8070dcc5f0cbbp+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.7e56f2a2f2e32p+11",
+   "parameters": [
+    "0x1.c547d4dcc40dap+0",
+    "0x1.4000000000000p+2",
+    "-0x1.fde2cffc2ef30p+0"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack_py|random|100|C / ( X_0 + C )": {
+   "error": "0x1.8751e15d0a25ap+11",
+   "parameters": [
+    "-0x1.36a4634bd0a7fp+0",
+    "-0x1.4ddc03e6afeaap+1"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|X_0 + C": {
+   "error": "0x1.85e5a631ab680p+11",
+   "parameters": [
+    "0x1.3ffffffffffffp+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb2p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack_py|random|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.8741138933341p+11",
+   "parameters": [
+    "0x1.82487879ca4c2p-4",
+    "-0x1.2e26cf868a52cp+1"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|C": {
+   "error": "0x1.874fc309ab07bp+11",
+   "parameters": [
+    "0x1.4537c73f31dc4p-4"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|C * X_0 + C": {
+   "error": "0x1.807d49ff2a167p+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.4537c73f315fdp-4"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.858d0ed56659bp+11",
+   "parameters": [
+    "0x1.3ffffff543389p+2",
+    "0x1.4000000000000p+2",
+    "0x1.4537c49000af8p-4"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack|mean|0|C / ( X_0 + C )": {
+   "error": "0x1.874fe59f12990p+11",
+   "parameters": [
+    "0x1.75a58e0e63b89p-5",
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|X_0 + C": {
+   "error": "0x1.85f2050ced734p+11",
+   "parameters": [
+    "0x1.44d8692f31dc4p-4"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb4p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|mean|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.874c3ac9575dap+11",
+   "parameters": [
+    "0x1.b5d71d3915ad5p+0",
+    "0x1.bcfac76dbb767p-6"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|C": {
+   "error": "0x1.874367cd4036dp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|C * X_0 + C": {
+   "error": "0x1.8070dcc5f0cbbp+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.7e5701c1df0abp+11",
+   "parameters": [
+    "0x1.c31cffa4b1418p+0",
+    "0x1.4000000000000p+2",
+    "0x1.7d9da03f52f1ep-5"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack|mean|100|C / ( X_0 + C )": {
+   "error": "0x1.874fe59f12990p+11",
+   "parameters": [
+    "0x1.75a58e0e63b89p-5",
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|X_0 + C": {
+   "error": "0x1.85e5a631ab682p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "0x0.0p+0"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb4p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|mean|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.874c35c281340p+11",
+   "parameters": [
+    "0x1.b73c83d9e690ep+0",
+    "0x1.e3f1543b5cac8p-6"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|C": {
+   "error": "0x1.874fb6c251be2p+11",
+   "parameters": [
+    "0x1.92af378646be1p-4"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|C * X_0 + C": {
+   "error": "0x1.807235322d5bap+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.1d988cf08a0cep+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.85001f6da34bfp+11",
+   "parameters": [
+    "0x1.0fbefcc2d87c0p+0",
+    "0x1.84ac878774271p-2",
+    "-0x1.fc692d2ba3ea2p+0"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack|random|0|C / ( X_0 + C )": {
+   "error": "0x1.8751e15aa6c6dp+11",
+   "parameters": [
+    "-0x1.36a2c8d4dbdb8p+0",
+    "-0x1.4ddbea541e221p+1"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|X_0 + C": {
+   "error": "0x1.85f38c127b34ep+11",
+   "parameters": [
+    "-0x1.0b072136dfe85p-1"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb4p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|0|sin ( C * X_0 ) + C": {
+   "error": "0x1.87411fca9aad7p+11",
+   "parameters": [
+    "0x1.71e96c24fc7f4p-4",
+    "-0x1.2e310da2c0603p+1"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|C": {
+   "error": "0x1.874367cd4036dp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|C * X_0": {
+   "error": "0x1.807d7ddab7d9cp+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|C * X_0 + C": {
+   "error": "0x1.8070dcc5f0cbbp+11",
+   "parameters": [
+    "0x1.4000000000000p+2",
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|C * X_0 ^2 + C * X_0 + C": {
+   "error": "0x1.7e56f2a2ebeb9p+11",
+   "parameters": [
+    "0x1.c547ae0a57f35p+0",
+    "0x1.4000000000000p+2",
+    "-0x1.fde3ec520f99fp+0"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|C + C + C + C + C + C + C + C + C": {
+   "error": "inf",
+   "parameters": null
+  },
+  "rmse|NG-1|stack|random|100|C / ( X_0 + C )": {
+   "error": "0x1.8751e15aa6c6dp+11",
+   "parameters": [
+    "-0x1.36a2c8d4dbdb8p+0",
+    "-0x1.4ddbea541e221p+1"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|X_0 + C": {
+   "error": "0x1.85e5a631ab682p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|log ( C * X_0 )": {
+   "error": "inf",
+   "parameters": [
+    "-0x1.384e22489c27dp+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|pi * C * X_0": {
+   "error": "0x1.71f51c530ebb4p+11",
+   "parameters": [
+    "0x1.4000000000000p+2"
+   ]
+  },
+  "rmse|NG-1|stack|random|100|sin ( C * X_0 ) + C": {
+   "error": "0x1.87411390b7538p+11",
+   "parameters": [
+    "0x1.825d244178bb1p-4",
+    "-0x1.2e28624581692p+1"
+   ]
+  }
+ }
+}
