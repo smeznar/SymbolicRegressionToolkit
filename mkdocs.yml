@@ -133,6 +133,7 @@ nav:
           - expression_simplifier: references/utils/expression_simplifier.md
           - expression_constraints: references/utils/expression_constraints.md
           - expression_generator: references/utils/expression_generator.md
+          - free_constants: references/utils/free_constants.md
           - measures: references/utils/measures.md
           - types: references/utils/types.md
           - serialization: references/utils/serialization.md

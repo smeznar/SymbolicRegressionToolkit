@@ -20,6 +20,9 @@ Modules:
         [Grammar][SRToolkit.utils.grammar.grammar.Grammar],
         [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint],
         [Derivation][SRToolkit.utils.grammar.derivation.Derivation], and more.
+    free_constants: Specifications of free constants:
+        [Constant][SRToolkit.utils.free_constants.Constant] (prior, bounds, fixed value) and the
+        default applied to constants without one.
     measures: Distance and similarity measures: edit distance, tree edit distance,
         and Behavior-aware Expression Distance (BED).
     serialization: Which values can be saved in results and configs, and how they are stored as
@@ -44,6 +47,7 @@ from .expression_constraints import (
 from .expression_generator import generate_n_expressions
 from .expression_simplifier import simplify
 from .expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, parameter_labels, tokens_to_tree
+from .free_constants import Constant, resolve_constants, uniform_default
 from .grammar import (
     AncestorInfo,
     Derivation,
@@ -128,6 +132,9 @@ __all__ = [
     "ExpressionParseError",
     "is_float",
     "parameter_labels",
+    "Constant",
+    "uniform_default",
+    "resolve_constants",
     "compile_expr",
     "compile_expr_rmse",
     "simplify",
