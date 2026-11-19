@@ -47,7 +47,10 @@ own. Specs are matched by value (the fields that affect the score) and in any or
 in [ModelResult.free_constants][SRToolkit.utils.types.ModelResult] sorted by label (string order),
 or ``None`` when none (or an empty list) were given. Parameters without a spec, and a spec's unset
 ``prior`` or ``bounds``, use the evaluator's ``default_constant``, which is recorded in the results
-as [EvalResult.default_constant][SRToolkit.utils.types.EvalResult].
+as [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]. Expressions that differ only in
+how their constants are written (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) are separate models
+unless the approach passes ``canonicalise_constants=True``, which
+[canonicalises][SRToolkit.utils.free_constants.canonicalise] them first.
 
 Specs are checked right after parsing: a malformed expression is ``"invalid"`` (and stored with its
 specs) whatever they are. Specs that do not fit a well-formed expression, and specs combined with
@@ -203,7 +206,7 @@ from SRToolkit.utils.expression_constraints import (
 )
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, tokens_to_tree
-from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants
+from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -769,7 +772,10 @@ class SR_evaluator:
         }
 
     def get_model(
-        self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None
+        self,
+        expr: Union[List[str], Node],
+        free_constants: Optional[Sequence[Constant]] = None,
+        canonicalise_constants: bool = False,
     ) -> Optional[ModelResult]:
         """Return the result of an already evaluated expression, or ``None``.
 
@@ -779,6 +785,9 @@ class SR_evaluator:
         Args:
             expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
             free_constants: The specs it was evaluated with, in any order; ``None`` or empty for none.
+            canonicalise_constants: As in
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]; pass
+                the value ``expr`` was evaluated with. Default ``False``.
 
         Returns:
             The cached [ModelResult][SRToolkit.utils.types.ModelResult], or ``None`` if ``expr`` has
@@ -793,7 +802,10 @@ class SR_evaluator:
             >>> se.get_model(["X_0"]).status
             'ok'
         """
-        index = self._model_index.get((tuple(_as_tokens(expr, self.symbol_library)), _spec_key(free_constants)))
+        tokens = _as_tokens(expr, self.symbol_library)
+        if canonicalise_constants and not free_constants:
+            tokens = canonicalise(tokens, self.symbol_library)
+        index = self._model_index.get((tuple(tokens), _spec_key(free_constants)))
         return None if index is None else self.models[index]
 
     def check_constraints(
@@ -908,6 +920,7 @@ class SR_evaluator:
         expr: Union[List[str], Node],
         free_constants: Optional[Sequence[Constant]] = None,
         simplify_expr: bool = False,
+        canonicalise_constants: bool = False,
         verbose: int = 0,
     ) -> float:
         """Evaluate an expression, or return its cached error.
@@ -972,6 +985,12 @@ class SR_evaluator:
                 expression is then checked, scored, cached and stored as ``ModelResult.expr``, so
                 inputs that simplify alike share one cache entry. If simplification fails, a
                 warning is emitted and the expression is evaluated as given. Default ``False``.
+            canonicalise_constants: If ``True``, [canonicalise][SRToolkit.utils.free_constants.canonicalise]
+                the expression (after simplifying); the canonical form replaces it for the rest of
+                the call, so ``C_1*X_0 + C_1`` after ``C_0*X_0 + C_0`` is a cache hit. For approaches
+                that write labelled constants; pass the same value to ``get_model`` and ``get_metric``.
+                Ignored with ``free_constants``: labels with specs are kept as written. Default
+                ``False``.
             verbose: ``0`` (default): no logging. ``1``: log at DEBUG level (logger
                 ``SRToolkit.evaluation.sr_evaluator``) each new expression with its final status,
                 error and ``status_detail``, and each cache hit. ``2``: also let NumPy
@@ -1009,6 +1028,11 @@ class SR_evaluator:
                     warnings.warn(f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}")
 
             expr_list = _as_tokens(expr, self.symbol_library)
+            if canonicalise_constants and specs is None:
+                canonical = canonicalise(expr_list, self.symbol_library)
+                if canonical != expr_list:
+                    # The ranking gets the canonical tokens, so the fit's seed is that of the canonical form.
+                    expr = expr_list = canonical
 
             expr_str = "".join(expr_list)
             key = (tuple(expr_list), _spec_key(specs))
@@ -1195,6 +1219,7 @@ class SR_evaluator:
         expr: Union[List[str], Node],
         metric: Union[str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]] = "r2",
         free_constants: Optional[Sequence[Constant]] = None,
+        canonicalise_constants: bool = False,
     ) -> float:
         """Compute an alternative, read-only metric for an already-evaluated expression.
 
@@ -1207,7 +1232,8 @@ class SR_evaluator:
 
         The expression **must already have been evaluated** with the same specs via
         ``evaluate_expr`` so its constants are fitted and cached — otherwise a ``ValueError`` is
-        raised. This is the
+        raised. It is matched without simplifying it, as in
+        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]. This is the
         guard that keeps the budget meaningful: a custom ``metric`` callable cannot be used to
         score un-evaluated expressions for free.
 
@@ -1245,6 +1271,8 @@ class SR_evaluator:
                 has the fitted constants bound in. Default ``"r2"``.
             free_constants: The specs ``expr`` was evaluated with, as in ``evaluate_expr``;
                 ``None`` or empty for none.
+            canonicalise_constants: As in ``evaluate_expr``; pass the value ``expr`` was evaluated
+                with. Default ``False``.
 
         Returns:
             The metric value as a float. Returns ``NaN`` in BED mode, for models that could
@@ -1256,6 +1284,8 @@ class SR_evaluator:
             TypeError: If ``metric`` is neither a string nor a callable.
         """
         expr_list = _as_tokens(expr, self.symbol_library)
+        if canonicalise_constants and not free_constants:
+            expr_list = canonicalise(expr_list, self.symbol_library)
         expr_str = "".join(expr_list)
 
         index = self._model_index.get((tuple(expr_list), _spec_key(free_constants)))

@@ -13,7 +13,7 @@ pytest.importorskip("pymoo")
 from SRToolkit.approaches.EDHiE import EDHiE  # noqa: E402
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge  # noqa: E402
 from SRToolkit.evaluation import SR_evaluator  # noqa: E402
-from SRToolkit.utils.expression_constraints import MaxTokens, RequiredVariables  # noqa: E402
+from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, RequiredVariables  # noqa: E402
 from SRToolkit.utils.grammar.grammar import Grammar, Rule  # noqa: E402
 from SRToolkit.utils.symbol_library import SymbolLibrary  # noqa: E402
 
@@ -67,6 +67,21 @@ def test_training_expressions_raise_when_nothing_passes():
     approach = _tiny(num_expressions=20, max_consecutive_skips=50)
     with pytest.raises(ValueError):
         approach.training_expressions(bk, (_set_up(RequiredVariables(["X_1"]), lib),))
+
+
+def test_training_expressions_write_labelled_constants_bare_before_filtering():
+    # Regression: labelled constants from a reference grammar reached the one-hot vocabulary (KeyError).
+    # Clause: they are written as bare C before the constraint filter, so C_0*X_0+C_0 becomes
+    # C*X_0+C, which has 2 parameters and fails MaxConstants(1); C_0*X_0 becomes C*X_0 and passes.
+    lib = _lib()
+    grammar = Grammar(Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_0' '*' 'X_0' [0.5]"), start="E")
+    approach = _tiny(num_expressions=5, max_consecutive_skips=20)
+    with pytest.warns(UserWarning):
+        expressions = approach.training_expressions(
+            BackgroundKnowledge(lib, reference_grammar=grammar), (_set_up(MaxConstants(1), lib),)
+        )
+    assert {"".join(e) for e in expressions} == {"C*X_0"}
+    assert len(expressions) == 5
 
 
 @pytest.mark.slow

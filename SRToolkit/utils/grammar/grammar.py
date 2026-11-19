@@ -3,6 +3,13 @@
 Provides [Rule][SRToolkit.utils.grammar.Rule], [ParseTreeNode][SRToolkit.utils.grammar.ParseTreeNode],
 [ParseTree][SRToolkit.utils.grammar.ParseTree], and [Grammar][SRToolkit.utils.grammar.Grammar].
 For stateful expression generation see [Derivation][SRToolkit.utils.grammar.derivation.Derivation].
+
+## Free constants
+
+A terminal ``C`` is a new free constant at every occurrence. To generate shared constants, use
+labelled constants (``C_0``, ``C_1``, ...) as terminals: every occurrence of one label in an
+expression is one parameter (see [free_constants][SRToolkit.utils.free_constants]).
+[from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library] uses only ``C``.
 """
 
 from __future__ import annotations
@@ -279,6 +286,9 @@ class Grammar:
     returns only rules that every constraint's
     [allows][SRToolkit.utils.grammar.constraints.GrammarConstraint.allows] accepts.
 
+    Labelled constants (``C_0``) as terminals generate shared constants (see the
+    [module docs][SRToolkit.utils.grammar.grammar]).
+
     Examples:
         >>> g = Grammar([
         ...     Rule("E", ["E", "+", "F"], weight=0.4),
@@ -291,6 +301,11 @@ class Grammar:
         True
         >>> len(g.rules_for("E"))
         2
+        >>> # A shared constant: C_0*X_0 + C_0 has one parameter
+        >>> from SRToolkit.utils import parameter_labels
+        >>> g = Grammar([Rule("E", ["C_0", "*", "X_0", "+", "C_0"])], start="E")
+        >>> parameter_labels(g.start_derivation().generate())
+        ['C_0']
     """
 
     def __init__(self, rules: Optional[list[Rule]] = None, start: Optional[str] = None) -> None:

@@ -29,7 +29,7 @@ from SRToolkit.utils.expression_constraints import (
     RequiredVariables,
 )
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
-from SRToolkit.utils.free_constants import Constant, resolve_constants, uniform_default
+from SRToolkit.utils.free_constants import Constant, canonicalise, resolve_constants, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
 from SRToolkit.utils.measures import bed, create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -2550,6 +2550,108 @@ class TestFreeConstants:
             default_constant=result.default_constant,
         )
         assert rebed == pytest.approx(model.error, abs=1e-9)
+
+
+_y3_affine = 2 * _X3[:, 0] + 2  # fitted by C_0*X_0 + C_0 with C_0 = 2
+
+
+def _canon_se(lib=None, **kwargs):
+    lib = SymbolLibrary.default_symbols(1) if lib is None else lib
+    return SR_evaluator(_X3, _y3_affine, symbol_library=lib, seed=0, success_threshold=-1, **kwargs)
+
+
+class TestCanonicalisation:
+    # Reason: clause (with canonicalise_constants=True the canonical form is cached and stored: C_1*X_0+C_1
+    # after C_4*X_0+C_4 is a cache hit) + implied (canonicalised with the evaluator's library; input not mutated).
+    @pytest.mark.parametrize(
+        "const, lib",
+        [
+            ("C", lambda: SymbolLibrary.default_symbols(1)),
+            ("K", lambda: SymbolLibrary.default_symbols(1, const_symbol="K")),
+        ],
+        ids=["C", "K"],
+    )
+    def test_relabelled_expressions_are_one_canonical_model(self, const, lib):
+        se = _canon_se(lib())
+        first = f"{const}_4 * X_0 + {const}_4".split()
+        error = se.evaluate_expr(first, canonicalise_constants=True)
+        assert first == f"{const}_4 * X_0 + {const}_4".split()
+        assert se.evaluate_expr(f"{const}_1 * X_0 + {const}_1".split(), canonicalise_constants=True) == error
+        assert len(se.models) == 1
+        assert se.trace == [0, 0]
+        assert se.models[0].expr == f"{const}_0 * X_0 + {const}_0".split()
+        assert error < 1e-6
+        np.testing.assert_allclose(se.models[0].parameters, [2.0], rtol=1e-6)
+
+    # Reason: clause (canonicalise_constants defaults to False: relabelled expressions are separate
+    # models stored as written) + clause (get_model / get_metric match as given, without canonicalising).
+    def test_default_keeps_labels_and_lookups_match_as_given(self):
+        se = _canon_se()
+        se.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"])
+        se.evaluate_expr(["C_1", "*", "X_0", "+", "C_1"])
+        assert [m.expr for m in se.models] == [["C_4", "*", "X_0", "+", "C_4"], ["C_1", "*", "X_0", "+", "C_1"]]
+        assert se.get_model(["C_0", "*", "X_0", "+", "C_0"]) is None
+        canonical = _canon_se()
+        canonical.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"], canonicalise_constants=True)
+        assert canonical.get_model(["C_4", "*", "X_0", "+", "C_4"]) is None
+        assert canonical.get_model(["C_0", "*", "X_0", "+", "C_0"]) is canonical.models[0]
+        assert canonical.get_metric(["C_0", "*", "X_0", "+", "C_0"], "mae") < 1e-6
+
+    # Reason: clause (get_model / get_metric with canonicalise_constants=True find a model under another
+    # labelling, without billing) + implied (with the evaluator's library).
+    @pytest.mark.parametrize(
+        "const, lib",
+        [
+            ("C", lambda: SymbolLibrary.default_symbols(1)),
+            ("K", lambda: SymbolLibrary.default_symbols(1, const_symbol="K")),
+        ],
+        ids=["C", "K"],
+    )
+    def test_lookups_canonicalise_with_the_flag(self, const, lib):
+        se = _canon_se(lib())
+        se.evaluate_expr(f"{const}_0 * X_0 + {const}_0".split(), canonicalise_constants=True)
+        relabelled = f"{const}_3 * X_0 + {const}_3".split()
+        assert se.get_model(relabelled, canonicalise_constants=True) is se.models[0]
+        assert se.get_metric(relabelled, "mae", canonicalise_constants=True) < 1e-6
+        assert se.total_evaluations == 1
+
+    # Reason: clause (canonicalise_constants is ignored with free_constants: labels with specs are kept).
+    def test_canonicalise_is_ignored_with_specs(self):
+        se = _canon_se()
+        expr = ["C_4", "*", "X_0", "+", "C_4"]
+        spec = _fix("C_4", 1.0)
+        se.evaluate_expr(expr, [spec], canonicalise_constants=True)
+        assert se.models[0].expr == expr
+        assert se.get_model(expr, [spec], canonicalise_constants=True) is se.models[0]
+        assert se.get_metric(expr, "mae", [spec], canonicalise_constants=True) > 0
+
+    # Reason: clause (the canonical form is scored, and a fit is seeded by its tokens): with max_iter=0
+    # the parameters are the seeded starting point, so they match those of the canonical form.
+    def test_fit_starts_from_the_canonical_forms_seed(self):
+        relabelled = _canon_se(max_iter=0)
+        relabelled.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"], canonicalise_constants=True)
+        canonical = _canon_se(max_iter=0)
+        canonical.evaluate_expr(["C_0", "*", "X_0", "+", "C_0"])
+        np.testing.assert_array_equal(relabelled.models[0].parameters, canonical.models[0].parameters)
+
+    # Reason: clause (canonicalised after simplifying): simplify keeps
+    # the shared labels C_5 and C_2, the stored form must be canonical (a fixed point of canonicalise).
+    def test_simplified_expression_is_canonicalised(self):
+        lib = SymbolLibrary.default_symbols(2)
+        se = SR_evaluator(_X, _y, symbol_library=lib, seed=0, success_threshold=-1)
+        se.evaluate_expr("C_5 * X_0 + C_5 + C_2 * X_1 + C_2".split(), simplify_expr=True, canonicalise_constants=True)
+        stored = se.models[0].expr
+        assert canonicalise(stored, lib) == stored
+        assert sorted(t for t in stored if t.startswith("C")) == ["C_0", "C_0", "C_1", "C_1"]
+
+    # Reason: boundary (a malformed expression is canonicalised token-wise, still "invalid").
+    def test_malformed_expression_is_canonicalised_and_invalid(self):
+        se = _canon_se()
+        assert se.evaluate_expr(["C_3", "*", "X_0", "X_0", "C_3"], canonicalise_constants=True) == math.inf
+        assert se.models[0].status == "invalid"
+        assert se.models[0].expr == ["C_0", "*", "X_0", "X_0", "C_0"]
+        se.evaluate_expr(["C_5", "*", "X_0", "X_0", "C_5"], canonicalise_constants=True)
+        assert len(se.models) == 1
 
 
 class TestCacheKey:

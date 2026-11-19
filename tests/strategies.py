@@ -33,6 +33,19 @@ def infix_expressions(max_leaves: int = 6):
     return st.recursive(st.sampled_from(EXPR_LEAVES).map(lambda s: [s]), _extend, max_leaves=max_leaves)
 
 
+EXPR_CONSTANT_LABELS = ["C", "C_0", "C_1", "C_7"]
+
+
+@st.composite
+def labelled_infix_expressions(draw, max_leaves: int = 6):
+    """``infix_expressions`` with every ``C`` leaf replaced by a draw from ``EXPR_CONSTANT_LABELS``.
+
+    Labels can repeat, so the expressions have shared (labelled) and bare parameters.
+    """
+    tokens = draw(infix_expressions(max_leaves))
+    return [draw(st.sampled_from(EXPR_CONSTANT_LABELS)) if t == "C" else t for t in tokens]
+
+
 # --- Behavior matrices -----------------------------------------------------------------------
 
 _FINITE = st.floats(min_value=-1e3, max_value=1e3, allow_nan=False, allow_infinity=False)

@@ -111,6 +111,26 @@ def test_search_skips_repeats_and_rejected_then_stops():
     assert all(m.status != "rejected" for m in se.models)
 
 
+# Reason: clause (canonicalise_constants: samples differing only in their labels are one expression;
+# off by default): the grammar yields C_0*X_0+C_0 and C_1*X_0+C_1.
+@pytest.mark.parametrize(
+    "canonicalise, exprs",
+    [
+        (True, [["C_0", "*", "X_0", "+", "C_0"]]),
+        (False, [["C_0", "*", "X_0", "+", "C_0"], ["C_1", "*", "X_0", "+", "C_1"]]),
+    ],
+    ids=["on", "off"],
+)
+def test_search_canonicalise_constants(canonicalise, exprs):
+    grammar = Grammar(
+        Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_1' '*' 'X_0' '+' 'C_1' [0.5]"), start="E"
+    )
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
+    with pytest.warns(UserWarning, match="Stopping early"):
+        ProGED(grammar, max_consecutive_skips=20, canonicalise_constants=canonicalise).search(se, seed=0)
+    assert sorted(m.expr for m in se.models) == exprs
+
+
 def test_search_spends_budget_on_new_expressions():
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=20, success_threshold=-1)
     with warnings.catch_warnings():
@@ -144,11 +164,22 @@ def test_search_skip_flags_are_independent(skip_evaluated, skip_rejected):
 
 
 def test_config_round_trip_keeps_skip_settings():
-    approach = ProGED(max_consecutive_skips=7, skip_evaluated=False, skip_rejected=False)
+    approach = ProGED(max_consecutive_skips=7, skip_evaluated=False, skip_rejected=False, canonicalise_constants=True)
     rebuilt = ProGED.from_config(approach.config.to_dict())
-    config = rebuilt.config
-    assert (config.max_consecutive_skips, config.skip_evaluated, config.skip_rejected) == (7, False, False)
-    assert (rebuilt.max_consecutive_skips, rebuilt.skip_evaluated, rebuilt.skip_rejected) == (7, False, False)
+    c = rebuilt.config
+    assert (c.max_consecutive_skips, c.skip_evaluated, c.skip_rejected, c.canonicalise_constants) == (
+        7,
+        False,
+        False,
+        True,
+    )
+    r = rebuilt
+    assert (r.max_consecutive_skips, r.skip_evaluated, r.skip_rejected, r.canonicalise_constants) == (
+        7,
+        False,
+        False,
+        True,
+    )
 
 
 def test_search_stops_after_exactly_max_consecutive_skips():
@@ -169,5 +200,10 @@ def test_search_is_reproducible_with_a_seed():
 
 
 def test_from_config_defaults_for_older_configs():
-    approach = ProGED.from_config({"grammar": None})
-    assert (approach.max_consecutive_skips, approach.skip_evaluated, approach.skip_rejected) == (10000, True, True)
+    a = ProGED.from_config({"grammar": None})
+    assert (a.max_consecutive_skips, a.skip_evaluated, a.skip_rejected, a.canonicalise_constants) == (
+        10000,
+        True,
+        True,
+        False,
+    )

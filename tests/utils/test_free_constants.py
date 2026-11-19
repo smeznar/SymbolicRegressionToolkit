@@ -1,13 +1,16 @@
-"""Spec tests for SRToolkit.utils.free_constants (Constant, uniform_default, resolve_constants)."""
+"""Spec tests for SRToolkit.utils.free_constants (Constant, uniform_default, resolve_constants, canonicalise)."""
 
 import json
 
 import numpy as np
 import pytest
+from hypothesis import given, settings
+from strategies import infix_expressions, labelled_infix_expressions
 
 from SRToolkit.dataset import UniformSampling
-from SRToolkit.utils.expression_tree import tokens_to_tree
-from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants, uniform_default
+from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.expression_tree import parameter_labels, tokens_to_tree
+from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise, resolve_constants, uniform_default
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 INF = float("inf")
@@ -432,3 +435,105 @@ class TestSpecKey:
     def test_changes_with_each_field(self, variant):
         # variant is a list of Constant kwargs differing from BASE in one field (or adding a spec)
         assert _spec_key([Constant(**kw) for kw in variant]) != _spec_key([_base_spec()])
+
+
+# ---------------------------------------------------------------------------------------------------
+# canonicalise
+# ---------------------------------------------------------------------------------------------------
+
+_X_CANON = np.random.default_rng(0).uniform(0.5, 2.0, size=(5, 2))
+
+
+def _relabel(tokens):
+    """Rename the labels of ``labelled_infix_expressions`` by a fixed bijection."""
+    renaming = {"C_0": "C_7", "C_1": "C_0", "C_7": "C_1"}
+    return [renaming.get(t, t) for t in tokens]
+
+
+class TestCanonicalise:
+    # Reason: clause (once -> bare, shared -> C_<k> with k from the parameter order, skipping
+    # registered names, const symbol of the library) + boundary (empty, no constants, no const symbol,
+    # malformed tokens) + implied (input not mutated).
+    @pytest.mark.parametrize(
+        "lib, expr, expected",
+        [
+            (None, "C_3 + X_0", "C + X_0"),
+            (None, "C_2 * X_0 + C_9 + C_9 + C_2", "C_0 * X_0 + C_1 + C_1 + C_0"),
+            # positions count bare and once-occurring constants: C_8 is parameter 2
+            (None, "C_4 + C + C_8 * C_8", "C + C + C_2 * C_2"),
+            # renaming is simultaneous: C_1 -> C_0 and C_0 -> C_1 do not collide
+            (None, "C_1 * C_1 + C_0 * C_0", "C_0 * C_0 + C_1 * C_1"),
+            (None, "X_0 + pi", "X_0 + pi"),
+            (None, "", ""),
+            (
+                lambda: SymbolLibrary.default_symbols(1, const_symbol="K"),
+                "K_3 * X_0 + K_3 + K_5",
+                "K_0 * X_0 + K_0 + K",
+            ),
+            # D17: the named constant C_1 is not a parameter; C_5 is parameter 0
+            (_lit_c1_library, "C_1 + C_5 * X_0 + C_5", "C_1 + C_0 * X_0 + C_0"),
+            # D17: C_5 is parameter 1, but C_1 is registered, so it gets C_2
+            (_lit_c1_library, "C_7 * C_7 + C_5 * X_0 + C_5", "C_0 * C_0 + C_2 * X_0 + C_2"),
+            # labels are handed out per parameter, bare ones included: the bare C takes C_2
+            (_lit_c1_library, "C_7 * C_7 + C + C_5 * C_5", "C_0 * C_0 + C + C_3 * C_3"),
+            (lambda: SymbolLibrary.from_symbol_list(["+"], 1), "C_0 + C_0", "C_0 + C_0"),
+            # tokens only: malformed input is rewritten without parsing
+            (None, "C_3 * ( C_3", "C_0 * ( C_0"),
+        ],
+        ids=[
+            "once",
+            "renumber",
+            "positions-count-bare",
+            "swap",
+            "no-constants",
+            "empty",
+            "const-symbol-K",
+            "D17-registered-untouched",
+            "D17-skip",
+            "D17-skip-counts-bare",
+            "no-const-symbol",
+            "malformed",
+        ],
+    )
+    def test_canonical_form(self, lib, expr, expected):
+        tokens = expr.split()
+        given_tokens = list(tokens)
+        assert canonicalise(tokens, None if lib is None else lib()) == expected.split()
+        assert tokens == given_tokens
+
+    # Reason: clause (Node input gives the canonical form of its infix to_list) + implied (not mutated).
+    def test_node_input(self):
+        tree = tokens_to_tree(["C_5", "+", "C_5"], SymbolLibrary.default_symbols(1))
+        assert canonicalise(tree) == ["C_0", "+", "C_0"]
+        assert tree.to_list() == ["C_5", "+", "C_5"]
+
+    # Reason: clause (Raises TypeError).
+    @pytest.mark.parametrize("expr", ["C_0+C_0", None, [1, "+"]], ids=["str", "none", "non-str-token"])
+    def test_rejects_non_expression(self, expr):
+        with pytest.raises(TypeError, match="token strings"):
+            canonicalise(expr)
+
+    # Reason: implied (only names change): idempotent, same parameter count, same function of the
+    # same parameter vector.
+    @settings(max_examples=60)
+    @given(expr=labelled_infix_expressions())
+    def test_canonical_form_is_idempotent_and_computes_the_same_function(self, expr):
+        canon = canonicalise(expr)
+        assert canonicalise(canon) == canon
+        n = len(parameter_labels(expr))
+        assert len(parameter_labels(canon)) == n
+        params = np.random.default_rng(1).uniform(0.5, 2.0, size=n)
+        with np.errstate(all="ignore"):
+            np.testing.assert_array_equal(compile_expr(canon)(_X_CANON, params), compile_expr(expr)(_X_CANON, params))
+
+    # Reason: clause ("expressions that differ only in how their constants are written then have one form").
+    @settings(max_examples=60)
+    @given(expr=labelled_infix_expressions())
+    def test_invariant_under_relabelling(self, expr):
+        assert canonicalise(_relabel(expr)) == canonicalise(expr)
+
+    # Reason: clause ("an expression with only bare constants is unchanged").
+    @settings(max_examples=60)
+    @given(expr=infix_expressions())
+    def test_bare_only_expression_unchanged(self, expr):
+        assert canonicalise(expr) == expr

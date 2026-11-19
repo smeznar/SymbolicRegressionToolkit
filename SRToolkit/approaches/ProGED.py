@@ -27,6 +27,7 @@ class ProGEDConfig(ApproachConfig):
         max_consecutive_skips: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
         skip_evaluated: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
         skip_rejected: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
+        canonicalise_constants: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
 
     Examples:
         >>> cfg = ProGEDConfig()
@@ -40,6 +41,7 @@ class ProGEDConfig(ApproachConfig):
     max_consecutive_skips: int = 10000
     skip_evaluated: bool = True
     skip_rejected: bool = True
+    canonicalise_constants: bool = False
 
 
 class ProGED(SR_approach):
@@ -49,6 +51,7 @@ class ProGED(SR_approach):
         max_consecutive_skips: int = 10000,
         skip_evaluated: bool = True,
         skip_rejected: bool = True,
+        canonicalise_constants: bool = False,
     ) -> None:
         r"""A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.
 
@@ -108,6 +111,10 @@ class ProGED(SR_approach):
                 too, as cache hits that use the budget.
             skip_rejected: Skip samples that break a required constraint. ``False`` evaluates them,
                 so they use the budget and appear in the results as ``"rejected"``.
+            canonicalise_constants: Treat samples that differ only in how their constants are
+                labelled (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) as one expression; passed to
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] and
+                ``get_model``. Useful only for grammars with labelled constants as terminals.
         """
         if isinstance(grammar, Grammar):
             grammar_dict = grammar.to_dict()
@@ -126,12 +133,14 @@ class ProGED(SR_approach):
                 max_consecutive_skips=max_consecutive_skips,
                 skip_evaluated=skip_evaluated,
                 skip_rejected=skip_rejected,
+                canonicalise_constants=canonicalise_constants,
             )
         )
         self.grammar: Optional[Grammar] = grammar
         self.max_consecutive_skips = max_consecutive_skips
         self.skip_evaluated = skip_evaluated
         self.skip_rejected = skip_rejected
+        self.canonicalise_constants = canonicalise_constants
         # The grammar search samples from: the constructor's, or the one adapt chose for this task.
         self._sampling_grammar: Optional[Grammar] = grammar
 
@@ -200,9 +209,10 @@ class ProGED(SR_approach):
         skipped = 0
         while not sr_evaluator.should_stop:
             expr = generate_n_expressions(self._sampling_grammar, 1, verbose=False)[0]
-            if (self.skip_evaluated and sr_evaluator.get_model(expr) is not None) or (
-                self.skip_rejected and sr_evaluator.check_constraints(expr)[0]
-            ):
+            evaluated = self.skip_evaluated and (
+                sr_evaluator.get_model(expr, canonicalise_constants=self.canonicalise_constants) is not None
+            )
+            if evaluated or (self.skip_rejected and sr_evaluator.check_constraints(expr)[0]):
                 skipped += 1
                 if skipped >= self.max_consecutive_skips:
                     warnings.warn(
@@ -212,7 +222,7 @@ class ProGED(SR_approach):
                     return
                 continue
             skipped = 0
-            sr_evaluator.evaluate_expr(expr)
+            sr_evaluator.evaluate_expr(expr, canonicalise_constants=self.canonicalise_constants)
 
     @classmethod
     def from_config(cls, config: dict) -> "ProGED":
@@ -222,4 +232,5 @@ class ProGED(SR_approach):
             max_consecutive_skips=config.get("max_consecutive_skips", 10000),
             skip_evaluated=config.get("skip_evaluated", True),
             skip_rejected=config.get("skip_rejected", True),
+            canonicalise_constants=config.get("canonicalise_constants", False),
         )

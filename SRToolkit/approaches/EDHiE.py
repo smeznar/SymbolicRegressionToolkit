@@ -268,9 +268,10 @@ class EDHiE(SR_approach):
         """Sample the expressions the HVAE is trained on.
 
         Samples from [BackgroundKnowledge.sampling_grammar][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.sampling_grammar]
-        (the reference grammar if it is set, otherwise a generic grammar for the symbol library). Keeps
-        only expressions of at most ``max_expression_length`` tokens that pass the pre-checks of all
-        ``required_constraints``. With ``only_unique_expressions`` they are distinct until
+        (the reference grammar if it is set, otherwise a generic grammar for the symbol library).
+        Labelled constants (``C_0``) are made bare (``C``), since EDHiE does not generate shared
+        constants. Keeps only expressions of at most ``max_expression_length`` tokens that pass the
+        pre-checks of all ``required_constraints``. With ``only_unique_expressions`` they are distinct until
         ``max_consecutive_skips`` valid samples in a row are repeats; the rest is then filled with
         further valid samples, repeats included, with a warning.
 
@@ -285,6 +286,8 @@ class EDHiE(SR_approach):
             ValueError: If ``max_consecutive_skips`` samples in a row break a required constraint.
         """
         grammar = background_knowledge.sampling_grammar()
+        symbol_library = background_knowledge.symbol_library
+        constant = str(symbol_library.constant_symbol)
 
         expressions: List[List[str]] = []
         seen = set()
@@ -300,6 +303,8 @@ class EDHiE(SR_approach):
                 verbose=False,
             )
             for expr in batch:
+                # The HVAE's vocabulary has only the library's symbols, so labelled constants become bare.
+                expr = [constant if symbol_library.get_type(t) == "const" else t for t in expr]
                 if any(r.implemented and not r.passed for r in (c.pre_check(expr) for c in required_constraints)):
                     rejected += 1
                     if rejected >= self.max_consecutive_skips:

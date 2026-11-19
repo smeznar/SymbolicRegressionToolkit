@@ -23,17 +23,23 @@ dataset's default spec is
 prior on a constant range with that range as bounds.
 [resolve_constants][SRToolkit.utils.free_constants.resolve_constants] combines the specs given for
 an expression with the default spec into one complete spec per parameter.
+
+Without specs, how constants are written does not matter: ``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``
+are the same model. [canonicalise][SRToolkit.utils.free_constants.canonicalise] writes them one way
+(a constant occurring once bare, a shared one labelled), e.g. to deduplicate candidates of an
+approach that writes labelled constants (``evaluate_expr(canonicalise_constants=True)``).
 """
 
 import json
 import math
 import numbers
+from collections import Counter
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from .expression_tree import Node, parameter_labels
+from .expression_tree import Node, _as_tokens, _constant_indices, parameter_labels
 from .symbol_library import SymbolLibrary
 
 if TYPE_CHECKING:
@@ -310,6 +316,62 @@ def resolve_constants(
         except ValueError as e:  # a free value outside the inherited bounds
             raise ValueError(f"'free_constants': {e}") from None
     return tuple(resolved)
+
+
+def canonicalise(expr: Union[List[str], Node], symbol_library: Optional[SymbolLibrary] = None) -> List[str]:
+    """Rewrite the free constants of an expression in a canonical way.
+
+    A parameter that occurs once is written bare (``C``, the library's constant symbol); one that
+    occurs more than once is labelled. Labels ``C_0``, ``C_1``, ... are given out one per parameter
+    (bare ones included) in the order of the parameter vector (see
+    [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]), skipping names the library
+    registers as symbols, so a shared constant at position ``k`` is ``C_k`` unless an earlier name was
+    skipped. Expressions that differ only in how their constants are written then have one form. The
+    parameter vector keeps its length and order, and applying the rewrite again changes nothing. Only
+    looks at tokens; does not parse. The rewrite drops the labels specs refer to, so apply it only to
+    expressions without specs.
+
+    Args:
+        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].
+        symbol_library: Symbol library used to recognise constants. ``None`` uses the active or
+            default library.
+
+    Returns:
+        The canonical token list, as a new list. Equal to ``expr`` if it has only bare constants
+        or the library has no constant symbol.
+
+    Raises:
+        TypeError: If ``expr`` is neither a list of token strings nor a
+            [Node][SRToolkit.utils.expression_tree.Node].
+
+    Examples:
+        >>> "".join(canonicalise(["C_0", "*", "X_0", "+", "C_1", "*", "X_1"]))
+        'C*X_0+C*X_1'
+        >>> "".join(canonicalise(["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C_5"]))
+        'C*X_0+C_1*X_1+C_1'
+    """
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
+    tokens = _as_tokens(expr, symbol_library)
+    symbol = symbol_library.constant_symbol
+    indices = _constant_indices(tokens, symbol_library)
+    names = []
+    k = 0
+    for _ in range(len(set(indices))):
+        while f"{symbol}_{k}" in symbol_library.symbols:
+            k += 1
+        names.append(f"{symbol}_{k}")
+        k += 1
+    counts = Counter(indices)
+    occurrences = iter(indices)
+    result = []
+    for token in tokens:
+        if symbol_library.get_type(token) == "const":
+            index = next(occurrences)
+            result.append(names[index] if counts[index] > 1 else str(symbol))
+        else:
+            result.append(token)
+    return result
 
 
 def _ground_truth_parameters(
