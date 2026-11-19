@@ -14,15 +14,15 @@ A [Constant][SRToolkit.utils.free_constants.Constant] describes how one labelled
 treated: the prior its starting points (and BED samples) are drawn from, the hard bounds of the fit,
 an optional value, and whether that value is fixed instead of fitted. Specs address constants by
 label, so to specify a constant write it labelled (``C_0`` instead of ``C``). A bare ``C``, and a
-labelled constant without a spec, use the **default template**: a ``Constant`` without a label that
-applies to every parameter without a spec of its own. A spec's unset ``prior`` or ``bounds`` are
-also taken from it, so a fit is unbounded only when infinite bounds are given explicitly. A
-dataset's default comes from its
-[BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge];
+labelled constant without a spec, use the **default spec**: a ``Constant`` template (no label)
+that applies to every parameter without a spec of its own. A spec's unset ``prior`` or ``bounds``
+are also taken from it, so a fit is unbounded only when infinite bounds are given explicitly. A
+dataset's default spec is
+[BackgroundKnowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge];
 [uniform_default][SRToolkit.utils.free_constants.uniform_default] builds the usual one, a uniform
 prior on a constant range with that range as bounds.
 [resolve_constants][SRToolkit.utils.free_constants.resolve_constants] combines the specs given for
-an expression with the default into one complete spec per parameter.
+an expression with the default spec into one complete spec per parameter.
 """
 
 import json
@@ -30,6 +30,8 @@ import math
 import numbers
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
 
 from .expression_tree import Node, parameter_labels
 from .symbol_library import SymbolLibrary
@@ -44,9 +46,10 @@ class Constant:
     """Specification of one free constant.
 
     A spec with a ``label`` applies to every occurrence of that labelled constant in an expression.
-    A spec without one is a **template**: the default applied to every parameter that has no spec
-    of its own (see [uniform_default][SRToolkit.utils.free_constants.uniform_default]); a template
-    used as the default must set ``prior`` and ``bounds``.
+    A spec without one is a **template**. A template used as the default spec (applied to every
+    parameter that has no spec of its own, see
+    [uniform_default][SRToolkit.utils.free_constants.uniform_default]) must set ``prior`` and
+    ``bounds`` and leave ``value`` and ``fixed`` unset.
 
     Args:
         label: The labelled-constant token the spec applies to, e.g. ``"C_5"``. ``None`` makes the
@@ -55,10 +58,12 @@ class Constant:
             symbol library registers as a symbol (e.g. a named constant ``C_1``) is never a
             labelled constant.
         prior: Distribution that starting points and BED samples are drawn from. ``None``: the
-            default's prior, filled in by [resolve_constants][SRToolkit.utils.free_constants.resolve_constants].
+            default spec's prior, filled in by
+            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants].
         bounds: Hard ``(lower, upper)`` bounds of the fit: a pair of real numbers (length-2 sequence
-            or array) with ``lower < upper``. Either end may be infinite; ``(-inf, inf)`` fits without bounds.
-            ``None``: the default's bounds, filled in by [resolve_constants][SRToolkit.utils.free_constants.resolve_constants].
+            or array) with ``lower < upper``. Either end may be infinite; ``(-inf, inf)`` fits
+            without bounds. ``None``: the default spec's bounds, filled in by
+            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants].
         value: The constant's value: used as is when ``fixed``, otherwise the first starting point
             of the fit, which must lie in the closed interval ``bounds`` (checked against inherited
             bounds by [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
@@ -195,10 +200,10 @@ class Constant:
 
 
 def uniform_default(constant_bounds: Tuple[float, float]) -> Constant:
-    """Return the default template with a uniform prior on, and bounds of, a constant range.
+    """Return the default spec with a uniform prior on, and bounds of, a constant range.
 
     Args:
-        constant_bounds: The ``(lower, upper)`` range free constants are fitted in, as in
+        constant_bounds: The ``(lower, upper)`` range, as in
             [BackgroundKnowledge.constant_bounds][SRToolkit.dataset.background_knowledge.BackgroundKnowledge]:
             a pair of finite real numbers (length-2 sequence or array) with ``lower < upper``.
 
@@ -230,38 +235,39 @@ def uniform_default(constant_bounds: Tuple[float, float]) -> Constant:
 def resolve_constants(
     expr: Union[List[str], Node],
     free_constants: Optional[Sequence[Constant]],
-    default: Constant,
+    default_constant: Constant,
     symbol_library: Optional[SymbolLibrary] = None,
 ) -> Tuple[Constant, ...]:
     """Return one complete spec per parameter of an expression.
 
     Each labelled constant with a spec gets that spec, with a ``prior`` or ``bounds`` of ``None``
-    taken from ``default``. Every other parameter (each bare ``C``, and labelled constants without
-    a spec) gets ``default`` itself. Use it to see what an expression is fitted under, e.g. to
+    taken from ``default_constant``. Every other parameter (each bare ``C``, and labelled constants
+    without a spec) gets ``default_constant`` itself. Use it to see what an expression is fitted under, e.g. to
     resample the constants of a saved result.
 
     Args:
         expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].
         free_constants: Specs for labelled constants of ``expr``, in any order. ``None`` or empty
-            gives every parameter the default.
-        default: The template for parameters without a spec, with ``prior`` and ``bounds`` set,
-            e.g. from [uniform_default][SRToolkit.utils.free_constants.uniform_default].
+            gives every parameter the default spec.
+        default_constant: The default spec, for parameters without a spec: a template with
+            ``prior`` and ``bounds`` set and no ``label``, ``value`` or ``fixed``, e.g. from
+            [uniform_default][SRToolkit.utils.free_constants.uniform_default].
         symbol_library: Symbol library used to recognise constants. ``None`` uses the active or
             default library.
 
     Returns:
         One spec per parameter, in the order of
         [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]; ``label`` is ``None``
-        for every parameter that uses the default, labelled or not. Empty if ``expr`` has no free
+        for every parameter that uses the default spec, labelled or not. Empty if ``expr`` has no free
         constants.
 
     Raises:
         TypeError: If ``expr`` is neither a list of token strings nor a
             [Node][SRToolkit.utils.expression_tree.Node].
-        ValueError: If ``default`` has a label or lacks a ``prior`` or ``bounds``, a spec has no
-            label, two specs share a label, a spec's label is not a labelled constant of ``expr``,
-            or a spec that is not fixed has a ``value`` outside the bounds it takes from
-            ``default``.
+        ValueError: If ``default_constant`` has a ``label``, ``value`` or ``fixed=True`` or lacks a
+            ``prior`` or ``bounds``, a spec has no label, two specs share a label, a spec's label is
+            not a labelled constant of ``expr``, or a spec that is not fixed has a ``value`` outside
+            the bounds it takes from ``default_constant``. The message names the argument.
 
     Examples:
         >>> default = uniform_default((-5.0, 5.0))
@@ -271,33 +277,70 @@ def resolve_constants(
         >>> [(s.label, s.value, s.bounds) for s in specs]
         [(None, None, (-5.0, 5.0)), ('C_1', 2.0, (-5.0, 5.0))]
     """
-    if default.label is not None or default.prior is None or default.bounds is None:
-        raise ValueError(f"'default' must be a template with a prior and bounds and no label, got {default!r}.")
+    d = default_constant
+    if d.label is not None or d.value is not None or d.fixed or d.prior is None or d.bounds is None:
+        raise ValueError(
+            f"'default_constant' must be a template with a prior and bounds and no label, value or fixed, got {d!r}."
+        )
     labels = parameter_labels(expr, symbol_library)
     specs: Dict[str, Constant] = {}
     for spec in free_constants or ():
         if spec.label is None:
             raise ValueError(f"Every spec in 'free_constants' needs a label, got {spec!r}.")
         if spec.label in specs:
-            raise ValueError(f"Two specs share the label {spec.label!r}.")
+            raise ValueError(f"Two specs in 'free_constants' share the label {spec.label!r}.")
         specs[spec.label] = spec
     unknown = sorted(set(specs) - set(labels))
     if unknown:
-        raise ValueError(f"Spec labels {unknown} are not labelled constants of the expression.")
+        raise ValueError(f"'free_constants' labels {unknown} are not labelled constants of the expression.")
     resolved = []
     for label in labels:
         given = specs.get(label) if label is not None else None
         if given is None:
-            resolved.append(default)
-        else:
+            resolved.append(d)
+            continue
+        try:
             resolved.append(
                 replace(
                     given,
-                    prior=default.prior if given.prior is None else given.prior,
-                    bounds=default.bounds if given.bounds is None else given.bounds,
+                    prior=d.prior if given.prior is None else given.prior,
+                    bounds=d.bounds if given.bounds is None else given.bounds,
                 )
             )
+        except ValueError as e:  # a free value outside the inherited bounds
+            raise ValueError(f"'free_constants': {e}") from None
     return tuple(resolved)
+
+
+def _ground_truth_parameters(
+    expr: Union[List[str], Node],
+    free_constants: Optional[Sequence[Constant]],
+    symbol_library: SymbolLibrary,
+    context: str,
+) -> np.ndarray:
+    """Return the parameter vector of an expression whose parameters are all fixed by specs.
+
+    Used to evaluate a ground truth, e.g. to compute ``y``.
+
+    Raises:
+        ValueError: Starting with ``context``, if a spec's label is not a labelled constant of
+            ``expr``, or naming the free constants without a fixed value.
+    """
+    fixed = {c.label: c.value for c in free_constants or () if c.fixed}
+    labels = parameter_labels(expr, symbol_library)
+    unknown = sorted({str(c.label) for c in free_constants or ()} - set(labels))
+    if unknown:
+        raise ValueError(
+            f"{context} 'ground_truth_constants' labels {unknown} are not labelled constants of the ground truth."
+        )
+    unfixed = sorted({label or str(symbol_library.constant_symbol) for label in labels if label not in fixed})
+    if unfixed:
+        raise ValueError(
+            f"{context} ground truth contains a free constant ({', '.join(unfixed)}) without a fixed value, so it "
+            "cannot be evaluated. Fix its value with a spec in ground_truth_constants (label it, e.g. C_0, and "
+            "use Constant(label=..., value=..., fixed=True))."
+        )
+    return np.array([fixed[label] for label in labels], dtype=np.float64)
 
 
 def _spec_key(free_constants: Optional[Sequence[Constant]]) -> str:

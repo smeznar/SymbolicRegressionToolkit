@@ -1,7 +1,40 @@
-"""Constant parameter estimation for symbolic regression expressions using numerical optimization."""
+"""Fitting of free constants by minimizing RMSE.
+
+[ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator] fits the
+parameters of an expression (its free constants, in the order of
+[parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]) to data ``(X, y)`` with
+``scipy.optimize.minimize``.
+[RMSERanking][SRToolkit.evaluation.ranking.RMSERanking] scores expressions with it.
+
+**Specs.** Each parameter is fitted under a spec (see
+[free_constants][SRToolkit.utils.free_constants]). Specs given for an expression's labelled
+constants are completed by
+[resolve_constants][SRToolkit.utils.free_constants.resolve_constants]; every other parameter uses
+the default spec: the ``default_constant`` setting (a complete template) if given, else
+[uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default], with
+``constant_bounds`` the setting of that name. A fixed parameter keeps its
+``value`` and is not fitted; the returned vector holds it in place.
+
+**Starting points.** A free parameter starts at its spec's ``value`` if given. Otherwise:
+
+- ``initialization="random"``: a draw from its prior (the prior's ``ppf`` of a uniform draw, or a
+  direct draw when the prior does not implement [ppf][SRToolkit.dataset.sampling.Sampler.ppf]);
+- ``initialization="mean"``: the prior's ``ppf(0.5)`` (the midpoint for a uniform prior).
+
+A start outside the spec's bounds is clipped to the nearest bound. Each parameter is fitted within
+its bounds; an infinite end leaves that side unbounded.
+
+**Seeding.** With ``initialization="random"``, each fit's starting point is drawn from a generator
+seeded with a hash of ``seed``, the expression's tokens (a tree is seeded as its ``to_list`` tokens,
+a token list as given) and the specs passed for it (in any order; the order does not affect the
+seed). An expression's fit therefore depends only on ``seed``, its tokens, its specs, ``X``, ``y``
+and the settings, not on earlier fits, and is the same in every process, on every platform and
+Python version. With ``seed=None`` every fit draws a fresh random starting point.
+"""
 
 import hashlib
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import math
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy.optimize import minimize
@@ -9,7 +42,8 @@ from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
 from SRToolkit.utils.expression_constraints import _validate_limit
-from SRToolkit.utils.expression_tree import Node, _as_tokens, _constant_indices
+from SRToolkit.utils.expression_tree import Node, _as_tokens
+from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants, uniform_default
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import RankingSettings
 
@@ -20,6 +54,7 @@ DEFAULT_ESTIMATION_SETTINGS: Dict[str, Any] = {
     "gtol": 1e-3,
     "max_iter": 100,
     "constant_bounds": (-5, 5),
+    "default_constant": None,
     "initialization": "random",  # random, mean
     "max_constants": 8,
     "max_expr_length": -1,
@@ -30,11 +65,10 @@ DEFAULT_ESTIMATION_SETTINGS: Dict[str, Any] = {
 class ParameterEstimator:
     """Fits free constants in symbolic expressions by minimizing RMSE against target values.
 
-    With ``initialization="random"``, each fit's starting point is drawn from a generator seeded
-    with a hash of ``seed`` and the expression's tokens (a tree is seeded as its ``to_list`` tokens,
-    a token list as given). An expression's fit therefore depends only on ``seed``, its tokens,
-    ``X``, ``y`` and the settings, not on earlier fits, and is the same in every process, on every
-    platform and Python version. With ``seed=None`` every fit draws a fresh random starting point.
+    Each parameter is fitted under its spec, or under the default spec ``default_constant`` if
+    it has none. See the
+    [module docstring][SRToolkit.evaluation.parameter_estimator] for specs, starting points, bounds
+    and seeding.
 
     Args:
         X: Input data of shape ``(n_samples, n_features)`` used to evaluate expressions.
@@ -42,18 +76,26 @@ class ParameterEstimator:
         symbol_library: Symbol library defining the token vocabulary.
             Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
         seed: Seed of the random starting points (only with ``initialization="random"``),
-            combined with each expression's tokens. ``None`` gives a fresh random starting point
-            per fit. Default ``None``.
+            combined with each expression's tokens and the specs passed for it. ``None`` gives a
+            fresh random starting point per fit. Default ``None``.
         **kwargs: Optional estimation settings from
             [RankingSettings][SRToolkit.utils.types.RankingSettings].
             Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
-            ``constant_bounds``, ``initialization``, ``max_constants``,
+            ``constant_bounds``, ``default_constant``, ``initialization``, ``max_constants``,
             ``max_expr_length``, ``backend``.
 
     Raises:
-        ValueError: If ``constant_bounds`` is not a ``(lower, upper)`` pair, ``backend`` is not
-            one of the supported values, or ``max_constants`` / ``max_expr_length`` is not an
-            ``int`` or numpy integer (``bool`` is rejected).
+        TypeError: If ``default_constant`` is not given and ``constant_bounds`` is not a pair of real
+            numbers, or ``default_constant`` is neither ``None`` nor a
+            [Constant][SRToolkit.utils.free_constants.Constant].
+        ValueError: If ``default_constant`` is not given and ``constant_bounds`` is not finite with
+            ``lower < upper`` (``constant_bounds`` is not used otherwise); ``default_constant`` is
+            not a complete template
+            (``prior`` and ``bounds`` set, no ``label``, no ``value``, ``fixed=False``; this
+            setting is not completed from ``constant_bounds``); ``initialization`` is not
+            ``"random"`` or ``"mean"``; ``backend`` is not one of the supported values; or
+            ``max_constants`` / ``max_expr_length`` is not an ``int`` or numpy integer (``bool`` is
+            rejected). Errors about ``default_constant`` name it in the message.
 
     Attributes:
         symbol_library: The symbol library used.
@@ -61,6 +103,9 @@ class ParameterEstimator:
         y: Target values.
         seed: The ``seed`` argument.
         estimation_settings: Active settings dict, merged from defaults and ``**kwargs``.
+        default_constant: The default spec, for parameters without a spec: the
+            ``default_constant`` setting, else
+            [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default].
     """
 
     def __init__(
@@ -89,38 +134,64 @@ class ParameterEstimator:
             value = self.estimation_settings[key]  # type: ignore[literal-required]
             self.estimation_settings[key] = _validate_limit(value, key, allow_negative=True)  # type: ignore[literal-required]
 
-        bounds = self.estimation_settings["constant_bounds"]
-        if not (isinstance(bounds, (tuple, list, np.ndarray)) and len(bounds) == 2):
-            raise ValueError(f"constant_bounds must be a (lower, upper) pair, got {bounds!r}")
-        self.estimation_settings["constant_bounds"] = (bounds[0], bounds[1])
+        given = self.estimation_settings["default_constant"]
+        if given is None:
+            self.default_constant: Constant = uniform_default(self.estimation_settings["constant_bounds"])
+        else:
+            if not isinstance(given, Constant):
+                raise TypeError(
+                    f"[ParameterEstimator] default_constant must be a Constant or None, got {type(given).__name__}."
+                )
+            try:
+                resolve_constants([], None, given)  # raises ValueError unless it is a complete template
+            except ValueError as e:
+                raise ValueError(f"[ParameterEstimator] {e}") from None
+            self.default_constant = given
+
+        if self.estimation_settings["initialization"] not in ("random", "mean"):
+            raise ValueError(
+                f"[ParameterEstimator] initialization must be 'random' or 'mean', got {self.estimation_settings['initialization']!r}"
+            )
 
         if self.estimation_settings["backend"] not in ("stack", "codegen", "stack_py"):
             raise ValueError(
-                f"backend must be 'stack', 'codegen', or 'stack_py', got {self.estimation_settings['backend']!r}"
+                f"[ParameterEstimator] backend must be 'stack', 'codegen', or 'stack_py', got {self.estimation_settings['backend']!r}"
             )
 
-    def estimate_parameters(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray]:
+    def estimate_parameters(
+        self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None
+    ) -> Tuple[float, np.ndarray]:
         """Fit free constants in *expr* by minimizing RMSE against the target values.
 
         Expressions that exceed a non-negative ``max_constants`` or ``max_expr_length``
         immediately return ``(NaN, [])``; the counts are those of
         [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] and
         [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] (a tree is written out with
-        ``to_list`` before its tokens are counted). Expressions with no free constants are
-        evaluated directly without running the optimizer.
+        ``to_list`` before its tokens are counted; fixed constants count). Expressions with no free
+        constants, or only fixed ones, are evaluated directly without running the optimizer.
 
         Args:
             expr: Expression as a token list in infix notation or a
                 [Node][SRToolkit.utils.expression_tree.Node] tree.
+            free_constants: Specs for labelled constants of ``expr`` (see
+                [Constant][SRToolkit.utils.free_constants.Constant]); parameters without one use
+                ``default_constant``. In any order; ``None`` or empty: all use it.
 
         Returns:
-            A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the parameter
-            values that gave it, one per free parameter in the order of
-            [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] (empty if there
-            are none). If no evaluation was finite
-            (e.g. the expression is undefined on ``X``), ``rmse`` is non-finite (``nan`` or
-            ``inf``) and ``parameters`` is the optimizer's final point. ``(NaN, [])`` if the
-            expression violates ``max_constants`` or ``max_expr_length``.
+            A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the parameters
+            that gave it, one per parameter in the order of
+            [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels], fixed values
+            included. If no evaluation was finite, ``rmse`` is ``nan`` or ``inf`` and the free
+            entries of ``parameters`` are the optimizer's final point. ``(NaN, [])`` if the
+            expression exceeds ``max_constants`` or ``max_expr_length``.
+
+        Raises:
+            ValueError: If a spec in ``free_constants`` has no label, two specs share a label, a
+                label is not a labelled constant of ``expr``, or a spec that is not fixed has a
+                ``value`` outside the bounds it takes from ``default_constant``.
+            NotImplementedError: If ``initialization="mean"`` and a free parameter without a
+                ``value`` has a prior that does not implement
+                [ppf][SRToolkit.dataset.sampling.Sampler.ppf].
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -131,28 +202,34 @@ class ParameterEstimator:
             True
             >>> print(1.99 < constants[0] < 2.01)
             True
+            >>> from SRToolkit.dataset import UniformSampling
+            >>> from SRToolkit.utils.free_constants import Constant
+            >>> spec = Constant(label="C_0", prior=UniformSampling(0, 10), bounds=(0, float("inf")))
+            >>> rmse, constants = pe.estimate_parameters(["C_0", "*", "X_1", "-", "X_0"], [spec])
+            >>> print(rmse < 1e-6, 1.99 < constants[0] < 2.01)
+            True True
         """
-        rmse, parameters, _ = self.estimate_parameters_with_info(expr)
+        rmse, parameters, _ = self.estimate_parameters_with_info(expr, free_constants)
         return rmse, parameters
 
-    def estimate_parameters_with_info(self, expr: Union[List[str], Node]) -> Tuple[float, np.ndarray, Dict[str, Any]]:
+    def estimate_parameters_with_info(
+        self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None
+    ) -> Tuple[float, np.ndarray, Dict[str, Any]]:
         """Fit free constants in *expr* and report how the optimizer ended.
 
-        Like [estimate_parameters][SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters].
-        The returned error is the lowest finite RMSE the optimizer evaluated, with the constants
-        that gave it, rather than the optimizer's final value. When a step leaves the region where
-        the expression is defined (e.g. ``sqrt(C - X_0)`` with ``C < X_0``), L-BFGS-B aborts and
-        reports ``NaN`` even though it had already found good constants.
+        Like [estimate_parameters][SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters],
+        and also reports how the optimizer ended.
 
         Args:
             expr: Expression as a token list in infix notation or a
                 [Node][SRToolkit.utils.expression_tree.Node] tree.
+            free_constants: Specs for labelled constants of ``expr``, as in ``estimate_parameters``.
 
         Returns:
             A 3-tuple ``(rmse, parameters, info)``. ``rmse`` and ``parameters`` are as in
             ``estimate_parameters``, so ``rmse`` is non-finite (``nan`` or ``inf``) if no
             evaluation was finite. ``info`` is empty when the optimizer did not run (no free
-            constants, or a violated limit). Otherwise it holds:
+            constants, only fixed ones, or a violated limit). Otherwise it holds:
 
             - ``converged``: ``scipy``'s ``success`` flag;
             - ``evaluations``: RMSE computations (``nfev``), finite-difference gradient included;
@@ -161,6 +238,10 @@ class ParameterEstimator:
 
             ``converged=False`` does not mean a bad fit: RMSE has no gradient at a perfect fit, so
             L-BFGS-B often ends with ``"ABNORMAL"`` right at the optimum. Judge a fit by its error.
+
+        Raises:
+            ValueError: As for ``estimate_parameters``.
+            NotImplementedError: As for ``estimate_parameters``.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -175,8 +256,8 @@ class ParameterEstimator:
         # Count on the infix token list, brackets included, as SR_evaluator does, so both apply the
         # limits identically. (For a Node, len() would count tree nodes, without brackets.)
         tokens = _as_tokens(expr, self.symbol_library)
-        num_constants = len(set(_constant_indices(tokens, self.symbol_library)))
-        if 0 <= self.estimation_settings["max_constants"] < num_constants:
+        specs = resolve_constants(tokens, free_constants, self.default_constant, self.symbol_library)
+        if 0 <= self.estimation_settings["max_constants"] < len(specs):
             return np.nan, np.array([]), {}
         if 0 <= self.estimation_settings["max_expr_length"] < len(tokens):
             return np.nan, np.array([]), {}
@@ -185,50 +266,59 @@ class ParameterEstimator:
             expr,
             self.symbol_library,
             backend=str(self.estimation_settings["backend"]),
-            X=self.X if num_constants > 0 else None,
+            X=self.X if len(specs) > 0 else None,
         )
 
-        if num_constants == 0:
-            rmse = executable_error_fn(self.X, np.array([]), self.y)
-            return rmse, np.array([]), {}
-        else:
-            return self._optimize_parameters(executable_error_fn, num_constants, tokens)
+        # The full parameter vector: fixed values in place, free entries filled in by the fit.
+        parameters = np.array([s.value if s.fixed else np.nan for s in specs], dtype=np.float64)
+        free = [i for i, s in enumerate(specs) if not s.fixed]
+        if not free:
+            return executable_error_fn(self.X, parameters, self.y), parameters, {}
+        return self._optimize_parameters(
+            executable_error_fn, specs, free, parameters, tokens, _spec_key(free_constants)
+        )
 
     def _optimize_parameters(
-        self, executable_error_fn: Callable, num_constants: int, tokens: List[str]
+        self,
+        executable_error_fn: Callable,
+        specs: Sequence[Constant],
+        free: List[int],
+        parameters: np.ndarray,
+        tokens: List[str],
+        spec_key: str,
     ) -> Tuple[float, np.ndarray, Dict[str, Any]]:
-        """Run L-BFGS-B to minimize *executable_error_fn* over *num_constants* constant values.
+        """Run the optimizer over the free parameters of *executable_error_fn*.
 
         Args:
             executable_error_fn: Compiled error function ``f(X, C, y)`` returning scalar RMSE.
-            num_constants: Number of free constants to optimize.
+            specs: One resolved spec per parameter.
+            free: Indices of the parameters to fit (those not fixed).
+            parameters: The full parameter vector with the fixed values in place.
             tokens: The expression's infix tokens, which seed its random starting point.
+            spec_key: ``_spec_key`` of the specs given, also part of the seed (``""`` adds nothing).
 
         Returns:
-            A 3-tuple ``(rmse, parameters, info)``: the lowest finite RMSE evaluated and its
-            constants (the optimizer's final point if none was finite), and how the optimizer
-            ended.
+            A 3-tuple ``(rmse, parameters, info)``: the lowest finite RMSE evaluated and its full
+            parameter vector (the optimizer's final point if none was finite), and how the
+            optimizer ended.
         """
+        free_specs = [specs[i] for i in free]
+        rng = None
         if self.estimation_settings["initialization"] == "random":
-            # Seed from a stable hash of (seed, tokens); Python's hash() is salted per process. The
-            # separator is a control character no real token contains, so different token lists
-            # get different seeds.
+            # Seed from a stable hash of (seed, tokens, specs); Python's hash() is salted per process.
+            # The separator is a control character no real token contains, so different token lists
+            # get different seeds. Without specs the key is as before specs existed.
             fit_seed = None
             if self.seed is not None:
-                key = f"{int(self.seed)}\x1f" + "\x1f".join(tokens)
+                key = f"{int(self.seed)}\x1f" + "\x1f".join(tokens) + (f"\x1f{spec_key}" if spec_key else "")
                 fit_seed = int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "little")
             rng = np.random.default_rng(fit_seed)
-            x0 = (
-                rng.random(num_constants)
-                * (
-                    self.estimation_settings["constant_bounds"][1]
-                    - self.estimation_settings["constant_bounds"][0]
-                    - 1e-8
-                )
-                + self.estimation_settings["constant_bounds"][0]
-            )
-        else:
-            x0 = np.array([np.mean(self.estimation_settings["constant_bounds"]) for _ in range(num_constants)])
+        x0 = self._starting_point(free_specs, rng)
+
+        def full(c: np.ndarray) -> np.ndarray:
+            vector = parameters.copy()
+            vector[free] = c
+            return vector
 
         # Remember the best finite value evaluated: L-BFGS-B reports NaN as its result when a step
         # lands where the expression is undefined, discarding what it had already found.
@@ -237,10 +327,11 @@ class ParameterEstimator:
 
         def objective(c: np.ndarray) -> float:
             nonlocal best_value, best_constants
-            value = executable_error_fn(self.X, c, self.y)
+            vector = full(c)
+            value = executable_error_fn(self.X, vector, self.y)
             if np.isfinite(value) and value < best_value:
                 best_value = float(value)
-                best_constants = np.array(c, copy=True)
+                best_constants = vector
             return value
 
         res = minimize(
@@ -252,13 +343,8 @@ class ParameterEstimator:
                 "maxiter": self.estimation_settings["max_iter"],
                 "gtol": self.estimation_settings["gtol"],
             },
-            bounds=[
-                (
-                    self.estimation_settings["constant_bounds"][0],
-                    self.estimation_settings["constant_bounds"][1],
-                )
-                for _ in range(num_constants)
-            ],
+            # An infinite end is passed as None: no bound on that side.
+            bounds=[tuple(None if math.isinf(b) else b for b in s.bounds) for s in free_specs],  # type: ignore[union-attr]
         )
         info: Dict[str, Any] = {
             "converged": bool(res.success),
@@ -268,5 +354,36 @@ class ParameterEstimator:
         if not res.success:
             info["message"] = str(res.message)
         if best_constants is None:
-            return res.fun, res.x, info
+            return res.fun, full(res.x), info
         return best_value, best_constants, info
+
+    def _starting_point(self, specs: Sequence[Constant], rng: Optional[np.random.Generator]) -> np.ndarray:
+        """Return the starting point of a fit, one value per spec (all free, prior and bounds set).
+
+        A spec's ``value`` if given, else a point from its prior: drawn with ``rng``
+        (``initialization="random"``) or its ``ppf(0.5)`` (``rng`` is ``None``, ``"mean"``).
+        Clipped to the nearest bound of each spec.
+        """
+        # Imported here: SRToolkit.dataset imports this package.
+        from SRToolkit.dataset.sampling import UniformSampling
+
+        u = None if rng is None else rng.random(len(specs))
+        x0 = np.empty(len(specs))
+        for j, spec in enumerate(specs):
+            prior = spec.prior
+            assert prior is not None and spec.bounds is not None  # set by resolve_constants
+            if spec.value is not None:
+                x0[j] = spec.value
+            elif isinstance(prior, UniformSampling) and not prior.mirror:
+                # The formulas used before specs existed, so default specs keep their exact starts.
+                low, high = prior.min_value, prior.max_value
+                x0[j] = np.mean((low, high)) if u is None else u[j] * (high - low - 1e-8) + low
+            elif u is None:
+                x0[j] = prior.ppf(np.array([0.5]))[0]
+            else:
+                try:
+                    x0[j] = prior.ppf(u[j : j + 1])[0]
+                except NotImplementedError:
+                    x0[j] = prior(1, rng=rng)[0]
+            x0[j] = min(max(x0[j], spec.bounds[0]), spec.bounds[1])
+        return x0

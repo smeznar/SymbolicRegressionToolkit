@@ -11,7 +11,7 @@ required methods.
 
 import copy
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -20,6 +20,7 @@ from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult, ResultAugmenter, evaluate_metric
 from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
 from SRToolkit.utils.expression_tree import _constant_indices
+from SRToolkit.utils.free_constants import Constant, _spec_key
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 if TYPE_CHECKING:
@@ -331,9 +332,21 @@ class HoldoutMetric(ResultAugmenter):
           fitted constants (e.g. from a BED search) have them fitted on the held-out data first.
           With ``refit_constants=True``, every model's constants are fitted on the held-out data,
           which measures how well the expression's form fits new data instead; these values are
-          marked as refit. Requires ``y``.
+          marked as refit. Requires ``y``. Fits use each model's specs
+          (``ModelResult.free_constants``).
         - **A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction]**: the ranking is
-          set up on the held-out data and scores each model, e.g. BED on the held-out ``X``.
+          set up on the held-out data and scores each model, with its specs, e.g. BED on the held-out
+          ``X``.
+
+        In fits and ranking scores, constants without a spec, and a spec's unset ``prior`` or
+        ``bounds``, use the default spec ``ranking_settings["default_constant"]``, else
+        [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default] with
+        ``ranking_settings["constant_bounds"]`` (``(-5, 5)`` if missing), not the run's
+        [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]; pass
+        ``dataset.ranking_settings()`` to match the search. A partial ``default_constant``
+        template is not completed here: the ``ValueError`` it causes is raised by a
+        ``RankingFunction`` metric's setup, or, when raised while scoring a model, gives that model
+        ``NaN`` with a warning.
 
         With every kind of metric, models the search could not score (any
         [status][SRToolkit.utils.types.Status] other than ``"ok"``, e.g. rejected by a required
@@ -364,12 +377,12 @@ class HoldoutMetric(ResultAugmenter):
             ground_truth: Ground-truth expression passed to a ``RankingFunction`` metric's setup
                 (e.g. for BED). Unused otherwise.
             ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting
-                constants on the held-out data (e.g. ``constant_bounds``, ``max_constants``).
-                Pass ``dataset.ranking_settings()`` to fit under the same settings as the search
-                (``constant_bounds`` included). ``max_constants`` and ``max_expr_length`` apply only if given here: a
-                missing one means no limit, not the estimator's default of 8 constants, because the
-                search already enforced its limits (including its required constraints) on every
-                model it scored ``"ok"``.
+                constants on the held-out data (e.g. ``constant_bounds``, ``default_constant``,
+                ``max_constants``). Pass ``dataset.ranking_settings()`` to fit under the same
+                settings as the search (the default spec included). ``max_constants`` and
+                ``max_expr_length`` apply only if given here: a missing one means no limit, not the
+                estimator's default of 8 constants, because the search already enforced its limits
+                (including its required constraints) on every model it scored ``"ok"``.
             seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
                 A ``ranking_seed`` in ``ranking_settings`` overrides it for a ranking metric, but
                 not for the refit of a string or callable metric. Default ``0``.
@@ -467,7 +480,7 @@ class HoldoutMetric(ResultAugmenter):
             # Match the NaN-on-failure contract of the reuse-params branch (evaluate_metric): a
             # single expression that raises must not abort the whole augmentation.
             try:
-                return float(self.metric.score(expr).score)
+                return float(self.metric.score(expr, free_constants=model.free_constants or None).score)
             except Exception as e:
                 warnings.warn(f"[HoldoutMetric] Error scoring expression '{''.join(expr)}': {e}")
                 return float("nan")
@@ -484,7 +497,7 @@ class HoldoutMetric(ResultAugmenter):
                 # Nothing to fit in a constant-free expression.
                 parameters = np.array([])
             elif parameters is None:
-                fit_error, parameters = self._fit_parameters(expr)
+                fit_error, parameters = self._fit_parameters(expr, model.free_constants)
                 # The fit rejected the expression (e.g. over max_constants) and returned no
                 # constants; scoring with an empty array would read past it.
                 if np.isnan(fit_error):
@@ -497,18 +510,17 @@ class HoldoutMetric(ResultAugmenter):
     def _has_constants(self, expr: list) -> bool:
         return len(_constant_indices(expr, self.symbol_library)) > 0
 
-    def _fit_parameters(self, expr: list) -> Tuple[float, np.ndarray]:
-        """Fit the free constants in *expr* against the held-out data (used when a model carries no
-        fitted parameters). Returns the fit's error and the constants (an empty array for
-        constant-free expressions, and with a ``NaN`` error when the fit rejects the expression).
-        """
+    def _fit_parameters(
+        self, expr: list, free_constants: Optional[Sequence[Constant]] = None
+    ) -> Tuple[float, np.ndarray]:
+        """Return ``(error, parameters)`` of a fit of ``expr`` under its specs on the held-out data."""
         # __init__ rejects string/callable metrics without y, so it is set in this mode.
         assert self._y is not None
         if self._estimator is None:
             self._estimator = ParameterEstimator(
                 self._X, self._y, self.symbol_library, seed=self.seed, **self._fit_settings
             )
-        return self._estimator.estimate_parameters(expr)
+        return self._estimator.estimate_parameters(expr, free_constants)
 
     def write_results(self, results: EvalResult) -> None:
         """Write the held-out metric into *results* and its models.
@@ -522,10 +534,10 @@ class HoldoutMetric(ResultAugmenter):
         """
         # The best model is also in the scoped models, so score each expression once: rescoring would
         # cost a fit each time and, with a refit, could give a different value.
-        values: Dict[str, float] = {}
+        values: Dict[Tuple[Tuple[str, ...], str], float] = {}
 
         def value(model: ModelResult) -> float:
-            key = "".join(model.expr)
+            key = (tuple(model.expr), _spec_key(model.free_constants))
             if key not in values:
                 values[key] = self._value(model)
             return values[key]
@@ -590,7 +602,10 @@ class HoldoutMetric(ResultAugmenter):
 
         Returns:
             A dictionary sufficient to recreate the augmenter via
-            [from_dict][SRToolkit.evaluation.result_augmentation.HoldoutMetric.from_dict].
+            [from_dict][SRToolkit.evaluation.result_augmentation.HoldoutMetric.from_dict]. Of
+            ``ranking_settings`` it keeps only the constant-fitting settings, with
+            ``default_constant`` as its
+            [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict].
 
         Raises:
             NotImplementedError: If ``metric`` is a callable or a ``RankingFunction`` (not
@@ -622,10 +637,14 @@ class HoldoutMetric(ResultAugmenter):
             "symbol_library": self.symbol_library.to_dict() if self.symbol_library is not None else None,
             "seed": self.seed,
             "refit_constants": self.refit_constants,
-            # Only the constant-fitting settings are used in this (string-metric) mode, and they are
-            # all JSON-safe; ranking-only settings such as samplers are not saved.
+            # Only the constant-fitting settings are used in this (string-metric) mode; ranking-only
+            # settings such as samplers are not saved. The default spec is saved as its to_dict.
             "ranking_settings": _to_json_safe(
-                {k: v for k, v in self.ranking_settings.items() if k in DEFAULT_ESTIMATION_SETTINGS}
+                {
+                    k: v.to_dict() if isinstance(v, Constant) else v
+                    for k, v in self.ranking_settings.items()
+                    if k in DEFAULT_ESTIMATION_SETTINGS
+                }
             ),
         }
 
@@ -650,6 +669,8 @@ class HoldoutMetric(ResultAugmenter):
         y = arrays["y"] if "y" in arrays else None
         symbol_library = SymbolLibrary.from_dict(data["symbol_library"]) if data.get("symbol_library") else None
         ranking_settings = _from_json_safe(data.get("ranking_settings") or {})
+        if ranking_settings.get("default_constant") is not None:
+            ranking_settings["default_constant"] = Constant.from_dict(ranking_settings["default_constant"])
         return HoldoutMetric(
             (X,) if y is None else (X, y),
             metric=data["metric"],

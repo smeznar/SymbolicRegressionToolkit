@@ -36,6 +36,28 @@ counts = result.status_counts()  # per unique expression; per="call" counts ever
 validity_rate = 1 - counts["invalid"] / (sum(counts.values()) - counts["error"])
 ```
 
+## Free constants
+
+An approach can pass specs for the labelled constants of an expression (priors, bounds, fixed
+values; see [free_constants][SRToolkit.utils.free_constants]) as the ``free_constants`` argument of
+[evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]. A **model** is an
+expression together with its specs: the same tokens with different specs are two models, each
+scored, cached, counted in ``num_evaluated`` and ``status_counts`` and stored in ``models`` on its
+own. Specs are matched by value (the fields that affect the score) and in any order. They are stored
+in [ModelResult.free_constants][SRToolkit.utils.types.ModelResult] sorted by label (string order),
+or ``None`` when none (or an empty list) were given. Parameters without a spec, and a spec's unset
+``prior`` or ``bounds``, use the evaluator's ``default_constant``, which is recorded in the results
+as [EvalResult.default_constant][SRToolkit.utils.types.EvalResult].
+
+Specs are checked right after parsing: a malformed expression is ``"invalid"`` (and stored with its
+specs) whatever they are. Specs that do not fit a well-formed expression, and specs combined with
+``simplify_expr=True``, raise; nothing is then recorded or counted. The ranking's
+[score][SRToolkit.evaluation.ranking.RankingFunction.score] receives the specs as
+``free_constants``.
+Callback events, [invalid][SRToolkit.evaluation.sr_evaluator.SR_evaluator.invalid] and
+[best_expr][SRToolkit.utils.types.EvalResult.best_expr] carry only the token string, so two models
+with equal tokens look alike there.
+
 ## Constraints
 
 The evaluator enforces the ``required_constraints`` and records the advisory ones, which are the
@@ -181,6 +203,7 @@ from SRToolkit.utils.expression_constraints import (
 )
 from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, tokens_to_tree
+from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -454,8 +477,9 @@ class SR_evaluator:
     ):
         """Evaluate expressions on data with a ranking function and collect the results.
 
-        Each distinct expression is scored once and cached; repeating it returns the cached error
-        but still counts toward ``max_evaluations``. Statuses, constraints and the evaluation trace
+        Each distinct model (an expression with its free-constant specs) is scored once and
+        cached; repeating it returns the cached error but still counts toward
+        ``max_evaluations``. Statuses, free constants, constraints and the evaluation trace
         are described in the [module docs][SRToolkit.evaluation.sr_evaluator]; results are
         collected with [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
 
@@ -515,7 +539,8 @@ class SR_evaluator:
             **kwargs: Settings from [RankingSettings][SRToolkit.utils.types.RankingSettings],
                 passed to the ranking function. The ranking's parameter estimator gets
                 ``max_constants`` and ``max_expr_length`` as ``-1``, since the evaluator enforces
-                them.
+                them. A partial ``default_constant`` template is completed from
+                ``constant_bounds`` (as by ``BackgroundKnowledge``) before the ranking gets it.
 
         Raises:
             TypeError: If an item of ``required_constraints`` or ``advisory_constraints`` is not
@@ -531,7 +556,8 @@ class SR_evaluator:
                 limit of a constraint of its class in ``required_constraints`` (a negative setting
                 adds nothing and never clashes); the message names the setting. Also raised as
                 for ``BackgroundKnowledge`` (e.g. a ``constant_bounds`` setting that is not finite
-                with ``lower < upper``, or ``samplers`` without one sampler per variable), and by
+                with ``lower < upper``, a ``default_constant`` setting with a ``label``, a
+                ``value`` or ``fixed=True``, or ``samplers`` without one sampler per variable), and by
                 the ranking's ``setup`` for missing or malformed data (e.g. RMSE with neither ``y``
                 nor ``ground_truth``).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
@@ -560,10 +586,16 @@ class SR_evaluator:
                 the requested expression.
             should_stop: Whether evaluation has stopped (threshold or budget reached). Later calls
                 to ``evaluate_expr`` warn and return ``nan`` without being counted.
+            default_constant: The run's default spec, complete:
+                [background_knowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
+                built from the ``default_constant`` and ``constant_bounds`` settings. The ranking
+                gets it as its ``default_constant`` setting and the results record it; ``kwargs``
+                keeps the setting as passed.
         """
         self.kwargs = kwargs
         self.models: List[ModelResult] = list()
-        self._model_index: Dict[str, int] = dict()
+        # Keyed on the token tuple and the specs' _spec_key ("" without specs).
+        self._model_index: Dict[Tuple[Tuple[str, ...], str], int] = dict()
         self.trace: List[int] = list()
         self.success_threshold = success_threshold
         self.metadata = metadata
@@ -602,9 +634,11 @@ class SR_evaluator:
             variables={} if variables is None else variables,
             target=target,
             named_constants={} if named_constants is None else named_constants,
+            default_constant=kwargs.get("default_constant"),
         )
         # BackgroundKnowledge stores its constraints as a tuple; the field is typed Iterable.
         self._advisory_constraints = cast(Tuple[ExpressionConstraint, ...], self._background_knowledge.constraints)
+        self.default_constant = cast(Constant, self._background_knowledge.default_constant)
 
         if seed is not None:
             np.random.seed(seed)
@@ -615,6 +649,7 @@ class SR_evaluator:
         ranking_settings: Dict[str, Any] = dict(kwargs)
         ranking_settings["max_constants"] = -1
         ranking_settings["max_expr_length"] = -1
+        ranking_settings["default_constant"] = self.default_constant  # completed by the background knowledge
         self.ranking: RankingFunction = build_ranking(ranking_function)
         # A ranking_seed (fixed per dataset) replaces the evaluator's seed here, so every ranking,
         # custom ones included, follows it without reading the setting itself.
@@ -733,14 +768,17 @@ class SR_evaluator:
             "advisory": [c.summary() for c in self._advisory_constraints],
         }
 
-    def get_model(self, expr: Union[List[str], Node]) -> Optional[ModelResult]:
+    def get_model(
+        self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None
+    ) -> Optional[ModelResult]:
         """Return the result of an already evaluated expression, or ``None``.
 
         Does not count toward ``max_evaluations`` and fires no callbacks. The expression is matched
-        token for token, without simplifying it.
+        token for token, without simplifying it, together with its specs.
 
         Args:
             expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
+            free_constants: The specs it was evaluated with, in any order; ``None`` or empty for none.
 
         Returns:
             The cached [ModelResult][SRToolkit.utils.types.ModelResult], or ``None`` if ``expr`` has
@@ -755,12 +793,13 @@ class SR_evaluator:
             >>> se.get_model(["X_0"]).status
             'ok'
         """
-        index = self._model_index.get("".join(_as_tokens(expr, self.symbol_library)))
+        index = self._model_index.get((tuple(_as_tokens(expr, self.symbol_library)), _spec_key(free_constants)))
         return None if index is None else self.models[index]
 
     def check_constraints(
         self,
         expr: Union[List[str], Node],
+        free_constants: Optional[Sequence[Constant]] = None,
     ) -> Tuple[List[CheckResult], List[CheckResult]]:
         """Run the constraints' pre-checks on an expression without evaluating it.
 
@@ -782,6 +821,9 @@ class SR_evaluator:
         Args:
             expr: The expression, as an infix token list or a
                 [Node][SRToolkit.utils.expression_tree.Node] tree.
+            free_constants: Specs for its labelled constants, validated against ``expr`` by
+                [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]. The
+                pre-checks themselves see only the tokens.
 
         Returns:
             A tuple ``(required, advisory)`` of lists with one
@@ -795,6 +837,8 @@ class SR_evaluator:
             TypeError: If ``expr`` is neither a token list nor a ``Node``.
             ExpressionParseError: If ``expr`` is not a well-formed expression. It is always
                 parsed, even when there are no constraints.
+            ValueError: If ``free_constants`` does not fit ``expr`` (see
+                [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
 
         Examples:
             >>> from SRToolkit.utils.expression_constraints import MaxConstants, MaxTreeDepth
@@ -813,6 +857,7 @@ class SR_evaluator:
         """
         expr_list = _as_tokens(expr, self.symbol_library)
         tokens_to_tree(expr_list, self.symbol_library)
+        resolve_constants(expr_list, free_constants, self.default_constant, self.symbol_library)
         return (
             _failed_checks(self._required_constraints, "pre", expr_list),
             _failed_checks(self._advisory_constraints, "pre", expr_list),
@@ -861,6 +906,7 @@ class SR_evaluator:
     def evaluate_expr(
         self,
         expr: Union[List[str], Node],
+        free_constants: Optional[Sequence[Constant]] = None,
         simplify_expr: bool = False,
         verbose: int = 0,
     ) -> float:
@@ -868,8 +914,9 @@ class SR_evaluator:
 
         A new expression is parsed, checked against the constraints, scored by the ranking
         function and stored in ``models`` (statuses and the order of checks are in the
-        [module docs][SRToolkit.evaluation.sr_evaluator]). An expression evaluated before is not
-        scored again; its stored error is returned. Either way the call is appended to ``trace``,
+        [module docs][SRToolkit.evaluation.sr_evaluator]). An expression evaluated before with the
+        same specs is not scored again; its stored error is returned. Either way the call is
+        appended to ``trace``,
         counts toward ``max_evaluations`` and is reported to the callbacks: ``on_expr_evaluated``
         for every call, plus ``on_best_expression`` when the error improves on the best so far. A
         callback returning ``False`` stops evaluation; by default this happens when an error is
@@ -885,6 +932,15 @@ class SR_evaluator:
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y, seed=42)
             >>> print(se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) < 1e-6)
+            True
+            >>> # A labelled constant with a spec of its own: started from U(0, 10), fitted within (0, 10)
+            >>> from SRToolkit.dataset import UniformSampling
+            >>> from SRToolkit.utils.free_constants import Constant
+            >>> spec = Constant(label="C_0", prior=UniformSampling(0, 10), bounds=(0.0, 10.0))
+            >>> se = SR_evaluator(X, y, seed=42)
+            >>> print(se.evaluate_expr(["C_0", "*", "X_1", "-", "X_0"], [spec]) < 1e-6)
+            True
+            >>> se.models[-1].free_constants == (spec,)
             True
             >>> # With simplify_expr, the simplified expression is scored and stored
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
@@ -907,6 +963,11 @@ class SR_evaluator:
         Args:
             expr: The expression, as a token list in infix notation or a
                 [Node][SRToolkit.utils.expression_tree.Node] tree.
+            free_constants: Specs for labelled constants of ``expr`` (see
+                [Constant][SRToolkit.utils.free_constants.Constant]), in any order. Constants
+                without one, and a spec's unset ``prior`` or ``bounds``, use ``default_constant``.
+                Passed to the ranking and stored as ``ModelResult.free_constants``. ``None`` or
+                empty: no specs.
             simplify_expr: If ``True``, simplify the expression first; the simplified
                 expression is then checked, scored, cached and stored as ``ModelResult.expr``, so
                 inputs that simplify alike share one cache entry. If simplification fails, a
@@ -923,7 +984,17 @@ class SR_evaluator:
 
         Raises:
             TypeError: If ``expr`` is neither a token list nor a ``Node``.
+            ValueError: If ``free_constants`` is given with ``simplify_expr=True`` (simplifying
+                renumbers constants and loses their labels), or does not fit a well-formed ``expr``
+                (see [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
+                Nothing is then recorded or counted.
         """
+        specs = tuple(sorted(free_constants, key=lambda c: c.label or "")) if free_constants else None
+        # Temporary: simplify() renumbers constants and drops their labels, so specs would no longer
+        # fit. Remove once simplify() takes free_constants and returns the specs with the simplified
+        # expression.
+        if specs is not None and simplify_expr:
+            raise ValueError("free_constants cannot be combined with simplify_expr=True.")
         if self.should_stop:
             warnings.warn(
                 f"Evaluation stopped because max_evaluations ({self.max_evaluations}) reached or an expression with error lower than success_threshold ({self.success_threshold}) was found. "
@@ -940,7 +1011,8 @@ class SR_evaluator:
             expr_list = _as_tokens(expr, self.symbol_library)
 
             expr_str = "".join(expr_list)
-            index = self._model_index.get(expr_str)
+            key = (tuple(expr_list), _spec_key(specs))
+            index = self._model_index.get(key)
             if index is not None:
                 if verbose > 0:
                     logger.debug("Already evaluated %s", expr_str)
@@ -959,7 +1031,8 @@ class SR_evaluator:
                 return self.models[index].error
 
             else:
-                model = self._evaluate_new(expr, expr_list, expr_str, verbose)
+                model = self._evaluate_new(expr, expr_list, expr_str, verbose, specs)
+                model.free_constants = specs
                 if verbose > 0:
                     logger.debug(
                         "Evaluated expression %s: status %s, error %s%s",
@@ -969,7 +1042,7 @@ class SR_evaluator:
                         f" ({model.status_detail})" if model.status_detail else "",
                     )
                 error = model.error
-                self._model_index[expr_str] = len(self.models)
+                self._model_index[key] = len(self.models)
                 self.trace.append(len(self.models))
                 self.models.append(model)
 
@@ -1000,13 +1073,21 @@ class SR_evaluator:
                 return error
 
     def _evaluate_new(
-        self, expr: Union[List[str], Node], expr_list: List[str], expr_str: str, verbose: int
+        self,
+        expr: Union[List[str], Node],
+        expr_list: List[str],
+        expr_str: str,
+        verbose: int,
+        specs: Optional[Tuple[Constant, ...]],
     ) -> ModelResult:
         # Parse first, so that each failure gets its own status.
         try:
             tokens_to_tree(expr_list, self.symbol_library)
         except ExpressionParseError as e:
             return ModelResult(expr=expr_list, error=np.inf, status="invalid", status_detail=str(e))
+        # Specs that do not fit are the caller's mistake, not the expression's: raise.
+        if specs is not None:
+            resolve_constants(expr_list, specs, self.default_constant, self.symbol_library)
 
         advisory = _failed_checks(self._advisory_constraints, "pre", expr_list)
 
@@ -1022,7 +1103,7 @@ class SR_evaluator:
                 advisory_violations=advisory,
             )
 
-        model = self._score(expr, expr_list, expr_str, verbose)
+        model = self._score(expr, expr_list, expr_str, verbose, specs)
         model.advisory_violations = advisory
         if model.status != "ok":
             return model
@@ -1039,14 +1120,21 @@ class SR_evaluator:
         model.advisory_violations.extend(_failed_checks(self._advisory_constraints, "post", model))
         return model
 
-    def _score(self, expr: Union[List[str], Node], expr_list: List[str], expr_str: str, verbose: int) -> ModelResult:
+    def _score(
+        self,
+        expr: Union[List[str], Node],
+        expr_list: List[str],
+        expr_str: str,
+        verbose: int,
+        specs: Optional[Tuple[Constant, ...]],
+    ) -> ModelResult:
         try:
             with (
                 np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore")
                 if verbose < 2
                 else nullcontext()
             ):
-                result = self.ranking.score(expr)
+                result = self.ranking.score(expr, free_constants=specs)
         except Exception as e:
             # The expression is well-formed, so this is a failure of the evaluation; warn, since it
             # usually points at a bug rather than at the expression.
@@ -1106,6 +1194,7 @@ class SR_evaluator:
         self,
         expr: Union[List[str], Node],
         metric: Union[str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]] = "r2",
+        free_constants: Optional[Sequence[Constant]] = None,
     ) -> float:
         """Compute an alternative, read-only metric for an already-evaluated expression.
 
@@ -1116,8 +1205,9 @@ class SR_evaluator:
         ranking error (e.g. R² or NRMSE) without re-running the (budgeted) evaluation and
         without being given direct access to ``X``/``y`` as attributes.
 
-        The expression **must already have been evaluated** via ``evaluate_expr`` so its
-        constants are fitted and cached — otherwise a ``ValueError`` is raised. This is the
+        The expression **must already have been evaluated** with the same specs via
+        ``evaluate_expr`` so its constants are fitted and cached — otherwise a ``ValueError`` is
+        raised. This is the
         guard that keeps the budget meaningful: a custom ``metric`` callable cannot be used to
         score un-evaluated expressions for free.
 
@@ -1153,20 +1243,22 @@ class SR_evaluator:
                 (``"mse"``, ``"rmse"``, ``"mae"``, ``"r2"``, ``"nrmse"``), or a callable with the
                 signature ``metric(predict, X, y) -> float`` where ``predict(X) -> y_pred``
                 has the fitted constants bound in. Default ``"r2"``.
+            free_constants: The specs ``expr`` was evaluated with, as in ``evaluate_expr``;
+                ``None`` or empty for none.
 
         Returns:
             The metric value as a float. Returns ``NaN`` in BED mode, for models that could
             not be scored, or if the metric raises during computation.
 
         Raises:
-            ValueError: If ``expr`` has not been evaluated yet, or if ``metric`` is a
-                string that is not a known built-in metric.
+            ValueError: If ``expr`` has not been evaluated yet with these specs, or if ``metric``
+                is a string that is not a known built-in metric.
             TypeError: If ``metric`` is neither a string nor a callable.
         """
         expr_list = _as_tokens(expr, self.symbol_library)
         expr_str = "".join(expr_list)
 
-        index = self._model_index.get(expr_str)
+        index = self._model_index.get((tuple(expr_list), _spec_key(free_constants)))
         if index is None:
             raise ValueError(
                 f"[SR_evaluator.get_metric] Expression '{expr_str}' has not been evaluated yet. "
@@ -1245,6 +1337,7 @@ class SR_evaluator:
             self.success_threshold,
             approach_name,
             self.metadata,
+            self.default_constant,
         )
 
         return results
@@ -1282,6 +1375,7 @@ class SR_results:
         success_threshold: Optional[float],
         approach_name: str,
         metadata: Optional[dict] = None,
+        default_constant: Optional[Constant] = None,
     ) -> None:
         """Adds the results of an evaluation to the results object.
 
@@ -1292,6 +1386,8 @@ class SR_results:
             success_threshold: The success threshold used to determine whether the evaluation was successful.
             approach_name: The name of the approach used to discover the equations.
             metadata: A dictionary containing additional metadata about the evaluation.
+            default_constant: The default spec of free constants in the evaluation, stored as
+                [EvalResult.default_constant][SRToolkit.utils.types.EvalResult].
         """
         dataset_name = None
         remaining_metadata = None
@@ -1311,6 +1407,7 @@ class SR_results:
             top_k=top_k,
             dataset_name=dataset_name,
             metadata=remaining_metadata,
+            default_constant=default_constant,
         )
 
         self.results.append(results_obj)

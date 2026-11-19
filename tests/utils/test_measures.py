@@ -15,7 +15,9 @@ from hypothesis import strategies as st
 from scipy.stats import wasserstein_distance
 from strategies import infix_expressions, matrix_pairs, regression_data
 
+from SRToolkit.dataset.sampling import LogUniformSampling, Sampler
 from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
+from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.measures import (
     REGRESSION_METRICS,
     bed,
@@ -38,6 +40,24 @@ LIB30 = SymbolLibrary.default_symbols(num_variables=30)
 NAN, INF = np.nan, np.inf
 X3 = np.array([[0.0], [1.0], [3.0]])
 X28 = np.arange(28.0).reshape(1, 28)
+
+
+# ppf maps u in [0, 1) to 10 ** (2 * u), so u = log10(x) / 2.
+LOG_PRIOR = LogUniformSampling(1, 100)
+
+
+class TwoPointSampler(Sampler):
+    """A user-defined prior without ppf: draws 7.0 or 11.0."""
+
+    def __call__(self, sample_size, rng=None):
+        return rng.choice([7.0, 11.0], sample_size)
+
+    def to_dict(self):
+        return {"sampler_class": "test_measures.TwoPointSampler"}
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls()
 
 
 def tree(tokens):
@@ -363,26 +383,111 @@ class TestCreateBehaviorMatrix:
         np.testing.assert_array_equal(ex, [[INF, INF], [0.0, 0.0]])
 
     @pytest.mark.parametrize(
+        "k, expected",
+        [(3, [[9.81, 9.81, 9.81], [11.81, 11.81, 11.81]]), (1, [[9.81], [11.81]])],
+        ids=["three-columns", "one-column"],
+    )
+    def test_all_fixed_constants_give_identical_columns(self, k, expected):
+        # Reason: clause, boundary (a fixed parameter has its value in every column; only fixed
+        # constants give identical columns, even without a seed; num_consts_sampled may be 1).
+        # 9.81 lies outside the default (-5, 5): used as is.
+        specs = [Constant(label="C_0", value=2.0, fixed=True), Constant(label="C_1", value=9.81, fixed=True)]
+        B = create_behavior_matrix(
+            ["C_0", "*", "X_0", "+", "C_1"], np.array([[0.0], [1.0]]), num_consts_sampled=k, free_constants=specs
+        )
+        np.testing.assert_allclose(B, expected, rtol=1e-15)
+
+    def test_fixed_and_free_constants_land_in_their_parameters(self):
+        # Reason: clause (columns ordered as parameter_labels; specs in any order; free parameters
+        # form one LHS). Labels are [None, "C_1", "C_0"]; the specs are given as C_0, C_1.
+        # Rows: X=(0,0) -> c, X=(1,0) -> c + c_1, X=(0,1) -> c + 5.
+        X = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+        specs = [Constant(label="C_0", value=5.0, fixed=True), Constant(label="C_1")]
+        B = create_behavior_matrix(
+            ["C", "+", "C_1", "*", "X_0", "+", "C_0", "*", "X_1"],
+            X,
+            num_consts_sampled=8,
+            consts_bounds=(0, 1),
+            seed=0,
+            free_constants=specs,
+        )
+        np.testing.assert_allclose(B[2] - B[0], np.full(8, 5.0))
+        np.testing.assert_array_equal(np.sort(np.floor(8 * B[0])), np.arange(8))
+        np.testing.assert_array_equal(np.sort(np.floor(8 * (B[1] - B[0]))), np.arange(8))
+
+    @pytest.mark.parametrize(
+        "expr, kwargs",
+        [
+            (["C_0"], {"free_constants": [Constant(label="C_0", prior=LOG_PRIOR)]}),
+            (["C_0"], {"free_constants": [Constant(label="C_0", prior=LOG_PRIOR, bounds=(1, 2), value=1.5)]}),
+            (["C"], {"default_constant": Constant(prior=LOG_PRIOR, bounds=(1, 100)), "consts_bounds": (1, 1)}),
+        ],
+        ids=["spec-outside-default-bounds", "spec-bounds-and-value-ignored", "default-replaces-consts-bounds"],
+    )
+    def test_prior_maps_a_stratified_sample_through_its_ppf(self, expr, kwargs):
+        # Reason: clause (LHS in [0, 1) mapped through the prior's ppf; spec bounds and a free spec's
+        # value play no role; default_constant replaces consts_bounds, which is then not validated).
+        # Inverse ppf u = log10(x) / 2 hits each 1/8 slice; the samples leave the bounds (-5, 5) / (1, 2).
+        B = create_behavior_matrix(expr, np.zeros((1, 1)), num_consts_sampled=8, seed=0, **kwargs)
+        assert np.all((B >= 1) & (B < 100))
+        np.testing.assert_array_equal(np.sort(np.floor(8 * np.log10(B[0]) / 2)), np.arange(8))
+
+    def test_prior_without_ppf_is_drawn_from_the_seeded_sampler(self):
+        # Reason: clause (a prior without ppf is drawn from directly; random unless seed is set).
+        # Equal draws for seeds 3 and 4 have probability 2 ** -32.
+        X = np.zeros((1, 1))
+        specs = [Constant(label="C_0", prior=TwoPointSampler())]
+
+        def draw(seed):
+            return create_behavior_matrix(["C_0"], X, num_consts_sampled=32, seed=seed, free_constants=specs)
+
+        assert set(draw(3)[0]) <= {7.0, 11.0}
+        np.testing.assert_array_equal(draw(3), draw(3))
+        assert not np.array_equal(draw(3), draw(4))
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda b: create_behavior_matrix(["X_0", "+", "C"], X3, consts_bounds=b),
+            lambda b: bed(["C"], ["X_0"], X3, consts_bounds=b),
+        ],
+        ids=["create_behavior_matrix", "bed"],
+    )
+    @pytest.mark.parametrize(
+        "bounds", [(1, 2, 3), ("a", "b"), 5, (True, 2)], ids=["three-values", "strings", "scalar", "bool"]
+    )
+    def test_consts_bounds_not_a_pair_raises_type_error(self, call, bounds):
+        # Reason: clause (Raises TypeError if consts_bounds is not a pair of real numbers; bool rejected).
+        with pytest.raises(TypeError, match="consts_bounds"):
+            call(bounds)
+
+    @pytest.mark.parametrize(
         "expr, X, kwargs, match",
         [
             (["X_0", "+", "C"], np.zeros((2, 1)), {"num_consts_sampled": 0}, "num_consts_sampled"),
             (["X_0", "+", "C"], np.zeros((2, 1)), {"num_consts_sampled": -1}, "num_consts_sampled"),
             (["X_0", "+", "C"], np.zeros((2, 1)), {"consts_bounds": (1, 1)}, "consts_bounds"),
             (["X_0", "+", "C"], np.zeros((2, 1)), {"consts_bounds": (5, -5)}, "consts_bounds"),
+            (["X_0", "+", "C"], np.zeros((2, 1)), {"consts_bounds": (-INF, 5)}, "consts_bounds"),
+            (["X_0", "+", "C"], np.zeros((2, 1)), {"consts_bounds": (NAN, 5)}, "consts_bounds"),
             (["X_0"], np.zeros((2, 1)), {"num_consts_sampled": 0}, "num_consts_sampled"),
             (["X_0"], np.zeros((2, 1)), {"consts_bounds": (1, 1)}, "consts_bounds"),
             (["X_0"], np.array([0.0, 1.0]), {}, "X"),
             (["X_0"], np.zeros((2, 1)), {"backend": "fortran"}, "backend"),
+            (["C_0"], np.zeros((2, 1)), {"free_constants": [Constant(label="C_9")]}, "free_constants"),
         ],
         ids=[
             "zero-samples",
             "negative-samples",
             "empty-bounds",
             "reversed-bounds",
+            "infinite-bounds",
+            "nan-bounds",
             "zero-samples-constant-free",
             "empty-bounds-constant-free",
             "one-dimensional-X",
             "unknown-backend",
+            "spec-label-not-in-expr",
         ],
     )
     def test_invalid_arguments_raise_value_error(self, expr, X, kwargs, match):
@@ -463,6 +568,14 @@ class TestBedModes:
             ((["X_0"], ["X_0", "+", "1"]), {"X": X3, "num_points_sampled": 0}),
             ((np.array([[0.0]]), np.array([[1.0]])), {"num_consts_sampled": 0}),
             ((np.array([[0.0]]), np.array([[1.0]])), {"consts_bounds": (1, 1)}),
+            (
+                (np.array([[0.0]]), np.array([[1.0]])),
+                {"free_constants1": [Constant(label="C_0", value=1.0, fixed=True)]},
+            ),
+            (
+                (["X_0"], ["X_0", "+", "1"]),
+                {"X": X3, "default_constant": uniform_default((0, 1)), "consts_bounds": (1, 1)},
+            ),
         ],
         ids=[
             "domain-ignored-with-X",
@@ -470,10 +583,12 @@ class TestBedModes:
             "zero-points-with-X",
             "zero-constant-samples-two-matrices",
             "empty-consts-interval-two-matrices",
+            "specs-for-a-matrix",
+            "consts-bounds-replaced-by-default-constant",
         ],
     )
     def test_unused_parameters_are_not_validated(self, args, kwargs):
-        # Reason: clause (parameters are validated only when used). Both cases are a unit shift.
+        # Reason: clause (parameters are validated only when used). All cases are a unit shift.
         assert bed(*args, **kwargs) == pytest.approx(1.0)
 
     @pytest.mark.parametrize(
@@ -516,6 +631,58 @@ class TestBedModes:
         assert bed(a, a, **kwargs) == 0.0
         assert bed(a, a, X3, seed=3) == 0.0
         assert bed(a, a, X3, num_consts_sampled=4) != bed(a, a, X3, num_consts_sampled=4)
+
+    @pytest.mark.parametrize(
+        "expr1, expr2, kwargs, low, high",
+        [
+            (
+                ["C_0"],
+                ["2", "*", "C_0"],
+                {
+                    "free_constants1": [Constant(label="C_0", value=1.0, fixed=True)],
+                    "free_constants2": [Constant(label="C_0", value=3.0, fixed=True)],
+                },
+                5.0,
+                5.0,
+            ),
+            (
+                ["C_0"],
+                ["C_0"],
+                {
+                    "free_constants1": [Constant(label="C_0", value=2.0, fixed=True)],
+                    "consts_bounds": (0, 1),
+                    "num_consts_sampled": 4,
+                },
+                1.375,
+                1.625,
+            ),
+            (
+                ["C_0", "*", "X_0"],
+                ["C_0", "*", "X_0"],
+                {
+                    "free_constants1": [Constant(label="C_0", prior=LOG_PRIOR)],
+                    "free_constants2": [Constant(label="C_0", prior=LOG_PRIOR)],
+                },
+                0.0,
+                0.0,
+            ),
+        ],
+        ids=["each-side-its-own-spec", "spec-on-one-side-only", "same-specs-both-sides"],
+    )
+    def test_specs_apply_to_their_own_expression(self, expr1, expr2, kwargs, low, high):
+        # Reason: clause (free_constants1 for expr1, free_constants2 for expr2; with seed bed(e, e) == 0).
+        # Row 1: |1 - 2 * 3| = 5 (swapped specs would give |3 - 2 * 1| = 1). Row 2: W1 from the point
+        # mass 2 to 4 LHS samples in [0, 1) is 2 - their mean, which lies in [3/8, 5/8).
+        value = bed(expr1, expr2, X3, seed=0, **kwargs)
+        assert low <= value <= high
+
+    def test_swapping_expressions_with_their_specs_is_symmetric(self):
+        # Reason: clause (Notes: with seed, bed(e1, e2, s1, s2) == bed(e2, e1, s2, s1)).
+        a, b = ["C_0", "*", "X_0"], ["C_0", "+", "X_0"]
+        s = [Constant(label="C_0", prior=LOG_PRIOR)]
+        value = bed(a, b, X3, seed=5, free_constants1=s)
+        assert value > 0
+        assert bed(b, a, X3, seed=5, free_constants2=s) == pytest.approx(value)
 
 
 class TestBedNonFiniteAndErrors:
@@ -574,6 +741,7 @@ class TestBedNonFiniteAndErrors:
             ((["X_0"], ["X_0"]), {"domain_bounds": [(0, 1)], "num_points_sampled": 0}, "num_points_sampled"),
             ((["C"], ["X_0"]), {"X": X3, "num_consts_sampled": 0}, "num_consts_sampled"),
             ((["C"], ["X_0"]), {"X": X3, "consts_bounds": (1, 1)}, "consts_bounds"),
+            ((["C"], ["X_0"]), {"X": X3, "consts_bounds": (-INF, 5)}, "consts_bounds"),
             ((np.zeros((3, 2)), np.zeros((4, 2))), {}, "expr[12]"),
             ((np.zeros((4, 2)), ["X_0"]), {"X": X3}, "expr1"),
             ((np.zeros((3, 2)), np.zeros((3, 2))), {"X": np.zeros((4, 1))}, "expr1"),
@@ -594,6 +762,7 @@ class TestBedNonFiniteAndErrors:
             "zero-points",
             "zero-constant-samples",
             "empty-consts-interval",
+            "infinite-consts-interval",
             "matrix-row-mismatch",
             "matrix-rows-differ-from-X",
             "two-matrices-rows-differ-from-X",

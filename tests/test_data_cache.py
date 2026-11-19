@@ -12,6 +12,7 @@ from SRToolkit.dataset import data_cache
 from SRToolkit.dataset.data_source import SampleSource
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.utils import SymbolLibrary
+from SRToolkit.utils.free_constants import Constant
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -156,13 +157,23 @@ class TestResolveSample:
         assert data["X"].shape[1] == 2
         assert data["X"].shape[0] == 20  # n_samples
 
-    @pytest.mark.parametrize("constant", ["C", "C_1"])
-    def test_free_constant_raises(self, tmp_path, monkeypatch, constant):
-        # A free constant has no value to evaluate, so y cannot be generated (issue #4: the Cython
-        # backend used to read past the empty constant array and return garbage y).
+    # Reason: clause (SampleSource.materialize Raises: a free constant without a fixed value in
+    # ground_truth_constants) + regression (issue #4: the Cython backend used to read past the empty
+    # constant array and return garbage y).
+    @pytest.mark.parametrize(
+        "ground_truth, specs, named",
+        [
+            (["X_0", "*", "C"], None, "C"),
+            (["X_0", "*", "C_1"], None, "C_1"),
+            (["X_0", "*", "C_1"], [Constant("C_1", value=1.0).to_dict()], "C_1"),
+            (["X_0", "*", "C_1", "+", "C"], [Constant("C_1", value=3.0, fixed=True).to_dict()], "C"),
+        ],
+        ids=["bare", "labelled", "spec-not-fixed", "fixed-plus-bare"],
+    )
+    def test_free_constant_raises(self, tmp_path, monkeypatch, ground_truth, specs, named):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        config = {**_simple_dataset_config(), "ground_truth": ["X_0", "*", constant]}
-        with pytest.raises(ValueError, match=rf"ground truth contains a free constant \({constant}\)"):
+        config = {**_simple_dataset_config(), "ground_truth": ground_truth, "ground_truth_constants": specs}
+        with pytest.raises(ValueError, match=rf"free constant \({named}\) without a fixed value"):
             data_cache.resolve("test_bench", "1.0.0", "test_ds", config)
 
     def test_free_constant_allowed_for_bed(self, tmp_path, monkeypatch):

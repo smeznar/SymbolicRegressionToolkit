@@ -12,9 +12,9 @@ from a [DataSource][SRToolkit.dataset.data_source.DataSource]; the
 
 ## Background knowledge and objective
 
-What the task tells the approach besides the data (symbol library, samplers, constant bounds,
-advisory constraints, reference grammar, descriptions) is given as separate arguments, from which
-the dataset builds one
+What the task tells the approach besides the data (symbol library, samplers, constant bounds and
+default spec of free constants, advisory constraints, reference grammar, descriptions) is given as
+separate arguments, from which the dataset builds one
 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge], available as
 ``dataset.background_knowledge``.
 
@@ -45,8 +45,9 @@ from ``ground_truth`` with the variable and target names.
 ## File format
 
 [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict] writes format 4: the background
-knowledge under ``"background_knowledge"`` and the required constraints under
-``"required_constraints"``. [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also
+knowledge under ``"background_knowledge"``, the required constraints under
+``"required_constraints"``, and the answer (``ground_truth``, ``ground_truth_constants``) at the
+top level, outside the background knowledge. [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also
 reads formats 2 and 3 (symbol library and samplers at the top level, ``constant_bounds`` /
 ``max_constants`` / ``max_expr_length`` in ``kwargs``) and gives the same objective as before;
 saving the result writes format 4.
@@ -60,7 +61,7 @@ import time
 import warnings
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union, cast
 from urllib.request import urlopen
 
 import numpy as np
@@ -79,12 +80,13 @@ from SRToolkit.evaluation.sr_evaluator import (
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
+from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.types import RankingSettings
 
 from . import data_cache
 from .background_knowledge import BackgroundKnowledge, VariableInfo
-from .data_source import DataSource, SampleSource, _check_no_free_constants
+from .data_source import DataSource, SampleSource
 from .data_split import DataSplit
 from .sampling import Sampler, _sample_inputs
 
@@ -113,6 +115,25 @@ def _resolve_task(
         limits,
     )
     return bk, tuple(_set_up_copy(c, bk.symbol_library) for c in required), dict(kwargs)
+
+
+def _ground_truth_specs(
+    ground_truth: Optional[Union[List[str], Node]],
+    ground_truth_constants: Optional[Iterable[Constant]],
+    bk: BackgroundKnowledge,
+) -> Optional[Tuple[Constant, ...]]:
+    """Check the ground truth's specs against it; return them sorted by label, or ``None`` if none."""
+    specs = tuple(sorted(ground_truth_constants or (), key=lambda c: c.label or ""))
+    if not specs:
+        return None
+    if ground_truth is None:
+        raise ValueError("'ground_truth_constants' needs a 'ground_truth'.")
+    try:
+        resolve_constants(ground_truth, specs, cast(Constant, bk.default_constant), bk.symbol_library)
+    except ValueError as e:
+        message = str(e).replace("'free_constants'", "'ground_truth_constants'").replace("the expression", "it")
+        raise ValueError(f"'ground_truth_constants' do not fit 'ground_truth': {message}") from None
+    return specs
 
 
 def _derive_equation(tokens: List[str], variables: Mapping[str, VariableInfo], target: Optional[VariableInfo]) -> str:
@@ -167,8 +188,13 @@ class SR_dataset:
         target: Information about the target.
         named_constants: Information per named constant, keyed by ``"lit"`` token (e.g. ``"c"``).
         description: Free text about the task.
-        constant_bounds: ``(lower, upper)`` range free constants are fitted in; ``None``:
-            ``(-5, 5)``.
+        constant_bounds: ``(lower, upper)`` range of the default spec, as for
+            [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge];
+            ``None``: ``(-5, 5)``.
+        default_constant: The default spec of free constants, a
+            [Constant][SRToolkit.utils.free_constants.Constant] template, as for
+            ``BackgroundKnowledge``; ``None``:
+            [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default].
         reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
             start from.
         max_constants: Limit on free constants, added as ``MaxConstants``. ``None``: 8, unless
@@ -177,6 +203,12 @@ class SR_dataset:
         required_constraints: Further constraints every expression must satisfy; ``None`` for none.
         advisory_constraints: Hints about the search space: violations are recorded, the score is
             not changed; ``None`` for none.
+        ground_truth_constants: Specs for the labelled constants of ``ground_truth`` (see
+            [Constant][SRToolkit.utils.free_constants.Constant]); constants without one use the
+            dataset's ``default_constant``. ``y`` can be computed from the
+            ground truth only if every free constant in it is labelled and fixed by a spec; BED
+            samples the ground truth's constants from these specs. Part of the answer, not of the
+            background knowledge. ``None`` for none.
         **kwargs: Ranking settings (see [RankingSettings][SRToolkit.utils.types.RankingSettings]),
             passed on to the evaluator.
 
@@ -184,8 +216,10 @@ class SR_dataset:
         ValueError: If ``X`` has a different number of columns than the symbol library has
             variables; ``max_constants`` / ``max_expr_length`` is not an integer
             or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``ground_truth`` is an ndarray
-            (pass a BED behaviour matrix as ``bed_gt``); an ``aux_data`` key is not a valid file name;
-            a required constraint does not fit the symbol library (raised by its ``setup``); or as
+            (pass a BED behaviour matrix as ``bed_gt``); ``ground_truth_constants`` is given
+            without ``ground_truth`` or does not fit it (see
+            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]); an
+            ``aux_data`` key is not a valid file name; a required constraint does not fit the symbol library (raised by its ``setup``); or as
             for [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
         TypeError: If ``required_constraints`` holds something that is not an
             ``ExpressionConstraint``, or as for ``BackgroundKnowledge``.
@@ -206,11 +240,14 @@ class SR_dataset:
         symbol_library: ``background_knowledge.symbol_library`` (read-only).
         samplers: ``background_knowledge.samplers``: a tuple in variable order, or ``None`` (read-only).
         constant_bounds: ``background_knowledge.constant_bounds`` (read-only).
+        default_constant: ``background_knowledge.default_constant``, complete (read-only).
         required_constraints: The required constraints as a tuple (read-only).
         ranking_function: As given.
         max_evaluations: As given.
         success_threshold: As given.
         ground_truth: As given.
+        ground_truth_constants: The specs as given, in a tuple sorted by label (as strings);
+            ``None`` if none were given or the iterable was empty.
         original_equation: The given answer, or one derived from ``ground_truth``; ``None`` if
             neither (read-only).
         seed: As given.
@@ -252,11 +289,13 @@ class SR_dataset:
         named_constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
+        default_constant: Optional[Constant] = None,
         reference_grammar: Optional[Grammar] = None,
         max_constants: Optional[int] = None,
         max_expr_length: Optional[int] = None,
         required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        ground_truth_constants: Optional[Iterable[Constant]] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
         self._background_knowledge, self._required_constraints, kwargs = _resolve_task(  # type: ignore[assignment]
@@ -268,6 +307,7 @@ class SR_dataset:
                 "named_constants": named_constants,
                 "description": description,
                 "constant_bounds": constant_bounds,
+                "default_constant": default_constant,
                 "reference_grammar": reference_grammar,
                 "constraints": advisory_constraints,
             },
@@ -288,6 +328,9 @@ class SR_dataset:
                 "precomputed behaviour matrix is ranking-owned state — pass it to the BED ranking instead."
             )
         self.ground_truth = ground_truth
+        self.ground_truth_constants = _ground_truth_specs(
+            ground_truth, ground_truth_constants, self._background_knowledge
+        )
         self._original_equation = original_equation
         self.kwargs = kwargs
         self.dataset_name = dataset_name
@@ -344,6 +387,11 @@ class SR_dataset:
     def constant_bounds(self) -> Tuple[float, float]:
         """Shortcut to ``background_knowledge.constant_bounds`` (read-only)."""
         return self._background_knowledge.constant_bounds
+
+    @property
+    def default_constant(self) -> Constant:
+        """Shortcut to ``background_knowledge.default_constant``, complete (read-only)."""
+        return cast(Constant, self._background_knowledge.default_constant)
 
     @property
     def required_constraints(self) -> Tuple[ExpressionConstraint, ...]:
@@ -557,8 +605,9 @@ class SR_dataset:
     def ranking_settings(self) -> Dict[str, Any]:
         """Return the settings the ranking function gets, as in an evaluator from ``create_evaluator``.
 
-        They are ``kwargs`` plus ``constant_bounds``, plus ``samplers`` if the dataset has them
-        (BED draws its points from them when it can; other rankings ignore them). Unless
+        They are ``kwargs`` plus ``constant_bounds`` and ``default_constant`` (the complete default
+        spec), plus ``samplers`` if the dataset has them (BED draws its points from them when it
+        can; other rankings ignore them), plus ``ground_truth_constants`` if it has them. Unless
         ``ranking_resample=True``, ``ranking_seed`` defaults to the dataset seed (``0`` if
         ``None``), so every run is scored by the same objective: the same BED points and
         behaviours, and the same starting point for each expression's fit. Pass them to
@@ -571,8 +620,11 @@ class SR_dataset:
         """
         settings: Dict[str, Any] = dict(self.kwargs)
         settings["constant_bounds"] = self.constant_bounds
+        settings["default_constant"] = self.default_constant
         if self.samplers is not None:
             settings["samplers"] = list(self.samplers)
+        if self.ground_truth_constants is not None:
+            settings["ground_truth_constants"] = self.ground_truth_constants
         # Fix the ranking's randomness per dataset, unless the user asked for it to be resampled each run.
         if not settings.get("ranking_resample", False):
             settings.setdefault("ranking_seed", self.seed if self.seed is not None else 0)
@@ -705,7 +757,7 @@ class SR_dataset:
 
         Raises:
             ValueError: If the dataset has no samplers, or ``y`` is needed and ``ground_truth`` is
-                ``None`` or has a free constant.
+                ``None`` or has a free constant without a fixed value in ``ground_truth_constants``.
         """
         if self.samplers is None:
             raise ValueError(
@@ -723,12 +775,13 @@ class SR_dataset:
                 "cannot evaluate y. ground_truth must be a list of tokens or a Node."
             )
 
-        _check_no_free_constants(
-            self.ground_truth, self.symbol_library, f"[SR_dataset.resample] Dataset '{self.dataset_name}'"
+        parameters = _ground_truth_parameters(
+            self.ground_truth,
+            self.ground_truth_constants,
+            self.symbol_library,
+            f"[SR_dataset.resample] Dataset '{self.dataset_name}'",
         )
-
-        f = compile_expr(self.ground_truth, self.symbol_library)
-        y = f(X, np.array([]))
+        y = compile_expr(self.ground_truth, self.symbol_library)(X, parameters)
         return X, y
 
     def resample_inplace(self, n: int, seed: Optional[int] = None) -> "SR_dataset":
@@ -777,7 +830,8 @@ class SR_dataset:
             A dict with ``format_version`` (``4``), ``dataset_name``, ``benchmark``, ``version``,
             ``ranking_function``, ``max_evaluations``, ``success_threshold``, ``original_equation``
             (the given string, or ``None`` when derived), ``seed``, ``dataset_metadata``, ``kwargs``,
-            ``ground_truth`` (token list or ``None``),
+            ``ground_truth`` (token list or ``None``), ``ground_truth_constants`` (a list of
+            [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict], or ``None``),
             ``data_source``, ``test``, ``aux``, ``background_knowledge``
             ([BackgroundKnowledge.to_dict][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.to_dict])
             and ``required_constraints`` (each constraint's ``to_dict``, the limit ones included).
@@ -842,6 +896,9 @@ class SR_dataset:
             "dataset_metadata": self.dataset_metadata,
             "kwargs": kwargs_out,
             "ground_truth": ground_truth_out,
+            "ground_truth_constants": (
+                None if self.ground_truth_constants is None else [c.to_dict() for c in self.ground_truth_constants]
+            ),
             "data_source": self.data_source.to_dict() if self.data_source is not None else None,
             "test": split_entry(self.test) if self.test is not None else None,
             "aux": {key: split_entry(split) for key, split in self.aux_data.items()},
@@ -855,7 +912,8 @@ class SR_dataset:
 
         Arrays come from the data cache, or are generated from their ``data_source``. Formats 2 and 3
         are migrated (see the [module docstring][SRToolkit.dataset.sr_dataset]). For
-        ``d = ds.to_dict()``, ``from_dict(d).to_dict() == d``. Load ``.zip`` archives with
+        ``d = ds.to_dict()``, ``from_dict(d).to_dict() == d``. A missing ``ground_truth_constants``
+        key loads as ``None``. Load ``.zip`` archives with
         [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive].
 
         Args:
@@ -910,6 +968,7 @@ class SR_dataset:
                 symbol_library=bk.symbol_library,
                 samplers=bk.samplers,
                 constant_bounds=bk.constant_bounds,
+                default_constant=bk.default_constant,
                 advisory_constraints=bk.constraints,
                 reference_grammar=bk.reference_grammar,
                 description=bk.description,
@@ -953,6 +1012,7 @@ class SR_dataset:
             y=train.y,
             max_evaluations=dd["max_evaluations"],
             ground_truth=dd.get("ground_truth"),
+            ground_truth_constants=[Constant.from_dict(c) for c in dd.get("ground_truth_constants") or ()],
             original_equation=dd["original_equation"],
             success_threshold=dd["success_threshold"],
             seed=dd["seed"],
@@ -1077,11 +1137,13 @@ class SR_dataset:
         named_constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
+        default_constant: Optional[Constant] = None,
         reference_grammar: Optional[Grammar] = None,
         max_constants: Optional[int] = None,
         max_expr_length: Optional[int] = None,
         required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        ground_truth_constants: Optional[Iterable[Constant]] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> "SR_dataset":
         """Build a dataset by sampling inputs and evaluating a ground truth on them.
@@ -1093,7 +1155,8 @@ class SR_dataset:
 
         Args:
             ground_truth: The answer as infix tokens or a [Node][SRToolkit.utils.expression_tree.Node];
-                it must have no free constants unless ``ranking_function`` is ``"bed"``.
+                unless ``ranking_function`` is ``"bed"``, every free constant in it needs a fixed
+                value in ``ground_truth_constants``.
             samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per variable, as a list in
                 variable order or ``{token: sampler}``.
             symbol_library: ``None`` uses
@@ -1116,11 +1179,13 @@ class SR_dataset:
             named_constants: As for ``SR_dataset``.
             description: As for ``SR_dataset``.
             constant_bounds: As for ``SR_dataset``.
+            default_constant: As for ``SR_dataset``.
             reference_grammar: As for ``SR_dataset``.
             max_constants: As for ``SR_dataset``.
             max_expr_length: As for ``SR_dataset``.
             required_constraints: As for ``SR_dataset``.
             advisory_constraints: As for ``SR_dataset``.
+            ground_truth_constants: As for ``SR_dataset``.
             **kwargs: As for ``SR_dataset``.
 
         Returns:
@@ -1166,11 +1231,13 @@ class SR_dataset:
             named_constants=named_constants,
             description=description,
             constant_bounds=constant_bounds,
+            default_constant=default_constant,
             reference_grammar=reference_grammar,
             max_constants=max_constants,
             max_expr_length=max_expr_length,
             required_constraints=required_constraints,
             advisory_constraints=advisory_constraints,
+            ground_truth_constants=ground_truth_constants,
             **kwargs,
         )
         dataset.data_source = SampleSource(n_samples=n_samples, seed=seed)

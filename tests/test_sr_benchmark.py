@@ -8,14 +8,15 @@ import pytest
 
 from SRToolkit.dataset import Feynman, data_cache
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
-from SRToolkit.dataset.data_source import SampleSource
-from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.dataset.data_source import FallbackSource, SampleSource, UrlSource
+from SRToolkit.dataset.sampling import LogUniformSampling, UniformSampling
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth, RequiredVariables
 from SRToolkit.utils.expression_tree import tokens_to_tree
+from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.units import Unit
@@ -39,6 +40,9 @@ def _samplers():
     return {"X_1": UniformSampling(10, 11), "X_0": UniformSampling(0, 1)}
 
 
+_LU_DEFAULT = Constant(prior=LogUniformSampling(0.1, 10), bounds=(0, float("inf")))
+
+
 def _dicts(items):
     return [c.to_dict() for c in items]
 
@@ -50,6 +54,7 @@ def test_add_dataset_v4_entry_builds_dataset():
         target=VariableInfo("z"),
         description="Toy",
         constant_bounds=(-3, 3),
+        default_constant=_LU_DEFAULT,
     )
     bm = SR_benchmark("b")
     bm.add_dataset(
@@ -66,10 +71,11 @@ def test_add_dataset_v4_entry_builds_dataset():
     entry = bm.datasets["a"]
     assert entry["format_version"] == 4
     assert "samplers" not in entry and "symbol_library" not in entry
-    assert "constant_bounds" not in entry["kwargs"]
+    assert "constant_bounds" not in entry["kwargs"] and "default_constant" not in entry["kwargs"]
     ds = bm.create_dataset("a")
     expected = SR_dataset(np.zeros((1, 2)), _lib2c(), **flat).background_knowledge
     assert ds.background_knowledge.to_dict() == expected.to_dict()
+    assert ds.default_constant.to_dict() == _LU_DEFAULT.to_dict()
     assert _dicts(ds.required_constraints) == _dicts([MaxConstants(8), MaxTokens(12), MaxTreeDepth(5)])
     assert ds.X.shape == (20, 2)
     assert ds.original_equation == "z = x + y"
@@ -82,6 +88,13 @@ def _lib_sq():
     return lib
 
 
+def _lib_c1():
+    # "C_1" is a named constant (value 3) here, not a labelled free constant, so it needs no spec.
+    lib = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
+    lib.add_symbol("C_1", "lit", 5, "3.0")
+    return lib
+
+
 @pytest.mark.parametrize(
     "dataset, ranking_function, library, ground_truth, expected_y",
     [
@@ -89,8 +102,9 @@ def _lib_sq():
         (_X, "rmse", _lib2c, _GT, _X.sum(axis=1)),
         (_X, "rmse", _lib_sq, ["sq", "(", "X_0", ")", "+", "X_1"], _X[:, 0] ** 2 + _X[:, 1]),
         (_X, "bed", _lib2c, _GT, None),
+        (_X, "rmse", _lib_c1, ["X_0", "+", "C_1"], _X[:, 0] + 3.0),
     ],
-    ids=["tuple", "X-only-rmse-y-from-gt", "X-only-rmse-custom-library", "X-only-bed"],
+    ids=["tuple", "X-only-rmse-y-from-gt", "X-only-rmse-custom-library", "X-only-bed", "X-only-named-constant-C_1"],
 )
 def test_add_dataset_writes_arrays_to_cache(dataset, ranking_function, library, ground_truth, expected_y):
     bm = SR_benchmark("b")
@@ -150,6 +164,43 @@ def test_create_dataset_resamples_v4():
     np.testing.assert_array_equal(bm.create_dataset("a", n_samples=50, seed=1).X, ds.X)
 
 
+_GT_C0 = ["C_0", "*", "X_0", "+", "C_0"]
+_FIX2 = Constant("C_0", value=2.0, fixed=True)
+_FREE = Constant("C_0", prior=UniformSampling(0, 1))
+
+
+# Reason: clause (add_dataset / add_from_samplers store ground_truth_constants in the entry; y of a bare
+# ndarray and of a SampleSource is computed with the fixed values). y = 2x + 2.
+@pytest.mark.parametrize(
+    "add, n_samples",
+    [
+        (lambda bm: bm.add_dataset(_lib2c(), _X, "a", ground_truth=_GT_C0, ground_truth_constants=[_FIX2]), None),
+        (
+            lambda bm: bm.add_from_samplers(
+                _GT_C0, [UniformSampling(0, 1)] * 2, dataset_name="a", n_samples=6, seed=0,
+                ground_truth_constants=[_FIX2],
+            ),
+            None,
+        ),
+        (
+            lambda bm: bm.add_from_samplers(
+                _GT_C0, [UniformSampling(0, 1)] * 2, dataset_name="a", n_samples=6, seed=0,
+                ground_truth_constants=[_FIX2],
+            ),
+            7,
+        ),
+    ],
+    ids=["add_dataset-ndarray", "add_from_samplers", "add_from_samplers-resampled"],
+)  # fmt: skip
+def test_ground_truth_constants_reach_dataset_and_y(add, n_samples):
+    bm = SR_benchmark("b")
+    add(bm)
+    assert bm.datasets["a"]["ground_truth_constants"] == [_FIX2.to_dict()]
+    ds = bm.create_dataset("a", n_samples=n_samples, seed=1)
+    assert ds.ground_truth_constants == (_FIX2,)
+    np.testing.assert_allclose(ds.y, 2 * ds.X[:, 0] + 2)
+
+
 def _add_existing(bm):
     bm.add_from_samplers(_GT, [UniformSampling(0, 1)] * 2, dataset_name="x", n_samples=5, seed=0)
 
@@ -177,8 +228,47 @@ def _add_existing(bm):
             ValueError,
         ),
         (lambda bm: bm.add_dataset(_lib2c(), _XY, "x", ground_truth=np.zeros((5, 4))), ValueError),
+        (lambda bm: bm.add_dataset(_lib2c(), _X, "x", ground_truth=np.zeros((5, 4))), ValueError),
         (lambda bm: bm.add_dataset(_lib2c(), _X, "x", ranking_function="bed"), ValueError),
         (lambda bm: bm.add_dataset(_lib2c(), (np.zeros((5, 3)), np.zeros(5)), "x", ground_truth=_GT), ValueError),
+        (lambda bm: bm.add_dataset(_lib2c(), _XY, "x", ground_truth_constants=[_FIX2]), ValueError),
+        (lambda bm: bm.add_dataset(_lib2c(), _XY, "x", ground_truth=_GT, ground_truth_constants=[_FIX2]), ValueError),
+        (lambda bm: bm.add_dataset(_lib2c(), _X, "x", ground_truth=_GT_C0, ground_truth_constants=[_FREE]), ValueError),
+        (
+            lambda bm: bm.add_dataset(
+                _lib2c(),
+                None,
+                "x",
+                ground_truth=_GT_C0,
+                samplers=[UniformSampling(0, 1)] * 2,
+                data_source=SampleSource(n_samples=5, seed=0),
+                ground_truth_constants=[_FREE],
+            ),
+            ValueError,
+        ),  # fmt: skip
+        (
+            lambda bm: bm.add_dataset(
+                _lib2c(),
+                None,
+                "x",
+                ground_truth=_GT_C0,
+                samplers=[UniformSampling(0, 1)] * 2,
+                data_source=FallbackSource([UrlSource("http://example.invalid/x.zip"), SampleSource(n_samples=5)]),
+                ground_truth_constants=[_FREE],
+            ),
+            ValueError,
+        ),  # fmt: skip
+        (
+            lambda bm: bm.add_from_samplers(
+                _GT_C0,
+                [UniformSampling(0, 1)] * 2,
+                dataset_name="x",
+                n_samples=5,
+                seed=0,
+                ground_truth_constants=[_FREE],
+            ),
+            ValueError,
+        ),  # fmt: skip
     ],
     ids=[
         "sampler-count",
@@ -190,8 +280,15 @@ def _add_existing(bm):
         "grammar-constraint",
         "misfit-required-constraint",
         "ndarray-ground-truth",
+        "ndarray-ground-truth-ndarray-data",
         "bed-without-gt",
         "columns-differ-from-variables",
+        "gt-constants-without-gt",
+        "gt-constants-unknown-label",
+        "gt-constant-not-fixed-ndarray",
+        "gt-constant-not-fixed-sample-source",
+        "gt-constant-not-fixed-fallback-source",
+        "gt-constant-not-fixed-from-samplers",
     ],
 )
 def test_add_dataset_rejects_before_writing(add, exc):
@@ -216,13 +313,18 @@ def test_create_dataset_errors(name, n_samples, match):
 def test_add_dataset_gt_eval_error_chained():
     bm = SR_benchmark("b")
     with pytest.raises(ValueError) as info:
-        bm.add_dataset(SymbolLibrary.default_symbols(1), np.ones((5, 1)), "x", ground_truth=["X_0", "*", "C"])
+        bm.add_dataset(SymbolLibrary.default_symbols(1), np.ones((5, 1)), "x", ground_truth=["X_0", "*"])
     assert info.value.__cause__ is not None
 
 
 def test_add_from_samplers_forwards_background_knowledge():
     bk = BackgroundKnowledge(
-        _lib2c(), samplers=[UniformSampling(0, 1)] * 2, description="Toy", constraints=[MaxTreeDepth(3)]
+        _lib2c(),
+        samplers=[UniformSampling(0, 1)] * 2,
+        description="Toy",
+        constraints=[MaxTreeDepth(3)],
+        constant_bounds=(-2, 3),
+        default_constant=_LU_DEFAULT,
     )
     bm = SR_benchmark("b")
     bm.add_from_samplers(
@@ -231,6 +333,8 @@ def test_add_from_samplers_forwards_background_knowledge():
         symbol_library=_lib2c(),
         description="Toy",
         advisory_constraints=[MaxTreeDepth(3)],
+        constant_bounds=(-2, 3),
+        default_constant=_LU_DEFAULT,
         dataset_name="a",
         n_samples=30,
         seed=0,

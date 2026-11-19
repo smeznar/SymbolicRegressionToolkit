@@ -20,11 +20,15 @@
 import dataclasses
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Sequence, Set, Tuple, TypedDict, get_args
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Set, Tuple, TypedDict, get_args
 
 import numpy as np
 
 from .serialization import _from_json_safe, _to_json_safe
+
+if TYPE_CHECKING:
+    # Imported for annotations only: free_constants imports symbol_library, which imports this module.
+    from .free_constants import Constant
 
 VAR = "var"
 """Symbol type of a variable (e.g. ``X_0``)."""
@@ -99,13 +103,23 @@ class RankingSettings(TypedDict, total=False):
         tol: Termination tolerance for the optimizer. Default: ``1e-6``.
         gtol: Gradient-norm termination tolerance. Default: ``1e-3``.
         max_iter: Maximum optimizer iterations. Default: ``100``.
-        constant_bounds: ``(lower, upper)`` bounds for constant values. The RMSE ranking samples
-            initial values in them and passes them to the optimizer as bounds (used by methods
-            that support bounds, such as ``"L-BFGS-B"``); BED samples its constant vectors in them.
-            Default: ``(-5, 5)``.
-        initialization: Constant initialization strategy. ``"random"`` samples
-            uniformly within ``constant_bounds``; ``"mean"`` sets all constants
-            to the midpoint. Default: ``"random"``.
+        constant_bounds: ``(lower, upper)`` range of the default spec
+            [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default],
+            used unless ``default_constant`` is given (the evaluator also completes a partial
+            ``default_constant`` from it). Validated only when used. Default: ``(-5, 5)``.
+        default_constant: The default spec of free constants (see
+            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]): a
+            [Constant][SRToolkit.utils.free_constants.Constant] template with ``prior`` and
+            ``bounds`` set, e.g.
+            [BackgroundKnowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
+            The evaluator completes a partial template from ``constant_bounds`` before passing it
+            on; rankings, ``ParameterEstimator`` and ``HoldoutMetric`` do not, and an incomplete
+            one raises ``ValueError`` when used. ``None``: ``uniform_default(constant_bounds)``.
+            Default: ``None``.
+        initialization: Starting point of a free constant without a ``value``: ``"random"`` draws
+            it from its prior, ``"mean"`` takes the prior's ``ppf(0.5)`` (the midpoint for the
+            default spec). See
+            [parameter_estimator][SRToolkit.evaluation.parameter_estimator]. Default: ``"random"``.
         max_constants: Maximum number of free constants in an expression (counted as by
             [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]), an ``int`` or numpy
             integer (``bool`` and other types raise ``ValueError``). For the evaluator, a
@@ -148,6 +162,14 @@ class RankingSettings(TypedDict, total=False):
             random if ``None``). An explicit ``ranking_seed`` wins in both cases. Default: ``False``.
         num_consts_sampled: Number of constant vectors sampled per expression for
             BED. Default: ``32``.
+        ground_truth_constants: Specs for the labelled constants of the ground truth (see
+            [Constant][SRToolkit.utils.free_constants.Constant]). Read only when the ground-truth
+            expression is evaluated: RMSE uses their fixed values to generate ``y`` when it is
+            missing; BED samples the ground truth's constants from them (the default spec for the
+            rest) for its target behavior or default threshold. Passed straight to
+            ``SR_evaluator``, they are validated by the ranking's ``setup``. Set by
+            [SR_dataset.ranking_settings][SRToolkit.dataset.sr_dataset.SR_dataset.ranking_settings]
+            from the dataset's ``ground_truth_constants``. Default: ``None``.
 
     Examples:
         >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
@@ -168,6 +190,8 @@ class RankingSettings(TypedDict, total=False):
     ranking_seed: Optional[int]
     ranking_resample: bool
     num_consts_sampled: int
+    ground_truth_constants: Optional[Sequence["Constant"]]
+    default_constant: Optional["Constant"]
 
 
 def _add_augmentation(augmentations: Dict[str, Dict[str, Any]], name: str, data: Dict[str, Any], aug_type: str) -> None:
@@ -236,9 +260,11 @@ class ModelResult:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
         error: Numeric error under the ranking function (RMSE or BED). By convention ``+inf``
             unless ``status`` is ``"ok"``; this is not validated.
-        parameters: Fitted values, one per free parameter in the order of
+        parameters: Fitted values, one per parameter in the order of
             [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels], shape
-            ``(n_parameters,)``. Set by the RMSE ranking only. ``None`` for other rankings and when nothing was fitted.
+            ``(n_parameters,)``, fixed values included; ``free_constants`` holds the specs they were
+            fitted under. Set by the RMSE ranking only. ``None`` for other rankings and when nothing
+            was fitted.
         ranking_data: Freeform payload carried over from the
             [RankingResult][SRToolkit.evaluation.ranking.RankingResult] ``extra`` dict of the
             ranking function that scored this expression. Empty for rankings that emit nothing
@@ -258,6 +284,10 @@ class ModelResult:
             if no check failed, if the evaluator has no advisory constraints, or if the status is
             ``"invalid"``. It never affects ``error``. See
             [expression_constraints][SRToolkit.utils.expression_constraints].
+        free_constants: The specs ``parameters`` were fitted under (priors, bounds, fixed values),
+            as [Constant][SRToolkit.utils.free_constants.Constant]s sorted by label; ``None`` when
+            no specs were given. Parameters without a spec (bare ``C`` always), and a spec's unset
+            ``prior`` or ``bounds``, used [EvalResult.default_constant][SRToolkit.utils.types.EvalResult].
 
     Examples:
         >>> result = ModelResult(expr=["C", "*", "X_0"], error=0.42)
@@ -273,6 +303,7 @@ class ModelResult:
     status: Status = "ok"
     status_detail: Optional[str] = None
     advisory_violations: List[CheckResult] = field(default_factory=list)
+    free_constants: Optional[Tuple["Constant", ...]] = None
 
     def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
         """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
@@ -310,7 +341,9 @@ class ModelResult:
 
         Returns:
             A dictionary with one entry per field; ``advisory_violations`` is saved as a list of
-            dicts with one entry per [CheckResult][SRToolkit.utils.types.CheckResult] field.
+            dicts with one entry per [CheckResult][SRToolkit.utils.types.CheckResult] field, and
+            ``free_constants`` as a list of [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]
+            (or ``None``).
 
         Raises:
             TypeError: If ``parameters`` has an unsupported dtype (e.g. complex), or
@@ -337,6 +370,11 @@ class ModelResult:
                 _to_json_safe(dataclasses.asdict(r), f"{prefix}advisory_violations[{i}]")
                 for i, r in enumerate(self.advisory_violations)
             ],
+            "free_constants": (
+                None
+                if self.free_constants is None
+                else _to_json_safe([c.to_dict() for c in self.free_constants], f"{prefix}free_constants")
+            ),
         }
 
     @classmethod
@@ -347,7 +385,8 @@ class ModelResult:
             data: Dictionary produced by [to_dict][SRToolkit.utils.types.ModelResult.to_dict],
                 possibly after a JSON round trip. Unknown keys are ignored; a missing
                 ``advisory_violations`` (results saved before it was recorded) loads as an empty
-                list; other malformed input has undefined behaviour. Each saved
+                list, a missing ``free_constants`` as ``None``; other malformed input has undefined
+                behaviour. Each saved
                 [CheckResult][SRToolkit.utils.types.CheckResult] comes back equal, field by field
                 (an ``inf`` amount included).
 
@@ -357,6 +396,7 @@ class ModelResult:
         Raises:
             ValueError: If ``data`` has no ``status`` (it was saved before statuses were recorded),
                 or its ``status`` is not one of [STATUSES][SRToolkit.utils.types.STATUSES].
+            ImportError: If the prior of a saved spec cannot be imported.
 
         Examples:
             >>> result = ModelResult(expr=["X_0", "+", "C"], error=0.25)
@@ -370,6 +410,10 @@ class ModelResult:
             )
         if data["status"] not in STATUSES:
             raise ValueError(f"[ModelResult.from_dict] Unknown status {data['status']!r}; expected one of {STATUSES}.")
+        # Imported here: free_constants imports symbol_library, which imports this module.
+        from .free_constants import Constant
+
+        specs = data.get("free_constants")
         return cls(
             expr=data["expr"],
             error=data["error"],
@@ -379,6 +423,7 @@ class ModelResult:
             status=data["status"],
             status_detail=data["status_detail"],
             advisory_violations=[CheckResult(**r) for r in data.get("advisory_violations", [])],
+            free_constants=None if specs is None else tuple(Constant.from_dict(c) for c in _from_json_safe(specs)),
         )
 
 
@@ -422,6 +467,13 @@ class EvalResult:
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
             [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
+        default_constant: The default spec of the run (a
+            [Constant][SRToolkit.utils.free_constants.Constant] template): the spec of every
+            parameter without one of its own (see
+            [ModelResult.free_constants][SRToolkit.utils.types.ModelResult]). With it,
+            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]
+            ``(model.expr, model.free_constants, result.default_constant, symbol_library)`` gives
+            the complete specs of a saved model. ``None`` for results saved in format 2.
 
     Examples:
         >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["C", "*", "X_0"], error=0.05)]
@@ -444,6 +496,7 @@ class EvalResult:
     metadata: Optional[dict] = None
     wall_time: Optional[float] = None
     augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    default_constant: Optional["Constant"] = None
     _ranking_cache: Optional[List[int]] = field(default=None, init=False, repr=False, compare=False)
 
     def _ranking(self) -> List[int]:
@@ -455,7 +508,10 @@ class EvalResult:
 
     @property
     def num_evaluated(self) -> int:
-        """Number of unique expressions evaluated: ``len(all_models)``, including models the trace never references."""
+        """Number of distinct models evaluated (an expression with its specs): ``len(all_models)``.
+
+        Includes models the trace never references.
+        """
         return len(self.all_models)
 
     @property
@@ -617,7 +673,7 @@ class EvalResult:
         """Return the number of models with each [Status][SRToolkit.utils.types.Status].
 
         Args:
-            per: ``"unique"`` counts each evaluated expression once; ``"call"`` counts every
+            per: ``"unique"`` counts each model (an expression with its specs) once; ``"call"`` counts every
                 counted call in the trace, cache hits included.
 
         Returns:
@@ -681,9 +737,10 @@ class EvalResult:
         back as Python scalars.
 
         Returns:
-            A dictionary with ``"format_version": 2`` and one entry per field. It also holds the
+            A dictionary with ``"format_version": 3`` and one entry per field
+            (``default_constant`` as its ``to_dict``, or ``None``). It also holds the
             derived summaries ``min_error``, ``best_expr``, ``success``, ``num_evaluated``,
-            ``evaluation_calls`` and ``status_counts`` (per unique expression), for reading the file
+            ``evaluation_calls`` and ``status_counts`` (per model), for reading the file
             directly. ``from_dict`` ignores them. ``min_error`` is ``nan`` for a result without
             models, which ``json`` writes as the non-standard token ``NaN``.
 
@@ -700,7 +757,7 @@ class EvalResult:
             ([0, 0], 0.05)
         """
         return {
-            "format_version": 2,
+            "format_version": 3,
             "min_error": float(self.min_error),
             "best_expr": self.best_expr,
             "success": self.success,
@@ -716,6 +773,11 @@ class EvalResult:
             "augmentations": _to_json_safe(self.augmentations, "augmentations"),
             "trace": [int(i) for i in self.trace],
             "all_models": [m._to_dict(f"all_models[{i}].") for i, m in enumerate(self.all_models)],
+            "default_constant": (
+                None
+                if self.default_constant is None
+                else _to_json_safe(self.default_constant.to_dict(), "default_constant")
+            ),
         }
 
     @classmethod
@@ -724,16 +786,18 @@ class EvalResult:
 
         Args:
             data: Dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict],
-                possibly after a JSON round trip. Unknown keys are ignored; other malformed
-                input has undefined behaviour.
+                possibly after a JSON round trip, of format 3 or 2 (written before specs were
+                recorded; ``default_constant`` and each model's ``free_constants`` load as
+                ``None``). Unknown keys are ignored; other malformed input has undefined behaviour.
 
         Returns:
             The reconstructed [EvalResult][SRToolkit.utils.types.EvalResult].
 
         Raises:
-            ValueError: If ``format_version`` is not ``2`` (results saved before the evaluation
-                trace was recorded have none), or if a model cannot be loaded (see
+            ValueError: If ``format_version`` is missing (results saved before the evaluation trace
+                was recorded) or not ``2`` or ``3``, or if a model cannot be loaded (see
                 [ModelResult.from_dict][SRToolkit.utils.types.ModelResult.from_dict]).
+            ImportError: If the prior of a saved spec cannot be imported.
 
         Examples:
             >>> result = EvalResult(all_models=[ModelResult(["X_0"], 0.05)], trace=[0], approach_name="MyApproach")
@@ -741,14 +805,18 @@ class EvalResult:
             'X_0'
         """
         fmt = data.get("format_version")
-        if fmt != 2:
+        if fmt not in (2, 3):
             if fmt is None:
                 raise ValueError(
                     "[EvalResult.from_dict] These results were saved by an older SRToolkit version, without "
                     "an evaluation trace, and cannot be loaded. Rerun the experiment; with ExperimentGrid, "
                     "delete the old result files first, since existing files count as completed jobs."
                 )
-            raise ValueError(f"[EvalResult.from_dict] Unsupported format_version: {fmt!r}. Expected 2.")
+            raise ValueError(f"[EvalResult.from_dict] Unsupported format_version: {fmt!r}. Expected 2 or 3.")
+        # Imported here: free_constants imports symbol_library, which imports this module.
+        from .free_constants import Constant
+
+        default = data.get("default_constant")
         return cls(
             all_models=[ModelResult.from_dict(m) for m in data["all_models"]],
             trace=list(data["trace"]),
@@ -759,4 +827,5 @@ class EvalResult:
             metadata=_from_json_safe(data["metadata"]),
             wall_time=data["wall_time"],
             augmentations=_from_json_safe(data["augmentations"]),
+            default_constant=None if default is None else Constant.from_dict(_from_json_safe(default)),
         )

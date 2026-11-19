@@ -5,8 +5,10 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
-from SRToolkit.evaluation.ranking import BEDRanking, RMSERanking
+from SRToolkit.evaluation.ranking import BEDRanking, RankingFunction, RankingResult, RMSERanking
 from SRToolkit.evaluation.result_augmentation import (
     ExpressionSimplifier,
     ExpressionToLatex,
@@ -15,7 +17,9 @@ from SRToolkit.evaluation.result_augmentation import (
 from SRToolkit.evaluation.sr_evaluator import ModelResult, SR_evaluator, SR_results
 from SRToolkit.utils import Node
 from SRToolkit.utils.expression_constraints import MaxConstants
+from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.types import EvalResult
 
 # ── Shared data ────────────────────────────────────────────────────────────────
 
@@ -606,6 +610,26 @@ class TestHoldoutMetricReuseParams:
         ).write_results(result)
         assert np.isnan(result.augmentations["HoldoutMetric"]["best_value"])
 
+    # Reason: clause (fits use ranking_settings["default_constant"], else the default built from
+    # constant_bounds). BED results carry no parameters, so X_0 + C is fitted on y = X_0 + 50: under the
+    # uniform default C stops at 5 and the residual is 45 everywhere (RMSE 45); under (0, inf) it fits.
+    @pytest.mark.parametrize(
+        "settings, expected",
+        [
+            ({}, 45.0),
+            ({"default_constant": Constant(prior=UniformSampling(1, 100), bounds=(0, float("inf")))}, 0.0),
+        ],
+        ids=["uniform-default", "default-constant"],
+    )
+    def test_holdout_fit_uses_default_constant_setting(self, settings, expected):
+        se = _bed_se()
+        se.evaluate_expr(["X_0", "+", "C"])
+        result = se.get_results(top_k=1)[0]
+        HoldoutMetric(
+            (_X_TEST, _X_TEST[:, 0] + 50.0), scope="best", symbol_library=_sl, ranking_settings=settings
+        ).write_results(result)
+        assert result.augmentations["HoldoutMetric"]["best_value"] == pytest.approx(expected, abs=1e-5)
+
 
 # 9 free constants: over the estimator's default limit of 8, within a required MaxConstants(20).
 _NINE_CONSTANTS = ["C", "*", "X_1", "-", "X_0"] + ["+", "C"] * 8
@@ -780,6 +804,26 @@ class TestHoldoutMetricSerialization:
         d = json.loads(json.dumps(aug.to_dict(str(tmp_path), "t")))
         assert d["ranking_settings"] == {"max_constants": 3}
 
+    # Reason: regression (G3: to_dict failed on dataset.ranking_settings(), which holds a Constant) +
+    # clause (from_dict recreates the augmenter): the restored augmenter refits under the same default.
+    def test_dataset_ranking_settings_round_trip(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
+        default = Constant(prior=UniformSampling(1, 100), bounds=(0, float("inf")))
+        ds = SR_dataset(_X_TEST, _sl, y=_X_TEST[:, 0] + 50.0, default_constant=default, seed=3)
+        aug = HoldoutMetric(
+            (_X_TEST, _X_TEST[:, 0] + 50.0), scope="best", symbol_library=_sl, ranking_settings=ds.ranking_settings()
+        )
+        restored = HoldoutMetric.from_dict(json.loads(json.dumps(aug.to_dict(str(tmp_path), "t"))))
+        assert restored.ranking_settings["default_constant"].to_dict() == default.to_dict()
+        se = _bed_se()
+        se.evaluate_expr(["X_0", "+", "C"])
+        result = se.get_results(top_k=1)[0]
+        aug.write_results(result)
+        original = result.augmentations["HoldoutMetric"]["best_value"]
+        restored.write_results(result)
+        assert original < 1e-5
+        assert result.augmentations["HoldoutMetric"]["best_value"] == original
+
     def test_to_dict_stores_absolute_data_path(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         d = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl).to_dict("relative_dir", "t")
@@ -807,3 +851,95 @@ class TestHoldoutMetricSerialization:
         d["format_version"] = 99
         with pytest.raises(ValueError, match="format_version"):
             HoldoutMetric.from_dict(d)
+
+
+# ── HoldoutMetric with free-constant specs ────────────────────────────────────
+
+_X3 = np.array([[1.0], [2.0], [3.0]])
+_E = ["C_0", "*", "X_0"]
+_sl1 = SymbolLibrary.default_symbols(1)
+
+
+def _fix(label, value):
+    return Constant(label=label, value=value, fixed=True)
+
+
+def _result_of(*models):
+    return EvalResult(all_models=list(models), trace=list(range(len(models))), approach_name="")
+
+
+def _values(result, name="HoldoutMetric"):
+    return [m.augmentations[name]["value"] for m in result.all_models]
+
+
+class _RecordingRanking(RankingFunction):
+    name = "recording"
+
+    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+        self.received = []
+
+    def score(self, expr, free_constants=None):
+        self.received.append(free_constants)
+        return RankingResult(score=7.0)
+
+
+class TestHoldoutMetricSpecs:
+    # Reason: clause ("Fits use each model's specs") + implied (the memo tells the same tokens with
+    # different specs apart). y = 2x: C_0 fixed to 1 gives mean |x| = 2, fixed to 4 gives mean |2x| = 4.
+    @pytest.mark.parametrize(
+        "refit, parameters",
+        [(True, np.array([2.0])), (False, None)],
+        ids=["refit", "fit-missing-params"],
+    )
+    def test_fits_use_each_models_specs(self, refit, parameters):
+        result = _result_of(
+            ModelResult(_E, 0.0, parameters=parameters, free_constants=(_fix("C_0", 1.0),)),
+            ModelResult(_E, 0.0, parameters=parameters, free_constants=(_fix("C_0", 4.0),)),
+        )
+        aug = HoldoutMetric((_X3, 2 * _X3[:, 0]), metric="mae", scope="all", symbol_library=_sl1, refit_constants=refit)
+        aug.write_results(result)
+        np.testing.assert_allclose(_values(result), [2.0, 4.0])
+
+    # Reason: clause (a RankingFunction metric scores each model with its specs). Fixed C_0 = 3 against
+    # the ground truth x: every column is x + 3, so BED = 3.
+    def test_ranking_metric_receives_specs(self):
+        X = np.linspace(-1, 1, 10).reshape(-1, 1)
+        result = _result_of(ModelResult(["X_0", "+", "C_0"], 0.0, free_constants=(_fix("C_0", 3.0),)))
+        aug = HoldoutMetric(
+            (X,),
+            metric=BEDRanking(),
+            scope="all",
+            symbol_library=_sl1,
+            ground_truth=["X_0"],
+            ranking_settings={"num_points_sampled": -1},
+        )
+        aug.write_results(result)
+        assert _values(result)[0] == pytest.approx(3.0, abs=1e-9)
+
+    # Reason: clause (a ranking metric scores each model with its specs) + implied
+    # (free_constants=() counts as no specs: it shares the memo entry of the spec-free model, so the
+    # ranking is called twice, with None and with the spec).
+    def test_ranking_metric_gets_each_models_specs(self):
+        spec = _fix("C_0", 1.0)
+        result = _result_of(
+            ModelResult(_E, 0.0),
+            ModelResult(_E, 0.0, free_constants=(spec,)),
+            ModelResult(_E, 0.0, free_constants=()),
+        )
+        aug = HoldoutMetric((_X3, 2 * _X3[:, 0]), metric=_RecordingRanking(), scope="all", symbol_library=_sl1)
+        aug.write_results(result)
+        assert _values(result) == [7.0, 7.0, 7.0]
+        received = aug.metric.received
+        assert len(received) == 2 and received[0] is None
+        assert [c.to_dict() for c in received[1]] == [spec.to_dict()]
+
+    # Reason: regression (#cache-key: the write_results memo was keyed on "".join(tokens)). ``u`` is the
+    # named constant 10, so "u - X_0" and "u- X_0" (unary minus) both join to "u-X_0":
+    # mean |10 - x| = 8.5 and mean |-x| = 1.5 on x = 1, 2.
+    def test_memo_distinguishes_token_lists_with_equal_join(self):
+        lib = SymbolLibrary.from_symbol_list(["-", "u-"], 1)
+        lib.add_symbol("u", "lit", 5, "10.0")
+        result = _result_of(ModelResult(["u", "-", "X_0"], 0.0), ModelResult(["u-", "X_0"], 0.0))
+        aug = HoldoutMetric((np.array([[1.0], [2.0]]), np.zeros(2)), metric="mae", scope="all", symbol_library=lib)
+        aug.write_results(result)
+        np.testing.assert_allclose(_values(result), [8.5, 1.5])

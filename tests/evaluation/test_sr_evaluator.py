@@ -29,8 +29,9 @@ from SRToolkit.utils.expression_constraints import (
     RequiredVariables,
 )
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
+from SRToolkit.utils.free_constants import Constant, resolve_constants, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
-from SRToolkit.utils.measures import create_behavior_matrix
+from SRToolkit.utils.measures import bed, create_behavior_matrix
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import CheckResult, EvalResult, ModelResult
 
@@ -177,7 +178,7 @@ class TestSREvaluatorInitRmse:
 
     def test_rmse_ground_truth_with_free_constant_rejected(self):
         # The message names the offending tokens.
-        with pytest.raises(ValueError, match=r"containing a free constant \(C, C_1\)"):
+        with pytest.raises(ValueError, match=r"contains a free constant \(C, C_1\)"):
             SR_evaluator(_X, ground_truth=["X_0", "+", "C_1", "+", "C"], ranking_function="rmse", seed=0)
 
     def test_rmse_default_success_threshold_is_1e7(self):
@@ -783,7 +784,7 @@ class _SeedRecordingRanking(RankingFunction):
     def setup(self, X, y, ground_truth, symbol_library, seed, settings):
         self.seed = seed
 
-    def score(self, expr):
+    def score(self, expr, free_constants=None):
         return RankingResult(score=0.0)
 
 
@@ -798,7 +799,7 @@ class _FixedRanking(RankingFunction):
     def setup(self, X, y, ground_truth, symbol_library, seed, settings):
         pass
 
-    def score(self, expr):
+    def score(self, expr, free_constants=None):
         if isinstance(self.outcome, Exception):
             raise self.outcome
         return self.outcome
@@ -926,7 +927,7 @@ class TestEvaluationStatus:
     def test_numpy_warnings_surface_only_at_verbose_2(self, operation, verbose, warns):
         # Documented for evaluate_expr(verbose=2): "also surfaces NumPy warnings during evaluation".
         class _WarningRanking(_FixedRanking):
-            def score(self, expr):
+            def score(self, expr, free_constants=None):
                 operation()
                 return RankingResult(score=0.1)
 
@@ -1717,7 +1718,7 @@ class _CountingRanking(RankingFunction):
     def setup(self, X, y, ground_truth, symbol_library, seed, settings):
         pass
 
-    def score(self, expr):
+    def score(self, expr, free_constants=None):
         self.calls += 1
         return RankingResult(score=0.5)
 
@@ -2287,12 +2288,35 @@ class TestBackgroundKnowledge:
             ({"constant_bounds": (2, -2)}, None),
             ({"variables": {"X_9": VariableInfo("z")}}, "X_9"),
             ({"samplers": [UniformSampling(0, 1)]}, None),
+            ({"default_constant": Constant("C_0")}, "default_constant"),
         ],
-        ids=["bad-bounds", "unknown-variable", "samplers-count"],
+        ids=["bad-bounds", "unknown-variable", "samplers-count", "default-with-label"],
     )
     def test_background_knowledge_argument_errors(self, kwargs, match):
         with pytest.raises(ValueError, match=match):
             SR_evaluator(_X, _y, symbol_library=_lib_pmc(), **kwargs)
+
+    # Reason: clause (default_constant setting -> background knowledge -> evaluator.default_constant,
+    # completed from constant_bounds -> the ranking's default_constant setting -> EvalResult.default_constant;
+    # kwargs keep what was passed). y = 50 x: C reaches 50 only under the default's bounds (0, inf);
+    # under the uniform default on (-2, 3) the RMSE would be at least 47 * rms(x).
+    def test_default_constant_setting_reaches_fit_and_results(self):
+        X = np.array([[1.0], [2.0], [3.0], [4.0]])
+        template = Constant(bounds=(0, float("inf")))
+        se = SR_evaluator(
+            X,
+            50.0 * X[:, 0],
+            symbol_library=SymbolLibrary.default_symbols(1),
+            constant_bounds=(-2, 3),
+            default_constant=template,
+            seed=0,
+        )
+        assert se.evaluate_expr(["C", "*", "X_0"]) < 1e-4
+        expected = Constant(prior=UniformSampling(-2.0, 3.0), bounds=(0, float("inf"))).to_dict()
+        assert se.default_constant.to_dict() == expected
+        assert se.background_knowledge.default_constant.to_dict() == expected
+        assert se.get_results()[0].default_constant.to_dict() == expected
+        assert se.kwargs["default_constant"] is template
 
     def test_describe_lists_settings_limits_as_enforced(self):
         lib = _lib_pmc()
@@ -2347,3 +2371,228 @@ class TestGetModel:
         se = SR_evaluator(_X, _y, symbol_library=_LIB2())
         se.evaluate_expr(["X_0", "+", "X_0"], simplify_expr=True)
         assert se.get_model(["X_0", "+", "X_0"]) is None
+
+
+# ── Free-constant specs (constants rework, stage 1 step 5) ────────────────────
+
+_X3 = np.array([[1.0], [2.0], [3.0]])
+_y3 = 2 * _X3[:, 0]
+_E = ["C_0", "*", "X_0"]
+
+
+def _fix(label, value):
+    return Constant(label=label, value=value, fixed=True)
+
+
+def _spec_se(**kwargs):
+    return SR_evaluator(
+        _X3, _y3, symbol_library=SymbolLibrary.default_symbols(1), seed=0, success_threshold=-1, **kwargs
+    )
+
+
+class _RecordingRanking(RankingFunction):
+    """A custom ranking that records the specs it is given."""
+
+    name = "recording"
+
+    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+        self.received = []
+
+    def score(self, expr, free_constants=None):
+        self.received.append(free_constants)
+        return RankingResult(score=1.0)
+
+
+class TestFreeConstants:
+    # Reason: clause (evaluate_expr: same tokens with different specs are a different candidate,
+    # specs stored as ModelResult.free_constants and passed to the ranking; get_model by tokens + specs).
+    def test_same_tokens_with_different_specs_are_separate_models(self):
+        se = _spec_se()
+        spec = _fix("C_0", 1.0)
+        se.evaluate_expr(_E)
+        se.evaluate_expr(_E, [spec])
+        assert len(se.models) == 2
+        assert se.trace == [0, 1]
+        assert se.models[0].error < 1e-6  # C_0 fitted to 2
+        # C_0 fixed to 1: residual 2x - x = x, RMSE = sqrt((1 + 4 + 9) / 3)
+        assert se.models[1].error == pytest.approx(math.sqrt(14 / 3))
+        np.testing.assert_array_equal(se.models[1].parameters, [1.0])
+        assert [c.to_dict() for c in se.models[1].free_constants] == [spec.to_dict()]
+        assert se.models[0].free_constants is None
+        assert se.get_model(_E) is se.models[0]
+        assert se.get_model(_E, [_fix("C_0", 1.0)]) is se.models[1]
+
+    # Reason: clause (get_metric uses the model of the given specs; ValueError for specs not evaluated).
+    def test_get_metric_uses_the_model_of_the_given_specs(self):
+        se = _spec_se()
+        se.evaluate_expr(_E)
+        se.evaluate_expr(_E, [_fix("C_0", 1.0)])
+        assert se.get_metric(_E, "mae", [_fix("C_0", 1.0)]) == pytest.approx(2.0)  # mean |2x - x|
+        assert se.get_metric(_E, "mae") < 1e-6
+        assert se.get_model(_E, [_fix("C_0", 5.0)]) is None
+        with pytest.raises(ValueError, match="evaluated"):
+            se.get_metric(_E, "r2", [_fix("C_0", 5.0)])
+
+    # Reason: clause (specs in any order, None or empty means none, stored sorted by label, matched by
+    # value) + implied (the caller's list is not mutated).
+    @pytest.mark.parametrize(
+        "first, second, stored",
+        [
+            (
+                lambda: [Constant("C_1", bounds=(-1.0, 1.0)), Constant("C_0", prior=UniformSampling(0.0, 2.0))],
+                lambda: [Constant("C_0", prior=UniformSampling(0.0, 2.0)), Constant("C_1", bounds=(-1.0, 1.0))],
+                ("C_0", "C_1"),
+            ),
+            (lambda: None, lambda: [], None),
+        ],
+        ids=["reordered", "empty-is-none"],
+    )
+    def test_equivalent_specs_share_one_entry(self, first, second, stored):
+        se = _spec_se()
+        expr = ["C_0", "*", "X_0", "+", "C_1"]
+        first_specs = first()
+        given_order = None if first_specs is None else [c.label for c in first_specs]
+        se.evaluate_expr(expr, first_specs)
+        se.evaluate_expr(expr, second())
+        assert len(se.models) == 1
+        assert se.trace == [0, 0]
+        labels = se.models[0].free_constants
+        assert (None if labels is None else tuple(c.label for c in labels)) == stored
+        assert (None if first_specs is None else [c.label for c in first_specs]) == given_order
+        assert se.get_model(expr, second()) is se.models[0]
+
+    # Reason: clause (error contract: specs that do not fit, or specs with simplify_expr=True, raise
+    # ValueError and nothing is recorded or counted; check_constraints checks them the same way).
+    @pytest.mark.parametrize(
+        "call, match",
+        [
+            (lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
+            (lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0), _fix("C_0", 2.0)]), "C_0"),
+            (lambda se: se.evaluate_expr(_E, [Constant(value=1.0, fixed=True)]), "label"),
+            (lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0)], simplify_expr=True), "simplif"),
+            (lambda se: se.check_constraints(_E, [_fix("C_9", 1.0)]), "C_9"),
+        ],
+        ids=["unknown-label", "duplicate-label", "no-label", "simplify", "check_constraints"],
+    )
+    def test_invalid_specs_raise_and_record_nothing(self, call, match):
+        se = _spec_se()
+        with pytest.raises(ValueError, match=match):
+            call(se)
+        assert se.models == []
+        assert se.trace == []
+        assert se.total_evaluations == 0
+
+    # Reason: implied (specs are checked against the evaluator's symbol library, not the default one):
+    # with the free constant renamed to K, K_0 is a labelled constant that a spec can address.
+    def test_specs_are_checked_with_the_evaluators_library(self):
+        se = SR_evaluator(
+            _X3, _y3, symbol_library=SymbolLibrary.default_symbols(1, const_symbol="K"), seed=0, success_threshold=-1
+        )
+        expr = ["K_0", "*", "X_0"]
+        assert se.check_constraints(expr, [_fix("K_0", 1.0)]) == ([], [])
+        assert se.evaluate_expr(expr, [_fix("K_0", 1.0)]) == pytest.approx(math.sqrt(14 / 3))
+
+    # Reason: boundary (the ValueError applies to a well-formed expr only; a malformed one is
+    # "invalid", stored with its specs and keyed by them).
+    def test_malformed_expression_with_specs_is_invalid_and_keyed_by_specs(self):
+        se = _spec_se()
+        expr = ["C_0", "*", "X_0", "X_0"]
+        spec = _fix("C_0", 1.0)
+        assert se.evaluate_expr(expr, [spec]) == math.inf
+        assert se.models[0].status == "invalid"
+        assert [c.to_dict() for c in se.models[0].free_constants] == [spec.to_dict()]
+        se.evaluate_expr(expr)
+        assert len(se.models) == 2
+
+    # Reason: clause (the ranking's score receives the specs as free_constants: None without specs,
+    # the stored tuple with them).
+    def test_custom_ranking_receives_specs(self):
+        ranking = _RecordingRanking()
+        se = _spec_se(ranking_function=ranking)
+        se.evaluate_expr(_E)
+        se.evaluate_expr(_E, [_fix("C_0", 1.0)])
+        assert ranking.received[0] is None
+        assert [c.to_dict() for c in ranking.received[1]] == [_fix("C_0", 1.0).to_dict()]
+
+    # Reason: clause (BED receives the specs; default_constant reaches EvalResult and survives
+    # save/load) + plan test "resampling from a saved result". C_1 - C_1 makes the score independent
+    # of the default's draws: every column is x + 3 against x, so BED = 3.
+    def test_bed_score_with_specs_is_reproduced_from_saved_result(self, tmp_path):
+        X = np.linspace(-1, 1, 10).reshape(-1, 1)
+        lib = SymbolLibrary.default_symbols(1)
+        se = SR_evaluator(
+            X,
+            ground_truth=["X_0"],
+            ranking_function="bed",
+            symbol_library=lib,
+            seed=0,
+            success_threshold=-1,
+            constant_bounds=(-2.0, 4.0),
+            num_points_sampled=-1,
+        )
+        expr = ["X_0", "+", "C_0", "+", "(", "C_1", "-", "C_1", ")"]
+        spec = _fix("C_0", 3.0)
+        assert se.evaluate_expr(expr, [spec]) == pytest.approx(3.0, abs=1e-9)
+        se.get_results().save(str(tmp_path))
+        result = SR_results.load(str(tmp_path))[0]
+        model = result.all_models[0]
+        default = uniform_default((-2.0, 4.0))
+        assert result.default_constant.to_dict() == default.to_dict()
+        assert se.default_constant.to_dict() == default.to_dict()
+        resolved = resolve_constants(model.expr, model.free_constants, result.default_constant, lib)
+        expected_c0 = Constant("C_0", prior=default.prior, bounds=(-2.0, 4.0), value=3.0, fixed=True)
+        assert [c.to_dict() for c in resolved] == [expected_c0.to_dict(), default.to_dict()]
+        rebed = bed(
+            model.expr,
+            ["X_0"],
+            X,
+            symbol_library=lib,
+            seed=1,
+            free_constants1=model.free_constants,
+            default_constant=result.default_constant,
+        )
+        assert rebed == pytest.approx(model.error, abs=1e-9)
+
+
+class TestCacheKey:
+    # Reason: regression (#cache-key: the cache was keyed on "".join(tokens), so token lists that
+    # join to the same string shared one entry).
+    @pytest.mark.parametrize(
+        "lib, X, y, first, second, second_error, second_status",
+        [
+            (
+                lambda: SymbolLibrary.default_symbols(2),
+                _X,
+                _X[:, 0] * _X[:, 1],
+                ["X_1", "*", "X_0"],
+                ["X_1", "*", "X", "_0"],
+                math.inf,
+                "invalid",
+            ),
+            (
+                lambda: _u_library(),
+                np.array([[1.0], [2.0]]),
+                np.array([-1.0, -2.0]),
+                ["u", "-", "X_0"],
+                ["u-", "X_0"],
+                0.0,
+                "ok",  # first: residual 10, RMSE 10
+            ),
+        ],
+        ids=["typo", "custom-lib"],
+    )
+    def test_cache_key_distinguishes_token_lists_with_equal_join(
+        self, lib, X, y, first, second, second_error, second_status
+    ):
+        se = SR_evaluator(X, y, symbol_library=lib(), seed=0, success_threshold=-1)
+        se.evaluate_expr(first)
+        assert se.evaluate_expr(second) == pytest.approx(second_error)
+        assert len(se.models) == 2
+        assert se.models[1].status == second_status
+
+
+def _u_library():
+    """``u`` is a named constant 10, so ``u - X_0`` and ``u- X_0`` (unary minus) both join to "u-X_0"."""
+    lib = SymbolLibrary.from_symbol_list(["-", "u-"], 1)
+    lib.add_symbol("u", "lit", 5, "10.0")
+    return lib

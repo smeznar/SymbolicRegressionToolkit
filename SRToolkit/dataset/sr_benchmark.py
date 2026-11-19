@@ -17,6 +17,7 @@ from typing_extensions import Unpack
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import RankingSettings
@@ -25,7 +26,7 @@ from . import data_cache
 from .background_knowledge import VariableInfo
 from .data_source import DataSource, SampleSource, _config_samplers
 from .sampling import Sampler
-from .sr_dataset import SR_dataset, _derive_equation, _resolve_task
+from .sr_dataset import SR_dataset, _derive_equation, _ground_truth_specs, _resolve_task
 
 
 def _save_arrays_to_cache(
@@ -139,11 +140,13 @@ class SR_benchmark:
         named_constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
+        default_constant: Optional[Constant] = None,
         reference_grammar: Optional[Grammar] = None,
         max_constants: Optional[int] = None,
         max_expr_length: Optional[int] = None,
         required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        ground_truth_constants: Optional[Iterable[Constant]] = None,
         **kwargs: Unpack[RankingSettings],
     ):
         """Add a dataset to the benchmark without building it.
@@ -191,12 +194,15 @@ class SR_benchmark:
             target: Information about the target, as for ``SR_dataset``.
             named_constants: Information per named constant, as for ``SR_dataset``.
             description: Free text about the task, as for ``SR_dataset``.
-            constant_bounds: Range free constants are fitted in, as for ``SR_dataset``.
+            constant_bounds: Range of the default spec, as for ``SR_dataset``.
+            default_constant: The default spec of free constants, as for ``SR_dataset``.
             reference_grammar: A grammar an approach may start from, as for ``SR_dataset``.
             max_constants: Free-constant limit, as for ``SR_dataset`` (``None``: 8).
             max_expr_length: Token limit, as for ``SR_dataset`` (``None``: no limit).
             required_constraints: Further required constraints, as for ``SR_dataset``.
             advisory_constraints: Hints about the search space, as for ``SR_dataset``.
+            ground_truth_constants: Specs for the ground truth's labelled constants, as for
+                ``SR_dataset``.
             **kwargs: Ranking settings, as for ``SR_dataset``.
 
         Raises:
@@ -207,8 +213,12 @@ class SR_benchmark:
                 bare ndarray ``dataset``, not an ``(X, y)`` tuple); ``dataset`` is a tuple that is
                 not two numpy arrays; the data has a different number of columns than the symbol library
                 has variables; both ``dataset`` and ``data_source`` are ``None`` (the
-                dataset could never be loaded); or ``ground_truth`` cannot be evaluated on a bare
-                ndarray ``dataset`` (raised from the original error).
+                dataset could never be loaded); ``ground_truth_constants`` is given without
+                ``ground_truth`` or does not fit it; ``"rmse"`` has to generate ``y`` (a bare
+                ndarray ``dataset``, or a ``SampleSource``, also inside a ``FallbackSource``) and a
+                free constant of ``ground_truth``
+                has no fixed value in ``ground_truth_constants``; or ``ground_truth`` cannot be
+                evaluated on a bare ndarray ``dataset`` (raised from the original error).
             TypeError: As for ``SR_dataset``.
 
         Examples:
@@ -245,6 +255,7 @@ class SR_benchmark:
                 "named_constants": named_constants,
                 "description": description,
                 "constant_bounds": constant_bounds,
+                "default_constant": default_constant,
                 "reference_grammar": reference_grammar,
                 "constraints": advisory_constraints,
             },
@@ -254,13 +265,6 @@ class SR_benchmark:
             kwargs,
             X,
         )
-        symbol_library = bk.symbol_library
-        if dataset is None and data_source is None:
-            raise ValueError(
-                "[SR_benchmark.add_dataset] Give the data ('dataset') or a 'data_source' to generate it from; "
-                "without either the dataset could never be loaded."
-            )
-
         # Ground truth is symbolic only (token list / Node). A precomputed ndarray behaviour
         # matrix is ranking-owned state, not a dataset ground truth — reject it here.
         if isinstance(ground_truth, np.ndarray):
@@ -268,6 +272,26 @@ class SR_benchmark:
                 "[SR_benchmark.add_dataset] An ndarray ground_truth (a precomputed BED behaviour matrix) is "
                 "not supported; provide a symbolic ground truth (a token list or a Node)."
             )
+        gt_specs = _ground_truth_specs(ground_truth, ground_truth_constants, bk)
+        # RMSE generates y from the ground truth for a bare X or a SampleSource: its free constants
+        # need fixed values, checked here before anything is written.
+        parameters = None
+        # A SampleSource generates y, also as one of a FallbackSource's sources.
+        sources = [data_source, *getattr(data_source, "sources", [])]
+        generates_y = any(isinstance(s, SampleSource) for s in sources) or (
+            data_source is None and isinstance(dataset, np.ndarray)
+        )
+        if ranking_function == "rmse" and ground_truth is not None and generates_y:
+            parameters = _ground_truth_parameters(
+                ground_truth, gt_specs, bk.symbol_library, f"[SR_benchmark.add_dataset] Dataset '{dataset_name}'"
+            )
+        symbol_library = bk.symbol_library
+        if dataset is None and data_source is None:
+            raise ValueError(
+                "[SR_benchmark.add_dataset] Give the data ('dataset') or a 'data_source' to generate it from; "
+                "without either the dataset could never be loaded."
+            )
+
         if isinstance(ground_truth, Node):
             ground_truth_out: Optional[Union[List[str], str]] = ground_truth.to_list(symbol_library=symbol_library)
         else:
@@ -290,6 +314,7 @@ class SR_benchmark:
             "original_equation": original_equation,
             "kwargs": kwargs,
             "ground_truth": ground_truth_out,
+            "ground_truth_constants": None if gt_specs is None else [c.to_dict() for c in gt_specs],
             "background_knowledge": bk.to_dict(),
             "required_constraints": [c.to_dict() for c in required],
             # Samplers and array data are validated to match the library's variables.
@@ -318,7 +343,7 @@ class SR_benchmark:
                             "array, the ground truth must be provided."
                         )
                     try:
-                        y = compile_expr(ground_truth, symbol_library)(dataset, None)
+                        y = compile_expr(ground_truth, symbol_library)(dataset, parameters)
                     except Exception as e:
                         raise ValueError(
                             f"[SR_benchmark.add_dataset] Could not evaluate the ground truth. Original error: {e}"
@@ -364,11 +389,13 @@ class SR_benchmark:
         named_constants: Optional[Mapping[str, VariableInfo]] = None,
         description: Optional[str] = None,
         constant_bounds: Optional[Tuple[float, float]] = None,
+        default_constant: Optional[Constant] = None,
         reference_grammar: Optional[Grammar] = None,
         max_constants: Optional[int] = None,
         max_expr_length: Optional[int] = None,
         required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
         advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
+        ground_truth_constants: Optional[Iterable[Constant]] = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
         """Add a dataset described by a ground-truth expression and per-variable samplers.
@@ -383,7 +410,8 @@ class SR_benchmark:
 
         Args:
             ground_truth: Ground-truth expression as a token list or
-                [Node][SRToolkit.utils.expression_tree.Node].
+                [Node][SRToolkit.utils.expression_tree.Node]; with ``ranking_function="rmse"``, every
+                free constant in it needs a fixed value in ``ground_truth_constants``.
             samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per variable, as a list
                 in the library's variable order or a mapping ``{token: sampler}``.
             symbol_library: Token vocabulary. ``None`` uses
@@ -404,12 +432,15 @@ class SR_benchmark:
             target: Information about the target, as for ``SR_dataset``.
             named_constants: Information per named constant, as for ``SR_dataset``.
             description: Free text about the task, as for ``SR_dataset``.
-            constant_bounds: Range free constants are fitted in, as for ``SR_dataset``.
+            constant_bounds: Range of the default spec, as for ``SR_dataset``.
+            default_constant: The default spec of free constants, as for ``SR_dataset``.
             reference_grammar: A grammar an approach may start from, as for ``SR_dataset``.
             max_constants: Free-constant limit, as for ``SR_dataset`` (``None``: 8).
             max_expr_length: Token limit, as for ``SR_dataset`` (``None``: no limit).
             required_constraints: Further required constraints, as for ``SR_dataset``.
             advisory_constraints: Hints about the search space, as for ``SR_dataset``.
+            ground_truth_constants: Specs for the ground truth's labelled constants, as for
+                ``SR_dataset``.
             **kwargs: Ranking settings, as for ``SR_dataset``.
 
         Raises:
@@ -452,11 +483,13 @@ class SR_benchmark:
             named_constants=named_constants,
             description=description,
             constant_bounds=constant_bounds,
+            default_constant=default_constant,
             reference_grammar=reference_grammar,
             max_constants=max_constants,
             max_expr_length=max_expr_length,
             required_constraints=required_constraints,
             advisory_constraints=advisory_constraints,
+            ground_truth_constants=ground_truth_constants,
             **kwargs,
         )
 

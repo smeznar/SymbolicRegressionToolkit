@@ -11,9 +11,12 @@ infix notation (as parsed by [tokens_to_tree][SRToolkit.utils.expression_tree.to
   which compares what expressions compute rather than how they are written.
 
 An expression with free constants defines a family of functions, not a single one. BED evaluates
-each expression at points ``X`` for many constant vectors drawn by Latin Hypercube Sampling, giving
-a *behavior matrix* of shape ``(n_points, n_constant_samples)``
-([create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]). Row ``i`` is read as
+each expression at points ``X`` for many constant vectors drawn by Latin Hypercube Sampling from the
+constants' priors, giving a *behavior matrix* of shape ``(n_points, n_constant_samples)``
+([create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]). The priors come from
+the expression's specs ([Constant][SRToolkit.utils.free_constants.Constant]); constants without a
+spec use the default spec (``default_constant``), by default a uniform prior on ``consts_bounds``.
+A fixed constant keeps its value. The specs' fitting bounds play no role in BED. Row ``i`` is read as
 the distribution of the expression's output at ``X[i]``, and BED is the mean over points of the
 1-D Wasserstein distance between corresponding rows. No constants are fitted, so BED can rank
 candidate structures during search; [BEDRanking][SRToolkit.evaluation.ranking.BEDRanking] uses it
@@ -47,14 +50,15 @@ Parameters are validated only when they are used. Invalid arguments raise ``Type
 """
 
 from types import MappingProxyType
-from typing import Callable, Dict, List, Mapping, Optional, Tuple, Union, cast
+from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import zss
 from scipy.stats.qmc import LatinHypercube
 
 from .expression_compiler import _variable_column, compile_expr
-from .expression_tree import Node, _as_tree, _constant_indices
+from .expression_tree import Node, _as_tree
+from .free_constants import Constant, resolve_constants, uniform_default
 from .symbol_library import SymbolLibrary
 
 _NOTATIONS = ("infix", "prefix", "postfix")
@@ -208,53 +212,84 @@ def create_behavior_matrix(
     symbol_library: Optional[SymbolLibrary] = None,
     seed: Optional[int] = None,
     backend: str = "stack",
+    free_constants: Optional[Sequence[Constant]] = None,
+    default_constant: Optional[Constant] = None,
 ) -> np.ndarray:
     """Evaluate an expression at the points ``X`` for many sampled constant vectors.
 
-    Column ``j`` holds the expression's values at ``X`` with the ``j``-th constant vector. With
-    ``n_consts`` free parameters (see [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]), the
-    constant vectors are one Latin Hypercube sample of ``num_consts_sampled`` points in the
-    ``n_consts``-dimensional box with every parameter in ``[lower, upper)`` (``consts_bounds``). A
-    constant-free expression gives ``num_consts_sampled`` identical columns. Non-finite outputs
-    (``nan``, ``±inf``) are kept. NumPy floating-point warnings are suppressed during the call, and
-    NumPy's error settings are restored afterwards. Sampling is random unless ``seed`` is set.
+    Column ``j`` holds the expression's values at ``X`` with the ``j``-th constant vector. Each
+    parameter's values come from its spec (a [Constant][SRToolkit.utils.free_constants.Constant]):
+
+    - The ``n_free`` parameters that are not fixed share one Latin Hypercube sample of
+      ``num_consts_sampled`` points in the unit cube ``[0, 1)^n_free``, one dimension per parameter.
+      Each dimension is mapped through the parameter's prior's
+      [ppf][SRToolkit.dataset.sampling.Sampler.ppf]; a prior without ``ppf`` is instead drawn from
+      directly with a generator seeded by ``seed`` (independent draws, not stratified). If every free
+      parameter uses the default spec built from ``consts_bounds``, the constant vectors are a Latin
+      Hypercube sample in ``[lower, upper)^n_free``.
+    - A fixed parameter has its ``value`` in every column.
+
+    Only priors and the values of fixed specs are used: ``bounds``, and the ``value`` of a free spec,
+    play no role, so samples follow the prior even outside ``bounds``. Emits no NumPy floating-point
+    warnings. Sampling is random unless ``seed`` is set.
 
     Args:
         expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
         X: Evaluation points of shape ``(n_samples, n_features)``, with a column for every variable
             ``expr`` uses. ``n_samples`` may be 0, giving a result of shape ``(0, num_consts_sampled)``.
         num_consts_sampled: Number of constant vectors, i.e. output columns; at least 1.
-        consts_bounds: ``(lower, upper)`` interval for every constant, with ``lower < upper``.
+        consts_bounds: ``(lower, upper)`` range of the default spec: shorthand for
+            ``default_constant=uniform_default(consts_bounds)``, valid as for
+            [uniform_default][SRToolkit.utils.free_constants.uniform_default]. Not used when
+            ``default_constant`` is given.
         symbol_library: Symbol library used to compile ``expr``. ``None`` uses the active or default
             library (see the module docstring).
         seed: Seed for constant sampling. ``None`` gives a different sample on each call.
         backend: Backend used to compile expressions: ``"stack"`` (default), ``"stack_py"`` or
             ``"codegen"`` (see [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]). All give
             the same values; ``"stack_py"`` can be faster for libraries with many custom symbols.
+        free_constants: Specs for labelled constants of ``expr``, in any order; parameters without
+            one use the default spec. ``None`` or empty: all use it.
+        default_constant: The default spec: a template with ``prior`` and ``bounds`` set and no
+            ``label``, ``value`` or ``fixed`` (``bounds`` are required although BED ignores them, as
+            the same template serves fitting). ``None``: built from ``consts_bounds``.
 
     Returns:
-        Behavior matrix of shape ``(n_samples, num_consts_sampled)``.
+        Behavior matrix of shape ``(n_samples, num_consts_sampled)``. Non-finite outputs (``nan``,
+        ``±inf``) are kept. An expression without free parameters (no constants, or only fixed ones)
+        gives ``num_consts_sampled`` identical columns.
 
     Raises:
         TypeError: If ``expr`` is neither a list of token strings nor a
-            [Node][SRToolkit.utils.expression_tree.Node].
+            [Node][SRToolkit.utils.expression_tree.Node], or ``consts_bounds`` (when used) is not a
+            pair of real numbers.
         ValueError: If ``X`` is not 2-D or has no column for a variable that ``expr`` uses, if
-            ``num_consts_sampled < 1``, if ``consts_bounds[0] >= consts_bounds[1]``, or if ``backend``
-            is not one of the backends above.
+            ``num_consts_sampled < 1``, if ``consts_bounds`` (when used) is not finite with
+            ``lower < upper``, if ``backend`` is not one of the backends above, if
+            ``default_constant`` is not a valid template (see above), or if a spec in
+            ``free_constants`` has no label, shares its label with another spec, names no labelled
+            constant of ``expr``, or is free with a ``value`` outside the bounds it takes from
+            ``default_constant``. The message names the offending argument.
         ExpressionParseError: If ``expr`` cannot be parsed or compiled with ``symbol_library``.
 
     Examples:
         >>> X = np.array([[0.0], [1.0], [2.0]])
         >>> create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=8, seed=0).shape
         (3, 8)
-        >>> create_behavior_matrix(["X_0", "*", "X_0"], X, num_consts_sampled=2)
+        >>> fixed = Constant(label="C_1", value=2.0, fixed=True)
+        >>> create_behavior_matrix(["C_1", "*", "X_0"], X, num_consts_sampled=2, free_constants=[fixed])
         array([[0., 0.],
-               [1., 1.],
+               [2., 2.],
                [4., 4.]])
     """
     if num_consts_sampled < 1:
         raise ValueError(f"num_consts_sampled must be at least 1, got {num_consts_sampled}.")
-    _check_interval(consts_bounds, "consts_bounds")
+    default = default_constant
+    if default is None:
+        try:
+            default = uniform_default(consts_bounds)
+        except (TypeError, ValueError) as e:
+            raise type(e)(f"consts_bounds: {e}") from None
     X = np.asarray(X, dtype=np.float64)
     if X.ndim != 2:
         raise ValueError(f"X must be 2-D with shape (n_samples, n_features), got shape {X.shape}.")
@@ -262,15 +297,25 @@ def create_behavior_matrix(
         symbol_library = SymbolLibrary.get_or_default()
 
     tree = _as_tree(expr, symbol_library, "expr")
-    tokens = tree.to_list(symbol_library=symbol_library, notation="postfix")
-    num_constants = len(set(_constant_indices(tokens, symbol_library)))
+    specs = resolve_constants(tree, free_constants, default, symbol_library)
     callable_expr = compile_expr(tree, symbol_library, backend=backend)
 
+    # One row per constant vector: fixed values in place, free columns sampled below.
+    constants = np.tile([s.value if s.fixed else np.nan for s in specs], (num_consts_sampled, 1))
+    free = [i for i, s in enumerate(specs) if not s.fixed]
     with np.errstate(all="ignore"):
-        if num_constants == 0:
-            return np.repeat(callable_expr(X, None)[:, None], num_consts_sampled, axis=1)
-        lower, upper = consts_bounds
-        constants = LatinHypercube(num_constants, rng=seed).random(num_consts_sampled) * (upper - lower) + lower
+        if not free:
+            return np.repeat(callable_expr(X, constants[0] if specs else None)[:, None], num_consts_sampled, axis=1)
+        # One generator: the Latin Hypercube sample first, then draws for priors without ppf.
+        rng = np.random.default_rng(seed)
+        unit = LatinHypercube(len(free), rng=rng).random(num_consts_sampled)
+        for k, i in enumerate(free):
+            prior = specs[i].prior
+            assert prior is not None  # set by resolve_constants
+            try:
+                constants[:, i] = prior.ppf(unit[:, k])
+            except NotImplementedError:
+                constants[:, i] = prior(num_consts_sampled, rng=rng)
         columns = [callable_expr(X, c) for c in constants]
         return np.stack(columns, axis=1)
 
@@ -347,6 +392,9 @@ def bed(
     symbol_library: Optional[SymbolLibrary] = None,
     seed: Optional[int] = None,
     backend: str = "stack",
+    free_constants1: Optional[Sequence[Constant]] = None,
+    free_constants2: Optional[Sequence[Constant]] = None,
+    default_constant: Optional[Constant] = None,
 ) -> float:
     """Return the Behavior-aware Expression Dissimilarity (BED) between two expressions.
 
@@ -378,15 +426,22 @@ def bed(
             that mode.
         domain_bounds: One ``(lower, upper)`` interval per variable, with ``lower < upper``, covering
             every variable used. Used only when ``X`` is ``None`` and neither argument is a matrix.
-        consts_bounds: ``(lower, upper)`` interval for every constant, with ``lower < upper``. Not used
-            for matrix arguments, but validated whenever an argument is an expression.
+        consts_bounds: ``(lower, upper)`` range of the default spec, as in
+            [create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]. Not used for
+            matrix arguments or when ``default_constant`` is given; otherwise validated whenever an
+            argument is an expression.
         symbol_library: Symbol library used to compile expressions. ``None`` uses the active or
             default library (see the module docstring).
         seed: Seed for all sampling: the points and the constants of both expressions. ``None``
-            makes the result random whenever points are sampled or an expression has constants.
+            makes the result random whenever points are sampled or an expression has free (not fixed)
+            parameters.
         backend: Backend used to compile expression arguments: ``"stack"`` (default), ``"stack_py"`` or
             ``"codegen"`` (see [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]). All give
             the same values; ``"stack_py"`` can be faster for libraries with many custom symbols.
+        free_constants1: Specs ([Constant][SRToolkit.utils.free_constants.Constant]) for labelled
+            constants of ``expr1``, as in ``create_behavior_matrix``. Not used if ``expr1`` is a matrix.
+        free_constants2: Specs for labelled constants of ``expr2``, likewise.
+        default_constant: The default spec for both expressions, as in ``create_behavior_matrix``.
 
     Returns:
         BED as a float ``>= 0``; ``0.0`` for identical behavior at the points. Each point's (row's)
@@ -401,17 +456,23 @@ def bed(
 
     Raises:
         TypeError: If an argument is neither a list of token strings, a
-            [Node][SRToolkit.utils.expression_tree.Node] nor a ``numpy.ndarray``.
-        ValueError: If ``X`` is ``None`` and either exactly one argument is a matrix, or neither
-            ``domain_bounds`` nor two matrices are given; if a matrix argument is not 2-D or has no
-            columns; if the two behaviors have different numbers of rows or none (including an
-            ``X`` with 0 rows at which an expression is evaluated); if ``X`` is given and is not
-            2-D or a matrix argument's row count differs from ``len(X)``;
-            if points are sampled and ``num_points_sampled < 1`` or an interval in
-            ``domain_bounds`` has ``lower >= upper``; if an argument is an expression (even one
-            without constants) and ``num_consts_sampled < 1`` or ``consts_bounds`` has
-            ``lower >= upper`` or ``backend`` is unknown; or if ``X`` or ``domain_bounds`` lacks a
-            column for a variable used.
+            [Node][SRToolkit.utils.expression_tree.Node] nor a ``numpy.ndarray``, or an argument is
+            an expression and ``consts_bounds`` (when used) is not a pair of real numbers.
+        ValueError: If any of the following holds (the message names the offending argument):
+
+            - ``X`` is ``None`` and either exactly one argument is a matrix, or neither
+              ``domain_bounds`` nor two matrices are given;
+            - ``X`` is given and is not 2-D, or a matrix argument's row count differs from ``len(X)``;
+            - a matrix argument is not 2-D or has no columns;
+            - the two behaviors have different numbers of rows or none (including an ``X`` with 0
+              rows at which an expression is evaluated);
+            - points are sampled and ``num_points_sampled < 1`` or an interval in ``domain_bounds``
+              has ``lower >= upper``;
+            - ``X`` or ``domain_bounds`` lacks a column for a variable used;
+            - an argument is an expression (even one without constants) and ``num_consts_sampled < 1``,
+              ``consts_bounds`` (when used) is not finite with ``lower < upper``, ``backend`` is
+              unknown, or ``default_constant`` or its specs are invalid (see
+              ``create_behavior_matrix``).
         ExpressionParseError: If an expression cannot be parsed or compiled with ``symbol_library``.
 
     Examples:
@@ -431,9 +492,11 @@ def bed(
         ``W1(u_i, v_i)`` after the non-finite steps in Returns. Every point counts in ``n_samples``,
         including those given distance 0 by those steps.
 
-        As a consequence of seeding, with ``seed`` set ``bed`` is deterministic, symmetric in
-        ``expr1`` and ``expr2``, and ``bed(e, e) == 0``. With ``seed=None``, ``bed(e, e)`` can be
-        greater than 0 for an expression with constants.
+        As a consequence of seeding, with ``seed`` set ``bed`` is deterministic; it is symmetric
+        when the specs are swapped with the expressions (``bed(e1, e2, free_constants1=s1,
+        free_constants2=s2) == bed(e2, e1, free_constants1=s2, free_constants2=s1)``), and
+        ``bed(e, e) == 0`` when both sides get the same specs. With ``seed=None``, ``bed(e, e)`` can
+        be greater than 0 for an expression with free (not fixed) parameters.
 
     References:
         S. Mežnar, S. Džeroski, L. Todorovski. Quantifying Behavioral Dissimilarity Between
@@ -483,7 +546,10 @@ def bed(
             return matrices[name]
         # An expression argument always has points: X was given, or it was sampled above.
         assert X is not None
-        return create_behavior_matrix(trees[name], X, num_consts_sampled, consts_bounds, symbol_library, seed, backend)
+        specs = free_constants1 if name == "expr1" else free_constants2
+        return create_behavior_matrix(
+            trees[name], X, num_consts_sampled, consts_bounds, symbol_library, seed, backend, specs, default_constant
+        )
 
     return _mean_row_distance(behavior("expr1"), behavior("expr2"))
 

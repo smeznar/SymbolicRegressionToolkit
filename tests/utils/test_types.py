@@ -9,6 +9,8 @@ import typing
 import numpy as np
 import pytest
 
+from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.types import (
     CONST,
     FN,
@@ -48,6 +50,12 @@ def R(models, trace, **kwargs):
     return EvalResult(all_models=models, trace=trace, approach_name=kwargs.pop("approach_name", ""), **kwargs)
 
 
+SPECS = (
+    Constant(label="C_0", prior=UniformSampling(0.0, 2.0), bounds=(0.0, INF)),
+    Constant(label="C_1", value=2.5, fixed=True),
+)
+
+
 def json_round_trip(obj):
     return type(obj).from_dict(json.loads(json.dumps(obj.to_dict())))
 
@@ -75,6 +83,8 @@ class TestConstants:
 class TestRankingSettings:
     def test_ranking_settings_keys_are_the_documented_optional_keys(self):
         documented = {
+            "default_constant",
+            "ground_truth_constants",
             "method",
             "tol",
             "gtol",
@@ -143,6 +153,7 @@ class TestModelResult:
                 CheckResult(False, "raised ValueError: x", INF, True, "Custom", "pre", "ValueError: x"),
                 CheckResult(False, "numpy amount", np.int64(3), True, "Custom", "post"),
             ],
+            free_constants=SPECS,
         )
         back = json_round_trip(model)
         assert back.expr == ["C", "*", "X_0", "+", "C"]
@@ -165,6 +176,8 @@ class TestModelResult:
             CheckResult(False, "numpy amount", 3, True, "Custom", "post"),
         ]
         assert type(back.advisory_violations[-1].amount) is int
+        assert type(back.free_constants) is tuple
+        assert [c.to_dict() for c in back.free_constants] == [c.to_dict() for c in SPECS]
 
     def test_model_result_numpy_scalars_come_back_as_python_scalars(self):
         model = ModelResult(expr=["X_0"], error=np.float64(0.25), ranking_data={"n": np.int64(3)})
@@ -517,6 +530,7 @@ class TestEvalResultSerialization:
             metadata={"seed": 3, "model": "m", "dataset_metadata": {"n": [1, 2]}},
             wall_time=1.5,
             augmentations={"aug": {"t": (1, "a"), 7: [1.0, INF], "_type": "Aug"}},
+            default_constant=uniform_default((-2.0, 4.0)),
         )
         back = json_round_trip(result)
         assert [m.expr for m in back.all_models] == [["X_0"], ["C", "*", "X_0"], ["X_0", "X_1"]]
@@ -534,6 +548,36 @@ class TestEvalResultSerialization:
         assert back.wall_time == 1.5
         assert back.augmentations == {"aug": {"t": (1, "a"), 7: [1.0, INF], "_type": "Aug"}}
         assert type(back.augmentations["aug"]["t"]) is tuple
+        assert back.default_constant.to_dict() == uniform_default((-2.0, 4.0)).to_dict()
+
+    # Reason: regression (spec dicts were written without _to_json_safe, so a prior with numpy-integer
+    # bounds made the results unsavable as JSON).
+    def test_specs_with_numpy_scalars_save_as_json(self):
+        spec = Constant(label="C_0", prior=UniformSampling(np.int64(0), np.int64(5)), bounds=(0.0, 5.0))
+        default = Constant(prior=UniformSampling(np.int64(-1), np.int64(1)), bounds=(-1.0, 1.0))
+        result = EvalResult(
+            all_models=[ModelResult(["C_0"], 0.1, free_constants=(spec,))],
+            trace=[0],
+            approach_name="A",
+            default_constant=default,
+        )
+        back = EvalResult.from_dict(json.loads(json.dumps(result.to_dict())))
+        assert back.all_models[0].free_constants[0].to_dict() == spec.to_dict()
+        assert back.default_constant.to_dict() == default.to_dict()
+
+    # Reason: clause (from_dict reads format 2, written before specs were recorded: default_constant
+    # and each model's free_constants load as None).
+    def test_eval_result_format_2_loads_without_specs(self):
+        result = R([M(["C_0"], 0.1, free_constants=SPECS[:1])], [0, 0], default_constant=uniform_default((-1.0, 1.0)))
+        d = json.loads(json.dumps(result.to_dict()))
+        d["format_version"] = 2
+        del d["default_constant"]
+        del d["all_models"][0]["free_constants"]
+        back = EvalResult.from_dict(d)
+        assert back.default_constant is None
+        assert back.all_models[0].free_constants is None
+        assert back.all_models[0].expr == ["C_0"]
+        assert back.trace == [0, 0]
 
     def test_eval_result_metadata_is_encoded(self):
         with pytest.raises(TypeError, match="set"):
@@ -565,7 +609,7 @@ class TestEvalResultSerialization:
     def test_eval_result_to_dict_contains_version_and_summaries(self):
         d = _summary_result().to_dict()
         json.dumps(d)
-        assert d["format_version"] == 2
+        assert d["format_version"] == 3
         assert d["min_error"] == 0.05
         assert d["best_expr"] == "C*X_0"
         assert d["success"] is True
@@ -602,10 +646,10 @@ class TestEvalResultSerialization:
         [
             (lambda d: d.pop("format_version"), "evaluation trace"),
             (lambda d: d.update(format_version=1), "format_version"),
-            (lambda d: d.update(format_version=3), "format_version"),
+            (lambda d: d.update(format_version=4), "format_version"),
             (lambda d: d["all_models"][0].pop("status"), "status"),
         ],
-        ids=["version-missing", "version-1", "version-3", "model-without-status"],
+        ids=["version-missing", "version-1", "version-4", "model-without-status"],
     )
     def test_eval_result_from_dict_rejects(self, mutate, match):
         d = json.loads(json.dumps(_summary_result().to_dict()))

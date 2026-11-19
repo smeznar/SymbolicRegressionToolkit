@@ -36,7 +36,7 @@ import warnings
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional
 from urllib.request import urlopen
 from zipfile import ZipFile
 
@@ -45,7 +45,7 @@ import numpy as np
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.dataset.sampling import Sampler, _sample_inputs
 from SRToolkit.utils.expression_compiler import compile_expr
-from SRToolkit.utils.expression_tree import Node
+from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
@@ -55,30 +55,6 @@ def _config_samplers(config: dict) -> Optional[list]:
     if isinstance(bk, dict):
         return bk.get("samplers")
     return config.get("samplers")
-
-
-def _check_no_free_constants(ground_truth: Union[List[str], Node], symbol_library: SymbolLibrary, context: str) -> None:
-    """Raise if *ground_truth* contains a free constant, which leaves ``y`` undefined.
-
-    Generating ``y`` requires a fully specified ground truth: a free constant ("const" token,
-    e.g. ``C`` or ``C_1``) has no value to evaluate.
-
-    Args:
-        ground_truth: Ground-truth expression as a token list or a Node tree.
-        symbol_library: Symbol library that defines which tokens are constants.
-        context: Start of the error message, naming the caller and dataset.
-
-    Raises:
-        ValueError: If the ground truth contains a free constant.
-    """
-    tokens = ground_truth if isinstance(ground_truth, list) else ground_truth.to_list(symbol_library)
-    found = sorted({t for t in tokens if symbol_library.get_type(t) == "const"})
-    if found:
-        raise ValueError(
-            f"{context} ground truth contains a free constant ({', '.join(found)}), which has "
-            "no value to evaluate. Sampler-based generation requires a fully specified ground truth — replace "
-            "the free constant with a concrete value (e.g. a literal) or a sub-expression."
-        )
 
 
 class DataSource(ABC):
@@ -292,13 +268,16 @@ class SampleSource(DataSource):
         Args:
             cache_path: Target ``.npz`` path inside the data cache.
             config: The dataset's config dict; its samplers, ``ranking_function``,
-                ``ground_truth`` and symbol library are used to generate the data. The samplers
+                ``ground_truth``, ``ground_truth_constants`` and symbol library are used to generate
+                the data. The samplers
                 and symbol library are read from ``"background_knowledge"`` (format 4) or from
                 the top level (formats 2 and 3).
 
         Raises:
             ValueError: If the config has no samplers, or ``ranking_function`` is ``"rmse"`` and
-                ``ground_truth`` is missing, an ndarray, or contains a free constant.
+                ``ground_truth`` is missing, an ndarray, or has a free constant without a fixed value
+                in ``ground_truth_constants``, or a ``ground_truth_constants`` label is not a
+                labelled constant of it.
         """
         samplers_raw = _config_samplers(config)
         if not samplers_raw:
@@ -340,11 +319,11 @@ class SampleSource(DataSource):
                 sl = SymbolLibrary.from_dict(sl_dict)
             else:
                 sl = SymbolLibrary.default_symbols(X.shape[1])
-            _check_no_free_constants(
-                ground_truth, sl, f"[SampleSource.materialize] Dataset '{config.get('dataset_name', 'unnamed')}'"
+            specs = [Constant.from_dict(c) for c in config.get("ground_truth_constants") or ()]
+            parameters = _ground_truth_parameters(
+                ground_truth, specs, sl, f"[SampleSource.materialize] Dataset '{config.get('dataset_name', 'unnamed')}'"
             )
-            f = compile_expr(ground_truth, sl)
-            y = f(X, np.array([]))
+            y = compile_expr(ground_truth, sl)(X, parameters)
 
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         if y is not None:

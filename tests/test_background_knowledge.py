@@ -8,15 +8,20 @@ import numpy as np
 import pytest
 
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
-from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.dataset.sampling import LogUniformSampling, UniformSampling
 from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTreeDepth, NoNesting, RequiredVariables
+from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.units import Unit
 
 u.m, S = u.m, u.s
+
+
+_LU = LogUniformSampling(0.1, 10)
+_FULL_LU = Constant(prior=_LU, bounds=(0, float("inf")))
 
 
 def _lib(num_variables=2, symbols=("+", "*", "C")):
@@ -196,6 +201,26 @@ class TestBackgroundKnowledgeInit:
             logging.INFO
         ]
 
+    # Reason: clause (default_constant: "unset prior or bounds come from constant_bounds (a uniform
+    # prior on it, it as the bounds). None: uniform_default of constant_bounds"; attribute complete).
+    @pytest.mark.parametrize(
+        "template, expected",
+        [
+            (None, uniform_default((-2.0, 3.0))),
+            (Constant(), uniform_default((-2.0, 3.0))),
+            (
+                Constant(bounds=(0, float("inf"))),
+                Constant(prior=uniform_default((-2.0, 3.0)).prior, bounds=(0, float("inf"))),
+            ),
+            (Constant(prior=_LU), Constant(prior=_LU, bounds=(-2.0, 3.0))),
+            (_FULL_LU, _FULL_LU),
+        ],
+        ids=["none", "empty-template", "bounds-only", "prior-only", "complete"],
+    )
+    def test_default_constant_is_completed(self, template, expected):
+        bk = BackgroundKnowledge(_lib(), constant_bounds=(-2, 3), default_constant=template)
+        assert bk.default_constant.to_dict() == expected.to_dict()
+
     def test_sampling_grammar_defaults_to_library_grammar(self):
         lib = _lib()
         assert BackgroundKnowledge(lib).sampling_grammar().to_dict() == Grammar.from_symbol_library(lib).to_dict()
@@ -218,6 +243,10 @@ class TestBackgroundKnowledgeInit:
             ({"description": 3}, None),
             ({"constant_bounds": (True, 5)}, None),
             ({"constant_bounds": ("a", 5)}, None),
+            ({"constant_bounds": (1, 2, 3)}, "constant_bounds"),
+            ({"constant_bounds": 5}, "constant_bounds"),
+            ({"default_constant": UniformSampling(0, 1)}, "default_constant.*got UniformSampling"),
+            ({"default_constant": {"bounds": (0, 1)}}, "default_constant.*got dict"),
         ],
         ids=[
             "library-str",
@@ -235,6 +264,10 @@ class TestBackgroundKnowledgeInit:
             "description-int",
             "bound-bool",
             "bound-str",
+            "bounds-not-pair",
+            "bounds-not-iterable",
+            "default-is-prior",
+            "default-is-dict",
         ],
     )
     def test_constructor_type_errors(self, kwargs, match):
@@ -261,13 +294,19 @@ class TestBackgroundKnowledgeInit:
             ({"constant_bounds": (1, 1)}, None),
             ({"constant_bounds": (float("nan"), 1)}, None),
             ({"constant_bounds": (float("-inf"), 1)}, None),
-            ({"constant_bounds": (1, 2, 3)}, None),
-            ({"constant_bounds": 5}, None),
             ({"variables": {"X_9": VariableInfo("x")}}, "X_9"),
             ({"variables": {"+": VariableInfo("plus")}}, None),
             ({"named_constants": {"X_0": VariableInfo("x")}}, "X_0"),
             ({"named_constants": {"C": VariableInfo("c")}}, "C"),
             ({"named_constants": {"zz": VariableInfo("z")}}, "zz"),
+            ({"default_constant": Constant("C_0")}, "default_constant"),
+            ({"default_constant": Constant(value=1.0)}, "default_constant"),
+            ({"default_constant": Constant(value=1.0, fixed=True)}, "default_constant"),
+            # Raises is unconditional: constant_bounds is checked even when the default sets all of it.
+            (
+                {"constant_bounds": (5, -5), "default_constant": Constant(prior=_LU, bounds=(0, float("inf")))},
+                None,
+            ),
         ],
         ids=[
             "too-few-samplers",
@@ -277,13 +316,15 @@ class TestBackgroundKnowledgeInit:
             "bounds-equal",
             "bound-nan",
             "bound-inf",
-            "bounds-not-pair",
-            "bounds-not-iterable",
             "variable-unknown",
             "variable-not-var",
             "constant-is-variable",
             "constant-is-free-constant",
             "constant-unknown",
+            "default-with-label",
+            "default-with-value",
+            "default-fixed",
+            "bounds-reversed-with-full-default",
         ],
     )
     def test_constructor_value_errors(self, kwargs, match):
@@ -356,6 +397,15 @@ class TestBackgroundKnowledgeDescribe:
                 ),
                 "Variables:\n  X_0\nNamed constants:\n  pi\nSymbols: +, *, pi, X_0",
             ),
+            (
+                lambda: BackgroundKnowledge(_lib(1), default_constant=_FULL_LU),
+                "Symbols: +, *, C, X_0\nFree constants without a spec: log-uniform on [0.1, 10], fitted in [0.0, inf].",
+            ),
+            (
+                lambda: BackgroundKnowledge(_lib(1), default_constant=Constant(bounds=(-5, 5))),
+                "Symbols: +, *, C, X_0\nFree constants are fitted in [-5.0, 5.0].",
+            ),
+            (lambda: BackgroundKnowledge(_lib(1, ("+", "*")), default_constant=_FULL_LU), "Symbols: +, *, X_0"),
         ],
         ids=[
             "library-only",
@@ -364,6 +414,9 @@ class TestBackgroundKnowledgeDescribe:
             "one-sampler",
             "no-variables",
             "empty-constant",
+            "non-uniform-default",
+            "template-equal-to-uniform-default",
+            "non-uniform-default-without-const-symbol",
         ],
     )
     def test_describe_omits_empty_sections(self, bk, expected):
@@ -424,11 +477,35 @@ class TestBackgroundKnowledgeSerialisation:
         assert restored.variables["X_0"].unit == u.A
         assert restored.named_constants == bk.named_constants
 
+    # Reason: clause (to_dict: "default_constant as its to_dict, only when it differs from
+    # uniform_default(constant_bounds)"; from_dict round trip). The partial template is written completed.
+    @pytest.mark.parametrize(
+        "template, expected",
+        [
+            (_FULL_LU, _FULL_LU.to_dict()),
+            (
+                Constant(bounds=(0, float("inf"))),
+                Constant(prior=uniform_default((-2.0, 3.0)).prior, bounds=(0, float("inf"))).to_dict(),
+            ),
+            (Constant(bounds=(-2, 3)), None),
+        ],
+        ids=["complete", "partial", "equal-to-uniform-default"],
+    )
+    def test_default_constant_to_dict_and_back(self, template, expected):
+        bk = BackgroundKnowledge(_lib(), constant_bounds=(-2, 3), default_constant=template)
+        d = bk.to_dict()
+        assert d.get("default_constant") == expected
+        assert ("default_constant" in d) is (expected is not None)
+        restored = BackgroundKnowledge.from_dict(json.loads(json.dumps(d)))
+        assert restored.to_dict() == d
+        assert restored.default_constant.to_dict() == bk.default_constant.to_dict()
+
     def test_from_dict_fills_defaults(self):
         # No "format_version" key either: it is read as 1.
         lib = _lib()
         loaded = BackgroundKnowledge.from_dict({"symbol_library": lib.to_dict(), "extra": 1})
         assert loaded.to_dict() == BackgroundKnowledge(lib).to_dict()
+        assert loaded.default_constant.to_dict() == uniform_default((-5.0, 5.0)).to_dict()
 
     def test_from_dict_loads_dicts_saved_before_units(self):
         # Saved before units and named constants existed: no "named_constants", variable dicts without "unit".

@@ -5,7 +5,10 @@ dataset deliberately gives the approach that solves it:
 
 - the symbols expressions may use (the symbol library),
 - the input distribution (one [Sampler][SRToolkit.dataset.sampling.Sampler] per variable),
-- the range free constants are fitted in (``constant_bounds``),
+- the default spec of free constants without a spec of their own (``default_constant``: prior
+  and fitting bounds; by default
+  [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default], see
+  [free_constants][SRToolkit.utils.free_constants]),
 - advisory [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]s:
   hints about the search space that an approach may use or ignore,
 - an optional reference [Grammar][SRToolkit.utils.grammar.grammar.Grammar] (rule weights a
@@ -47,13 +50,12 @@ same classes; the list a constraint is in decides its role (see
 """
 
 import logging
-import math
-import numbers
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union, cast
 
 from SRToolkit.dataset.sampling import Sampler
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
+from SRToolkit.utils.free_constants import Constant, resolve_constants, uniform_default
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.units import Unit
@@ -176,8 +178,12 @@ class BackgroundKnowledge:
         samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per variable of
             ``symbol_library``, as a mapping ``{token: sampler}`` or a list in the library's
             variable order (the column order of ``X``). ``None`` if not given.
-        constant_bounds: ``(lower, upper)`` range free constants are fitted in: finite, with
-            ``lower < upper``. Defaults to ``(-5, 5)``.
+        constant_bounds: ``(lower, upper)`` range of the default spec when ``default_constant`` is
+            ``None``
+            ([uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default]);
+            also fills the unset ``prior`` or ``bounds`` of ``default_constant``. Finite, with
+            ``lower < upper``; validated even when ``default_constant`` sets both. Defaults to
+            ``(-5, 5)``.
         constraints: Advisory constraints (hints).
         reference_grammar: A grammar an approach may start from. Its terminal tokens must be
             symbols of ``symbol_library``, brackets or numbers.
@@ -190,22 +196,30 @@ class BackgroundKnowledge:
         named_constants: Information per named constant, keyed by the constant's token, which must be a
             symbol of type ``"lit"`` in ``symbol_library`` (e.g. ``"c"`` for the speed of light).
             Named constants may be left out.
+        default_constant: The default spec for free constants without a spec of their own: a
+            [Constant][SRToolkit.utils.free_constants.Constant] without ``label`` or ``value``, e.g.
+            ``Constant(prior=LogUniformSampling(0.1, 10), bounds=(0, float("inf")))``. Its unset
+            ``prior`` or ``bounds`` come from ``uniform_default(constant_bounds)``, so set both for a
+            prior that matches the bounds. ``None``: ``uniform_default(constant_bounds)``.
 
     Raises:
         TypeError: If an argument has the wrong type, e.g. a lone constraint or a string as
-            ``constraints``, or ``bool`` as a bound.
+            ``constraints``, a ``constant_bounds`` that is not a pair of real numbers (``bool`` is
+            not accepted), or a ``default_constant`` that is not a ``Constant``.
         ValueError: If ``samplers`` does not give exactly one sampler per variable (the message
             names missing or unknown tokens); ``constant_bounds`` is not finite with
-            ``lower < upper``; a key of ``variables`` is not a variable of ``symbol_library``, or a
-            key of ``named_constants`` is not one of its ``"lit"`` symbols; a
-            constraint does not fit ``symbol_library`` (raised by its ``setup``); or
-            ``reference_grammar`` has a terminal token that is not a symbol, bracket or number (the
-            message names it).
+            ``lower < upper``; ``default_constant`` has a ``label``, a ``value`` or ``fixed=True``;
+            a key of ``variables`` is not a variable of ``symbol_library``, or a key of
+            ``named_constants`` is not one of its ``"lit"`` symbols; a constraint does not fit
+            ``symbol_library`` (raised by its ``setup``); or ``reference_grammar`` has a terminal
+            token that is not a symbol, bracket or number (the message names it). Errors about
+            ``constant_bounds`` or ``default_constant`` name the argument in the message.
 
     Attributes:
         symbol_library: The symbol library, as given.
         samplers: The samplers as a tuple in the library's variable order, or ``None``.
         constant_bounds: ``(lower, upper)`` as a tuple of two ``float``s.
+        default_constant: The default spec, complete (``prior`` and ``bounds`` set).
         constraints: The advisory constraints, as a tuple.
         reference_grammar: The grammar, as given, or ``None``.
         description: The description, as given.
@@ -243,6 +257,8 @@ class BackgroundKnowledge:
     variables: Mapping[str, VariableInfo] = field(default_factory=dict)
     target: Optional[VariableInfo] = None
     named_constants: Mapping[str, VariableInfo] = field(default_factory=dict)
+    # None is resolved to a complete template in __post_init__.
+    default_constant: Optional[Constant] = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol_library, SymbolLibrary):
@@ -256,26 +272,31 @@ class BackgroundKnowledge:
         if self.samplers is not None:
             object.__setattr__(self, "samplers", self._normalise_samplers(self.samplers, var_tokens))
 
-        # Constant bounds: two finite reals, lower < upper.
-        bounds = self.constant_bounds
+        # Constant bounds (two finite reals, lower < upper) and the default spec built on them.
         try:
-            pair = tuple(bounds)
-        except TypeError:
-            raise ValueError(
-                f"[BackgroundKnowledge] 'constant_bounds' must be a (lower, upper) pair, got {bounds!r}."
-            ) from None
-        if len(pair) != 2:
-            raise ValueError(f"[BackgroundKnowledge] 'constant_bounds' must be a (lower, upper) pair, got {bounds!r}.")
-        if not all(isinstance(b, numbers.Real) and not isinstance(b, bool) for b in pair):
+            uniform = uniform_default(self.constant_bounds)
+        except (TypeError, ValueError) as e:
+            raise type(e)(f"[BackgroundKnowledge] 'constant_bounds': {e}") from None
+        object.__setattr__(self, "constant_bounds", uniform.bounds)
+        template = self.default_constant
+        if template is None:
+            template = uniform
+        elif not isinstance(template, Constant):
             raise TypeError(
-                f"[BackgroundKnowledge] 'constant_bounds' must hold two real numbers (not bool), got {bounds!r}."
+                f"[BackgroundKnowledge] 'default_constant' must be a Constant or None, got {type(template).__name__}."
             )
-        lower, upper = float(pair[0]), float(pair[1])
-        if not (math.isfinite(lower) and math.isfinite(upper) and lower < upper):
-            raise ValueError(
-                f"[BackgroundKnowledge] 'constant_bounds' must be finite with lower < upper, got ({lower!r}, {upper!r})."
-            )
-        object.__setattr__(self, "constant_bounds", (lower, upper))
+        else:
+            # Complete the template, then check it with the rule every default spec follows.
+            try:
+                template = replace(
+                    template,
+                    prior=uniform.prior if template.prior is None else template.prior,
+                    bounds=uniform.bounds if template.bounds is None else template.bounds,
+                )
+                resolve_constants([], None, template)
+            except ValueError as e:
+                raise ValueError(f"[BackgroundKnowledge] {e}") from None
+        object.__setattr__(self, "default_constant", template)
 
         # Advisory constraints.
         constraints = self.constraints
@@ -402,8 +423,12 @@ class BackgroundKnowledge:
           ``named_constants``, in the library's order of ``"lit"`` symbols (just ``  <token>`` if it
           describes to ``""``)
         - ``Symbols: <str(symbol_library)>`` (always present)
-        - ``Free constants are fitted in [<lower>, <upper>].``, bounds written with ``str`` of a
-          ``float`` (only if the library has a ``"const"`` symbol)
+        - only if the library has a ``"const"`` symbol: ``Free constants are fitted in
+          [<lower>, <upper>].`` if the default spec equals ``uniform_default(constant_bounds)``
+          (compared by ``to_dict``), otherwise ``Free constants without a spec: <prior>, fitted in
+          [<lower>, <upper>].``, with ``<prior>`` the default spec's
+          ``prior.describe()`` and the bounds those of the default spec, each written with ``str``
+          of a ``float`` (e.g. ``[0.0, inf]``)
         - ``Input distribution:`` then ``  <token>: <sampler>`` per variable (only with samplers)
         - ``Enforced constraints (expressions that break them are rejected):`` then
           ``  - <constraint>`` per required constraint
@@ -451,8 +476,13 @@ class BackgroundKnowledge:
                 lines.append(f"  {token}: {text}" if text else f"  {token}")
         lines.append(f"Symbols: {self.symbol_library}")
         if self.symbol_library.constant_symbol is not None:
-            lower, upper = self.constant_bounds
-            lines.append(f"Free constants are fitted in [{lower}, {upper}].")
+            default = cast(Constant, self.default_constant)
+            lower, upper = cast(Tuple[float, float], default.bounds)
+            if default.to_dict() == uniform_default(self.constant_bounds).to_dict():
+                lines.append(f"Free constants are fitted in [{lower}, {upper}].")
+            else:
+                prior = cast(Sampler, default.prior).describe()
+                lines.append(f"Free constants without a spec: {prior}, fitted in [{lower}, {upper}].")
         if self.samplers is not None and len(self.samplers) > 0:
             lines.append("Input distribution:")
             samplers = cast(Tuple[Sampler, ...], self.samplers)  # normalised to a tuple in __post_init__
@@ -495,12 +525,16 @@ class BackgroundKnowledge:
             A dictionary with ``"format_version": 1`` and one key per field, named as the field:
             ``symbol_library``, ``reference_grammar`` (or ``None``) and each sampler and constraint
             as their own ``to_dict``; ``samplers`` as a list in the library's variable order (or
-            ``None``); ``constant_bounds`` as ``[lower, upper]``; ``variables`` as
-            ``{token: VariableInfo.to_dict()}`` in the library's variable order; ``named_constants``
-            likewise in the library's order of ``"lit"`` symbols (``{}`` if empty); ``target`` as its ``to_dict``
-            (or ``None``); ``description`` as given.
+            ``None``); ``constant_bounds`` as ``[lower, upper]``; ``default_constant`` as its
+            [to_dict][SRToolkit.utils.free_constants.Constant.to_dict], only when that differs
+            from the ``to_dict`` of
+            [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default]
+            (so the dicts of tasks with the usual default spec have no such key); ``variables`` as
+            ``{token: VariableInfo.to_dict()}`` in the library's variable order;
+            ``named_constants`` likewise in the library's order of ``"lit"`` symbols (``{}`` if
+            empty); ``target`` as its ``to_dict`` (or ``None``); ``description`` as given.
         """
-        return {
+        d = {
             "format_version": 1,
             "symbol_library": self.symbol_library.to_dict(),
             "samplers": (
@@ -514,13 +548,20 @@ class BackgroundKnowledge:
             "target": self.target.to_dict() if self.target is not None else None,
             "named_constants": {token: info.to_dict() for token, info in self.named_constants.items()},
         }
+        # Written only when set, so the dicts (and fingerprints) of datasets with the usual default
+        # are unchanged.
+        default = cast(Constant, self.default_constant)
+        if default.to_dict() != uniform_default(self.constant_bounds).to_dict():
+            d["default_constant"] = default.to_dict()
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "BackgroundKnowledge":
         """Rebuild background knowledge from the output of ``to_dict``.
 
         Missing keys other than ``symbol_library`` take their defaults (a missing
-        ``format_version`` is read as ``1``); unknown keys are ignored.
+        ``format_version`` is read as ``1``, a missing ``default_constant`` as
+        ``uniform_default(constant_bounds)``); unknown keys are ignored.
 
         Args:
             d: A dictionary produced by
@@ -528,7 +569,9 @@ class BackgroundKnowledge:
 
         Returns:
             Background knowledge whose ``to_dict`` equals ``d`` with missing keys filled in, nested
-            ones included (e.g. a variable's ``unit``).
+            ones included (e.g. a variable's ``unit``), except ``default_constant``: it is written
+            only as described in ``to_dict``, so a missing one stays missing, one equal to the
+            usual default spec is dropped and a partial template comes back completed.
 
         Raises:
             KeyError: If ``symbol_library`` is missing.
@@ -543,6 +586,7 @@ class BackgroundKnowledge:
         samplers = d.get("samplers")
         grammar = d.get("reference_grammar")
         target = d.get("target")
+        default = d.get("default_constant")
         return cls(
             symbol_library=library,
             samplers=[Sampler.from_dict(s) for s in samplers] if samplers is not None else None,
@@ -553,4 +597,5 @@ class BackgroundKnowledge:
             variables={k: VariableInfo.from_dict(v) for k, v in (d.get("variables") or {}).items()},
             target=VariableInfo.from_dict(target) if target is not None else None,
             named_constants={k: VariableInfo.from_dict(v) for k, v in (d.get("named_constants") or {}).items()},
+            default_constant=None if default is None else Constant.from_dict(default),
         )
