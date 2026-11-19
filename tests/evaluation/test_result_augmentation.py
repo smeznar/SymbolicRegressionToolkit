@@ -16,7 +16,6 @@ from SRToolkit.evaluation.result_augmentation import (
 )
 from SRToolkit.evaluation.sr_evaluator import ModelResult, SR_evaluator, SR_results
 from SRToolkit.utils import Node
-from SRToolkit.utils.expression_constraints import MaxConstants
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EvalResult
@@ -599,17 +598,6 @@ class TestHoldoutMetricReuseParams:
             aug.write_results(result)
         assert value.call_count == len(result.all_models)
 
-    def test_holdout_fit_uses_ranking_settings(self):
-        # BED results carry no parameters, so constants are fit on the holdout, under the given
-        # settings: with max_constants=0 an expression with a constant is rejected (NaN).
-        se = _bed_se()
-        se.evaluate_expr(["C", "+", "X_0"])
-        result = se.get_results(top_k=1)[0]
-        HoldoutMetric(
-            (_X_TEST, _y_TEST), scope="best", symbol_library=_sl, ranking_settings={"max_constants": 0}
-        ).write_results(result)
-        assert np.isnan(result.augmentations["HoldoutMetric"]["best_value"])
-
     # Reason: clause (fits use ranking_settings["default_constant"], else the default built from
     # constant_bounds). BED results carry no parameters, so X_0 + C is fitted on y = X_0 + 50: under the
     # uniform default C stops at 5 and the residual is 45 everywhere (RMSE 45); under (0, inf) it fits.
@@ -631,32 +619,14 @@ class TestHoldoutMetricReuseParams:
         assert result.augmentations["HoldoutMetric"]["best_value"] == pytest.approx(expected, abs=1e-5)
 
 
-# 9 free constants: over the estimator's default limit of 8, within a required MaxConstants(20).
+# 9 free constants: over the evaluator's default limit of 8.
 _NINE_CONSTANTS = ["C", "*", "X_1", "-", "X_0"] + ["+", "C"] * 8
 
 
 class TestHoldoutMetricLimits:
-    def test_refit_does_not_apply_default_max_constants(self):
-        # Regression: the search accepted the model under MaxConstants(20), but the holdout
-        # estimator fell back to max_constants=8 and returned NaN for it.
-        se = _rmse_se(symbol_library=_sl, required_constraints=[MaxConstants(20)])
-        se.evaluate_expr(_NINE_CONSTANTS)
-        result = se.get_results(top_k=1)[0]
-        assert result.top_models()[0].status == "ok"
-        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl, refit_constants=True)
-        aug.write_results(result)
-        assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
-
-    def test_ranking_metric_does_not_apply_default_max_constants(self):
-        se = _rmse_se(symbol_library=_sl, required_constraints=[MaxConstants(20)])
-        se.evaluate_expr(_NINE_CONSTANTS)
-        result = se.get_results(top_k=1)[0]
-        HoldoutMetric((_X_TEST, _y_TEST), metric=RMSERanking(), scope="best", symbol_library=_sl).write_results(result)
-        assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
-
     def test_ranking_metric_gives_nan_for_rejected_model(self):
         # Regression: the ranking branch scored every model, so a model the search rejected (here
-        # for 9 constants, over the default limit of 8) got a finite holdout score.
+        # for 9 constants, over the evaluator's default limit of 8) got a finite holdout score.
         se = _rmse_se(symbol_library=_sl)
         se.evaluate_expr(_NINE_CONSTANTS)
         result = se.get_results(top_k=1)[0]
@@ -788,21 +758,21 @@ class TestHoldoutMetricSerialization:
         assert HoldoutMetric.from_dict(aug.to_dict(str(tmp_path), "t")).refit_constants is True
 
     def test_seed_and_ranking_settings_round_trip(self, tmp_path):
-        settings = {"constant_bounds": (-2, 2), "max_constants": 3}
+        settings = {"constant_bounds": (-2, 2), "max_iter": 50}
         aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, ranking_settings=settings, seed=7)
         restored = HoldoutMetric.from_dict(json.loads(json.dumps(aug.to_dict(str(tmp_path), "t"))))
         assert restored.seed == 7
-        assert restored.ranking_settings["max_constants"] == 3
+        assert restored.ranking_settings["max_iter"] == 50
         assert list(restored.ranking_settings["constant_bounds"]) == [-2, 2]
         assert restored._fit_parameters(_BEST_EXPR)[0] < 1e-6  # the list bounds still fit
 
     def test_to_dict_is_json_safe_with_ranking_only_settings(self, tmp_path):
         from SRToolkit.dataset.sampling import UniformSampling
 
-        settings = {"samplers": [UniformSampling(0, 1)], "max_constants": 3}
+        settings = {"samplers": [UniformSampling(0, 1)], "max_iter": 3}
         aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, ranking_settings=settings)
         d = json.loads(json.dumps(aug.to_dict(str(tmp_path), "t")))
-        assert d["ranking_settings"] == {"max_constants": 3}
+        assert d["ranking_settings"] == {"max_iter": 3}
 
     # Reason: regression (G3: to_dict failed on dataset.ranking_settings(), which holds a Constant) +
     # clause (from_dict recreates the augmenter): the restored augmenter refits under the same default.

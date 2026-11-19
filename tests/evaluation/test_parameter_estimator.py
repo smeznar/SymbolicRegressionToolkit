@@ -48,8 +48,6 @@ class TestParameterEstimatorInit:
         assert s["max_iter"] == 100
         assert s["constant_bounds"] == (-5, 5)
         assert s["initialization"] == "random"
-        assert s["max_constants"] == 8
-        assert s["max_expr_length"] == -1
         assert s["backend"] == "stack"
 
     def test_kwargs_override_known_settings(self):
@@ -156,10 +154,7 @@ class TestEstimateParametersWithConstants:
 class TestLabelledConstants:
     @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
     def test_label_is_fitted_as_one_parameter(self, backend):
-        # max_constants=1: the label is one parameter for the limit as well (counted as by MaxConstants).
-        pe = ParameterEstimator(
-            _X, 2.0 * _y_exact, SymbolLibrary.default_symbols(2), seed=0, backend=backend, max_constants=1
-        )
+        pe = ParameterEstimator(_X, 2.0 * _y_exact, SymbolLibrary.default_symbols(2), seed=0, backend=backend)
         error, params = pe.estimate_parameters(["C_0", "*", "X_0", "+", "C_0", "*", "X_1"])
         assert error < 1e-6
         np.testing.assert_allclose(params, [2.0], atol=1e-5)
@@ -174,112 +169,12 @@ class TestLabelledConstants:
         np.testing.assert_allclose(params, [5.0, 3.0], atol=1e-4)
 
 
-class TestEstimateParametersGuards:
-    def test_max_constants_exceeded_returns_nan(self):
-        pe = ParameterEstimator(_X, _y_linear, max_constants=0)
-        rmse, params = pe.estimate_parameters(["C", "*", "X_0"])
-        assert np.isnan(rmse)
-        assert params.size == 0
-
-    def test_max_constants_at_limit_not_rejected(self):
-        # strict < means exactly max_constants constants is allowed
-        pe = ParameterEstimator(_X, _y_linear, max_constants=1, seed=0)
-        rmse, _ = pe.estimate_parameters(["C", "*", "X_0"])
-        assert not np.isnan(rmse)
-
-    def test_max_constants_negative_not_filtered(self):
-        # 0 <= -1 is False, so filter never triggers
-        pe = ParameterEstimator(_X, _y_linear, max_constants=-1, seed=0)
-        rmse, _ = pe.estimate_parameters(["C", "*", "X_0"])
-        assert not np.isnan(rmse)
-
-    def test_max_expr_length_exceeded_returns_nan(self):
-        # ["C", "*", "X_0"] has length 3; set limit to 2
-        pe = ParameterEstimator(_X, _y_linear, max_expr_length=2)
-        rmse, params = pe.estimate_parameters(["C", "*", "X_0"])
-        assert np.isnan(rmse)
-        assert params.size == 0
-
-    def test_max_expr_length_at_limit_not_rejected(self):
-        # strict < means length == max_expr_length is allowed
-        pe = ParameterEstimator(_X, _y_linear, max_expr_length=3, seed=0)
-        rmse, _ = pe.estimate_parameters(["C", "*", "X_0"])
-        assert not np.isnan(rmse)
-
-    def test_max_expr_length_negative_not_filtered(self):
-        # 0 <= -1 is False, so filter never triggers
-        pe = ParameterEstimator(_X, _y_linear, max_expr_length=-1, seed=0)
-        rmse, _ = pe.estimate_parameters(["C", "*", "X_0"])
-        assert not np.isnan(rmse)
-
-    def test_zero_max_constants_with_zero_const_expression(self):
-        # 0 <= 0 < 0 is False, so a no-constant expression must not be filtered
-        pe = ParameterEstimator(_X, _y_exact, max_constants=0)
-        rmse, params = pe.estimate_parameters(["X_0", "+", "X_1"])
-        assert not np.isnan(rmse)
-        assert params.size == 0
-
-
 # ── ParameterEstimator._optimize_parameters (via estimate_parameters) ──────────
 
 
 _X_SQRT = np.linspace(0.5, 1.5, 50).reshape(-1, 1)
 _y_SQRT = np.sqrt(2 - _X_SQRT[:, 0])  # sqrt(C - X_0) with C = 2; undefined for C < 1.5
 _SQRT_EXPR = ["sqrt", "(", "C", "-", "X_0", ")"]
-
-
-class TestLimitsMatchEvaluator:
-    def test_node_length_counts_tokens_with_brackets(self):
-        # (X_0 + X_1) * X_0 is 7 infix tokens but only 5 tree nodes.
-        tokens = ["(", "X_0", "+", "X_1", ")", "*", "X_0"]
-        pe = ParameterEstimator(_X, _y_exact, max_expr_length=6)
-        assert np.isnan(pe.estimate_parameters(tokens)[0])
-        assert np.isnan(pe.estimate_parameters(tokens_to_tree(tokens, pe.symbol_library))[0])
-
-    @pytest.mark.parametrize(
-        "settings, make_expr, rejected",
-        [
-            ({"max_constants": 0}, lambda sl: ["pi", "*", "X_0", "+", "2"], False),
-            ({"max_expr_length": 3}, lambda sl: tokens_to_tree(["(", "X_0", "+", "X_1", ")"], sl), False),
-            ({"max_expr_length": 3}, lambda sl: ["(", "X_0", "+", "X_1", ")"], True),
-            ({"max_constants": 1}, lambda sl: tokens_to_tree(["C", "*", "X_0", "+", "C"], sl), True),
-            ({"max_expr_length": 5}, lambda sl: tokens_to_tree(["X_0", "+", "X_1", "*", "X_0"], sl), False),
-            ({"max_expr_length": 0}, lambda sl: ["X_0"], True),
-        ],
-        ids=[
-            "named-constants-not-free",
-            "tree-redundant-brackets-dropped",
-            "list-brackets-counted",
-            "tree-constants",
-            "tree-precedence-needs-no-brackets",
-            "zero-length-limit",
-        ],
-    )
-    def test_limits_count_like_expression_constraints(self, settings, make_expr, rejected):
-        # Counts as MaxConstants / MaxTokens: tokens of type "const"; a tree written out with to_list.
-        pe = ParameterEstimator(_X, _y_exact, seed=0, **settings)
-        rmse, _ = pe.estimate_parameters(make_expr(pe.symbol_library))
-        assert np.isnan(rmse) == rejected
-
-
-class TestLimitValidation:
-    @pytest.mark.parametrize("key", ["max_constants", "max_expr_length"])
-    @pytest.mark.parametrize(
-        "value", [True, False, 2.0, "8", None, np.float64(3)], ids=["True", "False", "2.0", "str", "None", "float64"]
-    )
-    def test_invalid_limit_type_raises(self, key, value):
-        with pytest.raises(ValueError, match=key):
-            ParameterEstimator(_X, _y_linear, **{key: value})
-
-    @pytest.mark.parametrize(
-        "settings", [{"max_constants": np.int64(1)}, {"max_expr_length": np.int32(3)}], ids=["int64", "int32"]
-    )
-    def test_numpy_integer_limit_acts_as_int(self, settings):
-        pe = ParameterEstimator(_X, _y_linear, seed=0, **settings)
-        assert np.isfinite(pe.estimate_parameters(["C", "*", "X_0"])[0])
-        rmse, params = pe.estimate_parameters(["C", "*", "X_0", "+", "C"])
-        assert np.isnan(rmse)
-        assert params.size == 0
 
 
 class TestEstimateParametersWithInfo:
@@ -303,9 +198,8 @@ class TestEstimateParametersWithInfo:
         assert "ABNORMAL" in info["message"]
 
     def test_no_optimizer_run_gives_empty_info(self):
-        pe = ParameterEstimator(_X, _y_exact, max_constants=0)
+        pe = ParameterEstimator(_X, _y_exact)
         assert pe.estimate_parameters_with_info(["X_0", "+", "X_1"])[2] == {}
-        assert pe.estimate_parameters_with_info(["C", "*", "X_0"])[2] == {}
 
     def test_estimate_parameters_matches_with_info(self):
         info_pe = ParameterEstimator(_X, _y_linear, seed=3)
@@ -617,14 +511,6 @@ class TestFreeConstantSpecs:
         ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, [])
         ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, None)
         np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
-
-    def test_max_constants_counts_fixed(self):
-        pe = ParameterEstimator(_X, _y_linear, max_constants=1)
-        specs = [Constant(label="C_0", value=2.0, fixed=True), Constant(label="C_1", value=0.5, fixed=True)]
-        rmse, params, info = pe.estimate_parameters_with_info(["C_0", "*", "X_0", "+", "C_1"], specs)
-        assert np.isnan(rmse)
-        assert params.size == 0
-        assert info == {}
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
     def test_never_finite_returns_full_vector_with_fixed(self):

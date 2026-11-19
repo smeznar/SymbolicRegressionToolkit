@@ -41,7 +41,6 @@ from scipy.optimize import minimize
 from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
-from SRToolkit.utils.expression_constraints import _validate_limit
 from SRToolkit.utils.expression_tree import Node, _as_tokens
 from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants, uniform_default
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -56,8 +55,6 @@ DEFAULT_ESTIMATION_SETTINGS: Dict[str, Any] = {
     "constant_bounds": (-5, 5),
     "default_constant": None,
     "initialization": "random",  # random, mean
-    "max_constants": 8,
-    "max_expr_length": -1,
     "backend": "stack",
 }
 
@@ -81,8 +78,7 @@ class ParameterEstimator:
         **kwargs: Optional estimation settings from
             [RankingSettings][SRToolkit.utils.types.RankingSettings].
             Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
-            ``constant_bounds``, ``default_constant``, ``initialization``, ``max_constants``,
-            ``max_expr_length``, ``backend``.
+            ``constant_bounds``, ``default_constant``, ``initialization``, ``backend``.
 
     Raises:
         TypeError: If ``default_constant`` is not given and ``constant_bounds`` is not a pair of real
@@ -93,9 +89,8 @@ class ParameterEstimator:
             not a complete template
             (``prior`` and ``bounds`` set, no ``label``, no ``value``, ``fixed=False``; this
             setting is not completed from ``constant_bounds``); ``initialization`` is not
-            ``"random"`` or ``"mean"``; ``backend`` is not one of the supported values; or
-            ``max_constants`` / ``max_expr_length`` is not an ``int`` or numpy integer (``bool`` is
-            rejected). Errors about ``default_constant`` name it in the message.
+            ``"random"`` or ``"mean"``; or ``backend`` is not one of the supported values. Errors
+            about ``default_constant`` name it in the message.
 
     Attributes:
         symbol_library: The symbol library used.
@@ -130,10 +125,6 @@ class ParameterEstimator:
                 if k in kwargs:
                     self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
 
-        for key in ("max_constants", "max_expr_length"):
-            value = self.estimation_settings[key]  # type: ignore[literal-required]
-            self.estimation_settings[key] = _validate_limit(value, key, allow_negative=True)  # type: ignore[literal-required]
-
         given = self.estimation_settings["default_constant"]
         if given is None:
             self.default_constant: Constant = uniform_default(self.estimation_settings["constant_bounds"])
@@ -163,12 +154,10 @@ class ParameterEstimator:
     ) -> Tuple[float, np.ndarray]:
         """Fit free constants in *expr* by minimizing RMSE against the target values.
 
-        Expressions that exceed a non-negative ``max_constants`` or ``max_expr_length``
-        immediately return ``(NaN, [])``; the counts are those of
-        [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] and
-        [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] (a tree is written out with
-        ``to_list`` before its tokens are counted; fixed constants count). Expressions with no free
-        constants, or only fixed ones, are evaluated directly without running the optimizer.
+        Expressions without free parameters (no constants, or only fixed ones) are evaluated directly,
+        without running the optimizer. Limits on the number of constants or tokens are not checked
+        here; [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] enforces them as
+        required constraints.
 
         Args:
             expr: Expression as a token list in infix notation or a
@@ -182,8 +171,7 @@ class ParameterEstimator:
             that gave it, one per parameter in the order of
             [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels], fixed values
             included. If no evaluation was finite, ``rmse`` is ``nan`` or ``inf`` and the free
-            entries of ``parameters`` are the optimizer's final point. ``(NaN, [])`` if the
-            expression exceeds ``max_constants`` or ``max_expr_length``.
+            entries of ``parameters`` are the optimizer's final point.
 
         Raises:
             ValueError: If a spec in ``free_constants`` has no label, two specs share a label, a
@@ -229,7 +217,7 @@ class ParameterEstimator:
             A 3-tuple ``(rmse, parameters, info)``. ``rmse`` and ``parameters`` are as in
             ``estimate_parameters``, so ``rmse`` is non-finite (``nan`` or ``inf``) if no
             evaluation was finite. ``info`` is empty when the optimizer did not run (no free
-            constants, only fixed ones, or a violated limit). Otherwise it holds:
+            constants, or only fixed ones). Otherwise it holds:
 
             - ``converged``: ``scipy``'s ``success`` flag;
             - ``evaluations``: RMSE computations (``nfev``), finite-difference gradient included;
@@ -253,14 +241,9 @@ class ParameterEstimator:
             >>> info["converged"], info["evaluations"] >= info["iterations"]
             (True, True)
         """
-        # Count on the infix token list, brackets included, as SR_evaluator does, so both apply the
-        # limits identically. (For a Node, len() would count tree nodes, without brackets.)
+        # Infix tokens: the specs are resolved against them, and they seed the random starting point.
         tokens = _as_tokens(expr, self.symbol_library)
         specs = resolve_constants(tokens, free_constants, self.default_constant, self.symbol_library)
-        if 0 <= self.estimation_settings["max_constants"] < len(specs):
-            return np.nan, np.array([]), {}
-        if 0 <= self.estimation_settings["max_expr_length"] < len(tokens):
-            return np.nan, np.array([]), {}
 
         executable_error_fn = compile_expr_rmse(
             expr,

@@ -236,8 +236,7 @@ class RMSERanking(RankingFunction):
             symbol_library: Token vocabulary.
             seed: Seed for the random initial values of the constants.
             settings: Estimation settings (``method``, ``tol``, ``constant_bounds``,
-                ``default_constant``, ``max_constants``, …) and ``ground_truth_constants``; other
-                keys are ignored.
+                ``default_constant``, …) and ``ground_truth_constants``; other keys are ignored.
 
         Raises:
             ValueError: If neither ``y`` nor ``ground_truth`` is given, or ``y`` must be generated

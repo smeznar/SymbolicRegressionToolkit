@@ -122,16 +122,17 @@ class RankingSettings(TypedDict, total=False):
             [parameter_estimator][SRToolkit.evaluation.parameter_estimator]. Default: ``"random"``.
         max_constants: Maximum number of free constants in an expression (counted as by
             [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]), an ``int`` or numpy
-            integer (``bool`` and other types raise ``ValueError``). For the evaluator, a
-            shorthand for the required constraint
+            integer (``bool`` and other types raise ``ValueError``). Read only by the evaluator
+            and datasets, not by rankings or ``ParameterEstimator``: a shorthand for the required
+            constraint
             [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]: an expression
             with more gets status ``"rejected"`` and error ``+inf``, for every ranking. A negative
             value disables the limit. Adds nothing if the evaluator's ``required_constraints``
             already contain a ``MaxConstants``; a non-negative setting given together with one
             must have the same limit. Default: ``8``.
         max_expr_length: Maximum expression length in infix tokens, brackets included; same type
-            rules as ``max_constants``. For the evaluator, a shorthand for the required constraint
-            [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens], enforced like
+            rules as ``max_constants``. Read only by the evaluator and datasets: a shorthand for the
+            required constraint [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens], enforced like
             ``max_constants``. A negative value disables the limit. Same rule for a
             ``MaxTokens`` in ``required_constraints``. Default: ``-1``.
         backend: Backend used to compile expressions, by both rankings (``ParameterEstimator`` and BED).

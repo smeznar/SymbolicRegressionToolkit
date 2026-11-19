@@ -1779,8 +1779,6 @@ class TestConstraintSetup:
         assert isinstance(se.required_constraints, tuple)
         assert [(type(c).__name__, c.limit) for c in se.required_constraints] == expected
         assert all(c.symbol_library is se.symbol_library for c in se.required_constraints)
-        assert se.parameter_estimator.estimation_settings["max_constants"] == -1
-        assert se.parameter_estimator.estimation_settings["max_expr_length"] == -1
 
     def test_constraints_stored_as_set_up_shallow_copies(self):
         given = OutputBounds([[1.0, 1.0]], lower=0.0)

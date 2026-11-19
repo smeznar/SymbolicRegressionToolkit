@@ -377,12 +377,9 @@ class HoldoutMetric(ResultAugmenter):
             ground_truth: Ground-truth expression passed to a ``RankingFunction`` metric's setup
                 (e.g. for BED). Unused otherwise.
             ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting
-                constants on the held-out data (e.g. ``constant_bounds``, ``default_constant``,
-                ``max_constants``). Pass ``dataset.ranking_settings()`` to fit under the same
-                settings as the search (the default spec included). ``max_constants`` and
-                ``max_expr_length`` apply only if given here: a missing one means no limit, not the
-                estimator's default of 8 constants, because the search already enforced its limits
-                (including its required constraints) on every model it scored ``"ok"``.
+                constants on the held-out data (e.g. ``constant_bounds``, ``default_constant``).
+                Pass ``dataset.ranking_settings()`` to fit under the same settings as the search
+                (the default spec included).
             seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
                 A ``ranking_seed`` in ``ranking_settings`` overrides it for a ranking metric, but
                 not for the refit of a string or callable metric. Default ``0``.
@@ -412,10 +409,6 @@ class HoldoutMetric(ResultAugmenter):
         self.seed = seed
         self.refit_constants = refit_constants
         self.ranking_settings: Dict[str, Any] = dict(ranking_settings or {})
-        # The search enforced its own limits on every model it scored "ok". Apply only the limits
-        # given here: the estimator's defaults (max_constants=8) could reject models the search
-        # accepted, e.g. under a required MaxConstants(20).
-        self._fit_settings: Dict[str, Any] = {"max_constants": -1, "max_expr_length": -1, **self.ranking_settings}
         self._estimator: Optional[ParameterEstimator] = None
 
         if isinstance(data, tuple):
@@ -441,14 +434,14 @@ class HoldoutMetric(ResultAugmenter):
             # with an SR_evaluator or another HoldoutMetric).
             self.metric = copy.deepcopy(metric)
             # As in SR_evaluator, a ranking_seed replaces the seed for the ranking.
-            ranking_seed = self._fit_settings.get("ranking_seed")
+            ranking_seed = self.ranking_settings.get("ranking_seed")
             self.metric.setup(
                 self._X,
                 self._y,
                 ground_truth,
                 symbol_library,
                 seed if ranking_seed is None else ranking_seed,
-                self._fit_settings,
+                self.ranking_settings,
             )
         elif isinstance(metric, str):
             self._ranking_mode = False
@@ -498,9 +491,8 @@ class HoldoutMetric(ResultAugmenter):
                 parameters = np.array([])
             elif parameters is None:
                 fit_error, parameters = self._fit_parameters(expr, model.free_constants)
-                # The fit rejected the expression (e.g. over max_constants) and returned no
-                # constants; scoring with an empty array would read past it.
-                if np.isnan(fit_error):
+                # No evaluation of the fit was finite: the expression is undefined on the held-out data.
+                if not np.isfinite(fit_error):
                     return float("nan")
             return evaluate_metric(expr, parameters, self._X, self._y, self.metric, self.symbol_library)
         except Exception as e:
@@ -518,7 +510,7 @@ class HoldoutMetric(ResultAugmenter):
         assert self._y is not None
         if self._estimator is None:
             self._estimator = ParameterEstimator(
-                self._X, self._y, self.symbol_library, seed=self.seed, **self._fit_settings
+                self._X, self._y, self.symbol_library, seed=self.seed, **self.ranking_settings
             )
         return self._estimator.estimate_parameters(expr, free_constants)
 

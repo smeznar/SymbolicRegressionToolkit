@@ -404,6 +404,10 @@ def _as_constraint_tuple(constraints: Any, name: str) -> Tuple[ExpressionConstra
     return items
 
 
+# Defaults of the limit settings, turned into MaxConstants / MaxTokens (negative = none).
+_DEFAULT_LIMITS: Dict[str, int] = {"max_constants": 8, "max_expr_length": -1}
+
+
 def _add_limit_constraints_from_kwargs(
     constraints: Tuple[ExpressionConstraint, ...], kwargs: Mapping[str, Any]
 ) -> Tuple[ExpressionConstraint, ...]:
@@ -412,7 +416,7 @@ def _add_limit_constraints_from_kwargs(
     # constraint of its class; a given non-negative setting with a different limit is a ValueError.
     built: List[ExpressionConstraint] = []
     for key, cls in (("max_constants", MaxConstants), ("max_expr_length", MaxTokens)):
-        value = _validate_limit(kwargs.get(key, DEFAULT_ESTIMATION_SETTINGS[key]), key, allow_negative=True)
+        value = _validate_limit(kwargs.get(key, _DEFAULT_LIMITS[key]), key, allow_negative=True)
         # cls is MaxConstants or MaxTokens, so every listed constraint has a limit.
         listed = cast(List[Union[MaxConstants, MaxTokens]], [c for c in constraints if isinstance(c, cls)])
         if not listed:
@@ -537,9 +541,7 @@ class SR_evaluator:
             reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
                 start from.
             **kwargs: Settings from [RankingSettings][SRToolkit.utils.types.RankingSettings],
-                passed to the ranking function. The ranking's parameter estimator gets
-                ``max_constants`` and ``max_expr_length`` as ``-1``, since the evaluator enforces
-                them. A partial ``default_constant`` template is completed from
+                passed to the ranking function. A partial ``default_constant`` template is completed from
                 ``constant_bounds`` (as by ``BackgroundKnowledge``) before the ranking gets it.
 
         Raises:
@@ -645,10 +647,8 @@ class SR_evaluator:
 
         # The ranking function owns all of its data-derived state (parameter estimator for RMSE,
         # behaviour matrix + evaluation points bed_X for BED); the evaluator just calls score().
-        # The evaluator enforces the limits itself, so the ranking's parameter estimator does not.
-        ranking_settings: Dict[str, Any] = dict(kwargs)
-        ranking_settings["max_constants"] = -1
-        ranking_settings["max_expr_length"] = -1
+        # The limits are enforced here, as required constraints; the ranking does not get them.
+        ranking_settings: Dict[str, Any] = {k: v for k, v in kwargs.items() if k not in _DEFAULT_LIMITS}
         ranking_settings["default_constant"] = self.default_constant  # completed by the background knowledge
         self.ranking: RankingFunction = build_ranking(ranking_function)
         # A ranking_seed (fixed per dataset) replaces the evaluator's seed here, so every ranking,
