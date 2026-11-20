@@ -34,7 +34,8 @@ Python version. With ``seed=None`` every fit draws a fresh random starting point
 
 import hashlib
 import math
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from collections.abc import Callable, Sequence
+from typing import Any
 
 import numpy as np
 from scipy.optimize import minimize
@@ -47,7 +48,7 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import RankingSettings
 
 # The settings ParameterEstimator reads, with their defaults. Any other keys passed in are ignored.
-DEFAULT_ESTIMATION_SETTINGS: Dict[str, Any] = {
+DEFAULT_ESTIMATION_SETTINGS: dict[str, Any] = {
     "method": "L-BFGS-B",
     "tol": 1e-6,
     "gtol": 1e-3,
@@ -107,8 +108,8 @@ class ParameterEstimator:
         self,
         X: np.ndarray,
         y: np.ndarray,
-        symbol_library: Optional[SymbolLibrary] = None,
-        seed: Optional[int] = None,
+        symbol_library: SymbolLibrary | None = None,
+        seed: int | None = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
         if symbol_library is None:
@@ -150,8 +151,8 @@ class ParameterEstimator:
             )
 
     def estimate_parameters(
-        self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None
-    ) -> Tuple[float, np.ndarray]:
+        self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None
+    ) -> tuple[float, np.ndarray]:
         """Fit free constants in *expr* by minimizing RMSE against the target values.
 
         Expressions without free parameters (no constants, or only fixed ones) are evaluated directly,
@@ -201,8 +202,8 @@ class ParameterEstimator:
         return rmse, parameters
 
     def estimate_parameters_with_info(
-        self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None
-    ) -> Tuple[float, np.ndarray, Dict[str, Any]]:
+        self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None
+    ) -> tuple[float, np.ndarray, dict[str, Any]]:
         """Fit free constants in *expr* and report how the optimizer ended.
 
         Like [estimate_parameters][SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters],
@@ -265,11 +266,11 @@ class ParameterEstimator:
         self,
         executable_error_fn: Callable,
         specs: Sequence[Constant],
-        free: List[int],
+        free: list[int],
         parameters: np.ndarray,
-        tokens: List[str],
+        tokens: list[str],
         spec_key: str,
-    ) -> Tuple[float, np.ndarray, Dict[str, Any]]:
+    ) -> tuple[float, np.ndarray, dict[str, Any]]:
         """Run the optimizer over the free parameters of *executable_error_fn*.
 
         Args:
@@ -306,7 +307,7 @@ class ParameterEstimator:
         # Remember the best finite value evaluated: L-BFGS-B reports NaN as its result when a step
         # lands where the expression is undefined, discarding what it had already found.
         best_value = np.inf
-        best_constants: Optional[np.ndarray] = None
+        best_constants: np.ndarray | None = None
 
         def objective(c: np.ndarray) -> float:
             nonlocal best_value, best_constants
@@ -329,7 +330,7 @@ class ParameterEstimator:
             # An infinite end is passed as None: no bound on that side.
             bounds=[tuple(None if math.isinf(b) else b for b in s.bounds) for s in free_specs],  # type: ignore[union-attr]
         )
-        info: Dict[str, Any] = {
+        info: dict[str, Any] = {
             "converged": bool(res.success),
             "evaluations": int(res.nfev),
             "iterations": int(res.nit),
@@ -340,7 +341,7 @@ class ParameterEstimator:
             return res.fun, full(res.x), info
         return best_value, best_constants, info
 
-    def _starting_point(self, specs: Sequence[Constant], rng: Optional[np.random.Generator]) -> np.ndarray:
+    def _starting_point(self, specs: Sequence[Constant], rng: np.random.Generator | None) -> np.ndarray:
         """Return the starting point of a fit, one value per spec (all free, prior and bounds set).
 
         A spec's ``value`` if given, else a point from its prior: drawn with ``rng``

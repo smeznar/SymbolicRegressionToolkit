@@ -1,7 +1,5 @@
 """Nguyen symbolic regression benchmark."""
 
-from typing import Optional
-
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 from .data_source import FallbackSource, SampleSource, UrlSource
@@ -38,7 +36,7 @@ class Nguyen(SR_benchmark):
     def __init__(
         self,
         n_samples: int = 10000,
-        seed: Optional[int] = 42,
+        seed: int | None = 42,
         force_generate: bool = False,
     ):
         super().__init__("Nguyen", version="1.0.0")

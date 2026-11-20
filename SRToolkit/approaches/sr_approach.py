@@ -2,8 +2,9 @@
 
 import importlib
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 
 
-def check_dependencies(packages: List[str]) -> None:
+def check_dependencies(packages: list[str]) -> None:
     """Verify that optional heavy dependencies are installed, raising a descriptive error if not.
 
     Args:
@@ -211,7 +212,7 @@ class SR_approach(ABC):
         pass
 
     @abstractmethod
-    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
+    def search(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
         """Run the symbolic regression search.
 
         Implementations must call ``sr_evaluator.evaluate_expr(expr)`` to score

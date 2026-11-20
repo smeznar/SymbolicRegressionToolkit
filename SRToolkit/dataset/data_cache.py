@@ -9,13 +9,14 @@ datasets, and also houses the materialisation engine used internally by the
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import json
 import shutil
 import warnings
 import zipfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version as PkgVersion
 from platformdirs import user_data_dir
@@ -71,7 +72,7 @@ def _meta_path(cache_path: Path) -> Path:
     return cache_path.with_name(cache_path.stem + ".meta.json")
 
 
-def _read_meta(cache_path: Path) -> Optional[dict]:
+def _read_meta(cache_path: Path) -> dict | None:
     mp = _meta_path(cache_path)
     if mp.exists():
         try:
@@ -95,7 +96,7 @@ def resolve(
     benchmark: str,
     version: str,
     key: str,
-    config: Optional[dict] = None,
+    config: dict | None = None,
     *,
     force: bool = False,
 ) -> Path:
@@ -244,7 +245,7 @@ def import_archive(archive_path: Path, benchmark: str, version: str) -> None:
         extract_zip_into_version_dir(zf, version_dir, flat_fallback=False)
 
 
-def list() -> List[Dict[str, Any]]:
+def list() -> builtins.list[dict[str, Any]]:
     """List all datasets currently stored in the cache.
 
     Walks ``data_root()`` and returns one dict per cached dataset (its main ``.npz``; a
@@ -255,7 +256,7 @@ def list() -> List[Dict[str, Any]]:
         ``path``, and ``size_bytes``.
     """
     root = data_root()
-    entries: List[Dict[str, Any]] = []
+    entries: builtins.list[dict[str, Any]] = []
     if not root.exists():
         return entries
 
@@ -282,7 +283,7 @@ def list() -> List[Dict[str, Any]]:
     return entries
 
 
-def gc(keep_latest: bool = True) -> List[Path]:
+def gc(keep_latest: bool = True) -> builtins.list[Path]:
     """Garbage-collect the data cache.
 
     Args:
@@ -294,7 +295,7 @@ def gc(keep_latest: bool = True) -> List[Path]:
         A list of ``Path`` objects that were removed.
     """
     root = data_root()
-    removed: List[Path] = []
+    removed: builtins.list[Path] = []
     if not root.exists():
         return removed
 
@@ -330,7 +331,7 @@ def gc(keep_latest: bool = True) -> List[Path]:
     return removed
 
 
-def remove(benchmark: str, version: Optional[str] = None, key: Optional[str] = None) -> List[Path]:
+def remove(benchmark: str, version: str | None = None, key: str | None = None) -> builtins.list[Path]:
     """Remove a specific cached benchmark, version, or dataset.
 
     The deletion granularity widens as fewer arguments are given:
@@ -352,7 +353,7 @@ def remove(benchmark: str, version: Optional[str] = None, key: Optional[str] = N
     Returns:
         List of paths that were removed.
     """
-    removed: List[Path] = []
+    removed: builtins.list[Path] = []
     root = data_root()
     if not root.exists():
         return removed

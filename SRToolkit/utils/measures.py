@@ -49,8 +49,9 @@ Parameters are validated only when they are used. Invalid arguments raise ``Type
 ``ValueError`` with a message that names the offending parameter.
 """
 
+from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union, cast
+from typing import cast
 
 import numpy as np
 import zss
@@ -64,13 +65,13 @@ from .symbol_library import SymbolLibrary
 _NOTATIONS = ("infix", "prefix", "postfix")
 
 
-def _check_interval(bounds: Tuple[float, float], name: str) -> None:
+def _check_interval(bounds: tuple[float, float], name: str) -> None:
     """Raise ``ValueError`` unless ``bounds`` is an interval with ``lower < upper``."""
     if not bounds[0] < bounds[1]:
         raise ValueError(f"{name} must satisfy lower < upper, got {tuple(bounds)}.")
 
 
-def _levenshtein(a: List[str], b: List[str]) -> int:
+def _levenshtein(a: list[str], b: list[str]) -> int:
     """Return the Levenshtein distance between two token sequences.
 
     Returns:
@@ -88,10 +89,10 @@ def _levenshtein(a: List[str], b: List[str]) -> int:
 
 
 def edit_distance(
-    expr1: Union[List[str], Node],
-    expr2: Union[List[str], Node],
+    expr1: list[str] | Node,
+    expr2: list[str] | Node,
     notation: str = "postfix",
-    symbol_library: Optional[SymbolLibrary] = None,
+    symbol_library: SymbolLibrary | None = None,
 ) -> int:
     """Return the Levenshtein distance between the token sequences of two expressions.
 
@@ -153,9 +154,9 @@ def _expr_to_zss(expr: Node) -> zss.Node:
 
 
 def tree_edit_distance(
-    expr1: Union[Node, List[str]],
-    expr2: Union[Node, List[str]],
-    symbol_library: Optional[SymbolLibrary] = None,
+    expr1: Node | list[str],
+    expr2: Node | list[str],
+    symbol_library: SymbolLibrary | None = None,
 ) -> int:
     """Return the Zhang-Shasha tree edit distance between two expressions.
 
@@ -205,15 +206,15 @@ def _unit_label_cost(a: str, b: str) -> int:
 
 
 def create_behavior_matrix(
-    expr: Union[Node, List[str]],
+    expr: Node | list[str],
     X: np.ndarray,
     num_consts_sampled: int = 32,
-    consts_bounds: Tuple[float, float] = (-5, 5),
-    symbol_library: Optional[SymbolLibrary] = None,
-    seed: Optional[int] = None,
+    consts_bounds: tuple[float, float] = (-5, 5),
+    symbol_library: SymbolLibrary | None = None,
+    seed: int | None = None,
     backend: str = "stack",
-    free_constants: Optional[Sequence[Constant]] = None,
-    default_constant: Optional[Constant] = None,
+    free_constants: Sequence[Constant] | None = None,
+    default_constant: Constant | None = None,
 ) -> np.ndarray:
     """Evaluate an expression at the points ``X`` for many sampled constant vectors.
 
@@ -382,19 +383,19 @@ def _vectorized_wasserstein_batch(expr1: np.ndarray, expr2: np.ndarray) -> np.nd
 
 
 def bed(
-    expr1: Union[Node, List[str], np.ndarray],
-    expr2: Union[Node, List[str], np.ndarray],
-    X: Optional[np.ndarray] = None,
+    expr1: Node | list[str] | np.ndarray,
+    expr2: Node | list[str] | np.ndarray,
+    X: np.ndarray | None = None,
     num_consts_sampled: int = 32,
     num_points_sampled: int = 64,
-    domain_bounds: Optional[List[Tuple[float, float]]] = None,
-    consts_bounds: Tuple[float, float] = (-5, 5),
-    symbol_library: Optional[SymbolLibrary] = None,
-    seed: Optional[int] = None,
+    domain_bounds: list[tuple[float, float]] | None = None,
+    consts_bounds: tuple[float, float] = (-5, 5),
+    symbol_library: SymbolLibrary | None = None,
+    seed: int | None = None,
     backend: str = "stack",
-    free_constants1: Optional[Sequence[Constant]] = None,
-    free_constants2: Optional[Sequence[Constant]] = None,
-    default_constant: Optional[Constant] = None,
+    free_constants1: Sequence[Constant] | None = None,
+    free_constants2: Sequence[Constant] | None = None,
+    default_constant: Constant | None = None,
 ) -> float:
     """Return the Behavior-aware Expression Dissimilarity (BED) between two expressions.
 
@@ -505,8 +506,8 @@ def bed(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     # Expressions become Node trees (parsed once); matrices are checked for shape.
-    trees: Dict[str, Node] = {}
-    matrices: Dict[str, np.ndarray] = {}
+    trees: dict[str, Node] = {}
+    matrices: dict[str, np.ndarray] = {}
     for name, arg in (("expr1", expr1), ("expr2", expr2)):
         if isinstance(arg, np.ndarray):
             if arg.ndim != 2 or arg.shape[1] == 0:
@@ -558,9 +559,9 @@ def _sample_points(
     expr1: Node,
     expr2: Node,
     num_points_sampled: int,
-    domain_bounds: Optional[List[Tuple[float, float]]],
+    domain_bounds: list[tuple[float, float]] | None,
     symbol_library: SymbolLibrary,
-    seed: Optional[int],
+    seed: int | None,
 ) -> np.ndarray:
     """Return ``num_points_sampled`` Latin Hypercube points in ``domain_bounds``, for ``bed``.
 
@@ -639,7 +640,7 @@ model's fitted constants already bound in.
 """
 
 
-def _predictions_and_targets(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def _predictions_and_targets(predict: PredictFn, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Call ``predict(X)`` and return the predictions and targets as float arrays of shape ``(n_samples,)``.
 
     Returns:
@@ -667,9 +668,7 @@ def _mean_squared_error(y_pred: np.ndarray, y: np.ndarray) -> float:
     return float(np.mean((y_pred - y) ** 2))
 
 
-def _normalised_metric_special_value(
-    y_pred: np.ndarray, y: np.ndarray, perfect: float, worst: float
-) -> Optional[float]:
+def _normalised_metric_special_value(y_pred: np.ndarray, y: np.ndarray, perfect: float, worst: float) -> float | None:
     """Return the special value of [r2][SRToolkit.utils.measures.r2] / [nrmse][SRToolkit.utils.measures.nrmse], if any.
 
     Returns:

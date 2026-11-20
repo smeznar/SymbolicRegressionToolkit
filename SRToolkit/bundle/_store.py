@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Optional
 
 from packaging.version import Version
 from platformdirs import user_data_dir
@@ -38,14 +37,14 @@ def _index_path() -> Path:
     return bundles_root() / "index.json"
 
 
-def _read_index() -> Dict[str, dict]:
+def _read_index() -> dict[str, dict]:
     p = _index_path()
     if not p.exists():
         return {}
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-def _write_index(index: Dict[str, dict]) -> None:
+def _write_index(index: dict[str, dict]) -> None:
     _index_path().write_text(json.dumps(index, indent=2), encoding="utf-8")
 
 
@@ -93,7 +92,7 @@ def deregister(name: str, version: str) -> None:
     _write_index(index)
 
 
-def lookup(name: str, version: Optional[str] = None) -> dict:
+def lookup(name: str, version: str | None = None) -> dict:
     """Return the index entry for the bundle. If version is None, return the latest."""
     index = _read_index()
     if version is not None:

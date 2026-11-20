@@ -14,9 +14,8 @@ directly after the assignment); long values are truncated. By default, private n
 import ast
 import inspect
 import sys
-from typing import List, Optional, Tuple, Union
 
-_Def = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef]
+_Def = ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
 _MAX_VALUE_WIDTH = 200
 
 
@@ -34,7 +33,7 @@ def _header(node: _Def) -> str:
     return f"{prefix} {node.name}({ast.unparse(node.args)}){returns}:"
 
 
-def _assignment(node: ast.stmt) -> Optional[Tuple[str, str]]:
+def _assignment(node: ast.stmt) -> tuple[str, str] | None:
     """Return ``(name, rendered line)`` for a single-target assignment, else ``None``."""
     if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
         value = f" = {ast.unparse(node.value)}" if node.value is not None else ""
@@ -44,7 +43,7 @@ def _assignment(node: ast.stmt) -> Optional[Tuple[str, str]]:
     return None
 
 
-def _attribute_docstring(body: List[ast.stmt], index: int) -> Optional[str]:
+def _attribute_docstring(body: list[ast.stmt], index: int) -> str | None:
     """Return the string literal directly following ``body[index]`` (an attribute docstring), if any."""
     if index + 1 < len(body):
         nxt = body[index + 1]
@@ -53,7 +52,7 @@ def _attribute_docstring(body: List[ast.stmt], index: int) -> Optional[str]:
     return None
 
 
-def _show(parent: Union[ast.Module, ast.ClassDef], include_private: bool, indent: str = "") -> None:
+def _show(parent: ast.Module | ast.ClassDef, include_private: bool, indent: str = "") -> None:
     for index, node in enumerate(parent.body):
         assignment = _assignment(node)
         if assignment is not None:

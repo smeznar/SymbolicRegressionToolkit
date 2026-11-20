@@ -12,7 +12,6 @@ import time
 from abc import ABC
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import List, Optional, Union
 
 from tqdm import tqdm
 
@@ -77,9 +76,9 @@ class ExperimentEvent:
 
     dataset_name: str
     approach_name: str
-    max_evaluations: Optional[int]
-    success_threshold: Optional[float]
-    seed: Optional[int]
+    max_evaluations: int | None
+    success_threshold: float | None
+    seed: int | None
 
 
 class SRCallbacks(ABC):
@@ -99,7 +98,7 @@ class SRCallbacks(ABC):
         New best: X_0+C (error=0.01)
     """
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
+    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
         """Called after each expression is evaluated.
 
         Args:
@@ -110,7 +109,7 @@ class SRCallbacks(ABC):
         """
         return None
 
-    def on_best_expression(self, event: BestExpressionFound) -> Optional[bool]:
+    def on_best_expression(self, event: BestExpressionFound) -> bool | None:
         """Called when a new best expression is found.
 
         Args:
@@ -216,16 +215,16 @@ class CallbackDispatcher:
         1
     """
 
-    def __init__(self, callbacks: Optional[List[SRCallbacks]] = None):
+    def __init__(self, callbacks: list[SRCallbacks] | None = None):
         """Args:
         callbacks: Initial list of callbacks. Defaults to an empty list.
         """
         if callbacks is None:
-            self._callbacks: List[SRCallbacks] = []
+            self._callbacks: list[SRCallbacks] = []
         else:
             self._callbacks = callbacks
 
-    def get_callbacks(self) -> List[SRCallbacks]:
+    def get_callbacks(self) -> list[SRCallbacks]:
         """Returns the list of callbacks.
 
         Returns:
@@ -313,7 +312,7 @@ class ProgressBarCallback(SRCallbacks):
         'My search'
     """
 
-    def __init__(self, desc: Optional[str] = None):
+    def __init__(self, desc: str | None = None):
         """Args:
         desc: Description label shown on the progress bar. If ``None``, the label
             is auto-generated as ``"<approach> on <dataset>"`` when the experiment starts.
@@ -328,7 +327,7 @@ class ProgressBarCallback(SRCallbacks):
         else:
             self.pbar = tqdm(desc=desc, unit=" expr")
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
+    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
         if self.pbar is not None:
             self.pbar.update(1)
         return None
@@ -357,7 +356,7 @@ class EarlyStoppingCallback(SRCallbacks):
         True
     """
 
-    def __init__(self, threshold: Optional[float], max_evaluations: Optional[int] = None):
+    def __init__(self, threshold: float | None, max_evaluations: int | None = None):
         """Args:
         threshold: Error value below which the search is stopped. If ``None``, the
             experiment's ``success_threshold`` is used when the experiment starts.
@@ -374,12 +373,12 @@ class EarlyStoppingCallback(SRCallbacks):
         if self.max_evaluations is None and event.max_evaluations is not None and event.max_evaluations > 0:
             self.max_evaluations = event.max_evaluations
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
+    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
         if self.max_evaluations is not None and event.evaluation_number >= self.max_evaluations >= 0:
             return False
         return True
 
-    def on_best_expression(self, event: BestExpressionFound) -> Optional[bool]:
+    def on_best_expression(self, event: BestExpressionFound) -> bool | None:
         if self.threshold is not None and event.error < self.threshold:
             return False
         return True
@@ -410,7 +409,7 @@ class TimeLimitCallback(SRCallbacks):
         120.0
     """
 
-    def __init__(self, time_limit: Union[float, timedelta]):
+    def __init__(self, time_limit: float | timedelta):
         """Args:
             time_limit: Maximum wall-clock duration before the search is stopped at the next
                 expression evaluation. Either a number of seconds or a
@@ -425,12 +424,12 @@ class TimeLimitCallback(SRCallbacks):
         if time_limit <= 0:
             raise ValueError(f"time_limit must be strictly positive, got {time_limit}.")
         self.time_limit: float = time_limit
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
         self._start_time = time.monotonic()
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> Optional[bool]:
+    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
         if self._start_time is not None:
             if time.monotonic() - self._start_time >= self.time_limit:
                 return False
@@ -469,7 +468,7 @@ class LoggingCallback(SRCallbacks):
         'logs/test_1.log'
     """
 
-    def __init__(self, log_file: Optional[str] = None):
+    def __init__(self, log_file: str | None = None):
         """Args:
         log_file: Destination for log messages.  If ``None``, messages are
             printed to stdout.  May be a plain path or a template string with
@@ -477,7 +476,7 @@ class LoggingCallback(SRCallbacks):
             that are resolved when the experiment starts.
         """
         self.log_file = log_file
-        self._resolved_log_file: Optional[str] = log_file
+        self._resolved_log_file: str | None = log_file
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
         if self.log_file is not None:

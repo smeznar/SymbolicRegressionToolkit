@@ -7,9 +7,10 @@ import itertools
 import math
 import string
 import warnings
+from collections.abc import Iterator
 from copy import copy
 from functools import lru_cache
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -32,7 +33,7 @@ class ExpressionParseError(ValueError):
 
 
 class Node:
-    def __init__(self, symbol: str, right: Optional["Node"] = None, left: Optional["Node"] = None) -> None:
+    def __init__(self, symbol: str, right: "Node | None" = None, left: "Node | None" = None) -> None:
         """A node in a binary expression tree.
 
         - Binary operators (``"op"``) set both ``left`` and ``right``.
@@ -59,7 +60,7 @@ class Node:
         self.right = right
         self.left = left
 
-    def to_list(self, symbol_library: Optional[SymbolLibrary] = None, notation: str = "infix") -> List[str]:
+    def to_list(self, symbol_library: SymbolLibrary | None = None, notation: str = "infix") -> list[str]:
         """Transforms the tree rooted at this node into a list of tokens.
 
         Examples:
@@ -170,7 +171,7 @@ class Node:
                 "Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix')."
             )
 
-    def to_latex(self, symbol_library: Optional[SymbolLibrary] = None) -> str:
+    def to_latex(self, symbol_library: SymbolLibrary | None = None) -> str:
         r"""Return the tree rooted at this node as a LaTeX string.
 
         A labelled constant shows its label's digits as written (``C_5`` → ``C_{5}``), and bare
@@ -247,7 +248,7 @@ class Node:
     @staticmethod
     def _latex_needs_brackets(
         child: "Node",
-        placeholder: Tuple[bool, bool],
+        placeholder: tuple[bool, bool],
         precedence: int,
         is_right: bool,
         symbol_library: SymbolLibrary,
@@ -343,7 +344,7 @@ class Node:
 
 
 @lru_cache(maxsize=None)
-def _latex_placeholders(template: str) -> Tuple[Tuple[bool, bool], ...]:
+def _latex_placeholders(template: str) -> tuple[tuple[bool, bool], ...]:
     # For each {} placeholder in a LaTeX template, in order: whether the template wraps it in
     # braces (so it is already grouped), and whether it is the base of a super- or subscript.
     # Cached, since each symbol has one fixed template; a tuple, so callers cannot change it.
@@ -418,7 +419,7 @@ def _check_tokens(tokens: Any, name: str) -> None:
             )
 
 
-def _as_tree(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: str = "expr") -> "Node":
+def _as_tree(expr: Any, symbol_library: SymbolLibrary | None = None, name: str = "expr") -> "Node":
     """Return an expression given as an infix token list or a Node as a Node tree.
 
     The single place where SRToolkit accepts "a token list or a Node": token lists are checked and
@@ -440,7 +441,7 @@ def _as_tree(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: st
     return tokens_to_tree(expr, symbol_library)
 
 
-def _as_tokens(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: str = "expr") -> List[str]:
+def _as_tokens(expr: Any, symbol_library: SymbolLibrary | None = None, name: str = "expr") -> list[str]:
     """Return an expression given as an infix token list or a Node as an infix token list.
 
     The counterpart of [_as_tree][SRToolkit.utils.expression_tree._as_tree]: a token list is checked
@@ -462,7 +463,7 @@ def _as_tokens(expr: Any, symbol_library: Optional[SymbolLibrary] = None, name: 
     return expr
 
 
-def _constant_indices(tokens: List[str], symbol_library: SymbolLibrary) -> List[int]:
+def _constant_indices(tokens: list[str], symbol_library: SymbolLibrary) -> list[int]:
     """Return the parameter index of each free constant in ``tokens``, in token order.
 
     Parameters are numbered by first appearance: every bare constant (a registered ``"const"``
@@ -471,8 +472,8 @@ def _constant_indices(tokens: List[str], symbol_library: SymbolLibrary) -> List[
     numbering is the same in every notation. The single definition of the order, shared by the
     compiler and [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels].
     """
-    slots: Dict[str, int] = {}
-    indices: List[int] = []
+    slots: dict[str, int] = {}
+    indices: list[int] = []
     num_parameters = 0
     for token in tokens:
         symbol = symbol_library.get(token)
@@ -489,9 +490,7 @@ def _constant_indices(tokens: List[str], symbol_library: SymbolLibrary) -> List[
     return indices
 
 
-def parameter_labels(
-    expr: Union[List[str], "Node"], symbol_library: Optional[SymbolLibrary] = None
-) -> List[Optional[str]]:
+def parameter_labels(expr: "list[str] | Node", symbol_library: SymbolLibrary | None = None) -> list[str | None]:
     """Name the entries of a parameter vector.
 
     The fitted values of an expression ([ModelResult.parameters][SRToolkit.utils.types.ModelResult],
@@ -524,14 +523,14 @@ def parameter_labels(
     tokens = _as_tokens(expr, symbol_library)
     constants = [token for token in tokens if (s := symbol_library.get(token)) is not None and s.type == "const"]
     indices = _constant_indices(tokens, symbol_library)
-    labels: List[Optional[str]] = [None] * len(set(indices))
+    labels: list[str | None] = [None] * len(set(indices))
     for token, index in zip(constants, indices):
         if token not in symbol_library.symbols:
             labels[index] = token
     return labels
 
 
-def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notation: str = "infix") -> Node:
+def tokens_to_tree(tokens: list[str], sl: SymbolLibrary | None = None, notation: str = "infix") -> Node:
     """Parse a token list into an expression tree.
 
     Infix token lists are parsed with the shunting-yard algorithm; prefix and
@@ -604,7 +603,7 @@ def tokens_to_tree(tokens: List[str], sl: Optional[SymbolLibrary] = None, notati
         )
 
 
-def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
+def _infix_to_tree(tokens: list[str], sl: SymbolLibrary) -> Node:
     """Parse an infix token list into an expression tree using the shunting-yard algorithm.
 
     The parser tracks whether an operand or an operator comes next, so malformed input is
@@ -628,8 +627,8 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
     def error(reason: str) -> ExpressionParseError:
         return ExpressionParseError(f"Error while parsing expression {expr_str}: {reason}.")
 
-    operator_stack: List[str] = []
-    out_stack: List[Node] = []
+    operator_stack: list[str] = []
+    out_stack: list[Node] = []
 
     def reduce() -> None:
         # The state checks below guarantee that the operands are on the stack.
@@ -707,7 +706,7 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
     return out_stack[0]
 
 
-def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str) -> Node:
+def _prefix_postfix_to_tree(tokens: list[str], sl: SymbolLibrary, notation: str) -> Node:
     """Parse a prefix or postfix token list into an expression tree with a single stack pass.
 
     Prefix and postfix are *mirror images* of each other, not reverses: operands keep
@@ -738,7 +737,7 @@ def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str)
             more than one subtree left on the stack at the end).
     """
     expr_str = "".join(tokens)
-    out_stack: List[Node] = []
+    out_stack: list[Node] = []
     for token in reversed(tokens) if notation == "prefix" else tokens:
         symbol = sl.get(token)
         token_type = None if symbol is None else symbol.type
@@ -775,7 +774,7 @@ def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str)
     return out_stack[0]
 
 
-def expr_to_latex(expr: Union[Node, List[str]], symbol_library: Optional[SymbolLibrary] = None) -> str:
+def expr_to_latex(expr: Node | list[str], symbol_library: SymbolLibrary | None = None) -> str:
     """Convert an expression to a LaTeX string.
 
     Constants are numbered as in [Node.to_latex][SRToolkit.utils.expression_tree.Node.to_latex].

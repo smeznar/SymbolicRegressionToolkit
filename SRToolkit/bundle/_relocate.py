@@ -6,12 +6,12 @@ import ast
 import os
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from . import _store
 
 
-def bundle_class_index(srtk_path: str | os.PathLike) -> Dict[str, List[str]]:
+def bundle_class_index(srtk_path: str | os.PathLike) -> dict[str, list[str]]:
     """Return ``{class_name: [module_stem, ...]}`` for a ``.srtk`` without installing it.
 
     Reads the bundle's ``src/*.py`` entries straight from the archive and parses them
@@ -20,7 +20,7 @@ def bundle_class_index(srtk_path: str | os.PathLike) -> Dict[str, List[str]]:
     [bind_config][SRToolkit.bundle.bind_config] resolves against at load time — so a
     caller can tell which classes a supplied bundle provides before shipping it.
     """
-    index: Dict[str, List[str]] = {}
+    index: dict[str, list[str]] = {}
     with zipfile.ZipFile(srtk_path) as zf:
         for entry in zf.namelist():
             if not entry.startswith("src/") or not entry.endswith(".py"):
@@ -38,14 +38,14 @@ def bundle_class_index(srtk_path: str | os.PathLike) -> Dict[str, List[str]]:
     return index
 
 
-def _scan_classes(base_dir_path: Path) -> Dict[str, List[str]]:
+def _scan_classes(base_dir_path: Path) -> dict[str, list[str]]:
     """Scan ``base_dir_path`` and return a mapping ``class_name -> [module_stem, ...]``.
 
     Bundles use a flat ``src/`` layout, so only the top-level directory is read
     and each module is identified by its file stem. Uses ``ast`` to find
     top-level class definitions without importing the files.
     """
-    index: Dict[str, List[str]] = {}
+    index: dict[str, list[str]] = {}
     root = Path(base_dir_path).resolve()
     for file_path in root.iterdir():
         if file_path.suffix != ".py" or file_path.name == "__init__.py":
@@ -61,7 +61,7 @@ def _scan_classes(base_dir_path: Path) -> Dict[str, List[str]]:
     return index
 
 
-def _rewrite_one(class_path: str, base_dir: str, index: Dict[str, List[str]]) -> str:
+def _rewrite_one(class_path: str, base_dir: str, index: dict[str, list[str]]) -> str:
     if class_path.startswith("SRToolkit."):
         return class_path
     if "." not in class_path:
@@ -75,7 +75,7 @@ def _rewrite_one(class_path: str, base_dir: str, index: Dict[str, List[str]]) ->
     return f"{base_dir}.{chosen}.{cls_name}"
 
 
-def _walk(obj: Any, base_dir: str, index: Dict[str, List[str]]) -> Any:
+def _walk(obj: Any, base_dir: str, index: dict[str, list[str]]) -> Any:
     if isinstance(obj, dict):
         return {
             k: (
@@ -141,8 +141,8 @@ def _auto_bind(config: dict) -> dict:
 
 def bind_config(
     config: dict,
-    bundle_name: Optional[str] = None,
-    version: Optional[str] = None,
+    bundle_name: str | None = None,
+    version: str | None = None,
 ) -> dict:
     """Rewrite ``*_class`` paths in ``config`` to point at an installed bundle.
 

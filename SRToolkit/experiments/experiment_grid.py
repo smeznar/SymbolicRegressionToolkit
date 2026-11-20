@@ -22,9 +22,10 @@ import tempfile
 import time
 import warnings
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Set, Union
+from typing import Any
 
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle import list_installed, read_manifest
@@ -55,7 +56,7 @@ def _iter_class_paths(obj: Any) -> Iterator[str]:
             yield from _iter_class_paths(v)
 
 
-def _warn_missing_class_deps(configs: List[dict]) -> None:
+def _warn_missing_class_deps(configs: list[dict]) -> None:
     """Soft-check that every ``*_class`` path in ``configs`` is importable.
 
     Emits a single warning listing any unimportable classes. Does not raise:
@@ -66,8 +67,8 @@ def _warn_missing_class_deps(configs: List[dict]) -> None:
     Run *after* ``_auto_bind`` so bundle paths are
     already rewritten to their installed import prefix.
     """
-    missing: List[str] = []
-    seen: Set[str] = set()
+    missing: list[str] = []
+    seen: set[str] = set()
     for cfg in configs:
         for class_path in _iter_class_paths(cfg):
             if class_path in seen:
@@ -90,7 +91,7 @@ def _warn_missing_class_deps(configs: List[dict]) -> None:
         )
 
 
-def _warn_if_outdated(writer_version: Optional[str]) -> None:
+def _warn_if_outdated(writer_version: str | None) -> None:
     """Warn if the SRToolkit that wrote a grid is newer than the one loading it."""
     if not writer_version:
         return
@@ -151,9 +152,9 @@ def _classify_dataset_source(cfg: dict) -> "tuple[bool, str]":
     return False, f"referenced via {source_class or 'custom data source'}"
 
 
-def _custom_class_paths(configs: List[dict]) -> List[str]:
+def _custom_class_paths(configs: list[dict]) -> list[str]:
     """Sorted unique ``*_class`` paths that are not built into SRToolkit."""
-    found: Set[str] = set()
+    found: set[str] = set()
     for cfg in configs:
         for class_path in _iter_class_paths(cfg):
             if not class_path.startswith("SRToolkit."):
@@ -161,7 +162,7 @@ def _custom_class_paths(configs: List[dict]) -> List[str]:
     return sorted(found)
 
 
-def _annotate_bundles(obj: Any, class_to_bundle: "Dict[str, tuple[str, str]]") -> Any:
+def _annotate_bundles(obj: Any, class_to_bundle: "dict[str, tuple[str, str]]") -> Any:
     """Deep-copy ``obj``, stamping ``_bundle``/``_version`` onto each dict that directly
     holds a custom ``*_class`` key.
 
@@ -214,11 +215,11 @@ def _describe_class_source(class_path: str) -> str:
 
 
 def _pack_custom_code(
-    configs: List[dict],
+    configs: list[dict],
     bundles_dir: Path,
-    additional_bundles: Optional[List[Union[str, Path]]] = None,
+    additional_bundles: list[str | Path] | None = None,
     strict: bool = False,
-) -> "tuple[List[tuple[str, str, str]], List[tuple[str, str]], Dict[str, tuple[str, str]]]":
+) -> "tuple[list[tuple[str, str, str]], list[tuple[str, str]], dict[str, tuple[str, str]]]":
     """Resolve every non-SRToolkit class referenced by ``configs`` to a shippable bundle.
 
     A custom class is *covered* when some bundle provides a class of that name. Two bundle
@@ -256,12 +257,12 @@ def _pack_custom_code(
     if not custom:
         return [], [], {}
 
-    packed: List["tuple[str, str, str]"] = []
-    manual: List["tuple[str, str]"] = []
-    class_to_bundle: "Dict[str, tuple[str, str]]" = {}
+    packed: list["tuple[str, str, str]"] = []
+    manual: list["tuple[str, str]"] = []
+    class_to_bundle: "dict[str, tuple[str, str]]" = {}
 
     # Read each supplied bundle's manifest + the class names it defines, without installing.
-    supplied: "List[dict]" = []  # {path, manifest, classes, covered}
+    supplied: "list[dict]" = []  # {path, manifest, classes, covered}
     for raw in additional_bundles or []:
         srtk_path = Path(raw)
         manifest = read_manifest(srtk_path)  # raises on a bad/missing archive
@@ -274,9 +275,9 @@ def _pack_custom_code(
     # Partition each custom class to its covering bundle. Supplied bundles take precedence
     # and are matched by class name (mirroring how bind_config resolves on the recipient);
     # installed bundles are matched by the import_prefix the class path already sits under.
-    installed_classes: Dict[str, List[str]] = {}
-    installed_entry: Dict[str, dict] = {}
-    uncovered: List[str] = []
+    installed_classes: dict[str, list[str]] = {}
+    installed_entry: dict[str, dict] = {}
+    uncovered: list[str] = []
     for class_path in custom:
         cls_name = class_path.rpartition(".")[2]
         match = next((b for b in supplied if cls_name in b["classes"]), None)
@@ -384,7 +385,7 @@ class ExperimentInfo:
     seed: int
     result_path: str
     top_k: int = 20
-    adapted_state_path: Optional[str] = None
+    adapted_state_path: str | None = None
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-safe dictionary.
@@ -443,10 +444,10 @@ class ExperimentJob:
 
     def __init__(
         self,
-        dataset: Union[SR_dataset, str, dict],
-        approach: Union[SR_approach, str, dict],
-        info: Union[ExperimentInfo, str, dict],
-        callbacks: Optional[Union[SRCallbacks, List[SRCallbacks], dict, List[dict]]] = None,
+        dataset: SR_dataset | str | dict,
+        approach: SR_approach | str | dict,
+        info: ExperimentInfo | str | dict,
+        callbacks: SRCallbacks | list[SRCallbacks] | dict | list[dict] | None = None,
     ) -> None:
         """Args:
             dataset: The dataset.  One of:
@@ -488,8 +489,8 @@ class ExperimentJob:
             self.info = ExperimentInfo.from_dict(dict(info))
 
         if isinstance(dataset, SR_dataset):
-            self._dataset_instance: Optional[SR_dataset] = dataset
-            self._dataset_dict: Optional[dict] = None
+            self._dataset_instance: SR_dataset | None = dataset
+            self._dataset_dict: dict | None = None
             self.dataset_name: str = dataset.dataset_name
         elif isinstance(dataset, str):
             with open(dataset) as f:
@@ -502,8 +503,8 @@ class ExperimentJob:
             self.dataset_name = self._dataset_dict.get("dataset_name", "unnamed")
 
         if isinstance(approach, SR_approach):
-            self._approach_instance: Optional[SR_approach] = approach
-            self._approach_dict: Optional[dict] = None
+            self._approach_instance: SR_approach | None = approach
+            self._approach_dict: dict | None = None
             self.approach_name: str = approach.name
         elif isinstance(approach, str):
             with open(approach) as f:
@@ -518,7 +519,7 @@ class ExperimentJob:
         self.seed = self.info.seed
 
         if callbacks is None:
-            self._callback_configs: Optional[List[dict]] = None
+            self._callback_configs: list[dict] | None = None
         elif isinstance(callbacks, list):
             self._callback_configs = [cb if isinstance(cb, dict) else cb.to_dict() for cb in callbacks]
         else:
@@ -591,7 +592,7 @@ class ExperimentJob:
 
         evaluator = dataset.create_evaluator(seed=self.info.seed)
         evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
-        dispatcher: Optional[CallbackDispatcher] = None
+        dispatcher: CallbackDispatcher | None = None
         if self._callback_configs:
             cbs = [SRCallbacks.from_config_dict(d) for d in self._callback_configs]
             dispatcher = CallbackDispatcher(callbacks=cbs)
@@ -688,37 +689,37 @@ class ExperimentGrid:
 
     def __init__(
         self,
-        datasets: Union[SR_dataset, List[Union[SR_dataset, SR_benchmark]], SR_benchmark],
-        approaches: Union[SR_approach, List[SR_approach]],
+        datasets: SR_dataset | list[SR_dataset | SR_benchmark] | SR_benchmark,
+        approaches: SR_approach | list[SR_approach],
         num_experiments: int,
         results_dir: str,
         initial_seed: int = 0,
         top_k: int = 20,
-        adapted_states: Optional[Dict[str, Dict[str, str]]] = None,
-        callbacks: Optional[Union[SRCallbacks, List[SRCallbacks]]] = None,
+        adapted_states: dict[str, dict[str, str]] | None = None,
+        callbacks: SRCallbacks | list[SRCallbacks] | None = None,
     ) -> None:
         self.num_experiments = num_experiments
         self.results_dir = results_dir
         self.initial_seed = initial_seed
         self.top_k = top_k
-        self._adapted_states: Dict[str, Dict[str, str]] = adapted_states or {}
+        self._adapted_states: dict[str, dict[str, str]] = adapted_states or {}
 
         if callbacks is None:
-            self.callback_configs: Optional[List[dict]] = None
+            self.callback_configs: list[dict] | None = None
         elif isinstance(callbacks, list):
             self.callback_configs = [cb.to_dict() for cb in callbacks]
         else:
             self.callback_configs = [callbacks.to_dict()]
 
         # Build approach configs (plain serialisable dicts, no instance caching)
-        self.approach_configs: List[dict] = []
+        self.approach_configs: list[dict] = []
         if isinstance(approaches, SR_approach):
             approaches = [approaches]
         for approach in approaches:
             self.add_approach(approach)
 
         # Serialise all datasets eagerly into config dicts (no arrays embedded)
-        self.datasets: Dict[str, dict] = dict()
+        self.datasets: dict[str, dict] = dict()
         if isinstance(datasets, list):
             for ds in datasets:
                 self.add_dataset(ds)
@@ -749,7 +750,7 @@ class ExperimentGrid:
             )
         self.approach_configs.append(cfg)
 
-    def add_dataset(self, dataset: Union[SR_dataset, SR_benchmark]) -> None:
+    def add_dataset(self, dataset: SR_dataset | SR_benchmark) -> None:
         """Add a dataset, or every dataset in a benchmark, to the grid.
 
         Each dataset is serialised immediately to its config dict (no data arrays
@@ -782,7 +783,7 @@ class ExperimentGrid:
             )
         self.datasets[name] = ds.to_dict()
 
-    def _get_adapted_state_ref_path(self, approach_name: str, dataset_name: str) -> Optional[str]:
+    def _get_adapted_state_ref_path(self, approach_name: str, dataset_name: str) -> str | None:
         """Return the pickle path for an approach × dataset adapted state."""
         return self._adapted_states.get(approach_name, {}).get(dataset_name)
 
@@ -808,7 +809,7 @@ class ExperimentGrid:
         for dataset_name in self.datasets:
             SR_dataset.from_dict(self.datasets[dataset_name])
 
-    def _pairs_needing_adaptation(self) -> "List[tuple[str, str]]":
+    def _pairs_needing_adaptation(self) -> "list[tuple[str, str]]":
         """Return ``(approach_name, dataset_name)`` pairs whose ``"once"`` state is absent.
 
         A pair qualifies when the approach is ``adaptation_scope="once"``, has a state path
@@ -822,9 +823,9 @@ class ExperimentGrid:
         library, reference grammar and required constraints); give each dataset a distinct
         ``state_path`` if adaptation must differ per dataset.
         """
-        pairs: "List[tuple[str, str]]" = []
-        seen_paths: Dict[str, "tuple[str, str]"] = {}
-        conflicts: "List[str]" = []
+        pairs: "list[tuple[str, str]]" = []
+        seen_paths: dict[str, "tuple[str, str]"] = {}
+        conflicts: "list[str]" = []
         for approach_config in self.approach_configs:
             if approach_config.get("adaptation_scope", "never") != "once":
                 continue
@@ -956,7 +957,7 @@ class ExperimentGrid:
         )
         return ExperimentJob(dataset=dataset_dict, approach=approach_config, info=info, callbacks=self.callback_configs)
 
-    def create_jobs(self, skip_completed: bool = True) -> List[ExperimentJob]:
+    def create_jobs(self, skip_completed: bool = True) -> list[ExperimentJob]:
         """Return the list of [ExperimentJob][SRToolkit.experiments.ExperimentJob] instances for
         this grid.
 
@@ -976,7 +977,7 @@ class ExperimentGrid:
         Returns:
             List of jobs, one per (dataset, approach, seed) triple that has not yet completed.
         """
-        jobs: List[ExperimentJob] = []
+        jobs: list[ExperimentJob] = []
         for approach_config in self.approach_configs:
             for dataset_name in self.datasets:
                 for i in range(self.num_experiments):
@@ -992,7 +993,7 @@ class ExperimentGrid:
         python_executable: str = "python",
         skip_completed: bool = True,
         materialize_data: bool = True,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Write the experiment commands file (and, if needed, a ``prepare`` commands file).
 
         Calls [save][SRToolkit.experiments.ExperimentGrid.save] first to persist the grid
@@ -1040,7 +1041,7 @@ class ExperimentGrid:
             self.materialize_data()
         grid_path = shlex.quote(os.path.join(self.results_dir, "grid.json"))
 
-        prepare_path: Optional[str] = None
+        prepare_path: str | None = None
         prepare_pairs = self._pairs_needing_adaptation()
         if prepare_pairs:
             abs_path = os.path.abspath(path)
@@ -1193,9 +1194,9 @@ class ExperimentGrid:
     @classmethod
     def from_dict(
         cls,
-        config: Union[dict, str, Path],
-        results_dir: Optional[str] = None,
-        adapted_states: Optional[Dict[str, Dict[str, str]]] = None,
+        config: dict | str | Path,
+        results_dir: str | None = None,
+        adapted_states: dict[str, dict[str, str]] | None = None,
     ) -> "ExperimentGrid":
         """Reconstruct an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] from a
         recipe produced by [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict].
@@ -1239,7 +1240,7 @@ class ExperimentGrid:
                 ``format_version`` is unsupported, or ``results_dir`` is omitted when
                 loading from a dict.
         """
-        default_results_dir: Optional[str] = None
+        default_results_dir: str | None = None
         if isinstance(config, (str, Path)):
             file_path = os.path.abspath(str(config))
             with open(file_path) as f:
@@ -1280,9 +1281,9 @@ class ExperimentGrid:
 
     def export(
         self,
-        path: Union[str, Path],
+        path: str | Path,
         include_results: bool = False,
-        additional_bundles: Optional[List[Union[str, Path]]] = None,
+        additional_bundles: list[str | Path] | None = None,
         strict: bool = False,
     ) -> None:
         """Write a self-contained, shareable ``.zip`` gathering everything a recipient needs.
@@ -1372,7 +1373,7 @@ class ExperimentGrid:
         self,
         directory: Path,
         include_results: bool,
-        additional_bundles: Optional[List[Union[str, Path]]] = None,
+        additional_bundles: list[str | Path] | None = None,
         strict: bool = False,
     ) -> None:
         """Write the export contents (``grid.json``, ``data/``, ``bundles/``, ``MANIFEST.md``)
@@ -1381,8 +1382,8 @@ class ExperimentGrid:
         """
         directory.mkdir(parents=True, exist_ok=True)
 
-        archived: List["tuple[str, str]"] = []
-        referenced: List["tuple[str, str]"] = []
+        archived: list["tuple[str, str]"] = []
+        referenced: list["tuple[str, str]"] = []
         for name, cfg in self.datasets.items():
             needs_archiving, reason = _classify_dataset_source(cfg)
             if needs_archiving:
@@ -1415,8 +1416,8 @@ class ExperimentGrid:
     @classmethod
     def from_export(
         cls,
-        path: Union[str, Path],
-        results_dir: Optional[str] = None,
+        path: str | Path,
+        results_dir: str | None = None,
     ) -> "ExperimentGrid":
         """Load a grid from a ``.zip`` produced by
         [export][SRToolkit.experiments.ExperimentGrid.export].
@@ -1515,10 +1516,10 @@ class ExperimentGrid:
     def _write_manifest(
         self,
         path: Path,
-        archived: "List[tuple[str, str]]",
-        referenced: "List[tuple[str, str]]",
-        packed: "List[tuple[str, str, str]]",
-        manual: "List[tuple[str, str]]",
+        archived: "list[tuple[str, str]]",
+        referenced: "list[tuple[str, str]]",
+        packed: "list[tuple[str, str, str]]",
+        manual: "list[tuple[str, str]]",
         results_included: bool,
     ) -> None:
         from SRToolkit import __version__

@@ -34,10 +34,11 @@ instead.
 
 import importlib
 import re
+from collections.abc import Iterator
 from contextvars import ContextVar
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -53,7 +54,7 @@ from SRToolkit.utils.types import (
 from SRToolkit.utils.units import UnitRule
 
 # Unit rules of the predefined symbols, keyed by (token, type); see default_symbols.
-_PREDEFINED_UNIT_RULES: Dict[tuple, UnitRule] = {
+_PREDEFINED_UNIT_RULES: dict[tuple, UnitRule] = {
     **{(t, "op"): UnitRule.SAME for t in ("+", "-")},
     ("*", "op"): UnitRule.MULTIPLY,
     ("/", "op"): UnitRule.DIVIDE,
@@ -116,7 +117,7 @@ class Symbol:
     python_str: str
     latex_str: str = ""
     cython_id: int = -1
-    unit_rule: Optional[UnitRule] = None
+    unit_rule: UnitRule | None = None
 
     def __post_init__(self) -> None:
         if self.type not in VALID_SYMBOL_TYPES:
@@ -158,7 +159,7 @@ class Symbol:
             ``cython_id`` and, for ``"op"`` and ``"fn"``, ``unit_rule`` as
             [UnitRule.to_dict][SRToolkit.utils.units.UnitRule.to_dict].
         """
-        d: Dict[str, Any] = {
+        d: dict[str, Any] = {
             "symbol": self.token,
             "type": self.type,
             "precedence": self.precedence,
@@ -201,7 +202,7 @@ class Symbol:
 
 
 # The predefined symbols, without the free constant and the variables; see default_symbols.
-_DEFAULT_SYMBOLS: Tuple[Symbol, ...] = (
+_DEFAULT_SYMBOLS: tuple[Symbol, ...] = (
     Symbol("+", "op", OP_ADDITIVE, "{} + {}", r"{} + {}", 0),
     Symbol("-", "op", OP_ADDITIVE, "{} - {}", r"{} - {}", 1),
     Symbol("*", "op", OP_MULTIPLICATIVE, "{} * {}", r"{} \cdot {}", 2),
@@ -233,7 +234,7 @@ _DEFAULT_SYMBOLS: Tuple[Symbol, ...] = (
 )
 
 _active_sl: ContextVar["SymbolLibrary"] = ContextVar("active_symbol_library")
-_default_sl: Optional["SymbolLibrary"] = None
+_default_sl: "SymbolLibrary | None" = None
 
 
 class SymbolLibrary:
@@ -280,19 +281,19 @@ class SymbolLibrary:
 
     def __init__(
         self,
-        symbols: Optional[List[str]] = None,
+        symbols: list[str] | None = None,
         num_variables: int = 0,
-        modules: Optional[Dict[str, str]] = None,
-        const_symbol: Optional[str] = "C",
+        modules: dict[str, str] | None = None,
+        const_symbol: str | None = "C",
     ) -> None:
         self.modules = dict(modules or {})
         if "np" in self.modules:
             raise ValueError("The alias 'np' is reserved for NumPy and cannot be used in modules.")
         self.module_namespace()
 
-        self._constant_symbol: Optional[str] = None
+        self._constant_symbol: str | None = None
         if symbols is None and num_variables == 0:
-            self.symbols: Dict[str, Symbol] = dict()
+            self.symbols: dict[str, Symbol] = dict()
             self.num_variables = 0
             if const_symbol is not None:
                 self._add_constant(const_symbol)
@@ -311,9 +312,9 @@ class SymbolLibrary:
         symbol_type: str,
         precedence: int,
         python_str: str,
-        latex_str: Optional[str] = None,
+        latex_str: str | None = None,
         cython_id: int = -1,
-        unit_rule: Optional[UnitRule] = None,
+        unit_rule: UnitRule | None = None,
     ):
         r"""Add a token to the library, replacing any symbol with the same token.
 
@@ -396,7 +397,7 @@ class SymbolLibrary:
             self._constant_symbol = None
 
     @property
-    def constant_symbol(self) -> Optional[str]:
+    def constant_symbol(self) -> str | None:
         """The token of the free constant, or ``None`` if the library has none.
 
         Examples:
@@ -405,7 +406,7 @@ class SymbolLibrary:
         """
         return self._constant_symbol
 
-    def get(self, token: str) -> Optional[Symbol]:
+    def get(self, token: str) -> Symbol | None:
         """Return the [Symbol][SRToolkit.utils.symbol_library.Symbol] of a token.
 
         Args:
@@ -475,7 +476,7 @@ class SymbolLibrary:
         """
         return iter(self.symbols)
 
-    def get_symbols_of_type(self, symbol_type: str) -> List[str]:
+    def get_symbols_of_type(self, symbol_type: str) -> list[str]:
         """Return the tokens of all symbols of a type, in insertion order.
 
         Args:
@@ -490,7 +491,7 @@ class SymbolLibrary:
         """
         return [token for token, s in self.symbols.items() if s.type == symbol_type]
 
-    def module_namespace(self) -> Dict[str, Any]:
+    def module_namespace(self) -> dict[str, Any]:
         """Return the global names available to ``python_str`` templates.
 
         Returns:
@@ -506,7 +507,7 @@ class SymbolLibrary:
         """
         return {"np": np, **{alias: importlib.import_module(path) for alias, path in self.modules.items()}}
 
-    def symbols2index(self) -> Dict[str, int]:
+    def symbols2index(self) -> dict[str, int]:
         """Return a mapping from each token to its index in insertion order.
 
         Examples:
@@ -526,7 +527,7 @@ class SymbolLibrary:
 
     @staticmethod
     def from_symbol_list(
-        symbols: List[str], num_variables: int = 25, const_symbol: Optional[str] = "C"
+        symbols: list[str], num_variables: int = 25, const_symbol: str | None = "C"
     ) -> "SymbolLibrary":
         """Create a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] containing only the specified subset of default symbols.
 
@@ -587,7 +588,7 @@ class SymbolLibrary:
         return sl
 
     @staticmethod
-    def default_symbols(num_variables: int = 25, const_symbol: Optional[str] = "C") -> "SymbolLibrary":
+    def default_symbols(num_variables: int = 25, const_symbol: str | None = "C") -> "SymbolLibrary":
         """Return a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] with all predefined symbols.
 
         The predefined tokens:
@@ -675,7 +676,7 @@ class SymbolLibrary:
             return SymbolLibrary.default_symbols()
 
     @staticmethod
-    def set_default(sl: Optional["SymbolLibrary"]) -> None:
+    def set_default(sl: "SymbolLibrary | None") -> None:
         """Set (or clear) a module-level default [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
         The default is used as a fallback by [get_active][SRToolkit.utils.symbol_library.SymbolLibrary.get_active]

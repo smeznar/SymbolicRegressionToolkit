@@ -2,7 +2,6 @@
 
 import importlib
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import numpy as np
 
@@ -67,7 +66,7 @@ class Sampler(ABC):
     """
 
     @abstractmethod
-    def __call__(self, sample_size: int, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+    def __call__(self, sample_size: int, rng: np.random.Generator | None = None) -> np.ndarray:
         """Draw ``sample_size`` samples and return them as a 1-D numpy array.
 
         Args:
@@ -186,7 +185,7 @@ class LogUniformSampling(Sampler):
         # log10 of the smallest and largest magnitude
         self._log_low, self._log_high = np.log10(sorted((abs(min_value), abs(max_value))))
 
-    def __call__(self, sample_size: int, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+    def __call__(self, sample_size: int, rng: np.random.Generator | None = None) -> np.ndarray:
         src = np.random if rng is None else rng
 
         def draw(n):
@@ -265,7 +264,7 @@ class UniformSampling(Sampler):
         self.max_value = max_value
         self.mirror = mirror
 
-    def __call__(self, sample_size: int, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+    def __call__(self, sample_size: int, rng: np.random.Generator | None = None) -> np.ndarray:
         src = np.random if rng is None else rng
         return _draw(sample_size, lambda n: src.uniform(self.min_value, self.max_value, size=n), self.mirror, rng)
 
@@ -340,7 +339,7 @@ class IntegerUniformSampling(Sampler):
         self.max_value = max_value
         self.mirror = mirror
 
-    def __call__(self, sample_size: int, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+    def __call__(self, sample_size: int, rng: np.random.Generator | None = None) -> np.ndarray:
         integers = np.random.randint if rng is None else rng.integers  # both exclude the upper bound
         return _draw(sample_size, lambda n: integers(self.min_value, self.max_value + 1, size=n), self.mirror, rng)
 

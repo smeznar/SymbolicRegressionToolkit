@@ -36,7 +36,6 @@ import warnings
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional
 from urllib.request import urlopen
 from zipfile import ZipFile
 
@@ -49,7 +48,7 @@ from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
-def _config_samplers(config: dict) -> Optional[list]:
+def _config_samplers(config: dict) -> list | None:
     """The saved samplers of a dataset config, from ``background_knowledge`` (format 4) or the top level (2/3)."""
     bk = config.get("background_knowledge")
     if isinstance(bk, dict):
@@ -92,7 +91,7 @@ class DataSource(ABC):
         """
 
     @classmethod
-    def from_dict(cls, d: Optional[dict]) -> Optional["DataSource"]:
+    def from_dict(cls, d: dict | None) -> "DataSource" | None:
         """Reconstruct a source from a dict produced by
         [to_dict][SRToolkit.dataset.data_source.DataSource.to_dict].
 
@@ -173,7 +172,7 @@ class UrlSource(DataSource):
         return {"source_class": "SRToolkit.dataset.data_source.UrlSource", "url": self.url}
 
     @classmethod
-    def from_dict(cls, d: Optional[dict]) -> "UrlSource":
+    def from_dict(cls, d: dict | None) -> "UrlSource":
         """Deserialize a [UrlSource][SRToolkit.dataset.data_source.UrlSource] from a dictionary produced by its ``to_dict``.
 
         Args:
@@ -233,7 +232,7 @@ class SampleSource(DataSource):
 
     is_volatile = True
 
-    def __init__(self, n_samples: int = 10000, seed: Optional[int] = None):
+    def __init__(self, n_samples: int = 10000, seed: int | None = None):
         self.n_samples = n_samples
         self.seed = seed
 
@@ -246,7 +245,7 @@ class SampleSource(DataSource):
         }
 
     @classmethod
-    def from_dict(cls, d: Optional[dict]) -> "SampleSource":
+    def from_dict(cls, d: dict | None) -> "SampleSource":
         """Deserialize a [SampleSource][SRToolkit.dataset.data_source.SampleSource] from a dictionary produced by its ``to_dict``.
 
         Args:
@@ -354,7 +353,7 @@ class FallbackSource(DataSource):
             [DataSource][SRToolkit.dataset.data_source.DataSource] to try.
     """
 
-    def __init__(self, sources: List[DataSource]):
+    def __init__(self, sources: list[DataSource]):
         if not sources:
             raise ValueError("[FallbackSource] requires at least one source.")
         self.sources = list(sources)
@@ -369,7 +368,7 @@ class FallbackSource(DataSource):
         }
 
     @classmethod
-    def from_dict(cls, d: Optional[dict]) -> "FallbackSource":
+    def from_dict(cls, d: dict | None) -> "FallbackSource":
         """Deserialize a [FallbackSource][SRToolkit.dataset.data_source.FallbackSource] from a dictionary produced by its ``to_dict``.
 
         Args:
@@ -402,7 +401,7 @@ class FallbackSource(DataSource):
             cache_path: Target ``.npz`` path inside the data cache.
             config: The dataset's config dict, passed to each source.
         """
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
         for i, source in enumerate(self.sources):
             try:
                 source.materialize(cache_path, config)

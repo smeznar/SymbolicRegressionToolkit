@@ -8,7 +8,6 @@ cached and shared together with the dataset.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 
 import numpy as np
 
@@ -38,8 +37,8 @@ class DataSplit:
             one, they are stored with the dataset.
     """
 
-    arrays: Dict[str, np.ndarray]
-    data_source: Optional[DataSource] = field(default=None)
+    arrays: dict[str, np.ndarray]
+    data_source: DataSource | None = field(default=None)
 
     @property
     def X(self) -> np.ndarray:
@@ -47,6 +46,6 @@ class DataSplit:
         return self.arrays["X"]
 
     @property
-    def y(self) -> Optional[np.ndarray]:
+    def y(self) -> np.ndarray | None:
         """The ``"y"`` array, or ``None`` if this split has no targets."""
         return self.arrays.get("y")

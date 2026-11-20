@@ -14,7 +14,6 @@ from SRToolkit.approaches.sr_approach import SR_approach, ApproachConfig
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import SymbolLibrary, generate_n_expressions
 from dataclasses import dataclass
-from typing import Optional
 
 @dataclass
 class RandomSearchConfig(ApproachConfig):
@@ -29,7 +28,7 @@ class RandomSearch(SR_approach):
     def prepare(self):
         pass  # stateless — nothing to reset
 
-    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None):
+    def search(self, sr_evaluator: SR_evaluator, seed: int | None = None):
         rng = np.random.default_rng(seed)
         sl = sr_evaluator.symbol_library
 

@@ -3,7 +3,6 @@ The functions in this script are work in progress and will be improved in the fu
 """
 
 import itertools
-from typing import List, Optional, Union
 
 from sympy import Basic, Expr, Symbol, expand, sympify
 from sympy.core import Add, Mul, Pow
@@ -13,9 +12,9 @@ from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
 def simplify(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
-) -> Union[List[str], Node]:
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+) -> list[str] | Node:
     """Simplify an expression algebraically.
 
     Two successive steps are applied:
@@ -111,7 +110,7 @@ def _sympy_to_number(expr):
     return int(evaluated) if evaluated.is_integer() else evaluated
 
 
-def _sympy_to_sr(expr: Union[Expr, Basic]) -> Node:
+def _sympy_to_sr(expr: Expr | Basic) -> Node:
     """Convert a SymPy expression into a [Node][SRToolkit.utils.expression_tree.Node] tree.
 
     Division is handled explicitly: SymPy represents ``x/y`` as ``Mul(x, Pow(y, -1))``,

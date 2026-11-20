@@ -40,8 +40,9 @@ parallel derivations.
 from __future__ import annotations
 
 import importlib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Generic, Iterable, Mapping, Optional, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 from ...bundle._relocate import _auto_bind
 from ..expression_constraints import (
@@ -128,8 +129,8 @@ class ExpansionContext(Generic[L]):
     nonterminal: str
     local: L
     steps: int
-    parent_rule: Optional[Rule]
-    child_index: Optional[int]
+    parent_rule: Rule | None
+    child_index: int | None
     ancestors: tuple[AncestorInfo, ...]
     partial_tree: ParseTreeNode
     nonterminals: frozenset[str]
@@ -168,11 +169,11 @@ class GrammarConstraint(Generic[L, G]):
 
     #: If set, ``allows`` only activates when ``slot.nonterminal`` is in this
     #: set.  ``None`` means "any non-terminal".
-    nonterminals: Optional[frozenset[str]] = None
+    nonterminals: frozenset[str] | None = None
 
     #: If set, ``allows`` is only called when ``rule.name`` is in this set.
     #: ``None`` means "any rule name".
-    rule_names: Optional[frozenset[str]] = None
+    rule_names: frozenset[str] | None = None
 
     def to_dict(self) -> dict:
         """Serialise this constraint to a JSON-safe dictionary.
@@ -532,7 +533,7 @@ class NoNested(GrammarConstraint[bool, None]):
 class _Second:
     # Local state of a second child: its required unit follows from the finished first sibling.
     rule: UnitRule
-    parent: Optional[Unit]
+    parent: Unit | None
 
 
 class DimensionalConsistency(GrammarConstraint[Any, None]):
@@ -642,7 +643,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
         variable_units: Mapping[str, Unit],
         target_unit: Unit,
         symbol_library: SymbolLibrary,
-        named_constant_units: Optional[Mapping[str, Unit]] = None,
+        named_constant_units: Mapping[str, Unit] | None = None,
     ) -> None:
         _check_unit_types("DimensionalConsistency", variable_units, target_unit, named_constant_units)
         self.variable_units = dict(variable_units)
@@ -738,7 +739,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
             return [required ** (1 / shape.exponent)], None
         return [_DIMENSIONLESS] * n, None  # DIMENSIONLESS, EXPONENT
 
-    def _required(self, slot: ExpansionContext[Any]) -> Optional[Unit]:
+    def _required(self, slot: ExpansionContext[Any]) -> Unit | None:
         # The unit the slot must have (None: any). A second child's requirement depends on the unit U
         # of its finished first sibling.
         local = slot.local
@@ -774,7 +775,7 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
             ) from None
         return u
 
-    def _shape(self, rule: Rule, nonterminals: frozenset[str]) -> Union[None, Unit, UnitRule]:
+    def _shape(self, rule: Rule, nonterminals: frozenset[str]) -> None | Unit | UnitRule:
         # None for a pass-through rule, the leaf's Unit for a leaf, or the UnitRule of the rule's
         # operator or function; ValueError for an unsupported shape.
         terminals = [s for s in rule.rhs if s not in nonterminals and s not in ("(", ")")]

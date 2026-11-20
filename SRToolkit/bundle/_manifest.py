@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
 
 
 def _sha256(path: Path) -> str:
@@ -20,8 +19,8 @@ class BundleManifest:
     version: str
     author: str = ""
     srtk_min_version: str = ""
-    python_deps: List[str] = field(default_factory=list)
-    files: Dict[str, str] = field(default_factory=dict)
+    python_deps: list[str] = field(default_factory=list)
+    files: dict[str, str] = field(default_factory=dict)
 
     @property
     def version_slug(self) -> str:

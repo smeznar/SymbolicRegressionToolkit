@@ -8,7 +8,6 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import List, Optional
 
 from packaging.requirements import Requirement
 from packaging.version import Version
@@ -33,7 +32,7 @@ def _check_srtk_version(required: str) -> None:
         raise RuntimeError(f"Bundle requires SRToolkit>={required} but {__version__} is installed.")
 
 
-def _check_deps(python_deps: List[str]) -> List[str]:
+def _check_deps(python_deps: list[str]) -> list[str]:
     """Return the subset of ``python_deps`` that cannot be imported."""
     missing = []
     for spec in python_deps:
@@ -144,7 +143,7 @@ def install(srtk_path: Path) -> None:
         print(f"Installed '{manifest.name}' v{manifest.version} → {install_path}")
 
 
-def uninstall(name: str, version: Optional[str] = None) -> None:
+def uninstall(name: str, version: str | None = None) -> None:
     """Remove an installed bundle from this machine.
 
     Args:
@@ -168,7 +167,7 @@ def list_installed() -> list:
     return _store.all_entries()
 
 
-def _repack(name: str, version: Optional[str], out_path: Path) -> Path:
+def _repack(name: str, version: str | None, out_path: Path) -> Path:
     """Rebuild a ``.srtk`` archive from an already-installed bundle.
 
     The original ``.srtk`` is not retained at install time, so re-shipping a bundle's code

@@ -4,21 +4,21 @@ from __future__ import annotations
 
 import json
 import zipfile
+from collections.abc import Sequence
 from pathlib import Path
-from typing import List, Optional, Sequence, Union
 
 from ._manifest import BundleManifest, _sha256
 
 
 def pack(
-    files: Sequence[Union[str, Path]],
+    files: Sequence[str | Path],
     out_path: Path,
     name: str,
     version: str,
     author: str = "",
-    python_deps: List[str] | None = None,
+    python_deps: list[str] | None = None,
     srtk_min_version: str = "",
-    configs: Optional[Sequence[Union[str, Path]]] = None,
+    configs: Sequence[str | Path] | None = None,
 ) -> None:
     """Pack a list of Python source files into a ``.srtk`` bundle.
 

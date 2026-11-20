@@ -167,25 +167,18 @@ import math
 import os
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import nullcontext
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
+    Literal,
     cast,
 )
 
 import numpy as np
-from typing_extensions import Literal, Unpack
+from typing_extensions import Unpack
 
 from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
@@ -220,12 +213,12 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate_metric(
-    expr: Union[List[str], Node],
-    parameters: Optional[np.ndarray],
+    expr: list[str] | Node,
+    parameters: np.ndarray | None,
     X: np.ndarray,
     y: np.ndarray,
-    metric: Union[str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]] = "r2",
-    symbol_library: Optional[SymbolLibrary] = None,
+    metric: str | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float] = "r2",
+    symbol_library: SymbolLibrary | None = None,
     backend: str = "stack",
 ) -> float:
     """Score an expression on ``(X, y)`` by reusing already-fitted ``parameters`` — no refitting.
@@ -340,7 +333,7 @@ class ResultAugmenter(ABC):
         """
 
     @classmethod
-    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+    def format_eval_result(cls, data: dict[str, Any]) -> str:
         """Returns a formatted string for experiment-level augmentation data.
 
         Subclasses override this for custom formatting. The *data* dict is the inner
@@ -355,7 +348,7 @@ class ResultAugmenter(ABC):
         return "\n".join(f"  {k}: {v}" for k, v in data.items() if k != "_type")
 
     @classmethod
-    def format_model_result(cls, data: Dict[str, Any]) -> str:
+    def format_model_result(cls, data: dict[str, Any]) -> str:
         """Returns a formatted string for a single model's augmentation data.
 
         Subclasses override this for custom formatting. The *data* dict is the inner
@@ -393,7 +386,7 @@ class ResultAugmenter(ABC):
         )
 
 
-def _as_constraint_tuple(constraints: Any, name: str) -> Tuple[ExpressionConstraint, ...]:
+def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstraint, ...]:
     # The items of a constraint list as a tuple; TypeError naming the offending argument or item.
     try:
         items = tuple(constraints)
@@ -408,20 +401,20 @@ def _as_constraint_tuple(constraints: Any, name: str) -> Tuple[ExpressionConstra
 
 
 # Defaults of the limit settings, turned into MaxConstants / MaxTokens (negative = none).
-_DEFAULT_LIMITS: Dict[str, int] = {"max_constants": 8, "max_expr_length": -1}
+_DEFAULT_LIMITS: dict[str, int] = {"max_constants": 8, "max_expr_length": -1}
 
 
 def _add_limit_constraints_from_kwargs(
-    constraints: Tuple[ExpressionConstraint, ...], kwargs: Mapping[str, Any]
-) -> Tuple[ExpressionConstraint, ...]:
+    constraints: tuple[ExpressionConstraint, ...], kwargs: Mapping[str, Any]
+) -> tuple[ExpressionConstraint, ...]:
     # MaxConstants then MaxTokens from the max_constants / max_expr_length settings (negative = none),
     # followed by the given constraints. A setting adds nothing when the list already has a
     # constraint of its class; a given non-negative setting with a different limit is a ValueError.
-    built: List[ExpressionConstraint] = []
+    built: list[ExpressionConstraint] = []
     for key, cls in (("max_constants", MaxConstants), ("max_expr_length", MaxTokens)):
         value = _validate_limit(kwargs.get(key, _DEFAULT_LIMITS[key]), key, allow_negative=True)
         # cls is MaxConstants or MaxTokens, so every listed constraint has a limit.
-        listed = cast(List[Union[MaxConstants, MaxTokens]], [c for c in constraints if isinstance(c, cls)])
+        listed = cast(list[MaxConstants | MaxTokens], [c for c in constraints if isinstance(c, cls)])
         if not listed:
             if value >= 0:
                 built.append(cls(value))
@@ -437,12 +430,12 @@ def _add_limit_constraints_from_kwargs(
 
 def _failed_checks(
     constraints: Sequence[ExpressionConstraint], stage: str, subject: Any, first_only: bool = False
-) -> List[CheckResult]:
+) -> list[CheckResult]:
     # The failed checks of one stage, in order, with constraint and stage filled in. A check that
     # raises, or returns something other than a CheckResult, counts as failed: it gives
     # passed=False, amount inf and error "<Type>: <message>", and a UserWarning. Passed and
     # unimplemented checks are left out. With first_only, stops after the first failure.
-    failed: List[CheckResult] = []
+    failed: list[CheckResult] = []
     for constraint in constraints:
         name = type(constraint).__name__
         try:
@@ -465,21 +458,21 @@ class SR_evaluator:
     def __init__(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray] = None,
-        symbol_library: Optional[SymbolLibrary] = None,
+        y: np.ndarray | None = None,
+        symbol_library: SymbolLibrary | None = None,
         max_evaluations: int = -1,
-        success_threshold: Optional[float] = None,
-        ranking_function: Union[str, RankingFunction] = "rmse",
-        ground_truth: Optional[Union[List[str], Node]] = None,
-        seed: Optional[int] = None,
-        metadata: Optional[dict] = None,
-        required_constraints: Optional[Sequence[ExpressionConstraint]] = None,
-        advisory_constraints: Optional[Sequence[ExpressionConstraint]] = None,
-        variables: Optional[Mapping[str, "VariableInfo"]] = None,
-        target: Optional["VariableInfo"] = None,
-        named_constants: Optional[Mapping[str, "VariableInfo"]] = None,
+        success_threshold: float | None = None,
+        ranking_function: str | RankingFunction = "rmse",
+        ground_truth: list[str] | Node | None = None,
+        seed: int | None = None,
+        metadata: dict | None = None,
+        required_constraints: Sequence[ExpressionConstraint] | None = None,
+        advisory_constraints: Sequence[ExpressionConstraint] | None = None,
+        variables: Mapping[str, "VariableInfo"] | None = None,
+        target: "VariableInfo | None" = None,
+        named_constants: Mapping[str, "VariableInfo"] | None = None,
         description: str = "",
-        reference_grammar: Optional[Grammar] = None,
+        reference_grammar: Grammar | None = None,
         **kwargs: Unpack[RankingSettings],
     ):
         """Evaluate expressions on data with a ranking function and collect the results.
@@ -598,10 +591,10 @@ class SR_evaluator:
                 keeps the setting as passed.
         """
         self.kwargs = kwargs
-        self.models: List[ModelResult] = list()
+        self.models: list[ModelResult] = list()
         # Keyed on the token tuple and the specs' _spec_key ("" without specs).
-        self._model_index: Dict[Tuple[Tuple[str, ...], str], int] = dict()
-        self.trace: List[int] = list()
+        self._model_index: dict[tuple[tuple[str, ...], str], int] = dict()
+        self.trace: list[int] = list()
         self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
@@ -642,7 +635,7 @@ class SR_evaluator:
             default_constant=kwargs.get("default_constant"),
         )
         # BackgroundKnowledge stores its constraints as a tuple; the field is typed Iterable.
-        self._advisory_constraints = cast(Tuple[ExpressionConstraint, ...], self._background_knowledge.constraints)
+        self._advisory_constraints = cast(tuple[ExpressionConstraint, ...], self._background_knowledge.constraints)
         self.default_constant = cast(Constant, self._background_knowledge.default_constant)
 
         if seed is not None:
@@ -651,7 +644,7 @@ class SR_evaluator:
         # The ranking function owns all of its data-derived state (parameter estimator for RMSE,
         # behaviour matrix + evaluation points bed_X for BED); the evaluator just calls score().
         # The limits are enforced here, as required constraints; the ranking does not get them.
-        ranking_settings: Dict[str, Any] = {k: v for k, v in kwargs.items() if k not in _DEFAULT_LIMITS}
+        ranking_settings: dict[str, Any] = {k: v for k, v in kwargs.items() if k not in _DEFAULT_LIMITS}
         ranking_settings["default_constant"] = self.default_constant  # completed by the background knowledge
         self.ranking: RankingFunction = build_ranking(ranking_function)
         # A ranking_seed (fixed per dataset) replaces the evaluator's seed here, so every ranking,
@@ -664,7 +657,7 @@ class SR_evaluator:
         if self.success_threshold is None:
             self.success_threshold = self.ranking.default_success_threshold()
 
-        self._callbacks: Optional[Union[CallbackDispatcher, SRCallbacks]] = CallbackDispatcher(
+        self._callbacks: CallbackDispatcher | SRCallbacks | None = CallbackDispatcher(
             callbacks=[EarlyStoppingCallback(threshold=self.success_threshold, max_evaluations=max_evaluations)]
         )
         self.X = X
@@ -679,7 +672,7 @@ class SR_evaluator:
         return len(self.trace)
 
     @property
-    def invalid(self) -> List[str]:
+    def invalid(self) -> list[str]:
         """Strings of the evaluated expressions with status ``"invalid"`` (not well-formed), in
         the order they were first evaluated.
         """
@@ -700,7 +693,7 @@ class SR_evaluator:
         return getattr(self.ranking, "parameter_estimator", None)
 
     @property
-    def required_constraints(self) -> Tuple[ExpressionConstraint, ...]:
+    def required_constraints(self) -> tuple[ExpressionConstraint, ...]:
         """The set-up copies of the required constraints, in the order they are checked.
 
         The ``MaxConstants`` and ``MaxTokens`` added by the settings (if any), then copies of the
@@ -710,7 +703,7 @@ class SR_evaluator:
         return self._required_constraints
 
     @property
-    def advisory_constraints(self) -> Tuple[ExpressionConstraint, ...]:
+    def advisory_constraints(self) -> tuple[ExpressionConstraint, ...]:
         """The set-up copies of the advisory constraints, in the order given."""
         return self._advisory_constraints
 
@@ -755,7 +748,7 @@ class SR_evaluator:
         """
         return self._background_knowledge.describe(self._required_constraints)
 
-    def priors(self) -> Dict[str, List[Dict[str, Any]]]:
+    def priors(self) -> dict[str, list[dict[str, Any]]]:
         """Return the constraints as records, the structured form of ``describe``.
 
         For an evaluator from ``create_evaluator`` it equals
@@ -773,10 +766,10 @@ class SR_evaluator:
 
     def get_model(
         self,
-        expr: Union[List[str], Node],
-        free_constants: Optional[Sequence[Constant]] = None,
+        expr: list[str] | Node,
+        free_constants: Sequence[Constant] | None = None,
         canonicalise_constants: bool = False,
-    ) -> Optional[ModelResult]:
+    ) -> ModelResult | None:
         """Return the result of an already evaluated expression, or ``None``.
 
         Does not count toward ``max_evaluations`` and fires no callbacks. The expression is matched
@@ -810,9 +803,9 @@ class SR_evaluator:
 
     def check_constraints(
         self,
-        expr: Union[List[str], Node],
-        free_constants: Optional[Sequence[Constant]] = None,
-    ) -> Tuple[List[CheckResult], List[CheckResult]]:
+        expr: list[str] | Node,
+        free_constants: Sequence[Constant] | None = None,
+    ) -> tuple[list[CheckResult], list[CheckResult]]:
         """Run the constraints' pre-checks on an expression without evaluating it.
 
         The call is free: it reads no data, does not count toward ``max_evaluations``, fires no
@@ -875,7 +868,7 @@ class SR_evaluator:
             _failed_checks(self._advisory_constraints, "pre", expr_list),
         )
 
-    def register_callbacks(self, callbacks: Optional[Union[SRCallbacks, CallbackDispatcher]] = None) -> None:
+    def register_callbacks(self, callbacks: SRCallbacks | CallbackDispatcher | None = None) -> None:
         """Register callbacks for monitoring and early stopping.
 
         A single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance is
@@ -917,8 +910,8 @@ class SR_evaluator:
 
     def evaluate_expr(
         self,
-        expr: Union[List[str], Node],
-        free_constants: Optional[Sequence[Constant]] = None,
+        expr: list[str] | Node,
+        free_constants: Sequence[Constant] | None = None,
         simplify_expr: bool = False,
         canonicalise_constants: bool = False,
         verbose: int = 0,
@@ -1098,11 +1091,11 @@ class SR_evaluator:
 
     def _evaluate_new(
         self,
-        expr: Union[List[str], Node],
-        expr_list: List[str],
+        expr: list[str] | Node,
+        expr_list: list[str],
         expr_str: str,
         verbose: int,
-        specs: Optional[Tuple[Constant, ...]],
+        specs: tuple[Constant, ...] | None,
     ) -> ModelResult:
         # Parse first, so that each failure gets its own status.
         try:
@@ -1146,11 +1139,11 @@ class SR_evaluator:
 
     def _score(
         self,
-        expr: Union[List[str], Node],
-        expr_list: List[str],
+        expr: list[str] | Node,
+        expr_list: list[str],
         expr_str: str,
         verbose: int,
-        specs: Optional[Tuple[Constant, ...]],
+        specs: tuple[Constant, ...] | None,
     ) -> ModelResult:
         try:
             with (
@@ -1198,10 +1191,10 @@ class SR_evaluator:
     @staticmethod
     def _constraint_error(
         result: CheckResult,
-        expr_list: List[str],
-        advisory: List[CheckResult],
-        parameters: Optional[np.ndarray] = None,
-        ranking_data: Optional[Dict[str, Any]] = None,
+        expr_list: list[str],
+        advisory: list[CheckResult],
+        parameters: np.ndarray | None = None,
+        ranking_data: dict[str, Any] | None = None,
     ) -> ModelResult:
         # A required check raised: a failure of the evaluation, not of the expression.
         return ModelResult(
@@ -1216,9 +1209,9 @@ class SR_evaluator:
 
     def get_metric(
         self,
-        expr: Union[List[str], Node],
-        metric: Union[str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]] = "r2",
-        free_constants: Optional[Sequence[Constant]] = None,
+        expr: list[str] | Node,
+        metric: str | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float] = "r2",
+        free_constants: Sequence[Constant] | None = None,
         canonicalise_constants: bool = False,
     ) -> float:
         """Compute an alternative, read-only metric for an already-evaluated expression.
@@ -1323,7 +1316,7 @@ class SR_evaluator:
         )
 
     def get_results(
-        self, approach_name: str = "", top_k: int = 20, results: Optional["SR_results"] = None
+        self, approach_name: str = "", top_k: int = 20, results: "SR_results | None" = None
     ) -> "SR_results":
         """Returns the results of the equation discovery/symbolic regression process/evaluation.
 
@@ -1399,13 +1392,13 @@ class SR_results:
 
     def add_results(
         self,
-        models: List[ModelResult],
-        trace: List[int],
+        models: list[ModelResult],
+        trace: list[int],
         top_k: int,
-        success_threshold: Optional[float],
+        success_threshold: float | None,
         approach_name: str,
-        metadata: Optional[dict] = None,
-        default_constant: Optional[Constant] = None,
+        metadata: dict | None = None,
+        default_constant: Constant | None = None,
     ) -> None:
         """Adds the results of an evaluation to the results object.
 
@@ -1444,10 +1437,10 @@ class SR_results:
 
     def print_results(
         self,
-        experiment_number: Optional[int] = None,
+        experiment_number: int | None = None,
         detailed: bool = False,
         model_scope: Literal["best", "top", "all"] = "top",
-        augmentations: Optional[List[str]] = None,
+        augmentations: list[str] | None = None,
     ):
         r"""Prints the results of the SR_evaluator.
 
@@ -1505,9 +1498,9 @@ class SR_results:
         result: EvalResult,
         detailed: bool = False,
         model_scope: Literal["best", "top", "all"] = "top",
-        augmentations_filter: Optional[List[str]] = None,
+        augmentations_filter: list[str] | None = None,
     ):
-        def _get_augmenter_class(type_str: str) -> Optional[type]:
+        def _get_augmenter_class(type_str: str) -> type | None:
             try:
                 module_path, cls_name = type_str.rsplit(".", 1)
                 return getattr(importlib.import_module(module_path), cls_name)
@@ -1590,7 +1583,7 @@ class SR_results:
                                 print(f"    {key}: {', '.join(parts)}")
 
     def augment(
-        self, augmenters: Union[List[ResultAugmenter], ResultAugmenter], experiment_number: Optional[int] = None
+        self, augmenters: list[ResultAugmenter] | ResultAugmenter, experiment_number: int | None = None
     ) -> None:
         r"""Applies the given [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter]
         instances to the stored results. Augmenters add post-hoc information such as LaTeX

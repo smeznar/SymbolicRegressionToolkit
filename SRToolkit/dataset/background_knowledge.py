@@ -50,8 +50,9 @@ same classes; the list a constraint is in decides its role (see
 """
 
 import logging
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union, cast
+from typing import Any, cast
 
 from SRToolkit.dataset.sampling import Sampler
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
@@ -95,7 +96,7 @@ class VariableInfo:
 
     name: str = ""
     description: str = ""
-    unit: Optional[Unit] = None
+    unit: Unit | None = None
 
     def __post_init__(self) -> None:
         for attr in ("name", "description"):
@@ -249,16 +250,16 @@ class BackgroundKnowledge:
     """
 
     symbol_library: SymbolLibrary
-    samplers: Optional[Union[Mapping[str, Sampler], Sequence[Sampler]]] = None
-    constant_bounds: Tuple[float, float] = (-5.0, 5.0)
+    samplers: Mapping[str, Sampler] | Sequence[Sampler] | None = None
+    constant_bounds: tuple[float, float] = (-5.0, 5.0)
     constraints: Iterable[ExpressionConstraint] = ()
-    reference_grammar: Optional[Grammar] = None
+    reference_grammar: Grammar | None = None
     description: str = ""
     variables: Mapping[str, VariableInfo] = field(default_factory=dict)
-    target: Optional[VariableInfo] = None
+    target: VariableInfo | None = None
     named_constants: Mapping[str, VariableInfo] = field(default_factory=dict)
     # None is resolved to a complete template in __post_init__.
-    default_constant: Optional[Constant] = None
+    default_constant: Constant | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.symbol_library, SymbolLibrary):
@@ -370,8 +371,8 @@ class BackgroundKnowledge:
 
     @staticmethod
     def _normalise_samplers(
-        samplers: Union[Mapping[str, Sampler], Sequence[Sampler]], var_tokens: List[str]
-    ) -> Tuple[Sampler, ...]:
+        samplers: Mapping[str, Sampler] | Sequence[Sampler], var_tokens: list[str]
+    ) -> tuple[Sampler, ...]:
         """Return the samplers as a tuple in ``var_tokens`` order, validating coverage and types."""
         if isinstance(samplers, Mapping):
             missing = [t for t in var_tokens if t not in samplers]
@@ -459,7 +460,7 @@ class BackgroundKnowledge:
               X_0: x: position
             Symbols: +, *, X_0
         """
-        lines: List[str] = []
+        lines: list[str] = []
         if self.description:
             lines.append(f"Task: {self.description}")
         if self.target is not None and self.target.describe():
@@ -477,7 +478,7 @@ class BackgroundKnowledge:
         lines.append(f"Symbols: {self.symbol_library}")
         if self.symbol_library.constant_symbol is not None:
             default = cast(Constant, self.default_constant)
-            lower, upper = cast(Tuple[float, float], default.bounds)
+            lower, upper = cast(tuple[float, float], default.bounds)
             if default.to_dict() == uniform_default(self.constant_bounds).to_dict():
                 lines.append(f"Free constants are fitted in [{lower}, {upper}].")
             else:
@@ -485,7 +486,7 @@ class BackgroundKnowledge:
                 lines.append(f"Free constants without a spec: {prior}, fitted in [{lower}, {upper}].")
         if self.samplers is not None and len(self.samplers) > 0:
             lines.append("Input distribution:")
-            samplers = cast(Tuple[Sampler, ...], self.samplers)  # normalised to a tuple in __post_init__
+            samplers = cast(tuple[Sampler, ...], self.samplers)  # normalised to a tuple in __post_init__
             for token, sampler in zip(self.symbol_library.get_symbols_of_type("var"), samplers):
                 lines.append(f"  {token}: {sampler.describe()}")
         required = tuple(required_constraints)
@@ -499,7 +500,7 @@ class BackgroundKnowledge:
             lines.append("Reference grammar: given")
         return "\n".join(lines)
 
-    def priors(self) -> List[Dict[str, Any]]:
+    def priors(self) -> list[dict[str, Any]]:
         """Return the advisory constraints as records, the structured form of the hints.
 
         One [summary][SRToolkit.utils.expression_constraints.ExpressionConstraint.summary] per
@@ -538,7 +539,7 @@ class BackgroundKnowledge:
             "format_version": 1,
             "symbol_library": self.symbol_library.to_dict(),
             "samplers": (
-                [s.to_dict() for s in cast(Tuple[Sampler, ...], self.samplers)] if self.samplers is not None else None
+                [s.to_dict() for s in cast(tuple[Sampler, ...], self.samplers)] if self.samplers is not None else None
             ),
             "constant_bounds": list(self.constant_bounds),
             "constraints": [c.to_dict() for c in self.constraints],

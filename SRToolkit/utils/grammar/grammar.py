@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from ...bundle._relocate import _auto_bind
 from ..symbol_library import SymbolLibrary
@@ -91,7 +91,7 @@ class Rule:
     lhs: str
     rhs: list[str]
     weight: float = 1.0
-    name: Optional[str] = None
+    name: str | None = None
 
     def to_dict(self) -> dict:
         """Serialize this rule to a JSON-safe dictionary.
@@ -189,7 +189,7 @@ class ParseTreeNode:
     """
 
     symbol: str
-    rule_applied: Optional[Rule]
+    rule_applied: Rule | None
     children: list[ParseTreeNode] = field(default_factory=list)
 
 
@@ -308,7 +308,7 @@ class Grammar:
         ['C_0']
     """
 
-    def __init__(self, rules: Optional[list[Rule]] = None, start: Optional[str] = None) -> None:
+    def __init__(self, rules: list[Rule] | None = None, start: str | None = None) -> None:
         """Args:
         rules: Optional list of [Rule][SRToolkit.utils.grammar.Rule] objects to add at
             construction time. Equivalent to calling
@@ -317,7 +317,7 @@ class Grammar:
             [start_derivation][SRToolkit.utils.grammar.Grammar.start_derivation]
             when no ``start`` argument is given.
         """
-        self.start: Optional[str] = start
+        self.start: str | None = start
         self._rules: list[Rule] = []
         self._rules_by_lhs: dict[str, list[Rule]] = {}
         self._constraints: list = []
@@ -547,7 +547,7 @@ class Grammar:
                     stack.append(child)
         return d.complete
 
-    def start_derivation(self, start: Optional[str] = None) -> "Derivation":
+    def start_derivation(self, start: str | None = None) -> "Derivation":
         """Begin a new derivation.
 
         Examples:
@@ -585,10 +585,10 @@ class Grammar:
 
     def generate_one(
         self,
-        start: Optional[str] = None,
+        start: str | None = None,
         max_steps: int = 1000,
         max_retries: int = 10,
-    ) -> Optional[list[str]]:
+    ) -> list[str] | None:
         """Generate a single expression by sampling the grammar to completion.
 
         Convenience wrapper around
@@ -679,8 +679,8 @@ class Grammar:
     @classmethod
     def from_symbol_library(
         cls,
-        symbol_library: Optional[SymbolLibrary] = None,
-        start: Optional[str] = None,
+        symbol_library: SymbolLibrary | None = None,
+        start: str | None = None,
     ) -> "Grammar":
         """Build a PCFG from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]
         using a generic operator-precedence non-terminal hierarchy.
@@ -858,7 +858,7 @@ class Grammar:
         return g
 
     @classmethod
-    def from_grammar_string(cls, text: str, start: Optional[str] = None) -> "Grammar":
+    def from_grammar_string(cls, text: str, start: str | None = None) -> "Grammar":
         """Construct a [Grammar][SRToolkit.utils.grammar.Grammar] from a string in
         NLTK production-rule notation.
 

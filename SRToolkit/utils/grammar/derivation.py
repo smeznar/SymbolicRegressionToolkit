@@ -14,7 +14,7 @@ through every registered [GrammarConstraint][SRToolkit.utils.grammar.constraints
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -35,8 +35,8 @@ class _Frame:
     nonterminal: str
     node: ParseTreeNode
     ancestors: tuple[AncestorInfo, ...]
-    parent_rule: Optional[Rule]
-    child_index: Optional[int]
+    parent_rule: Rule | None
+    child_index: int | None
     siblings: tuple[ParseTreeNode, ...] = ()
     locals: dict[int, Any] = field(default_factory=dict)
 

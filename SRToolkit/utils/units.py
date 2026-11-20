@@ -74,14 +74,15 @@ Units are used by [ConsistentUnits][SRToolkit.utils.expression_constraints.Consi
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from types import MappingProxyType
-from typing import ClassVar, Dict, Iterable, Mapping, Optional, Tuple, Union
+from typing import ClassVar
 
 _BASE_UNITS = ("m", "kg", "s", "A", "K", "mol", "cd")
 # Derived units as exponents of base units.
-_DERIVED_UNITS: Dict[str, Dict[str, int]] = {
+_DERIVED_UNITS: dict[str, dict[str, int]] = {
     "N": {"kg": 1, "m": 1, "s": -2},
     "J": {"kg": 1, "m": 2, "s": -2},
     "W": {"kg": 1, "m": 2, "s": -3},
@@ -95,7 +96,7 @@ _DERIVED_UNITS: Dict[str, Dict[str, int]] = {
 }
 
 
-def _parse_exponent(value: Union[int, str, Fraction], where: str) -> Fraction:
+def _parse_exponent(value: int | str | Fraction, where: str) -> Fraction:
     # Exponent of a saved unit or rule: int, Fraction or a string Fraction accepts (not a float).
     if isinstance(value, (int, Fraction)) and not isinstance(value, bool):
         return Fraction(value)
@@ -144,23 +145,21 @@ class Unit:
         'm^(1/2)'
     """
 
-    _dims: Tuple[Tuple[str, Fraction], ...]
+    _dims: tuple[tuple[str, Fraction], ...]
 
-    def __init__(
-        self, units: Optional[Mapping[str, Union[int, Fraction]]] = None, custom_units: Iterable[str] = ()
-    ) -> None:
+    def __init__(self, units: Mapping[str, int | Fraction] | None = None, custom_units: Iterable[str] = ()) -> None:
         custom = {custom_units} if isinstance(custom_units, str) else set(custom_units)
         invalid = sorted((n for n in custom if not (isinstance(n, str) and n.isidentifier())), key=repr)
         if invalid:
             raise ValueError(f"Unit: custom unit names must be valid Python identifiers, got {invalid}.")
-        dims: Dict[str, Fraction] = {}
+        dims: dict[str, Fraction] = {}
         for name, exponent in (units or {}).items():
             if not isinstance(exponent, (int, Fraction)) or isinstance(exponent, bool):
                 raise TypeError(
                     f"Unit: the exponent of {name!r} must be an int or a Fraction, got {type(exponent).__name__}."
                 )
             if name in _DERIVED_UNITS:
-                base: Mapping[str, Union[int, Fraction]] = _DERIVED_UNITS[name]
+                base: Mapping[str, int | Fraction] = _DERIVED_UNITS[name]
             elif name in _BASE_UNITS or name in custom:
                 base = {name: 1}
             else:
@@ -206,7 +205,7 @@ class Unit:
             return NotImplemented
         return self * other**-1
 
-    def __pow__(self, exponent: Union[int, Fraction]) -> Unit:
+    def __pow__(self, exponent: int | Fraction) -> Unit:
         """Return the unit raised to a rational power: every exponent is multiplied by it.
 
         Args:
@@ -266,7 +265,7 @@ class Unit:
         return {name: str(exp) for name, exp in self._dims}
 
     @classmethod
-    def from_dict(cls, d: Mapping[str, Union[int, str, Fraction]]) -> Unit:
+    def from_dict(cls, d: Mapping[str, int | str | Fraction]) -> Unit:
         """Rebuild a unit from the output of ``to_dict``.
 
         Every name is accepted without confirmation (a saved unit was valid when it was made): a
@@ -380,15 +379,15 @@ class UnitRule:
     }
 
     kind: str
-    exponent: Optional[Fraction] = None
+    exponent: Fraction | None = None
 
     @property
-    def arities(self) -> Tuple[int, ...]:
+    def arities(self) -> tuple[int, ...]:
         """The numbers of arguments the rule accepts, as a tuple in increasing order, e.g. ``(1, 2)``."""
         return UnitRule._ARITIES[self.kind]
 
     @classmethod
-    def power(cls, k: Union[int, Fraction]) -> UnitRule:
+    def power(cls, k: int | Fraction) -> UnitRule:
         """Return the rule of a function that raises its argument's unit to the power ``k``.
 
         Args:
@@ -436,7 +435,7 @@ class UnitRule:
         return {"kind": self.kind, "exponent": str(self.exponent)}
 
     @classmethod
-    def from_dict(cls, d: Mapping[str, Union[int, str, Fraction]]) -> UnitRule:
+    def from_dict(cls, d: Mapping[str, int | str | Fraction]) -> UnitRule:
         """Rebuild a rule from the output of ``to_dict``.
 
         Other keys are ignored.

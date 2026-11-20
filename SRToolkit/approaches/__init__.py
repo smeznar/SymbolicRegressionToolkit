@@ -14,7 +14,7 @@ Modules:
 import importlib as _importlib
 import sys as _sys
 import types as _types
-from typing import Any, Dict
+from typing import Any
 
 from .ProGED import ProGED
 from .sr_approach import ApproachConfig, SR_approach
@@ -28,7 +28,7 @@ _INSTALL_HINT = (
 )
 
 
-def _missing_dependency_stubs(error: ImportError) -> Dict[str, Any]:
+def _missing_dependency_stubs(error: ImportError) -> dict[str, Any]:
     """Return placeholder classes that raise the original ``ImportError`` when instantiated."""
 
     class EDHiE:  # type: ignore[no-redef]

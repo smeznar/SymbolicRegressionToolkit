@@ -60,8 +60,9 @@ import tempfile
 import time
 import warnings
 import zipfile
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union, cast
+from typing import Any, cast
 from urllib.request import urlopen
 
 import numpy as np
@@ -92,13 +93,13 @@ from .sampling import Sampler, _sample_inputs
 
 
 def _resolve_task(
-    flat: Dict[str, Any],
-    max_constants: Optional[int],
-    max_expr_length: Optional[int],
-    required_constraints: Optional[Iterable[ExpressionConstraint]],
+    flat: dict[str, Any],
+    max_constants: int | None,
+    max_expr_length: int | None,
+    required_constraints: Iterable[ExpressionConstraint] | None,
     kwargs: Mapping[str, Any],
-    X: Optional[np.ndarray] = None,
-) -> Tuple[BackgroundKnowledge, Tuple[ExpressionConstraint, ...], Dict[str, Any]]:
+    X: np.ndarray | None = None,
+) -> tuple[BackgroundKnowledge, tuple[ExpressionConstraint, ...], dict[str, Any]]:
     """Return the background knowledge, required constraints and remaining ranking settings of a task."""
     # Background knowledge from its parts; None means not given (the field's default).
     bk = BackgroundKnowledge(**{k: v for k, v in flat.items() if v is not None})
@@ -118,10 +119,10 @@ def _resolve_task(
 
 
 def _ground_truth_specs(
-    ground_truth: Optional[Union[List[str], Node]],
-    ground_truth_constants: Optional[Iterable[Constant]],
+    ground_truth: list[str] | Node | None,
+    ground_truth_constants: Iterable[Constant] | None,
     bk: BackgroundKnowledge,
-) -> Optional[Tuple[Constant, ...]]:
+) -> tuple[Constant, ...] | None:
     """Check the ground truth's specs against it; return them sorted by label, or ``None`` if none."""
     specs = tuple(sorted(ground_truth_constants or (), key=lambda c: c.label or ""))
     if not specs:
@@ -136,7 +137,7 @@ def _ground_truth_specs(
     return specs
 
 
-def _derive_equation(tokens: List[str], variables: Mapping[str, VariableInfo], target: Optional[VariableInfo]) -> str:
+def _derive_equation(tokens: list[str], variables: Mapping[str, VariableInfo], target: VariableInfo | None) -> str:
     """Return ``"<target name> = "`` plus ``tokens`` joined, variable tokens replaced by their names.
 
     See [SR_dataset.original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation].
@@ -270,32 +271,32 @@ class SR_dataset:
         X: np.ndarray,
         symbol_library: SymbolLibrary,
         ranking_function: str = "rmse",
-        y: Optional[np.ndarray] = None,
+        y: np.ndarray | None = None,
         max_evaluations: int = -1,
-        ground_truth: Optional[Union[List[str], Node]] = None,
-        original_equation: Optional[str] = None,
-        success_threshold: Optional[float] = None,
-        seed: Optional[int] = None,
-        dataset_metadata: Optional[dict] = None,
+        ground_truth: list[str] | Node | None = None,
+        original_equation: str | None = None,
+        success_threshold: float | None = None,
+        seed: int | None = None,
+        dataset_metadata: dict | None = None,
         dataset_name: str = "unnamed",
-        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
-        benchmark: Optional[str] = None,
-        version: Optional[str] = None,
-        test_X: Optional[np.ndarray] = None,
-        test_y: Optional[np.ndarray] = None,
-        aux_data: Optional[Dict[str, Union[Dict[str, np.ndarray], DataSplit]]] = None,
-        variables: Optional[Mapping[str, VariableInfo]] = None,
-        target: Optional[VariableInfo] = None,
-        named_constants: Optional[Mapping[str, VariableInfo]] = None,
-        description: Optional[str] = None,
-        constant_bounds: Optional[Tuple[float, float]] = None,
-        default_constant: Optional[Constant] = None,
-        reference_grammar: Optional[Grammar] = None,
-        max_constants: Optional[int] = None,
-        max_expr_length: Optional[int] = None,
-        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        ground_truth_constants: Optional[Iterable[Constant]] = None,
+        samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
+        benchmark: str | None = None,
+        version: str | None = None,
+        test_X: np.ndarray | None = None,
+        test_y: np.ndarray | None = None,
+        aux_data: dict[str, dict[str, np.ndarray] | DataSplit] | None = None,
+        variables: Mapping[str, VariableInfo] | None = None,
+        target: VariableInfo | None = None,
+        named_constants: Mapping[str, VariableInfo] | None = None,
+        description: str | None = None,
+        constant_bounds: tuple[float, float] | None = None,
+        default_constant: Constant | None = None,
+        reference_grammar: Grammar | None = None,
+        max_constants: int | None = None,
+        max_expr_length: int | None = None,
+        required_constraints: Iterable[ExpressionConstraint] | None = None,
+        advisory_constraints: Iterable[ExpressionConstraint] | None = None,
+        ground_truth_constants: Iterable[Constant] | None = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
         self._background_knowledge, self._required_constraints, kwargs = _resolve_task(  # type: ignore[assignment]
@@ -337,17 +338,17 @@ class SR_dataset:
 
         # The data lives in DataSplits: the train split (X / y, the data the search runs on), an
         # optional held-out test split, and optional extra splits for the user's own measures.
-        train_arrays: Dict[str, np.ndarray] = {"X": X}
+        train_arrays: dict[str, np.ndarray] = {"X": X}
         if y is not None:
             train_arrays["y"] = y
         self._train = DataSplit(train_arrays)
-        self.test: Optional[DataSplit] = None
+        self.test: DataSplit | None = None
         if test_X is not None:
-            test_arrays: Dict[str, np.ndarray] = {"X": test_X}
+            test_arrays: dict[str, np.ndarray] = {"X": test_X}
             if test_y is not None:
                 test_arrays["y"] = test_y
             self.test = DataSplit(test_arrays)
-        self.aux_data: Dict[str, DataSplit] = {}
+        self.aux_data: dict[str, DataSplit] = {}
         for key, value in (aux_data or {}).items():
             self._validate_aux_key(key)
             self.aux_data[key] = value if isinstance(value, DataSplit) else DataSplit(dict(value))
@@ -379,12 +380,12 @@ class SR_dataset:
         return self._background_knowledge.symbol_library
 
     @property
-    def samplers(self) -> Optional[Tuple[Sampler, ...]]:
+    def samplers(self) -> tuple[Sampler, ...] | None:
         """Shortcut to ``background_knowledge.samplers`` (read-only)."""
         return self._background_knowledge.samplers  # type: ignore[return-value]
 
     @property
-    def constant_bounds(self) -> Tuple[float, float]:
+    def constant_bounds(self) -> tuple[float, float]:
         """Shortcut to ``background_knowledge.constant_bounds`` (read-only)."""
         return self._background_knowledge.constant_bounds
 
@@ -394,12 +395,12 @@ class SR_dataset:
         return cast(Constant, self._background_knowledge.default_constant)
 
     @property
-    def required_constraints(self) -> Tuple[ExpressionConstraint, ...]:
+    def required_constraints(self) -> tuple[ExpressionConstraint, ...]:
         """The required constraints (read-only)."""
         return self._required_constraints
 
     @property
-    def original_equation(self) -> Optional[str]:
+    def original_equation(self) -> str | None:
         """Human-readable answer, e.g. ``"F = m*a"`` (read-only).
 
         The given ``original_equation`` if it is not ``None``. Otherwise ``"<target name> = "``
@@ -449,7 +450,7 @@ class SR_dataset:
                 f"{' '.join(cls._FORBIDDEN_KEY_CHARS)}."
             )
 
-    def _splits(self) -> List[Tuple[str, DataSplit]]:
+    def _splits(self) -> list[tuple[str, DataSplit]]:
         """Return every split with its cache key: ``<name>``, ``<name>/test``, ``<name>/aux/<key>``."""
         splits = [(self.dataset_name, self._train)]
         if self.test is not None:
@@ -470,34 +471,34 @@ class SR_dataset:
         self._train.arrays["X"] = value
 
     @property
-    def y(self) -> Optional[np.ndarray]:
+    def y(self) -> np.ndarray | None:
         """Target values the search runs on, or ``None`` if the dataset has no targets."""
         return self._train.arrays.get("y")
 
     @y.setter
-    def y(self, value: Optional[np.ndarray]) -> None:
+    def y(self, value: np.ndarray | None) -> None:
         if value is None:
             self._train.arrays.pop("y", None)
         else:
             self._train.arrays["y"] = value
 
     @property
-    def test_X(self) -> Optional[np.ndarray]:
+    def test_X(self) -> np.ndarray | None:
         """Inputs of the held-out test split, or ``None`` if there is none."""
         return self.test.X if self.test is not None else None
 
     @property
-    def test_y(self) -> Optional[np.ndarray]:
+    def test_y(self) -> np.ndarray | None:
         """Targets of the held-out test split, or ``None`` if there are none."""
         return self.test.y if self.test is not None else None
 
     @property
-    def data_source(self) -> Optional[DataSource]:
+    def data_source(self) -> DataSource | None:
         """Origin of the data the search runs on (``SampleSource`` / ``UrlSource`` / ``None``)."""
         return self._train.data_source
 
     @data_source.setter
-    def data_source(self, value: Optional[DataSource]) -> None:
+    def data_source(self, value: DataSource | None) -> None:
         self._train.data_source = value
 
     def evaluate_approach(
@@ -505,11 +506,11 @@ class SR_dataset:
         sr_approach: SR_approach,
         num_experiments: int = 1,
         top_k: int = 20,
-        initial_seed: Optional[int] = None,
-        results: Optional[SR_results] = None,
-        callbacks: Optional[Union[SRCallbacks, CallbackDispatcher, List[SRCallbacks]]] = None,
+        initial_seed: int | None = None,
+        results: SR_results | None = None,
+        callbacks: SRCallbacks | CallbackDispatcher | list[SRCallbacks] | None = None,
         verbose: bool = True,
-        adaptation_path: Optional[str] = None,
+        adaptation_path: str | None = None,
     ) -> SR_results:
         """Run an SR approach on this dataset and collect the results.
 
@@ -602,7 +603,7 @@ class SR_dataset:
                 callbacks.on_experiment_end(event, results.results[-1])
         return results
 
-    def ranking_settings(self) -> Dict[str, Any]:
+    def ranking_settings(self) -> dict[str, Any]:
         """Return the settings the ranking function gets, as in an evaluator from ``create_evaluator``.
 
         They are ``kwargs`` plus ``constant_bounds`` and ``default_constant`` (the complete default
@@ -618,7 +619,7 @@ class SR_dataset:
             A new dict of settings; the limits ``max_constants`` / ``max_expr_length`` are not in it
             (they are in ``required_constraints``).
         """
-        settings: Dict[str, Any] = dict(self.kwargs)
+        settings: dict[str, Any] = dict(self.kwargs)
         settings["constant_bounds"] = self.constant_bounds
         settings["default_constant"] = self.default_constant
         if self.samplers is not None:
@@ -630,7 +631,7 @@ class SR_dataset:
             settings.setdefault("ranking_seed", self.seed if self.seed is not None else 0)
         return settings
 
-    def create_evaluator(self, metadata: Optional[Dict[str, Any]] = None, seed: Optional[int] = None) -> SR_evaluator:
+    def create_evaluator(self, metadata: dict[str, Any] | None = None, seed: int | None = None) -> SR_evaluator:
         """Create an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] for this dataset.
 
         The evaluator gets the parts of the background knowledge (its ``constraints`` as advisory
@@ -700,7 +701,7 @@ class SR_dataset:
         """
         return self.background_knowledge.describe(self.required_constraints)
 
-    def priors(self) -> Dict[str, List[Dict[str, Any]]]:
+    def priors(self) -> dict[str, list[dict[str, Any]]]:
         """Return the constraints as records, the structured form of ``describe``.
 
         An evaluator from ``create_evaluator`` gives the same with
@@ -742,7 +743,7 @@ class SR_dataset:
         text += "For other metadata, please refer to the attribute self.dataset_metadata."
         return text
 
-    def resample(self, n: int, seed: Optional[int] = None) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    def resample(self, n: int, seed: int | None = None) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """Draw new data from the samplers without changing the dataset.
 
         ``y`` is computed from ``ground_truth`` unless ``ranking_function`` is ``"bed"``.
@@ -784,7 +785,7 @@ class SR_dataset:
         y = compile_expr(self.ground_truth, self.symbol_library)(X, parameters)
         return X, y
 
-    def resample_inplace(self, n: int, seed: Optional[int] = None) -> "SR_dataset":
+    def resample_inplace(self, n: int, seed: int | None = None) -> "SR_dataset":
         """Replace ``X`` and ``y`` with data from [resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample].
 
         ``y`` becomes ``None`` if ``ranking_function`` is ``"bed"``.
@@ -907,7 +908,7 @@ class SR_dataset:
         }
 
     @classmethod
-    def from_dict(cls, d: Union[dict, str, Path]) -> "SR_dataset":
+    def from_dict(cls, d: dict | str | Path) -> "SR_dataset":
         """Load a dataset from its dictionary representation or a JSON file.
 
         Arrays come from the data cache, or are generated from their ``data_source``. Formats 2 and 3
@@ -960,7 +961,7 @@ class SR_dataset:
         if fmt not in (2, 3, 4):
             raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2, 3 or 4.")
         # Read the task part in either layout, validating it before any data is loaded or generated.
-        task_args: Dict[str, Any] = dict(dd.get("kwargs") or {})
+        task_args: dict[str, Any] = dict(dd.get("kwargs") or {})
         if "background_knowledge" in dd:  # format 4
             required = tuple(ExpressionConstraint.from_dict(c) for c in dd.get("required_constraints") or ())
             bk = BackgroundKnowledge.from_dict(dd["background_knowledge"])
@@ -991,7 +992,7 @@ class SR_dataset:
         version = dd["version"]
         dataset_name = dd["dataset_name"]
 
-        def load_split(key: str, source_dict: Optional[dict]) -> DataSplit:
+        def load_split(key: str, source_dict: dict | None) -> DataSplit:
             # Resolve from the cache, materialising from the split's own source if needed. The
             # config slice keeps the dataset's samplers / ground truth, which a SampleSource needs.
             path = data_cache.resolve(benchmark, version, key, {**dd, "data_source": source_dict})
@@ -1028,7 +1029,7 @@ class SR_dataset:
         dataset.aux_data = aux
         return dataset
 
-    def to_archive(self, path: "Union[str, Path]") -> None:
+    def to_archive(self, path: "str | Path") -> None:
         """Write the dataset, configuration and all data, to a self-contained ``.zip`` archive.
 
         The archive holds ``dataset.json`` and one ``data/<cache key>.npz`` per split, source-backed
@@ -1063,7 +1064,7 @@ class SR_dataset:
                 zf.writestr(f"data/{key}.npz", buf.getvalue())
 
     @classmethod
-    def from_archive(cls, path: "Union[str, Path]") -> "SR_dataset":
+    def from_archive(cls, path: "str | Path") -> "SR_dataset":
         """Load a dataset from a ``.zip`` archive written by [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive].
 
         The archive's data is extracted into the data cache, so nothing is regenerated.
@@ -1118,32 +1119,32 @@ class SR_dataset:
     @classmethod
     def from_samplers(  # type: ignore[misc]
         cls,
-        ground_truth: Union[List[str], Node],
-        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
-        symbol_library: Optional[SymbolLibrary] = None,
+        ground_truth: list[str] | Node,
+        samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
+        symbol_library: SymbolLibrary | None = None,
         n_samples: int = 10000,
-        seed: Optional[int] = None,
-        n_test: Optional[int] = None,
+        seed: int | None = None,
+        n_test: int | None = None,
         ranking_function: str = "rmse",
-        original_equation: Optional[str] = None,
-        success_threshold: Optional[float] = None,
+        original_equation: str | None = None,
+        success_threshold: float | None = None,
         max_evaluations: int = -1,
         dataset_name: str = "unnamed",
-        dataset_metadata: Optional[dict] = None,
-        benchmark: Optional[str] = None,
-        version: Optional[str] = None,
-        variables: Optional[Mapping[str, VariableInfo]] = None,
-        target: Optional[VariableInfo] = None,
-        named_constants: Optional[Mapping[str, VariableInfo]] = None,
-        description: Optional[str] = None,
-        constant_bounds: Optional[Tuple[float, float]] = None,
-        default_constant: Optional[Constant] = None,
-        reference_grammar: Optional[Grammar] = None,
-        max_constants: Optional[int] = None,
-        max_expr_length: Optional[int] = None,
-        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        ground_truth_constants: Optional[Iterable[Constant]] = None,
+        dataset_metadata: dict | None = None,
+        benchmark: str | None = None,
+        version: str | None = None,
+        variables: Mapping[str, VariableInfo] | None = None,
+        target: VariableInfo | None = None,
+        named_constants: Mapping[str, VariableInfo] | None = None,
+        description: str | None = None,
+        constant_bounds: tuple[float, float] | None = None,
+        default_constant: Constant | None = None,
+        reference_grammar: Grammar | None = None,
+        max_constants: int | None = None,
+        max_expr_length: int | None = None,
+        required_constraints: Iterable[ExpressionConstraint] | None = None,
+        advisory_constraints: Iterable[ExpressionConstraint] | None = None,
+        ground_truth_constants: Iterable[Constant] | None = None,
         **kwargs: Unpack[RankingSettings],
     ) -> "SR_dataset":
         """Build a dataset by sampling inputs and evaluating a ground truth on them.
@@ -1250,7 +1251,7 @@ class SR_dataset:
             test_seed = None if seed is None else seed + 1
             test_result = dataset.resample(n_test, seed=test_seed)
             if isinstance(test_result, tuple):
-                test_arrays: Dict[str, np.ndarray] = {"X": test_result[0], "y": test_result[1]}
+                test_arrays: dict[str, np.ndarray] = {"X": test_result[0], "y": test_result[1]}
             else:
                 test_arrays = {"X": test_result}
             dataset.test = DataSplit(test_arrays, data_source=SampleSource(n_samples=n_test, seed=test_seed))

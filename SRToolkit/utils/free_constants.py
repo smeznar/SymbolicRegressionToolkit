@@ -34,8 +34,9 @@ import json
 import math
 import numbers
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -102,10 +103,10 @@ class Constant:
         (0.0, inf)
     """
 
-    label: Optional[str] = None
-    prior: Optional["Sampler"] = None
-    bounds: Optional[Tuple[float, float]] = None
-    value: Optional[float] = None
+    label: str | None = None
+    prior: "Sampler | None" = None
+    bounds: tuple[float, float] | None = None
+    value: float | None = None
     fixed: bool = False
 
     def __post_init__(self) -> None:
@@ -205,7 +206,7 @@ class Constant:
         )
 
 
-def uniform_default(constant_bounds: Tuple[float, float]) -> Constant:
+def uniform_default(constant_bounds: tuple[float, float]) -> Constant:
     """Return the default spec with a uniform prior on, and bounds of, a constant range.
 
     Args:
@@ -239,11 +240,11 @@ def uniform_default(constant_bounds: Tuple[float, float]) -> Constant:
 
 
 def resolve_constants(
-    expr: Union[List[str], Node],
-    free_constants: Optional[Sequence[Constant]],
+    expr: list[str] | Node,
+    free_constants: Sequence[Constant] | None,
     default_constant: Constant,
-    symbol_library: Optional[SymbolLibrary] = None,
-) -> Tuple[Constant, ...]:
+    symbol_library: SymbolLibrary | None = None,
+) -> tuple[Constant, ...]:
     """Return one complete spec per parameter of an expression.
 
     Each labelled constant with a spec gets that spec, with a ``prior`` or ``bounds`` of ``None``
@@ -289,7 +290,7 @@ def resolve_constants(
             f"'default_constant' must be a template with a prior and bounds and no label, value or fixed, got {d!r}."
         )
     labels = parameter_labels(expr, symbol_library)
-    specs: Dict[str, Constant] = {}
+    specs: dict[str, Constant] = {}
     for spec in free_constants or ():
         if spec.label is None:
             raise ValueError(f"Every spec in 'free_constants' needs a label, got {spec!r}.")
@@ -318,7 +319,7 @@ def resolve_constants(
     return tuple(resolved)
 
 
-def canonicalise(expr: Union[List[str], Node], symbol_library: Optional[SymbolLibrary] = None) -> List[str]:
+def canonicalise(expr: list[str] | Node, symbol_library: SymbolLibrary | None = None) -> list[str]:
     """Rewrite the free constants of an expression in a canonical way.
 
     A parameter that occurs once is written bare (``C``, the library's constant symbol); one that
@@ -375,8 +376,8 @@ def canonicalise(expr: Union[List[str], Node], symbol_library: Optional[SymbolLi
 
 
 def _ground_truth_parameters(
-    expr: Union[List[str], Node],
-    free_constants: Optional[Sequence[Constant]],
+    expr: list[str] | Node,
+    free_constants: Sequence[Constant] | None,
     symbol_library: SymbolLibrary,
     context: str,
 ) -> np.ndarray:
@@ -405,7 +406,7 @@ def _ground_truth_parameters(
     return np.array([fixed[label] for label in labels], dtype=np.float64)
 
 
-def _spec_key(free_constants: Optional[Sequence[Constant]]) -> str:
+def _spec_key(free_constants: Sequence[Constant] | None) -> str:
     """Return a canonical key of labelled specs; ``""`` for ``None`` or empty.
 
     The key covers only score-affecting fields (label, prior, bounds, value, fixed), priors by their

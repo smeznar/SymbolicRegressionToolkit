@@ -11,7 +11,8 @@ required methods.
 
 import copy
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence, Tuple, Union
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -71,7 +72,7 @@ class ExpressionToLatex(ResultAugmenter):
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
         """
-        eval_data: Dict[str, Any] = {}
+        eval_data: dict[str, Any] = {}
         try:
             eval_data["best_expr_latex"] = tokens_to_tree(results.top_models(1)[0].expr, self.symbol_library).to_latex(
                 self.symbol_library
@@ -94,7 +95,7 @@ class ExpressionToLatex(ResultAugmenter):
                     warnings.warn(f"Unable to convert expression {''.join(model.expr)} to LaTeX: {e}")
 
     @classmethod
-    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+    def format_eval_result(cls, data: dict[str, Any]) -> str:
         """Format experiment-level LaTeX augmentation data for display.
 
         Args:
@@ -107,7 +108,7 @@ class ExpressionToLatex(ResultAugmenter):
         return f"LaTeX of the best expression: {latex}" if latex else ""
 
     @classmethod
-    def format_model_result(cls, data: Dict[str, Any]) -> str:
+    def format_model_result(cls, data: dict[str, Any]) -> str:
         """Format per-model LaTeX augmentation data for display.
 
         Args:
@@ -204,7 +205,7 @@ class ExpressionSimplifier(ResultAugmenter):
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
         """
-        eval_data: Dict[str, Any] = {}
+        eval_data: dict[str, Any] = {}
         try:
             simplified_expr = simplify(results.top_models(1)[0].expr, self.symbol_library)
             if isinstance(simplified_expr, list):
@@ -220,7 +221,7 @@ class ExpressionSimplifier(ResultAugmenter):
 
         scoped = results.all_models if self.scope == "all" else results.top_models() if self.scope == "top" else []
         for model in scoped:
-            model_data: Dict[str, Any] = {}
+            model_data: dict[str, Any] = {}
             try:
                 simplified_expr = simplify(model.expr, self.symbol_library)
                 if isinstance(simplified_expr, list):
@@ -235,7 +236,7 @@ class ExpressionSimplifier(ResultAugmenter):
             model.add_augmentation(self.name, model_data, self._type)
 
     @classmethod
-    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+    def format_eval_result(cls, data: dict[str, Any]) -> str:
         """Format experiment-level simplification data for display.
 
         Args:
@@ -248,7 +249,7 @@ class ExpressionSimplifier(ResultAugmenter):
         return f"Simplified: {simplified}" if simplified else ""
 
     @classmethod
-    def format_model_result(cls, data: Dict[str, Any]) -> str:
+    def format_model_result(cls, data: dict[str, Any]) -> str:
         """Format per-model simplification data for display.
 
         Args:
@@ -304,15 +305,15 @@ class ExpressionSimplifier(ResultAugmenter):
 class HoldoutMetric(ResultAugmenter):
     def __init__(
         self,
-        data: "Union[DataSplit, Tuple[np.ndarray, ...]]",
-        metric: Union[
-            str, Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float], RankingFunction
-        ] = "rmse",
+        data: "DataSplit | tuple[np.ndarray, ...]",
+        metric: str
+        | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]
+        | RankingFunction = "rmse",
         scope: str = "top",
-        symbol_library: Optional[SymbolLibrary] = None,
-        ground_truth: Optional[Union[list, Node]] = None,
-        ranking_settings: Optional[Dict[str, Any]] = None,
-        seed: Optional[int] = 0,
+        symbol_library: SymbolLibrary | None = None,
+        ground_truth: list | Node | None = None,
+        ranking_settings: dict[str, Any] | None = None,
+        seed: int | None = 0,
         refit_constants: bool = False,
         name: str = "HoldoutMetric",
     ) -> None:
@@ -408,8 +409,8 @@ class HoldoutMetric(ResultAugmenter):
         self.metric = metric
         self.seed = seed
         self.refit_constants = refit_constants
-        self.ranking_settings: Dict[str, Any] = dict(ranking_settings or {})
-        self._estimator: Optional[ParameterEstimator] = None
+        self.ranking_settings: dict[str, Any] = dict(ranking_settings or {})
+        self._estimator: ParameterEstimator | None = None
 
         if isinstance(data, tuple):
             self._X = data[0]
@@ -502,9 +503,7 @@ class HoldoutMetric(ResultAugmenter):
     def _has_constants(self, expr: list) -> bool:
         return len(_constant_indices(expr, self.symbol_library)) > 0
 
-    def _fit_parameters(
-        self, expr: list, free_constants: Optional[Sequence[Constant]] = None
-    ) -> Tuple[float, np.ndarray]:
+    def _fit_parameters(self, expr: list, free_constants: Sequence[Constant] | None = None) -> tuple[float, np.ndarray]:
         """Return ``(error, parameters)`` of a fit of ``expr`` under its specs on the held-out data."""
         # __init__ rejects string/callable metrics without y, so it is set in this mode.
         assert self._y is not None
@@ -526,7 +525,7 @@ class HoldoutMetric(ResultAugmenter):
         """
         # The best model is also in the scoped models, so score each expression once: rescoring would
         # cost a fit each time and, with a refit, could give a different value.
-        values: Dict[Tuple[Tuple[str, ...], str], float] = {}
+        values: dict[tuple[tuple[str, ...], str], float] = {}
 
         def value(model: ModelResult) -> float:
             key = (tuple(model.expr), _spec_key(model.free_constants))
@@ -550,7 +549,7 @@ class HoldoutMetric(ResultAugmenter):
             )
 
     @classmethod
-    def format_eval_result(cls, data: Dict[str, Any]) -> str:
+    def format_eval_result(cls, data: dict[str, Any]) -> str:
         """Format experiment-level holdout data for display.
 
         Args:
@@ -568,7 +567,7 @@ class HoldoutMetric(ResultAugmenter):
         return f"Holdout {data.get('metric', 'metric')}{refit} (best): {val}"
 
     @classmethod
-    def format_model_result(cls, data: Dict[str, Any]) -> str:
+    def format_model_result(cls, data: dict[str, Any]) -> str:
         """Format per-model holdout data for display.
 
         Args:

@@ -19,8 +19,9 @@
 
 import dataclasses
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Set, Tuple, TypedDict, get_args
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, get_args
 
 import numpy as np
 
@@ -40,7 +41,7 @@ OP = "op"
 """Symbol type of a binary operator (e.g. ``+``)."""
 LIT = "lit"
 """Symbol type of a named constant, a symbol with a fixed value (e.g. ``pi``, ``e``)."""
-VALID_SYMBOL_TYPES: Set[str] = {VAR, CONST, FN, OP, LIT}
+VALID_SYMBOL_TYPES: set[str] = {VAR, CONST, FN, OP, LIT}
 """The set of valid symbol types: ``VAR``, ``CONST``, ``FN``, ``OP`` and ``LIT``."""
 
 OP_ADDITIVE = 100
@@ -80,7 +81,7 @@ Outcome of evaluating one expression, stored as [ModelResult.status][SRToolkit.u
 Every status except ``"ok"`` gets the error ``+inf``.
 """
 
-STATUSES: Tuple[str, ...] = get_args(Status)
+STATUSES: tuple[str, ...] = get_args(Status)
 """The values of [Status][SRToolkit.utils.types.Status], in the same order. This is also the key order
 of [status_counts][SRToolkit.utils.types.EvalResult.status_counts]."""
 
@@ -179,22 +180,22 @@ class RankingSettings(TypedDict, total=False):
     tol: float
     gtol: float
     max_iter: int
-    constant_bounds: Tuple[float, float]
+    constant_bounds: tuple[float, float]
     initialization: str
     max_constants: int
     max_expr_length: int
     backend: str
     num_points_sampled: int
-    samplers: Optional[List[Any]]
-    bed_gt: Optional[np.ndarray]
-    ranking_seed: Optional[int]
+    samplers: list[Any] | None
+    bed_gt: np.ndarray | None
+    ranking_seed: int | None
     ranking_resample: bool
     num_consts_sampled: int
-    ground_truth_constants: Optional[Sequence["Constant"]]
-    default_constant: Optional["Constant"]
+    ground_truth_constants: Sequence["Constant"] | None
+    default_constant: "Constant | None"
 
 
-def _add_augmentation(augmentations: Dict[str, Dict[str, Any]], name: str, data: Dict[str, Any], aug_type: str) -> None:
+def _add_augmentation(augmentations: dict[str, dict[str, Any]], name: str, data: dict[str, Any], aug_type: str) -> None:
     # Shared body of ModelResult/EvalResult.add_augmentation: store a shallow copy under the first
     # free key among name, name_1, name_2, ...
     resolved = name
@@ -249,7 +250,7 @@ class CheckResult:
     implemented: bool = True
     constraint: str = ""
     stage: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -295,17 +296,17 @@ class ModelResult:
         (0.42, 'ok')
     """
 
-    expr: List[str]
+    expr: list[str]
     error: float
-    parameters: Optional["np.ndarray"] = None
-    ranking_data: Dict[str, Any] = field(default_factory=dict)
-    augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    parameters: "np.ndarray | None" = None
+    ranking_data: dict[str, Any] = field(default_factory=dict)
+    augmentations: dict[str, dict[str, Any]] = field(default_factory=dict)
     status: Status = "ok"
-    status_detail: Optional[str] = None
-    advisory_violations: List[CheckResult] = field(default_factory=list)
-    free_constants: Optional[Tuple["Constant", ...]] = None
+    status_detail: str | None = None
+    advisory_violations: list[CheckResult] = field(default_factory=list)
+    free_constants: tuple["Constant", ...] | None = None
 
-    def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
+    def add_augmentation(self, name: str, data: dict[str, Any], aug_type: str) -> None:
         """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
 
         A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.ModelResult] with
@@ -427,7 +428,7 @@ class ModelResult:
         )
 
 
-def _ranking_key(model: ModelResult) -> Tuple[bool, float, int]:
+def _ranking_key(model: ModelResult) -> tuple[bool, float, int]:
     # Non-finite errors (failed models, or NaN in hand-built results) sort after every finite one;
     # NaN compares false with everything, so the flag leads and the error slot is a placeholder.
     # Among equal errors, shorter expressions come first.
@@ -487,19 +488,19 @@ class EvalResult:
         ('C*X_0', 0.05, True)
     """
 
-    all_models: List[ModelResult]
-    trace: List[int]
+    all_models: list[ModelResult]
+    trace: list[int]
     approach_name: str
-    success_threshold: Optional[float] = None
+    success_threshold: float | None = None
     top_k: int = 20
-    dataset_name: Optional[str] = None
-    metadata: Optional[dict] = None
-    wall_time: Optional[float] = None
-    augmentations: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    default_constant: Optional["Constant"] = None
-    _ranking_cache: Optional[List[int]] = field(default=None, init=False, repr=False, compare=False)
+    dataset_name: str | None = None
+    metadata: dict | None = None
+    wall_time: float | None = None
+    augmentations: dict[str, dict[str, Any]] = field(default_factory=dict)
+    default_constant: "Constant | None" = None
+    _ranking_cache: list[int] | None = field(default=None, init=False, repr=False, compare=False)
 
-    def _ranking(self) -> List[int]:
+    def _ranking(self) -> list[int]:
         # Indices into all_models from best to worst. The sort is stable, so models that tie on
         # error and length keep their first-seen order.
         if self._ranking_cache is None or len(self._ranking_cache) != len(self.all_models):
@@ -519,7 +520,7 @@ class EvalResult:
         """Number of counted calls to ``evaluate_expr``, including cache hits."""
         return len(self.trace)
 
-    def top_models(self, k: Optional[int] = None) -> List[ModelResult]:
+    def top_models(self, k: int | None = None) -> list[ModelResult]:
         """Return the ``k`` best models, best first.
 
         Models with a finite error come first, sorted by error. Models whose error is not finite
@@ -573,7 +574,7 @@ class EvalResult:
         """Whether ``min_error < success_threshold``. ``False`` if no threshold is set or it is ``nan``."""
         return self.success_threshold is not None and bool(self.min_error < self.success_threshold)
 
-    def best_so_far(self) -> List[Tuple[int, int]]:
+    def best_so_far(self) -> list[tuple[int, int]]:
         """Return the incumbent history: each call in the trace where the best error strictly improved.
 
         Failed models (non-finite error) never become the incumbent. Only a strictly lower error
@@ -591,7 +592,7 @@ class EvalResult:
             >>> result.best_so_far()
             [(2, 0), (4, 2)]
         """
-        history: List[Tuple[int, int]] = []
+        history: list[tuple[int, int]] = []
         best = None
         for call, index in enumerate(self.trace, start=1):
             error = self.all_models[index].error
@@ -600,7 +601,7 @@ class EvalResult:
                 history.append((call, index))
         return history
 
-    def calls_to_threshold(self, threshold: Optional[float] = None) -> Optional[int]:
+    def calls_to_threshold(self, threshold: float | None = None) -> int | None:
         """Return the number of calls needed to first reach an error below ``threshold``.
 
         Args:
@@ -669,7 +670,7 @@ class EvalResult:
                 curve[j] = running[min(budget, len(running)) - 1]
         return curve
 
-    def status_counts(self, per: Literal["unique", "call"] = "unique") -> Dict[str, int]:
+    def status_counts(self, per: Literal["unique", "call"] = "unique") -> dict[str, int]:
         """Return the number of models with each [Status][SRToolkit.utils.types.Status].
 
         Args:
@@ -702,7 +703,7 @@ class EvalResult:
             counts[model.status] += 1
         return counts
 
-    def add_augmentation(self, name: str, data: Dict[str, Any], aug_type: str) -> None:
+    def add_augmentation(self, name: str, data: dict[str, Any], aug_type: str) -> None:
         """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
 
         A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.EvalResult] with

@@ -7,8 +7,9 @@ Requires the optional ``approaches`` extra (PyTorch and pymoo). Install with::
 
 import random
 import warnings
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING
 
 from tqdm import tqdm
 
@@ -73,12 +74,12 @@ class EDHiEConfig(ApproachConfig):
     batch_size: int = 32
     max_beta: float = 0.035
     population_size: int = 40
-    weights_path: Optional[str] = None
+    weights_path: str | None = None
     verbose: bool = True
     max_consecutive_skips: int = 10000
     skip_evaluated: bool = True
     skip_rejected: bool = True
-    training_seed: Optional[int] = None
+    training_seed: int | None = None
 
 
 class EDHiE(SR_approach):
@@ -92,12 +93,12 @@ class EDHiE(SR_approach):
         batch_size: int = 32,
         max_beta: float = 0.035,
         population_size: int = 40,
-        weights_path: Optional[str] = None,
+        weights_path: str | None = None,
         verbose: bool = True,
         max_consecutive_skips: int = 10000,
         skip_evaluated: bool = True,
         skip_rejected: bool = True,
-        training_seed: Optional[int] = None,
+        training_seed: int | None = None,
     ) -> None:
         r"""EDHiE — Equation Discovery with Hierarchical variational autoEncoders by Mežnar et al.
 
@@ -173,7 +174,7 @@ class EDHiE(SR_approach):
         self.skip_rejected = skip_rejected
         self.training_seed = training_seed
 
-        self.model: Optional[HVAE] = None
+        self.model: HVAE | None = None
         self._pretrained = weights_path is not None
         if weights_path is not None:
             self.load_adapted_state(weights_path)
@@ -243,7 +244,7 @@ class EDHiE(SR_approach):
         try:
             symbol_library = background_knowledge.symbol_library
             expressions = self.training_expressions(background_knowledge, required_constraints)
-            expr_trees: List[Optional[Node]] = [tokens_to_tree(expr, symbol_library) for expr in expressions]
+            expr_trees: list[Node | None] = [tokens_to_tree(expr, symbol_library) for expr in expressions]
             self.model = HVAE(len(symbol_library), self.latent_size, symbol_library)
             train_hvae(
                 self.model,
@@ -264,7 +265,7 @@ class EDHiE(SR_approach):
         self,
         background_knowledge: "BackgroundKnowledge",
         required_constraints: Sequence[ExpressionConstraint],
-    ) -> List[List[str]]:
+    ) -> list[list[str]]:
         """Sample the expressions the HVAE is trained on.
 
         Samples from [BackgroundKnowledge.sampling_grammar][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.sampling_grammar]
@@ -289,7 +290,7 @@ class EDHiE(SR_approach):
         symbol_library = background_knowledge.symbol_library
         constant = str(symbol_library.constant_symbol)
 
-        expressions: List[List[str]] = []
+        expressions: list[list[str]] = []
         seen = set()
         allow_repeats = not self.only_unique_expressions
         rejected = repeats = 0  # consecutive samples of each kind
@@ -378,7 +379,7 @@ class EDHiE(SR_approach):
         )
         self.model.load_state_dict(checkpoint["state_dict"])
 
-    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
+    def search(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
         """Explore the HVAE latent space with a genetic algorithm to find the best expression.
 
         Each individual is decoded to an expression and scored without using the budget if it was
@@ -462,27 +463,27 @@ class BatchedNode:
     We recommend using [SRToolkit.approaches.EDHiE.create_batch] to create batched trees.
     """
 
-    def __init__(self, symbol2index: Dict[str, int], size: int = 0, trees: Optional[List[Optional[Node]]] = None):
+    def __init__(self, symbol2index: dict[str, int], size: int = 0, trees: list[Node | None] | None = None):
         """Args:
         symbol2index: Mapping from symbol strings to vocabulary indices.
         size: Number of padding slots to pre-allocate (filled with ``""``).
         trees: Optional list of [Node][SRToolkit.utils.expression_tree.Node] trees to add
             immediately via [add_tree][SRToolkit.approaches.EDHiE.BatchedNode.add_tree].
         """
-        self.symbols: List[str] = ["" for _ in range(size)]  # For when a new leaf node is added
-        self.left: Optional[BatchedNode] = None
-        self.right: Optional[BatchedNode] = None
-        self.symbol2index: Dict[str, int] = symbol2index
-        self.mask: Optional[torch.Tensor] = None
-        self.target: Optional[torch.Tensor] = None
-        self.target_indices: Optional[torch.Tensor] = None
-        self.prediction: Optional[torch.Tensor] = None
+        self.symbols: list[str] = ["" for _ in range(size)]  # For when a new leaf node is added
+        self.left: BatchedNode | None = None
+        self.right: BatchedNode | None = None
+        self.symbol2index: dict[str, int] = symbol2index
+        self.mask: torch.Tensor | None = None
+        self.target: torch.Tensor | None = None
+        self.target_indices: torch.Tensor | None = None
+        self.prediction: torch.Tensor | None = None
 
         if trees is not None:
             for tree in trees:
                 self.add_tree(tree)
 
-    def add_tree(self, tree: Optional[Node] = None) -> None:
+    def add_tree(self, tree: Node | None = None) -> None:
         """Append one tree (or a padding slot) to the batch.
 
         If ``tree`` is ``None``, an empty padding entry (``""``) is appended at every level.
@@ -562,7 +563,7 @@ class BatchedNode:
         if self.right is not None:
             self.right.create_target()
 
-    def to_expr_list(self) -> List[Optional[Node]]:
+    def to_expr_list(self) -> list[Node | None]:
         """Extract one [Node][SRToolkit.utils.expression_tree.Node] tree per batch element.
 
         Returns:
@@ -571,7 +572,7 @@ class BatchedNode:
         """
         return [self.get_expr_at_idx(i) for i in range(len(self.symbols))]
 
-    def get_expr_at_idx(self, idx: int) -> Optional[Node]:
+    def get_expr_at_idx(self, idx: int) -> Node | None:
         """Reconstruct the expression tree for a single batch element.
 
         Args:
@@ -598,7 +599,7 @@ class BatchedNode:
         predictions = self.get_prediction_rec()
         return torch.stack(predictions, dim=2)
 
-    def get_prediction_rec(self) -> List[torch.Tensor]:
+    def get_prediction_rec(self) -> list[torch.Tensor]:
         if self.prediction is None:
             return []
 
@@ -622,7 +623,7 @@ class BatchedNode:
         targets = self.get_target_rec()
         return torch.stack(targets, dim=1)
 
-    def get_target_rec(self) -> List[torch.Tensor]:
+    def get_target_rec(self) -> list[torch.Tensor]:
         if self.target_indices is None:
             raise RuntimeError(
                 "BatchedNode.create_target() must be called before get_target_rec(). We recommend using SRToolkit.approaches.EDHiE.create_batch tp create batched trees."
@@ -653,7 +654,7 @@ class HVAE(nn.Module):
         input_size: int,
         output_size: int,
         symbol_library: SymbolLibrary,
-        hidden_size: Optional[int] = None,
+        hidden_size: int | None = None,
         max_height: int = 20,
     ):
         """Args:
@@ -672,7 +673,7 @@ class HVAE(nn.Module):
         self.encoder = Encoder(input_size, hidden_size, output_size)
         self.decoder = Decoder(output_size, hidden_size, input_size, symbol_library, max_height)
 
-    def forward(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor, BatchedNode]:
+    def forward(self, tree: BatchedNode) -> tuple[torch.Tensor, torch.Tensor, BatchedNode]:
         """Run the full VAE forward pass: encode, sample latent vector, decode.
 
         Args:
@@ -701,7 +702,7 @@ class HVAE(nn.Module):
         std = torch.exp(logvar / 2.0)
         return mu + eps * std
 
-    def encode(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, tree: BatchedNode) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode a batch of trees to posterior parameters without sampling.
 
         Args:
@@ -713,7 +714,7 @@ class HVAE(nn.Module):
         mu, logvar = self.encoder(tree)
         return mu, logvar
 
-    def decode(self, z: torch.Tensor) -> List[Optional[Node]]:
+    def decode(self, z: torch.Tensor) -> list[Node | None]:
         """Decode a batch of latent vectors to expression trees (inference mode).
 
         Args:
@@ -749,7 +750,7 @@ class Encoder(nn.Module):
         torch.nn.init.xavier_uniform_(self.mu.weight)
         torch.nn.init.xavier_uniform_(self.logvar.weight)
 
-    def forward(self, tree: BatchedNode) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, tree: BatchedNode) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode a batched tree to posterior parameters.
 
         Args:
@@ -872,7 +873,7 @@ class Decoder(nn.Module):
             if continue_right:
                 self.recursive_forward(right, tree.right)  # type: ignore[arg-type]
 
-    def decode(self, z: torch.Tensor) -> List[Optional[Node]]:
+    def decode(self, z: torch.Tensor) -> list[Node | None]:
         """Autoregressively decode latent vectors to expression trees (inference mode).
 
         Args:
@@ -919,7 +920,7 @@ class Decoder(nn.Module):
 
     def sample_symbol(
         self, prediction: torch.Tensor, mask: torch.Tensor, height: int
-    ) -> Tuple[List[str], torch.Tensor, torch.Tensor]:
+    ) -> tuple[list[str], torch.Tensor, torch.Tensor]:
         """Greedily select one symbol per batch element and compute child masks.
 
         Args:
@@ -1028,7 +1029,7 @@ class GRU122(nn.Module):
         torch.nn.init.xavier_uniform_(self.win.weight)
         torch.nn.init.xavier_uniform_(self.whn.weight)
 
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, h: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute two child hidden states from input and parent hidden state.
 
         Args:
@@ -1048,7 +1049,7 @@ class GRU122(nn.Module):
         return h_left, h_right
 
 
-def create_batch(trees: List[Optional[Node]], symbol2index: Dict[str, int]) -> BatchedNode:
+def create_batch(trees: list[Node | None], symbol2index: dict[str, int]) -> BatchedNode:
     """Pack a list of expression trees into a single [BatchedNode][SRToolkit.approaches.EDHiE.BatchedNode]
     with targets and masks populated.
 
@@ -1064,7 +1065,7 @@ def create_batch(trees: List[Optional[Node]], symbol2index: Dict[str, int]) -> B
     return t
 
 
-class TreeBatchSampler(Sampler[List[int]]):
+class TreeBatchSampler(Sampler[list[int]]):
     """PyTorch sampler that yields randomly permuted mini-batches of tree indices.
 
     Each call to ``__iter__`` produces a fresh permutation. Batches are contiguous slices
@@ -1079,7 +1080,7 @@ class TreeBatchSampler(Sampler[List[int]]):
         self.batch_size = batch_size
         self.num_eq = num_eq
 
-    def __iter__(self) -> Iterator[List[int]]:
+    def __iter__(self) -> Iterator[list[int]]:
         permutation = np.random.permutation(self.num_eq)
         for i in range(len(self)):
             yield permutation[i * self.batch_size : (i + 1) * self.batch_size].tolist()
@@ -1091,11 +1092,11 @@ class TreeBatchSampler(Sampler[List[int]]):
 class TreeDataset(Dataset):
     """Minimal PyTorch ``Dataset`` wrapping a list of expression trees."""
 
-    def __init__(self, trees: List[Optional[Node]]):
+    def __init__(self, trees: list[Node | None]):
         """Args:
         trees: List of [Node][SRToolkit.utils.expression_tree.Node] expression trees.
         """
-        self.trees: List[Node] = [t for t in trees if isinstance(t, Node)]
+        self.trees: list[Node] = [t for t in trees if isinstance(t, Node)]
 
     def __getitem__(self, idx: int) -> Node:
         return self.trees[idx]
@@ -1125,7 +1126,7 @@ def hvae_loss(
     logvar: torch.Tensor,
     lmbda: float,
     criterion: nn.Module,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Compute the HVAE ELBO loss: reconstruction (cross-entropy) + KL divergence.
 
     Args:

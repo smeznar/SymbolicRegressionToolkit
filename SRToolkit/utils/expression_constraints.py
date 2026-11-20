@@ -131,8 +131,9 @@ import importlib
 import math
 import re
 import warnings
+from collections.abc import Mapping, Sequence
 from fractions import Fraction
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Sequence, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -175,7 +176,7 @@ def _leaf_unit(token: str, variable_units: Mapping[str, Unit], named_constant_un
     return named_constant_units.get(token, _DIMENSIONLESS)
 
 
-def _predict(model: ModelResult, points: np.ndarray, symbol_library: SymbolLibrary) -> Union[np.ndarray, str]:
+def _predict(model: ModelResult, points: np.ndarray, symbol_library: SymbolLibrary) -> np.ndarray | str:
     # Output of the fitted model at ``points``: compiles model.expr and evaluates it with
     # model.parameters, with NumPy warnings suppressed. Returns a message instead of an array if
     # the expression has free constants but model.parameters is None ("no fitted parameters") or
@@ -212,7 +213,7 @@ def _set_up_copy(constraint: "ExpressionConstraint", symbol_library: SymbolLibra
     return duplicate
 
 
-def _resolve_constraint_class(d: dict) -> Tuple[Type["ExpressionConstraint"], dict]:
+def _resolve_constraint_class(d: dict) -> tuple[type["ExpressionConstraint"], dict]:
     # Used by ExpressionConstraint.from_dict: binds bundle paths (_auto_bind), imports the class
     # named by d["constraint_class"] and checks that it is an ExpressionConstraint subclass.
     # Returns the class and the bound dictionary.
@@ -234,7 +235,7 @@ def _resolve_constraint_class(d: dict) -> Tuple[Type["ExpressionConstraint"], di
     return resolved, d
 
 
-def _bound(value: Any, unbounded: float, name: str, n_points: int) -> Optional[Union[float, np.ndarray]]:
+def _bound(value: Any, unbounded: float, name: str, n_points: int) -> float | np.ndarray | None:
     # OutputBounds bound: None stays None; a scalar becomes a float, an array a float array of one
     # entry per point; a bound equal to ``unbounded`` (+-inf) everywhere becomes None. NaN, or an
     # array of the wrong shape, raises ValueError.
@@ -296,7 +297,7 @@ class ExpressionConstraint:
         False
     """
 
-    symbol_library: Optional[SymbolLibrary] = None
+    symbol_library: SymbolLibrary | None = None
 
     def setup(self, symbol_library: SymbolLibrary) -> None:
         """Give the constraint the symbol library its expressions are written in.
@@ -312,7 +313,7 @@ class ExpressionConstraint:
         """
         self.symbol_library = symbol_library
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Check an expression before it is scored.
 
         Must not modify ``expr``. The base implementation does not check anything.
@@ -488,7 +489,7 @@ class MaxConstants(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxConstants")
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if the expression has more than ``limit`` free constants.
 
         Args:
@@ -572,7 +573,7 @@ class MaxTokens(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxTokens")
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if the expression has more than ``limit`` tokens.
 
         Args:
@@ -656,7 +657,7 @@ class MaxTreeDepth(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxTreeDepth")
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if the expression tree is higher than ``limit``.
 
         Args:
@@ -740,7 +741,7 @@ class MaxTreeSize(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxTreeSize")
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if the expression tree has more than ``limit`` nodes.
 
         Args:
@@ -822,9 +823,9 @@ class RequiredVariables(ExpressionConstraint):
         True
     """
 
-    def __init__(self, variables: Optional[Union[str, Sequence[str]]] = None) -> None:
+    def __init__(self, variables: str | Sequence[str] | None = None) -> None:
         if variables is None:
-            self.variables: Optional[Tuple[str, ...]] = None
+            self.variables: tuple[str, ...] | None = None
         elif isinstance(variables, str):
             self.variables = (variables,)
         else:
@@ -850,7 +851,7 @@ class RequiredVariables(ExpressionConstraint):
             )
         super().setup(symbol_library)
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if a required variable does not occur in the expression.
 
         Args:
@@ -948,13 +949,13 @@ class MaxSymbolCount(ExpressionConstraint):
         "'cos', 'sin' occur 2 times together, limit 1"
     """
 
-    def __init__(self, symbols: Union[str, Sequence[str]], limit: int) -> None:
+    def __init__(self, symbols: str | Sequence[str], limit: int) -> None:
         self.symbols: frozenset = frozenset({symbols}) if isinstance(symbols, str) else frozenset(symbols)
         if not self.symbols:
             raise ValueError("MaxSymbolCount: the group of symbols is empty.")
         self.limit = _validate_limit(limit, "MaxSymbolCount")
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if the symbols occur more than ``limit`` times in total.
 
         Args:
@@ -1059,12 +1060,12 @@ class NoNesting(ExpressionConstraint):
         True
     """
 
-    def __init__(self, symbols: Union[str, Sequence[str]]) -> None:
+    def __init__(self, symbols: str | Sequence[str]) -> None:
         self.symbols: frozenset = frozenset({symbols}) if isinstance(symbols, str) else frozenset(symbols)
         if not self.symbols:
             raise ValueError("NoNesting: the group of symbols is empty.")
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if a group symbol occurs below a group symbol in the expression tree.
 
         Args:
@@ -1085,7 +1086,7 @@ class NoNesting(ExpressionConstraint):
             ExpressionParseError: If ``expr`` is a malformed token list.
         """
         symbol_library = _require_setup(self)
-        nested: List[Tuple[str, str]] = []
+        nested: list[tuple[str, str]] = []
         self._collect_nested(_as_tree(expr, symbol_library), None, nested, symbol_library)
         if not nested:
             return CheckResult()
@@ -1093,7 +1094,7 @@ class NoNesting(ExpressionConstraint):
         return CheckResult(passed=False, message=f"{inner!r} nested inside {outer!r}", amount=float(len(nested)))
 
     def _collect_nested(
-        self, node: Optional[Node], outer: Optional[str], nested: List[Tuple[str, str]], symbol_library: SymbolLibrary
+        self, node: Node | None, outer: str | None, nested: list[tuple[str, str]], symbol_library: SymbolLibrary
     ) -> None:
         # Pre-order walk (node, left, right); ``outer`` is the nearest group symbol above ``node``.
         # Appends (inner, outer) for every group symbol that has a group symbol above it.
@@ -1187,8 +1188,8 @@ class OutputBounds(ExpressionConstraint):
     def __init__(
         self,
         points: np.ndarray,
-        lower: Optional[Union[float, np.ndarray]] = None,
-        upper: Optional[Union[float, np.ndarray]] = None,
+        lower: float | np.ndarray | None = None,
+        upper: float | np.ndarray | None = None,
     ) -> None:
         points = np.asarray(points, dtype=float)
         if points.ndim != 2 or points.shape[0] == 0:
@@ -1334,7 +1335,7 @@ def _check_unit_types(
     owner: str,
     variable_units: Mapping[str, Unit],
     target_unit: Unit,
-    named_constant_units: Optional[Mapping[str, Unit]],
+    named_constant_units: Mapping[str, Unit] | None,
 ) -> None:
     # TypeError naming the first unit that is not a Unit; shared with the grammar's DimensionalConsistency.
     for name, mapping in (("variable_units", variable_units), ("named_constant_units", named_constant_units or {})):
@@ -1406,7 +1407,7 @@ def _expression_unit(
     # What is left (DIMENSIONLESS, or EXPONENT with an exponent that is not a number) needs every
     # argument to be dimensionless; the labels only name the argument in the message.
     if rule == UnitRule.EXPONENT:
-        labels: Tuple[str, ...] = ("base", "exponent")
+        labels: tuple[str, ...] = ("base", "exponent")
     elif len(units) == 1:
         labels = ("argument",)
     else:
@@ -1463,7 +1464,7 @@ class ConsistentUnits(ExpressionConstraint):
         self,
         variable_units: Mapping[str, Unit],
         target_unit: Unit,
-        named_constant_units: Optional[Mapping[str, Unit]] = None,
+        named_constant_units: Mapping[str, Unit] | None = None,
     ) -> None:
         _check_unit_types("ConsistentUnits", variable_units, target_unit, named_constant_units)
         self.variable_units = dict(variable_units)
@@ -1511,7 +1512,7 @@ class ConsistentUnits(ExpressionConstraint):
         _check_units_fit("ConsistentUnits", symbol_library, self.variable_units, self.named_constant_units)
         super().setup(symbol_library)
 
-    def pre_check(self, expr: Union[List[str], Node]) -> CheckResult:
+    def pre_check(self, expr: list[str] | Node) -> CheckResult:
         """Fail if the expression has a unit conflict (see the class docstring).
 
         Args:

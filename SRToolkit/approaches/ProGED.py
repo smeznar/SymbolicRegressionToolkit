@@ -1,8 +1,9 @@
 """ProGED approach — probabilistic grammar-based equation discovery by Brence et al."""
 
 import warnings
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Sequence, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -37,7 +38,7 @@ class ProGEDConfig(ApproachConfig):
     """
 
     name: str = "ProGED"
-    grammar: Optional[dict] = None
+    grammar: dict | None = None
     max_consecutive_skips: int = 10000
     skip_evaluated: bool = True
     skip_rejected: bool = True
@@ -47,7 +48,7 @@ class ProGEDConfig(ApproachConfig):
 class ProGED(SR_approach):
     def __init__(
         self,
-        grammar: Optional[Union[str, Grammar, SymbolLibrary]] = None,
+        grammar: str | Grammar | SymbolLibrary | None = None,
         max_consecutive_skips: int = 10000,
         skip_evaluated: bool = True,
         skip_rejected: bool = True,
@@ -136,13 +137,13 @@ class ProGED(SR_approach):
                 canonicalise_constants=canonicalise_constants,
             )
         )
-        self.grammar: Optional[Grammar] = grammar
+        self.grammar: Grammar | None = grammar
         self.max_consecutive_skips = max_consecutive_skips
         self.skip_evaluated = skip_evaluated
         self.skip_rejected = skip_rejected
         self.canonicalise_constants = canonicalise_constants
         # The grammar search samples from: the constructor's, or the one adapt chose for this task.
-        self._sampling_grammar: Optional[Grammar] = grammar
+        self._sampling_grammar: Grammar | None = grammar
 
     def prepare(self) -> None:
         """ProGED is stateless — this method does nothing.
@@ -184,7 +185,7 @@ class ProGED(SR_approach):
             return
         self._sampling_grammar = background_knowledge.sampling_grammar()
 
-    def search(self, sr_evaluator: SR_evaluator, seed: Optional[int] = None) -> None:
+    def search(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
         """Sample expressions from the grammar and evaluate the new ones until the evaluator stops.
 
         A sample is skipped, without using the budget, if it was already evaluated

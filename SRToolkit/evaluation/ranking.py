@@ -9,8 +9,9 @@ custom rankings are referenced by their fully-qualified import path.
 import importlib
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Sequence, Union
+from typing import Any, Literal
 
 import numpy as np
 
@@ -66,10 +67,10 @@ class RankingResult:
     """
 
     score: float
-    parameters: Optional[np.ndarray] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
-    status: Optional[Literal["rejected", "undefined"]] = None
-    status_detail: Optional[str] = None
+    parameters: np.ndarray | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+    status: Literal["rejected", "undefined"] | None = None
+    status_detail: str | None = None
 
 
 class RankingFunction(ABC):
@@ -96,11 +97,11 @@ class RankingFunction(ABC):
     def setup(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        ground_truth: Optional[Union[List[str], Node]],
+        y: np.ndarray | None,
+        ground_truth: list[str] | Node | None,
         symbol_library: SymbolLibrary,
-        seed: Optional[int],
-        settings: Dict[str, Any],
+        seed: int | None,
+        settings: dict[str, Any],
     ) -> None:
         """Validate required inputs and precompute all ranking-specific state.
 
@@ -117,7 +118,7 @@ class RankingFunction(ABC):
         """
 
     @abstractmethod
-    def score(self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None) -> RankingResult:
+    def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
         """Score a single expression. Lower is better.
 
         Args:
@@ -138,7 +139,7 @@ class RankingFunction(ABC):
             with the error ``+inf``.
         """
 
-    def default_success_threshold(self) -> Optional[float]:
+    def default_success_threshold(self) -> float | None:
         """The success threshold to use when the evaluator was not given an explicit one.
 
         Returns:
@@ -147,7 +148,7 @@ class RankingFunction(ABC):
         """
         return None
 
-    def describe(self, success_threshold: Optional[float]) -> str:
+    def describe(self, success_threshold: float | None) -> str:
         """Human-readable description for [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]
         ``__str__``. Each subclass describes itself correctly.
 
@@ -219,11 +220,11 @@ class RMSERanking(RankingFunction):
     def setup(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        ground_truth: Optional[Union[List[str], Node]],
+        y: np.ndarray | None,
+        ground_truth: list[str] | Node | None,
         symbol_library: SymbolLibrary,
-        seed: Optional[int],
-        settings: Dict[str, Any],
+        seed: int | None,
+        settings: dict[str, Any],
     ) -> None:
         """Build the parameter estimator that fits each expression's constants to ``y``.
 
@@ -254,15 +255,15 @@ class RMSERanking(RankingFunction):
             y = compile_expr(ground_truth, symbol_library)(X, parameters)
         self.parameter_estimator = ParameterEstimator(X, y, symbol_library=symbol_library, seed=seed, **settings)
 
-    def score(self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None) -> RankingResult:
+    def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
         """Return the RMSE of the best fit of ``expr`` under its specs, with the fitted parameters."""
         error, parameters, info = self.parameter_estimator.estimate_parameters_with_info(expr, free_constants)
         return RankingResult(score=error, parameters=parameters, extra=info)
 
-    def default_success_threshold(self) -> Optional[float]:
+    def default_success_threshold(self) -> float | None:
         return 1e-7
 
-    def describe(self, success_threshold: Optional[float]) -> str:
+    def describe(self, success_threshold: float | None) -> str:
         text = "Expressions are ranked based on the RMSE ranking function.\n"
         if success_threshold is not None:
             text += (
@@ -321,11 +322,11 @@ class BEDRanking(RankingFunction):
     def setup(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        ground_truth: Optional[Union[List[str], Node]],
+        y: np.ndarray | None,
+        ground_truth: list[str] | Node | None,
         symbol_library: SymbolLibrary,
-        seed: Optional[int],
-        settings: Dict[str, Any],
+        seed: int | None,
+        settings: dict[str, Any],
     ) -> None:
         """Fix the evaluation points and the target behavior that expressions are compared against.
 
@@ -369,7 +370,7 @@ class BEDRanking(RankingFunction):
         # The behaviour to compare against, in order: a precomputed bed_gt matrix, the ground-truth
         # expression, or the observed targets y (a deterministic behaviour).
         bed_gt = settings.get("bed_gt", None)
-        row_behavior: Optional[np.ndarray] = None
+        row_behavior: np.ndarray | None = None
         if bed_gt is not None:
             row_behavior = np.asarray(bed_gt)
             self._validate_bed_gt(row_behavior, X)
@@ -452,7 +453,7 @@ class BEDRanking(RankingFunction):
         rng = np.random.default_rng(self.seed)
         return rng.choice(n_rows, size=self.num_points_sampled, replace=False)
 
-    def score(self, expr: Union[List[str], Node], free_constants: Optional[Sequence[Constant]] = None) -> RankingResult:
+    def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
         """Return the BED of ``expr``, its constants sampled under its specs, to the target behavior."""
         error = bed(
             expr,
@@ -468,7 +469,7 @@ class BEDRanking(RankingFunction):
         )
         return RankingResult(score=error)
 
-    def default_success_threshold(self) -> Optional[float]:
+    def default_success_threshold(self) -> float | None:
         """Return the ground truth's noise floor (see the class description), or ``None`` without one."""
         # Estimating the noise floor relies on resampling the ground truth's constants; with only a
         # precomputed bed_gt matrix or targets y there is nothing to resample, so no default exists.
@@ -498,7 +499,7 @@ class BEDRanking(RankingFunction):
         # Floor: a ground truth without unfixed parameters has a noise floor of 0, which no error is below.
         return float(max(np.max(distances) * 1.1, 1e-7))
 
-    def describe(self, success_threshold: Optional[float]) -> str:
+    def describe(self, success_threshold: float | None) -> str:
         text = "Expressions are ranked based on the BED ranking function.\n"
         if success_threshold is not None:
             text += (
@@ -510,13 +511,13 @@ class BEDRanking(RankingFunction):
 
 
 # Friendly short-name aliases for built-in rankings. Anything else resolves by import path.
-_RANKING_ALIASES: Dict[str, type] = {
+_RANKING_ALIASES: dict[str, type] = {
     "rmse": RMSERanking,
     "bed": BEDRanking,
 }
 
 
-def build_ranking(spec: Union[str, RankingFunction], fallback: str = "rmse") -> RankingFunction:
+def build_ranking(spec: str | RankingFunction, fallback: str = "rmse") -> RankingFunction:
     """Resolve a ranking specification to an (un-``setup``) instance.
 
     Args:

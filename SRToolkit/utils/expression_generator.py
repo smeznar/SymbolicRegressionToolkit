@@ -1,7 +1,6 @@
 """Monte-Carlo sampling of symbolic expressions from a grammar or symbol library."""
 
 import warnings
-from typing import List, Union
 
 from tqdm import tqdm
 
@@ -13,7 +12,7 @@ _MIN_ATTEMPTS_BEFORE_WARNING = 500
 
 
 def generate_n_expressions(
-    expression_description: Union[str, SymbolLibrary, Grammar],
+    expression_description: str | SymbolLibrary | Grammar,
     num_expressions: int,
     unique: bool = True,
     max_expression_length: int = 50,
@@ -22,7 +21,7 @@ def generate_n_expressions(
     max_consecutive_uniqueness_failures: int = 200,
     max_derivation_steps: int = 1000,
     start: str = "E",
-) -> List[List[str]]:
+) -> list[list[str]]:
     """Sample ``num_expressions`` expressions from a grammar or symbol library.
 
     Examples:
@@ -97,7 +96,7 @@ def generate_n_expressions(
     else:
         raise Exception("expression_description must be a Grammar, SymbolLibrary, or grammar string.")
 
-    expressions: List[List[str]] = []
+    expressions: list[list[str]] = []
     expression_strings: set = set()
 
     total_attempts = 0

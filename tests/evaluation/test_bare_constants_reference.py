@@ -15,7 +15,7 @@ import json
 import platform
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import pytest
@@ -46,7 +46,7 @@ EXPRESSIONS = [
 ]
 
 
-def _environment() -> Dict[str, str]:
+def _environment() -> dict[str, str]:
     return {
         "platform": f"{platform.system()}-{platform.machine()}",
         "python": f"{sys.version_info.major}.{sys.version_info.minor}",
@@ -55,12 +55,12 @@ def _environment() -> Dict[str, str]:
     }
 
 
-def _hex(values: Optional[np.ndarray]) -> Optional[List[str]]:
+def _hex(values: np.ndarray | None) -> list[str] | None:
     return None if values is None else [float(v).hex() for v in np.asarray(values, dtype=np.float64)]
 
 
-def compute() -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
+def compute() -> dict[str, Any]:
+    out: dict[str, Any] = {}
     for name in ["NG-1", "NG-10"]:
         dataset = Nguyen().create_dataset(name)
         X, y = dataset.X[:ROWS], dataset.y[:ROWS]

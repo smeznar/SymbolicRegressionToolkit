@@ -37,7 +37,8 @@ single vectorised NumPy function with less per-instruction dispatch overhead.
 import importlib.util as _ilu
 import pathlib as _pl
 import warnings
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import numpy as np
 
@@ -119,7 +120,7 @@ def _num_parameters(token_ids: np.ndarray, extra_int: np.ndarray) -> int:
     return int(indices.max()) + 1 if indices.size else 0
 
 
-def _check_num_constants(C: Optional[np.ndarray], num_constants: int) -> None:
+def _check_num_constants(C: np.ndarray | None, num_constants: int) -> None:
     """Raise if *C* holds fewer values than the expression has free parameters.
 
     Every backend calls this, so they fail the same way; the Cython evaluator does not
@@ -142,9 +143,9 @@ _eval_py_spec.loader.exec_module(_eval_py)  # type: ignore[union-attr]
 
 
 def _expr_to_executable_function(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
-) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into an executable Python function.
 
     The returned callable evaluates the expression over a batch of inputs and a vector
@@ -198,16 +199,16 @@ def _expr_to_executable_function(
     # An expression of numbers only evaluates to a scalar; broadcast it like the other backends.
     fun_string += f"\t_out_ = {symbol}\n\treturn _out_ if np.ndim(_out_) else np.full(X.shape[0], _out_)"
 
-    fun_assignment_dict: Dict[str, Callable] = {}
+    fun_assignment_dict: dict[str, Callable] = {}
     namespace = {**symbol_library.module_namespace(), "_check_num_constants": _check_num_constants}
     exec(fun_string, namespace, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
 
 def _expr_to_error_function(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
-) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into a callable that computes the RMSE against target values.
 
     Examples:
@@ -244,7 +245,7 @@ def _expr_to_error_function(
         fun_string += "\t" + c + "\n"
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
 
-    fun_assignment_dict: Dict[str, Callable] = {}
+    fun_assignment_dict: dict[str, Callable] = {}
     namespace = {**symbol_library.module_namespace(), "_check_num_constants": _check_num_constants}
     exec(fun_string, namespace, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
@@ -255,7 +256,7 @@ def _tree_to_function_rec(
     symbol_library: SymbolLibrary,
     const_slots: Iterator[int],
     var_counter: int = 0,
-) -> Tuple[List[str], str, int]:
+) -> tuple[list[str], str, int]:
     """Recursively convert a parse tree into lines of Python code for expression evaluation.
 
     This is a low-level helper used by the codegen backend of [compile_expr][SRToolkit.utils.expression_compiler.compile_expr] and
@@ -315,25 +316,25 @@ def _tree_to_function_rec(
 # ── Stack evaluator backend ──────────────────────────────────────────────
 
 
-def _compile_fallback_unary(python_str: str, namespace: Dict[str, Any]) -> Callable:
+def _compile_fallback_unary(python_str: str, namespace: dict[str, Any]) -> Callable:
     """Build a Python callable ``f(x) → np.ndarray`` from a unary python_str string, whose names are
     looked up in ``namespace`` (see [SymbolLibrary.module_namespace][SRToolkit.utils.symbol_library.SymbolLibrary.module_namespace]).
     """
-    ns: Dict[str, Callable] = {}
+    ns: dict[str, Callable] = {}
     exec(f"def _fn_(_x_):\n    return {python_str.format('_x_')}\n", dict(namespace), ns)
     return ns["_fn_"]
 
 
-def _compile_fallback_binary(python_str: str, namespace: Dict[str, Any]) -> Callable:
+def _compile_fallback_binary(python_str: str, namespace: dict[str, Any]) -> Callable:
     """Build a Python callable ``f(a, b) → np.ndarray`` from a binary python_str string, whose names
     are looked up in ``namespace``, as in ``_compile_fallback_unary``.
     """
-    ns: Dict[str, Callable] = {}
+    ns: dict[str, Callable] = {}
     exec(f"def _fn_(_a_, _b_):\n    return {python_str.format('_a_', '_b_')}\n", dict(namespace), ns)
     return ns["_fn_"]
 
 
-def _collect_maximal_const_free(node: Node, symbol_library: SymbolLibrary) -> Tuple[bool, List[Node]]:
+def _collect_maximal_const_free(node: Node, symbol_library: SymbolLibrary) -> tuple[bool, list[Node]]:
     """Return ``(has_const, maximal_const_free_nodes)`` for the subtree rooted at *node*.
 
     A subtree is maximal const-free if it contains no ``C`` tokens and its parent does
@@ -356,7 +357,7 @@ def _collect_maximal_const_free(node: Node, symbol_library: SymbolLibrary) -> Tu
     if not (left_has_const or right_has_const):
         return False, []
 
-    result: List[Node] = []
+    result: list[Node] = []
     if node.left is not None:
         result.extend([node.left] if not left_has_const else left_maximal)
     if node.right is not None:
@@ -368,12 +369,12 @@ def _build_partial_instructions(
     node: Node,
     symbol_library: SymbolLibrary,
     const_free_ids: set,
-    cached_arrays: Dict,
-    token_ids_list: List,
-    arities_list: List,
-    extra_int_list: List,
-    float_vals_list: List,
-    python_ops_list: List,
+    cached_arrays: dict,
+    token_ids_list: list,
+    arities_list: list,
+    extra_int_list: list,
+    float_vals_list: list,
+    python_ops_list: list,
     const_slots: Iterator[int],
 ) -> None:
     """Recursively emit postfix instructions, substituting CACHED leaves for
@@ -468,10 +469,10 @@ def _build_partial_instructions(
 
 
 def _prepare_cython_traversal_partial(
-    expr: Union[List[str], Node],
+    expr: list[str] | Node,
     symbol_library: SymbolLibrary,
     X: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list]:
     """Like ``_prepare_cython_traversal`` but pre-evaluates all maximal
     constant-free subtrees against *X* and replaces them with ``CACHED`` leaf
     instructions.
@@ -500,7 +501,7 @@ def _prepare_cython_traversal_partial(
         return _prepare_cython_traversal(tree, symbol_library)
 
     # Pre-evaluate each maximal constant-free subtree against X.
-    cached_arrays: Dict = {}
+    cached_arrays: dict = {}
     for node in const_free_nodes:
         t_ids, t_aris, t_ei, t_fv, t_po = _prepare_cython_traversal(node, symbol_library)
         arr = _eval.execute(X, np.array([], dtype=np.float64), t_ids, t_aris, t_ei, t_fv, t_po)
@@ -509,11 +510,11 @@ def _prepare_cython_traversal_partial(
     const_free_ids = set(cached_arrays.keys())
 
     # Build the reduced instruction sequence.
-    token_ids_list: List = []
-    arities_list: List = []
-    extra_int_list: List = []
-    float_vals_list: List = []
-    python_ops_list: List = []
+    token_ids_list: list = []
+    arities_list: list = []
+    extra_int_list: list = []
+    float_vals_list: list = []
+    python_ops_list: list = []
 
     _build_partial_instructions(
         tree,
@@ -538,9 +539,9 @@ def _prepare_cython_traversal_partial(
 
 
 def _prepare_cython_traversal(
-    expr: Union[List[str], Node],
+    expr: list[str] | Node,
     symbol_library: SymbolLibrary,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list]:
     """Convert an expression into the postfix instruction arrays consumed by the
     Cython evaluator.
 
@@ -558,14 +559,14 @@ def _prepare_cython_traversal(
     """
     tree = _as_tree(expr, symbol_library)
 
-    postfix: List[str] = tree.to_list(notation="postfix")
+    postfix: list[str] = tree.to_list(notation="postfix")
     n = len(postfix)
 
     token_ids = np.zeros(n, dtype=np.int32)
     arities = np.zeros(n, dtype=np.int32)
     extra_int = np.zeros(n, dtype=np.int32)
     float_vals = np.zeros(n, dtype=np.float64)
-    python_ops: List = [None] * n
+    python_ops: list = [None] * n
 
     const_slots = iter(_constant_indices(postfix, symbol_library))
 
@@ -616,9 +617,9 @@ def _prepare_cython_traversal(
 
 
 def _expr_to_cython_callable(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
-) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into a fast callable backed by the Cython evaluator.
 
     All operations present in the default symbol library are dispatched as tight
@@ -656,7 +657,7 @@ def _expr_to_cython_callable(
     num_constants = _num_parameters(token_ids, extra_int)
     num_columns = _columns_used(token_ids, extra_int)
 
-    def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
+    def _callable_(X: np.ndarray, C: np.ndarray | None) -> np.ndarray:
         if num_constants > 0:
             _check_num_constants(C, num_constants)
         if C is None:
@@ -669,10 +670,10 @@ def _expr_to_cython_callable(
 
 
 def _expr_to_cython_error_callable(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
-    X: Optional[np.ndarray] = None,
-) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+    X: np.ndarray | None = None,
+) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into a fast RMSE callable backed by the Cython evaluator.
 
     Equivalent to [_expr_to_cython_callable][SRToolkit.utils.expression_compiler._expr_to_cython_callable] followed by an RMSE reduction,
@@ -713,7 +714,7 @@ def _expr_to_cython_error_callable(
     num_constants = _num_parameters(token_ids, extra_int)
     num_columns = _columns_used(token_ids, extra_int)
 
-    def _callable_(X: np.ndarray, C: Optional[np.ndarray], y: np.ndarray) -> float:
+    def _callable_(X: np.ndarray, C: np.ndarray | None, y: np.ndarray) -> float:
         if num_constants > 0:
             _check_num_constants(C, num_constants)
         if C is None:
@@ -730,9 +731,9 @@ def _expr_to_cython_error_callable(
 
 
 def _expr_to_python_callable(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
-) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into a callable backed by the pure-Python evaluator.
 
     Uses the same postfix instruction arrays as the Cython backend but executes
@@ -764,7 +765,7 @@ def _expr_to_python_callable(
     token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
     num_constants = _num_parameters(token_ids, extra_int)
 
-    def _callable_(X: np.ndarray, C: Optional[np.ndarray]) -> np.ndarray:
+    def _callable_(X: np.ndarray, C: np.ndarray | None) -> np.ndarray:
         if num_constants > 0:
             _check_num_constants(C, num_constants)
         if C is None:
@@ -775,10 +776,10 @@ def _expr_to_python_callable(
 
 
 def _expr_to_python_stack_error_callable(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
-    X: Optional[np.ndarray] = None,
-) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+    X: np.ndarray | None = None,
+) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into an RMSE callable backed by the pure-Python evaluator.
 
     Uses the same postfix instruction arrays as the Cython backend but executes
@@ -820,7 +821,7 @@ def _expr_to_python_stack_error_callable(
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
     num_constants = _num_parameters(token_ids, extra_int)
 
-    def _callable_(X: np.ndarray, C: Optional[np.ndarray], y: np.ndarray) -> float:
+    def _callable_(X: np.ndarray, C: np.ndarray | None, y: np.ndarray) -> float:
         if num_constants > 0:
             _check_num_constants(C, num_constants)
         if C is None:
@@ -834,10 +835,10 @@ def _expr_to_python_stack_error_callable(
 
 
 def compile_expr(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
     backend: str = "stack",
-) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
+) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into a callable ``f(X, C) → np.ndarray``.
 
     Examples:
@@ -889,11 +890,11 @@ def compile_expr(
 
 
 def compile_expr_rmse(
-    expr: Union[List[str], Node],
-    symbol_library: Optional[SymbolLibrary] = None,
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
     backend: str = "stack",
-    X: Optional[np.ndarray] = None,
-) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
+    X: np.ndarray | None = None,
+) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into an RMSE callable ``f(X, C, y) → float``.
 
     Examples:

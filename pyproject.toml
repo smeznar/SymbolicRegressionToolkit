@@ -70,7 +70,7 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "NPY201", "D"]
+select = ["E", "F", "W", "I", "NPY201", "D", "UP006", "UP007", "UP035", "UP045"]
 ignore = [
     "E501",
     # Docstring rules not yet satisfied codebase-wide. They are checked strictly per module during

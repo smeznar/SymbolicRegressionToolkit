@@ -7,8 +7,9 @@ import os
 import tempfile
 import warnings
 import zipfile
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import Any
 from urllib.request import urlopen
 
 import numpy as np
@@ -29,9 +30,7 @@ from .sampling import Sampler
 from .sr_dataset import SR_dataset, _derive_equation, _ground_truth_specs, _resolve_task
 
 
-def _save_arrays_to_cache(
-    benchmark: str, version: str, name: str, X: np.ndarray, y: Optional[np.ndarray] = None
-) -> None:
+def _save_arrays_to_cache(benchmark: str, version: str, name: str, X: np.ndarray, y: np.ndarray | None = None) -> None:
     """Write ``X`` (and optional ``y``) to the dataset's ``.npz`` in the cache version dir."""
     cache_path = data_cache.dataset_path(benchmark, version, name)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -51,10 +50,10 @@ class SR_benchmark:
     def __init__(
         self,
         benchmark_name: str,
-        datasets: Optional[List[Union[SR_dataset, Tuple[str, SR_dataset]]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        datasets: list[SR_dataset | tuple[str, SR_dataset]] | None = None,
+        metadata: dict[str, Any] | None = None,
         version: str = "1.0.0",
-        base_dir: Optional[str] = None,
+        base_dir: str | None = None,
     ):
         """A named, persistent collection of symbolic regression datasets.
 
@@ -81,7 +80,7 @@ class SR_benchmark:
         self.benchmark_name = benchmark_name
         self.base_dir = base_dir
         self.version = version
-        self.datasets: Dict[str, Dict[str, Any]] = {}
+        self.datasets: dict[str, dict[str, Any]] = {}
         self.metadata = {} if metadata is None else metadata
         if datasets is not None:
             for i, dataset in enumerate(datasets):
@@ -124,29 +123,29 @@ class SR_benchmark:
     def add_dataset(  # type: ignore[misc]
         self,
         symbol_library: SymbolLibrary,
-        dataset: Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]] = None,
-        dataset_name: Optional[str] = None,
+        dataset: np.ndarray | tuple[np.ndarray, np.ndarray] | None = None,
+        dataset_name: str | None = None,
         ranking_function: str = "rmse",
         max_evaluations: int = -1,
-        ground_truth: Optional[Union[List[str], Node]] = None,
-        original_equation: Optional[str] = None,
-        success_threshold: Optional[float] = None,
-        seed: Optional[int] = None,
-        dataset_metadata: Optional[dict] = None,
-        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
-        data_source: Optional[DataSource] = None,
-        variables: Optional[Mapping[str, VariableInfo]] = None,
-        target: Optional[VariableInfo] = None,
-        named_constants: Optional[Mapping[str, VariableInfo]] = None,
-        description: Optional[str] = None,
-        constant_bounds: Optional[Tuple[float, float]] = None,
-        default_constant: Optional[Constant] = None,
-        reference_grammar: Optional[Grammar] = None,
-        max_constants: Optional[int] = None,
-        max_expr_length: Optional[int] = None,
-        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        ground_truth_constants: Optional[Iterable[Constant]] = None,
+        ground_truth: list[str] | Node | None = None,
+        original_equation: str | None = None,
+        success_threshold: float | None = None,
+        seed: int | None = None,
+        dataset_metadata: dict | None = None,
+        samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
+        data_source: DataSource | None = None,
+        variables: Mapping[str, VariableInfo] | None = None,
+        target: VariableInfo | None = None,
+        named_constants: Mapping[str, VariableInfo] | None = None,
+        description: str | None = None,
+        constant_bounds: tuple[float, float] | None = None,
+        default_constant: Constant | None = None,
+        reference_grammar: Grammar | None = None,
+        max_constants: int | None = None,
+        max_expr_length: int | None = None,
+        required_constraints: Iterable[ExpressionConstraint] | None = None,
+        advisory_constraints: Iterable[ExpressionConstraint] | None = None,
+        ground_truth_constants: Iterable[Constant] | None = None,
         **kwargs: Unpack[RankingSettings],
     ):
         """Add a dataset to the benchmark without building it.
@@ -293,7 +292,7 @@ class SR_benchmark:
             )
 
         if isinstance(ground_truth, Node):
-            ground_truth_out: Optional[Union[List[str], str]] = ground_truth.to_list(symbol_library=symbol_library)
+            ground_truth_out: list[str] | str | None = ground_truth.to_list(symbol_library=symbol_library)
         else:
             ground_truth_out = ground_truth
 
@@ -301,7 +300,7 @@ class SR_benchmark:
         if dataset_metadata:
             merged_metadata.update(dataset_metadata)
 
-        entry: Dict[str, Any] = {
+        entry: dict[str, Any] = {
             "format_version": 4,
             "dataset_name": dataset_name,
             "benchmark": self.benchmark_name,
@@ -373,29 +372,29 @@ class SR_benchmark:
 
     def add_from_samplers(  # type: ignore[misc]
         self,
-        ground_truth: Union[List[str], Node],
-        samplers: Optional[Union[List[Sampler], Mapping[str, Sampler]]] = None,
-        symbol_library: Optional[SymbolLibrary] = None,
+        ground_truth: list[str] | Node,
+        samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
+        symbol_library: SymbolLibrary | None = None,
         n_samples: int = 10000,
-        seed: Optional[int] = None,
+        seed: int | None = None,
         ranking_function: str = "rmse",
-        dataset_name: Optional[str] = None,
-        original_equation: Optional[str] = None,
-        success_threshold: Optional[float] = None,
+        dataset_name: str | None = None,
+        original_equation: str | None = None,
+        success_threshold: float | None = None,
         max_evaluations: int = -1,
-        dataset_metadata: Optional[dict] = None,
-        variables: Optional[Mapping[str, VariableInfo]] = None,
-        target: Optional[VariableInfo] = None,
-        named_constants: Optional[Mapping[str, VariableInfo]] = None,
-        description: Optional[str] = None,
-        constant_bounds: Optional[Tuple[float, float]] = None,
-        default_constant: Optional[Constant] = None,
-        reference_grammar: Optional[Grammar] = None,
-        max_constants: Optional[int] = None,
-        max_expr_length: Optional[int] = None,
-        required_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        advisory_constraints: Optional[Iterable[ExpressionConstraint]] = None,
-        ground_truth_constants: Optional[Iterable[Constant]] = None,
+        dataset_metadata: dict | None = None,
+        variables: Mapping[str, VariableInfo] | None = None,
+        target: VariableInfo | None = None,
+        named_constants: Mapping[str, VariableInfo] | None = None,
+        description: str | None = None,
+        constant_bounds: tuple[float, float] | None = None,
+        default_constant: Constant | None = None,
+        reference_grammar: Grammar | None = None,
+        max_constants: int | None = None,
+        max_expr_length: int | None = None,
+        required_constraints: Iterable[ExpressionConstraint] | None = None,
+        advisory_constraints: Iterable[ExpressionConstraint] | None = None,
+        ground_truth_constants: Iterable[Constant] | None = None,
         **kwargs: Unpack[RankingSettings],
     ) -> None:
         """Add a dataset described by a ground-truth expression and per-variable samplers.
@@ -496,8 +495,8 @@ class SR_benchmark:
     def create_dataset(
         self,
         dataset_name: str,
-        n_samples: Optional[int] = None,
-        seed: Optional[int] = None,
+        n_samples: int | None = None,
+        seed: int | None = None,
     ) -> SR_dataset:
         """Creates an instance of a dataset from the given dataset name.
 
@@ -569,7 +568,7 @@ class SR_benchmark:
                 f"entry: {e}"
             ) from e
 
-    def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> List[str]:
+    def list_datasets(self, verbose: bool = True, num_variables: int = -1) -> list[str]:
         """Return the names of the datasets, optionally printing a line per dataset.
 
         Nothing is built. With ``verbose``, each line gives the name, the number of variables and
@@ -675,7 +674,7 @@ class SR_benchmark:
         }
 
     @classmethod
-    def from_dict(cls, d: Union[dict, str, Path]) -> "SR_benchmark":
+    def from_dict(cls, d: dict | str | Path) -> "SR_benchmark":
         """Reconstruct an SR_benchmark from a config dict or a saved JSON file.
 
         To load a self-contained ``.zip`` archive (written by
@@ -724,7 +723,7 @@ class SR_benchmark:
 
         return b
 
-    def to_archive(self, path: Union[str, Path]) -> None:
+    def to_archive(self, path: str | Path) -> None:
         """Write the benchmark (config + data) to a ``.zip`` archive.
 
         The archive contains:
@@ -774,7 +773,7 @@ class SR_benchmark:
                 zf.write(str(cache_p), f"data/{name}.npz")
 
     @classmethod
-    def from_archive(cls, path: Union[str, Path]) -> "SR_benchmark":
+    def from_archive(cls, path: str | Path) -> "SR_benchmark":
         """Load a benchmark from a self-contained ``.zip`` archive.
 
         This is the counterpart to
