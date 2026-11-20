@@ -203,7 +203,7 @@ bm2 = SR_benchmark.from_dict("my_benchmark.json")
 ds = bm2.create_dataset("eq1")
 ```
 
-For self-contained sharing (data embedded in a single file), use `to_archive()` instead — see the [Sharing guide](sharing.md).
+For self-contained sharing (data embedded in a single file), use [share.save][SRToolkit.share.save] instead — see the [Sharing guide](sharing.md).
 
 ## Loading a dataset someone shared
 
@@ -212,8 +212,7 @@ shared:
 
 | Shared as | Load with |
 |---|---|
-| A self-contained `.zip` (config + data) | `SR_dataset.from_archive(path)` / `SR_benchmark.from_archive(path)` |
-| A hosted `.zip` archive | `SR_dataset.from_url(url)` / `SR_benchmark.from_url(url)` |
+| A `.zip` archive, local or hosted | `share.load(path_or_url)` (from `SRToolkit import share`) |
 | A JSON config / recipe | `SR_dataset.from_dict(path_or_dict)` / `SR_benchmark.from_dict(...)` |
 
 The trade-offs between these channels — shipping data versus shipping a recipe that

@@ -13,47 +13,20 @@ Provides three public classes:
 
 import dataclasses
 import importlib
-import inspect
 import json
 import os
 import shlex
-import shutil
-import tempfile
 import time
 import warnings
-import zipfile
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from SRToolkit.approaches.sr_approach import SR_approach
-from SRToolkit.bundle import list_installed, read_manifest
-from SRToolkit.bundle._install import _repack
-from SRToolkit.bundle._relocate import _auto_bind, bundle_class_index
+from SRToolkit.bundle._relocate import _auto_bind, _class_refs
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
 from SRToolkit.evaluation.results import SR_results
-
-
-def _iter_class_paths(obj: Any) -> Iterator[str]:
-    """Yield every ``*_class`` dotted-path value nested anywhere in ``obj``.
-
-    Walks dicts and lists recursively. A grid's code dependencies are not only
-    its ``approach_class`` entries — they also include ``callback_class`` and the
-    ``sampler_class`` / ``source_class`` / ``constraint_class`` paths nested
-    inside each dataset config — so the whole structure must be scanned.
-    """
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if isinstance(v, str) and k.endswith("_class"):
-                yield v
-            else:
-                yield from _iter_class_paths(v)
-    elif isinstance(obj, list):
-        for v in obj:
-            yield from _iter_class_paths(v)
 
 
 def _warn_missing_class_deps(configs: list[dict]) -> None:
@@ -70,7 +43,7 @@ def _warn_missing_class_deps(configs: list[dict]) -> None:
     missing: list[str] = []
     seen: set[str] = set()
     for cfg in configs:
-        for class_path in _iter_class_paths(cfg):
+        for class_path, _ in _class_refs(cfg):
             if class_path in seen:
                 continue
             seen.add(class_path)
@@ -127,223 +100,6 @@ def _safe_auto_bind(config: dict) -> dict:
             stacklevel=3,
         )
         return config
-
-
-def _classify_dataset_source(cfg: dict) -> "tuple[bool, str]":
-    """Return ``(needs_archiving, human_reason)`` for a dataset config.
-
-    Data that the recipient can reach on their own is *referenced* (left to its
-    ``data_source``); data that would otherwise be lost is *archived* into the export.
-    Per the settled design: ``null`` sources and seedless ``sample`` sources are
-    archived; ``url`` and seeded ``sample`` sources are referenced.
-    """
-    src = cfg.get("data_source")
-    if src is None:
-        return True, "null source — data exists only in the cache; shipped inline"
-    source_class = src.get("source_class", "")
-    if source_class.endswith("SampleSource"):
-        if src.get("seed") is None:
-            return True, "sample source without a fixed seed — exact arrays shipped for reproducibility"
-        return False, f"regenerated from samplers (seed={src.get('seed')})"
-    if source_class.endswith("UrlSource"):
-        return False, f"downloaded on first use from {src.get('url')}"
-    if source_class.endswith("FallbackSource"):
-        return False, "fallback chain — canonical data downloaded, regenerated only if unavailable"
-    return False, f"referenced via {source_class or 'custom data source'}"
-
-
-def _custom_class_paths(configs: list[dict]) -> list[str]:
-    """Sorted unique ``*_class`` paths that are not built into SRToolkit."""
-    found: set[str] = set()
-    for cfg in configs:
-        for class_path in _iter_class_paths(cfg):
-            if not class_path.startswith("SRToolkit."):
-                found.add(class_path)
-    return sorted(found)
-
-
-def _annotate_bundles(obj: Any, class_to_bundle: "dict[str, tuple[str, str]]") -> Any:
-    """Deep-copy ``obj``, stamping ``_bundle``/``_version`` onto each dict that directly
-    holds a custom ``*_class`` key.
-
-    The annotation is placed at the granularity each ``from_dict`` dispatcher binds: a
-    sampler dict, a source dict, an approach cfg, a callback cfg. Since such a dict holds
-    a single ``*_class``, the recipient's ``_auto_bind`` relocates it against exactly the
-    right bundle — sibling configs (sampler vs. source) bind independently. A single dict
-    that somehow references two different bundles can't be expressed with one ``_bundle``
-    and is left unannotated with a warning.
-    """
-    if isinstance(obj, dict):
-        bundles = {
-            class_to_bundle[v]
-            for k, v in obj.items()
-            if isinstance(v, str) and k.endswith("_class") and v in class_to_bundle
-        }
-        annotated = {k: _annotate_bundles(v, class_to_bundle) for k, v in obj.items()}
-        if len(bundles) == 1:
-            name, version = next(iter(bundles))
-            annotated["_bundle"] = name
-            annotated["_version"] = version
-        elif len(bundles) > 1:
-            warnings.warn(
-                f"[ExperimentGrid.export] A single config references classes from multiple "
-                f"bundles {sorted(n for n, _ in bundles)}; it cannot be annotated with one "
-                "'_bundle'. Build a combined bundle and bind it manually.",
-                stacklevel=3,
-            )
-        return annotated
-    if isinstance(obj, list):
-        return [_annotate_bundles(v, class_to_bundle) for v in obj]
-    return obj
-
-
-def _describe_class_source(class_path: str) -> str:
-    """Best-effort ``'class_path (file.py)'`` label for a warning, never raising.
-
-    Resolves the defining module's source file so the warning can name the *file* the
-    user must pack — falling back to the bare class path when the source can't be located
-    (``__main__``, C extension, no source on disk).
-    """
-    module_path = class_path.rpartition(".")[0]
-    if module_path in ("", "__main__"):
-        return f"{class_path} (defined in __main__)"
-    try:
-        source = inspect.getsourcefile(importlib.import_module(module_path))
-    except Exception:  # noqa: BLE001 - locating the source is best-effort cosmetics
-        source = None
-    return f"{class_path} ({source})" if source else class_path
-
-
-def _pack_custom_code(
-    configs: list[dict],
-    bundles_dir: Path,
-    additional_bundles: list[str | Path] | None = None,
-    strict: bool = False,
-) -> "tuple[list[tuple[str, str, str]], list[tuple[str, str]], dict[str, tuple[str, str]]]":
-    """Resolve every non-SRToolkit class referenced by ``configs`` to a shippable bundle.
-
-    A custom class is *covered* when some bundle provides a class of that name. Two bundle
-    sources are matched, ``additional_bundles`` first so an explicitly supplied ``.srtk``
-    wins over a coincidentally-installed one:
-
-    - **User-supplied** ``.srtk`` files (``additional_bundles``) are matched by the class
-      names they define (read straight from the archive, no install) and copied into
-      ``bundles_dir`` verbatim — the user built them with [pack][SRToolkit.bundle.pack],
-      so multi-file implementations, dependencies, and the real version all travel
-      correctly.
-    - **Already-installed** bundles whose ``import_prefix`` a class path already sits under
-      are **re-packed once** from the installed source files via ``_repack``, which carries
-      their ``python_deps`` / ``srtk_min_version``.
-
-    The class path in the recipe is left untouched in both cases: only the owning
-    ``(name, version)`` is recorded, and the recipient's bind machinery relocates the class
-    by name at load time. Custom classes matching neither source are *not* guessed at: they
-    are returned in ``manual`` for the manifest to flag, and a warning naming each class and
-    its source file is emitted. When ``strict`` is set, an uncovered class raises
-    ``ValueError`` instead.
-
-    Returns ``(packed, manual, class_to_bundle)``: ``packed`` is ``[(label,
-    bundle_filename, note)]``, ``manual`` is ``[(class_path, reason)]``, and
-    ``class_to_bundle`` maps each covered class path to the ``(name, version)`` of the
-    bundle the recipient will install — used to annotate the recipe so the existing bind
-    machinery relocates each class on load.
-
-    Raises:
-        ValueError: If ``strict`` and any custom class is covered by neither an installed
-            bundle nor ``additional_bundles``; or if an ``additional_bundles`` path is not
-            a readable ``.srtk``.
-    """
-    custom = _custom_class_paths(configs)
-    if not custom:
-        return [], [], {}
-
-    packed: list["tuple[str, str, str]"] = []
-    manual: list["tuple[str, str]"] = []
-    class_to_bundle: "dict[str, tuple[str, str]]" = {}
-
-    # Read each supplied bundle's manifest + the class names it defines, without installing.
-    supplied: "list[dict]" = []  # {path, manifest, classes, covered}
-    for raw in additional_bundles or []:
-        srtk_path = Path(raw)
-        manifest = read_manifest(srtk_path)  # raises on a bad/missing archive
-        supplied.append(
-            {"path": srtk_path, "manifest": manifest, "classes": bundle_class_index(srtk_path), "covered": []}
-        )
-
-    installed = list_installed()
-
-    # Partition each custom class to its covering bundle. Supplied bundles take precedence
-    # and are matched by class name (mirroring how bind_config resolves on the recipient);
-    # installed bundles are matched by the import_prefix the class path already sits under.
-    installed_classes: dict[str, list[str]] = {}
-    installed_entry: dict[str, dict] = {}
-    uncovered: list[str] = []
-    for class_path in custom:
-        cls_name = class_path.rpartition(".")[2]
-        match = next((b for b in supplied if cls_name in b["classes"]), None)
-        if match is not None:
-            match["covered"].append(class_path)
-            continue
-        entry = next((e for e in installed if class_path.startswith(e["import_prefix"] + ".")), None)
-        if entry is not None:
-            installed_classes.setdefault(entry["import_prefix"], []).append(class_path)
-            installed_entry[entry["import_prefix"]] = entry
-        else:
-            uncovered.append(class_path)
-
-    # Copy each matched user-supplied bundle once; class paths are left unchanged.
-    for b in supplied:
-        if not b["covered"]:
-            continue
-        bundles_dir.mkdir(parents=True, exist_ok=True)
-        manifest = b["manifest"]
-        dest = bundles_dir / b["path"].name
-        shutil.copy2(b["path"], dest)
-        packed.append((f"bundle '{manifest.name}' v{manifest.version}", dest.name, "supplied via additional_bundles"))
-        for class_path in b["covered"]:
-            class_to_bundle[class_path] = (manifest.name, manifest.version)
-
-    # Re-pack each matched installed bundle exactly once. _repack owns the install-layout
-    # details and carries the bundle's python_deps / srtk_min_version.
-    for prefix, entry in installed_entry.items():
-        try:
-            out = bundles_dir / f"{entry['name']}_{entry['version']}.srtk".replace(" ", "_")
-            _repack(entry["name"], entry["version"], out)
-            packed.append(
-                (f"bundle '{entry['name']}' v{entry['version']}", out.name, "re-packed from the installed bundle")
-            )
-            for class_path in installed_classes[prefix]:
-                class_to_bundle[class_path] = (entry["name"], entry["version"])
-        except Exception as exc:  # noqa: BLE001 - best-effort; report and move on
-            manual.append((prefix, f"could not re-pack installed bundle: {exc}"))
-
-    # Anything left is not guessed at — the user must supply a .srtk for it.
-    if uncovered:
-        for class_path in uncovered:
-            manual.append(
-                (class_path, "no installed bundle and no additional_bundles entry covers it — pack it and pass it")
-            )
-        described = "\n  - ".join(_describe_class_source(c) for c in uncovered)
-        message = (
-            "[ExperimentGrid.export] These custom classes are not covered by any installed bundle "
-            "or additional_bundles entry and were NOT packed into the export:\n  - " + described + "\n"
-            "Build a .srtk for each (SRToolkit.bundle.pack) and pass it via additional_bundles, "
-            "or the recipient will be unable to load the grid."
-        )
-        if strict:
-            raise ValueError(message)
-        warnings.warn(message, stacklevel=3)
-
-    # Warn about supplied bundles that matched nothing — likely a mistake.
-    unused = [str(b["path"]) for b in supplied if not b["covered"]]
-    if unused:
-        warnings.warn(
-            "[ExperimentGrid.export] These additional_bundles did not match any class referenced "
-            "by the grid and were not included:\n  - " + "\n  - ".join(unused),
-            stacklevel=3,
-        )
-
-    return packed, manual, class_to_bundle
 
 
 @dataclass
@@ -627,8 +383,7 @@ class ExperimentJob:
 
 
 class ExperimentGrid:
-    """Defines and manages a grid of symbolic regression experiments across multiple
-    datasets and approaches.
+    """A grid of symbolic regression experiments over datasets, approaches and seeds.
 
     Each experiment is an independent
     [ExperimentJob][SRToolkit.experiments.ExperimentJob] that runs one approach on one
@@ -636,10 +391,12 @@ class ExperimentGrid:
     ``.run()``) or on HPC clusters (generate a commands file with
     [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands]).
 
-    The grid spec is persisted via [save][SRToolkit.experiments.ExperimentGrid.save] and
-    reloaded via [load][SRToolkit.experiments.ExperimentGrid.load].  Results are saved
-    per-experiment to ``results_dir/{dataset}/{approach}/exp_{seed}.json``,
-    so parallel workers never write to the same file.
+    The grid is written to ``results_dir/grid.json`` by
+    [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint] and reloaded with
+    [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict]; share it with
+    [share.save][SRToolkit.share.save]. Results are saved per-experiment to
+    ``results_dir/{dataset}/{approach}/exp_{seed}.json``, so parallel workers never write to
+    the same file.
 
     **Seed scheme**: job *i* (0-indexed) receives ``seed = initial_seed + i``.
 
@@ -657,7 +414,7 @@ class ExperimentGrid:
             [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset], a
             [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] (all
             datasets in the benchmark are included), or a list containing
-            ``SR_dataset``-s and ``SR_dataset``-s.
+            ``SR_dataset``-s and ``SR_benchmark``-s.
         approaches: One or more SR approaches.  Accepts a single
             [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] or a list of them.
         num_experiments: Number of independent experiments per (dataset, approach) pair.
@@ -666,10 +423,10 @@ class ExperimentGrid:
             ``initial_seed + 1``, ``initial_seed + 2``, etc.
         top_k: Number of top expressions to highlight per experiment.
         adapted_states: Optional mapping ``{approach_name: {dataset_name: path}}``
-            providing paths for pre-adapted state files. Jobs for listed
-            (approach, dataset) pairs will load state from the given path if it
-            exists, or adapt and save to it otherwise (creating its parent directories). Pairs not listed will adapt
-            on every run without saving.  Several datasets may deliberately share one
+            providing paths for pre-adapted state files; relative paths are made absolute against
+            the current directory. Jobs for listed (approach, dataset) pairs will load state from
+            the given path if it exists, or adapt and save to it otherwise (creating its parent
+            directories). Pairs not listed will adapt on every run without saving. Several datasets may deliberately share one
             ``path`` for approaches whose adaptation depends only on what those datasets share
             (e.g. EDHiE, for datasets with the same symbol library, reference grammar and
             required constraints): the path is then adapted once on the first dataset listed for
@@ -678,13 +435,9 @@ class ExperimentGrid:
             distinct ``path`` if adaptation must differ per dataset.
         callbacks: Optional callback or list of callbacks forwarded to every job
             created by [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs].
-            Callbacks are serialised to dicts immediately so that each job reconstructs
-            fresh instances in [run][SRToolkit.experiments.ExperimentJob.run] (no shared
-            state between jobs). They are inlined into the grid recipe by
-            [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict], so they travel inside
-            ``grid.json`` — both [save][SRToolkit.experiments.ExperimentGrid.save] and the
-            ``run_job`` CLI reconstruct them from that single file, with no extra files or
-            flags.  Defaults to ``None``.
+            Stored as configs, so each job builds fresh instances (no shared state between
+            jobs) and they travel inside ``grid.json``, from which
+            [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] rebuilds them.
     """
 
     def __init__(
@@ -702,7 +455,10 @@ class ExperimentGrid:
         self.results_dir = results_dir
         self.initial_seed = initial_seed
         self.top_k = top_k
-        self._adapted_states: dict[str, dict[str, str]] = adapted_states or {}
+        self._adapted_states: dict[str, dict[str, str]] = {
+            approach: {dataset: os.path.abspath(path) for dataset, path in paths.items()}
+            for approach, paths in (adapted_states or {}).items()
+        }
 
         if callbacks is None:
             self.callback_configs: list[dict] | None = None
@@ -996,7 +752,7 @@ class ExperimentGrid:
     ) -> str | None:
         """Write the experiment commands file (and, if needed, a ``prepare`` commands file).
 
-        Calls [save][SRToolkit.experiments.ExperimentGrid.save] first to persist the grid
+        Calls [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint] first to persist the grid
         to ``results_dir/grid.json``. Every command line references that single file plus
         the identifiers needed to rebuild the work — no per-dataset, per-approach, or
         per-job files are written.
@@ -1036,7 +792,7 @@ class ExperimentGrid:
         Returns:
             The path to the prepare commands file if one was written, otherwise ``None``.
         """
-        self.save()
+        self.checkpoint()
         if materialize_data:
             self.materialize_data()
         grid_path = shlex.quote(os.path.join(self.results_dir, "grid.json"))
@@ -1161,18 +917,16 @@ class ExperimentGrid:
         ``top_k``). It is the portable, one-file form of the grid: pass it (or a JSON
         file holding it) straight to [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict].
 
-        Unlike [save][SRToolkit.experiments.ExperimentGrid.save], this carries **no
-        results** and **no machine-local execution state**: ``results_dir`` is supplied
-        at load time (anchored to the file's location) and the absolute
-        ``adapted_states`` paths are dropped — the per-approach ``adaptation_scope``
-        already travels inside each approach config, so a recipient re-adapts to their
-        own paths.
+        Unlike [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint], it omits the
+        machine-local, absolute ``adapted_states`` paths; ``results_dir`` is supplied at load
+        time. The per-approach ``adaptation_scope`` travels inside each approach config, so a
+        recipient re-adapts to their own paths.
 
         Dataset configs are the full per-dataset recipe (``data_source`` + samplers +
         ground truth), not bare references, and contain no data arrays — those are
         regenerated or downloaded from each dataset's ``data_source`` on first use. A
         ``null``-source dataset's data must already be present in the recipient's cache;
-        ship it via [export][SRToolkit.experiments.ExperimentGrid.export] otherwise.
+        ship it with [share.save][SRToolkit.share.save] otherwise.
 
         Returns:
             A JSON-safe dict with ``format_version`` ``2``, suitable for ``json.dump``.
@@ -1198,50 +952,44 @@ class ExperimentGrid:
         results_dir: str | None = None,
         adapted_states: dict[str, dict[str, str]] | None = None,
     ) -> "ExperimentGrid":
-        """Reconstruct an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] from a
-        recipe produced by [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict].
+        """Rebuild a grid from a recipe dict or a JSON file.
 
-        Every embedded config (approaches, callbacks, and the samplers / sources /
-        constraints nested inside each dataset config) is run through ``_auto_bind`` so
-        that ``*_class`` paths pointing at an installed ``.srtk`` bundle resolve
-        automatically. Dataset and approach **instances are not created here** — they
-        are reconstructed lazily when jobs run. As a courtesy, any ``*_class`` path that
-        cannot be imported on this machine triggers a warning naming the missing class;
-        the hard failure is deferred to job-run time.
+        ``*_class`` paths pointing at an installed ``.srtk`` bundle resolve automatically.
+        Datasets and approaches are built lazily when jobs run; a ``*_class`` path that cannot
+        be imported triggers a warning here and fails when the job runs. Load ``.zip`` archives
+        with [share.load][SRToolkit.share.load].
 
         Args:
             config: The recipe. One of:
 
                 - ``dict`` — the [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict]
                   output directly. ``results_dir`` is then **required**.
-                - ``str`` / ``Path`` — path to a JSON file holding that dict. The
+                - ``str`` / ``Path`` — path to a JSON file holding that dict, e.g. the
+                  ``grid.json`` written by
+                  [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint]. The
                   directory containing the file becomes the grid's ``results_dir``
                   unless ``results_dir`` is given explicitly.
 
             results_dir: Where results are read from and written to. Overrides the
                 file-anchored default; required when ``config`` is a dict.
-            adapted_states: Optional mapping ``{approach_name: {dataset_name: path}}``
-                providing paths for pre-adapted state files. Jobs for listed
-                (approach, dataset) pairs will load state from the given path if it
-                exists, or adapt and save to it otherwise (creating its parent directories). Pairs not listed will adapt
-                on every run without saving.  Several datasets may deliberately share one
-                ``path`` for approaches whose adaptation depends only on what those datasets share
-                (e.g. EDHiE, for datasets with the same symbol library, reference grammar and
-                required constraints): the path is then adapted once on the first dataset listed for
-                it and the others reuse that state. An informational warning lists any such
-                shared paths so an accidental collision can be spotted; give each dataset a
-                distinct ``path`` if adaptation must differ per dataset.
+            adapted_states: As in the [class docstring][SRToolkit.experiments.ExperimentGrid].
+                ``None`` uses the paths stored in ``config`` by
+                [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint], if any.
 
         Returns:
             A fully configured ``ExperimentGrid``.
 
         Raises:
-            ValueError: If the config is not an ``ExperimentGrid`` recipe, its
+            ValueError: If ``config`` is a ``.zip`` path or not an ``ExperimentGrid`` recipe, its
                 ``format_version`` is unsupported, or ``results_dir`` is omitted when
                 loading from a dict.
         """
         default_results_dir: str | None = None
         if isinstance(config, (str, Path)):
+            if str(config).endswith(".zip"):
+                raise ValueError(
+                    "[ExperimentGrid.from_dict] Received a '.zip' path. Load archives with SRToolkit.share.load(path)."
+                )
             file_path = os.path.abspath(str(config))
             with open(file_path) as f:
                 d = json.load(f)
@@ -1270,7 +1018,11 @@ class ExperimentGrid:
         grid.results_dir = os.path.abspath(resolved_results_dir)
         grid.initial_seed = d["initial_seed"]
         grid.top_k = d["top_k"]
-        grid._adapted_states = adapted_states or {}
+        states = adapted_states if adapted_states is not None else d.get("adapted_states", {})
+        grid._adapted_states = {
+            approach: {dataset: os.path.abspath(path) for dataset, path in paths.items()}
+            for approach, paths in states.items()
+        }
         grid.datasets = {name: _safe_auto_bind(cfg) for name, cfg in d["datasets"].items()}
         grid.approach_configs = [_safe_auto_bind(cfg) for cfg in d["approaches"]]
         callbacks = d.get("callbacks")
@@ -1279,318 +1031,14 @@ class ExperimentGrid:
         _warn_missing_class_deps(list(grid.datasets.values()) + grid.approach_configs + (grid.callback_configs or []))
         return grid
 
-    def export(
-        self,
-        path: str | Path,
-        include_results: bool = False,
-        additional_bundles: list[str | Path] | None = None,
-        strict: bool = False,
-    ) -> None:
-        """Write a self-contained, shareable ``.zip`` gathering everything a recipient needs.
+    def checkpoint(self) -> None:
+        """Write the grid to ``results_dir/grid.json``.
 
-        Unlike [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] (a recipe that
-        *assumes* the recipient can reach the data and code), ``export`` bundles the
-        dependencies that wouldn't otherwise travel into one archive whose entries are:
-
-        ```
-        grid.json            # the recipe (to_dict output), annotated with _bundle refs
-        data/<name>.zip      # only for datasets whose data isn't otherwise reachable
-        bundles/<name>.srtk  # only when custom (non-SRToolkit) classes are referenced
-        results/...          # only when include_results=True
-        MANIFEST.md          # inventory + recipient instructions
-        ```
-
-        A dataset's data is archived when its source is ``null`` (data lives only in the
-        cache) or a seedless ``sample`` source (regeneration wouldn't reproduce the exact
-        numbers). ``url`` and seeded ``sample`` datasets are left referenced — the
-        recipient downloads or regenerates them.
-
-        **Custom code.** Any non-SRToolkit class referenced anywhere in the grid must be
-        covered by a ``.srtk`` bundle so the recipient can import it. Two sources are
-        used, in order:
-
-        - **already-installed bundles** — a referenced class whose import path falls under
-          an installed bundle is re-packed automatically from the installed source files
-          (carrying its declared ``python_deps`` / ``srtk_min_version``);
-        - **``additional_bundles``** — ``.srtk`` files you built yourself with
-          [pack][SRToolkit.bundle.pack] for code that isn't installed as a bundle. Because
-          you build them, multi-file implementations, dependencies, and the real version
-          all travel correctly. ``export`` never tries to guess a bundle from a loose
-          source file.
-
-        The recipe is annotated with ``_bundle`` / ``_version`` so the recipient's bind
-        machinery relocates each class on load. Any custom class covered by neither source
-        is **not** packed: it is listed in ``MANIFEST.md`` and a warning names each class
-        and its source file. Pass ``strict=True`` to raise instead of warning.
-
-        The bundles are **not** installed automatically.
-        [from_export][SRToolkit.experiments.ExperimentGrid.from_export] extracts them next to
-        the archive so the recipient can ``install`` each before running jobs (installing
-        executes third-party code and mutates the global bundle store, so it stays an
-        explicit step); class binding is deferred to job-run time, so install order doesn't
-        matter as long as it happens before the jobs run.
-
-        Load the result with
-        [from_export][SRToolkit.experiments.ExperimentGrid.from_export].
-
-        Args:
-            path: Destination ``.zip`` path (parent directories created if absent). A
-                non-``.zip`` suffix is allowed but warns.
-            include_results: If ``True``, copy completed ``exp_*.json`` result files into
-                ``results/`` so the export carries the run's outputs too.
-            additional_bundles: Optional list of ``.srtk`` paths (built with
-                [pack][SRToolkit.bundle.pack]) providing custom classes that aren't
-                installed as bundles. Each is copied verbatim into ``bundles/`` and matched
-                to the classes it provides; an explicitly supplied bundle takes precedence
-                over a coincidentally-installed one. An entry that matches no referenced
-                class warns.
-            strict: If ``True``, raise ``ValueError`` when any referenced custom class is
-                covered by neither an installed bundle nor ``additional_bundles``. Defaults
-                to ``False`` (warn and flag it in ``MANIFEST.md`` instead).
-
-        Raises:
-            ValueError: If ``strict`` and a referenced custom class is uncovered, or if an
-                ``additional_bundles`` path is not a readable ``.srtk``.
-        """
-        path = Path(path)
-        if path.suffix.lower() != ".zip":
-            warnings.warn(
-                f"[ExperimentGrid.export] Export path {str(path)!r} does not end in '.zip'; "
-                "a zip archive is written regardless.",
-                stacklevel=2,
-            )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        # Build the export contents in a temp dir, then zip them at the archive root.
-        with tempfile.TemporaryDirectory() as tmp:
-            staging = Path(tmp)
-            self._write_export_dir(staging, include_results, additional_bundles, strict)
-            with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
-                for file in sorted(staging.rglob("*")):
-                    if file.is_file():
-                        zf.write(file, file.relative_to(staging))
-
-    def _write_export_dir(
-        self,
-        directory: Path,
-        include_results: bool,
-        additional_bundles: list[str | Path] | None = None,
-        strict: bool = False,
-    ) -> None:
-        """Write the export contents (``grid.json``, ``data/``, ``bundles/``, ``MANIFEST.md``)
-        into ``directory``. Shared by [export][SRToolkit.experiments.ExperimentGrid.export],
-        which zips the result.
-        """
-        directory.mkdir(parents=True, exist_ok=True)
-
-        archived: list["tuple[str, str]"] = []
-        referenced: list["tuple[str, str]"] = []
-        for name, cfg in self.datasets.items():
-            needs_archiving, reason = _classify_dataset_source(cfg)
-            if needs_archiving:
-                (directory / "data").mkdir(exist_ok=True)
-                # Materialise from the cache (null) or samplers (seedless sample), then
-                # freeze the exact arrays into the archive.
-                SR_dataset.from_dict(cfg).to_archive(directory / "data" / f"{name}.zip")
-                archived.append((name, reason))
-            else:
-                referenced.append((name, reason))
-
-        # Pack custom code, then annotate the recipe so the recipient's bind machinery
-        # relocates each custom class to its installed bundle. Annotation is stamped on
-        # the dict that directly holds each *_class, so sibling configs (e.g. a custom
-        # sampler and a custom source in one dataset) bind to their own bundles.
-        all_configs = list(self.datasets.values()) + self.approach_configs + (self.callback_configs or [])
-        packed, manual, class_to_bundle = _pack_custom_code(
-            all_configs, directory / "bundles", additional_bundles, strict
-        )
-
-        recipe = self.to_dict()
-        if class_to_bundle:
-            recipe = _annotate_bundles(recipe, class_to_bundle)
-        (directory / "grid.json").write_text(json.dumps(recipe, indent=2))
-
-        results_included = self._copy_results(directory / "results") if include_results else False
-
-        self._write_manifest(directory / "MANIFEST.md", archived, referenced, packed, manual, results_included)
-
-    @classmethod
-    def from_export(
-        cls,
-        path: str | Path,
-        results_dir: str | None = None,
-    ) -> "ExperimentGrid":
-        """Load a grid from a ``.zip`` produced by
-        [export][SRToolkit.experiments.ExperimentGrid.export].
-
-        The archive is unpacked and:
-
-        - any ``data/*.zip`` archives are imported into the local data cache (so the bundled
-          datasets resolve without a network or samplers);
-        - any ``bundles/`` and ``MANIFEST.md`` are written into ``results_dir`` so the
-          recipient has the loose ``.srtk`` files to ``install`` (``from_export`` never
-          auto-installs — that runs third-party code and mutates the global bundle store);
-        - the grid is rebuilt from ``grid.json`` and any shipped ``results/`` are copied into
-          ``results_dir`` so [progress][SRToolkit.experiments.ExperimentGrid.progress] and
-          [load_results][SRToolkit.experiments.ExperimentGrid.load_results] see them.
-
-        Custom classes still need their ``.srtk`` bundle(s) installed before jobs run — the
-        returned grid is lazy and a warning names any that aren't importable yet. Class
-        binding happens at job-run time, so installing after this call (before running) is
-        fine. Install from ``<results_dir>/bundles/`` per the extracted ``MANIFEST.md``.
-
-        Args:
-            path: A ``.zip`` written by ``export``.
-            results_dir: Where this machine's runs read/write results, and where ``bundles/``
-                / ``MANIFEST.md`` are extracted. Defaults to the archive path with its suffix
-                removed (e.g. ``run.zip`` → ``run/``), created on load.
-
-        Returns:
-            A fully configured ``ExperimentGrid``.
-
-        Raises:
-            FileNotFoundError: If ``path`` does not exist or the archive has no ``grid.json``.
-        """
-        path = Path(path)
-        if not path.is_file():
-            raise FileNotFoundError(f"[ExperimentGrid.from_export] No export archive at {str(path)!r}.")
-
-        if results_dir is not None:
-            resolved_results_dir = os.path.abspath(results_dir)
-        else:
-            resolved_results_dir = os.path.abspath(str(path.with_suffix("")))
-        os.makedirs(resolved_results_dir, exist_ok=True)
-
-        with tempfile.TemporaryDirectory() as tmp:
-            staging = Path(tmp)
-            with zipfile.ZipFile(path) as zf:
-                zf.extractall(staging)
-
-            grid_json = staging / "grid.json"
-            if not grid_json.is_file():
-                raise FileNotFoundError(
-                    f"[ExperimentGrid.from_export] {str(path)!r} is not an export archive (no grid.json)."
-                )
-
-            # Import bundled data into the local cache.
-            data_dir = staging / "data"
-            if data_dir.is_dir():
-                for zip_path in sorted(data_dir.glob("*.zip")):
-                    # Side effect: extracts the archive's arrays into the data cache.
-                    SR_dataset.from_archive(zip_path)
-
-            # Persist bundles + manifest so the recipient can install the loose .srtk files.
-            bundles_src = staging / "bundles"
-            if bundles_src.is_dir():
-                shutil.copytree(bundles_src, Path(resolved_results_dir) / "bundles", dirs_exist_ok=True)
-            manifest_src = staging / "MANIFEST.md"
-            if manifest_src.is_file():
-                shutil.copy2(manifest_src, Path(resolved_results_dir) / "MANIFEST.md")
-
-            grid = cls.from_dict(str(grid_json), results_dir=resolved_results_dir)
-
-            # Copy any shipped results into results_dir (staging is a temp dir, so always copy).
-            shipped_results = staging / "results"
-            if shipped_results.is_dir():
-                for src in shipped_results.rglob("exp_*.json"):
-                    target = Path(resolved_results_dir) / src.relative_to(shipped_results)
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src, target)
-
-        return grid
-
-    def _copy_results(self, dest: Path) -> bool:
-        """Copy completed ``exp_*.json`` result files into ``dest``. Returns True if any."""
-        copied = False
-        for dataset_name in self.datasets:
-            for approach_config in self.approach_configs:
-                src_dir = Path(self.results_dir) / dataset_name / approach_config["name"]
-                if not src_dir.is_dir():
-                    continue
-                for result_file in src_dir.glob("exp_*.json"):
-                    target = dest / dataset_name / approach_config["name"] / result_file.name
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(result_file, target)
-                    copied = True
-        return copied
-
-    def _write_manifest(
-        self,
-        path: Path,
-        archived: "list[tuple[str, str]]",
-        referenced: "list[tuple[str, str]]",
-        packed: "list[tuple[str, str, str]]",
-        manual: "list[tuple[str, str]]",
-        results_included: bool,
-    ) -> None:
-        from SRToolkit import __version__
-
-        lines = [
-            "# ExperimentGrid export",
-            "",
-            f"Written with SRToolkit {__version__}.",
-            "",
-            "## Load on the recipient machine",
-            "",
-            "```python",
-            "from SRToolkit.experiments import ExperimentGrid",
-            "# Imports bundled data into the cache and extracts bundles/ next to the archive.",
-            'grid = ExperimentGrid.from_export("<this-export>.zip")',
-        ]
-        if packed:
-            lines += [
-                "",
-                "# Install the bundled code before running jobs (paths are under the extracted",
-                "# results folder, e.g. '<this-export>/bundles/...').",
-                "from SRToolkit.bundle import install",
-            ]
-            lines += [f'install("<this-export>/bundles/{fname}")' for _, fname, _ in packed]
-        lines += [
-            "```",
-            "",
-            "## Datasets",
-            "",
-        ]
-        for name, reason in archived:
-            lines.append(f"- `{name}` — **archived** ({reason}); data in `data/{name}.zip`.")
-        for name, reason in referenced:
-            lines.append(f"- `{name}` — referenced ({reason}).")
-        if not (archived or referenced):
-            lines.append("- _(none)_")
-
-        lines += ["", "## Custom code", ""]
-        if packed:
-            lines.append("Bundled into `bundles/` — install each before running jobs (see snippet above):")
-            lines.append("")
-            lines += [f"- `bundles/{fname}` — {label}; {note}." for label, fname, note in packed]
-        if manual:
-            lines.append("")
-            lines.append("**Could not pack automatically — handle these manually:**")
-            lines.append("")
-            lines += [f"- `{cls}` — {reason}." for cls, reason in manual]
-        if not (packed or manual):
-            lines.append("None — every referenced class is built into SRToolkit.")
-
-        lines += [
-            "",
-            "## Results",
-            "",
-            "Included in `results/`." if results_included else "Not included (recipe only).",
-            "",
-        ]
-        path.write_text("\n".join(lines))
-
-    def save(self) -> None:
-        """Persist the grid to a single ``results_dir/grid.json`` file.
-
-        The file is the [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] recipe
-        plus the machine-local ``adapted_states`` paths (which ``to_dict`` omits, since
-        they don't travel between machines). This is the local-persistence counterpart to
-        the shareable [export][SRToolkit.experiments.ExperimentGrid.export]: it keeps your
-        run resumable in place, but is not meant for handing to someone else.
-
-        [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] calls this
-        automatically, so a separate ``save()`` call is only needed when checkpointing the
-        grid without generating a commands file.
+        Resume it with [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict]. Creates
+        ``results_dir`` if needed and overwrites an existing ``grid.json``. The file is the [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] recipe plus the
+        machine-local ``adapted_states`` paths. To share a grid with someone else, use
+        [share.save][SRToolkit.share.save].
+        [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] calls this.
         """
         os.makedirs(self.results_dir, exist_ok=True)
         payload = self.to_dict()
@@ -1598,36 +1046,6 @@ class ExperimentGrid:
             payload["adapted_states"] = self._adapted_states
         with open(os.path.join(self.results_dir, "grid.json"), "w") as f:
             json.dump(payload, f, indent=2)
-
-    @staticmethod
-    def load(path: str) -> "ExperimentGrid":
-        """Load a grid from a ``grid.json`` written by
-        [save][SRToolkit.experiments.ExperimentGrid.save].
-
-        Thin wrapper over [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] that
-        also restores the local ``adapted_states`` paths. Dataset and approach instances
-        are **not** created at load time — they are reconstructed lazily when jobs run.
-
-        ``results_dir`` is taken from the directory containing ``path``, not from any value
-        stored in the file, so a grid directory can be moved, mounted under a different
-        path, or copied elsewhere and still load (and write its results) correctly.
-
-        Args:
-            path: Path to the ``grid.json`` file. The directory holding it becomes the
-                loaded grid's ``results_dir``.
-
-        Returns:
-            A fully configured ``ExperimentGrid``.
-
-        Raises:
-            ValueError: If the file is not a supported ``ExperimentGrid`` recipe.
-        """
-        path = os.path.abspath(path)
-        with open(path) as f:
-            d = json.load(f)
-        grid = ExperimentGrid.from_dict(d, results_dir=os.path.dirname(path))
-        grid._adapted_states = d.get("adapted_states", {})
-        return grid
 
     def __repr__(self) -> str:
         ds_count = len(self.datasets)

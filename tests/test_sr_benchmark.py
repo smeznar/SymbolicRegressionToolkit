@@ -415,6 +415,11 @@ def test_add_dataset_without_data_or_source_rejected():
     assert "a" not in bm.datasets
 
 
+def test_from_dict_rejects_zip_path():
+    with pytest.raises(ValueError, match="share.load"):
+        SR_benchmark.from_dict("benchmark.zip")
+
+
 def test_from_dict_does_not_modify_input():
     # regression: from_dict wrote num_variables into the caller's entry dicts.
     bm = SR_benchmark("b")

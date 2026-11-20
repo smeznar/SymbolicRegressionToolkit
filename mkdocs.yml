@@ -173,5 +173,6 @@ nav:
           - experiment_grid: references/experiments/experiment_grid.md
       - bundle:
           - references/bundle/index.md
+      - share: references/share.md
   - Citations: citations.md
   - Changelog: changelog.md

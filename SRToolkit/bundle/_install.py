@@ -51,7 +51,7 @@ def read_manifest(srtk_path: Path) -> BundleManifest:
     are not extracted, no checksums are verified, and the global bundle store is not
     touched. Use this to inspect a not-yet-installed bundle's ``name`` / ``version`` /
     ``import_prefix`` (e.g. to match referenced class paths against a bundle a user
-    supplied to [ExperimentGrid.export][SRToolkit.experiments.ExperimentGrid.export]).
+    supplied to [share.save][SRToolkit.share.save]).
 
     Args:
         srtk_path: Path to the ``.srtk`` archive.
@@ -171,7 +171,7 @@ def _repack(name: str, version: str | None, out_path: Path) -> Path:
     """Rebuild a ``.srtk`` archive from an already-installed bundle.
 
     The original ``.srtk`` is not retained at install time, so re-shipping a bundle's code
-    (e.g. from [ExperimentGrid.export][SRToolkit.experiments.ExperimentGrid.export]) means
+    (e.g. from [share.save][SRToolkit.share.save]) means
     reconstructing it from the installed source files plus the index metadata. Keeping the
     install-layout details (which files to include, which manifest fields to carry) here
     means callers don't reach into bundle internals.

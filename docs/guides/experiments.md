@@ -125,17 +125,17 @@ A grid serialises three different ways, each for a different audience:
 
 | Goal | Call | Produces |
 |---|---|---|
-| Resume your own run in place | [save][SRToolkit.experiments.ExperimentGrid.save] / [load][SRToolkit.experiments.ExperimentGrid.load] | one `results_dir/grid.json` (recipe + local `adapted_states`) |
+| Resume your own run in place | [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint] / [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] | one `results_dir/grid.json` (recipe + local `adapted_states`) |
 | Hand someone the recipe | [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] / [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] | one JSON dict, no local paths |
-| Hand someone everything | [export][SRToolkit.experiments.ExperimentGrid.export] / [from_export][SRToolkit.experiments.ExperimentGrid.from_export] | one `.zip`: recipe + bundled code + unreachable data + `MANIFEST.md` |
+| Hand someone everything | [share.save][SRToolkit.share.save] / [share.load][SRToolkit.share.load] | one `.zip`: recipe, data, custom code and, optionally, results |
 
-`save()` writes a single file and `load()` reads it back, re-anchoring `results_dir` to
-wherever the file currently lives — so a run directory can be moved or mounted elsewhere and
+`checkpoint()` writes a single file and `from_dict` reads it back, with `results_dir` set to
+wherever the file currently lives, so a run directory can be moved or mounted elsewhere and
 still resumes correctly:
 
 ```python
-grid.save()                                   # → results/feynman_run/grid.json
-grid = ExperimentGrid.load("results/feynman_run/grid.json")
+grid.checkpoint()                             # → results/feynman_run/grid.json
+grid = ExperimentGrid.from_dict("results/feynman_run/grid.json")
 ```
 
 To share the *setup* without your machine-local paths or results, pass the
@@ -143,26 +143,21 @@ To share the *setup* without your machine-local paths or results, pass the
 needs the same datasets reachable (downloaded, regenerated from a seed, or already cached) and
 any custom `.srtk` bundles installed.
 
-To share *everything* in one file, use
-[export][SRToolkit.experiments.ExperimentGrid.export], which writes a single `.zip`:
+To share *everything* in one file, use [share.save][SRToolkit.share.save]:
 
 ```python
-grid.export("share/feynman_run.zip")          # recipe + data/ + bundles/ + MANIFEST.md
+from SRToolkit import share
+
+share.save(grid, "share/feynman_run.zip", results=True)   # results=True also ships finished runs
 ```
 
-It archives only the data the recipient can't reach on their own (`null`-source and
-seedless-`sample` datasets), best-effort packs custom classes into `bundles/`, and writes a
-`MANIFEST.md` with the exact install/load steps. The recipient loads it in one call —
-`from_export` imports the bundled data into the cache and extracts any `bundles/` next to the
-archive (defaulting `results_dir` to the archive name minus `.zip`):
+It ships the datasets' data and the installed bundles that hold the grid's custom classes (pass
+others with `bundles=[...]`). The recipient loads it in one call; `install_bundles=True`
+installs the shipped code, and `results_dir` defaults to the archive name minus `.zip`:
 
 ```python
-grid = ExperimentGrid.from_export("share/feynman_run.zip", results_dir="my_results")
+grid = share.load("share/feynman_run.zip", install_bundles=True, results_dir="my_results")
 ```
-
-If the export carried custom code, install those bundles from the extracted
-`<results_dir>/bundles/` before running jobs (class binding is deferred to run time, so the
-order of `from_export` and `install` doesn't matter — only that install happens first).
 
 See [Sharing Custom Implementations](sharing.md#sharing-a-complete-experiment) for how this
 fits the code / config / data sharing model.

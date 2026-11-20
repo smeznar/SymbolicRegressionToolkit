@@ -34,7 +34,7 @@ from .experiment_grid import ExperimentGrid
 
 
 def _cmd_run_job(args: argparse.Namespace) -> None:
-    grid = ExperimentGrid.load(args.grid)
+    grid = ExperimentGrid.from_dict(args.grid)
     job = grid.build_job(args.dataset, args.approach, args.seed)
     job.run()
     print(f"[run_job] Saved result to {job.result_path}")
@@ -45,7 +45,7 @@ def _cmd_adapt(args: argparse.Namespace) -> None:
         raise SystemExit("[adapt] --dataset and --approach must be given together (or neither).")
     if args.force and args.dataset is None:
         raise SystemExit("[adapt] --force requires --dataset and --approach (it only applies to a single pair).")
-    grid = ExperimentGrid.load(args.grid)
+    grid = ExperimentGrid.from_dict(args.grid)
     if args.dataset is not None:
         grid.adapt_one(args.approach, args.dataset, force=args.force)
         print(f"[adapt] Finished adapting {args.approach!r} on {args.dataset!r}.")
@@ -55,7 +55,7 @@ def _cmd_adapt(args: argparse.Namespace) -> None:
 
 
 def _cmd_commands(args: argparse.Namespace) -> None:
-    grid = ExperimentGrid.load(args.grid)
+    grid = ExperimentGrid.from_dict(args.grid)
     skip = not args.all
     prepare_path = grid.save_commands(
         path=args.out,
@@ -68,7 +68,7 @@ def _cmd_commands(args: argparse.Namespace) -> None:
 
 
 def _cmd_progress(args: argparse.Namespace) -> None:
-    ExperimentGrid.load(args.grid).progress()
+    ExperimentGrid.from_dict(args.grid).progress()
 
 
 def main() -> None:

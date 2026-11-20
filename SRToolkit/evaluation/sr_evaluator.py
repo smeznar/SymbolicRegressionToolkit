@@ -135,7 +135,7 @@ fraction of runs solved within each budget:
 import numpy as np
 from SRToolkit.experiments import ExperimentGrid
 
-grid = ExperimentGrid.load("results/grid.json")
+grid = ExperimentGrid.from_dict("results/grid.json")
 results = grid.load_results("Nguyen-1", "ProGED")
 
 budgets = np.array([100, 1_000, 10_000])  # at most the experiment's max_evaluations

@@ -9,6 +9,7 @@ Modules:
     approaches: The module containing SR approach implementations and configurations.
     experiments: The module containing the job-based experiment runner for multi-dataset, multi-approach experiments.
     bundle: Tools for packing, installing, loading, and sharing user-defined bundles.
+    share: Save a dataset, benchmark or experiment grid as one archive and load it elsewhere.
 
 The dataset cache management utilities (list, gc, dataset_path, refresh) live in
 [data_cache][SRToolkit.dataset.data_cache].
@@ -17,6 +18,7 @@ The dataset cache management utilities (list, gc, dataset_path, refresh) live in
 import sys as _sys
 
 from . import approaches, bundle, dataset, evaluation, experiments, utils
+from . import share as share  # public submodule: SRToolkit.share.save / load
 from .bundle._store import bundles_root as _bundles_root
 
 _bundles_parent = str(_bundles_root().parent)

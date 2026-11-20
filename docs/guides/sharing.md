@@ -16,9 +16,8 @@ ship a whole directory, define a class in a notebook — and they stop being por
 
 The three are deliberately decoupled: code is versioned independently of the settings that
 use it, and a config carries only a *pointer* to its data, never the arrays themselves. If you
-just want to hand someone a dataset or benchmark **including its data**, jump to
-[self-contained archives](#self-contained-archives) — one `.zip`, one call, no setup on the
-other end.
+just want to hand someone a dataset, benchmark or experiment grid **with its data and code**,
+jump to [sharing a whole object](#sharing-a-whole-object): one `.zip`, one call on each end.
 
 ---
 
@@ -182,8 +181,8 @@ The rest of this section focuses on **dataset and benchmark** configs — the mo
 to share — but the mechanics apply to any config. For datasets specifically, the config is the
 **recipe** model of sharing: the JSON carries samplers and a `data_source` pointer, *not* the
 data arrays. The recipient calls `from_dict` and the data is regenerated (by sampling) or
-downloaded on first use. To make the data travel *with* the config instead, use a
-[self-contained archive](#self-contained-archives).
+downloaded on first use. To make the data travel *with* the config instead, use
+[share.save](#sharing-a-whole-object).
 
 ### Serialising a benchmark
 
@@ -271,8 +270,8 @@ sampling.
 !!! warning "Reproducibility depends on the seed"
     Regeneration reproduces the **exact** data only when the `SampleSource` carries a fixed
     `seed`. With `seed=None` the recipient gets statistically equivalent but *different*
-    points. If everyone must evaluate on identical numbers, set a seed — or ship a
-    [self-contained archive](#self-contained-archives) so the data travels with the config.
+    points. If everyone must evaluate on identical numbers, set a seed, or share the dataset with
+    [share.save](#sharing-a-whole-object) so the data travels with the config.
 
 !!! danger "Reconstruction imports the classes named in the config"
     `from_dict` instantiates the sampler, source, and constraint classes named by the config's
@@ -305,7 +304,7 @@ The built-in benchmarks (`Feynman`, `Nguyen`, `SRSD_Feynman`) give each dataset 
 `[UrlSource(archive), SampleSource(...)]`: they download their canonical data once from a
 hosted archive — so every machine benchmarks on identical inputs — and regenerate locally
 from the stored samplers only if the download is unavailable. Because the whole chain lives
-in the config, that preference travels with a shared recipe, export, or grid (constructing
+in the config, that preference travels with a shared recipe, archive or grid (constructing
 the benchmark with `force_generate=True` instead pins the data_source to sampling only).
 
 Need something exotic? Subclass [DataSource][SRToolkit.dataset.data_source.DataSource] and
@@ -318,52 +317,13 @@ travel to other machines via bundles.
     changes — a different `url`, a new `n_samples`/`seed`, or a switch between source kinds —
     the next load warns that the cached bytes are stale and points you to `refresh()`.
 
-### Self-contained archives
+### Hosting data for a `UrlSource`
 
-!!! tip "The easiest way to share data"
-    A self-contained archive is the simplest channel: a single `.zip` carries both config and
-    data, and the recipient loads it in one call — no network access, samplers, or bundle
-    install required. Reach for the [config](#configs)-only or
-    [`UrlSource`](#data-sources) channels only when you deliberately want to keep the data
-    *out* of the file.
-
-For person-to-person sharing where you want one file and no out-of-band coordination, write a
-self-contained `.zip`:
-
-```python
-bm.to_archive("nguyen.zip")
-```
-
-The archive holds `benchmark.json` (the config) plus `data/<dataset_key>.npz` for every
-dataset. The recipient needs no network access and no samplers:
-
-```python
-bm2 = SR_benchmark.from_archive("nguyen.zip")
-dataset = bm2.create_dataset("NG-1")   # data extracted from the zip into the cache
-```
-
-A single [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] has the same pair —
-`ds.to_archive("my_eq.zip")` and `SR_dataset.from_archive("my_eq.zip")` — writing
-`dataset.json` plus `data/<dataset_name>.npz` (and a `data/<dataset_name>_gt.npy` behaviour
-matrix for `bed` datasets).
-
-If the archive is hosted somewhere, `from_url()` is the remote counterpart — it downloads the
-archive and loads it in one call (both classes):
-
-```python
-bm = SR_benchmark.from_url("https://example.org/nguyen.zip")
-ds = SR_dataset.from_url("https://example.org/my_eq.zip")
-```
-
-This differs from a [UrlSource][SRToolkit.dataset.data_source.UrlSource] in *what* it loads:
-`from_url` reconstructs the whole object from the archive (config **and** data), whereas
-`UrlSource` lives inside a config you already have and only fetches that config's data into
-the cache. The hosted zip can be the *same* `to_archive` archive either way — `UrlSource`
-understands both the `data/`-prefixed `to_archive` layout and a flat zip of `.npz` files at
-the root.
-
-The extension should be `.zip`; a different suffix is allowed but triggers a warning. Loading
-an archive through `from_dict()` is rejected with a message pointing you to `from_archive()`.
+A [UrlSource][SRToolkit.dataset.data_source.UrlSource] downloads a `.zip` into the cache the
+first time a dataset needs its data. The zip holds `<key>.npz` files at its root or under
+`data/` (the layout of the built-in benchmarks' hosted archives), or it is an archive written
+by [share.save](#sharing-a-whole-object), from which only the data of the dataset's own
+benchmark and version is taken.
 
 ### Cache management
 
@@ -404,108 +364,82 @@ ds.refresh()   # re-materialises from data_source; reloads self.X / self.y
 
 ---
 
-## Sharing a complete experiment
+## Sharing a whole object
 
-An [`ExperimentGrid`][SRToolkit.experiments.ExperimentGrid] is a *composite* config: it
-references all three axes at once — approach and callback configs, dataset configs (each with
-its `data_source`), and the run metadata. It does not invent a fourth sharing mechanism; it
-reuses the three above. There are three ways to serialise it, matching the three things you
-might want to do.
-
-### The recipe — one JSON
-
-[`to_dict()`][SRToolkit.experiments.ExperimentGrid.to_dict] returns a single self-contained
-dict: every dataset, approach, and callback config inlined, plus `num_experiments`,
-`initial_seed`, and `top_k`. It carries **no** data arrays and **no** machine-local state
-(`results_dir`, absolute `adapted_states` paths) —
-[`from_dict()`][SRToolkit.experiments.ExperimentGrid.from_dict] rebuilds the grid and each
-worker reaches its data through the dataset's `data_source` (downloaded, regenerated from a
-seed, or already cached). This is the lightweight channel: the recipient must have the data
-reachable and any custom `.srtk` bundles installed.
+[share.save][SRToolkit.share.save] writes a dataset, benchmark or experiment grid into one
+`.zip` with everything the recipient needs: the config, the data, and the custom code it uses.
+[share.load][SRToolkit.share.load] reads it back, from a path or a URL, and returns the object.
 
 ```python
-config = grid.to_dict()                       # plain JSON — email it, commit it
-grid = ExperimentGrid.from_dict(config, results_dir="my_results")
+from SRToolkit import share
+
+share.save(bm, "nguyen.zip")
+bm = share.load("nguyen.zip")                          # or share.load("https://example.org/nguyen.zip")
+dataset = bm.create_dataset("NG-1")                    # the data comes from the archive
 ```
 
-### Local persistence — `save` / `load`
+**Data.** By default (`data="all"`) every dataset's data is shipped, so the recipient needs no
+network and no samplers. `data="auto"` leaves data the recipient can reproduce (a `UrlSource`, a
+`SampleSource` with a seed, or a `FallbackSource` with at least one such source) to be
+downloaded or regenerated, and ships the rest; `data="none"` ships the config and code only.
+Loaded configs keep their `data_source`, so `refresh()` still works.
 
-[`save()`][SRToolkit.experiments.ExperimentGrid.save] writes the recipe (plus your local
-`adapted_states` paths) to a single `results_dir/grid.json`, and
-[`load()`][SRToolkit.experiments.ExperimentGrid.load] reads it back, re-anchoring
-`results_dir` to wherever the file now lives. This is for resuming *your own* run — including
-after moving or re-mounting the directory — not for handing to someone else.
-
-### The whole thing — a self-contained zip
-
-When you want a recipient to need nothing of their own,
-[`export()`][SRToolkit.experiments.ExperimentGrid.export] gathers everything into one `.zip`
-whose entries are:
-
-```
-grid.json            # the recipe
-data/<name>.zip      # only datasets the recipient can't reach on their own
-bundles/<name>.srtk  # custom code (re-packed installed bundles + additional_bundles)
-MANIFEST.md          # inventory + exact install/load steps
-```
-
-It archives only the data that wouldn't otherwise travel — `null`-source datasets and
-seedless [`SampleSource`][SRToolkit.dataset.data_source.SampleSource] datasets (whose
-regeneration wouldn't reproduce the exact numbers); `UrlSource` and seeded-sample datasets
-stay [referenced](#self-contained-archives). Custom (non-SRToolkit) classes are gathered into
-`bundles/` and the grid configs are annotated with `_bundle`/`_version` so the recipient's
-`from_dict` rebinds each class to its installed bundle automatically (see
-[Using a shared config](#using-a-shared-config)).
-
-`export` never guesses a bundle from a loose source file. A custom class is shipped only when
-it is covered by one of two sources:
-
-- **an already-installed `.srtk` bundle** — re-packed automatically from the installed source
-  files (the whole bundle, so multi-file implementations and declared dependencies travel intact);
-- **a bundle you built yourself** with [`pack()`][SRToolkit.bundle.pack] and pass via
-  `additional_bundles` — matched to the classes it defines and copied in verbatim.
+**Code.** Any custom class the object uses (an approach, sampler, data source, constraint,
+callback, ...) must come from a [bundle](#code-srtk-bundles) to load elsewhere. `save` re-packs
+the installed bundles that define such classes; for code that isn't installed, build a bundle
+with [pack][SRToolkit.bundle.pack] and pass it:
 
 ```python
 from SRToolkit.bundle import pack
 
-# Pack any custom code that isn't installed as a bundle, listing every file it needs.
 pack(files=["approach.py", "ops.py"], out_path="my_ap.srtk", name="my-ap", version="1.0.0")
-
-grid.export(
-    "share/my_run.zip",
-    additional_bundles=["my_ap.srtk"],        # custom code the recipient must import
-    include_results=True,                     # optional: ship the run's outputs too
-)
+share.save(grid, "my_run.zip", bundles=["my_ap.srtk"], results=True)   # results=True: grids only
 ```
 
-!!! warning "Custom classes must be covered by a bundle"
-    Any custom class that is neither installed as a bundle nor provided through
-    `additional_bundles` is **not packed** — `export` warns, naming each class and its source
-    file, and lists them under a "handle manually" section of `MANIFEST.md`. Pass
-    `strict=True` to raise instead of warn. Two cases that always need an explicit bundle:
+A custom class covered by no bundle gives a warning (an error with `strict=True`). Classes
+defined in `__main__` (a script run directly, or a notebook cell) can't be shipped; move them
+into a named `.py` module first (see
+[Writing shareable custom classes](#writing-shareable-custom-classes)).
 
-    - **Loose modules** (a class importable from a `.py` file but not installed as a `.srtk`) —
-      build one with `pack(files=[...], ...)` and pass it via `additional_bundles`.
-    - **Classes defined in `__main__`** (a script run directly, or a notebook cell) — their
-      serialised path is `__main__.MyClass`, meaningless on another machine. Move the class into
-      a named `.py` module first (see [Writing shareable custom classes](#writing-shareable-custom-classes)).
-
-The recipient loads it in one call —
-[`from_export()`][SRToolkit.experiments.ExperimentGrid.from_export] imports the bundled data
-into their cache, extracts `bundles/` + `MANIFEST.md` into `results_dir` (defaulting to the
-archive name minus `.zip`), and rebuilds the grid:
+**Loading code.** `share.load` never runs shipped code on its own: it warns about bundles that
+aren't installed yet, and `install_bundles=True` installs them (with
+[install][SRToolkit.bundle.install]'s confirmation prompt). Classes bind to the installed bundle
+automatically.
 
 ```python
-grid = ExperimentGrid.from_export("share/my_run.zip", results_dir="my_results")
+grid = share.load("my_run.zip", install_bundles=True, results_dir="my_results")
 ```
 
-Then install any bundles `MANIFEST.md` lists, from the extracted folder, before running jobs
-(class binding is deferred to run time, so `from_export` first then `install` is fine):
+For a grid, `results_dir` defaults to the archive name minus `.zip`; shipped results are copied
+there without overwriting existing files. The archive layout is described in the
+[share][SRToolkit.share] reference.
 
-```python
-from SRToolkit.bundle import install
-install("my_results/bundles/my_approach.srtk")   # if MANIFEST.md lists any
-```
+---
+
+## Sharing a complete experiment
+
+An [`ExperimentGrid`][SRToolkit.experiments.ExperimentGrid] is a *composite* config: it
+references all three axes at once — approach and callback configs, dataset configs (each with
+its `data_source`), and the run metadata. It serialises three ways:
+
+- **The recipe:** [`to_dict()`][SRToolkit.experiments.ExperimentGrid.to_dict] returns one
+  JSON-safe dict with every dataset, approach and callback config inlined, and no data arrays
+  or machine-local state (`results_dir`, `adapted_states` paths).
+  [`from_dict()`][SRToolkit.experiments.ExperimentGrid.from_dict] rebuilds the grid; the
+  recipient must be able to reach the data and have any custom bundles installed.
+
+  ```python
+  config = grid.to_dict()                       # plain JSON — email it, commit it
+  grid = ExperimentGrid.from_dict(config, results_dir="my_results")
+  ```
+
+- **Local persistence:** [`checkpoint()`][SRToolkit.experiments.ExperimentGrid.checkpoint]
+  writes the recipe plus your local `adapted_states` paths to `results_dir/grid.json`, and
+  `from_dict("…/grid.json")` resumes it, with `results_dir` set to wherever the file now lives.
+  This is for your own run, not for handing to someone else.
+
+- **Everything:** [share.save](#sharing-a-whole-object) ships the grid with its data, custom
+  code and, with `results=True`, its finished runs.
 
 See the [Experiments guide](experiments.md#saving-loading-and-sharing-a-grid) for the full
 runner workflow.

@@ -7,9 +7,9 @@ Exports three public classes:
 - [ExperimentJob][SRToolkit.experiments.ExperimentJob] — one atomic experiment (dataset × approach ×
   seed); can be run in-process or rebuilt from a grid by the CLI.
 - [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] — full cross-product grid with local
-  persistence (``save``/``load``), shareable serialisation (``to_dict``/``from_dict`` and the
-  self-contained ``export``/``from_export`` folder), HPC command-file generation, progress
-  tracking, and result loading.
+  persistence and serialisation (``checkpoint``, ``to_dict``, ``from_dict``), HPC command-file
+  generation, progress tracking, and result loading. Share a whole grid with
+  [share.save][SRToolkit.share.save].
 """
 
 from .experiment_grid import ExperimentGrid, ExperimentInfo, ExperimentJob

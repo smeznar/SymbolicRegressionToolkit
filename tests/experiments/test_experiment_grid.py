@@ -5,7 +5,6 @@ import json
 import os
 import shutil
 import warnings
-import zipfile
 from dataclasses import dataclass
 
 import pytest
@@ -14,11 +13,6 @@ from SRToolkit.approaches import ApproachConfig, ProGED, SR_approach
 from SRToolkit.dataset import SR_dataset, data_cache
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.experiments import ExperimentGrid, ExperimentInfo, ExperimentJob
-from SRToolkit.experiments.experiment_grid import (
-    _annotate_bundles,
-    _classify_dataset_source,
-    _custom_class_paths,
-)
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth
 
 
@@ -119,6 +113,28 @@ def test_from_dict_anchors_results_dir_to_file_location(tmp_path):
     assert rebuilt.results_dir == str(moved_dir)
 
 
+@pytest.mark.parametrize(
+    "given, expected",
+    [
+        (None, lambda tmp: {"ProGED": {"ds1": "/from/file.pt"}}),
+        ({"ProGED": {"ds1": "/given.pt"}}, lambda tmp: {"ProGED": {"ds1": "/given.pt"}}),
+        ({"ProGED": {"ds1": "rel/given.pt"}}, lambda tmp: {"ProGED": {"ds1": str(tmp / "rel" / "given.pt")}}),
+    ],
+    ids=["read_from_file", "explicit_argument_wins", "relative_made_absolute"],
+)
+def test_from_dict_path_restores_adapted_states(tmp_path, monkeypatch, given, expected):
+    monkeypatch.chdir(tmp_path)
+    grid_json = tmp_path / "run" / "grid.json"
+    grid_json.parent.mkdir()
+    cfg = _make_grid(str(tmp_path / "run")).to_dict()
+    cfg["adapted_states"] = {"ProGED": {"ds1": "/from/file.pt"}}
+    grid_json.write_text(json.dumps(cfg))
+
+    loaded = ExperimentGrid.from_dict(str(grid_json), adapted_states=given)
+
+    assert loaded._adapted_states == expected(tmp_path)
+
+
 def test_from_dict_explicit_results_dir_overrides_file_anchor(tmp_path):
     grid = _make_grid(str(tmp_path / "orig"))
     grid_json = tmp_path / "grid.json"
@@ -126,6 +142,11 @@ def test_from_dict_explicit_results_dir_overrides_file_anchor(tmp_path):
 
     rebuilt = ExperimentGrid.from_dict(str(grid_json), results_dir=str(tmp_path / "elsewhere"))
     assert rebuilt.results_dir == str(tmp_path / "elsewhere")
+
+
+def test_from_dict_rejects_zip_path():
+    with pytest.raises(ValueError, match="share.load"):
+        ExperimentGrid.from_dict("run.zip")
 
 
 def test_from_dict_rejects_wrong_type(tmp_path):
@@ -250,12 +271,12 @@ def test_build_job_unknown_dataset_raises(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# save() / load() — single grid.json, results_dir anchoring, adapted_states
+# checkpoint() — single grid.json
 # --------------------------------------------------------------------------- #
-def test_save_writes_single_grid_json(tmp_path):
+def test_checkpoint_writes_single_grid_json(tmp_path):
     run = tmp_path / "run"
     grid = _make_grid(str(run))
-    grid.save()
+    grid.checkpoint()
 
     assert (run / "grid.json").exists()
     # No scattered spec directories any more.
@@ -268,30 +289,18 @@ def test_save_writes_single_grid_json(tmp_path):
     assert d["type"] == "ExperimentGrid"
 
 
-def test_save_load_follows_moved_directory(tmp_path):
-    grid = _make_grid(str(tmp_path / "orig_run"))
-    grid.save()
+def test_checkpoint_round_trips_through_from_dict(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    run = tmp_path / "new" / "run"
+    grid = _make_grid(str(run), adapted_states={"ProGED": {"ds1": "states/ds1.pt"}})
+    grid.checkpoint()
+    grid.add_approach(_named_approach("Second"))
+    grid.checkpoint()  # overwrites the first grid.json
 
-    moved = tmp_path / "moved_run"
-    shutil.move(str(tmp_path / "orig_run"), str(moved))
+    loaded = ExperimentGrid.from_dict(str(run / "grid.json"))
 
-    loaded = ExperimentGrid.load(str(moved / "grid.json"))
-    assert loaded.results_dir == str(moved)
-    assert list(loaded.datasets) == ["ds1"]
-    jobs = loaded.create_jobs(skip_completed=False)
-    assert all(job.result_path.startswith(str(moved)) for job in jobs)
-
-
-def test_save_load_preserves_adapted_states(tmp_path):
-    run = tmp_path / "run"
-    grid = _make_grid(str(run), adapted_states={"ProGED": {"ds1": "/tmp/state.pt"}})
-    grid.save()
-
-    # adapted_states is local-only: in the shareable recipe it is dropped...
-    assert "adapted_states" not in grid.to_dict()
-    # ...but save()/load() round-trips it for local persistence.
-    loaded = ExperimentGrid.load(str(run / "grid.json"))
-    assert loaded._adapted_states == {"ProGED": {"ds1": "/tmp/state.pt"}}
+    assert loaded.to_dict() == grid.to_dict()
+    assert loaded._adapted_states == {"ProGED": {"ds1": str(tmp_path / "states" / "ds1.pt")}}
 
 
 # --------------------------------------------------------------------------- #
@@ -490,7 +499,7 @@ def test_cli_run_job_end_to_end(tmp_path):
 
     run = tmp_path / "run"
     grid = _make_grid(str(run), datasets=[_make_dataset(max_evaluations=200)])
-    grid.save()
+    grid.checkpoint()
     grid_json = run / "grid.json"
 
     result = subprocess.run(
@@ -520,7 +529,7 @@ def test_cli_adapt_requires_both_dataset_and_approach(tmp_path):
     import sys
 
     run = tmp_path / "run"
-    _make_grid(str(run)).save()
+    _make_grid(str(run)).checkpoint()
     result = subprocess.run(
         [
             sys.executable,
@@ -545,7 +554,7 @@ def test_cli_progress(tmp_path):
 
     run = tmp_path / "run"
     grid = _make_grid(str(run), num_experiments=2)
-    grid.save()
+    grid.checkpoint()
     # Fabricate one completed result so the table shows 1/2.
     res = run / "ds1" / "ProGED" / "exp_7.json"
     res.parent.mkdir(parents=True)
@@ -559,352 +568,6 @@ def test_cli_progress(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "ds1" in result.stdout and "ProGED" in result.stdout
     assert "1/2" in result.stdout
-
-
-# --------------------------------------------------------------------------- #
-# export / from_export
-# --------------------------------------------------------------------------- #
-def test_classify_dataset_source():
-    assert _classify_dataset_source({"data_source": None})[0] is True
-    assert _classify_dataset_source({"data_source": {"source_class": "x.SampleSource", "seed": None}})[0] is True
-    assert _classify_dataset_source({"data_source": {"source_class": "x.SampleSource", "seed": 4}})[0] is False
-    assert _classify_dataset_source({"data_source": {"source_class": "x.UrlSource", "url": "u"}})[0] is False
-    # A fallback chain is downloadable → referenced, not archived.
-    assert _classify_dataset_source({"data_source": {"source_class": "x.FallbackSource", "sources": []}})[0] is False
-
-
-def test_custom_class_paths():
-    cfgs = [
-        {"approach_class": "SRToolkit.approaches.ProGED.ProGED"},
-        {"sampler_class": "mypkg.Foo", "nested": {"source_class": "SRToolkit.X"}},
-    ]
-    assert _custom_class_paths(cfgs) == ["mypkg.Foo"]
-
-
-def _export_grid(results_dir, benchmark):
-    """Grid with one archived (seedless) and one referenced (seeded) dataset."""
-    archived = SR_dataset.from_samplers(
-        ground_truth=["X_0", "*", "X_0"],
-        samplers=[UniformSampling(0.5, 5.0)],
-        n_samples=16,
-        seed=None,
-        dataset_name="vol",
-        benchmark=benchmark,
-        version="1.0.0",
-    )
-    referenced = SR_dataset.from_samplers(
-        ground_truth=["X_0", "+", "X_0"],
-        samplers=[UniformSampling(0.5, 5.0)],
-        n_samples=16,
-        seed=5,
-        dataset_name="rep",
-        benchmark=benchmark,
-        version="1.0.0",
-    )
-    return ExperimentGrid([archived, referenced], [ProGED()], num_experiments=1, results_dir=results_dir)
-
-
-def test_export_writes_zip_and_archives_only_unreachable(tmp_path):
-    benchmark = "exp_test_writes"
-    try:
-        grid = _export_grid(str(tmp_path / "run"), benchmark)
-        out = tmp_path / "export.zip"
-        grid.export(str(out))
-
-        assert out.is_file()
-        with zipfile.ZipFile(out) as zf:
-            names = set(zf.namelist())
-            manifest = zf.read("MANIFEST.md").decode()
-        assert "grid.json" in names
-        assert "MANIFEST.md" in names
-        # Only the seedless dataset is archived; the seeded one is referenced.
-        assert "data/vol.zip" in names
-        assert "data/rep.zip" not in names
-
-        assert "`vol` — **archived**" in manifest
-        assert "`rep` — referenced" in manifest
-        assert "None — every referenced class is built into SRToolkit." in manifest
-    finally:
-        data_cache.remove(benchmark)
-
-
-def test_export_warns_on_non_zip_suffix(tmp_path):
-    benchmark = "exp_test_suffix"
-    try:
-        grid = _export_grid(str(tmp_path / "run"), benchmark)
-        out = tmp_path / "export.tar"
-        with pytest.warns(UserWarning, match="does not end in '.zip'"):
-            grid.export(str(out))
-        assert zipfile.is_zipfile(out)  # a zip is written regardless of the suffix
-    finally:
-        data_cache.remove(benchmark)
-
-
-def test_export_from_export_roundtrip_on_wiped_cache(tmp_path):
-    benchmark = "exp_test_roundtrip"
-    try:
-        grid = _export_grid(str(tmp_path / "run"), benchmark)
-        out = tmp_path / "export.zip"
-        grid.export(str(out))
-
-        # Wipe the cache: archived data must come from the zip, referenced from its seed.
-        data_cache.remove(benchmark)
-
-        reloaded = ExperimentGrid.from_export(str(out), results_dir=str(tmp_path / "recipient"))
-        assert list(reloaded.datasets) == ["vol", "rep"]
-        assert reloaded.results_dir == str(tmp_path / "recipient")
-        assert SR_dataset.from_dict(reloaded.datasets["vol"]).X.shape == (16, 1)
-        assert SR_dataset.from_dict(reloaded.datasets["rep"]).X.shape == (16, 1)
-    finally:
-        data_cache.remove(benchmark)
-
-
-def test_from_export_defaults_results_dir_to_zip_stem(tmp_path):
-    benchmark = "exp_test_default_rd"
-    try:
-        grid = _export_grid(str(tmp_path / "run"), benchmark)
-        out = tmp_path / "export.zip"
-        grid.export(str(out))
-        reloaded = ExperimentGrid.from_export(str(out))
-        # Defaults to the archive path minus '.zip'.
-        assert reloaded.results_dir == os.path.abspath(str(tmp_path / "export"))
-    finally:
-        data_cache.remove(benchmark)
-
-
-def test_from_export_missing_archive_raises(tmp_path):
-    with pytest.raises(FileNotFoundError, match="No export archive"):
-        ExperimentGrid.from_export(str(tmp_path / "nope.zip"))
-
-
-def test_from_export_archive_without_grid_json_raises(tmp_path):
-    bogus = tmp_path / "bogus.zip"
-    with zipfile.ZipFile(bogus, "w") as zf:
-        zf.writestr("readme.txt", "not an export")
-    with pytest.raises(FileNotFoundError, match="no grid.json"):
-        ExperimentGrid.from_export(str(bogus))
-
-
-# --------------------------------------------------------------------------- #
-# Bundle annotation (_annotate_bundles) — granularity & multi-bundle handling
-# --------------------------------------------------------------------------- #
-def test_annotate_bundles_stamps_innermost_dicts():
-    # A dataset-shaped config: sampler from bundle A, source from bundle B.
-    cfg = {
-        "dataset_name": "ds",
-        "samplers": [{"sampler_class": "a.Sampler", "lo": 0}],
-        "data_source": {"source_class": "b.Source", "url": "x"},
-    }
-    mapping = {"a.Sampler": ("bundle_a", "1.0.0"), "b.Source": ("bundle_b", "2.0.0")}
-    out = _annotate_bundles(cfg, mapping)
-
-    # The enclosing dataset dict holds no *_class directly → not annotated.
-    assert "_bundle" not in out
-    # Each nested dict binds to its own bundle.
-    assert out["samplers"][0]["_bundle"] == "bundle_a" and out["samplers"][0]["_version"] == "1.0.0"
-    assert out["data_source"]["_bundle"] == "bundle_b" and out["data_source"]["_version"] == "2.0.0"
-
-
-def test_annotate_bundles_single_class_dict():
-    cfg = {"approach_class": "pkg.Approach", "hp": 1}
-    out = _annotate_bundles(cfg, {"pkg.Approach": ("appbundle", "0.1.0")})
-    assert out["_bundle"] == "appbundle" and out["_version"] == "0.1.0"
-
-
-def test_annotate_bundles_multi_bundle_one_dict_warns():
-    cfg = {"a_class": "x.A", "b_class": "y.B"}
-    mapping = {"x.A": ("bundle_x", "1.0.0"), "y.B": ("bundle_y", "1.0.0")}
-    with pytest.warns(UserWarning, match="multiple bundles"):
-        out = _annotate_bundles(cfg, mapping)
-    assert "_bundle" not in out  # left unannotated — handle manually
-
-
-def test_annotate_bundles_leaves_builtin_alone():
-    cfg = {"approach_class": "SRToolkit.approaches.ProGED.ProGED"}
-    out = _annotate_bundles(cfg, {})  # nothing custom
-    assert "_bundle" not in out
-
-
-# --------------------------------------------------------------------------- #
-# export packs custom code + annotates; full install round-trip
-# --------------------------------------------------------------------------- #
-@pytest.fixture
-def custom_approach(tmp_path_factory):
-    """Create an importable module with a custom SR_approach; clean up afterward."""
-    import sys
-
-    mod_dir = tmp_path_factory.mktemp("custom_mod")
-    (mod_dir / "grid_custom_ap.py").write_text(
-        "from SRToolkit.approaches import ApproachConfig, SR_approach\n\n"
-        "class CustomAp(SR_approach):\n"
-        "    def __init__(self):\n"
-        "        super().__init__(ApproachConfig(name='CustomAp'))\n"
-        "    def prepare(self):\n"
-        "        pass\n"
-        "    def search(self, sr_evaluator, seed=None):\n"
-        "        pass\n"
-        "    @classmethod\n"
-        "    def from_config(cls, config):\n"
-        "        return cls()\n"
-    )
-    sys.path.insert(0, str(mod_dir))
-    import grid_custom_ap
-
-    yield grid_custom_ap.CustomAp
-    # Some tests remove this path themselves to simulate a fresh machine.
-    if str(mod_dir) in sys.path:
-        sys.path.remove(str(mod_dir))
-    sys.modules.pop("grid_custom_ap", None)
-
-
-def _pack_custom(cls, tmp_path, name="custom_ap_bundle", version="1.2.0"):
-    """Pack the source file defining ``cls`` into a ``.srtk`` and return its path."""
-    import inspect
-
-    from SRToolkit.bundle import pack
-
-    out = tmp_path / f"{name}.srtk"
-    pack(files=[inspect.getsourcefile(cls)], out_path=out, name=name, version=version)
-    return out
-
-
-def test_export_packs_and_annotates_custom_class(tmp_path, custom_approach):
-    grid = ExperimentGrid([_make_dataset()], [custom_approach()], num_experiments=1, results_dir=str(tmp_path / "run"))
-    srtk = _pack_custom(custom_approach, tmp_path)
-    out = tmp_path / "export.zip"
-    grid.export(str(out), additional_bundles=[srtk])
-
-    with zipfile.ZipFile(out) as zf:
-        names = set(zf.namelist())
-        recipe = json.loads(zf.read("grid.json"))
-        manifest = zf.read("MANIFEST.md").decode()
-    assert "bundles/custom_ap_bundle.srtk" in names
-    ap_cfg = recipe["approaches"][0]
-    # Path is unchanged; resolution is deferred to the _bundle annotation on load.
-    assert ap_cfg["approach_class"] == "grid_custom_ap.CustomAp"
-    assert ap_cfg["_bundle"] == "custom_ap_bundle" and ap_cfg["_version"] == "1.2.0"
-
-    assert "install" in manifest.lower()
-    assert "custom_ap_bundle.srtk" in manifest
-
-
-def test_export_warns_on_uncovered_custom_class(tmp_path, custom_approach):
-    """No installed bundle, no additional_bundles → warn naming the class and its file."""
-    grid = ExperimentGrid([_make_dataset()], [custom_approach()], num_experiments=1, results_dir=str(tmp_path / "run"))
-    out = tmp_path / "export.zip"
-    with pytest.warns(UserWarning, match="grid_custom_ap.CustomAp"):
-        grid.export(str(out))
-    with zipfile.ZipFile(out) as zf:
-        manifest = zf.read("MANIFEST.md").decode()
-        names = set(zf.namelist())
-    # Flagged for manual handling; nothing was packed for it.
-    assert "grid_custom_ap.CustomAp" in manifest
-    assert not any(n.startswith("bundles/") for n in names)
-
-
-def test_export_strict_raises_on_uncovered_custom_class(tmp_path, custom_approach):
-    grid = ExperimentGrid([_make_dataset()], [custom_approach()], num_experiments=1, results_dir=str(tmp_path / "run"))
-    out = tmp_path / "export.zip"
-    with pytest.raises(ValueError, match="grid_custom_ap.CustomAp"):
-        grid.export(str(out), strict=True)
-
-
-def test_export_warns_on_unused_additional_bundle(tmp_path, custom_approach):
-    """A supplied bundle that matches no referenced class warns."""
-    grid = ExperimentGrid([_make_dataset()], [custom_approach()], num_experiments=1, results_dir=str(tmp_path / "run"))
-    # Pack the right code, but the grid still references it, so this matches; add a decoy too.
-    srtk = _pack_custom(custom_approach, tmp_path)
-    decoy = tmp_path / "decoy.py"
-    decoy.write_text("class Unrelated:\n    pass\n")
-    from SRToolkit.bundle import pack
-
-    decoy_srtk = tmp_path / "decoy.srtk"
-    pack(files=[decoy], out_path=decoy_srtk, name="decoy", version="0.1.0")
-    out = tmp_path / "export.zip"
-    with pytest.warns(UserWarning, match="did not match"):
-        grid.export(str(out), additional_bundles=[srtk, decoy_srtk])
-
-
-def test_export_install_from_export_roundtrip(tmp_path, custom_approach, monkeypatch):
-    import sys
-    from unittest.mock import patch
-
-    from SRToolkit.approaches.sr_approach import SR_approach
-    from SRToolkit.bundle import _store, install
-
-    grid = ExperimentGrid([_make_dataset()], [custom_approach()], num_experiments=1, results_dir=str(tmp_path / "run"))
-    srtk = _pack_custom(custom_approach, tmp_path)
-    out = tmp_path / "export.zip"
-    grid.export(str(out), additional_bundles=[srtk])
-
-    # Isolated bundle store so we don't touch the user's real one.
-    bundle_root = tmp_path / "store" / "srtk_bundles"
-    monkeypatch.setattr(_store, "bundles_root", lambda: bundle_root)
-
-    # from_export extracts bundles/ into results_dir so they can be installed afterwards.
-    recipient = tmp_path / "recipient"
-    reloaded = ExperimentGrid.from_export(str(out), results_dir=str(recipient))
-    assert (recipient / "bundles" / "custom_ap_bundle.srtk").is_file()
-    assert (recipient / "MANIFEST.md").is_file()
-
-    with patch("SRToolkit.bundle._install._confirm", return_value=True):
-        install(str(recipient / "bundles" / "custom_ap_bundle.srtk"))
-
-    # Drop the original loose module: the installed bundle is now the only source.
-    sys.path[:] = [p for p in sys.path if "custom_mod" not in p]
-    sys.modules.pop("grid_custom_ap", None)
-
-    # Binding is deferred to run time, so reconstructing now resolves to the bundle.
-    approach = SR_approach.from_config_dict(reloaded.approach_configs[0])
-    assert type(approach).__name__ == "CustomAp"
-    assert type(approach).__module__.startswith("srtk_bundles.")
-
-
-def test_from_export_unresolved_bundle_soft_warns(tmp_path, custom_approach):
-    """If the bundle isn't installed, from_export warns instead of crashing."""
-    grid = ExperimentGrid([_make_dataset()], [custom_approach()], num_experiments=1, results_dir=str(tmp_path / "run"))
-    srtk = _pack_custom(custom_approach, tmp_path)
-    out = tmp_path / "export.zip"
-    grid.export(str(out), additional_bundles=[srtk])
-
-    # Drop the module so the class is unresolvable and the bundle is not installed.
-    import sys
-
-    sys.path[:] = [p for p in sys.path if "custom_mod" not in p]
-    sys.modules.pop("grid_custom_ap", None)
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        reloaded = ExperimentGrid.from_export(str(out), results_dir=str(tmp_path / "recipient"))
-    # Loads without raising; warns about the missing bundle/class.
-    assert list(reloaded.datasets) == ["ds1"]
-    assert any("bundle" in str(x.message).lower() or "imported" in str(x.message).lower() for x in w)
-
-
-def test_export_include_results_roundtrips(tmp_path):
-    benchmark = "exp_test_results"
-    try:
-        run = tmp_path / "run"
-        grid = _export_grid(str(run), benchmark)
-        # Fabricate a completed result file.
-        res = run / "vol" / "ProGED" / "exp_0.json"
-        res.parent.mkdir(parents=True)
-        res.write_text("{}")
-
-        out = tmp_path / "export.zip"
-        grid.export(str(out), include_results=True)
-        with zipfile.ZipFile(out) as zf:
-            names = set(zf.namelist())
-            manifest = zf.read("MANIFEST.md").decode()
-        assert "results/vol/ProGED/exp_0.json" in names
-        assert "Included in `results/`." in manifest
-
-        data_cache.remove(benchmark)
-        ExperimentGrid.from_export(str(out), results_dir=str(tmp_path / "recipient"))
-        # Shipped results are copied into the recipient's results_dir.
-        assert (tmp_path / "recipient" / "vol" / "ProGED" / "exp_0.json").exists()
-    finally:
-        data_cache.remove(benchmark)
 
 
 # --------------------------------------------------------------------------- #

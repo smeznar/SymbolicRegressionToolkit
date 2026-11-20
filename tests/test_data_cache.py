@@ -4,6 +4,7 @@ Tests for SRToolkit.dataset.data_cache.
 
 import zipfile
 from pathlib import Path
+from urllib.request import urlopen
 
 import numpy as np
 import pytest
@@ -199,54 +200,6 @@ class TestResolveNoConfig:
 
 
 # ---------------------------------------------------------------------------
-# import_archive
-# ---------------------------------------------------------------------------
-
-
-class TestImportArchive:
-    def _make_archive(self, tmp_path: Path, files: dict) -> Path:
-        archive = tmp_path / "test.zip"
-        with zipfile.ZipFile(str(archive), "w") as zf:
-            for name, content in files.items():
-                zf.writestr(name, content)
-        return archive
-
-    def test_extracts_data_files(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        # Create a fake npz in memory
-        import io
-
-        buf = io.BytesIO()
-        np.savez(buf, X=np.array([[1.0, 2.0]]))
-        buf.seek(0)
-        archive = self._make_archive(
-            tmp_path,
-            {
-                "data/myds.npz": buf.read(),
-                "benchmark.json": "{}",
-            },
-        )
-        data_cache.import_archive(archive, "mybench", "1.0.0")
-        version_dir = tmp_path / "mybench" / "1_0_0"
-        assert (version_dir / "myds.npz").exists()
-
-    def test_ignores_non_data_files(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        archive = self._make_archive(
-            tmp_path,
-            {
-                "benchmark.json": "{}",
-                "manifest.txt": "info",
-            },
-        )
-        data_cache.import_archive(archive, "mybench", "1.0.0")
-        version_dir = tmp_path / "mybench" / "1_0_0"
-        # version_dir may not even exist if no data/ files
-        if version_dir.exists():
-            assert not (version_dir / "benchmark.json").exists()
-
-
-# ---------------------------------------------------------------------------
 # list
 # ---------------------------------------------------------------------------
 
@@ -369,45 +322,11 @@ class TestSRDatasetRefresh:
 
 
 # ---------------------------------------------------------------------------
-# SR_benchmark round-trip: to_archive / from_archive (zip)
+# SR_benchmark round-trip through to_dict / from_dict
 # ---------------------------------------------------------------------------
 
 
-class TestSRBenchmarkArchiveRoundtrip:
-    def test_to_archive_and_from_zip(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
-        from SRToolkit.dataset.sampling import UniformSampling
-        from SRToolkit.dataset.sr_benchmark import SR_benchmark
-
-        sl = SymbolLibrary.from_symbol_list(_SYMBOL_LIST, 2)
-        bm = SR_benchmark("mybench", version="1.0.0")
-        bm.add_dataset(
-            sl,
-            None,
-            dataset_name="ds1",
-            ranking_function="rmse",
-            ground_truth=["X_0", "+", "X_1"],
-            original_equation="y = x0 + x1",
-            samplers=[UniformSampling(0, 1), UniformSampling(0, 1)],
-            data_source=SampleSource(n_samples=10, seed=0),
-        )
-
-        archive_path = tmp_path / "mybench.zip"
-        bm.to_archive(archive_path)
-        assert archive_path.exists()
-        assert zipfile.is_zipfile(str(archive_path))
-
-        # Verify zip contents
-        with zipfile.ZipFile(str(archive_path)) as zf:
-            names = zf.namelist()
-        assert "benchmark.json" in names
-        assert "data/ds1.npz" in names
-
-        # Reconstruct from zip
-        bm2 = SR_benchmark.from_archive(str(archive_path))
-        assert bm2.benchmark_name == "mybench"
-        assert "ds1" in bm2.datasets
-
+class TestSRBenchmarkDictRoundtrip:
     def test_from_dict_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
         from SRToolkit.dataset.sampling import UniformSampling
@@ -529,3 +448,118 @@ def test_builtin_benchmarks_use_fallback_source():
 
     fg = Feynman(force_generate=True)
     assert fg.datasets["I.16.6"]["data_source"]["source_class"].endswith("SampleSource")
+
+
+# ---------------------------------------------------------------------------
+# UrlSource
+# ---------------------------------------------------------------------------
+def _url_array_ds(name, benchmark, offset):
+    """Dataset from arrays; X lies outside any sampler range, so it can only come from the archive."""
+    X = np.arange(8.0).reshape(4, 2) + offset
+    return SR_dataset(
+        X,
+        SymbolLibrary.default_symbols(2),
+        ground_truth=["X_0", "+", "X_1"],
+        y=X.sum(axis=1),
+        dataset_name=name,
+        benchmark=benchmark,
+        version="1.0.0",
+    )
+
+
+class TestUrlSource:
+    def test_reads_own_data_from_share_archive(self, tmp_path, monkeypatch, http_dir):
+        from SRToolkit import share
+        from SRToolkit.approaches import ProGED
+        from SRToolkit.dataset.data_source import UrlSource
+        from SRToolkit.experiments import ExperimentGrid
+
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "sender")
+        served, base = http_dir
+        a, a2, c = _url_array_ds("a", "b1", 10.0), _url_array_ds("a2", "b1", 20.0), _url_array_ds("c", "b2", 40.0)
+        grid = ExperimentGrid([a, a2, c], [ProGED()], num_experiments=1, results_dir=str(tmp_path / "run"))
+        share.save(grid, served / "run.zip")
+        cfg = a.to_dict()  # in the sender's cache, so the recipient's stays empty
+        cfg["data_source"] = UrlSource(f"{base}/run.zip").to_dict()
+        recipient = tmp_path / "recipient"
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: recipient)
+        # A sidecar left from the recipient's own earlier a2 data, which the download replaces.
+        stale_meta = data_cache._meta_path(data_cache.dataset_path("b1", "1.0.0", "a2"))
+        stale_meta.parent.mkdir(parents=True)
+        stale_meta.write_text('{"source_hash": "stale"}')
+
+        loaded = SR_dataset.from_dict(cfg)
+
+        np.testing.assert_array_equal(loaded.X, a.X)
+        assert not stale_meta.exists()
+        # The archive's whole part for this dataset's own benchmark and version is taken, and nothing else.
+        assert sorted(recipient.rglob("*.npz")) == sorted(
+            [data_cache.dataset_path("b1", "1.0.0", "a"), data_cache.dataset_path("b1", "1.0.0", "a2")]
+        )
+        np.testing.assert_array_equal(np.load(data_cache.dataset_path("b1", "1.0.0", "a2"))["X"], a2.X)
+
+    @pytest.mark.parametrize(
+        "members",
+        [{"eq1.npz": None}, {"benchmark.json": "{}", "data/": "", "data/eq1.npz": None}],
+        ids=["flat", "hosted_data_prefix"],
+    )
+    def test_reads_flat_and_hosted_archives(self, tmp_path, monkeypatch, http_dir, members):
+        """Regression: ``<key>.npz`` at the root, or under ``data/`` next to a ``benchmark.json`` (the layout of
+        the built-in benchmarks' hosted archives, also read by SRToolkit 1.6.0)."""
+        import io
+
+        from SRToolkit.dataset.data_source import UrlSource
+
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
+        served, base = http_dir
+        ds = _url_array_ds("eq1", "flat_bench", 10.0)
+        buf = io.BytesIO()
+        np.savez(buf, X=ds.X, y=ds.y)
+        with zipfile.ZipFile(served / "flat.zip", "w") as zf:
+            for name, content in members.items():
+                zf.writestr(name, buf.getvalue() if content is None else content)
+        cfg = ds.to_dict()
+        cfg["data_source"] = UrlSource(f"{base}/flat.zip").to_dict()
+        data_cache.remove("flat_bench")  # to_dict wrote the arrays to the cache; force the download
+        from SRToolkit.dataset import data_source
+
+        calls = []
+
+        def recording_urlopen(url, **kwargs):
+            calls.append(kwargs)
+            return urlopen(url, **kwargs)
+
+        monkeypatch.setattr(data_source, "urlopen", recording_urlopen)
+
+        loaded = SR_dataset.from_dict(cfg)
+
+        assert calls == [{"timeout": 60}]
+
+        np.testing.assert_array_equal(loaded.X, ds.X)
+        np.testing.assert_array_equal(loaded.y, ds.y)
+
+    @pytest.mark.parametrize(
+        "members, exc, match",
+        [
+            ({"readme.txt": "no data"}, RuntimeError, "eq1"),
+            ({"eq1.npz": None, "../evil.npz": None}, ValueError, "evil.npz"),
+        ],
+        ids=["no_file_for_key", "member_outside_version_dir"],
+    )
+    def test_materialize_rejects(self, tmp_path, monkeypatch, http_dir, members, exc, match):
+        import io
+
+        from SRToolkit.dataset.data_source import UrlSource
+
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
+        served, base = http_dir
+        buf = io.BytesIO()
+        np.savez(buf, X=np.ones((2, 2)))
+        with zipfile.ZipFile(served / "bad.zip", "w") as zf:
+            for name, content in members.items():
+                zf.writestr(name, buf.getvalue() if content is None else content)
+
+        with pytest.raises(exc, match=match):
+            UrlSource(f"{base}/bad.zip").materialize(data_cache.dataset_path("b", "1.0.0", "eq1"), {})
+
+        assert list(tmp_path.rglob("*.npz")) == []  # nothing written, also not the valid member

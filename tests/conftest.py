@@ -44,3 +44,24 @@ def _reset_default_symbol_library():
     SymbolLibrary.set_default(None)
     yield
     SymbolLibrary.set_default(None)
+
+
+@pytest.fixture
+def http_dir(tmp_path):
+    """Serve a fresh directory over HTTP on localhost; yield ``(directory, base_url)``."""
+    import functools
+    import threading
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    class _QuietHandler(SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+    served = tmp_path / "served"
+    served.mkdir()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(_QuietHandler, directory=str(served)))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield served, f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+    server.server_close()

@@ -587,15 +587,6 @@ class TestDataSplits:
         ds = SR_dataset(np.zeros((3, 2)), lib, y=np.zeros(3), ground_truth=gt, benchmark="b", version="1")
         assert ds.to_dict()["ground_truth"] == gt.to_list(symbol_library=lib)
 
-    def test_to_archive_from_archive_round_trips_test(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        ds = self._dataset_with_extras()
-        archive_path = tmp_path / "ds.zip"
-        ds.to_archive(archive_path)
-        restored = SR_dataset.from_archive(archive_path)
-        np.testing.assert_array_equal(restored.test_X, ds.test_X)
-        np.testing.assert_array_equal(restored.aux_data["grid"].X, ds.aux_data["grid"].X)
-
 
 # ── Background knowledge, objective and format 4 (stage C) ────────────────────
 

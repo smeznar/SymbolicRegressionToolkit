@@ -32,9 +32,10 @@ from __future__ import annotations
 
 import importlib
 import json
+import shutil
+import tempfile
 import warnings
 from abc import ABC, abstractmethod
-from io import BytesIO
 from pathlib import Path
 from urllib.request import urlopen
 from zipfile import ZipFile
@@ -46,6 +47,8 @@ from SRToolkit.dataset.sampling import Sampler, _sample_inputs
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+_URL_TIMEOUT = 60  # seconds without data before a download fails
 
 
 def _config_samplers(config: dict) -> list | None:
@@ -152,11 +155,12 @@ class DataSource(ABC):
 class UrlSource(DataSource):
     """Data downloaded as a ``.zip`` archive from a URL and extracted into the cache.
 
-    Two archive layouts are accepted transparently: a *flat* zip whose
-    ``<dataset_name>.npz`` files sit at the root (as served by the built-in benchmarks),
-    or a ``to_archive`` archive whose data lives under a ``data/`` prefix (in which case
-    the prefix is stripped and the bundled ``benchmark.json`` / ``dataset.json`` is
-    ignored). Either way, the expected ``<dataset_name>.npz`` must end up in the version directory.
+    The archive holds ``<key>.npz`` files (``<key>`` is ``<name>``, ``<name>/test`` or
+    ``<name>/aux/<k>``) at its root or under ``data/`` (as the built-in benchmarks host them),
+    or it is an archive written by [share.save][SRToolkit.share.save], of which only the part
+    for the dataset's own benchmark and version is taken. Every data file in the taken part is
+    written to the cache (overwriting files of the same name), so the other datasets in it load
+    without another download.
 
     Args:
         url: URL of a ``.zip`` archive.
@@ -189,21 +193,57 @@ class UrlSource(DataSource):
         return cls(d["url"])
 
     def materialize(self, cache_path: Path, config: dict) -> None:
-        """Download the archive and extract its data files into the version directory.
+        """Download the archive and extract its data files into the dataset's version directory.
 
         Args:
-            cache_path: Target ``.npz`` path inside the data cache; the archive is extracted into
-                its version directory.
+            cache_path: Target path, as given by
+                [dataset_path][SRToolkit.dataset.data_cache.dataset_path]. The archive is extracted
+                into the version folder of its benchmark, also for test and aux keys.
             config: The dataset's config dict (unused).
+
+        Raises:
+            urllib.error.URLError: If the archive cannot be downloaded.
+            TimeoutError: If the server sends nothing for 60 seconds.
+            RuntimeError: If the archive has no file for this dataset's key.
+            ValueError: If an archive member would land outside the version folder; nothing is
+                written then.
         """
         from SRToolkit.dataset import data_cache
 
-        version_dir = cache_path.parent
-        version_dir.mkdir(parents=True, exist_ok=True)
+        # <data_root>/<benchmark>/<version_slug>, also for keys with a "/" (test and aux splits).
+        benchmark, slug = cache_path.relative_to(data_cache.data_root()).parts[:2]
+        version_dir = data_cache.data_root() / benchmark / slug
 
-        http_response = urlopen(self.url)
-        with ZipFile(BytesIO(http_response.read())) as zf:
-            data_cache.extract_zip_into_version_dir(zf, version_dir)
+        # Download to a temporary file rather than into memory; the timeout keeps a dead server from
+        # hanging the call.
+        with tempfile.TemporaryFile() as archive:
+            with urlopen(self.url, timeout=_URL_TIMEOUT) as response:
+                shutil.copyfileobj(response, archive)
+            archive.seek(0)
+            with ZipFile(archive) as zf:
+                names = zf.namelist()
+                if "manifest.json" in names:  # written by share.save
+                    prefix = f"data/{benchmark}/{slug}/"
+                elif any(name.startswith("data/") for name in names):  # the built-in benchmarks' hosted archives
+                    prefix = "data/"
+                else:
+                    prefix = ""
+                # The archive may come from an untrusted URL: check every destination before writing any.
+                targets = {}
+                for name in names:
+                    if not name.startswith(prefix) or name.endswith("/"):
+                        continue
+                    target = version_dir / name[len(prefix) :]
+                    if not target.resolve().is_relative_to(version_dir.resolve()):
+                        raise ValueError(
+                            f"[UrlSource.materialize] Refusing to extract {name!r}: it leads outside {str(version_dir)!r}."
+                        )
+                    targets[name] = target
+                for name, target in targets.items():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(zf.read(name))
+                    # Its drift sidecar described the replaced data (resolve writes a new one for cache_path).
+                    data_cache._meta_path(target).unlink(missing_ok=True)
 
         if not cache_path.exists():
             raise RuntimeError(
@@ -344,7 +384,7 @@ class FallbackSource(DataSource):
     ``FallbackSource([UrlSource(archive), SampleSource(seed=...)])`` downloads the
     authoritative archive when reachable and regenerates from the dataset's samplers
     otherwise. Because the whole chain is serialised in the config, the preference
-    **travels**: a grid recipe, an [export][SRToolkit.experiments.ExperimentGrid.export], or
+    **travels**: a grid recipe, a [share.save][SRToolkit.share.save] archive, or
     a cold worker each download the canonical data first and only sample if it is
     unavailable — unlike a bare ``SampleSource``, which would always regenerate.
 

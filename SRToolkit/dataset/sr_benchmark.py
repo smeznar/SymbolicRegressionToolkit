@@ -1,16 +1,11 @@
 """Benchmark collection for symbolic regression datasets."""
 
 import copy
-import io
 import json
-import os
-import tempfile
 import warnings
-import zipfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
-from urllib.request import urlopen
 
 import numpy as np
 from typing_extensions import Unpack
@@ -677,9 +672,7 @@ class SR_benchmark:
     def from_dict(cls, d: dict | str | Path) -> "SR_benchmark":
         """Reconstruct an SR_benchmark from a config dict or a saved JSON file.
 
-        To load a self-contained ``.zip`` archive (written by
-        [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]) use
-        [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive] instead.
+        Load ``.zip`` archives with [share.load][SRToolkit.share.load].
         Dataset entries of format 2 or 3 in older files are accepted and migrated as by
         [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict]. The entries are
         copied, so ``d`` is not changed.
@@ -690,12 +683,14 @@ class SR_benchmark:
 
         Returns:
             An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
+
+        Raises:
+            ValueError: If ``d`` is a ``.zip`` path.
         """
         if isinstance(d, (str, Path)):
             if str(d).endswith(".zip"):
                 raise ValueError(
-                    "[SR_benchmark.from_dict] Received a '.zip' path. Load self-contained "
-                    "archives with SR_benchmark.from_archive(path) instead."
+                    "[SR_benchmark.from_dict] Received a '.zip' path. Load archives with SRToolkit.share.load(path)."
                 )
             with open(d) as f:
                 dd = json.load(f)
@@ -722,115 +717,3 @@ class SR_benchmark:
                     entry["num_variables"] = -1
 
         return b
-
-    def to_archive(self, path: str | Path) -> None:
-        """Write the benchmark (config + data) to a ``.zip`` archive.
-
-        The archive contains:
-
-        - ``benchmark.json``: the benchmark configuration dict.
-        - ``data/<dataset_name>.npz``: the cached data for each dataset.
-
-        Args:
-            path: Destination path for the archive.  Non-``.zip`` suffixes trigger a
-                warning but are still accepted.
-        """
-        path = Path(path)
-        if path.suffix.lower() != ".zip":
-            warnings.warn(
-                f"[SR_benchmark.to_archive] path '{path}' does not end in '.zip'. "
-                "The file will be a ZIP archive regardless of the extension.",
-                stacklevel=2,
-            )
-
-        benchmark_json = json.dumps(self.to_dict(), indent=2)
-
-        with zipfile.ZipFile(str(path), "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("benchmark.json", benchmark_json)
-
-            for name, entry in self.datasets.items():
-                if "sr_dataset" in entry:
-                    # In-memory dataset — write its data
-                    ds = entry["sr_dataset"]
-                    cache_p = data_cache.dataset_path(self.benchmark_name, self.version, name)
-                    if not cache_p.exists():
-                        # Write directly from arrays
-                        buf = io.BytesIO()
-                        if ds.y is not None:
-                            np.savez(buf, X=ds.X, y=ds.y)
-                        else:
-                            np.savez(buf, X=ds.X)
-                        zf.writestr(f"data/{name}.npz", buf.getvalue())
-                        continue
-                else:
-                    ds_name = entry.get("dataset_name", name)
-                    try:
-                        cache_p = data_cache.resolve(self.benchmark_name, self.version, ds_name, entry)
-                    except Exception as e:
-                        warnings.warn(f"[SR_benchmark.to_archive] Could not materialise '{name}': {e}. Skipping.")
-                        continue
-
-                zf.write(str(cache_p), f"data/{name}.npz")
-
-    @classmethod
-    def from_archive(cls, path: str | Path) -> "SR_benchmark":
-        """Load a benchmark from a self-contained ``.zip`` archive.
-
-        This is the counterpart to
-        [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive]: it reads
-        ``benchmark.json`` from the archive, extracts the bundled ``data/*.npz`` into the data
-        cache, and returns a benchmark whose datasets read from that populated cache.
-
-        Args:
-            path: Path to a ``.zip`` archive written by
-                [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].
-
-        Returns:
-            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
-        """
-        with zipfile.ZipFile(str(path), "r") as zf:
-            benchmark_dict = json.loads(zf.read("benchmark.json"))
-
-        benchmark_name = benchmark_dict["benchmark_name"]
-        version = benchmark_dict.get("version", "1.0.0")
-
-        # Extract data into the cache
-        data_cache.import_archive(Path(path), benchmark_name, version)
-
-        b = cls(benchmark_name, version=version, metadata=benchmark_dict.get("metadata", {}))
-        for name, entry in benchmark_dict.get("datasets", {}).items():
-            b.datasets[name] = entry
-            if "num_variables" not in entry:
-                entry["num_variables"] = -1
-
-        return b
-
-    @classmethod
-    def from_url(cls, url: str) -> "SR_benchmark":
-        """Download a self-contained ``.zip`` archive from a URL and load it.
-
-        This is the remote counterpart to
-        [from_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_archive]: the
-        archive is downloaded to a temporary file and then loaded exactly as
-        ``from_archive`` would. The ``url`` must point at an archive written by
-        [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive] (a
-        ``benchmark.json`` plus a ``data/`` directory) — not a bare ``.npz``/data zip
-        (that is what [UrlSource][SRToolkit.dataset.data_source.UrlSource] is for).
-
-        Args:
-            url: URL of a ``.zip`` archive written by
-                [to_archive][SRToolkit.dataset.sr_benchmark.SR_benchmark.to_archive].
-
-        Returns:
-            An [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] instance.
-        """
-        with urlopen(url) as response:
-            data = response.read()
-
-        tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-        try:
-            tmp.write(data)
-            tmp.close()
-            return cls.from_archive(tmp.name)
-        finally:
-            os.unlink(tmp.name)

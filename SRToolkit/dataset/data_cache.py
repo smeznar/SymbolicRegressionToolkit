@@ -14,7 +14,6 @@ import hashlib
 import json
 import shutil
 import warnings
-import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -168,81 +167,6 @@ def resolve(
     _write_meta(cache_path, config)
 
     return cache_path
-
-
-def extract_zip_into_version_dir(zf: zipfile.ZipFile, version_dir: Path, *, flat_fallback: bool = True) -> None:
-    """Extract an open ``ZipFile`` into ``version_dir``, accepting both archive layouts.
-
-    - **``to_archive`` layout**: data files live under a ``data/`` prefix (alongside a
-      ``benchmark.json`` / ``dataset.json`` that is *not* a data file). The ``data/``
-      prefix is stripped so the ``.npz`` files land in the version directory (a dataset's test
-      and aux data in its own subfolder); non-``data/`` members are ignored.
-    - **flat layout**: the ``.npz`` files sit at the archive root (as served by the
-      built-in benchmarks). When ``flat_fallback`` is ``True`` (the default) and no
-      ``data/``-prefixed member is present, the whole archive is extracted as-is.
-
-    The layout is detected automatically by the presence of any ``data/``-prefixed
-    member, so a single hosted ``to_archive`` archive can be consumed both by
-    [SR_benchmark.from_url][SRToolkit.dataset.sr_benchmark.SR_benchmark.from_url] and by a
-    config carrying a [UrlSource][SRToolkit.dataset.data_source.UrlSource].
-
-    Args:
-        zf: An open ``ZipFile`` to extract.
-        version_dir: Destination cache version directory.
-        flat_fallback: If ``True``, an archive with no ``data/`` prefix is extracted in
-            full (flat layout). If ``False``, such an archive yields nothing — only
-            ``data/``-prefixed members are ever extracted. [import_archive][SRToolkit.dataset.data_cache.import_archive]
-            uses ``False`` so stray metadata files never land in the cache version directory.
-    """
-    members = zf.infolist()
-    has_data_prefix = any(m.filename.startswith("data/") for m in members)
-
-    if not has_data_prefix:
-        if flat_fallback:
-            zf.extractall(path=str(version_dir))
-        return
-
-    for member in members:
-        name = member.filename
-        if not name.startswith("data/"):
-            continue
-        # Strip the "data/" prefix
-        relative = name[len("data/") :]
-        if not relative:
-            continue  # Skip the directory entry itself
-        target = version_dir / relative
-        # Guard against zip-slip: the archive may be downloaded from an untrusted URL,
-        # so refuse members that resolve outside the destination version directory.
-        resolved_dir = version_dir.resolve()
-        resolved_target = target.resolve()
-        if resolved_dir != resolved_target and resolved_dir not in resolved_target.parents:
-            raise ValueError(
-                f"[extract_zip_into_version_dir] Refusing to extract '{name}': resolves outside the "
-                f"destination directory (possible zip-slip)."
-            )
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(zf.read(member.filename))
-
-
-def import_archive(archive_path: Path, benchmark: str, version: str) -> None:
-    """Extract a ``.zip`` archive into the cache version directory
-    ``<data_root>/<benchmark>/<version_slug>/``.
-
-    Both the ``to_archive`` layout (data under a ``data/`` prefix) and a flat layout
-    (``.npz`` files at the archive root) are handled — see
-    [extract_zip_into_version_dir][SRToolkit.dataset.data_cache.extract_zip_into_version_dir].
-
-    Args:
-        archive_path: Path to a ``.zip`` file (e.g. a benchmark ``.zip``).
-        benchmark: Benchmark name used to determine the cache directory.
-        version: Version string used to determine the cache directory.
-    """
-    slug = _version_slug(version)
-    version_dir = data_root() / benchmark / slug
-    version_dir.mkdir(parents=True, exist_ok=True)
-
-    with zipfile.ZipFile(str(archive_path), "r") as zf:
-        extract_zip_into_version_dir(zf, version_dir, flat_fallback=False)
 
 
 def list() -> builtins.list[dict[str, Any]]:

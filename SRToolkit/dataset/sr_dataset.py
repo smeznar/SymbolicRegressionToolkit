@@ -53,17 +53,12 @@ reads formats 2 and 3 (symbol library and samplers at the top level, ``constant_
 saving the result writes format 4.
 """
 
-import io
 import json
 import os
-import tempfile
 import time
-import warnings
-import zipfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, cast
-from urllib.request import urlopen
 
 import numpy as np
 from typing_extensions import Unpack
@@ -915,7 +910,7 @@ class SR_dataset:
         are migrated (see the [module docstring][SRToolkit.dataset.sr_dataset]). For
         ``d = ds.to_dict()``, ``from_dict(d).to_dict() == d``. A missing ``ground_truth_constants``
         key loads as ``None``. Load ``.zip`` archives with
-        [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive].
+        [share.load][SRToolkit.share.load].
 
         Args:
             d: Output of [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict], or the path of a
@@ -941,8 +936,7 @@ class SR_dataset:
         if isinstance(d, (str, Path)):
             if str(d).endswith(".zip"):
                 raise ValueError(
-                    "[SR_dataset.from_dict] Received a '.zip' path. Load self-contained "
-                    "archives with SR_dataset.from_archive(path) instead."
+                    "[SR_dataset.from_dict] Received a '.zip' path. Load archives with SRToolkit.share.load(path)."
                 )
             with open(d) as f:
                 dd = json.load(f)
@@ -1028,93 +1022,6 @@ class SR_dataset:
         dataset.test = test
         dataset.aux_data = aux
         return dataset
-
-    def to_archive(self, path: "str | Path") -> None:
-        """Write the dataset, configuration and all data, to a self-contained ``.zip`` archive.
-
-        The archive holds ``dataset.json`` and one ``data/<cache key>.npz`` per split, source-backed
-        ones included, so loading it never regenerates or downloads anything. Like ``to_dict``, it
-        writes splits without a ``data_source`` to the data cache. Load it with
-        [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive] or
-        [from_url][SRToolkit.dataset.sr_dataset.SR_dataset.from_url].
-
-        Args:
-            path: Destination file. A suffix other than ``.zip`` gives a warning.
-
-        Raises:
-            ValueError: If ``benchmark`` or ``version`` is ``None``.
-        """
-        path = Path(path)
-        if path.suffix.lower() != ".zip":
-            warnings.warn(
-                f"[SR_dataset.to_archive] path '{path}' does not end in '.zip'. "
-                "The file will be a ZIP archive regardless of the extension.",
-                stacklevel=2,
-            )
-
-        # to_dict validates that benchmark/version are set.
-        dataset_json = json.dumps(self.to_dict(), indent=2)
-
-        with zipfile.ZipFile(str(path), "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("dataset.json", dataset_json)
-
-            for key, split in self._splits():
-                buf = io.BytesIO()
-                np.savez(buf, **split.arrays)  # type: ignore[arg-type]
-                zf.writestr(f"data/{key}.npz", buf.getvalue())
-
-    @classmethod
-    def from_archive(cls, path: "str | Path") -> "SR_dataset":
-        """Load a dataset from a ``.zip`` archive written by [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive].
-
-        The archive's data is extracted into the data cache, so nothing is regenerated.
-
-        Args:
-            path: Path of the archive.
-
-        Returns:
-            The dataset.
-        """
-        with zipfile.ZipFile(str(path), "r") as zf:
-            d = json.loads(zf.read("dataset.json"))
-
-        benchmark = d["benchmark"]
-        version = d["version"]
-
-        # Extract every data file into the cache version directory.
-        data_cache.import_archive(Path(path), benchmark, version)
-
-        # The cache is now fully populated, so no split needs to materialise from a source.
-        d["data_source"] = None
-        if d.get("test"):
-            d["test"]["data_source"] = None
-        for entry in (d.get("aux") or {}).values():
-            entry["data_source"] = None
-        return cls.from_dict(d)
-
-    @classmethod
-    def from_url(cls, url: str) -> "SR_dataset":
-        """Download an archive written by [to_archive][SRToolkit.dataset.sr_dataset.SR_dataset.to_archive] and load it.
-
-        Loads as [from_archive][SRToolkit.dataset.sr_dataset.SR_dataset.from_archive]. For a bare data
-        file, use [UrlSource][SRToolkit.dataset.data_source.UrlSource] instead.
-
-        Args:
-            url: URL of the archive.
-
-        Returns:
-            The dataset.
-        """
-        with urlopen(url) as response:
-            data = response.read()
-
-        tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-        try:
-            tmp.write(data)
-            tmp.close()
-            return cls.from_archive(tmp.name)
-        finally:
-            os.unlink(tmp.name)
 
     @classmethod
     def from_samplers(  # type: ignore[misc]

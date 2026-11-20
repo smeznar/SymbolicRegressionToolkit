@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import os
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -130,6 +131,26 @@ def _relocate_class_paths(
     """
     index = _scan_classes(Path(base_dir_path))
     return _walk(config, base_dir, index)
+
+
+def _class_refs(obj: Any, notes: tuple = ()) -> Iterator[tuple[str, tuple[tuple[str, str | None], ...]]]:
+    """Yield each ``*_class`` path in ``obj`` with the ``(_bundle, _version)`` annotations around it.
+
+    The annotations are those of the dicts that hold the path or contain it, outermost first
+    (``_version`` is ``None`` when missing); [bind_config][SRToolkit.bundle.bind_config] on any of
+    those dicts relocates the path.
+    """
+    if isinstance(obj, list):
+        for v in obj:
+            yield from _class_refs(v, notes)
+    elif isinstance(obj, dict):
+        if obj.get("_bundle"):
+            notes = (*notes, (obj["_bundle"], obj.get("_version")))
+        for k, v in obj.items():
+            if isinstance(v, str) and k.endswith("_class"):
+                yield v, notes
+            else:
+                yield from _class_refs(v, notes)
 
 
 def _auto_bind(config: dict) -> dict:
