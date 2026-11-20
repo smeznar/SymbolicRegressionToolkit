@@ -53,9 +53,8 @@ OP_POWER = 300
 FN_PREFIX = 1000
 """Precedence of prefix functions (``sin(E)``). It is higher than every operator precedence."""
 FN_POSTFIX = -1000
-"""Precedence of postfix functions (``E^2``). Negative, and distinct from the ``-1`` that
-[get_precedence][SRToolkit.utils.symbol_library.SymbolLibrary.get_precedence] returns for unknown
-symbols."""
+"""Precedence of postfix functions (``E^2``). Negative: any function precedence ``<= 0`` makes a
+function postfix."""
 
 LEAF = 1000
 """Precedence stored for atoms (``VAR``, ``CONST``, ``LIT``). Atoms never take part in precedence

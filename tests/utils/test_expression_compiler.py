@@ -21,6 +21,7 @@ from SRToolkit.utils.expression_compiler import (
 )
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.types import FN_PREFIX, LEAF, OP_MULTIPLICATIVE
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -45,7 +46,7 @@ class TestTreeToFunctionRec:
         self.sl = _sl(2)
         self.X = _X([1.0, 2.0], [3.0, 4.0], [5.0, 6.0])
 
-    def test_var_leaf_returns_np_fn_directly(self):
+    def test_var_leaf_returns_python_str_directly(self):
         tree = Node("X_0")
         code, symbol, vc = _tree_to_function_rec(tree, self.sl, iter([]))
         assert code == []
@@ -106,28 +107,18 @@ class TestTreeToFunctionRec:
 
 class TestCompileFallbackUnary:
     def setup_method(self):
-        self.preamble = ["import numpy as np"]
+        self.namespace = {"np": np}
 
     def test_basic_sin(self):
-        fn = _compile_fallback_unary("np.sin({})", self.preamble)
+        fn = _compile_fallback_unary("np.sin({})", self.namespace)
         x = np.array([0.0, np.pi / 2])
         result = fn(x)
         assert result == pytest.approx(np.sin(x))
 
     def test_negation(self):
-        fn = _compile_fallback_unary("-{}", self.preamble)
+        fn = _compile_fallback_unary("-{}", self.namespace)
         x = np.array([1.0, 2.0])
         assert fn(x) == pytest.approx(-x)
-
-    def test_custom_preamble_used(self):
-        fn = _compile_fallback_unary("np.sqrt({})", ["import numpy as np"])
-        x = np.array([4.0, 9.0])
-        assert fn(x) == pytest.approx([2.0, 3.0])
-
-    def test_empty_preamble(self):
-        fn = _compile_fallback_unary("np.abs({})", [])
-        x = np.array([-1.0, -2.0])
-        assert fn(x) == pytest.approx([1.0, 2.0])
 
 
 # ---------------------------------------------------------------------------
@@ -137,31 +128,19 @@ class TestCompileFallbackUnary:
 
 class TestCompileFallbackBinary:
     def setup_method(self):
-        self.preamble = ["import numpy as np"]
+        self.namespace = {"np": np}
 
     def test_basic_add(self):
-        fn = _compile_fallback_binary("{} + {}", self.preamble)
+        fn = _compile_fallback_binary("{} + {}", self.namespace)
         a = np.array([1.0, 2.0])
         b = np.array([3.0, 4.0])
         assert fn(a, b) == pytest.approx([4.0, 6.0])
 
     def test_multiply(self):
-        fn = _compile_fallback_binary("{} * {}", self.preamble)
+        fn = _compile_fallback_binary("{} * {}", self.namespace)
         a = np.array([2.0, 3.0])
         b = np.array([4.0, 5.0])
         assert fn(a, b) == pytest.approx([8.0, 15.0])
-
-    def test_custom_preamble(self):
-        fn = _compile_fallback_binary("np.power({}, {})", ["import numpy as np"])
-        a = np.array([2.0])
-        b = np.array([3.0])
-        assert fn(a, b) == pytest.approx([8.0])
-
-    def test_empty_preamble(self):
-        fn = _compile_fallback_binary("{} - {}", [])
-        a = np.array([5.0])
-        b = np.array([3.0])
-        assert fn(a, b) == pytest.approx([2.0])
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +270,7 @@ class TestBuildPartialInstructions:
         _build_partial_instructions(tree, self.sl, set(), {}, tok, ari, ei, fv, po, cc)
         # postfix: C, sin
         assert tok[0] == _eval.CONST
-        assert tok[1] == self.sl.get_cython_id("sin")
+        assert tok[1] == self.sl.get("sin").cython_id
         assert ari[1] == 1
         assert po[1] is None
 
@@ -312,7 +291,7 @@ class TestBuildPartialInstructions:
         tree = Node("+", left=c1, right=c2)
         tok, ari, ei, fv, po, cc = self._empty_lists()
         _build_partial_instructions(tree, self.sl, set(), {}, tok, ari, ei, fv, po, cc)
-        assert tok[2] == self.sl.get_cython_id("+")
+        assert tok[2] == self.sl.get("+").cython_id
         assert ari[2] == 2
         assert po[2] is None
 
@@ -389,7 +368,7 @@ class TestPrepareCythonTraversal:
         tree = Node("sin", left=Node("X_0"))
         tok, ari, ei, fv, po = _prepare_cython_traversal(tree, self.sl)
         sin_idx = 1  # postfix: X_0, sin
-        assert tok[sin_idx] == self.sl.get_cython_id("sin")
+        assert tok[sin_idx] == self.sl.get("sin").cython_id
         assert ari[sin_idx] == 1
         assert po[sin_idx] is None
 
@@ -404,7 +383,7 @@ class TestPrepareCythonTraversal:
     def test_op_with_cython_id_positive(self):
         tok, ari, ei, fv, po = _prepare_cython_traversal(["X_0", "+", "X_1"], self.sl)
         op_idx = 2  # postfix: X_0, X_1, +
-        assert tok[op_idx] == self.sl.get_cython_id("+")
+        assert tok[op_idx] == self.sl.get("+").cython_id
         assert ari[op_idx] == 2
         assert po[op_idx] is None
 
@@ -639,13 +618,6 @@ class TestExprToExecutableFunction:
         with pytest.raises(Exception):
             _expr_to_executable_function(42, self.sl)
 
-    def test_custom_preamble_used(self):
-        sl = _sl(2)
-        sl.preamble = ["import numpy as np"]
-        f = _expr_to_executable_function(["X_0", "+", "X_1"], sl)
-        result = f(self.X, np.array([]))
-        np.testing.assert_allclose(result, [3.0, 7.0, 11.0])
-
 
 # ---------------------------------------------------------------------------
 # _expr_to_error_function (codegen backend)
@@ -849,3 +821,64 @@ class TestLabelledConstants:
         y = np.sin(self.X[:, 0]) + 10.0 * self.X[:, 1] + 100.0 + 10.0
         f = compile_expr_rmse(tokens, _sl(), backend=backend, X=self.X if precompute else None)
         assert f(self.X, np.array([1.0, 10.0, 100.0]), y) == pytest.approx(0.0, abs=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Custom symbols using a non-numpy module from SymbolLibrary.modules
+# ---------------------------------------------------------------------------
+
+
+def _math_sl():
+    # "lgamma" (fn), "hyp" (op) and "tau" (lit) are custom symbols (cython_id -1), so the stack
+    # backends use the Python fallbacks and the literal evaluation; all three read the alias "m".
+    sl = SymbolLibrary(["+", "*"], 2, modules={"m": "math"})
+    sl.add_symbol("lgamma", "fn", FN_PREFIX, "np.vectorize(m.lgamma)({})")
+    sl.add_symbol("hyp", "op", OP_MULTIPLICATIVE, "np.vectorize(m.hypot)({}, {})")
+    sl.add_symbol("tau", "lit", LEAF, "m.tau")
+    return sl
+
+
+class TestModulesInCustomSymbols:
+    """Regression: names imported through the library's modules (formerly ``preamble``) were bound
+    in exec's locals while the generated function looks them up in its globals, so every backend
+    raised ``NameError`` for a custom symbol using a module other than numpy."""
+
+    # Gamma(3) = 2, Gamma(5) = 24, Gamma(4) = 6; hypot gives the 3-4-5, 5-12-13, 4-3-5 triangles.
+    X = _X([3.0, 4.0], [5.0, 12.0], [4.0, 3.0])
+
+    @pytest.mark.parametrize("backend", _BACKENDS)
+    @pytest.mark.parametrize(
+        "expr, expected",
+        [
+            (["lgamma", "(", "X_0", ")"], [np.log(2.0), np.log(24.0), np.log(6.0)]),
+            (["X_0", "hyp", "X_1"], [5.0, 13.0, 5.0]),
+            (["X_0", "*", "tau"], [6.0 * np.pi, 10.0 * np.pi, 8.0 * np.pi]),
+        ],
+        ids=["fn", "op", "lit"],
+    )
+    def test_compile_expr_evaluates_module_symbols(self, backend, expr, expected):
+        f = compile_expr(expr, _math_sl(), backend=backend)
+        np.testing.assert_allclose(f(self.X, None), expected)
+
+    @pytest.mark.parametrize("backend", _BACKENDS)
+    @pytest.mark.parametrize("precompute", [False, True], ids=["plain", "precomputed-subtrees"])
+    def test_compile_expr_rmse_evaluates_module_symbols(self, backend, precompute):
+        # C * lgamma(X_0) + hypot(X_0, X_1) + tau with C = 2; y is off by +-1 per row, so RMSE = 1.
+        tokens = ["C", "*", "lgamma", "(", "X_0", ")", "+", "X_0", "hyp", "X_1", "+", "tau"]
+        prediction = np.array(
+            [2 * np.log(2.0) + 5.0 + 2 * np.pi, 2 * np.log(24.0) + 13.0 + 2 * np.pi, 2 * np.log(6.0) + 5.0 + 2 * np.pi]
+        )
+        y = prediction + np.array([1.0, -1.0, 1.0])
+        f = compile_expr_rmse(tokens, _math_sl(), backend=backend, X=self.X if precompute else None)
+        assert float(f(self.X, np.array([2.0]), y)) == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+def test_tree_with_numeric_leaf_compiles_regression(backend):
+    # Regression: a leaf holding a number (not a string) crashed the symbol lookup.
+    sl = SymbolLibrary.default_symbols(1)
+    tree = Node("*", left=Node("C"), right=Node("+", left=Node(2.0), right=Node("X_0")))
+    X = np.array([[1.0], [2.0]])
+    np.testing.assert_allclose(compile_expr(tree, sl, backend=backend)(X, np.array([3.0])), [9.0, 12.0])
+    rmse = compile_expr_rmse(tree, sl, backend=backend, X=X)
+    assert rmse(X, np.array([3.0]), np.array([9.0, 12.0])) == pytest.approx(0.0)

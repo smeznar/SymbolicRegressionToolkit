@@ -366,7 +366,7 @@ def canonicalise(expr: Union[List[str], Node], symbol_library: Optional[SymbolLi
     occurrences = iter(indices)
     result = []
     for token in tokens:
-        if symbol_library.get_type(token) == "const":
+        if (s := symbol_library.get(token)) is not None and s.type == "const":
             index = next(occurrences)
             result.append(names[index] if counts[index] > 1 else str(symbol))
         else:

@@ -1,12 +1,45 @@
-"""The [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] class for managing the token vocabulary used in symbolic
-regression expressions.
+"""The token vocabulary of symbolic expressions.
+
+A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] maps each token to a
+[Symbol][SRToolkit.utils.symbol_library.Symbol] holding its properties: type, precedence, NumPy
+and LaTeX templates, Cython dispatch ID and [UnitRule][SRToolkit.utils.units.UnitRule].
+[SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]
+lists the predefined tokens.
+
+**Symbol types.**
+
+- ``"op"``: binary operator (e.g. ``+``, ``*``).
+- ``"fn"``: unary function (e.g. ``sin``, ``sqrt``), prefix or postfix (``^2``).
+- ``"lit"``: named constant, a symbol with a fixed value (e.g. ``pi``, ``e``). Elsewhere in the
+  toolkit "named constant" always means a ``"lit"`` symbol.
+- ``"const"``: the free constant, whose value is fitted during parameter estimation.
+- ``"var"``: input variable, a column of the data array ``X``.
+
+**Free, labelled and named constants.** A library has at most one free constant, a ``"const"``
+symbol ``s`` (``C`` by default). Each occurrence of ``s`` in an expression is a separate
+parameter. The library also knows the *labelled constants* ``<s>_<n>``, ``n`` one or more digits
+(``C_0``, ``C_17``): all occurrences of one labelled constant are one parameter. The label is the
+whole token, so ``C_1`` and ``C_01`` are different parameters. Labelled constants are not entries
+of ``symbols``; [get][SRToolkit.utils.symbol_library.SymbolLibrary.get] returns the symbol of
+``s`` for them. Free constants, bare or labelled, are parameters of an expression; a known value
+that belongs to the task and has a name of its own (e.g. ``g``) is a named constant (``"lit"``)
+instead.
+
+**Active library.** Functions that take an optional library use the active one: the innermost
+``with library:`` block, else the default set by
+[set_default][SRToolkit.utils.symbol_library.SymbolLibrary.set_default] (see
+[get_active][SRToolkit.utils.symbol_library.SymbolLibrary.get_active] and
+[get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
 """
 
-import copy
+import importlib
 import re
 from contextvars import ContextVar
+from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
+
+import numpy as np
 
 from SRToolkit.utils.types import (
     FN_POSTFIX,
@@ -31,101 +64,242 @@ _PREDEFINED_UNIT_RULES: Dict[tuple, UnitRule] = {
 }
 
 
-def _resolve_unit_rule(symbol: str, symbol_type: str, unit_rule: Optional[UnitRule]) -> UnitRule:
-    # The unit rule of an "op" / "fn" symbol: the given one if it accepts the symbol's number of
-    # arguments (ValueError otherwise), or for None the predefined rule, else DIMENSIONLESS. Used by
-    # add_symbol and from_dict.
-    if unit_rule is None:
-        return _PREDEFINED_UNIT_RULES.get((symbol, symbol_type), UnitRule.DIMENSIONLESS)
-    arity = 2 if symbol_type == "op" else 1
-    if arity not in unit_rule.arities:
-        raise ValueError(f"Symbol '{symbol}': {unit_rule!r} does not accept {arity} argument(s).")
-    return unit_rule
+@dataclass(frozen=True)
+class Symbol:
+    r"""Immutable record of one token of a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 
+    Usually built by [SymbolLibrary.add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol]
+    and returned by [SymbolLibrary.get][SRToolkit.utils.symbol_library.SymbolLibrary.get].
+
+    Attributes:
+        token: The token string.
+        type: ``"op"``, ``"fn"``, ``"lit"``, ``"const"`` or ``"var"`` (see the
+            [module docstring][SRToolkit.utils.symbol_library]).
+        precedence: For ``"op"``, the binding strength, ``>= 0``: ``OP_ADDITIVE`` (100),
+            ``OP_MULTIPLICATIVE`` (200), ``OP_POWER`` (300) or a custom value. For ``"fn"``, a
+            positive value (``FN_PREFIX``, 1000) makes a prefix function and zero or a negative
+            value (``FN_POSTFIX``, -1000) a postfix one. ``LEAF`` (1000) for the other types.
+        python_str: Python expression template used in compiled callables, e.g. ``"np.sin({})"``.
+            ``{}`` (or ``{0}``, ``{1}``) placeholders take the arguments as source text, so a
+            repeated or embedded argument should be bracketed. It may use NumPy as ``np`` and the
+            library's ``modules``.
+        latex_str: LaTeX ``str.format`` template (literal braces doubled) with ``{}`` placeholders
+            for the arguments. ``""`` generates a default, shown here rendered: ``a \text{tok} b``
+            for an ``"op"``, ``\text{tok} a`` for a ``"fn"``, ``tok_{n}`` for the ``"const"``
+            (``n`` the constant's number; ``{tok}_{n}`` if ``tok`` contains ``_``), and
+            ``\text{tok}`` otherwise.
+        cython_id: Dispatch ID of the Cython evaluator; ``-1`` means no C implementation
+            (evaluated through a Python callable).
+        unit_rule: How an ``"op"`` or ``"fn"`` combines the physical units of its arguments
+            (see [UnitRule][SRToolkit.utils.units.UnitRule]). ``None`` gives the rule of the
+            predefined symbol with the same token and type (see
+            [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]),
+            otherwise ``UnitRule.DIMENSIONLESS``. Always ``None`` for the other types.
+
+    Raises:
+        ValueError: If ``type`` is invalid, an ``"op"`` has a negative ``precedence``, or
+            ``unit_rule`` is given for a type other than ``"op"`` and ``"fn"`` or does not accept
+            the symbol's number of arguments (2 for ``"op"``, 1 for ``"fn"``).
+        TypeError: If ``unit_rule`` is not a [UnitRule][SRToolkit.utils.units.UnitRule] or ``None``.
+
+    Examples:
+        >>> s = SymbolLibrary.default_symbols(1).get("sqrt")
+        >>> s.type, s.precedence, s.python_str, s.cython_id
+        ('fn', 1000, 'np.sqrt({})', 14)
+        >>> s.unit_rule
+        UnitRule.power(Fraction(1, 2))
+    """
+
+    token: str
+    type: str
+    precedence: int
+    python_str: str
+    latex_str: str = ""
+    cython_id: int = -1
+    unit_rule: Optional[UnitRule] = None
+
+    def __post_init__(self) -> None:
+        if self.type not in VALID_SYMBOL_TYPES:
+            raise ValueError(f"Invalid symbol type '{self.type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
+        if self.type == "op" and self.precedence < 0:
+            raise ValueError(
+                f"Operator '{self.token}' has precedence {self.precedence}; operators need a precedence >= 0."
+            )
+
+        if not self.latex_str:
+            if self.type == "op":
+                latex_str = r"{} \text{{" + self.token + r"}} {}"
+            elif self.type == "fn":
+                latex_str = r"\text{{" + self.token + r"}} {}"
+            elif self.type == "const":
+                latex_str = ("{{" + self.token + "}}" if "_" in self.token else self.token) + "_{{{}}}"
+            else:
+                latex_str = r"\text{{" + self.token + r"}}"
+            object.__setattr__(self, "latex_str", latex_str)
+
+        rule = self.unit_rule
+        if rule is not None and not isinstance(rule, UnitRule):
+            raise TypeError(f"Symbol '{self.token}': unit_rule must be a UnitRule or None, got {type(rule).__name__}.")
+        if self.type in ("op", "fn"):
+            arity = 2 if self.type == "op" else 1
+            if rule is None:
+                rule = _PREDEFINED_UNIT_RULES.get((self.token, self.type), UnitRule.DIMENSIONLESS)
+            elif arity not in rule.arities:
+                raise ValueError(f"Symbol '{self.token}': {rule!r} does not accept {arity} argument(s).")
+            object.__setattr__(self, "unit_rule", rule)
+        elif rule is not None:
+            raise ValueError(f"Symbol '{self.token}' of type '{self.type}' cannot have a unit rule.")
+
+    def to_dict(self) -> dict:
+        """Serialize the symbol to a JSON-safe dictionary.
+
+        Returns:
+            The keys ``symbol`` (the token), ``type``, ``precedence``, ``np_fn`` (``python_str``), ``latex_str``,
+            ``cython_id`` and, for ``"op"`` and ``"fn"``, ``unit_rule`` as
+            [UnitRule.to_dict][SRToolkit.utils.units.UnitRule.to_dict].
+        """
+        d: Dict[str, Any] = {
+            "symbol": self.token,
+            "type": self.type,
+            "precedence": self.precedence,
+            "np_fn": self.python_str,
+            "latex_str": self.latex_str,
+            "cython_id": self.cython_id,
+        }
+        if self.unit_rule is not None:
+            d["unit_rule"] = self.unit_rule.to_dict()
+        return d
+
+    @staticmethod
+    def from_dict(d: dict) -> "Symbol":
+        """Reconstruct a [Symbol][SRToolkit.utils.symbol_library.Symbol] from its dictionary form.
+
+        Args:
+            d: Dictionary with the keys of [to_dict][SRToolkit.utils.symbol_library.Symbol.to_dict].
+                ``cython_id`` may be missing (``-1``) and ``unit_rule`` missing or ``None`` (the
+                default rule).
+
+        Returns:
+            The reconstructed symbol.
+
+        Raises:
+            KeyError: If any other key is missing.
+            ValueError: If the symbol is invalid (see [Symbol][SRToolkit.utils.symbol_library.Symbol])
+                or so is the saved unit rule (see
+                [UnitRule.from_dict][SRToolkit.utils.units.UnitRule.from_dict]).
+        """
+        rule = d.get("unit_rule")
+        return Symbol(
+            d["symbol"],
+            d["type"],
+            d["precedence"],
+            d["np_fn"],
+            d["latex_str"],
+            d.get("cython_id", -1),
+            None if rule is None else UnitRule.from_dict(rule),
+        )
+
+
+# The predefined symbols, without the free constant and the variables; see default_symbols.
+_DEFAULT_SYMBOLS: Tuple[Symbol, ...] = (
+    Symbol("+", "op", OP_ADDITIVE, "{} + {}", r"{} + {}", 0),
+    Symbol("-", "op", OP_ADDITIVE, "{} - {}", r"{} - {}", 1),
+    Symbol("*", "op", OP_MULTIPLICATIVE, "{} * {}", r"{} \cdot {}", 2),
+    Symbol("/", "op", OP_MULTIPLICATIVE, "{} / {}", r"\frac{{{}}}{{{}}}", 3),
+    Symbol("^", "op", OP_POWER, "np.power({},{})", r"{}^{{{}}}", 4),
+    Symbol("u-", "fn", FN_PREFIX, "-{}", r"- {}", 25),
+    Symbol("sqrt", "fn", FN_PREFIX, "np.sqrt({})", r"\sqrt {{{}}}", 14),
+    Symbol("sin", "fn", FN_PREFIX, "np.sin({})", r"\sin {}", 10),
+    Symbol("cos", "fn", FN_PREFIX, "np.cos({})", r"\cos {}", 11),
+    Symbol("exp", "fn", FN_PREFIX, "np.exp({})", r"e^{{{}}}", 13),
+    Symbol("tan", "fn", FN_PREFIX, "np.tan({})", r"\tan {}", 12),
+    Symbol("arcsin", "fn", FN_PREFIX, "np.arcsin({})", r"\arcsin {}", 17),
+    Symbol("arccos", "fn", FN_PREFIX, "np.arccos({})", r"\arccos {}", 18),
+    Symbol("arctan", "fn", FN_PREFIX, "np.arctan({})", r"\arctan {}", 19),
+    Symbol("sinh", "fn", FN_PREFIX, "np.sinh({})", r"\sinh {}", 20),
+    Symbol("cosh", "fn", FN_PREFIX, "np.cosh({})", r"\cosh {}", 21),
+    Symbol("tanh", "fn", FN_PREFIX, "np.tanh({})", r"\tanh {}", 22),
+    Symbol("floor", "fn", FN_PREFIX, "np.floor({})", r"\lfloor {} \rfloor", 23),
+    Symbol("ceil", "fn", FN_PREFIX, "np.ceil({})", r"\lceil {} \rceil", 24),
+    Symbol("ln", "fn", FN_PREFIX, "np.log({})", r"\ln {}", 15),
+    Symbol("log", "fn", FN_PREFIX, "np.log10({})", r"\log_{{10}} {}", 16),
+    Symbol("^-1", "fn", FN_POSTFIX, "1/{}", r"{}^{{-1}}", 26),
+    Symbol("^2", "fn", FN_POSTFIX, "{}**2", r"{}^2", 27),
+    Symbol("^3", "fn", FN_POSTFIX, "{}**3", r"{}^3", 28),
+    Symbol("^4", "fn", FN_POSTFIX, "{}**4", r"{}^4", 29),
+    Symbol("^5", "fn", FN_POSTFIX, "{}**5", r"{}^5", 30),
+    Symbol("pi", "lit", LEAF, "np.pi", r"\pi"),
+    Symbol("e", "lit", LEAF, "np.e", r"e"),
+)
 
 _active_sl: ContextVar["SymbolLibrary"] = ContextVar("active_symbol_library")
 _default_sl: Optional["SymbolLibrary"] = None
 
 
 class SymbolLibrary:
+    r"""Registry of the tokens of symbolic expressions and their properties.
+
+    The toolkit uses it to parse, compile, display and generate expressions. Symbols can be selected from the predefined set (see
+    [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]) and added with
+    [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol]. A library can be used as
+    a context manager to make it the active library (see the
+    [module docstring][SRToolkit.utils.symbol_library]).
+
+    Args:
+        symbols: Predefined tokens to include. ``None`` adds none besides the variables and the
+            free constant.
+        num_variables: Number of variables, ``X_0`` through ``X_{num_variables-1}``, reading the
+            columns of ``X`` in order.
+        modules: Modules that ``python_str`` templates of custom symbols may use, as alias → module
+            path (e.g. ``{"sp": "scipy.special"}``). They are imported here. NumPy is always
+            available as ``np``, an alias that is reserved.
+        const_symbol: Token of the free constant; ``None`` for a library without one.
+
+    Attributes:
+        symbols: Mapping from token to its [Symbol][SRToolkit.utils.symbol_library.Symbol], in
+            insertion order. Change it only through ``add_symbol`` and ``remove_symbol``.
+        modules: Mapping from alias to module path (a copy of the argument; ``{}`` for ``None``).
+        num_variables: Column of ``X`` given to the next ``"var"`` added without ``python_str``.
+            Raised by one on every ``"var"`` added, never lowered.
+
+    Raises:
+        ValueError: If ``symbols`` contains a token that is not predefined, or ``modules`` uses
+            the alias ``"np"``.
+        ImportError: If a module in ``modules`` cannot be imported.
+
+    Examples:
+        >>> library = SymbolLibrary(["+", "*", "sin"], num_variables=2)
+        >>> library.symbols.keys()
+        dict_keys(['+', '*', 'sin', 'C', 'X_0', 'X_1'])
+        >>> library = SymbolLibrary(["+"], 1, modules={"sp": "scipy.special"})
+        >>> library.add_symbol("gamma", "fn", FN_PREFIX, "sp.gamma({})", r"\Gamma({})")
+        >>> with SymbolLibrary.default_symbols(num_variables=2):
+        ...     SymbolLibrary.get_active().get("X_1").python_str
+        'X[:, 1]'
+    """
+
     def __init__(
         self,
         symbols: Optional[List[str]] = None,
         num_variables: int = 0,
-        preamble: Optional[List[str]] = None,
+        modules: Optional[Dict[str, str]] = None,
         const_symbol: Optional[str] = "C",
     ) -> None:
-        """A registry of tokens and their properties, used throughout the toolkit to parse,
-        compile, and generate symbolic expressions.
+        self.modules = dict(modules or {})
+        if "np" in self.modules:
+            raise ValueError("The alias 'np' is reserved for NumPy and cannot be used in modules.")
+        self.module_namespace()
 
-        By default, the library uses NumPy for operator and function evaluation. To use a
-        different backend, pass the required import statements via ``preamble``.
-
-        A library has at most one free constant, a ``"const"`` symbol ``s`` (``C`` by default, see
-        ``const_symbol``). It also knows the *labelled constants* ``<s>_<n>``, ``n`` one or more
-        digits (``C_0``, ``C_17``). They are not entries of ``symbols``, but every token lookup
-        (``get_type``, ``get_precedence``, ``get_np_fn``, ``get_cython_id``, ``get_latex_str``,
-        ``get_unit_rule``) treats them as ``s``. All occurrences of a labelled constant are one
-        parameter, each occurrence of ``s`` is a new one.
-        The label is the whole token, so ``C_1`` and ``C_01`` are different parameters. A registered
-        symbol takes precedence: in a library with a ``"lit"`` named ``C_1``, ``C_1`` is that named
-        constant. Free constants, bare or labelled, are parameters of an expression; a known value
-        that belongs to the task and has a name of its own (e.g. ``g``) is a named constant
-        (``"lit"``) instead.
-
-        Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x", "x")
-            >>> library.get_type("x")
-            'var'
-            >>> library.get_precedence("x")
-            0
-            >>> library.get_np_fn("x")
-            'x'
-            >>> library.remove_symbol("x")
-            >>> library = SymbolLibrary.default_symbols()
-            >>> # You can also initialize the library with a list of symbols (listed in SymbolLibrary.default_symbols)
-            >>> # and the number of variables.
-            >>> library2 = SymbolLibrary(["+", "*", "sin"], num_variables=2)
-            >>> len(library2)  # with the free constant C
-            6
-            >>> # Use as a context manager to avoid passing sl explicitly
-            >>> # with SymbolLibrary.default_symbols(num_variables=2) as sl:
-            >>> #     tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
-
-        Args:
-            symbols: Symbols to pre-populate from the default set. ``None`` adds none besides the
-                variables and the free constant. See [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] for the supported names.
-            num_variables: Number of variable tokens to add, labeled ``X_0`` through
-                ``X_{num_variables-1}``. Default is ``0``.
-            preamble: Import statements prepended to compiled expression functions.
-                Defaults to ``["import numpy as np"]``.
-            const_symbol: Name of the free constant; ``None`` for a library without one. A renamed
-                constant ``K`` is shown in LaTeX as ``K_{0}``, ``K_{1}``, … (``{K_a}_{0}`` for
-                ``K_a``); use
-                [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol] for other
-                properties.
-
-        Attributes:
-            symbols: Mapping from token string to its property dict (type, precedence,
-                NumPy function string, LaTeX template and, for ``"op"`` and ``"fn"``, the unit rule
-                as [UnitRule.to_dict][SRToolkit.utils.units.UnitRule.to_dict]).
-
-        Raises:
-            ValueError: If ``symbols`` contains a name that is not in the default set.
-        """
-        if preamble is None:
-            self.preamble = ["import numpy as np"]
-        else:
-            self.preamble = preamble
-
+        self._constant_symbol: Optional[str] = None
         if symbols is None and num_variables == 0:
-            self.symbols: Dict[str, Any] = dict()
+            self.symbols: Dict[str, Symbol] = dict()
             self.num_variables = 0
             if const_symbol is not None:
                 self._add_constant(const_symbol)
         else:
-            self.symbols = SymbolLibrary.from_symbol_list(symbols or [], num_variables, const_symbol).symbols
+            selected = SymbolLibrary.from_symbol_list(symbols or [], num_variables, const_symbol)
+            self.symbols = selected.symbols
+            self._constant_symbol = selected._constant_symbol
             self.num_variables = num_variables
 
     def _add_constant(self, name: str) -> None:
@@ -136,141 +310,68 @@ class SymbolLibrary:
         symbol: str,
         symbol_type: str,
         precedence: int,
-        np_fn: str,
+        python_str: str,
         latex_str: Optional[str] = None,
         cython_id: int = -1,
         unit_rule: Optional[UnitRule] = None,
     ):
-        r"""Add a token to the library with its associated type, precedence, NumPy function
-        string, and LaTeX template.
+        r"""Add a token to the library, replacing any symbol with the same token.
 
-        Symbol types:
+        The arguments are the fields of [Symbol][SRToolkit.utils.symbol_library.Symbol], which
+        documents them. Predefined symbols (see
+        [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]) are
+        faster than custom ones: they have C implementations for the Cython evaluator, while
+        custom symbols are evaluated through Python callables.
 
-        - ``"op"``: binary operator (e.g. ``+``, ``*``).
-        - ``"fn"``: unary function (e.g. ``sin``, ``sqrt``).
-        - ``"lit"``: named constant, a symbol with a fixed value (e.g. ``pi``, ``e``). Elsewhere in
-          the toolkit "named constant" always means a ``"lit"`` symbol.
-        - ``"const"``: free constant whose value is optimised during parameter estimation
-          (e.g. ``C``). Each occurrence is a separate parameter; a labelled constant (``C_0``) is
-          one parameter however often it occurs (see
-          [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]). A library has at most
-          one ``"const"`` symbol.
-        - ``"var"``: input variable whose values are read from the data array ``X``.
+        Args:
+            symbol: Token to register.
+            symbol_type: ``"op"``, ``"fn"``, ``"lit"``, ``"const"`` or ``"var"``.
+            precedence: Precedence (see [Symbol][SRToolkit.utils.symbol_library.Symbol]).
+            python_str: Python expression template (see [Symbol][SRToolkit.utils.symbol_library.Symbol]).
+                For a ``"var"``, ``None`` or ``""`` gives ``"X[:, i]"`` with ``i`` the library's
+                ``num_variables``.
+            latex_str: LaTeX template; ``None`` or ``""`` generates the default for the type.
+            cython_id: Dispatch ID of the Cython evaluator; ``-1`` evaluates through a Python
+                callable. To keep a predefined symbol's acceleration, pass
+                ``SymbolLibrary.default_symbols()[token].cython_id``.
+            unit_rule: Unit rule of an ``"op"`` or ``"fn"``, e.g. ``UnitRule.power(Fraction(1, 3))``
+                for a cube root. ``None`` gives the predefined rule for the token and type,
+                otherwise ``UnitRule.DIMENSIONLESS``, so give a custom symbol that accepts
+                physical units its rule.
 
-        If ``latex_str`` is omitted, a default template is generated based on the symbol type:
-        ``"{} \text{symb} {}"`` for operators (e.g. ``+`` → ``{} \text{+} {}``),
-        ``"\text{symb} {}"`` for functions (e.g. ``sin`` → ``\text{sin} {}``),
-        ``"symb_{}"`` for the free constant (``{}`` takes the constant's number, see
-        [Node.to_latex][SRToolkit.utils.expression_tree.Node.to_latex]),
-        and ``"\text{symb}"`` for all other types.
-
-        Note:
-            For best performance, we recommend selecting symbols from the predefined set via the
-            constructor or [from_symbol_list][SRToolkit.utils.symbol_library.SymbolLibrary.from_symbol_list]
-            rather than adding custom ones. Predefined symbols have C implementations and
-            benefit from Cython acceleration; custom symbols always fall back to Python callables.
+        Raises:
+            ValueError: If the symbol is invalid (see [Symbol][SRToolkit.utils.symbol_library.Symbol]),
+                or ``symbol_type`` is ``"const"`` and the library has a free constant with another
+                token, or ``symbol`` is the free constant and ``symbol_type`` is not ``"const"``.
+            TypeError: If ``unit_rule`` is not a [UnitRule][SRToolkit.utils.units.UnitRule] or
+                ``None``.
 
         Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x")
-            >>> library.add_symbol("sin", "fn", 5, "np.sin({})", r"\sin {}")
-            >>> library.add_symbol("C", "const", 5, "C[{}]", r"c_{}")
-            >>> library.add_symbol("X_0", "var", 5, "X[:, 0]", r"X_0")
-            >>> library.add_symbol("pi", "lit", 5, "np.pi", r"\pi")
-            >>> # A fixed composite function, here X_0 / (1 + X_0), as a single token. ``{0}`` is
-            >>> # its argument, may appear several times and is inserted as text, so bracket it.
-            >>> import numpy as np
-            >>> from SRToolkit.utils import FN_PREFIX, compile_expr
+            >>> library = SymbolLibrary(["+"], num_variables=1)
             >>> library.add_symbol("sat", "fn", FN_PREFIX, "({0}) / (1 + ({0}))", r"\frac{{{0}}}{{1 + {0}}}")
+            >>> from SRToolkit.utils import compile_expr
             >>> f = compile_expr(["sat", "(", "X_0", ")"], library)
             >>> f(np.array([[1.0], [3.0]]), None)
             array([0.5 , 0.75])
-
-        Args:
-            symbol: Token string to register.
-            symbol_type: One of ``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``.
-            precedence: Operator precedence, used for infix reconstruction and PCFG generation.
-                For ``"op"`` symbols use the named constants
-                ``OP_ADDITIVE`` (100), ``OP_MULTIPLICATIVE`` (200), or ``OP_POWER`` (300) —
-                or any integer between them for custom operators.
-                Operator precedences must be non-negative.
-                For ``"fn"`` symbols use ``FN_PREFIX`` (1000) for prefix functions such as
-                ``sin`` and ``FN_POSTFIX`` (-1000) for postfix functions such as ``^2``; any
-                positive value makes a function prefix, zero or a negative value postfix.
-                For ``"var"``, ``"const"``, and ``"lit"`` use ``LEAF`` (1000).
-            np_fn: Python/NumPy expression string used in compiled callables
-                (e.g. ``"np.sin({})"``). For ``"var"`` type, passing ``None``
-                or ``""`` auto-generates ``"X[:, i]"`` where ``i`` is the current
-                ``num_variables`` count at the time of the call.
-            latex_str: LaTeX template string with ``{}`` placeholders for operands.
-                Auto-generated if omitted.
-            cython_id: Integer dispatch ID used by the Cython-based evaluator.
-                ``-1`` (default) means the symbol has no C implementation and will
-                fall back to a Python callable during Cython evaluation. Custom symbols
-                should leave this at ``-1``; to redefine a built-in symbol while
-                preserving its Cython acceleration, look up its ID in the source of
-                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
-            unit_rule: How an ``"op"`` or ``"fn"`` symbol combines the physical units of its
-                arguments (see [UnitRule][SRToolkit.utils.units.UnitRule]), e.g.
-                ``UnitRule.power(Fraction(1, 3))`` for a cube root. ``None`` keeps the rule of the
-                predefined symbol with the same token and type (see
-                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]);
-                any other symbol gets ``UnitRule.DIMENSIONLESS``, so give a custom symbol that
-                accepts physical units its rule.
-
-        Raises:
-            ValueError: If ``symbol_type`` is not one of the valid types, or if an operator has a
-                negative precedence (infix reconstruction would then never bracket its operands);
-                if ``symbol_type`` is ``"const"`` and the library already has another ``"const"``
-                symbol;
-                if ``unit_rule`` is given for a symbol that is not an ``"op"`` or ``"fn"``, or does
-                not accept the symbol's number of arguments (2 for ``"op"``, 1 for ``"fn"``).
-            TypeError: If ``unit_rule`` is not a [UnitRule][SRToolkit.utils.units.UnitRule] or
-                ``None``.
         """
-        if symbol_type not in VALID_SYMBOL_TYPES:
-            raise ValueError(f"Invalid symbol type '{symbol_type}'. Must be one of: {sorted(VALID_SYMBOL_TYPES)}")
-        if symbol_type == "op" and precedence < 0:
-            raise ValueError(f"Operator '{symbol}' has precedence {precedence}; operators need a precedence >= 0.")
+        if symbol_type == "var" and not python_str:
+            python_str = f"X[:, {self.num_variables}]"
+        new = Symbol(symbol, symbol_type, precedence, python_str, latex_str or "", cython_id, unit_rule)
         if symbol_type == "const" and self.constant_symbol not in (None, symbol):
             raise ValueError(
                 f"Cannot add free constant '{symbol}': the library already has '{self.constant_symbol}', "
                 "and a library has at most one. Use labelled constants (C_0, C_1, ...) for shared parameters."
             )
-
-        if latex_str is None:
-            if symbol_type == "op":
-                latex_str = r"{} \text{{" + symbol + r"}} {}"
-            elif symbol_type == "fn":
-                latex_str = r"\text{{" + symbol + r"}} {}"
-            elif symbol_type == "const":
-                latex_str = ("{{" + symbol + "}}" if "_" in symbol else symbol) + "_{{{}}}"
-            else:
-                latex_str = r"\text{{" + symbol + r"}}"
-
-        if unit_rule is not None and not isinstance(unit_rule, UnitRule):
-            raise TypeError(f"Symbol '{symbol}': unit_rule must be a UnitRule or None, got {type(unit_rule).__name__}.")
-        if symbol_type in ("op", "fn"):
-            unit_rule = _resolve_unit_rule(symbol, symbol_type, unit_rule)
-        elif unit_rule is not None:
-            raise ValueError(f"Symbol '{symbol}' of type '{symbol_type}' cannot have a unit rule.")
-
-        if symbol_type == "var" and (np_fn is None or np_fn == ""):
-            np_fn = "X[:, {}]".format(self.num_variables)
-
+        if symbol_type != "const" and symbol == self.constant_symbol:
+            raise ValueError(
+                f"Cannot redefine '{symbol}' as '{symbol_type}': it is the library's free constant. Call "
+                f"remove_symbol('{symbol}') first, or build the library with const_symbol=None or another name."
+            )
         if symbol_type == "var":
             self.num_variables += 1
-
-        self.symbols[symbol] = {
-            "symbol": symbol,
-            "type": symbol_type,
-            "precedence": precedence,
-            "np_fn": np_fn,
-            "latex_str": latex_str,
-            "cython_id": cython_id,
-        }
-        if unit_rule is not None:
-            self.symbols[symbol]["unit_rule"] = unit_rule.to_dict()
+        self.symbols[symbol] = new
+        if symbol_type == "const":
+            self._constant_symbol = symbol
 
     def remove_symbol(self, symbol: str):
         """Remove a token from the library.
@@ -291,172 +392,119 @@ class SymbolLibrary:
             KeyError: If ``symbol`` is not present in the library.
         """
         del self.symbols[symbol]
+        if symbol == self._constant_symbol:
+            self._constant_symbol = None
 
     @property
     def constant_symbol(self) -> Optional[str]:
-        """The free constant (the ``"const"`` symbol), or ``None`` if the library has none.
+        """The token of the free constant, or ``None`` if the library has none.
 
         Examples:
             >>> SymbolLibrary.default_symbols().constant_symbol
             'C'
-            >>> print(SymbolLibrary(["+"], 1, const_symbol=None).constant_symbol)
+        """
+        return self._constant_symbol
+
+    def get(self, token: str) -> Optional[Symbol]:
+        """Return the [Symbol][SRToolkit.utils.symbol_library.Symbol] of a token.
+
+        Args:
+            token: Token to look up.
+
+        Returns:
+            The symbol registered for ``token``; otherwise, for a labelled constant of the free
+            constant (see the [module docstring][SRToolkit.utils.symbol_library]), the free
+            constant's symbol; otherwise ``None`` (brackets, numbers, unknown names). A registered
+            token wins, so a ``"lit"`` named ``C_1`` is returned as itself.
+
+        Examples:
+            >>> library = SymbolLibrary.default_symbols(1)
+            >>> library.get("+").precedence
+            100
+            >>> library.get("C_3").token
+            'C'
+            >>> print(library.get("("))
             None
         """
-        return next((s for s, entry in self.symbols.items() if entry["type"] == "const"), None)
-
-    def _entry(self, symbol: str) -> Optional[Dict[str, Any]]:
-        # The entry of a registered symbol, else that of the free constant s for a labelled
-        # constant "<s>_<digits>", else None. Every getter resolves tokens through this.
-        entry = self.symbols.get(symbol)
-        if entry is not None:
-            return entry
-        base, _, label = symbol.rpartition("_")
-        entry = self.symbols.get(base)
-        if entry is not None and entry["type"] == "const" and label.isascii() and label.isdigit():
-            return entry
+        symbol = self.symbols.get(token)
+        if symbol is not None or not isinstance(token, str):
+            return symbol
+        base, _, label = token.rpartition("_")
+        symbol = self.symbols.get(base)
+        if symbol is not None and symbol.type == "const" and label.isascii() and label.isdigit():
+            return symbol
         return None
 
-    def get_type(self, symbol: str) -> str:
-        """Return the type of a symbol.
+    def __getitem__(self, token: str) -> Symbol:
+        """Return the [Symbol][SRToolkit.utils.symbol_library.Symbol] of a token, or raise if there is none.
+
+        Args:
+            token: Token to look up.
+
+        Returns:
+            The symbol that [get][SRToolkit.utils.symbol_library.SymbolLibrary.get] returns.
+
+        Raises:
+            KeyError: If [get][SRToolkit.utils.symbol_library.SymbolLibrary.get] returns ``None``.
 
         Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x")
-            >>> library.get_type("x")
-            'var'
-            >>> SymbolLibrary.default_symbols(1).get_type("C_3")  # a labelled constant
+            >>> SymbolLibrary.default_symbols(1)["C_3"].type
             'const'
-
-        Args:
-            symbol: Token to look up.
-
-        Returns:
-            The type string (``"op"``, ``"fn"``, ``"lit"``, ``"const"``, or ``"var"``) if ``symbol`` is a symbol of the library or a labelled
-            constant, otherwise an empty string.
         """
-        entry = self._entry(symbol)
-        return "" if entry is None else entry["type"]
+        symbol = self.get(token)
+        if symbol is None:
+            raise KeyError(token)
+        return symbol
 
-    def get_precedence(self, symbol: str) -> int:
-        """Return the precedence of a symbol.
+    def __contains__(self, token: object) -> bool:
+        """Return whether [get][SRToolkit.utils.symbol_library.SymbolLibrary.get] finds a symbol for ``token``.
 
         Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x")
-            >>> library.get_precedence("x")
-            0
-
-        Args:
-            symbol: Token to look up.
-
-        Returns:
-            The precedence value if the symbol is in the library, otherwise ``-1``.
+            >>> library = SymbolLibrary.default_symbols(1)
+            >>> "X_0" in library, "C_3" in library, "(" in library
+            (True, True, False)
         """
-        entry = self._entry(symbol)
-        return -1 if entry is None else entry["precedence"]
+        return isinstance(token, str) and self.get(token) is not None
 
-    def get_np_fn(self, symbol: str) -> str:
-        """Return the NumPy function string for a symbol.
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over the registered tokens, in insertion order.
 
         Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x")
-            >>> library.get_np_fn("x")
-            'x'
-
-        Args:
-            symbol: Token to look up.
-
-        Returns:
-            The NumPy function string if the symbol is in the library, otherwise an empty string.
+            >>> list(SymbolLibrary(["+"], 1))
+            ['+', 'C', 'X_0']
         """
-        entry = self._entry(symbol)
-        return "" if entry is None else entry["np_fn"]
-
-    def get_cython_id(self, symbol: str) -> int:
-        """Return the Cython stack machine dispatch ID for a symbol.
-
-        Returns ``-1`` for symbols without a C implementation (they will fall
-        back to a Python callable during Cython evaluation).
-
-        Examples:
-            >>> library = SymbolLibrary.default_symbols()
-            >>> library.get_cython_id("+")
-            0
-            >>> library.get_cython_id("sin")
-            10
-            >>> library.get_cython_id("unknown_symbol")
-            -1
-
-        Args:
-            symbol: Token to look up.
-
-        Returns:
-            Integer dispatch ID, or ``-1`` if the symbol is not in the library
-            or has no Cython implementation.
-        """
-        entry = self._entry(symbol)
-        return -1 if entry is None else entry.get("cython_id", -1)
-
-    def get_latex_str(self, symbol: str) -> str:
-        """Return the LaTeX template string for a symbol.
-
-        Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x", "test")
-            >>> library.get_latex_str("x")
-            'test'
-
-        Args:
-            symbol: Token to look up.
-
-        Returns:
-            The LaTeX template string if the symbol is in the library, otherwise an empty string.
-        """
-        entry = self._entry(symbol)
-        return "" if entry is None else entry["latex_str"]
-
-    def get_unit_rule(self, symbol: str) -> Optional[UnitRule]:
-        """Return how a symbol combines the physical units of its arguments.
-
-        Args:
-            symbol: Token to look up.
-
-        Returns:
-            The [UnitRule][SRToolkit.utils.units.UnitRule] of an ``"op"`` or ``"fn"`` symbol;
-            ``None`` for other symbol types and for symbols not in the library.
-
-        Examples:
-            >>> SymbolLibrary.default_symbols(1).get_unit_rule("sqrt")
-            UnitRule.power(Fraction(1, 2))
-        """
-        rule = (self._entry(symbol) or {}).get("unit_rule")
-        return None if rule is None else UnitRule.from_dict(rule)
+        return iter(self.symbols)
 
     def get_symbols_of_type(self, symbol_type: str) -> List[str]:
-        """Return all symbols of a given type.
-
-        Examples:
-            >>> library = SymbolLibrary()
-            >>> library.add_symbol("x", "var", 0, "x")
-            >>> library.add_symbol("y", "var", 0, "y")
-            >>> library.get_symbols_of_type("var")
-            ['x', 'y']
+        """Return the tokens of all symbols of a type, in insertion order.
 
         Args:
-            symbol_type: Type to filter by. One of ``"op"``, ``"fn"``, ``"var"``,
-                ``"const"``, ``"lit"``.
+            symbol_type: ``"op"``, ``"fn"``, ``"lit"``, ``"const"`` or ``"var"``.
 
         Returns:
-            List of token strings matching the requested type. Returns an empty list
-            if no symbols match or if ``symbol_type`` is not recognised.
-        """
-        symbols = list()
-        for symbol in self.symbols.keys():
-            if self.get_type(symbol) == symbol_type:
-                symbols.append(symbol)
+            The matching tokens; empty if there are none.
 
-        return symbols
+        Examples:
+            >>> SymbolLibrary(["+", "sin"], num_variables=2).get_symbols_of_type("var")
+            ['X_0', 'X_1']
+        """
+        return [token for token, s in self.symbols.items() if s.type == symbol_type]
+
+    def module_namespace(self) -> Dict[str, Any]:
+        """Return the global names available to ``python_str`` templates.
+
+        Returns:
+            A new dict mapping ``"np"`` to NumPy and each alias in ``modules`` to its imported
+            module.
+
+        Raises:
+            ImportError: If a module in ``modules`` cannot be imported.
+
+        Examples:
+            >>> sorted(SymbolLibrary(modules={"m": "math"}).module_namespace())
+            ['m', 'np']
+        """
+        return {"np": np, **{alias: importlib.import_module(path) for alias, path in self.modules.items()}}
 
     def symbols2index(self) -> Dict[str, int]:
         """Return a mapping from each token to its index in insertion order.
@@ -540,233 +588,41 @@ class SymbolLibrary:
 
     @staticmethod
     def default_symbols(num_variables: int = 25, const_symbol: Optional[str] = "C") -> "SymbolLibrary":
-        """Return a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] pre-populated with standard mathematical symbols.
+        """Return a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] with all predefined symbols.
 
-        Supported tokens:
+        The predefined tokens:
 
-        - **Operators** (``"op"``): ``+``, ``-``, ``*``, ``/``, ``^``
-        - **Functions** (``"fn"``): ``u-``, ``sqrt``, ``sin``, ``cos``, ``exp``, ``tan``,
-          ``arcsin``, ``arccos``, ``arctan``, ``sinh``, ``cosh``, ``tanh``, ``floor``,
-          ``ceil``, ``ln``, ``log``, ``^-1``, ``^2``, ``^3``, ``^4``, ``^5``
-        - **Named constants** (``"lit"``): ``pi``, ``e``
-        - **Free constant** (``"const"``): ``C``, or ``const_symbol``
-        - **Variables** (``"var"``): ``X_0`` through ``X_{num_variables-1}``,
-          mapped to columns of the input array in order.
+        - **Operators** (``"op"``): ``+``, ``-``, ``*``, ``/``, ``^``.
+        - **Functions** (``"fn"``): ``u-`` (negation), ``sqrt``, ``sin``, ``cos``, ``exp``, ``tan``,
+          ``arcsin``, ``arccos``, ``arctan``, ``sinh``, ``cosh``, ``tanh``, ``floor``, ``ceil``,
+          ``ln``, ``log`` (base 10), and the postfix ``^-1``, ``^2``, ``^3``, ``^4``, ``^5``.
+        - **Named constants** (``"lit"``): ``pi``, ``e``.
+        - **Free constant** (``"const"``): ``const_symbol``.
+        - **Variables** (``"var"``): ``X_0`` through ``X_{num_variables-1}``, reading the columns
+          of ``X`` in order.
 
         [Unit rules][SRToolkit.utils.units.UnitRule]: ``+``, ``-``, ``u-``, ``floor``, ``ceil``:
         ``SAME``; ``*``: ``MULTIPLY``; ``/``: ``DIVIDE``; ``^``: ``EXPONENT``; ``sqrt``:
         ``power(1/2)``; ``^-1``, ``^2`` ... ``^5``: ``power(-1)``, ``power(2)`` ... ``power(5)``;
-        all other functions: ``DIMENSIONLESS``. A postfix power that is not predefined (e.g. ``^6``)
-        is ``DIMENSIONLESS`` unless added with ``unit_rule=UnitRule.power(6)``.
-
-        Examples:
-            >>> library = SymbolLibrary.default_symbols()
-            >>> len(library)
-            54
+        all other functions: ``DIMENSIONLESS``.
 
         Args:
-            num_variables: Number of variable tokens to include. Default is ``25``.
-            const_symbol: Name of the free constant, as in
-                [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+            num_variables: Number of variables.
+            const_symbol: Token of the free constant; ``None`` for a library without one.
 
         Returns:
-            A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] populated with the symbols listed above.
+            A new library with the symbols listed above.
+
+        Examples:
+            >>> len(SymbolLibrary.default_symbols(num_variables=2))
+            31
         """
         sl = SymbolLibrary(const_symbol=None)
-        sl.add_symbol(
-            "+",
-            symbol_type="op",
-            precedence=OP_ADDITIVE,
-            np_fn="{} + {}",
-            latex_str=r"{} + {}",
-            cython_id=0,
-        )
-        sl.add_symbol(
-            "-",
-            symbol_type="op",
-            precedence=OP_ADDITIVE,
-            np_fn="{} - {}",
-            latex_str=r"{} - {}",
-            cython_id=1,
-        )
-        sl.add_symbol(
-            "*",
-            symbol_type="op",
-            precedence=OP_MULTIPLICATIVE,
-            np_fn="{} * {}",
-            latex_str=r"{} \cdot {}",
-            cython_id=2,
-        )
-        sl.add_symbol(
-            "/",
-            symbol_type="op",
-            precedence=OP_MULTIPLICATIVE,
-            np_fn="{} / {}",
-            latex_str=r"\frac{{{}}}{{{}}}",
-            cython_id=3,
-        )
-        sl.add_symbol(
-            "^",
-            symbol_type="op",
-            precedence=OP_POWER,
-            np_fn="np.power({},{})",
-            latex_str=r"{}^{{{}}}",
-            cython_id=4,
-        )
-        sl.add_symbol("u-", symbol_type="fn", precedence=FN_PREFIX, np_fn="-{}", latex_str=r"- {}", cython_id=25)
-        sl.add_symbol(
-            "sqrt",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.sqrt({})",
-            latex_str=r"\sqrt {{{}}}",
-            cython_id=14,
-        )
-        sl.add_symbol(
-            "sin",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.sin({})",
-            latex_str=r"\sin {}",
-            cython_id=10,
-        )
-        sl.add_symbol(
-            "cos",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.cos({})",
-            latex_str=r"\cos {}",
-            cython_id=11,
-        )
-        sl.add_symbol(
-            "exp",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.exp({})",
-            latex_str=r"e^{{{}}}",
-            cython_id=13,
-        )
-        sl.add_symbol(
-            "tan",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.tan({})",
-            latex_str=r"\tan {}",
-            cython_id=12,
-        )
-        sl.add_symbol(
-            "arcsin",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.arcsin({})",
-            latex_str=r"\arcsin {}",
-            cython_id=17,
-        )
-        sl.add_symbol(
-            "arccos",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.arccos({})",
-            latex_str=r"\arccos {}",
-            cython_id=18,
-        )
-        sl.add_symbol(
-            "arctan",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.arctan({})",
-            latex_str=r"\arctan {}",
-            cython_id=19,
-        )
-        sl.add_symbol(
-            "sinh",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.sinh({})",
-            latex_str=r"\sinh {}",
-            cython_id=20,
-        )
-        sl.add_symbol(
-            "cosh",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.cosh({})",
-            latex_str=r"\cosh {}",
-            cython_id=21,
-        )
-        sl.add_symbol(
-            "tanh",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.tanh({})",
-            latex_str=r"\tanh {}",
-            cython_id=22,
-        )
-        sl.add_symbol(
-            "floor",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.floor({})",
-            latex_str=r"\lfloor {} \rfloor",
-            cython_id=23,
-        )
-        sl.add_symbol(
-            "ceil",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.ceil({})",
-            latex_str=r"\lceil {} \rceil",
-            cython_id=24,
-        )
-        sl.add_symbol(
-            "ln",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.log({})",
-            latex_str=r"\ln {}",
-            cython_id=15,
-        )
-        sl.add_symbol(
-            "log",
-            symbol_type="fn",
-            precedence=FN_PREFIX,
-            np_fn="np.log10({})",
-            latex_str=r"\log_{{10}} {}",
-            cython_id=16,
-        )
-        sl.add_symbol(
-            "^-1",
-            symbol_type="fn",
-            precedence=FN_POSTFIX,
-            np_fn="1/{}",
-            latex_str=r"{}^{{-1}}",
-            cython_id=26,
-        )
-        sl.add_symbol("^2", symbol_type="fn", precedence=FN_POSTFIX, np_fn="{}**2", latex_str=r"{}^2", cython_id=27)
-        sl.add_symbol("^3", symbol_type="fn", precedence=FN_POSTFIX, np_fn="{}**3", latex_str=r"{}^3", cython_id=28)
-        sl.add_symbol("^4", symbol_type="fn", precedence=FN_POSTFIX, np_fn="{}**4", latex_str=r"{}^4", cython_id=29)
-        sl.add_symbol("^5", symbol_type="fn", precedence=FN_POSTFIX, np_fn="{}**5", latex_str=r"{}^5", cython_id=30)
-        sl.add_symbol(
-            "pi",
-            symbol_type="lit",
-            precedence=LEAF,
-            np_fn="np.pi",
-            latex_str=r"\pi",
-        )
-        sl.add_symbol(
-            "e",
-            symbol_type="lit",
-            precedence=LEAF,
-            np_fn="np.e",
-            latex_str=r"e",
-        )
+        sl.symbols = {s.token: s for s in _DEFAULT_SYMBOLS}
         if const_symbol is not None:
             sl._add_constant(const_symbol)
-
-        if num_variables > 0:
-            for i in range(num_variables):
-                sl.add_symbol(f"X_{i}", "var", LEAF, "X[:, {}]".format(i), "X_{{{}}}".format(i))
-
+        for i in range(num_variables):
+            sl.add_symbol(f"X_{i}", "var", LEAF, f"X[:, {i}]", f"X_{{{i}}}")
         return sl
 
     def __enter__(self) -> "SymbolLibrary":
@@ -838,66 +694,69 @@ class SymbolLibrary:
     def to_dict(self) -> dict:
         """Serialize the library to a JSON-safe dictionary.
 
-        Examples:
-            >>> library = SymbolLibrary.from_symbol_list(["+"], num_variables=1)
-            >>> d = library.to_dict()
-            >>> d["format_version"]
-            1
-            >>> d["num_variables"]
-            1
-
         Returns:
-            A dictionary suitable for passing to [from_dict][SRToolkit.utils.symbol_library.SymbolLibrary.from_dict].
-            Each ``"op"`` and ``"fn"`` symbol's entry holds its unit rule under ``"unit_rule"``,
-            as [UnitRule.to_dict][SRToolkit.utils.units.UnitRule.to_dict].
+            A dictionary for [from_dict][SRToolkit.utils.symbol_library.SymbolLibrary.from_dict]
+            with the keys ``format_version`` (``1``), ``type`` (``"SymbolLibrary"``), ``symbols``
+            (token → [Symbol.to_dict][SRToolkit.utils.symbol_library.Symbol.to_dict], in insertion
+            order), ``modules`` and ``num_variables``.
+
+        Examples:
+            >>> d = SymbolLibrary.from_symbol_list(["+"], num_variables=1).to_dict()
+            >>> d["symbols"]["+"]["unit_rule"]
+            {'kind': 'same'}
         """
         return {
             "format_version": 1,
             "type": "SymbolLibrary",
-            "symbols": self.symbols,
-            "preamble": self.preamble,
+            "symbols": {token: s.to_dict() for token, s in self.symbols.items()},
+            "modules": dict(self.modules),
             "num_variables": self.num_variables,
         }
 
     @staticmethod
     def from_dict(d: dict) -> "SymbolLibrary":
-        """Reconstruct a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] from a dictionary produced by [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
+        """Reconstruct a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] from its dictionary form.
 
-        An ``"op"`` or ``"fn"`` entry without ``"unit_rule"`` (saved before unit rules existed), or
-        with ``"unit_rule": None``, gets
-        the rule [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol] gives for
-        ``unit_rule=None``.
+        A missing ``format_version`` means ``1``. A dictionary saved before ``modules`` existed has
+        a ``"preamble"`` of import lines instead; it is read only if ``modules`` is missing or
+        ``None``, and may contain only ``import numpy as np``, which is dropped (NumPy is always
+        available).
 
         Args:
-            d: Dictionary representation of the library, as produced by
+            d: Dictionary with the keys of
                 [to_dict][SRToolkit.utils.symbol_library.SymbolLibrary.to_dict].
 
         Returns:
-            The reconstructed [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
+            The reconstructed library.
 
         Raises:
-            ValueError: If ``d["format_version"]`` is not ``1``, the library has more than one
-                ``"const"`` symbol, or a saved unit rule is invalid
-                (see [UnitRule.from_dict][SRToolkit.utils.units.UnitRule.from_dict]) or does not
-                accept its symbol's number of arguments, as in
-                [add_symbol][SRToolkit.utils.symbol_library.SymbolLibrary.add_symbol].
+            KeyError: If ``symbols`` or ``num_variables`` is missing.
+            ValueError: If ``format_version`` is not ``1``, the library has more than one
+                ``"const"`` symbol, a symbol is invalid (see
+                [Symbol.from_dict][SRToolkit.utils.symbol_library.Symbol.from_dict]), ``modules``
+                uses the alias ``"np"``, or a ``"preamble"`` line is not ``import numpy as np``.
+            ImportError: If a module in ``modules`` cannot be imported.
         """
         if d.get("format_version", 1) != 1:
             raise ValueError(
                 f"[SymbolLibrary.from_dict] Unsupported format_version: {d.get('format_version')!r}. Expected 1."
             )
-        sl = SymbolLibrary(const_symbol=None)
-        sl.symbols = {token: dict(entry) for token, entry in d["symbols"].items()}
-        consts = [token for token, entry in sl.symbols.items() if entry["type"] == "const"]
+        modules = d.get("modules")
+        if modules is None:
+            other = [line for line in d.get("preamble", []) if line.strip() != "import numpy as np"]
+            if other:
+                raise ValueError(
+                    f"[SymbolLibrary.from_dict] Cannot convert preamble lines {other} to modules; only "
+                    "'import numpy as np' is supported (other modules never worked with preamble)."
+                )
+            modules = {}
+        symbols = {token: Symbol.from_dict(entry) for token, entry in d["symbols"].items()}
+        consts = [token for token, s in symbols.items() if s.type == "const"]
         if len(consts) > 1:
             raise ValueError(f"[SymbolLibrary.from_dict] At most one free constant is allowed, got {consts}.")
-        for token, entry in sl.symbols.items():
-            if entry["type"] not in ("op", "fn"):
-                continue
-            saved = entry.get("unit_rule")
-            rule = _resolve_unit_rule(token, entry["type"], UnitRule.from_dict(saved) if saved is not None else None)
-            entry["unit_rule"] = rule.to_dict()
-        sl.preamble = d["preamble"]
+        sl = SymbolLibrary(modules=modules, const_symbol=None)
+        sl.symbols = symbols
+        sl._constant_symbol = consts[0] if consts else None
         sl.num_variables = d["num_variables"]
         return sl
 
@@ -935,26 +794,24 @@ class SymbolLibrary:
         return ", ".join(self.symbols.keys())
 
     def __copy__(self) -> "SymbolLibrary":
-        r"""Return a copy of the library with independent copies of all attributes.
-
-        Examples:
-            >>> old_symbols = SymbolLibrary(const_symbol=None)
-            >>> old_symbols.add_symbol("x", "var", 0, "x", "x")
-            >>> print(old_symbols)
-            x
-            >>> new_symbols = copy.copy(old_symbols)
-            >>> new_symbols.add_symbol("sin", "fn", 5, "np.sin({})", r"\sin {}")
-            >>> print(old_symbols)
-            x
-            >>> print(new_symbols)
-            x, sin
+        """Return a copy of the library that can be changed independently of the original.
 
         Returns:
-            A new [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] instance with deep-copied symbols and preamble.
+            A new [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] with its own
+            ``symbols`` and ``modules`` (the [Symbol][SRToolkit.utils.symbol_library.Symbol]
+            records are immutable and shared).
+
+        Examples:
+            >>> import copy
+            >>> library = SymbolLibrary(["+"], num_variables=1)
+            >>> new = copy.copy(library)
+            >>> new.add_symbol("sin", "fn", FN_PREFIX, "np.sin({})")
+            >>> str(library), str(new)
+            ('+, C, X_0', '+, C, X_0, sin')
         """
-        sl = SymbolLibrary(const_symbol=None)
-        sl.symbols = copy.deepcopy(self.symbols)
-        sl.preamble = copy.deepcopy(self.preamble)
+        sl = SymbolLibrary(modules=self.modules, const_symbol=None)
+        sl.symbols = dict(self.symbols)
+        sl._constant_symbol = self._constant_symbol
         sl.num_variables = self.num_variables
         return sl
 

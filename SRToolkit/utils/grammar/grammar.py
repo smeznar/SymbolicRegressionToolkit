@@ -426,7 +426,7 @@ class Grammar:
         unknown = set()
         for rule in self._rules:
             for token in rule.rhs:
-                if token in self.nonterminals or token in ("(", ")") or symbol_library.get_type(token) != "":
+                if token in self.nonterminals or token in ("(", ")") or symbol_library.get(token) is not None:
                     continue
                 try:
                     if not math.isnan(float(token)):
@@ -738,15 +738,15 @@ class Grammar:
         # Group operators by precedence level
         op_groups: dict[int, list[str]] = {}
         for s in symbols:
-            if s["type"] == OP:
-                op_groups.setdefault(s["precedence"], []).append(s["symbol"])
+            if s.type == OP:
+                op_groups.setdefault(s.precedence, []).append(s.token)
         sorted_precs = sorted(op_groups)
 
-        R_fns = [s["symbol"] for s in symbols if s["type"] == FN and s["precedence"] == FN_PREFIX]
-        P_fns = [s["symbol"] for s in symbols if s["type"] == FN and s["precedence"] == FN_POSTFIX]
-        variables = [s["symbol"] for s in symbols if s["type"] == VAR]
-        consts = [s["symbol"] for s in symbols if s["type"] == CONST]  # at most one
-        lits = [s["symbol"] for s in symbols if s["type"] == LIT]
+        R_fns = [s.token for s in symbols if s.type == FN and s.precedence == FN_PREFIX]
+        P_fns = [s.token for s in symbols if s.type == FN and s.precedence == FN_POSTFIX]
+        variables = [s.token for s in symbols if s.type == VAR]
+        consts = [s.token for s in symbols if s.type == CONST]  # at most one
+        lits = [s.token for s in symbols if s.type == LIT]
 
         if not variables and not consts and not lits:
             raise ValueError(

@@ -35,7 +35,7 @@ Postfix power tokens (`^2`, `^3`, `^4`, `^5`, `^-1`) are written after their ope
 A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] defines which tokens are valid in an expression and how they compile to NumPy. Most use cases are covered by the two factory methods:
 
 ```python
-from SRToolkit.utils import SymbolLibrary
+from SRToolkit.utils import FN_PREFIX, SymbolLibrary
 
 # Full default set (all operators, functions, C, pi, e) with 2 variables
 sl = SymbolLibrary.default_symbols(num_variables=2)
@@ -47,11 +47,11 @@ sl = SymbolLibrary.from_symbol_list(
 )
 ```
 
-Custom symbols can be added for non-standard backends:
+Custom symbols can use modules besides NumPy (always available as `np`), listed as alias → module path:
 
 ```python
-sl = SymbolLibrary(preamble=["import numpy as np", "import scipy.special as sp"])
-sl.add_symbol("erf", "fn", precedence=5, np_fn="sp.erf({})", latex_str=r"\mathrm{erf}\,{}")
+sl = SymbolLibrary(["+", "*"], num_variables=1, modules={"sp": "scipy.special"})
+sl.add_symbol("erf", "fn", precedence=FN_PREFIX, python_str="sp.erf({})", latex_str=r"\mathrm{erf}\,{}")
 ```
 
 ## Symbol library context

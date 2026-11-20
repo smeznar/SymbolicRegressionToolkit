@@ -304,7 +304,7 @@ class EDHiE(SR_approach):
             )
             for expr in batch:
                 # The HVAE's vocabulary has only the library's symbols, so labelled constants become bare.
-                expr = [constant if symbol_library.get_type(t) == "const" else t for t in expr]
+                expr = [constant if (s := symbol_library.get(t)) is not None and s.type == "const" else t for t in expr]
                 if any(r.implemented and not r.passed for r in (c.pre_check(expr) for c in required_constraints)):
                     rejected += 1
                     if rejected >= self.max_consecutive_skips:
@@ -825,7 +825,7 @@ class Decoder(nn.Module):
         self.index2symbol = {i: s for s, i in self.symbol2index.items()}
         leaf_symbols_mask = torch.zeros(len(self.symbol2index))
         for s, i in self.symbol2index.items():
-            if self.symbol_library.get_type(s) in ["var", "const", "lit"]:
+            if self.symbol_library[s].type in ["var", "const", "lit"]:
                 leaf_symbols_mask[i] = 1
         self.register_buffer("leaf_symbols_mask", leaf_symbols_mask)
 
@@ -943,9 +943,10 @@ class Decoder(nn.Module):
             if mask[i]:
                 symbol = self.index2symbol[int(torch.argmax(prediction[i, :]))]
                 symbols.append(symbol)
-                if self.symbol_library.get_type(symbol) == "fn":
+                kind = self.symbol_library[symbol].type
+                if kind == "fn":
                     right_mask[i] = False
-                if self.symbol_library.get_type(symbol) in ["var", "const", "lit"]:
+                if kind in ["var", "const", "lit"]:
                     left_mask[i] = False
                     right_mask[i] = False
             else:

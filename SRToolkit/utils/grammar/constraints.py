@@ -783,10 +783,11 @@ class DimensionalConsistency(GrammarConstraint[Any, None]):
             return None
         if len(terminals) == 1:
             token = terminals[0]
-            kind = self.symbol_library.get_type(token)
+            symbol = self.symbol_library.get(token)
+            kind = None if symbol is None else symbol.type
             if n == 0 and (kind in (VAR, LIT, CONST) or is_float(token)):
                 return _leaf_unit(token, self.variable_units, self.named_constant_units)
-            unit_rule = self.symbol_library.get_unit_rule(token)
+            unit_rule = None if symbol is None else symbol.unit_rule
             if unit_rule is not None and n in unit_rule.arities:
                 return unit_rule
         raise ValueError(

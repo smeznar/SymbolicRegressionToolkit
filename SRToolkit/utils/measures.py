@@ -581,7 +581,7 @@ def _sample_points(
         columns = [
             _variable_column(token, symbol_library)
             for token in tree.to_list(symbol_library=symbol_library, notation="postfix")
-            if symbol_library.get_type(token) == "var"
+            if (s := symbol_library.get(token)) is not None and s.type == "var"
         ]
         if columns and max(columns) >= len(domain_bounds):
             raise ValueError(

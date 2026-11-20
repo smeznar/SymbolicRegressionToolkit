@@ -27,7 +27,7 @@ if __name__ == "__main__":
         ["+", "-", "*", "/", "sin", "cos", "exp", "sqrt", "^2", "C"],
         num_variables=3,
     )
-    print("Default library variables:", [s for s in ["X_0", "X_1"] if sl.get_type(s) == "var"])
+    print("Default library variables:", [s for s in ["X_0", "X_1"] if sl[s].type == "var"])
 
     # Passing `sl` to every call is verbose. A context manager sets it for the duration of the block, so the
     # functions below need no explicit `sl` argument.

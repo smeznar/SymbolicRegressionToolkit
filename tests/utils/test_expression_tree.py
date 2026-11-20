@@ -219,6 +219,11 @@ class TestNodeToList:
         node = Node("+", right=Node("X_0"), left=Node("X_1"))
         assert node.to_list(notation="postfix") == ["X_1", "X_0", "+"]
 
+    def test_infix_numeric_leaf_regression(self):
+        # Regression: a leaf holding a number (not a string) crashed the symbol lookup.
+        node = Node("+", left=Node(2.0), right=Node("X_0"))
+        assert node.to_list(self.sl) == [2.0, "+", "X_0"]
+
     def test_invalid_notation_raises(self):
         with pytest.raises(Exception, match="Invalid notation"):
             Node("X_0").to_list(notation="rpn")

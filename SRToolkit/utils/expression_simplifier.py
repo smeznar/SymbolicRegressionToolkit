@@ -56,11 +56,20 @@ def simplify(
 
     # A shared label is kept as its own symbol and never folded, like a variable. Every other
     # constant gets a symbol of its own and folds freely.
-    labels = [t for t in expr if symbol_library.get_type(t) == "const" and t not in symbol_library.symbols]
+    labels = [
+        t
+        for t in expr
+        if (s := symbol_library.get(t)) is not None and s.type == "const" and t not in symbol_library.symbols
+    ]
     shared = {t for t in labels if labels.count(t) > 1}
     variables += [Symbol(t) for t in shared]
     counter = itertools.count()
-    tokens = [f"_{next(counter)}_" if symbol_library.get_type(t) == "const" and t not in shared else t for t in expr]
+    tokens = [
+        f"_{next(counter)}_"
+        if (s := symbol_library.get(t)) is not None and s.type == "const" and t not in shared
+        else t
+        for t in expr
+    ]
 
     eq = _simplify_constants(sympify("".join(tokens)), c, variables)[2][0][1]
     eq = _simplify_constants(expand(_enumerate_constants(eq, c)), c, variables)[2][0][1]
@@ -86,7 +95,7 @@ def _check_tree(expr: Node, symbol_library: SymbolLibrary) -> bool:
     Returns:
         ``True`` if all nodes are valid, ``False`` if any token is absent and non-numeric.
     """
-    if symbol_library.get_type(expr.symbol) == "" and not is_float(expr.symbol):
+    if symbol_library.get(expr.symbol) is None and not is_float(expr.symbol):
         return False
     if isinstance(expr.left, Node) and not _check_tree(expr.left, symbol_library):
         return False

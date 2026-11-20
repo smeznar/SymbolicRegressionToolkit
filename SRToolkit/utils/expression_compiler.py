@@ -37,7 +37,7 @@ single vectorised NumPy function with less per-instruction dispatch overhead.
 import importlib.util as _ilu
 import pathlib as _pl
 import warnings
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -79,9 +79,9 @@ def _variable_column(token: str, symbol_library: SymbolLibrary) -> int:
     """Return the column of ``X`` that a variable symbol reads.
 
     Returns:
-        The index ``k`` from the variable's ``np_fn``, which has the form ``"X[:, k]"``.
+        The index ``k`` from the variable's ``python_str``, which has the form ``"X[:, k]"``.
     """
-    return int(symbol_library.get_np_fn(token).split(", ")[1].rstrip("]"))
+    return int(symbol_library[token].python_str.split(", ")[1].rstrip("]"))
 
 
 def _check_X(X: np.ndarray, num_columns: int) -> np.ndarray:
@@ -148,8 +148,7 @@ def _expr_to_executable_function(
     """Compile an expression into an executable Python function.
 
     The returned callable evaluates the expression over a batch of inputs and a vector
-    of constant values. To use a backend other than NumPy, set
-    ``symbol_library.preamble`` to the required import statements.
+    of constant values.
 
     Examples:
         >>> executable_fun = _expr_to_executable_function(["X_0", "+", "1"])
@@ -165,18 +164,17 @@ def _expr_to_executable_function(
         >>> executable_fun = _expr_to_executable_function(tree)
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
         array([2, 3, 4, 5])
-        >>> # In case you need libraries other than numpy for the evaluation of your expressions,
-        >>> # you can add them to the preamble in the SymbolLibrary. Here is how a preamble would look like:
-        >>> symbol_library = SymbolLibrary.default_symbols(1)
-        >>> symbol_library.preamble = ["import numpy as np"]
-        >>> # Usually this is done when initializing the SymbolLibrary as SymbolLibrary(preamble=preamble)
-        >>> executable_fun = _expr_to_executable_function(tree, symbol_library)
-        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
-        array([2, 3, 4, 5])
+        >>> # Custom symbols can use modules other than numpy, listed in the library's ``modules``.
+        >>> from SRToolkit.utils import FN_PREFIX
+        >>> symbol_library = SymbolLibrary(["+"], 1, modules={"m": "math"})
+        >>> symbol_library.add_symbol("lgamma", "fn", FN_PREFIX, "np.vectorize(m.lgamma)({})")
+        >>> executable_fun = _expr_to_executable_function(["lgamma", "(", "X_0", ")"], symbol_library)
+        >>> executable_fun(np.array([[1.0], [3.0]]), np.array([]))
+        array([0.        , 0.69314718])
 
     Args:
         expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Defines token semantics (NumPy function strings, preamble imports).
+        symbol_library: Defines token semantics (NumPy function strings, modules).
             Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
@@ -192,7 +190,7 @@ def _expr_to_executable_function(
     code, symbol, _ = _tree_to_function_rec(tree, symbol_library, iter(slots))
     num_constants = len(set(slots))
 
-    fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C):\n"
+    fun_string = "def _executable_expression_(X, C):\n"
     if num_constants > 0:
         fun_string += f"\t_check_num_constants(C, {num_constants})\n"
     for c in code:
@@ -201,7 +199,8 @@ def _expr_to_executable_function(
     fun_string += f"\t_out_ = {symbol}\n\treturn _out_ if np.ndim(_out_) else np.full(X.shape[0], _out_)"
 
     fun_assignment_dict: Dict[str, Callable] = {}
-    exec(fun_string, {"np": np, "_check_num_constants": _check_num_constants}, fun_assignment_dict)
+    namespace = {**symbol_library.module_namespace(), "_check_num_constants": _check_num_constants}
+    exec(fun_string, namespace, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
 
@@ -211,9 +210,6 @@ def _expr_to_error_function(
 ) -> Callable[[np.ndarray, Optional[np.ndarray], np.ndarray], float]:
     """Compile an expression into a callable that computes the RMSE against target values.
 
-    To use a backend other than NumPy, set ``symbol_library.preamble`` to the required
-    import statements.
-
     Examples:
         >>> executable_fun = _expr_to_error_function(["X_0", "+", "1"])
         >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
@@ -222,18 +218,10 @@ def _expr_to_error_function(
         >>> executable_fun = _expr_to_error_function(tree)
         >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
         0.0
-        >>> # In case you need libraries other than numpy for the evaluation of your expressions,
-        >>> # you can add them to the preamble in the SymbolLibrary. Here is how a preamble would look like:
-        >>> symbol_library = SymbolLibrary.default_symbols(1)
-        >>> symbol_library.preamble = ["import numpy as np"]
-        >>> # Usually this is done when initializing the SymbolLibrary as SymbolLibrary(preamble=preamble)
-        >>> executable_fun = _expr_to_error_function(tree, symbol_library)
-        >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
-        0.0
 
     Args:
         expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Defines token semantics (NumPy function strings, preamble imports).
+        symbol_library: Defines token semantics (NumPy function strings, modules).
             Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
     Returns:
@@ -249,7 +237,7 @@ def _expr_to_error_function(
     code, symbol, _ = _tree_to_function_rec(tree, symbol_library, iter(slots))
     num_constants = len(set(slots))
 
-    fun_string = "\n".join(symbol_library.preamble) + "\ndef _executable_expression_(X, C, y):\n"
+    fun_string = "def _executable_expression_(X, C, y):\n"
     if num_constants > 0:
         fun_string += f"\t_check_num_constants(C, {num_constants})\n"
     for c in code:
@@ -257,7 +245,8 @@ def _expr_to_error_function(
     fun_string += f"\treturn np.sqrt(np.mean(({symbol}-y)**2))"
 
     fun_assignment_dict: Dict[str, Callable] = {}
-    exec(fun_string, {"np": np, "_check_num_constants": _check_num_constants}, fun_assignment_dict)
+    namespace = {**symbol_library.module_namespace(), "_check_num_constants": _check_num_constants}
+    exec(fun_string, namespace, fun_assignment_dict)
     return fun_assignment_dict["_executable_expression_"]
 
 
@@ -289,14 +278,15 @@ def _tree_to_function_rec(
             a numeric literal.
     """
     if tree.left is None and tree.right is None:
-        if symbol_library.get_type(tree.symbol) == "var":
-            return [], symbol_library.get_np_fn(tree.symbol), var_counter
-        elif symbol_library.get_type(tree.symbol) == "lit":
+        leaf = symbol_library.get(tree.symbol)
+        if leaf is not None and leaf.type == "var":
+            return [], leaf.python_str, var_counter
+        elif leaf is not None and leaf.type == "lit":
             output_symbol = "y_{}".format(var_counter)
-            code = [f"{output_symbol} = np.full(X.shape[0], {symbol_library.get_np_fn(tree.symbol)})"]
+            code = [f"{output_symbol} = np.full(X.shape[0], {leaf.python_str})"]
             return code, output_symbol, var_counter + 1
-        elif symbol_library.get_type(tree.symbol) == "const":
-            return [], symbol_library.get_np_fn(tree.symbol).format(next(const_slots)), var_counter
+        elif leaf is not None and leaf.type == "const":
+            return [], leaf.python_str.format(next(const_slots)), var_counter
         else:
             if is_float(tree.symbol):
                 return [], f"({tree.symbol})", var_counter
@@ -306,7 +296,7 @@ def _tree_to_function_rec(
     elif tree.left is not None and tree.right is None:
         code, symbol, var_counter = _tree_to_function_rec(tree.left, symbol_library, const_slots, var_counter)
         output_symbol = "y_{}".format(var_counter)
-        code.append(f"{output_symbol} = " + symbol_library.get_np_fn(tree.symbol).format(symbol))
+        code.append(f"{output_symbol} = " + symbol_library[tree.symbol].python_str.format(symbol))
         return code, output_symbol, var_counter + 1
 
     else:
@@ -318,26 +308,28 @@ def _tree_to_function_rec(
         )
         output_symbol = "y_{}".format(var_counter)
         code = left_code + right_code
-        code.append(f"{output_symbol} = " + symbol_library.get_np_fn(tree.symbol).format(left_symbol, right_symbol))
+        code.append(f"{output_symbol} = " + symbol_library[tree.symbol].python_str.format(left_symbol, right_symbol))
         return code, output_symbol, var_counter + 1
 
 
 # ── Stack evaluator backend ──────────────────────────────────────────────
 
 
-def _compile_fallback_unary(np_fn: str, preamble: List[str]) -> Callable:
-    """Build a Python callable ``f(x) → np.ndarray`` from a unary np_fn string."""
-    src = "\n".join(preamble) + f"\ndef _fn_(_x_):\n    return {np_fn.format('_x_')}\n"
+def _compile_fallback_unary(python_str: str, namespace: Dict[str, Any]) -> Callable:
+    """Build a Python callable ``f(x) → np.ndarray`` from a unary python_str string, whose names are
+    looked up in ``namespace`` (see [SymbolLibrary.module_namespace][SRToolkit.utils.symbol_library.SymbolLibrary.module_namespace]).
+    """
     ns: Dict[str, Callable] = {}
-    exec(src, {"np": np}, ns)
+    exec(f"def _fn_(_x_):\n    return {python_str.format('_x_')}\n", dict(namespace), ns)
     return ns["_fn_"]
 
 
-def _compile_fallback_binary(np_fn: str, preamble: List[str]) -> Callable:
-    """Build a Python callable ``f(a, b) → np.ndarray`` from a binary np_fn string."""
-    src = "\n".join(preamble) + f"\ndef _fn_(_a_, _b_):\n    return {np_fn.format('_a_', '_b_')}\n"
+def _compile_fallback_binary(python_str: str, namespace: Dict[str, Any]) -> Callable:
+    """Build a Python callable ``f(a, b) → np.ndarray`` from a binary python_str string, whose names
+    are looked up in ``namespace``, as in ``_compile_fallback_unary``.
+    """
     ns: Dict[str, Callable] = {}
-    exec(src, {"np": np}, ns)
+    exec(f"def _fn_(_a_, _b_):\n    return {python_str.format('_a_', '_b_')}\n", dict(namespace), ns)
     return ns["_fn_"]
 
 
@@ -350,7 +342,8 @@ def _collect_maximal_const_free(node: Node, symbol_library: SymbolLibrary) -> Tu
     """
     if is_float(node.symbol):
         return False, []
-    if symbol_library.get_type(node.symbol) == "const":
+    symbol = symbol_library.get(node.symbol)
+    if symbol is not None and symbol.type == "const":
         return True, []
 
     left_has_const, left_maximal = (
@@ -395,7 +388,8 @@ def _build_partial_instructions(
         return
 
     sym = node.symbol
-    stype = symbol_library.get_type(sym) if not is_float(sym) else None
+    symbol = symbol_library.get(sym)
+    stype = None if symbol is None else symbol.type
 
     if stype == "const":
         token_ids_list.append(_eval.CONST)
@@ -418,16 +412,16 @@ def _build_partial_instructions(
             python_ops_list,
             const_slots,
         )
-        cython_id = symbol_library.get_cython_id(sym)
+        assert symbol is not None
         arities_list.append(1)
         extra_int_list.append(0)
         float_vals_list.append(0.0)
-        if cython_id >= 0:
-            token_ids_list.append(cython_id)
+        if symbol.cython_id >= 0:
+            token_ids_list.append(symbol.cython_id)
             python_ops_list.append(None)
         else:
             token_ids_list.append(_eval.PYTHON)
-            python_ops_list.append(_compile_fallback_unary(symbol_library.get_np_fn(sym), symbol_library.preamble))
+            python_ops_list.append(_compile_fallback_unary(symbol.python_str, symbol_library.module_namespace()))
 
     elif stype == "op":  # binary: left, right, then emit op
         assert node.left is not None and node.right is not None
@@ -455,16 +449,16 @@ def _build_partial_instructions(
             python_ops_list,
             const_slots,
         )
-        cython_id = symbol_library.get_cython_id(sym)
+        assert symbol is not None
         arities_list.append(2)
         extra_int_list.append(0)
         float_vals_list.append(0.0)
-        if cython_id >= 0:
-            token_ids_list.append(cython_id)
+        if symbol.cython_id >= 0:
+            token_ids_list.append(symbol.cython_id)
             python_ops_list.append(None)
         else:
             token_ids_list.append(_eval.PYTHON)
-            python_ops_list.append(_compile_fallback_binary(symbol_library.get_np_fn(sym), symbol_library.preamble))
+            python_ops_list.append(_compile_fallback_binary(symbol.python_str, symbol_library.module_namespace()))
 
     else:
         raise ValueError(
@@ -575,9 +569,11 @@ def _prepare_cython_traversal(
 
     const_slots = iter(_constant_indices(postfix, symbol_library))
 
+    namespace = symbol_library.module_namespace()
     for i, token in enumerate(postfix):
-        stype = symbol_library.get_type(token)
-        cython_id = symbol_library.get_cython_id(token)
+        symbol = symbol_library.get(token)
+        stype = None if symbol is None else symbol.type
+        cython_id = -1 if symbol is None else symbol.cython_id
 
         if stype == "var":
             token_ids[i] = _eval.VAR
@@ -589,7 +585,7 @@ def _prepare_cython_traversal(
 
         elif stype == "lit":
             token_ids[i] = _eval.FLOAT
-            float_vals[i] = eval(symbol_library.get_np_fn(token), {"np": np})
+            float_vals[i] = eval(symbol_library[token].python_str, dict(namespace))
 
         elif is_float(token):
             token_ids[i] = _eval.FLOAT
@@ -601,7 +597,7 @@ def _prepare_cython_traversal(
                 token_ids[i] = cython_id
             else:
                 token_ids[i] = _eval.PYTHON
-                python_ops[i] = _compile_fallback_unary(symbol_library.get_np_fn(token), symbol_library.preamble)
+                python_ops[i] = _compile_fallback_unary(symbol_library[token].python_str, namespace)
 
         elif stype == "op":
             arities[i] = 2
@@ -609,7 +605,7 @@ def _prepare_cython_traversal(
                 token_ids[i] = cython_id
             else:
                 token_ids[i] = _eval.PYTHON
-                python_ops[i] = _compile_fallback_binary(symbol_library.get_np_fn(token), symbol_library.preamble)
+                python_ops[i] = _compile_fallback_binary(symbol_library[token].python_str, namespace)
 
         else:
             raise ValueError(
@@ -628,7 +624,7 @@ def _expr_to_cython_callable(
     All operations present in the default symbol library are dispatched as tight
     C loops with no Python overhead and no intermediate array allocation.
     User-defined symbols without a Cython ID fall back to Python callables
-    compiled from their ``np_fn`` string at this call site (one-time cost).
+    compiled from their ``python_str`` string at this call site (one-time cost).
 
     When the compiled Cython extension is not available this function
     transparently uses the pure-Python fallback evaluator instead.

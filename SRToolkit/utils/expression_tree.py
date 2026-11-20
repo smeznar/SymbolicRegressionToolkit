@@ -143,31 +143,24 @@ class Node:
             assert symbol_library is not None, "[Node.to_list] parameter symbol_library should be of type SymbolLibrary"
             if is_float(self.symbol):
                 return [self.symbol]
-            if symbol_library.get_type(self.symbol) in ["var", "const", "lit"]:
+            symbol = symbol_library.get(self.symbol)
+            if symbol is None:
+                raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+            if symbol.type in ["var", "const", "lit"]:
                 return [self.symbol]
-            elif symbol_library.get_type(self.symbol) == "fn":
-                if symbol_library.get_precedence(self.symbol) > 0:
+            elif symbol.type == "fn":
+                if symbol.precedence > 0:
                     return [self.symbol, "("] + left + [")"]
                 else:
                     if len(left) > 1:
                         left = ["("] + left + [")"]
                     return left + [self.symbol]
-            elif symbol_library.get_type(self.symbol) == "op":
-                if (
-                    self.left is not None
-                    and not is_float(self.left.symbol)
-                    and -1
-                    < symbol_library.get_precedence(self.left.symbol)
-                    <= symbol_library.get_precedence(self.symbol)
-                ):
+            elif symbol.type == "op":
+                left_child = None if self.left is None else symbol_library.get(self.left.symbol)
+                if left_child is not None and -1 < left_child.precedence <= symbol.precedence:
                     left = ["("] + left + [")"]
-                if (
-                    self.right is not None
-                    and not is_float(self.right.symbol)
-                    and -1
-                    < symbol_library.get_precedence(self.right.symbol)
-                    <= symbol_library.get_precedence(self.symbol)
-                ):
+                right_child = None if self.right is None else symbol_library.get(self.right.symbol)
+                if right_child is not None and -1 < right_child.precedence <= symbol.precedence:
                     right = ["("] + right + [")"]
                 return left + [self.symbol] + right
             else:
@@ -219,23 +212,26 @@ class Node:
 
         if is_float(self.symbol):
             return str(self.symbol)
-        elif symbol_library.get_type(self.symbol) == "const":
+        symbol = symbol_library.get(self.symbol)
+        if symbol is None:
+            raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+        if symbol.type == "const":
             # A labelled constant shows its label's number, a bare one the next unused number.
             labelled = self.symbol not in symbol_library.symbols
             number = self.symbol.rpartition("_")[2] if labelled else next(bare_numbers)
-            return symbol_library.get_latex_str(self.symbol).format(number)
-        elif symbol_library.get_type(self.symbol) in ["var", "lit"]:
-            return symbol_library.get_latex_str(self.symbol)
-        elif symbol_library.get_type(self.symbol) == "fn":
-            template = symbol_library.get_latex_str(self.symbol)
+            return symbol.latex_str.format(number)
+        elif symbol.type in ["var", "lit"]:
+            return symbol.latex_str
+        elif symbol.type == "fn":
+            template = symbol.latex_str
             grouped, _ = (_latex_placeholders(template) or ((False, False),))[0]
             if self.left is not None and not grouped and not _is_latex_atom(self.left, symbol_library):
                 left = f"({left})"
             return template.format(left)
-        elif symbol_library.get_type(self.symbol) == "op":
-            template = symbol_library.get_latex_str(self.symbol)
+        elif symbol.type == "op":
+            template = symbol.latex_str
             placeholders = _latex_placeholders(template) + ((False, False),) * 2
-            precedence = symbol_library.get_precedence(self.symbol)
+            precedence = symbol.precedence
             if self.left is not None and self._latex_needs_brackets(
                 self.left, placeholders[0], precedence, False, symbol_library
             ):
@@ -265,9 +261,10 @@ class Node:
             return not _is_latex_atom(child, symbol_library)
         if is_float(child.symbol):
             return is_right and str(child.symbol).startswith("-")
-        if symbol_library.get_type(child.symbol) != "op":
+        child_symbol = symbol_library.get(child.symbol)
+        if child_symbol is None or child_symbol.type != "op":
             return False
-        child_precedence = symbol_library.get_precedence(child.symbol)
+        child_precedence = child_symbol.precedence
         # Operators are left-associative, so an operand of equal precedence on the right was
         # grouped explicitly: a - (b + c).
         return child_precedence < precedence or (is_right and child_precedence == precedence)
@@ -366,7 +363,8 @@ def _latex_placeholders(template: str) -> Tuple[Tuple[bool, bool], ...]:
 def _is_latex_atom(node: Node, symbol_library: SymbolLibrary) -> bool:
     if is_float(node.symbol):
         return not str(node.symbol).startswith("-")
-    return symbol_library.get_type(node.symbol) in ["var", "const", "lit"]
+    symbol = symbol_library.get(node.symbol)
+    return symbol is not None and symbol.type in ["var", "const", "lit"]
 
 
 def is_float(element: Any) -> bool:
@@ -477,7 +475,8 @@ def _constant_indices(tokens: List[str], symbol_library: SymbolLibrary) -> List[
     indices: List[int] = []
     num_parameters = 0
     for token in tokens:
-        if symbol_library.get_type(token) != "const":
+        symbol = symbol_library.get(token)
+        if symbol is None or symbol.type != "const":
             continue
         if token in symbol_library.symbols:
             indices.append(num_parameters)
@@ -523,7 +522,7 @@ def parameter_labels(
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     tokens = _as_tokens(expr, symbol_library)
-    constants = [token for token in tokens if symbol_library.get_type(token) == "const"]
+    constants = [token for token in tokens if (s := symbol_library.get(token)) is not None and s.type == "const"]
     indices = _constant_indices(tokens, symbol_library)
     labels: List[Optional[str]] = [None] * len(set(indices))
     for token, index in zip(constants, indices):
@@ -635,7 +634,7 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
     def reduce() -> None:
         # The state checks below guarantee that the operands are on the stack.
         symbol = operator_stack.pop()
-        if sl.get_type(symbol) == "fn":
+        if sl[symbol].type == "fn":
             out_stack.append(Node(symbol, left=out_stack.pop()))
         else:
             right = out_stack.pop()
@@ -651,7 +650,8 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
         expect_operand = False
 
     for token in tokens:
-        token_type = sl.get_type(token)
+        symbol = sl.get(token)
+        token_type = None if symbol is None else symbol.type
         if token == "(":
             if not expect_operand:
                 raise error("'(' cannot follow an operand")
@@ -664,7 +664,7 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
             if len(operator_stack) == 0:
                 raise error("unmatched ')'")
             operator_stack.pop()
-            if len(operator_stack) > 0 and sl.get_type(operator_stack[-1]) == "fn":
+            if len(operator_stack) > 0 and operator_stack[-1] != "(" and sl[operator_stack[-1]].type == "fn":
                 reduce()
         elif token_type in ["var", "const", "lit"]:
             push_operand(token)
@@ -672,7 +672,7 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
             if math.isnan(float(token)):
                 raise error(f"'{token}' is not a number")
             push_operand(token)
-        elif token_type == "fn" and sl.get_precedence(token) <= 0:
+        elif symbol is not None and symbol.type == "fn" and symbol.precedence <= 0:
             if expect_operand:
                 raise error(f"function '{token}' is missing an operand")
             out_stack.append(Node(token, left=out_stack.pop()))
@@ -680,7 +680,7 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
             if not expect_operand:
                 raise error(f"function '{token}' cannot follow an operand")
             operator_stack.append(token)
-        elif token_type == "op":
+        elif symbol is not None and symbol.type == "op":
             if expect_operand:
                 raise error(f"operator '{token}' is missing an operand")
             # A prefix function on the stack has its operand complete, and binds more tightly than
@@ -688,10 +688,7 @@ def _infix_to_tree(tokens: List[str], sl: SymbolLibrary) -> Node:
             while (
                 len(operator_stack) > 0
                 and operator_stack[-1] != "("
-                and (
-                    sl.get_type(operator_stack[-1]) == "fn"
-                    or sl.get_precedence(operator_stack[-1]) >= sl.get_precedence(token)
-                )
+                and (sl[operator_stack[-1]].type == "fn" or sl[operator_stack[-1]].precedence >= symbol.precedence)
             ):
                 reduce()
             operator_stack.append(token)
@@ -743,19 +740,21 @@ def _prefix_postfix_to_tree(tokens: List[str], sl: SymbolLibrary, notation: str)
     expr_str = "".join(tokens)
     out_stack: List[Node] = []
     for token in reversed(tokens) if notation == "prefix" else tokens:
-        if sl.get_type(token) in ["var", "const", "lit"]:
+        symbol = sl.get(token)
+        token_type = None if symbol is None else symbol.type
+        if token_type in ["var", "const", "lit"]:
             out_stack.append(Node(token))
         elif is_float(token):
             if math.isnan(float(token)):
                 raise ExpressionParseError(f"Error while parsing expression {expr_str}: '{token}' is not a number.")
             out_stack.append(Node(token))
-        elif sl.get_type(token) == "fn":
+        elif token_type == "fn":
             if len(out_stack) < 1:
                 raise ExpressionParseError(
                     f"Error while parsing expression {expr_str}: function '{token}' is missing an operand."
                 )
             out_stack.append(Node(token, left=out_stack.pop()))
-        elif sl.get_type(token) == "op":
+        elif token_type == "op":
             if len(out_stack) < 2:
                 raise ExpressionParseError(
                     f"Error while parsing expression {expr_str}: operator '{token}' is missing an operand."

@@ -43,7 +43,7 @@ def _save_arrays_to_cache(
 
 def _count_variables(symbol_library: SymbolLibrary) -> int:
     """Number of variable-type symbols in ``symbol_library``, or ``-1`` if there are none."""
-    num_vars = sum(1 for sym in symbol_library.symbols.values() if sym.get("type") == "var")
+    num_vars = sum(1 for sym in symbol_library.symbols.values() if sym.type == "var")
     return num_vars if num_vars > 0 else -1
 
 

@@ -76,7 +76,7 @@ from .measures import (
     rmse,
     tree_edit_distance,
 )
-from .symbol_library import SymbolLibrary
+from .symbol_library import Symbol, SymbolLibrary
 from .types import (
     CONST,
     FN,
@@ -126,6 +126,7 @@ __all__ = [
     "Unit",
     "UnitRule",
     "CheckResult",
+    "Symbol",
     "SymbolLibrary",
     "Node",
     "tokens_to_tree",

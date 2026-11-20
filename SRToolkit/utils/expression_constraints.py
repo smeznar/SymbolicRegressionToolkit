@@ -974,7 +974,11 @@ class MaxSymbolCount(ExpressionConstraint):
         tokens = _as_tokens(expr, symbol_library)
         if symbol_library.constant_symbol in self.symbols:
             n = len(set(_constant_indices(tokens, symbol_library)))
-            n += sum(1 for token in tokens if token in self.symbols and symbol_library.get_type(token) != "const")
+            n += sum(
+                1
+                for token in tokens
+                if token in self.symbols and ((s := symbol_library.get(token)) is None or s.type != "const")
+            )
         else:
             n = sum(1 for token in tokens if token in self.symbols)
         if n <= self.limit:
@@ -1095,7 +1099,7 @@ class NoNesting(ExpressionConstraint):
         # Appends (inner, outer) for every group symbol that has a group symbol above it.
         if node is None:
             return
-        is_const = symbol_library.get_type(node.symbol) == "const"
+        is_const = (s := symbol_library.get(node.symbol)) is not None and s.type == "const"
         if (symbol_library.constant_symbol if is_const else node.symbol) in self.symbols:
             if outer is not None:
                 nested.append((node.symbol, outer))
@@ -1378,7 +1382,7 @@ def _expression_unit(
     # DimensionalConsistency.
     if node.left is None and node.right is None:
         return _leaf_unit(node.symbol, variable_units, named_constant_units)
-    rule = symbol_library.get_unit_rule(node.symbol) or UnitRule.DIMENSIONLESS
+    rule = getattr(symbol_library.get(node.symbol), "unit_rule", None) or UnitRule.DIMENSIONLESS
     # Units of the arguments: [left] for a function, [left, right] for an operator.
     units = [
         _expression_unit(c, symbol_library, variable_units, named_constant_units)
