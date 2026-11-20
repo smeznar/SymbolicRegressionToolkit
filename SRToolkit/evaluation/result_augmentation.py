@@ -1,11 +1,11 @@
-"""Concrete [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] implementations
+"""Concrete [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] implementations
 that post-process SR results with additional information.
 
 Available augmenters: [ExpressionToLatex][SRToolkit.evaluation.result_augmentation.ExpressionToLatex],
 [ExpressionSimplifier][SRToolkit.evaluation.result_augmentation.ExpressionSimplifier],
 [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric].
 Custom augmenters work automatically without registration — just subclass
-[ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] and implement the
+[ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] and implement the
 required methods.
 """
 
@@ -18,11 +18,13 @@ import numpy as np
 
 from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS, ParameterEstimator
 from SRToolkit.evaluation.ranking import RankingFunction
-from SRToolkit.evaluation.sr_evaluator import EvalResult, ModelResult, ResultAugmenter, evaluate_metric
+from SRToolkit.evaluation.results import ResultAugmenter
+from SRToolkit.evaluation.sr_evaluator import evaluate_metric
 from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
 from SRToolkit.utils.expression_tree import _constant_indices
 from SRToolkit.utils.free_constants import Constant, _spec_key
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
+from SRToolkit.utils.types import EvalResult, ModelResult
 
 if TYPE_CHECKING:
     from SRToolkit.dataset.data_split import DataSplit
@@ -320,7 +322,7 @@ class HoldoutMetric(ResultAugmenter):
         """Scores a result's models on held-out data.
 
         Use it to measure how the expressions found by a search perform on data the search never
-        saw. Apply it with [SR_results.augment][SRToolkit.evaluation.sr_evaluator.SR_results.augment];
+        saw. Apply it with [SR_results.augment][SRToolkit.evaluation.results.SR_results.augment];
         it adds the score of the best model to the
         [EvalResult][SRToolkit.utils.types.EvalResult] and, depending on ``scope``, to each model.
 

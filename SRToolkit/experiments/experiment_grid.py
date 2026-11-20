@@ -34,7 +34,7 @@ from SRToolkit.bundle._relocate import _auto_bind, bundle_class_index
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
-from SRToolkit.evaluation.sr_evaluator import SR_results
+from SRToolkit.evaluation.results import SR_results
 
 
 def _iter_class_paths(obj: Any) -> Iterator[str]:
@@ -555,7 +555,7 @@ class ExperimentJob:
         [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] gets the dataset's ``X``,
         ``background_knowledge`` and ``required_constraints``.
         The result is saved via
-        [SR_results.save][SRToolkit.evaluation.sr_evaluator.SR_results.save] to ``result_path``.
+        [SR_results.save][SRToolkit.evaluation.results.SR_results.save] to ``result_path``.
         """
         # The constructor sets exactly one of the instance and the dict of each.
         if self._dataset_instance is not None:
@@ -1143,7 +1143,7 @@ class ExperimentGrid:
             approach_name: Name of the approach.
 
         Returns:
-            An [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object containing one [EvalResult][SRToolkit.evaluation.result_augmentation.EvalResult] per completed experiment.  Returns an empty ``SR_results`` if no experiments have completed yet.
+            An [SR_results][SRToolkit.evaluation.results.SR_results] object containing one [EvalResult][SRToolkit.utils.types.EvalResult] per completed experiment.  Returns an empty ``SR_results`` if no experiments have completed yet.
         """
         merged = SR_results()
         for i in range(self.num_experiments):

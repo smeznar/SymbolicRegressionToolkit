@@ -46,7 +46,7 @@ model = ProGED()
 results = dataset.evaluate_approach(model, num_experiments=5, top_k=20, initial_seed=0)
 ```
 
-`results` is an [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object. Inspect individual runs:
+`results` is an [SR_results][SRToolkit.evaluation.results.SR_results] object. Inspect individual runs:
 
 ```python
 for r in results:

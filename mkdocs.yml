@@ -147,6 +147,7 @@ nav:
           - references/evaluation/index.md
           - parameter_estimator: references/evaluation/parameter_estimator.md
           - sr_evaluator: references/evaluation/sr_evaluator.md
+          - results: references/evaluation/results.md
           - ranking: references/evaluation/ranking.md
           - result_augmentation: references/evaluation/result_augmentation.md
           - callbacks: references/evaluation/callbacks.md

@@ -14,11 +14,12 @@ from SRToolkit.evaluation.result_augmentation import (
     ExpressionToLatex,
     HoldoutMetric,
 )
-from SRToolkit.evaluation.sr_evaluator import ModelResult, SR_evaluator, SR_results
+from SRToolkit.evaluation.results import SR_results
+from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils import Node
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EvalResult
+from SRToolkit.utils.types import EvalResult, ModelResult
 
 # ── Shared data ────────────────────────────────────────────────────────────────
 

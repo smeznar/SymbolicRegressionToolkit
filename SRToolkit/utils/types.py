@@ -271,7 +271,7 @@ class ModelResult:
             ranking function that scored this expression. Empty for rankings that emit nothing
             beyond ``score``/``parameters``.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
-            [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
+            [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.ModelResult.add_augmentation].
         status: How the evaluation ended; see [Status][SRToolkit.utils.types.Status].
         status_detail: Why the status is not ``"ok"``: the parse error, the failed check of a
@@ -307,7 +307,7 @@ class ModelResult:
     free_constants: tuple["Constant", ...] | None = None
 
     def add_augmentation(self, name: str, data: dict[str, Any], aug_type: str) -> None:
-        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
+        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter].
 
         A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.ModelResult] with
         ``"_type"`` set to ``aug_type``. The caller's dict is not modified, but nested values are
@@ -466,7 +466,7 @@ class EvalResult:
             experiment, measured around ``search()`` by the experiment runner. ``None`` if
             the result was not produced by a runner that records timing.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
-            [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter] subclasses via
+            [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].
         default_constant: The default spec of the run (a
             [Constant][SRToolkit.utils.free_constants.Constant] template): the spec of every
@@ -704,7 +704,7 @@ class EvalResult:
         return counts
 
     def add_augmentation(self, name: str, data: dict[str, Any], aug_type: str) -> None:
-        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].
+        """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter].
 
         A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.EvalResult] with
         ``"_type"`` set to ``aug_type``. The caller's dict is not modified, but nested values are

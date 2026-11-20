@@ -72,9 +72,9 @@ from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
 from SRToolkit.evaluation.ranking import build_ranking
+from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import (
     SR_evaluator,
-    SR_results,
     _add_limit_constraints_from_kwargs,
     _as_constraint_tuple,
 )
@@ -527,7 +527,7 @@ class SR_dataset:
             num_experiments: Number of independent runs.
             top_k: Number of best expressions kept per run.
             initial_seed: Base seed; ``None`` uses the dataset seed.
-            results: [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] to append to in place;
+            results: [SR_results][SRToolkit.evaluation.results.SR_results] to append to in place;
                 ``None`` creates a new one.
             callbacks: An [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], a list of them, or a
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher].
