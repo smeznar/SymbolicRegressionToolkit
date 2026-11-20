@@ -753,6 +753,8 @@
       
         
       
+        
+      
     
     
     
@@ -2309,6 +2311,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2583,12 +2613,12 @@ phases, no scheduler-specific dependencies needed:</p>
 <tbody>
 <tr>
 <td>Resume your own run in place</td>
-<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.save">save</a> / <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load&lt;/span&gt;
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;checkpoint&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.checkpoint">checkpoint</a> / <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.load">load</a></td>
+      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_dict">from_dict</a></td>
 <td>one <code>results_dir/grid.json</code> (recipe + local <code>adapted_states</code>)</td>
 </tr>
 <tr>
@@ -2603,40 +2633,31 @@ phases, no scheduler-specific dependencies needed:</p>
 </tr>
 <tr>
 <td>Hand someone everything</td>
-<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;export&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.export">export</a> / <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_export&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_export">from_export</a></td>
-<td>one <code>.zip</code>: recipe + bundled code + unreachable data + <code>MANIFEST.md</code></td>
+<td><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/share/#SRToolkit.share.save">share.save</a> / <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load&lt;/span&gt;" href="../../references/share/#SRToolkit.share.load">share.load</a></td>
+<td>one <code>.zip</code>: recipe, data, custom code and, optionally, results</td>
 </tr>
 </tbody>
 </table>
-<p><code>save()</code> writes a single file and <code>load()</code> reads it back, re-anchoring <code>results_dir</code> to
-wherever the file currently lives — so a run directory can be moved or mounted elsewhere and
+<p><code>checkpoint()</code> writes a single file and <code>from_dict</code> reads it back, with <code>results_dir</code> set to
+wherever the file currently lives, so a run directory can be moved or mounted elsewhere and
 still resumes correctly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>                                   <span class="c1"># → results/feynman_run/grid.json</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"results/feynman_run/grid.json"</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">checkpoint</span><span class="p">()</span>                             <span class="c1"># → results/feynman_run/grid.json</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">"results/feynman_run/grid.json"</span><span class="p">)</span>
 </code></pre></div>
 <p>To share the <em>setup</em> without your machine-local paths or results, pass the
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.to_dict">to_dict</a> recipe (a plain dict). The recipient
 needs the same datasets reachable (downloaded, regenerated from a seed, or already cached) and
 any custom <code>.srtk</code> bundles installed.</p>
-<p>To share <em>everything</em> in one file, use
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;export&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.export">export</a>, which writes a single <code>.zip</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">grid</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"share/feynman_run.zip"</span><span class="p">)</span>          <span class="c1"># recipe + data/ + bundles/ + MANIFEST.md</span>
+<p>To share <em>everything</em> in one file, use <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/share/#SRToolkit.share.save">share.save</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit</span><span class="w"> </span><span class="kn">import</span> <span class="n">share</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">share</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="s2">"share/feynman_run.zip"</span><span class="p">,</span> <span class="n">results</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># results=True also ships finished runs</span>
 </code></pre></div>
-<p>It archives only the data the recipient can't reach on their own (<code>null</code>-source and
-seedless-<code>sample</code> datasets), best-effort packs custom classes into <code>bundles/</code>, and writes a
-<code>MANIFEST.md</code> with the exact install/load steps. The recipient loads it in one call —
-<code>from_export</code> imports the bundled data into the cache and extracts any <code>bundles/</code> next to the
-archive (defaulting <code>results_dir</code> to the archive name minus <code>.zip</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_export</span><span class="p">(</span><span class="s2">"share/feynman_run.zip"</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
+<p>It ships the datasets' data and the installed bundles that hold the grid's custom classes (pass
+others with <code>bundles=[...]</code>). The recipient loads it in one call; <code>install_bundles=True</code>
+installs the shipped code, and <code>results_dir</code> defaults to the archive name minus <code>.zip</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">share</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"share/feynman_run.zip"</span><span class="p">,</span> <span class="n">install_bundles</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
 </code></pre></div>
-<p>If the export carried custom code, install those bundles from the extracted
-<code>&lt;results_dir&gt;/bundles/</code> before running jobs (class binding is deferred to run time, so the
-order of <code>from_export</code> and <code>install</code> doesn't matter — only that install happens first).</p>
 <p>See <a href="../sharing/#sharing-a-complete-experiment">Sharing Custom Implementations</a> for how this
 fits the code / config / data sharing model.</p>
 

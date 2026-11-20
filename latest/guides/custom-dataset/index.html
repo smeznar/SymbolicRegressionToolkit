@@ -781,6 +781,8 @@
       
         
       
+        
+      
     
     
     
@@ -2337,6 +2339,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2763,7 +2793,7 @@ to <code>create_dataset()</code> load from this cache instantly.</p>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">bm2</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">"my_benchmark.json"</span><span class="p">)</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm2</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"eq1"</span><span class="p">)</span>
 </code></pre></div>
-<p>For self-contained sharing (data embedded in a single file), use <code>to_archive()</code> instead — see the <a href="../sharing/">Sharing guide</a>.</p>
+<p>For self-contained sharing (data embedded in a single file), use <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/share/#SRToolkit.share.save">share.save</a> instead — see the <a href="../sharing/">Sharing guide</a>.</p>
 <h2 id="loading-a-dataset-someone-shared">Loading a dataset someone shared</h2>
 <p>To consume a dataset or benchmark built elsewhere, pick the loader that matches how it was
 shared:</p>
@@ -2776,12 +2806,8 @@ shared:</p>
 </thead>
 <tbody>
 <tr>
-<td>A self-contained <code>.zip</code> (config + data)</td>
-<td><code>SR_dataset.from_archive(path)</code> / <code>SR_benchmark.from_archive(path)</code></td>
-</tr>
-<tr>
-<td>A hosted <code>.zip</code> archive</td>
-<td><code>SR_dataset.from_url(url)</code> / <code>SR_benchmark.from_url(url)</code></td>
+<td>A <code>.zip</code> archive, local or hosted</td>
+<td><code>share.load(path_or_url)</code> (from <code>SRToolkit import share</code>)</td>
 </tr>
 <tr>
 <td>A JSON config / recipe</td>

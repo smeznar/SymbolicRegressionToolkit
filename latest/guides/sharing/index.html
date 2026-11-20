@@ -803,10 +803,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#self-contained-archives" class="md-nav__link">
+  <a href="#hosting-data-for-a-urlsource" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Self-contained archives
+        Hosting data for a UrlSource
       
     </span>
   </a>
@@ -830,6 +830,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sharing-a-whole-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sharing a whole object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sharing-a-complete-experiment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -837,45 +848,6 @@
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Sharing a complete experiment">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-recipe-one-json" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The recipe — one JSON
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#local-persistence-save-load" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local persistence — save / load
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-whole-thing-a-self-contained-zip" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The whole thing — a self-contained zip
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -906,6 +878,8 @@
       
         
           
+        
+      
         
       
         
@@ -2476,6 +2450,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../references/share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2731,10 +2733,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#self-contained-archives" class="md-nav__link">
+  <a href="#hosting-data-for-a-urlsource" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Self-contained archives
+        Hosting data for a UrlSource
       
     </span>
   </a>
@@ -2758,6 +2760,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sharing-a-whole-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sharing a whole object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sharing-a-complete-experiment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2765,45 +2778,6 @@
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Sharing a complete experiment">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-recipe-one-json" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The recipe — one JSON
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#local-persistence-save-load" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local persistence — save / load
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-whole-thing-a-self-contained-zip" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The whole thing — a self-contained zip
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2859,9 +2833,8 @@ ship a whole directory, define a class in a notebook — and they stop being por
 </table>
 <p>The three are deliberately decoupled: code is versioned independently of the settings that
 use it, and a config carries only a <em>pointer</em> to its data, never the arrays themselves. If you
-just want to hand someone a dataset or benchmark <strong>including its data</strong>, jump to
-<a href="#self-contained-archives">self-contained archives</a> — one <code>.zip</code>, one call, no setup on the
-other end.</p>
+just want to hand someone a dataset, benchmark or experiment grid <strong>with its data and code</strong>,
+jump to <a href="#sharing-a-whole-object">sharing a whole object</a>: one <code>.zip</code>, one call on each end.</p>
 <hr />
 <h2 id="code-srtk-bundles">Code (<code>.srtk</code> bundles)</h2>
 <p>A bundle is a single <code>.srtk</code> zip archive holding your Python source files and a manifest.
@@ -3012,8 +2985,8 @@ shares the <em>settings</em>, decoupled from the code that implements them and t
 to share — but the mechanics apply to any config. For datasets specifically, the config is the
 <strong>recipe</strong> model of sharing: the JSON carries samplers and a <code>data_source</code> pointer, <em>not</em> the
 data arrays. The recipient calls <code>from_dict</code> and the data is regenerated (by sampling) or
-downloaded on first use. To make the data travel <em>with</em> the config instead, use a
-<a href="#self-contained-archives">self-contained archive</a>.</p>
+downloaded on first use. To make the data travel <em>with</em> the config instead, use
+<a href="#sharing-a-whole-object">share.save</a>.</p>
 <h3 id="serialising-a-benchmark">Serialising a benchmark</h3>
 <p>Call <code>to_dict()</code> on any <code>SR_benchmark</code> to get a plain dict — no files are written.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Nguyen</span>
@@ -3092,8 +3065,8 @@ sampling.</p>
 <p class="admonition-title">Reproducibility depends on the seed</p>
 <p>Regeneration reproduces the <strong>exact</strong> data only when the <code>SampleSource</code> carries a fixed
 <code>seed</code>. With <code>seed=None</code> the recipient gets statistically equivalent but <em>different</em>
-points. If everyone must evaluate on identical numbers, set a seed — or ship a
-<a href="#self-contained-archives">self-contained archive</a> so the data travels with the config.</p>
+points. If everyone must evaluate on identical numbers, set a seed, or share the dataset with
+<a href="#sharing-a-whole-object">share.save</a> so the data travels with the config.</p>
 </div>
 <div class="admonition danger">
 <p class="admonition-title">Reconstruction imports the classes named in the config</p>
@@ -3146,7 +3119,7 @@ source is used.</p>
 <code>[UrlSource(archive), SampleSource(...)]</code>: they download their canonical data once from a
 hosted archive — so every machine benchmarks on identical inputs — and regenerate locally
 from the stored samplers only if the download is unavailable. Because the whole chain lives
-in the config, that preference travels with a shared recipe, export, or grid (constructing
+in the config, that preference travels with a shared recipe, archive or grid (constructing
 the benchmark with <code>force_generate=True</code> instead pins the data_source to sampling only).</p>
 <p>Need something exotic? Subclass <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DataSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.DataSource">DataSource</a> and
 implement <code>to_dict</code> / <code>from_dict</code> / <code>materialize</code> — custom sources round-trip without
@@ -3158,171 +3131,112 @@ travel to other machines via bundles.</p>
 changes — a different <code>url</code>, a new <code>n_samples</code>/<code>seed</code>, or a switch between source kinds —
 the next load warns that the cached bytes are stale and points you to <code>refresh()</code>.</p>
 </div>
-<h3 id="self-contained-archives">Self-contained archives</h3>
-<div class="admonition tip">
-<p class="admonition-title">The easiest way to share data</p>
-<p>A self-contained archive is the simplest channel: a single <code>.zip</code> carries both config and
-data, and the recipient loads it in one call — no network access, samplers, or bundle
-install required. Reach for the <a href="#configs">config</a>-only or
-<a href="#data-sources"><code>UrlSource</code></a> channels only when you deliberately want to keep the data
-<em>out</em> of the file.</p>
-</div>
-<p>For person-to-person sharing where you want one file and no out-of-band coordination, write a
-self-contained <code>.zip</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">bm</span><span class="o">.</span><span class="n">to_archive</span><span class="p">(</span><span class="s2">"nguyen.zip"</span><span class="p">)</span>
-</code></pre></div>
-<p>The archive holds <code>benchmark.json</code> (the config) plus <code>data/&lt;dataset_key&gt;.npz</code> for every
-dataset. The recipient needs no network access and no samplers:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">bm2</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_archive</span><span class="p">(</span><span class="s2">"nguyen.zip"</span><span class="p">)</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm2</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"NG-1"</span><span class="p">)</span>   <span class="c1"># data extracted from the zip into the cache</span>
-</code></pre></div>
-<p>A single <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../references/dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a> has the same pair —
-<code>ds.to_archive("my_eq.zip")</code> and <code>SR_dataset.from_archive("my_eq.zip")</code> — writing
-<code>dataset.json</code> plus <code>data/&lt;dataset_name&gt;.npz</code> (and a <code>data/&lt;dataset_name&gt;_gt.npy</code> behaviour
-matrix for <code>bed</code> datasets).</p>
-<p>If the archive is hosted somewhere, <code>from_url()</code> is the remote counterpart — it downloads the
-archive and loads it in one call (both classes):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="s2">"https://example.org/nguyen.zip"</span><span class="p">)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="o">.</span><span class="n">from_url</span><span class="p">(</span><span class="s2">"https://example.org/my_eq.zip"</span><span class="p">)</span>
-</code></pre></div>
-<p>This differs from a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;UrlSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.UrlSource">UrlSource</a> in <em>what</em> it loads:
-<code>from_url</code> reconstructs the whole object from the archive (config <strong>and</strong> data), whereas
-<code>UrlSource</code> lives inside a config you already have and only fetches that config's data into
-the cache. The hosted zip can be the <em>same</em> <code>to_archive</code> archive either way — <code>UrlSource</code>
-understands both the <code>data/</code>-prefixed <code>to_archive</code> layout and a flat zip of <code>.npz</code> files at
-the root.</p>
-<p>The extension should be <code>.zip</code>; a different suffix is allowed but triggers a warning. Loading
-an archive through <code>from_dict()</code> is rejected with a message pointing you to <code>from_archive()</code>.</p>
+<h3 id="hosting-data-for-a-urlsource">Hosting data for a <code>UrlSource</code></h3>
+<p>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;UrlSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.UrlSource">UrlSource</a> downloads a <code>.zip</code> into the cache the
+first time a dataset needs its data. The zip holds <code>&lt;key&gt;.npz</code> files at its root or under
+<code>data/</code> (the layout of the built-in benchmarks' hosted archives), or it is an archive written
+by <a href="#sharing-a-whole-object">share.save</a>, from which only the data of the dataset's own
+benchmark and version is taken.</p>
 <h3 id="cache-management">Cache management</h3>
 <p>The <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.dataset.data_cache&lt;/span&gt;" href="../../references/dataset/data_cache/#SRToolkit.dataset.data_cache"><code>data_cache</code></a> module is the housekeeping interface for the
 materialised <code>.npz</code> files (the version directory uses underscores: <code>1.0.0</code> → <code>1_0_0</code>).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_cache</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># List every cached dataset</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">list</span><span class="p">():</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"benchmark"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"version"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"key"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"size_bytes"</span><span class="p">])</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Get the expected path for a specific entry (may not exist yet)</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="n">p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">dataset_path</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">)</span>
-<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
-<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="c1"># Remove a single dataset, a whole version, or an entire benchmark</span>
-<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">)</span>   <span class="c1"># one dataset (+ its _gt.npy / .meta.json)</span>
-<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">)</span>             <span class="c1"># one version</span>
-<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">)</span>                      <span class="c1"># the whole benchmark</span>
-<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>
-<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="c1"># Garbage-collect: keep only the latest version per benchmark (or wipe everything)</span>
-<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">gc</span><span class="p">()</span>                  <span class="c1"># drop all but the latest version of each benchmark</span>
-<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">gc</span><span class="p">(</span><span class="n">keep_latest</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># wipe the entire cache</span>
-<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>
-<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="c1"># Force-refresh a single dataset from a URL source</span>
-<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">UrlSource</span>
-<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">UrlSource</span><span class="p">(</span><span class="s2">"https://..."</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_cache</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># List every cached dataset</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">list</span><span class="p">():</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"benchmark"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"version"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"key"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"size_bytes"</span><span class="p">])</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Get the expected path for a specific entry (may not exist yet)</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="n">p</span> <span class="o">=</span> <span class="n">data_cache</span><span class="o">.</span><span class="n">dataset_path</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">)</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># Remove a single dataset, a whole version, or an entire benchmark</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">)</span>   <span class="c1"># one dataset (+ its _gt.npy / .meta.json)</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">)</span>             <span class="c1"># one version</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">)</span>                      <span class="c1"># the whole benchmark</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="c1"># Garbage-collect: keep only the latest version per benchmark (or wipe everything)</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">gc</span><span class="p">()</span>                  <span class="c1"># drop all but the latest version of each benchmark</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">gc</span><span class="p">(</span><span class="n">keep_latest</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># wipe the entire cache</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="c1"># Force-refresh a single dataset from a URL source</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">UrlSource</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">UrlSource</span><span class="p">(</span><span class="s2">"https://..."</span><span class="p">))</span>
 </code></pre></div>
 <p>You can also refresh through the <code>SR_dataset</code> instance (required for a <code>SampleSource</code>, which
 needs the dataset's samplers, and the only option when <code>data_source</code> is set):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"I.16.6"</span><span class="p">)</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">ds</span><span class="o">.</span><span class="n">refresh</span><span class="p">()</span>   <span class="c1"># re-materialises from data_source; reloads self.X / self.y</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"I.16.6"</span><span class="p">)</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">ds</span><span class="o">.</span><span class="n">refresh</span><span class="p">()</span>   <span class="c1"># re-materialises from data_source; reloads self.X / self.y</span>
 </code></pre></div>
+<hr />
+<h2 id="sharing-a-whole-object">Sharing a whole object</h2>
+<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/share/#SRToolkit.share.save">share.save</a> writes a dataset, benchmark or experiment grid into one
+<code>.zip</code> with everything the recipient needs: the config, the data, and the custom code it uses.
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load&lt;/span&gt;" href="../../references/share/#SRToolkit.share.load">share.load</a> reads it back, from a path or a URL, and returns the object.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit</span><span class="w"> </span><span class="kn">import</span> <span class="n">share</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">share</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">bm</span><span class="p">,</span> <span class="s2">"nguyen.zip"</span><span class="p">)</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">share</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"nguyen.zip"</span><span class="p">)</span>                          <span class="c1"># or share.load("https://example.org/nguyen.zip")</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"NG-1"</span><span class="p">)</span>                    <span class="c1"># the data comes from the archive</span>
+</code></pre></div>
+<p><strong>Data.</strong> By default (<code>data="all"</code>) every dataset's data is shipped, so the recipient needs no
+network and no samplers. <code>data="auto"</code> leaves data the recipient can reproduce (a <code>UrlSource</code>, a
+<code>SampleSource</code> with a seed, or a <code>FallbackSource</code> with at least one such source) to be
+downloaded or regenerated, and ships the rest; <code>data="none"</code> ships the config and code only.
+Loaded configs keep their <code>data_source</code>, so <code>refresh()</code> still works.</p>
+<p><strong>Code.</strong> Any custom class the object uses (an approach, sampler, data source, constraint,
+callback, ...) must come from a <a href="#code-srtk-bundles">bundle</a> to load elsewhere. <code>save</code> re-packs
+the installed bundles that define such classes; for code that isn't installed, build a bundle
+with <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;pack&lt;/span&gt;" href="../../references/bundle/#SRToolkit.bundle.pack">pack</a> and pass it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">pack</span><span class="p">(</span><span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="s2">"approach.py"</span><span class="p">,</span> <span class="s2">"ops.py"</span><span class="p">],</span> <span class="n">out_path</span><span class="o">=</span><span class="s2">"my_ap.srtk"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my-ap"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.0"</span><span class="p">)</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">share</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="s2">"my_run.zip"</span><span class="p">,</span> <span class="n">bundles</span><span class="o">=</span><span class="p">[</span><span class="s2">"my_ap.srtk"</span><span class="p">],</span> <span class="n">results</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># results=True: grids only</span>
+</code></pre></div>
+<p>A custom class covered by no bundle gives a warning (an error with <code>strict=True</code>). Classes
+defined in <code>__main__</code> (a script run directly, or a notebook cell) can't be shipped; move them
+into a named <code>.py</code> module first (see
+<a href="#writing-shareable-custom-classes">Writing shareable custom classes</a>).</p>
+<p><strong>Loading code.</strong> <code>share.load</code> never runs shipped code on its own: it warns about bundles that
+aren't installed yet, and <code>install_bundles=True</code> installs them (with
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;install&lt;/span&gt;" href="../../references/bundle/#SRToolkit.bundle.install">install</a>'s confirmation prompt). Classes bind to the installed bundle
+automatically.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">share</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run.zip"</span><span class="p">,</span> <span class="n">install_bundles</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
+</code></pre></div>
+<p>For a grid, <code>results_dir</code> defaults to the archive name minus <code>.zip</code>; shipped results are copied
+there without overwriting existing files. The archive layout is described in the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.share&lt;/span&gt;" href="../../references/share/#SRToolkit.share">share</a> reference.</p>
 <hr />
 <h2 id="sharing-a-complete-experiment">Sharing a complete experiment</h2>
 <p>An <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ExperimentGrid&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid"><code>ExperimentGrid</code></a> is a <em>composite</em> config: it
 references all three axes at once — approach and callback configs, dataset configs (each with
-its <code>data_source</code>), and the run metadata. It does not invent a fourth sharing mechanism; it
-reuses the three above. There are three ways to serialise it, matching the three things you
-might want to do.</p>
-<h3 id="the-recipe-one-json">The recipe — one JSON</h3>
-<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.to_dict"><code>to_dict()</code></a> returns a single self-contained
-dict: every dataset, approach, and callback config inlined, plus <code>num_experiments</code>,
-<code>initial_seed</code>, and <code>top_k</code>. It carries <strong>no</strong> data arrays and <strong>no</strong> machine-local state
-(<code>results_dir</code>, absolute <code>adapted_states</code> paths) —
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
+its <code>data_source</code>), and the run metadata. It serialises three ways:</p>
+<ul>
+<li><strong>The recipe:</strong> <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.to_dict"><code>to_dict()</code></a> returns one
+  JSON-safe dict with every dataset, approach and callback config inlined, and no data arrays
+  or machine-local state (<code>results_dir</code>, <code>adapted_states</code> paths).
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_dict&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_dict"><code>from_dict()</code></a> rebuilds the grid and each
-worker reaches its data through the dataset's <code>data_source</code> (downloaded, regenerated from a
-seed, or already cached). This is the lightweight channel: the recipient must have the data
-reachable and any custom <code>.srtk</code> bundles installed.</p>
+  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_dict"><code>from_dict()</code></a> rebuilds the grid; the
+  recipient must be able to reach the data and have any custom bundles installed.</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">config</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>                       <span class="c1"># plain JSON — email it, commit it</span>
 <a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
 </code></pre></div>
-<h3 id="local-persistence-save-load">Local persistence — <code>save</code> / <code>load</code></h3>
-<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.save"><code>save()</code></a> writes the recipe (plus your local
-<code>adapted_states</code> paths) to a single <code>results_dir/grid.json</code>, and
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.load"><code>load()</code></a> reads it back, re-anchoring
-<code>results_dir</code> to wherever the file now lives. This is for resuming <em>your own</em> run — including
-after moving or re-mounting the directory — not for handing to someone else.</p>
-<h3 id="the-whole-thing-a-self-contained-zip">The whole thing — a self-contained zip</h3>
-<p>When you want a recipient to need nothing of their own,
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;export&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.export"><code>export()</code></a> gathers everything into one <code>.zip</code>
-whose entries are:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>grid.json            # the recipe
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>data/&lt;name&gt;.zip      # only datasets the recipient can't reach on their own
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>bundles/&lt;name&gt;.srtk  # custom code (re-packed installed bundles + additional_bundles)
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>MANIFEST.md          # inventory + exact install/load steps
-</code></pre></div>
-<p>It archives only the data that wouldn't otherwise travel — <code>null</code>-source datasets and
-seedless <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SampleSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.SampleSource"><code>SampleSource</code></a> datasets (whose
-regeneration wouldn't reproduce the exact numbers); <code>UrlSource</code> and seeded-sample datasets
-stay <a href="#self-contained-archives">referenced</a>. Custom (non-SRToolkit) classes are gathered into
-<code>bundles/</code> and the grid configs are annotated with <code>_bundle</code>/<code>_version</code> so the recipient's
-<code>from_dict</code> rebinds each class to its installed bundle automatically (see
-<a href="#using-a-shared-config">Using a shared config</a>).</p>
-<p><code>export</code> never guesses a bundle from a loose source file. A custom class is shipped only when
-it is covered by one of two sources:</p>
 <ul>
-<li><strong>an already-installed <code>.srtk</code> bundle</strong> — re-packed automatically from the installed source
-  files (the whole bundle, so multi-file implementations and declared dependencies travel intact);</li>
-<li><strong>a bundle you built yourself</strong> with <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;pack&lt;/span&gt;" href="../../references/bundle/#SRToolkit.bundle.pack"><code>pack()</code></a> and pass via
-  <code>additional_bundles</code> — matched to the classes it defines and copied in verbatim.</li>
+<li>
+<p><strong>Local persistence:</strong> <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;checkpoint&lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.checkpoint"><code>checkpoint()</code></a>
+  writes the recipe plus your local <code>adapted_states</code> paths to <code>results_dir/grid.json</code>, and
+  <code>from_dict("…/grid.json")</code> resumes it, with <code>results_dir</code> set to wherever the file now lives.
+  This is for your own run, not for handing to someone else.</p>
+</li>
+<li>
+<p><strong>Everything:</strong> <a href="#sharing-a-whole-object">share.save</a> ships the grid with its data, custom
+  code and, with <code>results=True</code>, its finished runs.</p>
+</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">pack</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="c1"># Pack any custom code that isn't installed as a bundle, listing every file it needs.</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="n">pack</span><span class="p">(</span><span class="n">files</span><span class="o">=</span><span class="p">[</span><span class="s2">"approach.py"</span><span class="p">,</span> <span class="s2">"ops.py"</span><span class="p">],</span> <span class="n">out_path</span><span class="o">=</span><span class="s2">"my_ap.srtk"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my-ap"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.0"</span><span class="p">)</span>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">grid</span><span class="o">.</span><span class="n">export</span><span class="p">(</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="s2">"share/my_run.zip"</span><span class="p">,</span>
-<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">additional_bundles</span><span class="o">=</span><span class="p">[</span><span class="s2">"my_ap.srtk"</span><span class="p">],</span>        <span class="c1"># custom code the recipient must import</span>
-<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    <span class="n">include_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                     <span class="c1"># optional: ship the run's outputs too</span>
-<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="p">)</span>
-</code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Custom classes must be covered by a bundle</p>
-<p>Any custom class that is neither installed as a bundle nor provided through
-<code>additional_bundles</code> is <strong>not packed</strong> — <code>export</code> warns, naming each class and its source
-file, and lists them under a "handle manually" section of <code>MANIFEST.md</code>. Pass
-<code>strict=True</code> to raise instead of warn. Two cases that always need an explicit bundle:</p>
-<ul>
-<li><strong>Loose modules</strong> (a class importable from a <code>.py</code> file but not installed as a <code>.srtk</code>) —
-  build one with <code>pack(files=[...], ...)</code> and pass it via <code>additional_bundles</code>.</li>
-<li><strong>Classes defined in <code>__main__</code></strong> (a script run directly, or a notebook cell) — their
-  serialised path is <code>__main__.MyClass</code>, meaningless on another machine. Move the class into
-  a named <code>.py</code> module first (see <a href="#writing-shareable-custom-classes">Writing shareable custom classes</a>).</li>
-</ul>
-</div>
-<p>The recipient loads it in one call —
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_export&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/experiments/#SRToolkit.experiments.ExperimentGrid.from_export"><code>from_export()</code></a> imports the bundled data
-into their cache, extracts <code>bundles/</code> + <code>MANIFEST.md</code> into <code>results_dir</code> (defaulting to the
-archive name minus <code>.zip</code>), and rebuilds the grid:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">grid</span> <span class="o">=</span> <span class="n">ExperimentGrid</span><span class="o">.</span><span class="n">from_export</span><span class="p">(</span><span class="s2">"share/my_run.zip"</span><span class="p">,</span> <span class="n">results_dir</span><span class="o">=</span><span class="s2">"my_results"</span><span class="p">)</span>
-</code></pre></div>
-<p>Then install any bundles <code>MANIFEST.md</code> lists, from the extracted folder, before running jobs
-(class binding is deferred to run time, so <code>from_export</code> first then <code>install</code> is fine):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">install</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">install</span><span class="p">(</span><span class="s2">"my_results/bundles/my_approach.srtk"</span><span class="p">)</span>   <span class="c1"># if MANIFEST.md lists any</span>
-</code></pre></div>
 <p>See the <a href="../experiments/#saving-loading-and-sharing-a-grid">Experiments guide</a> for the full
 runner workflow.</p>
 
