@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -2516,7 +2516,7 @@
 </code></pre></div>
 <h2 id="symbol-library">Symbol library</h2>
 <p>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt;" href="../../references/utils/symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> defines which tokens are valid in an expression and how they compile to NumPy. Most use cases are covered by the two factory methods:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">FN_PREFIX</span><span class="p">,</span> <span class="n">SymbolLibrary</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Full default set (all operators, functions, C, pi, e) with 2 variables</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">default_symbols</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
@@ -2527,9 +2527,9 @@
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">num_variables</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
 </code></pre></div>
-<p>Custom symbols can be added for non-standard backends:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="p">(</span><span class="n">preamble</span><span class="o">=</span><span class="p">[</span><span class="s2">"import numpy as np"</span><span class="p">,</span> <span class="s2">"import scipy.special as sp"</span><span class="p">])</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">sl</span><span class="o">.</span><span class="n">add_symbol</span><span class="p">(</span><span class="s2">"erf"</span><span class="p">,</span> <span class="s2">"fn"</span><span class="p">,</span> <span class="n">precedence</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">np_fn</span><span class="o">=</span><span class="s2">"sp.erf(</span><span class="si">{}</span><span class="s2">)"</span><span class="p">,</span> <span class="n">latex_str</span><span class="o">=</span><span class="sa">r</span><span class="s2">"\mathrm</span><span class="si">{erf}</span><span class="s2">\,</span><span class="si">{}</span><span class="s2">"</span><span class="p">)</span>
+<p>Custom symbols can use modules besides NumPy (always available as <code>np</code>), listed as alias → module path:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">sl</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="p">([</span><span class="s2">"+"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">],</span> <span class="n">num_variables</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">modules</span><span class="o">=</span><span class="p">{</span><span class="s2">"sp"</span><span class="p">:</span> <span class="s2">"scipy.special"</span><span class="p">})</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">sl</span><span class="o">.</span><span class="n">add_symbol</span><span class="p">(</span><span class="s2">"erf"</span><span class="p">,</span> <span class="s2">"fn"</span><span class="p">,</span> <span class="n">precedence</span><span class="o">=</span><span class="n">FN_PREFIX</span><span class="p">,</span> <span class="n">python_str</span><span class="o">=</span><span class="s2">"sp.erf(</span><span class="si">{}</span><span class="s2">)"</span><span class="p">,</span> <span class="n">latex_str</span><span class="o">=</span><span class="sa">r</span><span class="s2">"\mathrm</span><span class="si">{erf}</span><span class="s2">\,</span><span class="si">{}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="symbol-library-context">Symbol library context</h2>
 <p>Passing <code>sl</code> to every function call is verbose. Two alternatives let you set it once.</p>
