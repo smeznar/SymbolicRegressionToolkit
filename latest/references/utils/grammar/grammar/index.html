@@ -2983,7 +2983,7 @@ expression is one parameter (see <a class="autorefs autorefs-internal" title="&l
   </span>
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Rule</span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Rule</span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">weight</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3064,7 +3064,7 @@ same weight.</p>
           <tr class="doc-section-item">
             <td><code><span title="SRToolkit.utils.grammar.grammar.Rule.name">name</span></code></td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3557,7 +3557,7 @@ as a <code>float</code>; alternatives without a weight default to <code>1.0</cod
   </span>
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ParseTreeNode</span><span class="p">(</span><span class="n">symbol</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rule_applied</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Rule</span><span class="p">],</span> <span class="n">children</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParseTreeNode</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">())</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ParseTreeNode</span><span class="p">(</span><span class="n">symbol</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rule_applied</span><span class="p">:</span> <span class="n">Rule</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">children</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ParseTreeNode</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">())</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3593,12 +3593,12 @@ Internal nodes store the rule that expanded the non-terminal at this position.</
           <tr class="doc-section-item">
             <td><code><span title="SRToolkit.utils.grammar.grammar.ParseTreeNode.rule_applied">rule_applied</span></code></td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Rule&lt;/span&gt;
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Rule&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.grammar.grammar.Rule&lt;/code&gt;)" href="#SRToolkit.utils.grammar.grammar.Rule">Rule</a>]</code>
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.grammar.grammar.Rule&lt;/code&gt;)" href="#SRToolkit.utils.grammar.grammar.Rule">Rule</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3986,7 +3986,7 @@ retains every non-terminal and every production applied during the derivation.</
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Grammar</span><span class="p">(</span><span class="n">rules</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Grammar</span><span class="p">(</span><span class="n">rules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4063,7 +4063,7 @@ start: Default start non-terminal used by
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-322">322</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-323">323</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-324">324</a></span>
-<span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-325">325</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-311" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-311"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rules</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-325">325</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-311" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-311"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-312" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-312"></a><span class="w">    </span><span class="sd">"""Args:</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-313" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-313"></a><span class="sd">    rules: Optional list of [Rule][SRToolkit.utils.grammar.Rule] objects to add at</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-314" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-314"></a><span class="sd">        construction time. Equivalent to calling</span>
@@ -4072,7 +4072,7 @@ start: Default start non-terminal used by
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-317" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-317"></a><span class="sd">        [start_derivation][SRToolkit.utils.grammar.Grammar.start_derivation]</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-318" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-318"></a><span class="sd">        when no ``start`` argument is given.</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-319" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-319"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-320" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-320"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-320" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-320"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">start</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-321" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-321"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_rules</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-322" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-322"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_rules_by_lhs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">Rule</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-323" name="SRToolkit.utils.grammar.grammar.Grammar--source--__codelineno-0-323"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_constraints</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
@@ -5111,7 +5111,7 @@ is <code>None</code> and <code>require_start</code> is <code>True</code>.</p>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">start_derivation</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'Derivation'</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">start_derivation</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'Derivation'</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5144,7 +5144,7 @@ is <code>None</code> and <code>require_start</code> is <code>True</code>.</p>
                 <code>start</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5244,7 +5244,7 @@ this grammar.</p>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-581">581</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-582">582</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-583">583</a></span>
-<span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-584">584</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-550" name="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-550"></a><span class="k">def</span><span class="w"> </span><span class="nf">start_derivation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Derivation"</span><span class="p">:</span>
+<span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-584">584</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-550" name="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-550"></a><span class="k">def</span><span class="w"> </span><span class="nf">start_derivation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Derivation"</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-551" name="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-551"></a><span class="w">    </span><span class="sd">"""Begin a new derivation.</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-552" name="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-552"></a>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-553" name="SRToolkit.utils.grammar.grammar.Grammar.start_derivation--source--__codelineno-0-553"></a><span class="sd">    Examples:</span>
@@ -5293,7 +5293,7 @@ this grammar.</p>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate_one</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate_one</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5338,7 +5338,7 @@ should either relax the grammar or its constraints, or increase
                 <code>start</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5399,7 +5399,7 @@ are still retried.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="list">list</span>[<span title="str">str</span>]]</code>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5409,7 +5409,7 @@ are still retried.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="list">list</span>[<span title="str">str</span>]]</code>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5499,10 +5499,10 @@ this grammar.</p>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-635">635</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-636">636</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-586" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-586"></a><span class="k">def</span><span class="w"> </span><span class="nf">generate_one</span><span class="p">(</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-587" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-587"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-588" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-588"></a>    <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-588" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-588"></a>    <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-589" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-589"></a>    <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-590" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-590"></a>    <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-591" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-591"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-591" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-591"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-592" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-592"></a><span class="w">    </span><span class="sd">"""Generate a single expression by sampling the grammar to completion.</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-593" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-593"></a>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-594" name="SRToolkit.utils.grammar.grammar.Grammar.generate_one--source--__codelineno-0-594"></a><span class="sd">    Convenience wrapper around</span>
@@ -5788,7 +5788,7 @@ rewritten to point at the installed bundle before reconstruction.</p>
   </span>
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_symbol_library</span><span class="p">(</span><span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'Grammar'</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_symbol_library</span><span class="p">(</span><span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'Grammar'</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -5843,7 +5843,7 @@ left (<code>a ^ b ^ c</code> is <code>(a ^ b) ^ c</code>), and postfix functions
                 <code>symbol_library</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.symbol_library.SymbolLibrary&lt;/code&gt;)" href="../../symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a>]</code>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.symbol_library.SymbolLibrary&lt;/code&gt;)" href="../../symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5860,7 +5860,7 @@ from the context manager when <code>None</code>.</p>
                 <code>start</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6108,8 +6108,8 @@ or named constants, making it impossible to generate any terminal expression.</p
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-858">858</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-679" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-679"></a><span class="nd">@classmethod</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-680" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-680"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_symbol_library</span><span class="p">(</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-681" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-681"></a>    <span class="bp">cls</span><span class="p">,</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-682" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-682"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">SymbolLibrary</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-683" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-683"></a>    <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-682" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-682"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-683" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-683"></a>    <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-684" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-684"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Grammar"</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-685" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-685"></a><span class="w">    </span><span class="sd">"""Build a PCFG from a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary]</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-686" name="SRToolkit.utils.grammar.grammar.Grammar.from_symbol_library--source--__codelineno-0-686"></a><span class="sd">    using a generic operator-precedence non-terminal hierarchy.</span>
@@ -6303,7 +6303,7 @@ or named constants, making it impossible to generate any terminal expression.</p
   </span>
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_grammar_string</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'Grammar'</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">from_grammar_string</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">'Grammar'</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -6387,7 +6387,7 @@ on all returned <a class="autorefs autorefs-internal" title="&lt;code class=&quo
                 <code>start</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6574,7 +6574,7 @@ the parameter or the <code># start:</code> comment.</p>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-938">938</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-939">939</a></span>
 <span class="normal"><a href="#SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-940">940</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-860" name="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-860"></a><span class="nd">@classmethod</span>
-<a id="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-861" name="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-861"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_grammar_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Grammar"</span><span class="p">:</span>
+<a id="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-861" name="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-861"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_grammar_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Grammar"</span><span class="p">:</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-862" name="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-862"></a><span class="w">    </span><span class="sd">"""Construct a [Grammar][SRToolkit.utils.grammar.Grammar] from a string in</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-863" name="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-863"></a><span class="sd">    NLTK production-rule notation.</span>
 <a id="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-864" name="SRToolkit.utils.grammar.grammar.Grammar.from_grammar_string--source--__codelineno-0-864"></a>

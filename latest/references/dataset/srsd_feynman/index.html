@@ -2412,7 +2412,7 @@
 
 
 </h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SRSD_Feynman</span><span class="p">(</span><span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span> <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SRSD_Feynman</span><span class="p">(</span><span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span> <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2487,7 +2487,7 @@ with <code>force_generate=True</code>:</p>
                 <code>seed</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="int">int</span>]</code>
+                  <code><span title="int">int</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2561,7 +2561,7 @@ downloading the pre-generated data. Defaults to <code>False</code>.</p>
                 <code>datasets</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<span title="typing.Union">Union</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt; (&lt;code&gt;SRToolkit.dataset.sr_dataset.SR_dataset&lt;/code&gt;)" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>, <span title="typing.Tuple">Tuple</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt; (&lt;code&gt;SRToolkit.dataset.sr_dataset.SR_dataset&lt;/code&gt;)" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>]]]]</code>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt; (&lt;code&gt;SRToolkit.dataset.sr_dataset.SR_dataset&lt;/code&gt;)" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a> | <span title="tuple">tuple</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt; (&lt;code&gt;SRToolkit.dataset.sr_dataset.SR_dataset&lt;/code&gt;)" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>]] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2579,7 +2579,7 @@ downloading the pre-generated data. Defaults to <code>False</code>.</p>
                 <code>metadata</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]</code>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2611,7 +2611,7 @@ downloading the pre-generated data. Defaults to <code>False</code>.</p>
                 <code>base_dir</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2659,7 +2659,9 @@ Optional — if omitted, the data cache is used exclusively.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/dataset/srsd_feynman.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83">83</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83">83</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84">84</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85">85</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86">86</a></span>
@@ -2667,19 +2669,17 @@ Optional — if omitted, the data cache is used exclusively.</p>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88">88</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89">89</a></span>
 <span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90">90</a></span>
-<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91">91</a></span>
-<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92">92</a></span>
-<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-93">93</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88"></a><span class="p">):</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"SRSD_Feynman"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.1"</span><span class="p">)</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-92"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
-<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-93" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-93"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
+<span class="normal"><a href="#SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91">91</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-81" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-81"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-82" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-82"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-83"></a>    <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-84"></a>    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-85"></a>    <span class="n">force_generate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-86"></a><span class="p">):</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-87"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">"SRSD_Feynman"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1.0.1"</span><span class="p">)</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-88"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_n_samples</span> <span class="o">=</span> <span class="n">n_samples</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-89"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">=</span> <span class="n">seed</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-90"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_force_generate</span> <span class="o">=</span> <span class="n">force_generate</span>
+<a id="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91" name="SRToolkit.dataset.srsd_feynman.SRSD_Feynman--source--__codelineno-0-91"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_populate</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
