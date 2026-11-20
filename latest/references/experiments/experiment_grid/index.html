@@ -1263,6 +1263,8 @@
       
         
       
+        
+      
     
     
     
@@ -1355,6 +1357,34 @@
     
   
     sr_evaluator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evaluation/results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    results
   
 
     
@@ -3792,7 +3822,7 @@ with <code>.json</code>.</p>
 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;adapt&lt;/span&gt;" href="../../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.adapt">adapt</a> gets the dataset's <code>X</code>,
 <code>background_knowledge</code> and <code>required_constraints</code>.
 The result is saved via
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_results.save">SR_results.save</a> to <code>result_path</code>.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../evaluation/results/#SRToolkit.evaluation.results.SR_results.save">SR_results.save</a> to <code>result_path</code>.</p>
 
 
             <details class="mkdocstrings-source">
@@ -3888,7 +3918,7 @@ The result is saved via
 <a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-555" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-555"></a><span class="sd">    [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] gets the dataset's ``X``,</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-556" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-556"></a><span class="sd">    ``background_knowledge`` and ``required_constraints``.</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-557" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-557"></a><span class="sd">    The result is saved via</span>
-<a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-558" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-558"></a><span class="sd">    [SR_results.save][SRToolkit.evaluation.sr_evaluator.SR_results.save] to ``result_path``.</span>
+<a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-558" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-558"></a><span class="sd">    [SR_results.save][SRToolkit.evaluation.results.SR_results.save] to ``result_path``.</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-559" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-559"></a><span class="sd">    """</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-560" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-560"></a>    <span class="c1"># The constructor sets exactly one of the instance and the dict of each.</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-561" name="SRToolkit.experiments.experiment_grid.ExperimentJob.run--source--__codelineno-0-561"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dataset_instance</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -5853,16 +5883,16 @@ NG-2             2/5      0/5
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_results&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.sr_evaluator.SR_results&lt;/code&gt;)" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_results">SR_results</a></code>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_results&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.results.SR_results&lt;/code&gt;)" href="../../evaluation/results/#SRToolkit.evaluation.results.SR_results">SR_results</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>An <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_results&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_results">SR_results</a> object containing one <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EvalResult&lt;/span&gt;
+                <p>An <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_results&lt;/span&gt;" href="../../evaluation/results/#SRToolkit.evaluation.results.SR_results">SR_results</a> object containing one <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EvalResult&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../utils/#SRToolkit.utils.EvalResult">EvalResult</a> per completed experiment.  Returns an empty <code>SR_results</code> if no experiments have completed yet.</p>
+  &lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.EvalResult">EvalResult</a> per completed experiment.  Returns an empty <code>SR_results</code> if no experiments have completed yet.</p>
               </div>
             </td>
           </tr>
@@ -5906,7 +5936,7 @@ NG-2             2/5      0/5
 <a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1143" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1143"></a><span class="sd">        approach_name: Name of the approach.</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1144" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1144"></a>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1145" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1145"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1146" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1146"></a><span class="sd">        An [SR_results][SRToolkit.evaluation.sr_evaluator.SR_results] object containing one [EvalResult][SRToolkit.evaluation.result_augmentation.EvalResult] per completed experiment.  Returns an empty ``SR_results`` if no experiments have completed yet.</span>
+<a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1146" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1146"></a><span class="sd">        An [SR_results][SRToolkit.evaluation.results.SR_results] object containing one [EvalResult][SRToolkit.utils.types.EvalResult] per completed experiment.  Returns an empty ``SR_results`` if no experiments have completed yet.</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1147" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1147"></a><span class="sd">    """</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1148" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1148"></a>    <span class="n">merged</span> <span class="o">=</span> <span class="n">SR_results</span><span class="p">()</span>
 <a id="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1149" name="SRToolkit.experiments.experiment_grid.ExperimentGrid.load_results--source--__codelineno-0-1149"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_experiments</span><span class="p">):</span>

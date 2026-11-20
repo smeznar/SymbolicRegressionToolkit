@@ -1715,6 +1715,8 @@
       
         
       
+        
+      
     
     
     
@@ -1807,6 +1809,34 @@
     
   
     sr_evaluator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evaluation/results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    results
   
 
     
@@ -4170,7 +4200,7 @@ beyond <code>score</code>/<code>parameters</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>Per-augmenter data keyed by augmenter name. Populated by
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.ResultAugmenter">ResultAugmenter</a> subclasses via
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/results/#SRToolkit.evaluation.results.ResultAugmenter">ResultAugmenter</a> subclasses via
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_augmentation&lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult.add_augmentation">add_augmentation</a>.</p>
               </div>
             </td>
@@ -4310,7 +4340,7 @@ no specs were given. Parameters without a spec (bare <code>C</code> always), and
 
     <div class="doc doc-contents ">
 
-        <p>Attach augmentation data produced by a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.ResultAugmenter">ResultAugmenter</a>.</p>
+        <p>Attach augmentation data produced by a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/results/#SRToolkit.evaluation.results.ResultAugmenter">ResultAugmenter</a>.</p>
 <p>A shallow copy of <code>data</code> is stored in <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
 
 
@@ -4423,7 +4453,7 @@ shared with it. If <code>name</code> is already taken, the first free key among 
 <span class="normal"><a href="#SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-330">330</a></span>
 <span class="normal"><a href="#SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-331">331</a></span>
 <span class="normal"><a href="#SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-332">332</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-309" name="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-309"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_augmentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">aug_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-310" name="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-310"></a><span class="w">    </span><span class="sd">"""Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].</span>
+<a id="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-310" name="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-310"></a><span class="w">    </span><span class="sd">"""Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter].</span>
 <a id="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-311" name="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-311"></a>
 <a id="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-312" name="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-312"></a><span class="sd">    A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.ModelResult] with</span>
 <a id="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-313" name="SRToolkit.utils.types.ModelResult.add_augmentation--source--__codelineno-0-313"></a><span class="sd">    ``"_type"`` set to ``aug_type``. The caller's dict is not modified, but nested values are</span>
@@ -5030,7 +5060,7 @@ the result was not produced by a runner that records timing.</p>
             <td>
               <div class="doc-md-description">
                 <p>Per-augmenter data keyed by augmenter name. Populated by
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.ResultAugmenter">ResultAugmenter</a> subclasses via
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/results/#SRToolkit.evaluation.results.ResultAugmenter">ResultAugmenter</a> subclasses via
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_augmentation&lt;/span&gt;" href="#SRToolkit.utils.types.EvalResult.add_augmentation">add_augmentation</a>.</p>
               </div>
             </td>
@@ -6130,7 +6160,7 @@ counted call in the trace, cache hits included.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Attach augmentation data produced by a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.ResultAugmenter">ResultAugmenter</a>.</p>
+        <p>Attach augmentation data produced by a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ResultAugmenter&lt;/span&gt;" href="../../evaluation/results/#SRToolkit.evaluation.results.ResultAugmenter">ResultAugmenter</a>.</p>
 <p>A shallow copy of <code>data</code> is stored in <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EvalResult&lt;/span&gt;
 
 
@@ -6241,7 +6271,7 @@ shared with it. If <code>name</code> is already taken, the first free key among 
 <span class="normal"><a href="#SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-726">726</a></span>
 <span class="normal"><a href="#SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-727">727</a></span>
 <span class="normal"><a href="#SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-728">728</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-706" name="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-706"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_augmentation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">aug_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-707" name="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-707"></a><span class="w">    </span><span class="sd">"""Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.sr_evaluator.ResultAugmenter].</span>
+<a id="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-707" name="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-707"></a><span class="w">    </span><span class="sd">"""Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter].</span>
 <a id="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-708" name="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-708"></a>
 <a id="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-709" name="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-709"></a><span class="sd">    A shallow copy of ``data`` is stored in [augmentations][SRToolkit.utils.types.EvalResult] with</span>
 <a id="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-710" name="SRToolkit.utils.types.EvalResult.add_augmentation--source--__codelineno-0-710"></a><span class="sd">    ``"_type"`` set to ``aug_type``. The caller's dict is not modified, but nested values are</span>
