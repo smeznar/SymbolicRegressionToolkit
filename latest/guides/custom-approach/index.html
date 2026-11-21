@@ -2527,7 +2527,8 @@
 <h3 id="key-rules-for-search">Key rules for <code>search()</code></h3>
 <ul>
 <li>Call <code>sr_evaluator.evaluate_expr(expr)</code> for every candidate expression. The evaluator handles parameter fitting, caching, and result bookkeeping.</li>
-<li>Check <code>sr_evaluator.should_stop</code> (or <code>sr_evaluator.total_evaluations &gt;= sr_evaluator.max_evaluations</code>) regularly and finish search when it is <code>True</code>.</li>
+<li>Check <code>sr_evaluator.should_stop</code> regularly and finish search when it is <code>True</code>.</li>
+<li>To end the search early (e.g. the search space is exhausted), call <code>sr_evaluator.stop("reason")</code>; the reason is saved in the results as <code>stop_reason</code>.</li>
 <li>Do <strong>not</strong> access target values directly — use the evaluator as the sole interface to <code>y</code>.</li>
 </ul>
 <h2 id="the-adapt-lifecycle">The <code>adapt()</code> lifecycle</h2>
