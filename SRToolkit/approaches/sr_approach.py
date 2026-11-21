@@ -1,6 +1,5 @@
 """Abstract base class and configuration dataclass for symbolic regression approaches."""
 
-import importlib
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -8,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from SRToolkit.bundle._relocate import _auto_bind
+from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
@@ -328,16 +327,8 @@ class SR_approach(ABC):
         Raises:
             ImportError: If ``approach_class`` cannot be imported (e.g. its ``.srtk`` bundle
                 is not installed, or the config has no ``_bundle`` key and was never bound).
+            TypeError: If ``approach_class`` is not an SR_approach subclass.
         """
         config = _auto_bind(config)
-        class_path = config["approach_class"]
-        module_path, cls_name = class_path.rsplit(".", 1)
-        try:
-            target_cls = getattr(importlib.import_module(module_path), cls_name)
-        except (ImportError, AttributeError):
-            raise ImportError(
-                f"Cannot import approach class {class_path!r}. "
-                "If this is a bundle class, install the bundle first. "
-                "If the config has no '_bundle' key, call bind_config(config) manually."
-            ) from None
+        target_cls = _import_class(config["approach_class"], "approach", SR_approach)
         return target_cls.from_config(config)

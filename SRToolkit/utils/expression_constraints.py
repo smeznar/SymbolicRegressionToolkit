@@ -127,7 +127,6 @@ therefore be importable by that path: define it at module level in an importable
 from __future__ import annotations
 
 import copy
-import importlib
 import math
 import re
 import warnings
@@ -137,7 +136,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..bundle._relocate import _auto_bind
+from ..bundle._relocate import _auto_bind, _import_class
 from .expression_compiler import compile_expr
 from .expression_tree import Node, _as_tokens, _as_tree, _constant_indices, is_float
 from .serialization import _from_json_safe, _to_json_safe
@@ -211,28 +210,6 @@ def _set_up_copy(constraint: "ExpressionConstraint", symbol_library: SymbolLibra
     duplicate = copy.copy(constraint)
     duplicate.setup(symbol_library)
     return duplicate
-
-
-def _resolve_constraint_class(d: dict) -> tuple[type["ExpressionConstraint"], dict]:
-    # Used by ExpressionConstraint.from_dict: binds bundle paths (_auto_bind), imports the class
-    # named by d["constraint_class"] and checks that it is an ExpressionConstraint subclass.
-    # Returns the class and the bound dictionary.
-    # KeyError if the key is missing, ImportError (naming the class path) if the class cannot be
-    # imported, TypeError (naming the class path) if it is not an ExpressionConstraint.
-    d = _auto_bind(d)
-    class_path = d["constraint_class"]
-    module_path, _, cls_name = class_path.rpartition(".")
-    try:
-        resolved = getattr(importlib.import_module(module_path), cls_name)
-    except (ImportError, AttributeError, ValueError):
-        raise ImportError(
-            f"Cannot import constraint class {class_path!r}. "
-            "If this is a bundle class, install the bundle first. "
-            "If the config has no '_bundle' key, call bind_config(config) manually."
-        ) from None
-    if not (isinstance(resolved, type) and issubclass(resolved, ExpressionConstraint)):
-        raise TypeError(f"{class_path!r} is not an ExpressionConstraint and cannot be loaded as one.")
-    return resolved, d
 
 
 def _bound(value: Any, unbounded: float, name: str, n_points: int) -> float | np.ndarray | None:
@@ -438,10 +415,10 @@ class ExpressionConstraint:
         Raises:
             KeyError: If ``d`` has no ``"constraint_class"`` (called on the base class).
             ImportError: If the named class cannot be imported (called on the base class).
-            TypeError: If the named class is not an
+            TypeError: If the named class is not a subclass of
                 [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint],
-                e.g. the grammar-only [MaxNodes][SRToolkit.utils.grammar.constraints.MaxNodes]
-                (called on the base class).
+                e.g. the grammar-only [MaxNodes][SRToolkit.utils.grammar.constraints.MaxNodes], or
+                is the base class itself (called on the base class).
             NotImplementedError: If called on a subclass that does not override it, or if the named
                 class does not override it.
 
@@ -451,10 +428,8 @@ class ExpressionConstraint:
             ('MaxTokens', 20)
         """
         if cls is ExpressionConstraint:
-            resolved, d = _resolve_constraint_class(d)
-            if resolved is ExpressionConstraint:
-                raise NotImplementedError("ExpressionConstraint.from_dict cannot rebuild the base class.")
-            return resolved.from_dict(d)
+            d = _auto_bind(d)
+            return _import_class(d["constraint_class"], "constraint", ExpressionConstraint).from_dict(d)
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 
 

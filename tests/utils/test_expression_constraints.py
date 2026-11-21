@@ -1159,8 +1159,8 @@ class TestSerialisation:
             (
                 ExpressionConstraint.from_dict,
                 lambda: {"constraint_class": f"{_EC}.ExpressionConstraint"},
-                NotImplementedError,
-                None,
+                TypeError,
+                "is the base class",
             ),
             (_NoOverride.from_dict, lambda: _NoOverride().to_dict(), NotImplementedError, None),
         ],

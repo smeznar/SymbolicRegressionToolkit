@@ -6,7 +6,6 @@ single lower-is-better scalar. Built-ins are [RMSERanking][SRToolkit.evaluation.
 custom rankings are referenced by their fully-qualified import path.
 """
 
-import importlib
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -15,7 +14,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from SRToolkit.bundle._relocate import _auto_bind
+from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node
@@ -530,11 +529,10 @@ def build_ranking(spec: str | RankingFunction, fallback: str = "rmse") -> Rankin
         A ranking instance, not yet ``setup``.
 
     Raises:
-        TypeError: If ``spec`` is neither a string nor a ``RankingFunction``.
+        TypeError: If ``spec`` is neither a string nor a ``RankingFunction``, or an import-path
+            ``spec`` names something that is not a ``RankingFunction`` subclass.
         ImportError: If an import-path ``spec`` cannot be imported (e.g. its ``.srtk`` bundle
             is not installed).
-        ValueError: If an import-path ``spec`` resolves to something that is not a
-            ``RankingFunction`` subclass.
     """
     if isinstance(spec, RankingFunction):
         return spec
@@ -548,18 +546,7 @@ def build_ranking(spec: str | RankingFunction, fallback: str = "rmse") -> Rankin
         return _RANKING_ALIASES[key]()
 
     if "." in spec:
-        module_path, class_name = spec.rsplit(".", 1)
-        try:
-            klass = getattr(importlib.import_module(module_path), class_name)
-        except (ImportError, AttributeError):
-            raise ImportError(
-                f"Cannot import ranking class {spec!r}. "
-                "If this is a bundle class, install the bundle first. "
-                "If the config has no '_bundle' key, call bind_config(config) manually."
-            ) from None
-        if not (isinstance(klass, type) and issubclass(klass, RankingFunction)):
-            raise ValueError(f"[build_ranking] '{spec}' is not a RankingFunction subclass.")
-        return klass()
+        return _import_class(spec, "ranking", RankingFunction)()
 
     warnings.warn(f"ranking_function '{spec}' not supported. Using {fallback} instead.")
     return _RANKING_ALIASES[fallback]()

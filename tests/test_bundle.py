@@ -9,9 +9,14 @@ from unittest.mock import patch
 
 import pytest
 
+from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._manifest import BundleManifest, _sha256
 from SRToolkit.bundle._pack import pack
-from SRToolkit.bundle._relocate import _relocate_class_paths
+from SRToolkit.bundle._relocate import _import_class, _relocate_class_paths
+from SRToolkit.dataset.data_source import DataSource
+from SRToolkit.dataset.sampling import Sampler, UniformSampling
+from SRToolkit.evaluation.callbacks import SRCallbacks
+from SRToolkit.utils.grammar.constraints import GrammarConstraint
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -368,3 +373,70 @@ class TestRelocateIntegration:
         out = _relocate_class_paths(config, "B", tmp_path)
         assert out["constraint_class"] == "B.constraints.MyC"
         assert out["other_class"] == "SRToolkit.utils.MaxDepth"
+
+
+# ---------------------------------------------------------------------------
+# _import_class — loading a class named in a saved dict
+# ---------------------------------------------------------------------------
+
+_RANKING = "SRToolkit.evaluation.ranking.RMSERanking"
+
+
+class TestImportClass:
+    @pytest.mark.parametrize(
+        "path, base, expected",
+        [("SRToolkit.dataset.sampling.UniformSampling", Sampler, UniformSampling), ("builtins.dict", None, dict)],
+        ids=["subclass-of-base", "no-base"],
+    )
+    def test_returns_class(self, path, base, expected):
+        assert _import_class(path, "widget", base) is expected
+
+    @pytest.mark.parametrize(
+        "path, base, exc, match",
+        [
+            (
+                "no_such_module_xyz.Foo",
+                None,
+                ImportError,
+                "Cannot import widget class 'no_such_module_xyz.Foo'.*bind_config",
+            ),
+            (
+                "SRToolkit.dataset.sampling.Nope",
+                None,
+                ImportError,
+                "Cannot import widget class 'SRToolkit.dataset.sampling.Nope'",
+            ),
+            ("Foo", None, ImportError, "Cannot import widget class 'Foo'"),
+            (".x.Foo", None, ImportError, "Cannot import widget class '.x.Foo'"),
+            ("builtins.dict", Sampler, TypeError, "Widget class 'builtins.dict' is not a subclass of Sampler"),
+            ("builtins.len", Sampler, TypeError, "'builtins.len' is not a subclass of Sampler"),
+            ("SRToolkit.dataset.sampling.Sampler", Sampler, TypeError, "is the base class"),
+        ],
+        ids=[
+            "missing-module",
+            "missing-attribute",
+            "no-dot",
+            "leading-dot",
+            "wrong-base",
+            "not-a-class",
+            "base-itself",
+        ],
+    )
+    def test_errors(self, path, base, exc, match):
+        with pytest.raises(exc, match=match):
+            _import_class(path, "widget", base)
+
+    @pytest.mark.parametrize(
+        "load, key",
+        [
+            (Sampler.from_dict, "sampler_class"),
+            (DataSource.from_dict, "source_class"),
+            (SR_approach.from_config_dict, "approach_class"),
+            (SRCallbacks.from_config_dict, "callback_class"),
+            (GrammarConstraint.from_dict, "constraint_class"),
+        ],
+        ids=["sampler", "data-source", "approach", "callback", "grammar-constraint"],
+    )
+    def test_loaders_reject_wrong_kind(self, load, key):
+        with pytest.raises(TypeError, match="RMSERanking"):
+            load({key: _RANKING})

@@ -1,11 +1,10 @@
 """Sampling strategies for variable generation in symbolic regression benchmarks."""
 
-import importlib
 from abc import ABC, abstractmethod
 
 import numpy as np
 
-from SRToolkit.bundle._relocate import _auto_bind
+from SRToolkit.bundle._relocate import _auto_bind, _import_class
 
 
 def _check_mirror(min_value, max_value, mirror: bool, name: str) -> None:
@@ -136,20 +135,12 @@ class Sampler(ABC):
         Raises:
             KeyError: If ``"sampler_class"`` is missing from ``d`` (dispatch path).
             ImportError: If the class cannot be imported (dispatch path).
+            TypeError: If the class is not a Sampler subclass (dispatch path).
             NotImplementedError: If called on a subclass that has not overridden this method.
         """
         if cls is Sampler:
             d = _auto_bind(d)
-            class_path = d["sampler_class"]
-            module_path, cls_name = class_path.rsplit(".", 1)
-            try:
-                resolved = getattr(importlib.import_module(module_path), cls_name)
-            except (ImportError, AttributeError):
-                raise ImportError(
-                    f"Cannot import sampler class {class_path!r}. "
-                    "If this is a bundle class, install the bundle first. "
-                    "If the config has no '_bundle' key, call bind_config(config) manually."
-                ) from None
+            resolved = _import_class(d["sampler_class"], "sampler", Sampler)
             return resolved.from_dict(d)
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 

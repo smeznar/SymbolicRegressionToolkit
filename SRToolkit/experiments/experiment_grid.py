@@ -12,7 +12,6 @@ Provides three public classes:
 """
 
 import dataclasses
-import importlib
 import json
 import os
 import shlex
@@ -22,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from SRToolkit.approaches.sr_approach import SR_approach
-from SRToolkit.bundle._relocate import _auto_bind, _class_refs
+from SRToolkit.bundle._relocate import _auto_bind, _class_refs, _import_class
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
@@ -47,12 +46,11 @@ def _warn_missing_class_deps(configs: list[dict]) -> None:
             if class_path in seen:
                 continue
             seen.add(class_path)
-            module_path, _, cls_name = class_path.rpartition(".")
-            if not module_path:
+            if "." not in class_path:  # a built-in alias such as ranking_class "rmse"
                 continue
             try:
-                getattr(importlib.import_module(module_path), cls_name)
-            except (ImportError, AttributeError):
+                _import_class(class_path, "referenced")
+            except ImportError:
                 missing.append(class_path)
     if missing:
         warnings.warn(

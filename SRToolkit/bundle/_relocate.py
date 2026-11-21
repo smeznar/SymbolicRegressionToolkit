@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import os
 import zipfile
 from collections.abc import Iterator
@@ -158,6 +159,38 @@ def _auto_bind(config: dict) -> dict:
     if "_bundle" not in config:
         return config
     return bind_config(config)
+
+
+def _import_class(path: str, kind: str, base: type | None = None) -> type:
+    """Import the class a saved dict names by its ``"module.Class"`` path.
+
+    Args:
+        path: The class path.
+        kind: What the class is (``"sampler"``, ``"ranking"``, ...), used in error messages.
+        base: If given, the class must be a subclass of it.
+
+    Returns:
+        The imported class.
+
+    Raises:
+        ImportError: If the class cannot be imported.
+        TypeError: If ``base`` is given and the class is not a subclass of it, or is ``base``
+            itself.
+    """
+    module_path, _, name = path.rpartition(".")
+    try:
+        cls = getattr(importlib.import_module(module_path), name)
+    except (ImportError, AttributeError, ValueError, TypeError):  # no dot: ValueError, leading dot: TypeError
+        raise ImportError(
+            f"Cannot import {kind} class {path!r}. "
+            "If this is a bundle class, install the bundle first. "
+            "If the config has no '_bundle' key, call bind_config(config) manually."
+        ) from None
+    if base is not None and not (isinstance(cls, type) and issubclass(cls, base)):
+        raise TypeError(f"{kind.capitalize()} class {path!r} is not a subclass of {base.__name__}.")
+    if cls is base:
+        raise TypeError(f"{kind.capitalize()} class {path!r} is the base class, not a concrete {kind} class.")
+    return cls
 
 
 def bind_config(

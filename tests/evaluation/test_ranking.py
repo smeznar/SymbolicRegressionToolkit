@@ -44,8 +44,8 @@ class TestBuildRanking:
         with pytest.raises(ImportError, match="Cannot import ranking class"):
             build_ranking("nonexistent.module.Foo")
 
-    def test_non_ranking_class_raises_valueerror(self):
-        with pytest.raises(ValueError, match="not a RankingFunction subclass"):
+    def test_non_ranking_class_raises_typeerror(self):
+        with pytest.raises(TypeError, match="not a subclass of RankingFunction"):
             build_ranking("builtins.dict")
 
     def test_non_string_non_ranking_raises_typeerror(self):

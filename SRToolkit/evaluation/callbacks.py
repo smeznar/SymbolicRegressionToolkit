@@ -6,7 +6,6 @@ a [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for ma
 and built-in implementations for progress display, early stopping, and logging.
 """
 
-import importlib
 import os
 import time
 from abc import ABC
@@ -15,7 +14,7 @@ from datetime import timedelta
 
 from tqdm import tqdm
 
-from SRToolkit.bundle._relocate import _auto_bind
+from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.utils import EvalResult
 
 
@@ -189,18 +188,10 @@ class SRCallbacks(ABC):
         Raises:
             ImportError: If ``callback_class`` cannot be imported (e.g. its ``.srtk`` bundle
                 is not installed, or the config has no ``_bundle`` key and was never bound).
+            TypeError: If ``callback_class`` is not an SRCallbacks subclass.
         """
         config = _auto_bind(config)
-        class_path = config["callback_class"]
-        module_path, cls_name = class_path.rsplit(".", 1)
-        try:
-            target_cls = getattr(importlib.import_module(module_path), cls_name)
-        except (ImportError, AttributeError):
-            raise ImportError(
-                f"Cannot import callback class {class_path!r}. "
-                "If this is a bundle class, install the bundle first. "
-                "If the config has no '_bundle' key, call bind_config(config) manually."
-            ) from None
+        target_cls = _import_class(config["callback_class"], "callback", SRCallbacks)
         return target_cls.from_dict(config)
 
 

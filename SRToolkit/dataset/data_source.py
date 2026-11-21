@@ -30,7 +30,6 @@ configs you trust.
 
 from __future__ import annotations
 
-import importlib
 import json
 import shutil
 import tempfile
@@ -42,7 +41,7 @@ from zipfile import ZipFile
 
 import numpy as np
 
-from SRToolkit.bundle._relocate import _auto_bind
+from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.dataset.sampling import Sampler, _sample_inputs
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
@@ -115,22 +114,14 @@ class DataSource(ABC):
         Raises:
             KeyError: If ``"source_class"`` is missing from ``d`` (dispatch path).
             ImportError: If the class cannot be imported (dispatch path).
+            TypeError: If the class is not a DataSource subclass (dispatch path).
             NotImplementedError: If called on a subclass that has not overridden this method.
         """
         if cls is DataSource:
             if d is None:
                 return None
             d = _auto_bind(d)
-            class_path = d["source_class"]
-            module_path, cls_name = class_path.rsplit(".", 1)
-            try:
-                resolved = getattr(importlib.import_module(module_path), cls_name)
-            except (ImportError, AttributeError):
-                raise ImportError(
-                    f"Cannot import data source class {class_path!r}. "
-                    "If this is a bundle class, install the bundle first. "
-                    "If the config has no '_bundle' key, call bind_config(config) manually."
-                ) from None
+            resolved = _import_class(d["source_class"], "data source", DataSource)
             return resolved.from_dict(d)
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 

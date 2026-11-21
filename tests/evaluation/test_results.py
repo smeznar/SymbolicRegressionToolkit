@@ -222,6 +222,12 @@ class TestSRResultsPrintResults:
         assert "mykey" in out
         assert "hello" in out
 
+    def test_augmentation_with_non_string_type_printed_fallback(self, capsys):
+        results = _single_result()
+        results[0].augmentations["mykey"] = {"_type": None, "info": "hello"}
+        results.print_results()
+        assert "hello" in capsys.readouterr().out
+
     def test_model_augmentation_printed_fallback(self, capsys):
         results = _single_result()
         results[0].top_models()[0].add_augmentation("aug", {"x": 5}, "NonExistent.Class")

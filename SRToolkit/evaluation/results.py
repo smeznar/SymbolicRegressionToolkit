@@ -7,7 +7,6 @@ add post-hoc information to results. Concrete augmenters are in
 [result_augmentation][SRToolkit.evaluation.result_augmentation].
 """
 
-import importlib
 import json
 import os
 import warnings
@@ -17,6 +16,7 @@ from typing import Any, ClassVar, Literal
 
 import numpy as np
 
+from SRToolkit.bundle._relocate import _import_class
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.types import EvalResult, ModelResult
 
@@ -265,11 +265,13 @@ class SR_results:
         model_scope: Literal["best", "top", "all"] = "top",
         augmentations_filter: list[str] | None = None,
     ):
-        def _get_augmenter_class(type_str: str) -> type | None:
+        def _augmenter_class(data: dict) -> type[ResultAugmenter] | None:
+            type_str = data.get("_type")
+            if not isinstance(type_str, str):
+                return None
             try:
-                module_path, cls_name = type_str.rsplit(".", 1)
-                return getattr(importlib.import_module(module_path), cls_name)
-            except Exception:
+                return _import_class(type_str, "augmenter", ResultAugmenter)
+            except (ImportError, TypeError):
                 return None
 
         # --- Core info ---
@@ -298,10 +300,9 @@ class SR_results:
         # --- Experiment-level augmentation sections ---
         for key in eval_aug_keys:
             data = result.augmentations[key]
-            type_str = data.get("_type", "")
-            cls = _get_augmenter_class(type_str) if type_str else None
+            cls = _augmenter_class(data)
             print(f"--- {key} ---")
-            if cls is not None and issubclass(cls, ResultAugmenter):
+            if cls is not None:
                 line = cls.format_eval_result(data)
                 if line:
                     print(line)
@@ -336,9 +337,8 @@ class SR_results:
                         model_aug_keys = [k for k in model_aug_keys if k in augmentations_filter]
                     for key in model_aug_keys:
                         data = model.augmentations[key]
-                        type_str = data.get("_type", "")
-                        cls = _get_augmenter_class(type_str) if type_str else None
-                        if cls is not None and issubclass(cls, ResultAugmenter):
+                        cls = _augmenter_class(data)
+                        if cls is not None:
                             line = cls.format_model_result(data)
                             if line:
                                 print(f"    {key}: {line}")
