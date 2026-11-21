@@ -148,6 +148,7 @@ nav:
           - parameter_estimator: references/evaluation/parameter_estimator.md
           - sr_evaluator: references/evaluation/sr_evaluator.md
           - results: references/evaluation/results.md
+          - model_store: references/evaluation/model_store.md
           - ranking: references/evaluation/ranking.md
           - result_augmentation: references/evaluation/result_augmentation.md
           - callbacks: references/evaluation/callbacks.md

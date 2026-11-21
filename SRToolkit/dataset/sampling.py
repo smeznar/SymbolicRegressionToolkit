@@ -62,7 +62,20 @@ class Sampler(ABC):
     ``"SRToolkit.dataset.sampling.UniformSampling"``), so that
     [Sampler.from_dict][SRToolkit.dataset.sampling.Sampler.from_dict] can reconstruct any
     subclass — including user-defined ones — via ``importlib`` without a central registry.
+
+    Two samplers are equal when their [to_dict][SRToolkit.dataset.sampling.Sampler.to_dict] are
+    equal, so a sampler loaded from its dictionary equals the original. Samplers are hashable, and
+    equal samplers hash equally.
     """
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Sampler):
+            return NotImplemented
+        return self.to_dict() == other.to_dict()
+
+    def __hash__(self) -> int:
+        # Equal samplers have equal to_dict, so the same "sampler_class".
+        return hash(self.to_dict()["sampler_class"])
 
     @abstractmethod
     def __call__(self, sample_size: int, rng: np.random.Generator | None = None) -> np.ndarray:

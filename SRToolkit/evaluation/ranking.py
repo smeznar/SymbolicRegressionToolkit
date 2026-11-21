@@ -48,11 +48,12 @@ class RankingResult:
             scoring.
         extra: Freeform, ranking-owned payload for anything beyond ``parameters``
             (diagnostics, auxiliary fitted arrays, …). Threaded into
-            [ModelResult.ranking_data][SRToolkit.utils.types.ModelResult]; its values must be
-            ones that can be saved (see [serialization][SRToolkit.utils.serialization]), or
-            saving the results raises ``TypeError``. A ranking that wants *typed* richness may
-            instead subclass ``RankingResult``; the evaluator reads only ``score``,
-            ``parameters``, ``status`` and ``status_detail``.
+            [ModelResult.ranking_data][SRToolkit.utils.types.ModelResult]. Its values must be
+            ones that can be saved (see [serialization][SRToolkit.utils.serialization]);
+            otherwise the evaluator stores the model with status ``"error"``, error ``inf``,
+            empty ``ranking_data`` and ``parameters`` ``None``. A ranking that wants *typed*
+            richness may instead subclass ``RankingResult``; the evaluator reads only
+            ``score``, ``parameters``, ``status`` and ``status_detail``.
         status: Set only when the ranking knows that it could not score the expression:
             ``"rejected"`` (the expression breaks a rule the ranking enforces) or ``"undefined"``
             (it has no finite score). Leave it ``None`` and the evaluator decides: a finite

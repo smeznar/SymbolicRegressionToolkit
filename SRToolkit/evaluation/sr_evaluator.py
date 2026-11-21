@@ -19,6 +19,12 @@ a ``status_detail`` saying why. The evaluator checks in this order and stops at 
 5. ``"rejected"``: a post-check of a required constraint fails. The fit is kept in ``parameters``.
 6. ``"ok"``: otherwise.
 
+Whatever its status above, a model that cannot be saved (see
+[ModelResult.to_dict][SRToolkit.utils.types.ModelResult.to_dict], e.g. a ranking's ``extra`` with
+a value that cannot be saved) becomes ``"error"``: it is stored with empty ``ranking_data`` and
+``advisory_violations``, ``parameters`` ``None`` and a ``status_detail`` starting
+``"the model cannot be saved: "``, and the evaluator emits a warning.
+
 Every status except ``"ok"`` gets the error ``+inf``, so an evaluated expression never gives
 ``NaN`` and failed models rank after every scored one. Every call counts toward
 ``max_evaluations``, whatever its status.
@@ -167,11 +173,21 @@ A run whose ``stop_reason`` is neither ``"success_threshold"`` nor ``"max_evalua
 ``"time_limit"``) ended with budget left: ``best_error_within`` past its last call is only an upper
 bound, and a ``None`` from ``calls_to_threshold`` is censored at fewer calls than the budget. Check
 ``stop_reason`` before comparing approaches.
+
+## Storage
+
+``models`` and ``trace`` are read-only views of a SQLite database, in memory by default or in the
+``checkpoint`` file, which keeps memory constant during long runs (see
+[model_store][SRToolkit.evaluation.model_store]). ``se.models[i]`` returns a new
+[ModelResult][SRToolkit.utils.types.ModelResult] each time, so changing it saves nothing. An
+evaluator holds an open database connection, so it cannot be pickled or deep-copied. It is not
+thread-safe: call it from one thread at a time.
 """
 
 import dataclasses
 import logging
 import math
+import os
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import nullcontext
@@ -190,6 +206,7 @@ from SRToolkit.evaluation.callbacks import (
     ExprEvaluated,
     SRCallbacks,
 )
+from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.evaluation.results import SR_results
@@ -369,6 +386,7 @@ class SR_evaluator:
         named_constants: Mapping[str, "VariableInfo"] | None = None,
         description: str = "",
         reference_grammar: Grammar | None = None,
+        checkpoint: str | os.PathLike | None = None,
         **kwargs: Unpack[RankingSettings],
     ):
         """Evaluate expressions on data with a ranking function and collect the results.
@@ -432,6 +450,9 @@ class SR_evaluator:
             description: Free text about the task.
             reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
                 start from.
+            checkpoint: A file to create and store the models and trace in, committed as described
+                in [model_store][SRToolkit.evaluation.model_store]. ``None`` (default): they are
+                kept in memory.
             **kwargs: Settings from [RankingSettings][SRToolkit.utils.types.RankingSettings],
                 passed to the ranking function. A partial ``default_constant`` template is completed from
                 ``constant_bounds`` (as by ``BackgroundKnowledge``) before the ranking gets it.
@@ -446,7 +467,7 @@ class SR_evaluator:
                 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
                 ``ranking_function`` of the wrong type.
-            ValueError: If ``max_evaluations`` is ``0``. If ``max_constants`` or ``max_expr_length``
+            ValueError: If ``max_evaluations`` is ``0``, or ``checkpoint`` is an empty path. If ``max_constants`` or ``max_expr_length``
                 is not an ``int`` or numpy integer (``bool`` is rejected), or is given, non-negative and different from the
                 limit of a constraint of its class in ``required_constraints`` (a negative setting
                 adds nothing and never clashes); the message names the setting. Also raised as
@@ -456,6 +477,9 @@ class SR_evaluator:
                 the ranking's ``setup`` for missing or malformed data (e.g. RMSE with neither ``y``
                 nor ``ground_truth``).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
+            FileExistsError: If a file exists at ``checkpoint``.
+            sqlite3.OperationalError: If the ``checkpoint`` file cannot be created (e.g. its
+                directory does not exist or is not writable).
 
         Attributes:
             X: The input data.
@@ -473,9 +497,11 @@ class SR_evaluator:
                 was ``None`` (still ``None`` if the ranking has no default).
             seed: The random seed.
             metadata: The metadata dict as passed.
-            models: Cached [ModelResult][SRToolkit.utils.types.ModelResult] for every evaluated
-                expression, in the order the expressions were first evaluated.
-            trace: One entry per counted call to
+            models: Read-only [view][SRToolkit.evaluation.model_store.ModelsView] of the
+                [ModelResult][SRToolkit.utils.types.ModelResult] of every evaluated model, in the
+                order they were first evaluated.
+            trace: Read-only [view][SRToolkit.evaluation.model_store.TraceView] with one entry per
+                counted call to
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
                 (cache hits included, calls after stopping excluded): the index into ``models`` of
                 the requested expression.
@@ -488,10 +514,6 @@ class SR_evaluator:
                 keeps the setting as passed.
         """
         self.kwargs = kwargs
-        self.models: list[ModelResult] = list()
-        # Keyed on the token tuple and the specs' _spec_key ("" without specs).
-        self._model_index: dict[tuple[tuple[str, ...], str], int] = dict()
-        self.trace: list[int] = list()
         self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
@@ -562,6 +584,11 @@ class SR_evaluator:
         self.X = X
         self.y = y
 
+        # Last, so that a failing constructor leaves no checkpoint file behind.
+        self._store = ModelStore(checkpoint)
+        self.models = self._store.models
+        self.trace = self._store.trace
+
     @property
     def should_stop(self) -> bool:
         """Whether evaluation has stopped: ``stop_reason is not None``. Later calls to
@@ -594,6 +621,7 @@ class SR_evaluator:
             raise ValueError(f"[SR_evaluator.stop] reason must be a non-empty str, got {reason!r}.")
         if self.stop_reason is None:
             self.stop_reason = reason
+            self._store.commit()
 
     @property
     def total_evaluations(self) -> int:
@@ -608,7 +636,7 @@ class SR_evaluator:
         """Strings of the evaluated expressions with status ``"invalid"`` (not well-formed), in
         the order they were first evaluated.
         """
-        return ["".join(m.expr) for m in self.models if m.status == "invalid"]
+        return self._store.invalid_exprs()
 
     @property
     def ranking_function(self) -> str:
@@ -730,8 +758,8 @@ class SR_evaluator:
         tokens = _as_tokens(expr, self.symbol_library)
         if canonicalise_constants and not free_constants:
             tokens = canonicalise(tokens, self.symbol_library)
-        index = self._model_index.get((tuple(tokens), _spec_key(free_constants)))
-        return None if index is None else self.models[index]
+        found = self._store.lookup(tokens, _spec_key(free_constants))
+        return None if found is None else self.models[found[0]]
 
     def check_constraints(
         self,
@@ -924,6 +952,9 @@ class SR_evaluator:
                 renumbers constants and loses their labels), or does not fit a well-formed ``expr``
                 (see [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
                 Nothing is then recorded or counted.
+            TypeError: If a spec in ``free_constants`` cannot be saved (see
+                [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]). Nothing is
+                then recorded or counted.
         """
         specs = tuple(sorted(free_constants, key=lambda c: c.label or "")) if free_constants else None
         # Temporary: simplify() renumbers constants and drops their labels, so specs would no longer
@@ -950,30 +981,44 @@ class SR_evaluator:
                     expr = expr_list = canonical
 
             expr_str = "".join(expr_list)
-            key = (tuple(expr_list), _spec_key(specs))
-            index = self._model_index.get(key)
-            if index is not None:
+            spec_key = _spec_key(specs)
+            found = self._store.lookup(expr_list, spec_key)
+            if found is not None:
+                index, error, status = found
                 if verbose > 0:
                     logger.debug("Already evaluated %s", expr_str)
-                self.trace.append(index)
+                self._store.add_call(index)
                 if 0 <= self.max_evaluations <= self.total_evaluations:
                     self.stop("max_evaluations")
                 event = ExprEvaluated(
                     expression=expr_str,
-                    error=self.models[index].error,
+                    error=error,
                     evaluation_number=self.total_evaluations,
                     experiment_id=self._experiment_id,
                     is_new_best=False,
-                    status=self.models[index].status,
+                    status=status,
                 )
                 reason = self._callbacks.on_expr_evaluated(event)
                 if reason is not None:
                     self.stop(reason)
-                return self.models[index].error
+                return error
 
             else:
                 model = self._evaluate_new(expr, expr_list, expr_str, verbose, specs)
                 model.free_constants = specs
+                try:
+                    self._store.add(expr_list, spec_key, model)
+                except TypeError as e:
+                    # The ranking's output cannot be saved: a failure of the evaluation.
+                    message = f"the model cannot be saved: {e}"
+                    warnings.warn(f"[SR_evaluator] Error scoring expression {expr_str}: {message}")
+                    model.ranking_data = {}
+                    model.parameters = None
+                    model.advisory_violations = []
+                    model.error = np.inf
+                    model.status = "error"
+                    model.status_detail = message
+                    self._store.add(expr_list, spec_key, model)
                 if verbose > 0:
                     logger.debug(
                         "Evaluated expression %s: status %s, error %s%s",
@@ -983,9 +1028,6 @@ class SR_evaluator:
                         f" ({model.status_detail})" if model.status_detail else "",
                     )
                 error = model.error
-                self._model_index[key] = len(self.models)
-                self.trace.append(len(self.models))
-                self.models.append(model)
 
                 # Threshold before budget, so a call that does both records "success_threshold".
                 if self.success_threshold is not None and error < self.success_threshold:
@@ -1212,8 +1254,8 @@ class SR_evaluator:
             expr_list = canonicalise(expr_list, self.symbol_library)
         expr_str = "".join(expr_list)
 
-        index = self._model_index.get((tuple(expr_list), _spec_key(free_constants)))
-        if index is None:
+        found = self._store.lookup(expr_list, _spec_key(free_constants))
+        if found is None:
             raise ValueError(
                 f"[SR_evaluator.get_metric] Expression '{expr_str}' has not been evaluated yet. "
                 "Call evaluate_expr() on it first so its constants are fitted and cached."
@@ -1232,7 +1274,7 @@ class SR_evaluator:
                 f"[SR_evaluator.get_metric] metric must be a string or a callable, got {type(metric).__name__}."
             )
 
-        model = self.models[index]
+        model = self.models[found[0]]
 
         # Prediction-based metrics need targets and a fitted model: undefined in BED mode
         # and for models that could not be scored.
@@ -1282,6 +1324,7 @@ class SR_evaluator:
             An instance of the SR_results object with the results of the evaluation. Its
             ``stop_reason`` is the evaluator's, or ``"returned"`` if evaluation has not stopped.
         """
+        self._store.commit()
         if results is None:
             results = SR_results()
 

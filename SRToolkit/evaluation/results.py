@@ -11,7 +11,7 @@ import json
 import os
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import Any, ClassVar, Literal
 
 import numpy as np
@@ -156,8 +156,8 @@ class SR_results:
 
     def add_results(
         self,
-        models: list[ModelResult],
-        trace: list[int],
+        models: Sequence[ModelResult],
+        trace: Sequence[int],
         top_k: int,
         success_threshold: float | None,
         approach_name: str,

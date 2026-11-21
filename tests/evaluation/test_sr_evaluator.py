@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+import re
 import warnings
 from unittest.mock import ANY, MagicMock, patch
 
@@ -803,6 +804,13 @@ class _SeedRecordingRanking(RankingFunction):
         return RankingResult(score=0.0)
 
 
+class _OddAmount(ExpressionConstraint):
+    """Fails every expression with an amount that cannot be saved."""
+
+    def pre_check(self, expr):
+        return CheckResult(passed=False, message="odd", amount=object())
+
+
 class _FixedRanking(RankingFunction):
     """Returns a fixed RankingResult, or raises if it is an exception."""
 
@@ -928,6 +936,31 @@ class TestEvaluationStatus:
         se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
         assert se.evaluate_expr(["X_0"]) == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "no finite behaviour")
+
+    # Reason: clause (module docs, status 3: a model that cannot be saved is stored with status
+    # "error", empty ranking_data and no parameters, with a warning; it never counts as a success).
+    @pytest.mark.parametrize(
+        "parameters, extra, advisory, path",
+        [
+            (np.array([1.5]), {"fit": object()}, [], r"ranking_data\['fit'\]"),
+            (np.array([1 + 2j]), {"iterations": 3}, [], "parameters"),
+            (np.array([1.5]), {"iterations": 3}, [_OddAmount()], r"advisory_violations\[0\]"),
+        ],
+        ids=["extra", "complex-parameters", "advisory-amount"],
+    )
+    def test_unsaveable_model_gives_error_with_warning(self, parameters, extra, advisory, path):
+        outcome = RankingResult(score=0.0, parameters=parameters, extra=extra)
+        se = SR_evaluator(
+            _X, _y, ranking_function=_FixedRanking(outcome), success_threshold=1.0, advisory_constraints=advisory
+        )
+        with pytest.warns(UserWarning, match="cannot be saved"):
+            assert se.evaluate_expr(["X_0"]) == np.inf
+        model = se.models[0]
+        assert (model.status, model.error, model.ranking_data, model.parameters) == ("error", np.inf, {}, None)
+        assert model.advisory_violations == []
+        assert model.status_detail.startswith("the model cannot be saved: ")
+        assert re.search(path, model.status_detail)
+        assert se.stop_reason is None  # the score 0.0 below the threshold does not count
 
     @pytest.mark.parametrize(
         "operation",
@@ -1920,14 +1953,14 @@ class TestGetModel:
         assert se.get_model(["X_0"]) is None
         se.evaluate_expr(["X_0"])
         for _ in range(3):
-            assert se.get_model(["X_0"]) is se.models[0]
+            assert se.get_model(["X_0"]).to_dict() == se.models[0].to_dict()
         assert se.total_evaluations == 1 and se.trace == [0]
 
     def test_get_model_accepts_node(self):
         lib = _LIB2()
         se = SR_evaluator(_X, _y, symbol_library=lib)
         se.evaluate_expr(["X_0", "+", "X_1"])
-        assert se.get_model(tokens_to_tree(["X_0", "+", "X_1"], lib)) is se.models[0]
+        assert se.get_model(tokens_to_tree(["X_0", "+", "X_1"], lib)).to_dict() == se.models[0].to_dict()
 
     def test_get_model_does_not_simplify(self):
         se = SR_evaluator(_X, _y, symbol_library=_LIB2())
@@ -1966,6 +1999,18 @@ class _RecordingRanking(RankingFunction):
 
 
 class TestFreeConstants:
+    # Reason: clause (evaluate_expr Raises: a spec that cannot be saved raises TypeError; nothing is
+    # recorded or counted).
+    def test_unsaveable_spec_raises_and_records_nothing(self):
+        class _Unsaveable(UniformSampling):
+            def to_dict(self):
+                return {**super().to_dict(), "extra": object()}
+
+        se = SR_evaluator(_X, _y)
+        with pytest.raises(TypeError):
+            se.evaluate_expr(["C_0", "*", "X_0"], [Constant(label="C_0", prior=_Unsaveable(0, 1))])
+        assert (se.total_evaluations, len(se.models)) == (0, 0)
+
     # Reason: clause (evaluate_expr: same tokens with different specs are a different candidate,
     # specs stored as ModelResult.free_constants and passed to the ranking; get_model by tokens + specs).
     def test_same_tokens_with_different_specs_are_separate_models(self):
@@ -1981,8 +2026,8 @@ class TestFreeConstants:
         np.testing.assert_array_equal(se.models[1].parameters, [1.0])
         assert [c.to_dict() for c in se.models[1].free_constants] == [spec.to_dict()]
         assert se.models[0].free_constants is None
-        assert se.get_model(_E) is se.models[0]
-        assert se.get_model(_E, [_fix("C_0", 1.0)]) is se.models[1]
+        assert se.get_model(_E).to_dict() == se.models[0].to_dict()
+        assert se.get_model(_E, [_fix("C_0", 1.0)]).to_dict() == se.models[1].to_dict()
 
     # Reason: clause (get_metric uses the model of the given specs; ValueError for specs not evaluated).
     def test_get_metric_uses_the_model_of_the_given_specs(self):
@@ -2021,7 +2066,7 @@ class TestFreeConstants:
         labels = se.models[0].free_constants
         assert (None if labels is None else tuple(c.label for c in labels)) == stored
         assert (None if first_specs is None else [c.label for c in first_specs]) == given_order
-        assert se.get_model(expr, second()) is se.models[0]
+        assert se.get_model(expr, second()).to_dict() == se.models[0].to_dict()
 
     # Reason: clause (error contract: specs that do not fit, or specs with simplify_expr=True, raise
     # ValueError and nothing is recorded or counted; check_constraints checks them the same way).
@@ -2158,7 +2203,7 @@ class TestCanonicalisation:
         canonical = _canon_se()
         canonical.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"], canonicalise_constants=True)
         assert canonical.get_model(["C_4", "*", "X_0", "+", "C_4"]) is None
-        assert canonical.get_model(["C_0", "*", "X_0", "+", "C_0"]) is canonical.models[0]
+        assert canonical.get_model(["C_0", "*", "X_0", "+", "C_0"]).to_dict() == canonical.models[0].to_dict()
         assert canonical.get_metric(["C_0", "*", "X_0", "+", "C_0"], "mae") < 1e-6
 
     # Reason: clause (get_model / get_metric with canonicalise_constants=True find a model under another
@@ -2175,7 +2220,7 @@ class TestCanonicalisation:
         se = _canon_se(lib())
         se.evaluate_expr(f"{const}_0 * X_0 + {const}_0".split(), canonicalise_constants=True)
         relabelled = f"{const}_3 * X_0 + {const}_3".split()
-        assert se.get_model(relabelled, canonicalise_constants=True) is se.models[0]
+        assert se.get_model(relabelled, canonicalise_constants=True).to_dict() == se.models[0].to_dict()
         assert se.get_metric(relabelled, "mae", canonicalise_constants=True) < 1e-6
         assert se.total_evaluations == 1
 
@@ -2186,7 +2231,7 @@ class TestCanonicalisation:
         spec = _fix("C_4", 1.0)
         se.evaluate_expr(expr, [spec], canonicalise_constants=True)
         assert se.models[0].expr == expr
-        assert se.get_model(expr, [spec], canonicalise_constants=True) is se.models[0]
+        assert se.get_model(expr, [spec], canonicalise_constants=True).to_dict() == se.models[0].to_dict()
         assert se.get_metric(expr, "mae", [spec], canonicalise_constants=True) > 0
 
     # Reason: clause (the canonical form is scored, and a fit is seeded by its tokens): with max_iter=0

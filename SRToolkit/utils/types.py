@@ -257,6 +257,8 @@ class CheckResult:
 class ModelResult:
     """One evaluated expression: an entry of [EvalResult.all_models][SRToolkit.utils.types.EvalResult].
 
+    Two models are equal when their [to_dict][SRToolkit.utils.types.ModelResult.to_dict] are equal.
+
     Attributes:
         expr: Token list representing the expression, e.g. ``["C", "*", "X_0"]``.
         error: Numeric error under the ranking function (RMSE or BED). By convention ``+inf``
@@ -305,6 +307,12 @@ class ModelResult:
     status_detail: str | None = None
     advisory_violations: list[CheckResult] = field(default_factory=list)
     free_constants: tuple["Constant", ...] | None = None
+
+    def __eq__(self, other: object) -> bool:
+        # Field-wise dataclass equality raises for arrays with several elements; to_dict does not.
+        if not isinstance(other, ModelResult):
+            return NotImplemented
+        return self.to_dict() == other.to_dict()
 
     def add_augmentation(self, name: str, data: dict[str, Any], aug_type: str) -> None:
         """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter].

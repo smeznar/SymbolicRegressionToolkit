@@ -5,6 +5,8 @@ Modules:
         free constants in expressions and ranks them by RMSE.
     sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] — expression
         evaluation.
+    model_store: [ModelStore][SRToolkit.evaluation.model_store.ModelStore] — the SQLite storage
+        behind an evaluator's ``models`` and ``trace``, optionally a checkpoint file.
     results: [SR_results][SRToolkit.evaluation.results.SR_results] and
         [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] — experiment results and
         the base class for their post-processing.

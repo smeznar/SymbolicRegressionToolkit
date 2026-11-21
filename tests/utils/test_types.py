@@ -122,6 +122,17 @@ class TestCheckResult:
 
 
 class TestModelResult:
+    # Reason: implied (ModelResult equality is by value, also with array parameters, as ModelsView
+    # equality relies on).
+    def test_equality_compares_values(self):
+        def make(second):
+            return ModelResult(expr=["C", "*", "X_0", "+", "C"], error=0.5, parameters=np.array([1.0, second]))
+
+        assert make(2.0) == make(2.0)
+        assert make(2.0) != make(3.0)
+        assert make(2.0) != make(2.0).to_dict()
+        assert make(2.0).__eq__("x") is NotImplemented
+
     def test_model_result_defaults_and_independent_containers(self):
         a = ModelResult(expr=["X_0"], error=0.1)
         b = ModelResult(expr=["X_1"], error=0.2)

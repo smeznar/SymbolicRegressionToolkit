@@ -194,6 +194,20 @@ def test_dict_round_trip(sampler):
     assert Sampler.from_dict(sampler.to_dict()).to_dict() == sampler.to_dict()
 
 
+@pytest.mark.parametrize("sampler", _SAMPLERS, ids=_IDS)
+def test_equal_by_to_dict(sampler):
+    loaded = Sampler.from_dict(sampler.to_dict())
+    assert loaded == sampler and hash(loaded) == hash(sampler)
+    assert len({loaded, sampler}) == 1
+
+
+def test_unequal_parameters_class_or_type():
+    assert UniformSampling(0, 2) == UniformSampling(0.0, 2.0)
+    assert UniformSampling(0, 2) != UniformSampling(0, 3)
+    assert UniformSampling(1, 2) != LogUniformSampling(1, 2)
+    assert UniformSampling(0, 2) != {"min_value": 0, "max_value": 2}
+
+
 class _Constant(Sampler):
     """A custom sampler that overrides neither describe nor ppf."""
 
@@ -205,6 +219,19 @@ class _Constant(Sampler):
 
     def to_dict(self):
         return {"sampler_class": f"{__name__}._Constant", "value": self.value}
+
+
+class _UniformChild(UniformSampling):
+    """A subclass that keeps UniformSampling.to_dict."""
+
+
+def test_custom_sampler_equal_and_hashable():
+    # Reason: implied (equal samplers hash equally, also for user subclasses whose to_dict holds
+    # an unhashable list or that inherit to_dict).
+    assert _Constant([1, 2]) == _Constant([1, 2]) and _Constant([1, 2]) != _Constant([1, 3])
+    assert len({_Constant([1, 2]), _Constant([1, 2])}) == 1
+    child = _UniformChild(0, 2)
+    assert child == UniformSampling(0, 2) and hash(child) == hash(UniformSampling(0, 2))
 
 
 def test_default_describe_from_to_dict():
