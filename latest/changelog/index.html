@@ -1263,6 +1263,8 @@
       
         
       
+        
+      
     
     
     
@@ -1383,6 +1385,34 @@
     
   
     results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../references/evaluation/model_store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    model_store
   
 
     
@@ -2660,6 +2690,7 @@
 <li><code>SymbolLibrary</code> stores each token as an immutable <code>Symbol</code> record. <code>get(token)</code> (returns <code>None</code> for brackets, numbers and unknown tokens) and <code>sl[token]</code> (raises <code>KeyError</code>) replace <code>get_type</code>, <code>get_precedence</code>, <code>get_np_fn</code>, <code>get_cython_id</code>, <code>get_latex_str</code> and <code>get_unit_rule</code>. <code>add_symbol</code>'s <code>np_fn</code> argument is renamed <code>python_str</code> (it is a Python expression template, not only NumPy); saved files keep the <code>np_fn</code> key. <code>preamble</code> is replaced by <code>modules</code> (alias → module path, e.g. <code>{"sp": "scipy.special"}</code>), which custom symbols can use on every backend; modules imported through <code>preamble</code> other than NumPy never worked (<code>NameError</code>). Saved libraries still load; a saved <code>preamble</code> may contain only <code>import numpy as np</code>.</li>
 <li>Loading a saved sampler, data source, approach, callback or grammar constraint checks that the class named in it is of that kind and raises a <code>TypeError</code> otherwise (before, that class's <code>from_dict</code> was called). <code>build_ranking</code> raises <code>TypeError</code> instead of <code>ValueError</code> for an import path that is not a <code>RankingFunction</code>. A saved dict that names the base class itself (e.g. <code>Sampler</code>) raises a <code>TypeError</code> instead of recursing forever; for <code>ExpressionConstraint</code> this was a <code>NotImplementedError</code>.</li>
 <li>New <code>SR_dataset.adapt_or_load(approach, path, force=False)</code>: adapts an approach to a dataset, or loads its saved adapted state from <code>path</code>. <code>evaluate_approach</code>, grid jobs and <code>ExperimentGrid.adapt_one</code> all use it.</li>
+<li><code>SR_evaluator</code> keeps its models and trace in SQLite: in memory by default, or in a file with <code>checkpoint=path</code>, which keeps memory constant during long runs (committed every 1000 new models or 30 s, when evaluation stops and when results are collected). <code>se.models</code> and <code>se.trace</code> are now read-only, live views instead of lists, and <code>se.models[i]</code> returns a new <code>ModelResult</code> on each access. A model whose ranking output cannot be saved gets status <code>"error"</code> instead of failing later when the results are saved. <code>ModelResult</code> and samplers compare by value (<code>to_dict</code>), so models with fitted parameters can be compared and samplers loaded from a file equal the originals.</li>
 </ul>
 <h3 id="symbolicregressiontoolkit-160-2026-06-23">SymbolicRegressionToolkit-1.6.0 (2026-06-23)</h3>
 <ul>

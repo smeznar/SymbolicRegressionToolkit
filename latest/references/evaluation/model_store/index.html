@@ -1,0 +1,3672 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Toolkit for equation discovery/symbolic regression that includes parameter estimation, performance evaluation, and expression compilation.">
+      
+      
+        <meta name="author" content="Sebastian Mežnar">
+      
+      
+      
+        <link rel="prev" href="../results/">
+      
+      
+        <link rel="next" href="../ranking/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Model store - Symbolic Regression Toolkit</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="red">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#model-store" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Symbolic Regression Toolkit" class="md-header__button md-logo" aria-label="Symbolic Regression Toolkit" data-md-component="logo">
+      
+  <img src="../../../assets/imgs/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Symbolic Regression Toolkit
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Model store
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="red"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue-grey" data-md-color-accent="light-blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/smeznar/SymbolicRegressionToolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smeznar/SymbolicRegressionToolkit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Symbolic Regression Toolkit" class="md-nav__button md-logo" aria-label="Symbolic Regression Toolkit" data-md-component="logo">
+      
+  <img src="../../../assets/imgs/logo.png" alt="logo">
+
+    </a>
+    Symbolic Regression Toolkit
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/smeznar/SymbolicRegressionToolkit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    smeznar/SymbolicRegressionToolkit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../guides/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/expression-manipulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expression Manipulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/benchmarking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarking SR Approaches
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/experiments/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running Experiments
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/custom-approach/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Implementing a Custom Approach
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/custom-dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Creating a Custom Dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grammar-Guided Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/sharing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sharing Custom Implementations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API References
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API References
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../utils/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    utils
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    utils
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/symbol_library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    symbol_library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/expression_tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_tree
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/expression_compiler/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_compiler
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/expression_simplifier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_simplifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/expression_constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/expression_generator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    expression_generator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/free_constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    free_constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/measures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    measures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    serialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    units
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../utils/grammar/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grammar
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_2_13" id="__nav_3_2_13_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_2_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    grammar
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/grammar/grammar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    grammar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/grammar/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/grammar/derivation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    derivation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    evaluation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../parameter_estimator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    parameter_estimator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sr_evaluator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sr_evaluator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    model_store
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    model_store
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;model_store
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" model_store">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store--checkpoint-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checkpoint file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ModelStore
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ModelStore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;trace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.lookup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;lookup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.add_call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;add_call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.invalid_exprs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;invalid_exprs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;commit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelsView" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ModelsView
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.TraceView" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TraceView
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ranking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ranking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../result_augmentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    result_augmentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../callbacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    callbacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../dataset/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dataset
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    dataset
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/srdataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/background_knowledge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    background_knowledge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/srbenchmark/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    benchmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/feynman/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    feynman
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/nguyen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nguyen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/srsd_feynman/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    srsd_feynman
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/sampling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/data_source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/data_split/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_split
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset/data_cache/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    data_cache
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../approaches/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    approaches
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    approaches
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../approaches/sr_approach/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    sr_approach
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../approaches/ProGED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ProGED
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../approaches/EDHiE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EDHiE
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../experiments/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    experiments
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    experiments
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../experiments/experiment_grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    experiment_grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../bundle/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bundle
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    bundle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../share/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    share
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../citations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Citations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;model_store
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" model_store">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store--checkpoint-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checkpoint file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ModelStore
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" ModelStore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;trace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.lookup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;lookup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.add_call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;add_call
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.invalid_exprs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;invalid_exprs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelStore.commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;commit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.ModelsView" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;ModelsView
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#SRToolkit.evaluation.model_store.TraceView" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TraceView
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="model-store">Model store</h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="SRToolkit.evaluation.model_store" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <span class="doc doc-object-name doc-module-name">SRToolkit.evaluation.model_store</span>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Storage of an evaluator's models and trace in SQLite.</p>
+<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt;" href="../sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator">SR_evaluator</a> keeps every evaluated model and its
+evaluation trace in a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelStore&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.ModelStore">ModelStore</a> and exposes them
+as the read-only views <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelsView&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.ModelsView">ModelsView</a> (<code>se.models</code>)
+and <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;TraceView&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.TraceView">TraceView</a> (<code>se.trace</code>).</p>
+<p>Without a checkpoint the database is in memory, so nothing touches the disk and memory grows with
+the number of models (about 1 KB each). With a checkpoint path it is a file, and memory stays
+constant during the run: only the best error so far and a small page cache stay in RAM.
+Collecting the results copies every model into RAM.</p>
+<p>A model is saved as the JSON of <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.ModelResult.to_dict">ModelResult.to_dict</a>,
+with its error and status in columns of their own, so a cache hit never parses the record. Each
+<code>se.models[i]</code> therefore returns a new <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.ModelResult">ModelResult</a>:
+changing it saves nothing, and numpy scalars in <code>ranking_data</code> come back as Python scalars.</p>
+<p>Do not modify the database or the checkpoint file yourself: a cache hit returns the stored error
+without scoring again, and the trace refers to models by position, so a changed or removed row
+makes later results wrong. Only
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;evaluate_expr&lt;/span&gt;" href="../sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr">evaluate_expr</a> writes to it.</p>
+<h4 id="SRToolkit.evaluation.model_store--checkpoint-file">Checkpoint file</h4>
+<p>The file layout is internal; a public reader will come later. Pending models and calls are
+committed:</p>
+<ul>
+<li>after 1000 new models since the last commit (cache hits do not count);</li>
+<li>at the first new model or call 30 seconds or more after the last commit;</li>
+<li>when evaluation stops (the first <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;stop&lt;/span&gt;" href="../sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop">stop</a>
+  only);</li>
+<li>when results are collected
+  (<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_results&lt;/span&gt;" href="../sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results">get_results</a>).</li>
+</ul>
+<p>A crash loses at most the models and calls since the last commit. There is no <code>close()</code> yet: the
+connection closes when the store is garbage collected, and an uncommitted batch is rolled back at
+exit, so only committed data is safe. The file is in WAL mode, so another process can read it while
+the run continues; committed data may be only in the <code>-wal</code> file, so keep the <code>-wal</code> and
+<code>-shm</code> files with the checkpoint while it is open.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="SRToolkit.evaluation.model_store.ModelStore" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">ModelStore</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ModelStore</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>SQLite database of the models and trace of one evaluator.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="os.PathLike">PathLike</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The checkpoint file to create, or <code>None</code> (default) for a database in memory.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>path</code> is empty.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="FileExistsError">FileExistsError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a file exists at <code>path</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="sqlite3.OperationalError">OperationalError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the file cannot be created (e.g. its directory does not
+exist or is not writable).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-93">93</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-94">94</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-95">95</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-96">96</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-97">97</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-98">98</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-99">99</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-72" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-72"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-73" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-73"></a><span class="w">    </span><span class="sd">"""SQLite database of the models and trace of one evaluator.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-74" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-74"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-75" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-75"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-76" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-76"></a><span class="sd">        path: The checkpoint file to create, or ``None`` (default) for a database in memory.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-77" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-77"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-78" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-78"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-79" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-79"></a><span class="sd">        ValueError: If ``path`` is empty.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-80" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-80"></a><span class="sd">        FileExistsError: If a file exists at ``path``.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-81" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-81"></a><span class="sd">        sqlite3.OperationalError: If the file cannot be created (e.g. its directory does not</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-82" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-82"></a><span class="sd">            exist or is not writable).</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-83" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-83"></a><span class="sd">    """</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-84" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-84"></a>    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-85" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-85"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"[ModelStore] path must not be empty; pass None for a database in memory."</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-86" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-86"></a>    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-87" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-87"></a>        <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[ModelStore] </span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> already exists."</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-88" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-88"></a>    <span class="c1"># Transactions are managed explicitly (isolation_level=None); one is always open.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-89" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-89"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">":memory:"</span> <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">path</span><span class="p">,</span> <span class="n">isolation_level</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">check_same_thread</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-90" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-90"></a>    <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-91" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-91"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"PRAGMA journal_mode=WAL"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-92" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-92"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"PRAGMA synchronous=NORMAL"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-93" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-93"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">executescript</span><span class="p">(</span><span class="n">_SCHEMA</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-94" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-94"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"INSERT INTO header VALUES ('format_version', ?)"</span><span class="p">,</span> <span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">_FORMAT_VERSION</span><span class="p">),))</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-95" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-95"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_num_models</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-96" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-96"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_num_calls</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-97" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-97"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-98" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-98"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_last_commit</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-99" name="SRToolkit.evaluation.model_store.ModelStore--source--__codelineno-0-99"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"BEGIN"</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="SRToolkit.evaluation.model_store.ModelStore.models" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">models</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">models</span><span class="p">:</span> <span class="n">ModelsView</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelsView&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.ModelsView">View</a> of the models, in the order added.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="SRToolkit.evaluation.model_store.ModelStore.trace" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">trace</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">trace</span><span class="p">:</span> <span class="n">TraceView</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;TraceView&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.TraceView">View</a> of the model index of each call, in order.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="SRToolkit.evaluation.model_store.ModelStore.lookup" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">lookup</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">lookup</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">spec_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Status</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Find a stored model without parsing its record.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>tokens</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model's expression tokens.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>spec_key</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The key of its free-constant specs, as computed by the evaluator (<code>""</code>
+without specs). The same tokens with different specs are different models.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="int">int</span>, <span title="float">float</span>, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;Status&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.types.Status&lt;/code&gt;)" href="../../utils/types/#SRToolkit.utils.types.Status">Status</a>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(index, error, status)</code> of the model, or <code>None</code> if it is not stored.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-127">127</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-113" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-113"></a><span class="k">def</span><span class="w"> </span><span class="nf">lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">spec_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Status</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-114" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-114"></a><span class="w">    </span><span class="sd">"""Find a stored model without parsing its record.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-115" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-115"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-116" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-116"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-117" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-117"></a><span class="sd">        tokens: The model's expression tokens.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-118" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-118"></a><span class="sd">        spec_key: The key of its free-constant specs, as computed by the evaluator (``""``</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-119" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-119"></a><span class="sd">            without specs). The same tokens with different specs are different models.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-120" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-120"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-121" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-121"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-122" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-122"></a><span class="sd">        ``(index, error, status)`` of the model, or ``None`` if it is not stored.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-123" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-123"></a><span class="sd">    """</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-124" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-124"></a>    <span class="n">row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-125" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-125"></a>        <span class="s2">"SELECT idx, error, status FROM models WHERE key = ?"</span><span class="p">,</span> <span class="p">(</span><span class="n">_key</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">spec_key</span><span class="p">),)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-126" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-126"></a>    <span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-127" name="SRToolkit.evaluation.model_store.ModelStore.lookup--source--__codelineno-0-127"></a>    <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">row</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cast</span><span class="p">(</span><span class="n">Status</span><span class="p">,</span> <span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="SRToolkit.evaluation.model_store.ModelStore.add" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">add</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add</span><span class="p">(</span><span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">spec_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ModelResult</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Store a new model and record a call to it, atomically.</p>
+<p>May commit (see the module docstring).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>tokens</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model's expression tokens.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>spec_key</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The key of its free-constant specs, as computed by the evaluator (<code>""</code>
+without specs). The same tokens with different specs are different models.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>model</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.types.ModelResult&lt;/code&gt;)" href="../../utils/types/#SRToolkit.utils.types.ModelResult">ModelResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model; saved through
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.ModelResult.to_dict">to_dict</a>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The model's index in <code>models</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>model</code> cannot be saved (see
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.ModelResult.to_dict">to_dict</a>). Nothing is then stored.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="sqlite3.IntegrityError">IntegrityError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the model is already stored. Nothing is then stored.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-144">144</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-147">147</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-148">148</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-149">149</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-150">150</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-167">167</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-129" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-129"></a><span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">spec_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ModelResult</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-130" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-130"></a><span class="w">    </span><span class="sd">"""Store a new model and record a call to it, atomically.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-131" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-131"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-132" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-132"></a><span class="sd">    May commit (see the module docstring).</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-133" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-133"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-134" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-134"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-135" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-135"></a><span class="sd">        tokens: The model's expression tokens.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-136" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-136"></a><span class="sd">        spec_key: The key of its free-constant specs, as computed by the evaluator (``""``</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-137" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-137"></a><span class="sd">            without specs). The same tokens with different specs are different models.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-138" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-138"></a><span class="sd">        model: The model; saved through</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-139" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-139"></a><span class="sd">            [to_dict][SRToolkit.utils.types.ModelResult.to_dict].</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-140" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-140"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-141" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-141"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-142" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-142"></a><span class="sd">        The model's index in ``models``.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-143" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-143"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-144" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-144"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-145" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-145"></a><span class="sd">        TypeError: If ``model`` cannot be saved (see</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-146" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-146"></a><span class="sd">            [to_dict][SRToolkit.utils.types.ModelResult.to_dict]). Nothing is then stored.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-147" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-147"></a><span class="sd">        sqlite3.IntegrityError: If the model is already stored. Nothing is then stored.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-148" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-148"></a><span class="sd">    """</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-149" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-149"></a>    <span class="n">record</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-150" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-150"></a>    <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_models</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-151" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-151"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"SAVEPOINT add_model"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-152" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-152"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-153" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-153"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-154" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-154"></a>            <span class="s2">"INSERT INTO models VALUES (?, ?, ?, ?, ?)"</span><span class="p">,</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-155" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-155"></a>            <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">_key</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">spec_key</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">error</span><span class="p">),</span> <span class="n">model</span><span class="o">.</span><span class="n">status</span><span class="p">,</span> <span class="n">record</span><span class="p">),</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-156" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-156"></a>        <span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-157" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-157"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"INSERT INTO trace VALUES (?, ?)"</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_calls</span><span class="p">,</span> <span class="n">index</span><span class="p">))</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-158" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-158"></a>    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-159" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-159"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"ROLLBACK TO add_model"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-160" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-160"></a>        <span class="k">raise</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-161" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-161"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-162" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-162"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"RELEASE add_model"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-163" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-163"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_num_models</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-164" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-164"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_num_calls</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-165" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-165"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-166" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-166"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_commit_if_due</span><span class="p">()</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-167" name="SRToolkit.evaluation.model_store.ModelStore.add--source--__codelineno-0-167"></a>    <span class="k">return</span> <span class="n">index</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="SRToolkit.evaluation.model_store.ModelStore.add_call" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">add_call</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_call</span><span class="p">(</span><span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Record a call to the already stored model at <code>index</code> (a cache hit).</p>
+<p>May commit (see the module docstring).</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-170">170</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-176">176</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-169" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-169"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-170" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-170"></a><span class="w">    </span><span class="sd">"""Record a call to the already stored model at ``index`` (a cache hit).</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-171" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-171"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-172" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-172"></a><span class="sd">    May commit (see the module docstring).</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-173" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-173"></a><span class="sd">    """</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-174" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-174"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"INSERT INTO trace VALUES (?, ?)"</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_calls</span><span class="p">,</span> <span class="n">index</span><span class="p">))</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-175" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-175"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_num_calls</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-176" name="SRToolkit.evaluation.model_store.ModelStore.add_call--source--__codelineno-0-176"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_commit_if_due</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">invalid_exprs</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">invalid_exprs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return the strings of the models with status <code>"invalid"</code>, in the order they were added.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-185">185</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-182" name="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-182"></a><span class="k">def</span><span class="w"> </span><span class="nf">invalid_exprs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-183" name="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-183"></a><span class="w">    </span><span class="sd">"""Return the strings of the models with status ``"invalid"``, in the order they were added."""</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-184" name="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-184"></a>    <span class="n">rows</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"SELECT record FROM models WHERE status = 'invalid' ORDER BY idx"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-185" name="SRToolkit.evaluation.model_store.ModelStore.invalid_exprs--source--__codelineno-0-185"></a>    <span class="k">return</span> <span class="p">[</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">record</span><span class="p">)[</span><span class="s2">"expr"</span><span class="p">])</span> <span class="k">for</span> <span class="p">(</span><span class="n">record</span><span class="p">,)</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">]</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="SRToolkit.evaluation.model_store.ModelStore.commit" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">commit</span>
+
+
+</h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">commit</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Commit the pending models and calls to the checkpoint file.</p>
+<p>For a database in memory it does nothing observable.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-194">194</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-195">195</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-187" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-187"></a><span class="k">def</span><span class="w"> </span><span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-188" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-188"></a><span class="w">    </span><span class="sd">"""Commit the pending models and calls to the checkpoint file.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-189" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-189"></a>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-190" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-190"></a><span class="sd">    For a database in memory it does nothing observable.</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-191" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-191"></a><span class="sd">    """</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-192" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-192"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"COMMIT"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-193" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-193"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_con</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">"BEGIN"</span><span class="p">)</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-194" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-194"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-195" name="SRToolkit.evaluation.model_store.ModelStore.commit--source--__codelineno-0-195"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_last_commit</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="SRToolkit.evaluation.model_store.ModelsView" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">ModelsView</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ModelsView</span><span class="p">(</span><span class="n">store</span><span class="p">:</span> <span class="n">ModelStore</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="SRToolkit.evaluation.model_store._View">_View</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.types.ModelResult&lt;/code&gt;)" href="../../utils/types/#SRToolkit.utils.types.ModelResult">ModelResult</a>]</code></p>
+
+
+
+        <p>Read-only sequence of the models in a store.</p>
+<p>The view of a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelStore&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.ModelStore">ModelStore</a>'s models. It is live:
+models added later appear in it. Supports <code>len</code>, indexing (negative too), slicing (giving a
+list) and iteration. Each access returns a new object, so changing it saves nothing. Equal to
+any sequence with equal models in the same order (<code>se.models == []</code>).</p>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_evaluator</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">se</span> <span class="o">=</span> <span class="n">SR_evaluator</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">]]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]))</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">evaluate_expr</span><span class="p">([</span><span class="s2">"X_0"</span><span class="p">])</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">se</span><span class="o">.</span><span class="n">models</span><span class="p">),</span> <span class="n">se</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">expr</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">(1, ['X_0'])</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelsView--source--__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.ModelsView--source--__codelineno-0-205">205</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.ModelsView--source--__codelineno-0-204" name="SRToolkit.evaluation.model_store.ModelsView--source--__codelineno-0-204"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="n">ModelStore</span><span class="p">):</span>
+<a id="SRToolkit.evaluation.model_store.ModelsView--source--__codelineno-0-205" name="SRToolkit.evaluation.model_store.ModelsView--source--__codelineno-0-205"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_store</span> <span class="o">=</span> <span class="n">store</span>
+</code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="SRToolkit.evaluation.model_store.TraceView" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">TraceView</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TraceView</span><span class="p">(</span><span class="n">store</span><span class="p">:</span> <span class="n">ModelStore</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="SRToolkit.evaluation.model_store._View">_View</span>[<span title="int">int</span>]</code></p>
+
+
+
+        <p>Read-only sequence of the model indices in a store's trace.</p>
+<p>The view of a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelStore&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.ModelStore">ModelStore</a>'s trace. It is live:
+calls recorded later appear in it. Supports <code>len</code>, indexing (negative too), slicing (giving a list) and iteration. Equal to any
+sequence with the same indices in the same order (<code>se.trace == [0, 1, 0]</code>).</p>
+
+
+
+
+
+
+
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>SRToolkit/evaluation/model_store.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.evaluation.model_store.TraceView--source--__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#SRToolkit.evaluation.model_store.TraceView--source--__codelineno-0-205">205</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.model_store.TraceView--source--__codelineno-0-204" name="SRToolkit.evaluation.model_store.TraceView--source--__codelineno-0-204"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">store</span><span class="p">:</span> <span class="n">ModelStore</span><span class="p">):</span>
+<a id="SRToolkit.evaluation.model_store.TraceView--source--__codelineno-0-205" name="SRToolkit.evaluation.model_store.TraceView--source--__codelineno-0-205"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_store</span> <span class="o">=</span> <span class="n">store</span>
+</code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["toc.follow", "content.code.copy", "content.code.select", "content.code.annotate", "content.tooltips", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "search.suggest"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>

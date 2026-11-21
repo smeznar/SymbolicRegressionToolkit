@@ -16,7 +16,7 @@
         <link rel="prev" href="../sr_evaluator/">
       
       
-        <link rel="next" href="../ranking/">
+        <link rel="next" href="../model_store/">
       
       
         
@@ -1269,6 +1269,8 @@
       
         
       
+        
+      
     
     
     
@@ -1660,6 +1662,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model_store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    model_store
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3735,7 +3765,7 @@ one per experiment.</p>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_results</span><span class="p">(</span><span class="n">models</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ModelResult</span><span class="p">],</span> <span class="n">trace</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">success_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">approach_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default_constant</span><span class="p">:</span> <span class="n">Constant</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stop_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_results</span><span class="p">(</span><span class="n">models</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ModelResult</span><span class="p">],</span> <span class="n">trace</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">success_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">approach_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default_constant</span><span class="p">:</span> <span class="n">Constant</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stop_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3759,7 +3789,7 @@ one per experiment.</p>
                 <code>models</code>
             </td>
             <td>
-                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
@@ -3780,7 +3810,7 @@ one per experiment.</p>
                 <code>trace</code>
             </td>
             <td>
-                  <code><span title="list">list</span>[<span title="int">int</span>]</code>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="int">int</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3959,8 +3989,8 @@ one per experiment.</p>
 <span class="normal"><a href="#SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-203">203</a></span>
 <span class="normal"><a href="#SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-204">204</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-157" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-157"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_results</span><span class="p">(</span>
 <a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-158" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-158"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-159" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-159"></a>    <span class="n">models</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ModelResult</span><span class="p">],</span>
-<a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-160" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-160"></a>    <span class="n">trace</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+<a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-159" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-159"></a>    <span class="n">models</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ModelResult</span><span class="p">],</span>
+<a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-160" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-160"></a>    <span class="n">trace</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
 <a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-161" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-161"></a>    <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 <a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-162" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-162"></a>    <span class="n">success_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
 <a id="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-163" name="SRToolkit.evaluation.results.SR_results.add_results--source--__codelineno-0-163"></a>    <span class="n">approach_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
