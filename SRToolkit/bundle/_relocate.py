@@ -6,9 +6,9 @@ import ast
 import importlib
 import os
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, overload
 
 from . import _store
 
@@ -161,7 +161,19 @@ def _auto_bind(config: dict) -> dict:
     return bind_config(config)
 
 
-def _import_class(path: str, kind: str, base: type | None = None) -> type:
+_T = TypeVar("_T")
+
+
+# Callable rather than type[_T]: mypy rejects abstract classes (every base here) for type[_T].
+@overload
+def _import_class(path: str, kind: str, base: Callable[..., _T]) -> type[_T]: ...
+
+
+@overload
+def _import_class(path: str, kind: str, base: None = None) -> type: ...
+
+
+def _import_class(path: str, kind: str, base: Any = None) -> type:
     """Import the class a saved dict names by its ``"module.Class"`` path.
 
     Args:

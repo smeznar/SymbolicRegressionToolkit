@@ -187,6 +187,14 @@ class TestSRResultsPrintResults:
         assert "MyDS" in out
         assert "MyApproach" in out
 
+    def test_prints_stop_reason_only_when_set(self, capsys):
+        results = _single_result()
+        results.print_results(experiment_number=0)
+        assert "Stopped: " in capsys.readouterr().out
+        results[0].stop_reason = None
+        results.print_results(experiment_number=0)
+        assert "Stopped" not in capsys.readouterr().out
+
     def test_prints_metadata_block(self, capsys):
         se = SR_evaluator(_X, _y, metadata={"source": "feynman"}, seed=0)
         se.evaluate_expr(["X_0"])

@@ -475,6 +475,12 @@ class EvalResult:
             [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]
             ``(model.expr, model.free_constants, result.default_constant, symbol_library)`` gives
             the complete specs of a saved model. ``None`` for results saved in format 2.
+        stop_reason: Why the run ended: ``"success_threshold"``, ``"max_evaluations"``, the reason
+            of a callback (e.g. ``"time_limit"``) or of the approach (see
+            [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]), or ``"returned"`` if the
+            search returned without stopping the evaluator. Any other reason than the first two
+            marks a run that ended with budget left. ``None`` for results saved before it was
+            recorded.
 
     Examples:
         >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["C", "*", "X_0"], error=0.05)]
@@ -498,6 +504,7 @@ class EvalResult:
     wall_time: float | None = None
     augmentations: dict[str, dict[str, Any]] = field(default_factory=dict)
     default_constant: "Constant | None" = None
+    stop_reason: str | None = None
     _ranking_cache: list[int] | None = field(default=None, init=False, repr=False, compare=False)
 
     def _ranking(self) -> list[int]:
@@ -771,6 +778,7 @@ class EvalResult:
             "top_k": int(self.top_k),
             "metadata": _to_json_safe(self.metadata, "metadata"),
             "wall_time": None if self.wall_time is None else float(self.wall_time),
+            "stop_reason": self.stop_reason,
             "augmentations": _to_json_safe(self.augmentations, "augmentations"),
             "trace": [int(i) for i in self.trace],
             "all_models": [m._to_dict(f"all_models[{i}].") for i, m in enumerate(self.all_models)],
@@ -789,7 +797,8 @@ class EvalResult:
             data: Dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict],
                 possibly after a JSON round trip, of format 3 or 2 (written before specs were
                 recorded; ``default_constant`` and each model's ``free_constants`` load as
-                ``None``). Unknown keys are ignored; other malformed input has undefined behaviour.
+                ``None``). A missing ``stop_reason`` loads as ``None``. Unknown keys are ignored;
+                other malformed input has undefined behaviour.
 
         Returns:
             The reconstructed [EvalResult][SRToolkit.utils.types.EvalResult].
@@ -829,4 +838,5 @@ class EvalResult:
             wall_time=data["wall_time"],
             augmentations=_from_json_safe(data["augmentations"]),
             default_constant=None if default is None else Constant.from_dict(_from_json_safe(default)),
+            stop_reason=data.get("stop_reason"),
         )

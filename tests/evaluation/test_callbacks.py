@@ -12,6 +12,7 @@ from SRToolkit.evaluation.callbacks import (
     LoggingCallback,
     ProgressBarCallback,
     SRCallbacks,
+    TimeLimitCallback,
 )
 from SRToolkit.utils.types import EvalResult, ModelResult
 
@@ -177,90 +178,46 @@ class TestCallbackDispatcherRemove:
             dispatcher.remove(_ConcreteCallback())
 
 
-# ── CallbackDispatcher – on_expr_evaluated ─────────────────────────────────────
+# ── CallbackDispatcher – on_expr_evaluated / on_best_expression ──────────────
+
+_HOOKS = [("on_expr_evaluated", _make_expr_evaluated), ("on_best_expression", _make_best_found)]
 
 
-class TestCallbackDispatcherOnExprEvaluated:
-    def test_empty_callbacks_returns_true(self):
-        assert CallbackDispatcher().on_expr_evaluated(_make_expr_evaluated()) is True
+class _NamedStop(SRCallbacks):
+    def on_expr_evaluated(self, event):
+        return False
 
-    def test_callback_returning_none_continues(self):
+    def on_best_expression(self, event):
+        return False
+
+
+@pytest.mark.parametrize("hook, make_event", _HOOKS)
+class TestCallbackDispatcherStopReason:
+    def _cb(self, hook, value):
         cb = MagicMock(spec=SRCallbacks)
-        cb.on_expr_evaluated.return_value = None
-        assert CallbackDispatcher(callbacks=[cb]).on_expr_evaluated(_make_expr_evaluated()) is True
+        getattr(cb, hook).return_value = value
+        return cb
 
-    def test_callback_returning_true_continues(self):
-        cb = MagicMock(spec=SRCallbacks)
-        cb.on_expr_evaluated.return_value = True
-        assert CallbackDispatcher(callbacks=[cb]).on_expr_evaluated(_make_expr_evaluated()) is True
+    def test_no_stop_returns_none(self, hook, make_event):
+        cbs = [self._cb(hook, None), self._cb(hook, True)]
+        assert getattr(CallbackDispatcher(), hook)(make_event()) is None
+        assert getattr(CallbackDispatcher(callbacks=cbs), hook)(make_event()) is None
 
-    def test_callback_returning_false_stops(self):
-        cb = MagicMock(spec=SRCallbacks)
-        cb.on_expr_evaluated.return_value = False
-        assert CallbackDispatcher(callbacks=[cb]).on_expr_evaluated(_make_expr_evaluated()) is False
+    def test_string_is_the_reason(self, hook, make_event):
+        cbs = [self._cb(hook, None), self._cb(hook, "time_limit")]
+        assert getattr(CallbackDispatcher(callbacks=cbs), hook)(make_event()) == "time_limit"
 
-    def test_all_callbacks_called_even_after_one_stops(self):
-        cb1 = MagicMock(spec=SRCallbacks)
-        cb1.on_expr_evaluated.return_value = False
-        cb2 = MagicMock(spec=SRCallbacks)
-        cb2.on_expr_evaluated.return_value = None
-        event = _make_expr_evaluated()
-        CallbackDispatcher(callbacks=[cb1, cb2]).on_expr_evaluated(event)
-        cb1.on_expr_evaluated.assert_called_once_with(event)
-        cb2.on_expr_evaluated.assert_called_once_with(event)
+    def test_false_and_empty_string_give_class_name(self, hook, make_event):
+        assert getattr(CallbackDispatcher(callbacks=[_NamedStop()]), hook)(make_event()) == "callback:_NamedStop"
+        cb = self._cb(hook, "")
+        assert getattr(CallbackDispatcher(callbacks=[cb]), hook)(make_event()).startswith("callback:")
 
-    def test_one_stop_among_multiple_returns_false(self):
-        cb_none = MagicMock(spec=SRCallbacks)
-        cb_none.on_expr_evaluated.return_value = None
-        cb_false = MagicMock(spec=SRCallbacks)
-        cb_false.on_expr_evaluated.return_value = False
-        cb_true = MagicMock(spec=SRCallbacks)
-        cb_true.on_expr_evaluated.return_value = True
-        result = CallbackDispatcher(callbacks=[cb_none, cb_false, cb_true]).on_expr_evaluated(_make_expr_evaluated())
-        assert result is False
-
-
-# ── CallbackDispatcher – on_best_expression ────────────────────────────────────
-
-
-class TestCallbackDispatcherOnBestExpression:
-    def test_empty_callbacks_returns_true(self):
-        assert CallbackDispatcher().on_best_expression(_make_best_found()) is True
-
-    def test_callback_returning_none_continues(self):
-        cb = MagicMock(spec=SRCallbacks)
-        cb.on_best_expression.return_value = None
-        assert CallbackDispatcher(callbacks=[cb]).on_best_expression(_make_best_found()) is True
-
-    def test_callback_returning_true_continues(self):
-        cb = MagicMock(spec=SRCallbacks)
-        cb.on_best_expression.return_value = True
-        assert CallbackDispatcher(callbacks=[cb]).on_best_expression(_make_best_found()) is True
-
-    def test_callback_returning_false_stops(self):
-        cb = MagicMock(spec=SRCallbacks)
-        cb.on_best_expression.return_value = False
-        assert CallbackDispatcher(callbacks=[cb]).on_best_expression(_make_best_found()) is False
-
-    def test_all_callbacks_called_even_after_one_stops(self):
-        cb1 = MagicMock(spec=SRCallbacks)
-        cb1.on_best_expression.return_value = False
-        cb2 = MagicMock(spec=SRCallbacks)
-        cb2.on_best_expression.return_value = None
-        event = _make_best_found()
-        CallbackDispatcher(callbacks=[cb1, cb2]).on_best_expression(event)
-        cb1.on_best_expression.assert_called_once_with(event)
-        cb2.on_best_expression.assert_called_once_with(event)
-
-    def test_one_stop_among_multiple_returns_false(self):
-        cb_none = MagicMock(spec=SRCallbacks)
-        cb_none.on_best_expression.return_value = None
-        cb_false = MagicMock(spec=SRCallbacks)
-        cb_false.on_best_expression.return_value = False
-        cb_true = MagicMock(spec=SRCallbacks)
-        cb_true.on_best_expression.return_value = True
-        result = CallbackDispatcher(callbacks=[cb_none, cb_false, cb_true]).on_best_expression(_make_best_found())
-        assert result is False
+    def test_first_reason_wins_and_all_are_called(self, hook, make_event):
+        cbs = [self._cb(hook, True), self._cb(hook, "first"), self._cb(hook, "second")]
+        event = make_event()
+        assert getattr(CallbackDispatcher(callbacks=cbs), hook)(event) == "first"
+        for cb in cbs:
+            getattr(cb, hook).assert_called_once_with(event)
 
 
 # ── CallbackDispatcher – on_experiment_start / end ────────────────────────────
@@ -388,6 +345,17 @@ class TestProgressBarCallbackSerialization:
         assert cb.desc is None
 
 
+# ── TimeLimitCallback ─────────────────────────────────────────────────────────
+
+
+def test_time_limit_callback_returns_time_limit_once_elapsed():
+    cb = TimeLimitCallback(time_limit=10)
+    with patch("SRToolkit.evaluation.callbacks.time.monotonic", side_effect=[100.0, 109.0, 110.0]):
+        cb.on_experiment_start(_make_experiment_event())
+        assert cb.on_expr_evaluated(_make_expr_evaluated()) is True
+        assert cb.on_expr_evaluated(_make_expr_evaluated()) == "time_limit"
+
+
 # ── EarlyStoppingCallback ──────────────────────────────────────────────────────
 
 
@@ -403,45 +371,44 @@ class TestEarlyStoppingCallbackInit:
 
 
 class TestEarlyStoppingCallbackOnExperimentStart:
-    def test_threshold_set_from_event_when_self_is_none(self):
+    def test_none_limits_take_the_experiments(self):
         cb = EarlyStoppingCallback(threshold=None)
-        cb.on_experiment_start(_make_experiment_event(success_threshold=1e-6))
-        assert cb.threshold == 1e-6
+        cb.on_experiment_start(_make_experiment_event(success_threshold=1e-6, max_evaluations=300))
+        assert cb.on_best_expression(_make_best_found(error=1e-7)) == "early_stopping:success_threshold"
+        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=299)) is True
+        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=300)) == "early_stopping:max_evaluations"
 
-    def test_threshold_not_overridden_when_already_set(self):
-        cb = EarlyStoppingCallback(threshold=1e-3)
-        cb.on_experiment_start(_make_experiment_event(success_threshold=1e-6))
-        assert cb.threshold == 1e-3
+    def test_given_limits_are_kept(self):
+        cb = EarlyStoppingCallback(threshold=1e-3, max_evaluations=200)
+        cb.on_experiment_start(_make_experiment_event(success_threshold=1e-6, max_evaluations=300))
+        assert cb.on_best_expression(_make_best_found(error=1e-4)) == "early_stopping:success_threshold"
+        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=200)) == "early_stopping:max_evaluations"
 
-    def test_threshold_unchanged_when_event_threshold_also_none(self):
+    def test_experiment_without_limits_never_stops(self):
         cb = EarlyStoppingCallback(threshold=None)
-        cb.on_experiment_start(_make_experiment_event(success_threshold=None))
-        assert cb.threshold is None
+        cb.on_experiment_start(_make_experiment_event(success_threshold=None, max_evaluations=-1))
+        assert cb.on_best_expression(_make_best_found(error=0.0)) is True
+        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=99999)) is True
 
-    def test_max_evaluations_set_from_event(self):
+    # Reason: regression (the first experiment's limits were written into the instance and kept for
+    # later experiments, e.g. the next dataset of a benchmark).
+    def test_reused_instance_takes_each_experiments_limits(self):
         cb = EarlyStoppingCallback(threshold=None)
-        cb.on_experiment_start(_make_experiment_event(max_evaluations=300))
-        assert cb.max_evaluations == 300
-
-    def test_max_evaluations_not_overridden_when_already_set(self):
-        cb = EarlyStoppingCallback(threshold=None, max_evaluations=200)
-        cb.on_experiment_start(_make_experiment_event(max_evaluations=300))
-        assert cb.max_evaluations == 200
-
-    def test_max_evaluations_not_set_when_event_value_is_zero(self):
-        cb = EarlyStoppingCallback(threshold=None)
-        cb.on_experiment_start(_make_experiment_event(max_evaluations=0))
-        assert cb.max_evaluations is None
+        cb.on_experiment_start(_make_experiment_event(success_threshold=1e-6, max_evaluations=1000))
+        cb.on_experiment_start(_make_experiment_event(success_threshold=None, max_evaluations=100000))
+        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=1000)) is True
+        assert cb.on_best_expression(_make_best_found(error=1e-7)) is True
+        assert (cb.threshold, cb.max_evaluations) == (None, None)
 
 
 class TestEarlyStoppingCallbackOnExprEvaluated:
     def test_stops_when_evaluation_number_equals_max(self):
         cb = EarlyStoppingCallback(threshold=None, max_evaluations=10)
-        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=10)) is False
+        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=10)) == "early_stopping:max_evaluations"
 
     def test_stops_when_evaluation_number_exceeds_max(self):
         cb = EarlyStoppingCallback(threshold=None, max_evaluations=10)
-        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=11)) is False
+        assert cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=11)) == "early_stopping:max_evaluations"
 
     def test_continues_when_below_max(self):
         cb = EarlyStoppingCallback(threshold=None, max_evaluations=10)
@@ -460,7 +427,7 @@ class TestEarlyStoppingCallbackOnExprEvaluated:
 class TestEarlyStoppingCallbackOnBestExpression:
     def test_stops_when_error_below_threshold(self):
         cb = EarlyStoppingCallback(threshold=1e-4)
-        assert cb.on_best_expression(_make_best_found(error=1e-5)) is False
+        assert cb.on_best_expression(_make_best_found(error=1e-5)) == "early_stopping:success_threshold"
 
     def test_continues_when_error_equals_threshold(self):
         cb = EarlyStoppingCallback(threshold=1e-4)

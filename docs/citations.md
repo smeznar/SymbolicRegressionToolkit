@@ -61,6 +61,23 @@ To cite a specific version of the software, use:
     }
     ```
 
+??? quote "Morales & Ekárt (2026) — Exhaustive Canonical Skeletons Generation: A Formal Dataset for Decomposable Symbolic Regression"
+    Morales, G. & Ekárt, A. (2026). *IEEE Computational Intelligence Letters*, 1–6. Uses SRToolkit
+    as the infrastructure for evaluating 13 SR methods on the ExCaUS-Bench benchmark.
+    [:material-link-variant: https://doi.org/10.1109/LCI.2026.3753204](https://doi.org/10.1109/LCI.2026.3753204)
+
+    ```bibtex
+    @article{Morales2026Skeletons,
+      title   = {{Exhaustive Canonical Skeletons Generation: A Formal Dataset for
+                  Decomposable Symbolic Regression}},
+      author  = {Morales, Giorgio and Ek{\'a}rt, Anik{\'o}},
+      journal = {IEEE Computational Intelligence Letters},
+      year    = {2026},
+      pages   = {1--6},
+      doi     = {10.1109/LCI.2026.3753204}
+    }
+    ```
+
 ## Benchmarks
 
 ### Feynman { #cite-feynman }

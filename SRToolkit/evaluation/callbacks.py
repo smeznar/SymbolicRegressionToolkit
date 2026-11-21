@@ -83,10 +83,11 @@ class ExperimentEvent:
 class SRCallbacks(ABC):
     """Abstract base class for SR evaluation callbacks.
 
-    Implement only the methods you need. Return ``False`` from
+    Implement only the methods you need. To stop the search, return a reason (a ``str``) from
     [on_expr_evaluated][SRToolkit.evaluation.callbacks.SRCallbacks.on_expr_evaluated] or
-    [on_best_expression][SRToolkit.evaluation.callbacks.SRCallbacks.on_best_expression]
-    to request early stopping; return ``True`` or ``None`` to continue.
+    [on_best_expression][SRToolkit.evaluation.callbacks.SRCallbacks.on_best_expression]; it is
+    recorded as the run's ``stop_reason``. ``False`` also stops, with the reason
+    ``"callback:<ClassName>"``. Return ``True`` or ``None`` to continue.
 
     Examples:
         >>> class PrintBestCallback(SRCallbacks):
@@ -97,25 +98,25 @@ class SRCallbacks(ABC):
         New best: X_0+C (error=0.01)
     """
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
+    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | str | None:
         """Called after each expression is evaluated.
 
         Args:
             event: Data about the evaluated expression.
 
         Returns:
-            ``False`` to stop the search early, ``True`` or ``None`` to continue.
+            A reason, or ``False``, to stop the search; ``True`` or ``None`` to continue.
         """
         return None
 
-    def on_best_expression(self, event: BestExpressionFound) -> bool | None:
+    def on_best_expression(self, event: BestExpressionFound) -> bool | str | None:
         """Called when a new best expression is found.
 
         Args:
             event: Data about the new best expression.
 
         Returns:
-            ``False`` to stop the search early, ``True`` or ``None`` to continue.
+            A reason, or ``False``, to stop the search; ``True`` or ``None`` to continue.
         """
         return None
 
@@ -195,15 +196,21 @@ class SRCallbacks(ABC):
         return target_cls.from_dict(config)
 
 
+def _stop_reason(callback: SRCallbacks, signal: bool | str | None) -> str | None:
+    # A callback's return value as a stop reason: its text, its class for False or "", else None.
+    if isinstance(signal, str) or (isinstance(signal, bool) and not signal):
+        return signal or f"callback:{type(callback).__name__}"
+    return None
+
+
 class CallbackDispatcher:
     """Manages multiple [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instances and
     dispatches events to all of them.
 
     Examples:
-        >>> dispatcher = CallbackDispatcher()
-        >>> dispatcher.add(EarlyStoppingCallback(threshold=1e-6))
-        >>> len(dispatcher._callbacks)
-        1
+        >>> dispatcher = CallbackDispatcher([ProgressBarCallback(), EarlyStoppingCallback(threshold=1e-6)])
+        >>> dispatcher.on_best_expression(BestExpressionFound("", "X_0", 1e-7, 42))
+        'early_stopping:success_threshold'
     """
 
     def __init__(self, callbacks: list[SRCallbacks] | None = None):
@@ -242,37 +249,30 @@ class CallbackDispatcher:
         """
         self._callbacks.remove(callback)
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> bool:
-        """Dispatch to all callbacks and aggregate the stop signal.
+    def on_expr_evaluated(self, event: ExprEvaluated) -> str | None:
+        """Dispatch to all callbacks and return the first stop reason.
 
         Args:
             event: Data about the evaluated expression.
 
         Returns:
-            ``False`` if any callback returned ``False`` (requesting early stop), ``True`` otherwise.
+            The reason of the first callback (in order) that asked to stop, ``"callback:<ClassName>"``
+            if it returned ``False`` or an empty string; ``None`` if none did.
         """
-        should_continue = True
-        for cb in self._callbacks:
-            cont = cb.on_expr_evaluated(event)
-            if isinstance(cont, bool) and not cont:
-                should_continue = False
-        return should_continue
+        reasons = [_stop_reason(cb, cb.on_expr_evaluated(event)) for cb in self._callbacks]
+        return next((r for r in reasons if r is not None), None)
 
-    def on_best_expression(self, event: BestExpressionFound) -> bool:
-        """Dispatch to all callbacks and aggregate the stop signal.
+    def on_best_expression(self, event: BestExpressionFound) -> str | None:
+        """Dispatch to all callbacks and return the first stop reason.
 
         Args:
             event: Data about the new best expression.
 
         Returns:
-            ``False`` if any callback returned ``False`` (requesting early stop), ``True`` otherwise.
+            As for [on_expr_evaluated][SRToolkit.evaluation.callbacks.CallbackDispatcher.on_expr_evaluated].
         """
-        should_continue = True
-        for cb in self._callbacks:
-            cont = cb.on_best_expression(event)
-            if isinstance(cont, bool) and not cont:
-                should_continue = False
-        return should_continue
+        reasons = [_stop_reason(cb, cb.on_best_expression(event)) for cb in self._callbacks]
+        return next((r for r in reasons if r is not None), None)
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
         """Dispatch to all callbacks.
@@ -337,41 +337,48 @@ class ProgressBarCallback(SRCallbacks):
 
 
 class EarlyStoppingCallback(SRCallbacks):
-    """Stops the search when the best expression error falls below a threshold.
+    """Stops the search when the best error falls below a threshold or after a number of evaluations.
+
+    The evaluator already enforces its own ``success_threshold`` and ``max_evaluations``; use this
+    callback for a tighter threshold or budget, or as an example of a stopping callback. Its stop
+    reasons, ``"early_stopping:success_threshold"`` and ``"early_stopping:max_evaluations"``, differ
+    from the evaluator's, so a run it stops counts as one that ended with budget left.
 
     Examples:
         >>> cb = EarlyStoppingCallback(threshold=1e-6)
         >>> cb.on_best_expression(BestExpressionFound("", "X_0", 1e-7, 42))
-        False
+        'early_stopping:success_threshold'
         >>> cb.on_best_expression(BestExpressionFound("", "X_0", 1e-5, 43))
         True
     """
 
     def __init__(self, threshold: float | None, max_evaluations: int | None = None):
         """Args:
-        threshold: Error value below which the search is stopped. If ``None``, the
-            experiment's ``success_threshold`` is used when the experiment starts.
+        threshold: Error value below which the search is stopped. If ``None``, each
+            experiment's ``success_threshold`` is used.
         max_evaluations: Number of evaluations after which the search is stopped. If
-            ``None``, the experiment's ``max_evaluations`` is used when the experiment starts
-            (if it has one).
+            ``None``, each experiment's ``max_evaluations`` is used (if it has one).
         """
         self.threshold = threshold
         self.max_evaluations = max_evaluations
+        # The limits of the current experiment: the given ones, or the experiment's where None.
+        self._threshold = threshold
+        self._max_evaluations = max_evaluations
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
-        if self.threshold is None and event.success_threshold is not None:
-            self.threshold = event.success_threshold
-        if self.max_evaluations is None and event.max_evaluations is not None and event.max_evaluations > 0:
-            self.max_evaluations = event.max_evaluations
+        self._threshold = event.success_threshold if self.threshold is None else self.threshold
+        self._max_evaluations = self.max_evaluations
+        if self._max_evaluations is None and event.max_evaluations is not None and event.max_evaluations > 0:
+            self._max_evaluations = event.max_evaluations
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
-        if self.max_evaluations is not None and event.evaluation_number >= self.max_evaluations >= 0:
-            return False
+    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | str | None:
+        if self._max_evaluations is not None and event.evaluation_number >= self._max_evaluations >= 0:
+            return "early_stopping:max_evaluations"
         return True
 
-    def on_best_expression(self, event: BestExpressionFound) -> bool | None:
-        if self.threshold is not None and event.error < self.threshold:
-            return False
+    def on_best_expression(self, event: BestExpressionFound) -> bool | str | None:
+        if self._threshold is not None and event.error < self._threshold:
+            return "early_stopping:success_threshold"
         return True
 
     def to_dict(self) -> dict:
@@ -388,8 +395,9 @@ class TimeLimitCallback(SRCallbacks):
     The timer starts when the experiment begins
     ([on_experiment_start][SRToolkit.evaluation.callbacks.SRCallbacks.on_experiment_start])
     and uses `time.monotonic` so it is unaffected by system clock adjustments. The stop
-    request is issued from the next expression evaluation after the limit is exceeded, so the
-    search may run slightly past ``time_limit`` depending on how long a single evaluation takes.
+    request (reason ``"time_limit"``) is issued from the next expression evaluation after the
+    limit is exceeded, so the search may run slightly past ``time_limit`` depending on how long a
+    single evaluation takes.
 
     Examples:
         >>> cb = TimeLimitCallback(time_limit=60.0)
@@ -420,10 +428,10 @@ class TimeLimitCallback(SRCallbacks):
     def on_experiment_start(self, event: ExperimentEvent) -> None:
         self._start_time = time.monotonic()
 
-    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
+    def on_expr_evaluated(self, event: ExprEvaluated) -> bool | str | None:
         if self._start_time is not None:
             if time.monotonic() - self._start_time >= self.time_limit:
-                return False
+                return "time_limit"
         return True
 
     def to_dict(self) -> dict:

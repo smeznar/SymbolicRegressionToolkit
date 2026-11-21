@@ -21,8 +21,25 @@ a ``status_detail`` saying why. The evaluator checks in this order and stops at 
 
 Every status except ``"ok"`` gets the error ``+inf``, so an evaluated expression never gives
 ``NaN`` and failed models rank after every scored one. Every call counts toward
-``max_evaluations``, whatever its status. Once evaluation has stopped (threshold or budget
-reached), further calls are not evaluated: they warn, return ``nan`` and are not counted.
+``max_evaluations``, whatever its status.
+
+## Stopping
+
+Evaluation stops at the first of these, which is recorded as ``stop_reason`` and saved in the
+results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
+
+- ``"success_threshold"``: a new expression has an error below ``success_threshold``;
+- ``"max_evaluations"``: the call used the last evaluation of the budget (a call that does both
+  records ``"success_threshold"``);
+- a callback asked to stop (see [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks]), e.g.
+  ``"time_limit"``;
+- the approach called [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with its own
+  reason, e.g. because its search space is exhausted.
+
+An approach loops while ``should_stop`` is ``False``. If its search returns without any of these,
+the results record ``"returned"``. Once evaluation has stopped, further calls are not evaluated:
+they warn, return ``nan`` and are not counted. A ``stop_reason`` other than
+``"success_threshold"`` or ``"max_evaluations"`` marks a run that ended with budget left.
 
 The statuses are saved with the results, so validity can be measured after the run from
 [status_counts][SRToolkit.utils.types.EvalResult.status_counts]. Count every well-formed
@@ -146,11 +163,10 @@ curves = np.stack([r.best_error_within(budgets) for r in results])
 median_curve = np.nanmedian(curves, axis=0)
 ```
 
-A result does not record ``max_evaluations`` or why its search stopped. For a run that stopped
-early for another reason than reaching the threshold (e.g. a time limit), ``best_error_within``
-past its last call is only an upper bound, and a ``None`` from ``calls_to_threshold`` is censored
-at fewer calls than the budget. If your runs can stop early, check ``evaluation_calls`` against the
-budget before comparing approaches.
+A run whose ``stop_reason`` is neither ``"success_threshold"`` nor ``"max_evaluations"`` (e.g.
+``"time_limit"``) ended with budget left: ``best_error_within`` past its last call is only an upper
+bound, and a ``None`` from ``calls_to_threshold`` is censored at fewer calls than the budget. Check
+``stop_reason`` before comparing approaches.
 """
 
 import dataclasses
@@ -171,7 +187,6 @@ from typing_extensions import Unpack
 from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
     CallbackDispatcher,
-    EarlyStoppingCallback,
     ExprEvaluated,
     SRCallbacks,
 )
@@ -384,7 +399,7 @@ class SR_evaluator:
                 library ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
             max_evaluations: Budget of counted calls to
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
-                cache hits included. ``-1`` (default) means no limit.
+                cache hits included. A negative value (default ``-1``) means no limit.
             success_threshold: Error below which an expression counts as successful and the search
                 stops. ``None`` (default) uses the ranking's default (``1e-7`` for RMSE; for BED
                 estimated from the ground truth, or none without one). A negative value is never
@@ -422,7 +437,8 @@ class SR_evaluator:
                 ``constant_bounds`` (as by ``BackgroundKnowledge``) before the ranking gets it.
 
         Raises:
-            TypeError: If an item of ``required_constraints`` or ``advisory_constraints`` is not
+            TypeError: If ``max_evaluations`` is not an ``int`` or numpy integer (``bool`` is
+                rejected). If an item of ``required_constraints`` or ``advisory_constraints`` is not
                 an [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]
                 (e.g. the grammar constraint [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth],
                 or a single constraint passed instead of a sequence). The message names the item.
@@ -430,8 +446,8 @@ class SR_evaluator:
                 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
                 ``ranking_function`` of the wrong type.
-            ValueError: If ``max_constants`` or ``max_expr_length`` is not an ``int`` or numpy
-                integer (``bool`` is rejected), or is given, non-negative and different from the
+            ValueError: If ``max_evaluations`` is ``0``. If ``max_constants`` or ``max_expr_length``
+                is not an ``int`` or numpy integer (``bool`` is rejected), or is given, non-negative and different from the
                 limit of a constraint of its class in ``required_constraints`` (a negative setting
                 adds nothing and never clashes); the message names the setting. Also raised as
                 for ``BackgroundKnowledge`` (e.g. a ``constant_bounds`` setting that is not finite
@@ -452,7 +468,7 @@ class SR_evaluator:
                 for RMSE, or the behaviour matrix and points ``bed_X`` for BED.
             kwargs: The settings passed as ``**kwargs``.
             ground_truth: The target expression as passed, or ``None``.
-            max_evaluations: The budget of counted calls; ``-1`` for no limit.
+            max_evaluations: The budget of counted calls; negative for no limit.
             success_threshold: The ``success_threshold`` passed, or the ranking's default if it
                 was ``None`` (still ``None`` if the ranking has no default).
             seed: The random seed.
@@ -463,8 +479,8 @@ class SR_evaluator:
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
                 (cache hits included, calls after stopping excluded): the index into ``models`` of
                 the requested expression.
-            should_stop: Whether evaluation has stopped (threshold or budget reached). Later calls
-                to ``evaluate_expr`` warn and return ``nan`` without being counted.
+            stop_reason: Why evaluation stopped (see the
+                [module docs][SRToolkit.evaluation.sr_evaluator]), or ``None`` while it runs.
             default_constant: The run's default spec, complete:
                 [background_knowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 built from the ``default_constant`` and ``constant_bounds`` settings. The ranking
@@ -480,12 +496,16 @@ class SR_evaluator:
         self.metadata = metadata
         self.ground_truth = ground_truth
         self._experiment_id: str = ""
-        self.should_stop = False
+        self.stop_reason: str | None = None
         self._current_best_error = float("inf")
 
         if symbol_library is None:
             symbol_library = SymbolLibrary.get_or_default()
         self.symbol_library = symbol_library
+        if isinstance(max_evaluations, bool) or not isinstance(max_evaluations, (int, np.integer)):
+            raise TypeError(f"[SR_evaluator] max_evaluations must be an int, got {type(max_evaluations).__name__}.")
+        if max_evaluations == 0:
+            raise ValueError("[SR_evaluator] max_evaluations must be positive, or negative for no limit; got 0.")
         self.max_evaluations = max_evaluations
         self.seed = seed
 
@@ -538,11 +558,42 @@ class SR_evaluator:
         if self.success_threshold is None:
             self.success_threshold = self.ranking.default_success_threshold()
 
-        self._callbacks: CallbackDispatcher | SRCallbacks | None = CallbackDispatcher(
-            callbacks=[EarlyStoppingCallback(threshold=self.success_threshold, max_evaluations=max_evaluations)]
-        )
+        self._callbacks = CallbackDispatcher()
         self.X = X
         self.y = y
+
+    @property
+    def should_stop(self) -> bool:
+        """Whether evaluation has stopped: ``stop_reason is not None``. Later calls to
+        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] warn and
+        return ``nan`` without being counted.
+        """
+        return self.stop_reason is not None
+
+    def stop(self, reason: str) -> None:
+        """Stop evaluation and record why, unless it has already stopped (the first reason is kept).
+
+        An approach calls this when it ends its search with budget left, e.g. because its search
+        space is exhausted, so the results explain the early end.
+
+        Examples:
+            >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
+            >>> se.stop("grammar exhausted")
+            >>> se.stop("other")
+            >>> se.should_stop, se.stop_reason
+            (True, 'grammar exhausted')
+
+        Args:
+            reason: Short free text, saved as
+                [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult].
+
+        Raises:
+            ValueError: If ``reason`` is not a non-empty ``str``.
+        """
+        if not isinstance(reason, str) or not reason:
+            raise ValueError(f"[SR_evaluator.stop] reason must be a non-empty str, got {reason!r}.")
+        if self.stop_reason is None:
+            self.stop_reason = reason
 
     @property
     def total_evaluations(self) -> int:
@@ -750,44 +801,36 @@ class SR_evaluator:
         )
 
     def register_callbacks(self, callbacks: SRCallbacks | CallbackDispatcher | None = None) -> None:
-        """Register callbacks for monitoring and early stopping.
+        """Add callbacks for monitoring and early stopping to those already registered.
 
-        A single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance is
-        automatically wrapped in a
-        [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher].
+        The evaluator enforces ``success_threshold`` and ``max_evaluations`` itself; callbacks add
+        further stop conditions (e.g. a time limit).
 
         Examples:
-            >>> from SRToolkit.evaluation.callbacks import EarlyStoppingCallback
+            >>> from SRToolkit.evaluation.callbacks import TimeLimitCallback
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> se.register_callbacks(EarlyStoppingCallback(threshold=1e-6))
-            >>> se._callbacks is not None
-            True
+            >>> se.register_callbacks(TimeLimitCallback(time_limit=60))
 
         Args:
-            callbacks: A [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher]
-                or a single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance.
-        """
-        if isinstance(callbacks, CallbackDispatcher):
-            if self._callbacks is not None:
-                if isinstance(self._callbacks, SRCallbacks):
-                    old_callbacks = [self._callbacks]
-                if isinstance(self._callbacks, CallbackDispatcher):
-                    old_callbacks = self._callbacks.get_callbacks()
-                else:
-                    old_callbacks = []
+            callbacks: A single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], or a
+                [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] whose
+                callbacks are added (the dispatcher itself is not changed). ``None`` adds nothing.
 
-            self._callbacks = callbacks
-            for cb in old_callbacks:
+        Raises:
+            TypeError: If ``callbacks`` is of another type (e.g. a list).
+        """
+        if isinstance(callbacks, SRCallbacks):
+            self._callbacks.add(callbacks)
+        elif isinstance(callbacks, CallbackDispatcher):
+            for cb in callbacks.get_callbacks():
                 self._callbacks.add(cb)
-        elif isinstance(callbacks, SRCallbacks):
-            if isinstance(self._callbacks, CallbackDispatcher):
-                self._callbacks.add(callbacks)
-            elif isinstance(self._callbacks, SRCallbacks):
-                self._callbacks = CallbackDispatcher(callbacks=[self._callbacks, callbacks])
-            else:
-                self._callbacks = CallbackDispatcher(callbacks=[callbacks])
+        elif callbacks is not None:
+            raise TypeError(
+                "[SR_evaluator.register_callbacks] Expected an SRCallbacks, a CallbackDispatcher or None, "
+                f"got {type(callbacks).__name__}."
+            )
 
     def evaluate_expr(
         self,
@@ -805,9 +848,9 @@ class SR_evaluator:
         same specs is not scored again; its stored error is returned. Either way the call is
         appended to ``trace``,
         counts toward ``max_evaluations`` and is reported to the callbacks: ``on_expr_evaluated``
-        for every call, plus ``on_best_expression`` when the error improves on the best so far. A
-        callback returning ``False`` stops evaluation; by default this happens when an error is
-        below ``success_threshold`` or ``max_evaluations`` is reached.
+        for every call, plus ``on_best_expression`` when the error improves on the best so far.
+        Evaluation then stops if the error is below ``success_threshold``, the budget is used up,
+        or a callback asks to stop (see [Stopping][SRToolkit.evaluation.sr_evaluator]).
 
         Note:
             ``simplify_expr=True`` makes a call much slower: simplifying with SymPy usually takes
@@ -889,9 +932,7 @@ class SR_evaluator:
         if specs is not None and simplify_expr:
             raise ValueError("free_constants cannot be combined with simplify_expr=True.")
         if self.should_stop:
-            warnings.warn(
-                f"Evaluation stopped because max_evaluations ({self.max_evaluations}) reached or an expression with error lower than success_threshold ({self.success_threshold}) was found. "
-            )
+            warnings.warn(f"Evaluation has already stopped ({self.stop_reason}); the call is not evaluated or counted.")
             return np.nan
         else:
             if simplify_expr:
@@ -915,17 +956,19 @@ class SR_evaluator:
                 if verbose > 0:
                     logger.debug("Already evaluated %s", expr_str)
                 self.trace.append(index)
-                if self._callbacks is not None:
-                    event = ExprEvaluated(
-                        expression=expr_str,
-                        error=self.models[index].error,
-                        evaluation_number=self.total_evaluations,
-                        experiment_id=self._experiment_id,
-                        is_new_best=False,
-                        status=self.models[index].status,
-                    )
-                    if not self._callbacks.on_expr_evaluated(event):
-                        self.should_stop = True
+                if 0 <= self.max_evaluations <= self.total_evaluations:
+                    self.stop("max_evaluations")
+                event = ExprEvaluated(
+                    expression=expr_str,
+                    error=self.models[index].error,
+                    evaluation_number=self.total_evaluations,
+                    experiment_id=self._experiment_id,
+                    is_new_best=False,
+                    status=self.models[index].status,
+                )
+                reason = self._callbacks.on_expr_evaluated(event)
+                if reason is not None:
+                    self.stop(reason)
                 return self.models[index].error
 
             else:
@@ -944,29 +987,36 @@ class SR_evaluator:
                 self.trace.append(len(self.models))
                 self.models.append(model)
 
-                if self._callbacks is not None:
-                    is_new_best = error < self._current_best_error
-                    if is_new_best:
-                        self._current_best_error = error
-                    event = ExprEvaluated(
+                # Threshold before budget, so a call that does both records "success_threshold".
+                if self.success_threshold is not None and error < self.success_threshold:
+                    self.stop("success_threshold")
+                elif 0 <= self.max_evaluations <= self.total_evaluations:
+                    self.stop("max_evaluations")
+
+                is_new_best = error < self._current_best_error
+                if is_new_best:
+                    self._current_best_error = error
+                event = ExprEvaluated(
+                    expression=expr_str,
+                    error=error,
+                    evaluation_number=self.total_evaluations,
+                    experiment_id=self._experiment_id,
+                    is_new_best=is_new_best,
+                    status=model.status,
+                )
+                reason = self._callbacks.on_expr_evaluated(event)
+                if reason is not None:
+                    self.stop(reason)
+                if is_new_best:
+                    best_event = BestExpressionFound(
+                        experiment_id=self._experiment_id,
                         expression=expr_str,
                         error=error,
                         evaluation_number=self.total_evaluations,
-                        experiment_id=self._experiment_id,
-                        is_new_best=is_new_best,
-                        status=model.status,
                     )
-                    if not self._callbacks.on_expr_evaluated(event):
-                        self.should_stop = True
-                    if is_new_best:
-                        best_event = BestExpressionFound(
-                            experiment_id=self._experiment_id,
-                            expression=expr_str,
-                            error=error,
-                            evaluation_number=self.total_evaluations,
-                        )
-                        if not self._callbacks.on_best_expression(best_event):
-                            self.should_stop = True
+                    reason = self._callbacks.on_best_expression(best_event)
+                    if reason is not None:
+                        self.stop(reason)
 
                 return error
 
@@ -1229,7 +1279,8 @@ class SR_evaluator:
                 object is created.
 
         Returns:
-            An instance of the SR_results object with the results of the evaluation.
+            An instance of the SR_results object with the results of the evaluation. Its
+            ``stop_reason`` is the evaluator's, or ``"returned"`` if evaluation has not stopped.
         """
         if results is None:
             results = SR_results()
@@ -1242,6 +1293,7 @@ class SR_evaluator:
             approach_name,
             self.metadata,
             self.default_constant,
+            self.stop_reason or "returned",
         )
 
         return results

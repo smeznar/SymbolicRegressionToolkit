@@ -1,6 +1,5 @@
 """ProGED approach — probabilistic grammar-based equation discovery by Brence et al."""
 
-import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -193,8 +192,9 @@ class ProGED(SR_approach):
         ``skip_evaluated`` is set, or if it breaks a required constraint
         ([check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints]) and
         ``skip_rejected`` is set.
-        After ``max_consecutive_skips`` skipped samples in a row, the search stops early with a
-        warning: the grammar yields few new valid expressions.
+        After ``max_consecutive_skips`` skipped samples in a row, the grammar yields few new valid
+        expressions: the search [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] the
+        evaluator with a reason starting with ``"ProGED"`` and returns.
 
         Args:
             sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to
@@ -216,9 +216,8 @@ class ProGED(SR_approach):
             if evaluated or (self.skip_rejected and sr_evaluator.check_constraints(expr)[0]):
                 skipped += 1
                 if skipped >= self.max_consecutive_skips:
-                    warnings.warn(
-                        f"[ProGED] Stopping early: {skipped} samples in a row were already evaluated or broke a "
-                        "required constraint, so the grammar yields few new valid expressions."
+                    sr_evaluator.stop(
+                        f"ProGED: {skipped} samples in a row were already evaluated or broke a required constraint"
                     )
                     return
                 continue

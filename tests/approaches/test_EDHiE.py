@@ -165,8 +165,8 @@ def test_search_without_skipping_bills_every_individual(trained_model):
 
 @pytest.mark.slow
 def test_search_stops_after_max_consecutive_skips(trained_model):
-    with pytest.warns(UserWarning):
-        se = _search(trained_model, max_consecutive_skips=1)
+    se = _search(trained_model, max_consecutive_skips=1)
+    assert se.stop_reason.startswith("EDHiE")
     assert se.total_evaluations < 30
 
 

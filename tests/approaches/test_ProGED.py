@@ -104,8 +104,8 @@ def test_search_skips_repeats_and_rejected_then_stops():
     se = SR_evaluator(
         _X, _X[:, 0], symbol_library=lib, max_evaluations=10, success_threshold=-1, required_constraints=[MaxTokens(3)]
     )
-    with pytest.warns(UserWarning):
-        ProGED(grammar, max_consecutive_skips=50).search(se, seed=0)
+    ProGED(grammar, max_consecutive_skips=50).search(se, seed=0)
+    assert se.stop_reason.startswith("ProGED")
     assert se.total_evaluations == 2
     assert sorted("".join(m.expr) for m in se.models) == ["X_0", "X_0+X_0"]
     assert all(m.status != "rejected" for m in se.models)
@@ -126,8 +126,8 @@ def test_search_canonicalise_constants(canonicalise, exprs):
         Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_1' '*' 'X_0' '+' 'C_1' [0.5]"), start="E"
     )
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
-    with pytest.warns(UserWarning, match="Stopping early"):
-        ProGED(grammar, max_consecutive_skips=20, canonicalise_constants=canonicalise).search(se, seed=0)
+    ProGED(grammar, max_consecutive_skips=20, canonicalise_constants=canonicalise).search(se, seed=0)
+    assert se.stop_reason.startswith("ProGED")
     assert sorted(m.expr for m in se.models) == exprs
 
 
@@ -185,8 +185,10 @@ def test_config_round_trip_keeps_skip_settings():
 def test_search_stops_after_exactly_max_consecutive_skips():
     only_x0 = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
-    with pytest.warns(UserWarning, match=r"\b3 samples"):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
         ProGED(only_x0, max_consecutive_skips=3).search(se, seed=0)
+    assert se.stop_reason.startswith("ProGED: 3 samples")
     assert se.total_evaluations == 1
 
 

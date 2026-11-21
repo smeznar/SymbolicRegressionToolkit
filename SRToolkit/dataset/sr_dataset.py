@@ -160,7 +160,7 @@ class SR_dataset:
         ranking_function: ``"rmse"``, ``"bed"`` (see [BEDRanking][SRToolkit.evaluation.ranking.BEDRanking])
             or the import path of a custom [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction].
         y: Targets of shape ``(n_samples,)``, or ``None``.
-        max_evaluations: Evaluation budget; negative means no limit.
+        max_evaluations: Evaluation budget; negative means no limit. ``0`` is rejected.
         ground_truth: The answer as infix tokens or a [Node][SRToolkit.utils.expression_tree.Node], or
             ``None``.
         original_equation: Human-readable answer, e.g. ``"F = m*a"``; ``None`` derives it (see
@@ -210,7 +210,7 @@ class SR_dataset:
 
     Raises:
         ValueError: If ``X`` has a different number of columns than the symbol library has
-            variables; ``max_constants`` / ``max_expr_length`` is not an integer
+            variables; ``max_evaluations`` is ``0``; ``max_constants`` / ``max_expr_length`` is not an integer
             or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``ground_truth`` is an ndarray
             (pass a BED behaviour matrix as ``bed_gt``); ``ground_truth_constants`` is given
             without ``ground_truth`` or does not fit it (see
@@ -314,6 +314,8 @@ class SR_dataset:
             X,
         )
 
+        if max_evaluations == 0:
+            raise ValueError("[SR_dataset] max_evaluations must be positive, or negative for no limit; got 0.")
         self.max_evaluations = max_evaluations
         self.success_threshold = success_threshold
         self.ranking_function = ranking_function

@@ -421,6 +421,10 @@ class TestDataSplits:
         with pytest.raises(ValueError, match="ndarray ground_truth"):
             SR_dataset(np.zeros((2, 1)), SymbolLibrary.default_symbols(1), ground_truth=np.zeros((4, 4)))
 
+    def test_zero_budget_rejected(self):
+        with pytest.raises(ValueError, match="max_evaluations"):
+            SR_dataset(np.zeros((2, 1)), SymbolLibrary.default_symbols(1), max_evaluations=0)
+
     @pytest.mark.parametrize("bad_key", ["", ".", "..", "a/b", "a\\b", "a:b", "a?b"])
     def test_invalid_aux_key_rejected(self, bad_key):
         with pytest.raises(ValueError, match="aux keys become file names"):

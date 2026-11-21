@@ -161,7 +161,8 @@ class SR_benchmark:
                 yourself (e.g. with ``numpy.load``) and pass the arrays here.
             dataset_name: The name of the dataset. Auto-generated if ``None``.
             ranking_function: ``"rmse"`` or ``"bed"``.
-            max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
+            max_evaluations: Maximum expressions to evaluate. Negative (default ``-1``) means no limit;
+                ``0`` is rejected.
             ground_truth: Ground truth expression.
             original_equation: Human-readable answer, as for
                 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]; ``None`` is stored as ``None``
@@ -200,8 +201,8 @@ class SR_benchmark:
             **kwargs: Ranking settings, as for ``SR_dataset``.
 
         Raises:
-            ValueError: If the dataset name already exists; the background-knowledge, limit or
-                constraint arguments are rejected as by
+            ValueError: If the dataset name already exists; ``max_evaluations`` is ``0``; the
+                background-knowledge, limit or constraint arguments are rejected as by
                 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]; ``ground_truth`` is an
                 ndarray, or missing where the ranking needs it (``"bed"``, or ``"rmse"`` with a
                 bare ndarray ``dataset``, not an ``(X, y)`` tuple); ``dataset`` is a tuple that is
@@ -231,6 +232,10 @@ class SR_benchmark:
         # Fail fast before any cache files are written, mirroring add_dataset_instance.
         if dataset_name in self.datasets:
             raise ValueError(f"[SR_benchmark.add_dataset] Dataset '{dataset_name}' already exists in the benchmark.")
+        if max_evaluations == 0:
+            raise ValueError(
+                "[SR_benchmark.add_dataset] max_evaluations must be positive, or negative for no limit; got 0."
+            )
 
         # Validate the task (background knowledge, required constraints) before anything is written.
         # Array data is checked against the library too (dataset is ignored when data_source is given).
@@ -419,7 +424,8 @@ class SR_benchmark:
             original_equation: As for
                 [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset].
             success_threshold: Error threshold for success. ``None`` means no threshold.
-            max_evaluations: Maximum expressions to evaluate. ``-1`` means no limit.
+            max_evaluations: Maximum expressions to evaluate. Negative (default ``-1``) means no limit;
+                ``0`` is rejected.
             dataset_metadata: Optional dataset-level metadata dict.
             variables: Information per variable, as for
                 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].

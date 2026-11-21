@@ -93,12 +93,12 @@ results = dataset.evaluate_approach(
 | Callback | Behaviour |
 |---|---|
 | `ProgressBarCallback` | tqdm progress bar updated after each evaluation |
-| `EarlyStoppingCallback(threshold)` | stops the search once error drops below `threshold` |
+| `EarlyStoppingCallback(threshold)` | stops the search once error drops below `threshold` (the evaluator already stops at the dataset's `success_threshold`) |
 | `LoggingCallback(log_file)` | appends each new best expression to a file or stdout |
 
 ### Writing a custom callback
 
-Subclass [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] and override only the events you need. Return `False` from any handler to stop the search early.
+Subclass [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] and override only the events you need. Return a reason (a string) from `on_expr_evaluated` or `on_best_expression` to stop the search early; it is saved in the results as `stop_reason`.
 
 ```python
 from SRToolkit.evaluation.callbacks import SRCallbacks, BestExpressionFound

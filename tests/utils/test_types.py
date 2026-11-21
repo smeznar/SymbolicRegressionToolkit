@@ -529,6 +529,7 @@ class TestEvalResultSerialization:
             dataset_name="ds",
             metadata={"seed": 3, "model": "m", "dataset_metadata": {"n": [1, 2]}},
             wall_time=1.5,
+            stop_reason="time_limit",
             augmentations={"aug": {"t": (1, "a"), 7: [1.0, INF], "_type": "Aug"}},
             default_constant=uniform_default((-2.0, 4.0)),
         )
@@ -546,6 +547,7 @@ class TestEvalResultSerialization:
         assert back.dataset_name == "ds"
         assert back.metadata == {"seed": 3, "model": "m", "dataset_metadata": {"n": [1, 2]}}
         assert back.wall_time == 1.5
+        assert back.stop_reason == "time_limit"
         assert back.augmentations == {"aug": {"t": (1, "a"), 7: [1.0, INF], "_type": "Aug"}}
         assert type(back.augmentations["aug"]["t"]) is tuple
         assert back.default_constant.to_dict() == uniform_default((-2.0, 4.0)).to_dict()
@@ -578,6 +580,12 @@ class TestEvalResultSerialization:
         assert back.all_models[0].free_constants is None
         assert back.all_models[0].expr == ["C_0"]
         assert back.trace == [0, 0]
+
+    # Reason: clause (a missing stop_reason, from results saved before it was recorded, loads as None).
+    def test_eval_result_without_stop_reason_loads_none(self):
+        d = json.loads(json.dumps(R([M(["X_0"], 0.1)], [0], stop_reason="returned").to_dict()))
+        del d["stop_reason"]
+        assert EvalResult.from_dict(d).stop_reason is None
 
     def test_eval_result_metadata_is_encoded(self):
         with pytest.raises(TypeError, match="set"):

@@ -219,10 +219,11 @@ class SR_approach(ABC):
         do not call ``sr_evaluator.get_results()`` — that is handled by the
         framework after ``search`` finishes.
 
-        Stop conditions to respect:
-            - ``sr_evaluator.total_evaluations >= sr_evaluator.max_evaluations``
-              (when ``max_evaluations > 0``)
-            - The current best error has dropped below ``sr_evaluator.success_threshold``
+        Search while ``sr_evaluator.should_stop`` is ``False``; it turns ``True`` when the success
+        threshold or the budget is reached, or a callback stops the run. To end the search early
+        (e.g. the search space is exhausted), call
+        [sr_evaluator.stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with a reason, so
+        the results explain why; returning without it is recorded as ``"returned"``.
 
         The symbol library is available in ``sr_evaluator.symbol_library``. ``sr_evaluator.describe()``
         gives the task as text (e.g. for an LLM prompt) and ``sr_evaluator.background_knowledge`` as

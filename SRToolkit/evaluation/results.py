@@ -163,6 +163,7 @@ class SR_results:
         approach_name: str,
         metadata: dict | None = None,
         default_constant: Constant | None = None,
+        stop_reason: str | None = None,
     ) -> None:
         """Adds the results of an evaluation to the results object.
 
@@ -175,6 +176,8 @@ class SR_results:
             metadata: A dictionary containing additional metadata about the evaluation.
             default_constant: The default spec of free constants in the evaluation, stored as
                 [EvalResult.default_constant][SRToolkit.utils.types.EvalResult].
+            stop_reason: Why the run ended, stored as
+                [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult].
         """
         dataset_name = None
         remaining_metadata = None
@@ -195,6 +198,7 @@ class SR_results:
             dataset_name=dataset_name,
             metadata=remaining_metadata,
             default_constant=default_constant,
+            stop_reason=stop_reason,
         )
 
         self.results.append(results_obj)
@@ -208,8 +212,8 @@ class SR_results:
     ):
         r"""Prints the results of the SR_evaluator.
 
-        Displays the minimum error, best expression, evaluation counts, success status,
-        metadata, and approach name. When *detailed* is ``True``, also prints per-model
+        Displays the minimum error, best expression, evaluation counts, success status, stop
+        reason, metadata, and approach name. When *detailed* is ``True``, also prints per-model
         information. Augmentation data is formatted by the corresponding
         [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] subclass,
         looked up from the global registry via the ``_type`` field stored in each
@@ -227,11 +231,13 @@ class SR_results:
             Best expression: C*X_1-X_0
             Error: ...
             Evaluated: 1 expressions | Calls: 1 | Success: ...
+            Stopped: ...
             <BLANKLINE>
             >>> results.print_results(detailed=True, experiment_number=0)  # doctest: +ELLIPSIS
             Best expression: C*X_1-X_0
             Error: ...
             Evaluated: 1 expressions | Calls: 1 | Success: ...
+            Stopped: ...
             <BLANKLINE>
             Models:
               C*X_1-X_0  (error=..., params=...)
@@ -284,6 +290,8 @@ class SR_results:
         print(
             f"Evaluated: {result.num_evaluated} expressions | Calls: {result.evaluation_calls} | Success: {result.success}"
         )
+        if result.stop_reason is not None:
+            print(f"Stopped: {result.stop_reason}")
         if result.wall_time is not None:
             print(f"Wall time: {result.wall_time:.3f}s")
         if result.metadata is not None and len(result.metadata) > 0:

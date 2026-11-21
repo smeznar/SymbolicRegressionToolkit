@@ -30,7 +30,8 @@ class RandomSearch(SR_approach):
 
         # Generate candidate expressions in batches and submit them to the evaluator. The evaluator fits
         # free constants, computes the error, caches duplicates, and flips should_stop when the evaluation
-        # budget is exhausted or an expression reaches the success threshold.
+        # budget is exhausted or an expression reaches the success threshold. An approach that gives up early
+        # (e.g. its search space is exhausted) calls sr_evaluator.stop("reason"), which is saved in the results.
         while not sr_evaluator.should_stop:
             expressions = generate_n_expressions(sr_evaluator.symbol_library, 100, verbose=False)
             for expression in expressions:

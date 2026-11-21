@@ -51,6 +51,7 @@ If you use SRToolkit in your research, please cite:
 ## Publications using SRToolkit
 
 * T. Drnovšek. *Equation discovery with Monte Carlo tree search* (in Slovenian). Master's thesis, University of Ljubljana, 2026. [[link]](http://hdl.handle.net/20.500.12556/RUL-187297) Implements the Grams approach (grammar-based Monte Carlo tree search) on SRToolkit.
+* G. Morales and A. Ekárt. *Exhaustive Canonical Skeletons Generation: A Formal Dataset for Decomposable Symbolic Regression*. IEEE Computational Intelligence Letters, 2026. [[link]](https://doi.org/10.1109/LCI.2026.3753204) Uses SRToolkit as the infrastructure for evaluating 13 SR methods on the ExCaUS-Bench benchmark.
 
 See the [Citations page](https://smeznar.github.io/SymbolicRegressionToolkit/latest/citations/#cite-using-srtoolkit) for BibTeX entries. Using SRToolkit in your work? Open an issue or a PR to have it listed.
 

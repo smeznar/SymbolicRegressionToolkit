@@ -236,7 +236,9 @@ class GrammarConstraint(Generic[L, G]):
         """
         if cls is GrammarConstraint:
             d = _auto_bind(d)
-            resolved = _import_class(d["constraint_class"], "constraint", GrammarConstraint)
+            resolved: type[GrammarConstraint[Any, Any]] = _import_class(
+                d["constraint_class"], "constraint", GrammarConstraint
+            )
             return resolved.from_dict(d)
         raise NotImplementedError(f"{cls.__name__}.from_dict is not implemented.")
 

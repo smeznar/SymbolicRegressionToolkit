@@ -14,7 +14,6 @@ from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, Variable
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation.callbacks import (
     CallbackDispatcher,
-    EarlyStoppingCallback,
     SRCallbacks,
 )
 from SRToolkit.evaluation.ranking import RankingFunction, RankingResult
@@ -125,10 +124,10 @@ class TestSREvaluatorInitRmse:
         se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0, num_points_sampled=-1)
         assert se.ranking.bed_X.shape[0] == _X_BED.shape[0]
 
-    def test_callbacks_dispatcher_with_early_stopping_created(self):
+    def test_no_callbacks_by_default(self):
         se = _make_se()
-        assert isinstance(se._callbacks, CallbackDispatcher)
-        assert any(isinstance(cb, EarlyStoppingCallback) for cb in se._callbacks.get_callbacks())
+        assert se._callbacks.get_callbacks() == []
+        assert se.stop_reason is None and se.should_stop is False
 
 
 # ── SR_evaluator.__init__ — BED ───────────────────────────────────────────────
@@ -414,37 +413,126 @@ class TestSREvaluatorInitBed:
 
 
 class TestSetCallbacks:
-    def test_add_single_callback_appends_to_dispatcher(self):
+    def test_single_callback_is_added(self):
         se = _make_se()
-        initial_count = len(se._callbacks.get_callbacks())
-        se.register_callbacks(_SimpleCb())
-        assert len(se._callbacks.get_callbacks()) == initial_count + 1
+        cb = _SimpleCb()
+        se.register_callbacks(cb)
+        assert se._callbacks.get_callbacks() == [cb]
 
-    def test_set_dispatcher_preserves_existing_callbacks(self):
+    def test_dispatcher_callbacks_are_added_and_dispatcher_unchanged(self):
         se = _make_se()
-        new_dispatcher = CallbackDispatcher()
-        se.register_callbacks(new_dispatcher)
-        assert any(isinstance(cb, EarlyStoppingCallback) for cb in se._callbacks.get_callbacks())
+        first, second, third = _SimpleCb(), _SimpleCb(), _SimpleCb()
+        se.register_callbacks(first)
+        dispatcher = CallbackDispatcher([second, third])
+        se.register_callbacks(dispatcher)
+        assert se._callbacks.get_callbacks() == [first, second, third]
+        assert dispatcher.get_callbacks() == [second, third]
 
-    def test_set_dispatcher_when_current_is_plain_srcallback(self):
-        se = _make_se()
-        se._callbacks = _SimpleCb()
-        new_dispatcher = CallbackDispatcher()
-        se.register_callbacks(new_dispatcher)
-        assert se._callbacks is new_dispatcher
+    def test_other_types_are_rejected(self):
+        with pytest.raises(TypeError, match="list"):
+            _make_se().register_callbacks([_SimpleCb()])
 
-    def test_set_srcallback_when_current_is_srcallback(self):
+    def test_none_adds_nothing(self):
         se = _make_se()
-        se._callbacks = _SimpleCb()
-        se.register_callbacks(_SimpleCb())
-        assert isinstance(se._callbacks, CallbackDispatcher)
-        assert len(se._callbacks.get_callbacks()) == 2
+        se.register_callbacks(None)
+        assert se._callbacks.get_callbacks() == []
 
-    def test_set_srcallback_when_current_is_none(self):
+
+# ── SR_evaluator stopping ─────────────────────────────────────────────────────
+
+
+class TestStopReason:
+    def test_threshold_records_success_threshold(self):
+        se = _make_se(success_threshold=1e-6)
+        se.evaluate_expr(["X_0"])
+        assert se.stop_reason is None
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        assert se.stop_reason == "success_threshold"
+
+    def test_budget_on_new_model_records_max_evaluations(self):
+        se = _make_se(max_evaluations=2, success_threshold=-1)
+        se.evaluate_expr(["X_0"])
+        assert se.stop_reason is None
+        se.evaluate_expr(["X_1"])
+        assert se.stop_reason == "max_evaluations"
+
+    def test_zero_budget_is_rejected(self):
+        with pytest.raises(ValueError, match="max_evaluations"):
+            _make_se(max_evaluations=0)
+
+    @pytest.mark.parametrize("budget", [None, 10.0, True])
+    def test_non_int_budget_is_rejected(self, budget):
+        with pytest.raises(TypeError, match="max_evaluations"):
+            _make_se(max_evaluations=budget)
+
+    def test_budget_on_cache_hit_records_max_evaluations(self):
+        se = _make_se(max_evaluations=2, success_threshold=-1)
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["X_0"])
+        assert se.stop_reason == "max_evaluations"
+
+    def test_threshold_wins_on_last_budgeted_call(self):
+        se = _make_se(max_evaluations=2, success_threshold=1e-6)
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        assert se.stop_reason == "success_threshold"
+
+    def test_stop_keeps_first_reason_and_later_calls_warn(self):
         se = _make_se()
-        se._callbacks = None
-        se.register_callbacks(_SimpleCb())
-        assert isinstance(se._callbacks, CallbackDispatcher)
+        se.stop("grammar exhausted")
+        se.stop("other")
+        assert se.should_stop is True and se.stop_reason == "grammar exhausted"
+        with pytest.warns(UserWarning, match="grammar exhausted"):
+            assert np.isnan(se.evaluate_expr(["X_0"]))
+        assert se.total_evaluations == 0
+
+    @pytest.mark.parametrize("reason", ["", None, 3])
+    def test_stop_rejects_non_string_or_empty_reason(self, reason):
+        with pytest.raises(ValueError, match="reason"):
+            _make_se().stop(reason)
+
+    def test_should_stop_is_read_only(self):
+        with pytest.raises(AttributeError):
+            _make_se().should_stop = True
+
+    def test_callback_reason_is_recorded_after_evaluators_own(self):
+        se = _make_se(max_evaluations=1, success_threshold=-1)
+        cb = MagicMock(spec=SRCallbacks)
+        cb.on_expr_evaluated.return_value = "time_limit"
+        cb.on_best_expression.return_value = None
+        se.register_callbacks(cb)
+        se.evaluate_expr(["X_0"])
+        assert se.stop_reason == "max_evaluations"
+
+    def test_callback_reason_is_recorded(self):
+        se = _make_se()
+        cb = MagicMock(spec=SRCallbacks)
+        cb.on_expr_evaluated.return_value = None
+        cb.on_best_expression.return_value = "plateau"
+        se.register_callbacks(cb)
+        se.evaluate_expr(["X_0"])
+        assert se.stop_reason == "plateau"
+
+    def test_callback_reason_on_cache_hit_is_recorded(self):
+        se = _make_se(success_threshold=-1)
+        se.evaluate_expr(["X_0"])
+        cb = MagicMock(spec=SRCallbacks)
+        cb.on_expr_evaluated.return_value = "plateau"
+        se.register_callbacks(cb)
+        se.evaluate_expr(["X_0"])
+        assert se.stop_reason == "plateau"
+
+    def test_error_equal_to_threshold_does_not_stop(self):
+        se = _make_se(success_threshold=np.inf)
+        assert se.evaluate_expr(["C", "*", "X_1", "X_0"]) == np.inf  # invalid: error inf
+        assert se.stop_reason is None
+
+    def test_get_results_records_reason_or_returned(self):
+        se = _make_se()
+        se.evaluate_expr(["X_0"])
+        assert se.get_results()[0].stop_reason == "returned"
+        se.stop("done")
+        assert se.get_results()[0].stop_reason == "done"
 
 
 # ── SR_evaluator.evaluate_expr — RMSE ─────────────────────────────────────────
@@ -490,7 +578,7 @@ class TestEvaluateExprRmse:
 
     def test_should_stop_returns_nan_with_warning(self):
         se = _make_se()
-        se.should_stop = True
+        se.stop("test")
         with pytest.warns(UserWarning):
             result = se.evaluate_expr(["X_0"])
         assert np.isnan(result)
@@ -529,7 +617,7 @@ class TestEvaluateExprRmse:
         cb.on_expr_evaluated.return_value = False
         se.register_callbacks(cb)
         se.evaluate_expr(["X_0"])
-        assert se.should_stop is True
+        assert se.stop_reason == "callback:MagicMock"
 
     def test_simplify_expr_stores_simplified_key(self):
         se = _make_se()

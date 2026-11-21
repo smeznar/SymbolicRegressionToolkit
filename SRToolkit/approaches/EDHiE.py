@@ -387,7 +387,8 @@ class EDHiE(SR_approach):
         [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), or if it breaks a
         required constraint and ``skip_rejected`` is set, or does not decode (error ``inf``). Other
         individuals are evaluated. After ``max_consecutive_skips`` individuals in a row scored
-        without evaluation, the search stops early with a warning.
+        without evaluation, the search [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]
+        the evaluator with a reason starting with ``"EDHiE"``.
 
         Args:
             sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to
@@ -1240,7 +1241,7 @@ class _HVAEProblem(Problem):
         dim: Dimensionality of the latent space (number of decision variables for pymoo).
         skip_evaluated: Score already evaluated expressions with their cached error.
         skip_rejected: Score expressions that break a required constraint with ``inf``.
-        max_consecutive_skips: Skips in a row after which ``exhausted`` is set.
+        max_consecutive_skips: Skips in a row after which the evaluator is stopped.
         """
         self.model = model
         self.evaluator = evaluator
@@ -1248,7 +1249,6 @@ class _HVAEProblem(Problem):
         self.skip_rejected = skip_rejected
         self.max_consecutive_skips = max_consecutive_skips
         self.skipped = 0  # individuals in a row scored without evaluation
-        self.exhausted = False
         self.symbol2index = evaluator.symbol_library.symbols2index()
         super().__init__(n_var=dim, n_obj=1)
 
@@ -1257,7 +1257,7 @@ class _HVAEProblem(Problem):
         trees = self.model.decode(torch.tensor(x[:, :], device=device, dtype=torch.float32))
         errors = []
         for tree in trees:
-            if self.evaluator.should_stop or self.exhausted:
+            if self.evaluator.should_stop:
                 errors.append(self._FALLBACK_SCORE)
                 continue
             # Scored without evaluation: no decode, already evaluated, or would be rejected.
@@ -1266,10 +1266,9 @@ class _HVAEProblem(Problem):
                 errors.append(cached.error if cached is not None else self._FALLBACK_SCORE)
                 self.skipped += 1
                 if self.skipped >= self.max_consecutive_skips:
-                    self.exhausted = True
-                    warnings.warn(
-                        f"[EDHiE] Stopping early: {self.skipped} individuals in a row were already evaluated, "
-                        "broke a required constraint or did not decode."
+                    self.evaluator.stop(
+                        f"EDHiE: {self.skipped} individuals in a row were already evaluated, broke a required "
+                        "constraint or did not decode"
                     )
                 continue
             self.skipped = 0
@@ -1296,11 +1295,11 @@ class _TorchNormalSampling(Sampling):
 
 class _BestTermination(Termination):
     """pymoo ``Termination`` that stops the GA when the evaluator signals early stopping
-    (success threshold reached or budget exhausted).
+    (``should_stop``).
     """
 
     def _update(self, algorithm):
-        if algorithm.problem.evaluator.should_stop or algorithm.problem.exhausted:
+        if algorithm.problem.evaluator.should_stop:
             self.terminate()
         return 0.0
 

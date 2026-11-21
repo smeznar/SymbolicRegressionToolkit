@@ -43,7 +43,8 @@ class RandomSearch(SR_approach):
 ### Key rules for `search()`
 
 - Call `sr_evaluator.evaluate_expr(expr)` for every candidate expression. The evaluator handles parameter fitting, caching, and result bookkeeping.
-- Check `sr_evaluator.should_stop` (or `sr_evaluator.total_evaluations >= sr_evaluator.max_evaluations`) regularly and finish search when it is `True`.
+- Check `sr_evaluator.should_stop` regularly and finish search when it is `True`.
+- To end the search early (e.g. the search space is exhausted), call `sr_evaluator.stop("reason")`; the reason is saved in the results as `stop_reason`.
 - Do **not** access target values directly — use the evaluator as the sole interface to `y`.
 
 ## The `adapt()` lifecycle
