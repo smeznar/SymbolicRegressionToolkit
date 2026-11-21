@@ -529,8 +529,8 @@ class SR_dataset:
             callbacks: An [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], a list of them, or a
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher].
             verbose: Print a line as each experiment starts.
-            adaptation_path: For ``adaptation_scope="once"``: load the adapted state from this file if it
-                exists, otherwise adapt and save it there, creating its parent directories. ``None``
+            adaptation_path: For ``adaptation_scope="once"``: the state file passed to
+                [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load]; ``None``
                 adapts without saving.
 
         Returns:
@@ -574,15 +574,7 @@ class SR_dataset:
             sr_approach.prepare()
 
             if sr_approach.adaptation_scope == "once" and experiment == 0:
-                if adaptation_path is not None and os.path.exists(adaptation_path):
-                    sr_approach.load_adapted_state(adaptation_path)
-                else:
-                    sr_approach.adapt(self.X, self.background_knowledge, self.required_constraints)
-                    if adaptation_path is not None:
-                        dir_name = os.path.dirname(adaptation_path)
-                        if dir_name:
-                            os.makedirs(dir_name, exist_ok=True)
-                        sr_approach.save_adapted_state(adaptation_path)
+                self.adapt_or_load(sr_approach, adaptation_path)
             elif sr_approach.adaptation_scope == "experiment":
                 sr_approach.adapt(self.X, self.background_knowledge, self.required_constraints)
 
@@ -627,6 +619,40 @@ class SR_dataset:
         if not settings.get("ranking_resample", False):
             settings.setdefault("ranking_seed", self.seed if self.seed is not None else 0)
         return settings
+
+    def adapt_or_load(self, sr_approach: SR_approach, path: str | None, force: bool = False) -> None:
+        """Adapt ``sr_approach`` to this dataset, or load its saved adapted state.
+
+        If ``path`` names an existing file and ``force`` is off, the state is loaded from it with
+        [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state].
+        Otherwise the approach runs [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] on
+        ``X``, ``background_knowledge`` and ``required_constraints`` and, if ``path`` is set, saves
+        the state there with
+        [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state],
+        creating its parent directories. An existing file is loaded as is; it is not checked against
+        this dataset. Does not check ``adaptation_scope`` or call ``prepare``.
+
+        Args:
+            sr_approach: The approach to adapt.
+            path: File the adapted state is loaded from or saved to; ``None`` adapts without saving.
+            force: Adapt and overwrite the file even if it exists.
+
+        Raises:
+            NotImplementedError: If ``path`` is set and the approach does not implement
+                ``load_adapted_state`` or ``save_adapted_state`` (whichever is needed).
+
+        Examples:
+            >>> dataset.adapt_or_load(my_approach, "states/my_approach.pt")  # doctest: +SKIP
+        """
+        if path is not None and not force and os.path.exists(path):
+            sr_approach.load_adapted_state(path)
+            return
+        sr_approach.adapt(self.X, self.background_knowledge, self.required_constraints)
+        if path is not None:
+            dir_name = os.path.dirname(path)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
+            sr_approach.save_adapted_state(path)
 
     def create_evaluator(self, metadata: dict[str, Any] | None = None, seed: int | None = None) -> SR_evaluator:
         """Create an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] for this dataset.

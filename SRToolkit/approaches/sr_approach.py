@@ -140,12 +140,8 @@ class SR_approach(ABC):
         - ``"experiment"``: before every ``search``.
         - ``"once"``: before the first experiment of each
           [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] call or grid
-          job. With a state path (``adaptation_path`` or ``adapted_states``), what happens depends on
-          whether that file exists: if it does, the state is loaded from it with
-          [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state] and
-          ``adapt`` is not called; if not, the approach adapts and saves the state there with
-          [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state].
-          Without a path, it adapts every time.
+          job, through [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] with
+          the state path (``adaptation_path`` or ``adapted_states``), if any.
 
         A loaded state is not checked against the dataset: an existing file is used as is. To adapt
         again after the dataset changed, delete the file or call
@@ -249,7 +245,8 @@ class SR_approach(ABC):
         ``numpy.save``, JSON, pickle), but must write to exactly ``path``: the framework restores
         a state only when a file exists at ``path``.
 
-        Should be implemented when ``adaptation_scope == "once"``.
+        Needed whenever [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] gets a
+        state path.
 
         The default raises ``NotImplementedError``. Override when needed.
 
@@ -261,7 +258,8 @@ class SR_approach(ABC):
     def load_adapted_state(self, path: str) -> None:
         """Restore the previously saved adapted state from ``path``.
 
-        Should be implemented when ``adaptation_scope == "once"``.
+        Needed whenever [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] gets a
+        state path.
 
         The default raises ``NotImplementedError``. Override when needed.
 

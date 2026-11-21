@@ -677,7 +677,8 @@ def _run_once_job(tmp_path, seed, state_path):
 )
 def test_job_run_once_reuses_state_only_with_path(tmp_path, monkeypatch, with_path, expected):
     _isolate_cache(monkeypatch, tmp_path)
-    state = tmp_path / "missing" / "dirs" / "state"  # parent directories are created
+    # caller wiring: "once" goes through adapt_or_load with the job's state path (pinned in test_sr_dataset)
+    state = tmp_path / "state"
     path = str(state) if with_path else None
     first = _run_once_job(tmp_path, 0, path)
     second = _run_once_job(tmp_path, 1, path)

@@ -1438,17 +1438,88 @@ class TestEvaluateApproachAdapt:
         assert approach.events == expected * 2
         assert not (tmp_path / "state").exists()
 
-    def test_evaluate_approach_once_reuses_saved_state_as_is(self, tmp_path):
-        path = str(tmp_path / "missing" / "dirs" / "state")  # parent directories are created
+    def test_evaluate_approach_once_adapts_or_loads_through_path(self, tmp_path):
+        # caller wiring: "once" goes through adapt_or_load with adaptation_path (pinned in TestAdaptOrLoad)
+        path = str(tmp_path / "state")
         first = _AdaptRecorder("once")
         _task_dataset().evaluate_approach(first, num_experiments=2, verbose=False, adaptation_path=path)
-        assert (first.events.count("adapt"), first.events.count("save")) == (1, 1)
-        assert Path(path).read_text() == "state"
+        assert first.events == ["prepare", "adapt", "save", "search", "prepare", "search"]
 
         second = _AdaptRecorder("once")
-        changed = _task_dataset(max_constants=3)
-        changed.evaluate_approach(second, num_experiments=2, verbose=False, adaptation_path=path)
-        assert (second.events.count("adapt"), second.loaded_from) == (0, [path])
+        _task_dataset().evaluate_approach(second, num_experiments=2, verbose=False, adaptation_path=path)
+        assert second.events == ["prepare", "load", "search", "prepare", "search"]
+        assert second.loaded_from == [path]
+
+
+class _AdaptOnly(SR_approach):
+    """Implements ``adapt`` but keeps the base ``save_adapted_state`` / ``load_adapted_state``."""
+
+    def __init__(self):
+        super().__init__(ApproachConfig(name="adapt-only"))
+        self.adapted = 0
+
+    def prepare(self):
+        pass
+
+    def adapt(self, X, background_knowledge, required_constraints):
+        self.adapted += 1
+
+    def search(self, sr_evaluator, seed=None):
+        pass
+
+
+class TestAdaptOrLoad:
+    @pytest.mark.parametrize(
+        "rel_path, existing, force, events, content",
+        [
+            (None, False, False, ["adapt"], None),
+            ("a/b/state", False, False, ["adapt", "save"], "state"),
+            ("state", True, False, ["load"], "OLD"),
+            ("state", True, True, ["adapt", "save"], "state"),
+        ],
+        ids=["no-path", "missing-file", "existing-file", "existing-force"],
+    )
+    def test_adapt_or_load_calls_per_path_state(self, tmp_path, rel_path, existing, force, events, content):
+        # scope "never": adapt_or_load ignores adaptation_scope and never calls prepare
+        approach = _AdaptRecorder("never")
+        path = None if rel_path is None else str(tmp_path / rel_path)
+        if existing:
+            Path(path).write_text("OLD")
+        _task_dataset().adapt_or_load(approach, path, force=force)
+        assert approach.events == events
+        assert approach.loaded_from == ([path] if "load" in events else [])
+        if path is None:
+            assert list(tmp_path.iterdir()) == []
+        else:
+            assert Path(path).read_text() == content
+
+    def test_adapt_or_load_saves_bare_file_name_in_working_directory(self, tmp_path, monkeypatch):
+        # boundary: a path with no parent directory (nothing to create)
+        monkeypatch.chdir(tmp_path)
+        approach = _AdaptRecorder("never")
+        _task_dataset().adapt_or_load(approach, "state")
+        assert approach.events == ["adapt", "save"]
+        assert (tmp_path / "state").read_text() == "state"
+
+    @pytest.mark.parametrize(
+        "existing, adapted",
+        [(True, 0), (False, 1)],
+        ids=["existing-file-load", "missing-file-save"],
+    )
+    def test_adapt_or_load_without_state_io_raises_when_path_set(self, tmp_path, existing, adapted):
+        # the base methods raise with no message: whether adapt ran tells load (0) from save (1)
+        approach = _AdaptOnly()
+        path = str(tmp_path / "state")
+        if existing:
+            Path(path).write_text("OLD")
+        with pytest.raises(NotImplementedError):
+            _task_dataset().adapt_or_load(approach, path)
+        assert approach.adapted == adapted
+
+    def test_adapt_or_load_without_state_io_no_path_adapts(self):
+        approach = _AdaptOnly()
+        _task_dataset().adapt_or_load(approach, None)
+        assert approach.adapted == 1
 
 
 @pytest.mark.parametrize(

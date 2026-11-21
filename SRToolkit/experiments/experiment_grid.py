@@ -301,9 +301,8 @@ class ExperimentJob:
         [SR_approach.adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope]:
 
         - ``"never"``: no adaptation.
-        - ``"once"``: loads pre-adapted state from
-          [ExperimentInfo][SRToolkit.experiments.ExperimentInfo]'s ``adapted_state_path``
-          if a path is set and the file exists, otherwise adapts (and saves if a path is set).
+        - ``"once"``: [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] with
+          [ExperimentInfo][SRToolkit.experiments.ExperimentInfo]'s ``adapted_state_path``.
         - ``"experiment"``: adapts fresh every run.
 
         [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] gets the dataset's ``X``,
@@ -329,18 +328,7 @@ class ExperimentJob:
         approach.prepare()
 
         if approach.adaptation_scope == "once":
-            state_path = self.info.adapted_state_path
-            if state_path is None:
-                approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
-            else:
-                if os.path.exists(state_path):
-                    approach.load_adapted_state(state_path)
-                else:
-                    approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
-                    dir_name = os.path.dirname(state_path)
-                    if dir_name:
-                        os.makedirs(dir_name, exist_ok=True)
-                    approach.save_adapted_state(state_path)
+            dataset.adapt_or_load(approach, self.info.adapted_state_path)
         elif approach.adaptation_scope == "experiment":
             approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
 
@@ -614,17 +602,16 @@ class ExperimentGrid:
 
         This is the unit the per-pair adaptation commands in ``prepare.txt`` invoke (via the
         ``adapt`` CLI with ``--dataset``/``--approach``), so independent pairs can adapt in
-        parallel across a cluster. It loads the dataset, calls
-        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] with the dataset's ``X``,
-        background knowledge and required constraints, and saves the state via
-        [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state].
+        parallel across a cluster. It loads the dataset and calls
+        [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] with
+        ``force=True``.
 
         Silently returns (no-op) when there is nothing to do: the approach is not
         ``"once"``-scope, or has no registered state path for this dataset. By default it also
         no-ops when the state file already exists; pass ``force=True`` to re-adapt and overwrite
         it (e.g. after the adaptation logic or the dataset changed, or to replace a corrupt
         state). Because the dataset is named explicitly here, ``force`` is unambiguous even when
-        several datasets share one state path — it adapts on *this* dataset and overwrites.
+        several datasets share one state path: it adapts on *this* dataset and overwrites.
 
         Args:
             approach_name: Name of an approach in this grid.
@@ -647,22 +634,14 @@ class ExperimentGrid:
             return
         dataset = SR_dataset.from_dict(self.datasets[dataset_name])
         approach = SR_approach.from_config_dict(approach_config)
-        approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
-        dir_name = os.path.dirname(state_path)
-        if dir_name:
-            os.makedirs(dir_name, exist_ok=True)
-        approach.save_adapted_state(state_path)
+        dataset.adapt_or_load(approach, state_path, force=True)
 
     def adapt_if_missing(self):
         """Pre-adapt all ``adaptation_scope="once"`` approaches where the state file is absent.
 
-        For each (approach, dataset) pair whose state file does not yet exist on disk,
-        this method loads the dataset, calls
-        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] once with the dataset's ``X``,
-        background knowledge and required constraints, then persists the
-        state via
-        [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state].
-        Pairs whose state file already exists are skipped.
+        Runs [adapt_one][SRToolkit.experiments.ExperimentGrid.adapt_one] for each
+        (approach, dataset) pair whose state file does not yet exist on disk. Pairs whose state
+        file already exists are skipped.
 
         Approaches whose ``adaptation_scope`` is not ``"once"``, or that have no entry in
         the ``adapted_states`` mapping passed at construction, are skipped entirely.
