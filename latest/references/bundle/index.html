@@ -3653,40 +3653,7 @@ found in the installed bundle.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/bundle/_relocate.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-163">163</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-164">164</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-165">165</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-166">166</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-167">167</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-168">168</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-169">169</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-170">170</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-171">171</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-172">172</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-173">173</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-174">174</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-175">175</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-176">176</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-177">177</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-178">178</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-179">179</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-180">180</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-181">181</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-182">182</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-184">184</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-185">185</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-186">186</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-187">187</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-188">188</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-189">189</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-190">190</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-191">191</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-192">192</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-193">193</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-194">194</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-195">195</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-196">196</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-196">196</a></span>
 <span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-197">197</a></span>
 <span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-199">199</a></span>
@@ -3706,60 +3673,93 @@ found in the installed bundle.</p>
 <span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-213">213</a></span>
 <span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-214">214</a></span>
 <span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-215">215</a></span>
-<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-216">216</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.bundle.bind_config--source--__codelineno-0-163" name="SRToolkit.bundle.bind_config--source--__codelineno-0-163"></a><span class="k">def</span><span class="w"> </span><span class="nf">bind_config</span><span class="p">(</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-164" name="SRToolkit.bundle.bind_config--source--__codelineno-0-164"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-165" name="SRToolkit.bundle.bind_config--source--__codelineno-0-165"></a>    <span class="n">bundle_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-166" name="SRToolkit.bundle.bind_config--source--__codelineno-0-166"></a>    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-167" name="SRToolkit.bundle.bind_config--source--__codelineno-0-167"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-168" name="SRToolkit.bundle.bind_config--source--__codelineno-0-168"></a><span class="w">    </span><span class="sd">"""Rewrite ``*_class`` paths in ``config`` to point at an installed bundle.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-169" name="SRToolkit.bundle.bind_config--source--__codelineno-0-169"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-170" name="SRToolkit.bundle.bind_config--source--__codelineno-0-170"></a><span class="sd">    Looks up ``bundle_name`` in the local bundle index and rewrites every</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-171" name="SRToolkit.bundle.bind_config--source--__codelineno-0-171"></a><span class="sd">    ``*_class`` value so that it resolves to the installed copy's import prefix.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-172" name="SRToolkit.bundle.bind_config--source--__codelineno-0-172"></a><span class="sd">    Paths already starting with ``SRToolkit.`` are left unchanged.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-173" name="SRToolkit.bundle.bind_config--source--__codelineno-0-173"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-174" name="SRToolkit.bundle.bind_config--source--__codelineno-0-174"></a><span class="sd">    If ``bundle_name`` is not provided, the ``_bundle`` and ``_version`` keys</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-175" name="SRToolkit.bundle.bind_config--source--__codelineno-0-175"></a><span class="sd">    embedded in the config by [pack][SRToolkit.bundle.pack] are used as</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-176" name="SRToolkit.bundle.bind_config--source--__codelineno-0-176"></a><span class="sd">    fallbacks. This allows calling ``bind_config(config)`` directly when the</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-177" name="SRToolkit.bundle.bind_config--source--__codelineno-0-177"></a><span class="sd">    config was annotated at pack time.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-178" name="SRToolkit.bundle.bind_config--source--__codelineno-0-178"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-179" name="SRToolkit.bundle.bind_config--source--__codelineno-0-179"></a><span class="sd">    This is the recipient-side complement to [pack][SRToolkit.bundle.pack] for configs:</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-180" name="SRToolkit.bundle.bind_config--source--__codelineno-0-180"></a><span class="sd">    the author shares the ``.srtk`` file (code) and an annotated ``.srtk.json``</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-181" name="SRToolkit.bundle.bind_config--source--__codelineno-0-181"></a><span class="sd">    config; the recipient installs the bundle once and then calls ``bind_config``</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-182" name="SRToolkit.bundle.bind_config--source--__codelineno-0-182"></a><span class="sd">    to make the config usable on their machine.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-183" name="SRToolkit.bundle.bind_config--source--__codelineno-0-183"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-184" name="SRToolkit.bundle.bind_config--source--__codelineno-0-184"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-185" name="SRToolkit.bundle.bind_config--source--__codelineno-0-185"></a><span class="sd">        config: JSON-style configuration dictionary, optionally containing</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-186" name="SRToolkit.bundle.bind_config--source--__codelineno-0-186"></a><span class="sd">            ``_bundle`` and ``_version`` metadata added by ``pack``.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-187" name="SRToolkit.bundle.bind_config--source--__codelineno-0-187"></a><span class="sd">        bundle_name: Name of an installed bundle. If ``None``, ``config["_bundle"]``</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-188" name="SRToolkit.bundle.bind_config--source--__codelineno-0-188"></a><span class="sd">            is used.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-189" name="SRToolkit.bundle.bind_config--source--__codelineno-0-189"></a><span class="sd">        version: Version to bind against. If ``None``, ``config["_version"]`` is</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-190" name="SRToolkit.bundle.bind_config--source--__codelineno-0-190"></a><span class="sd">            tried first, then the latest installed version.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-191" name="SRToolkit.bundle.bind_config--source--__codelineno-0-191"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-192" name="SRToolkit.bundle.bind_config--source--__codelineno-0-192"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-193" name="SRToolkit.bundle.bind_config--source--__codelineno-0-193"></a><span class="sd">        A new dictionary with rewritten ``*_class`` references ready for use</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-194" name="SRToolkit.bundle.bind_config--source--__codelineno-0-194"></a><span class="sd">        with ``from_dict`` dispatchers. ``config`` is not modified and ``_bundle``/</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-195" name="SRToolkit.bundle.bind_config--source--__codelineno-0-195"></a><span class="sd">        ``_version`` metadata keys are stripped from the result.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-196" name="SRToolkit.bundle.bind_config--source--__codelineno-0-196"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-197" name="SRToolkit.bundle.bind_config--source--__codelineno-0-197"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-198" name="SRToolkit.bundle.bind_config--source--__codelineno-0-198"></a><span class="sd">        ValueError: If ``bundle_name`` is not provided and ``config`` has no</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-199" name="SRToolkit.bundle.bind_config--source--__codelineno-0-199"></a><span class="sd">            ``_bundle`` key.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-200" name="SRToolkit.bundle.bind_config--source--__codelineno-0-200"></a><span class="sd">        KeyError: If the bundle (or requested version) is not installed.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-201" name="SRToolkit.bundle.bind_config--source--__codelineno-0-201"></a><span class="sd">        LookupError: If a ``*_class`` value references a class that cannot be</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-202" name="SRToolkit.bundle.bind_config--source--__codelineno-0-202"></a><span class="sd">            found in the installed bundle.</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-203" name="SRToolkit.bundle.bind_config--source--__codelineno-0-203"></a><span class="sd">    """</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-204" name="SRToolkit.bundle.bind_config--source--__codelineno-0-204"></a>    <span class="n">resolved_name</span> <span class="o">=</span> <span class="n">bundle_name</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_bundle"</span><span class="p">)</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-205" name="SRToolkit.bundle.bind_config--source--__codelineno-0-205"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">resolved_name</span><span class="p">:</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-206" name="SRToolkit.bundle.bind_config--source--__codelineno-0-206"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-207" name="SRToolkit.bundle.bind_config--source--__codelineno-0-207"></a>            <span class="s2">"bundle_name must be provided or the config must contain a '_bundle' key "</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-208" name="SRToolkit.bundle.bind_config--source--__codelineno-0-208"></a>            <span class="s2">"(added automatically by pack(..., configs=[...]))."</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-209" name="SRToolkit.bundle.bind_config--source--__codelineno-0-209"></a>        <span class="p">)</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-210" name="SRToolkit.bundle.bind_config--source--__codelineno-0-210"></a>    <span class="n">resolved_version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_version"</span><span class="p">)</span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#SRToolkit.bundle.bind_config--source--__codelineno-0-249">249</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.bundle.bind_config--source--__codelineno-0-196" name="SRToolkit.bundle.bind_config--source--__codelineno-0-196"></a><span class="k">def</span><span class="w"> </span><span class="nf">bind_config</span><span class="p">(</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-197" name="SRToolkit.bundle.bind_config--source--__codelineno-0-197"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-198" name="SRToolkit.bundle.bind_config--source--__codelineno-0-198"></a>    <span class="n">bundle_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-199" name="SRToolkit.bundle.bind_config--source--__codelineno-0-199"></a>    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-200" name="SRToolkit.bundle.bind_config--source--__codelineno-0-200"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-201" name="SRToolkit.bundle.bind_config--source--__codelineno-0-201"></a><span class="w">    </span><span class="sd">"""Rewrite ``*_class`` paths in ``config`` to point at an installed bundle.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-202" name="SRToolkit.bundle.bind_config--source--__codelineno-0-202"></a>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-203" name="SRToolkit.bundle.bind_config--source--__codelineno-0-203"></a><span class="sd">    Looks up ``bundle_name`` in the local bundle index and rewrites every</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-204" name="SRToolkit.bundle.bind_config--source--__codelineno-0-204"></a><span class="sd">    ``*_class`` value so that it resolves to the installed copy's import prefix.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-205" name="SRToolkit.bundle.bind_config--source--__codelineno-0-205"></a><span class="sd">    Paths already starting with ``SRToolkit.`` are left unchanged.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-206" name="SRToolkit.bundle.bind_config--source--__codelineno-0-206"></a>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-207" name="SRToolkit.bundle.bind_config--source--__codelineno-0-207"></a><span class="sd">    If ``bundle_name`` is not provided, the ``_bundle`` and ``_version`` keys</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-208" name="SRToolkit.bundle.bind_config--source--__codelineno-0-208"></a><span class="sd">    embedded in the config by [pack][SRToolkit.bundle.pack] are used as</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-209" name="SRToolkit.bundle.bind_config--source--__codelineno-0-209"></a><span class="sd">    fallbacks. This allows calling ``bind_config(config)`` directly when the</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-210" name="SRToolkit.bundle.bind_config--source--__codelineno-0-210"></a><span class="sd">    config was annotated at pack time.</span>
 <a id="SRToolkit.bundle.bind_config--source--__codelineno-0-211" name="SRToolkit.bundle.bind_config--source--__codelineno-0-211"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-212" name="SRToolkit.bundle.bind_config--source--__codelineno-0-212"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_store</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">resolved_name</span><span class="p">,</span> <span class="n">resolved_version</span><span class="p">)</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-213" name="SRToolkit.bundle.bind_config--source--__codelineno-0-213"></a>    <span class="n">_store</span><span class="o">.</span><span class="n">enable_bundle_imports</span><span class="p">()</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-214" name="SRToolkit.bundle.bind_config--source--__codelineno-0-214"></a>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-215" name="SRToolkit.bundle.bind_config--source--__codelineno-0-215"></a>    <span class="n">stripped</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"_bundle"</span><span class="p">,</span> <span class="s2">"_version"</span><span class="p">)}</span>
-<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-216" name="SRToolkit.bundle.bind_config--source--__codelineno-0-216"></a>    <span class="k">return</span> <span class="n">_relocate_class_paths</span><span class="p">(</span><span class="n">stripped</span><span class="p">,</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"import_prefix"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"path"</span><span class="p">])</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-212" name="SRToolkit.bundle.bind_config--source--__codelineno-0-212"></a><span class="sd">    This is the recipient-side complement to [pack][SRToolkit.bundle.pack] for configs:</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-213" name="SRToolkit.bundle.bind_config--source--__codelineno-0-213"></a><span class="sd">    the author shares the ``.srtk`` file (code) and an annotated ``.srtk.json``</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-214" name="SRToolkit.bundle.bind_config--source--__codelineno-0-214"></a><span class="sd">    config; the recipient installs the bundle once and then calls ``bind_config``</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-215" name="SRToolkit.bundle.bind_config--source--__codelineno-0-215"></a><span class="sd">    to make the config usable on their machine.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-216" name="SRToolkit.bundle.bind_config--source--__codelineno-0-216"></a>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-217" name="SRToolkit.bundle.bind_config--source--__codelineno-0-217"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-218" name="SRToolkit.bundle.bind_config--source--__codelineno-0-218"></a><span class="sd">        config: JSON-style configuration dictionary, optionally containing</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-219" name="SRToolkit.bundle.bind_config--source--__codelineno-0-219"></a><span class="sd">            ``_bundle`` and ``_version`` metadata added by ``pack``.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-220" name="SRToolkit.bundle.bind_config--source--__codelineno-0-220"></a><span class="sd">        bundle_name: Name of an installed bundle. If ``None``, ``config["_bundle"]``</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-221" name="SRToolkit.bundle.bind_config--source--__codelineno-0-221"></a><span class="sd">            is used.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-222" name="SRToolkit.bundle.bind_config--source--__codelineno-0-222"></a><span class="sd">        version: Version to bind against. If ``None``, ``config["_version"]`` is</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-223" name="SRToolkit.bundle.bind_config--source--__codelineno-0-223"></a><span class="sd">            tried first, then the latest installed version.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-224" name="SRToolkit.bundle.bind_config--source--__codelineno-0-224"></a>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-225" name="SRToolkit.bundle.bind_config--source--__codelineno-0-225"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-226" name="SRToolkit.bundle.bind_config--source--__codelineno-0-226"></a><span class="sd">        A new dictionary with rewritten ``*_class`` references ready for use</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-227" name="SRToolkit.bundle.bind_config--source--__codelineno-0-227"></a><span class="sd">        with ``from_dict`` dispatchers. ``config`` is not modified and ``_bundle``/</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-228" name="SRToolkit.bundle.bind_config--source--__codelineno-0-228"></a><span class="sd">        ``_version`` metadata keys are stripped from the result.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-229" name="SRToolkit.bundle.bind_config--source--__codelineno-0-229"></a>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-230" name="SRToolkit.bundle.bind_config--source--__codelineno-0-230"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-231" name="SRToolkit.bundle.bind_config--source--__codelineno-0-231"></a><span class="sd">        ValueError: If ``bundle_name`` is not provided and ``config`` has no</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-232" name="SRToolkit.bundle.bind_config--source--__codelineno-0-232"></a><span class="sd">            ``_bundle`` key.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-233" name="SRToolkit.bundle.bind_config--source--__codelineno-0-233"></a><span class="sd">        KeyError: If the bundle (or requested version) is not installed.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-234" name="SRToolkit.bundle.bind_config--source--__codelineno-0-234"></a><span class="sd">        LookupError: If a ``*_class`` value references a class that cannot be</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-235" name="SRToolkit.bundle.bind_config--source--__codelineno-0-235"></a><span class="sd">            found in the installed bundle.</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-236" name="SRToolkit.bundle.bind_config--source--__codelineno-0-236"></a><span class="sd">    """</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-237" name="SRToolkit.bundle.bind_config--source--__codelineno-0-237"></a>    <span class="n">resolved_name</span> <span class="o">=</span> <span class="n">bundle_name</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_bundle"</span><span class="p">)</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-238" name="SRToolkit.bundle.bind_config--source--__codelineno-0-238"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">resolved_name</span><span class="p">:</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-239" name="SRToolkit.bundle.bind_config--source--__codelineno-0-239"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-240" name="SRToolkit.bundle.bind_config--source--__codelineno-0-240"></a>            <span class="s2">"bundle_name must be provided or the config must contain a '_bundle' key "</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-241" name="SRToolkit.bundle.bind_config--source--__codelineno-0-241"></a>            <span class="s2">"(added automatically by pack(..., configs=[...]))."</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-242" name="SRToolkit.bundle.bind_config--source--__codelineno-0-242"></a>        <span class="p">)</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-243" name="SRToolkit.bundle.bind_config--source--__codelineno-0-243"></a>    <span class="n">resolved_version</span> <span class="o">=</span> <span class="n">version</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_version"</span><span class="p">)</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-244" name="SRToolkit.bundle.bind_config--source--__codelineno-0-244"></a>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-245" name="SRToolkit.bundle.bind_config--source--__codelineno-0-245"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_store</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">resolved_name</span><span class="p">,</span> <span class="n">resolved_version</span><span class="p">)</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-246" name="SRToolkit.bundle.bind_config--source--__codelineno-0-246"></a>    <span class="n">_store</span><span class="o">.</span><span class="n">enable_bundle_imports</span><span class="p">()</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-247" name="SRToolkit.bundle.bind_config--source--__codelineno-0-247"></a>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-248" name="SRToolkit.bundle.bind_config--source--__codelineno-0-248"></a>    <span class="n">stripped</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"_bundle"</span><span class="p">,</span> <span class="s2">"_version"</span><span class="p">)}</span>
+<a id="SRToolkit.bundle.bind_config--source--__codelineno-0-249" name="SRToolkit.bundle.bind_config--source--__codelineno-0-249"></a>    <span class="k">return</span> <span class="n">_relocate_class_paths</span><span class="p">(</span><span class="n">stripped</span><span class="p">,</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"import_prefix"</span><span class="p">],</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"path"</span><span class="p">])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
