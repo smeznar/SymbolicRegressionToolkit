@@ -155,6 +155,48 @@ def result_dict(result):
     return {**result.to_dict(), "wall_time": None}
 
 
+def result_answers(result, k, budgets=range(-1, 12), thresholds=(0.05, 0.1, 0.3, 0.5, 1.0, 2.0, float("nan"))):
+    """Every public answer of an ``EvalResult`` that a compact result (one with a ``summary``
+    keeping the top ``k`` models) must give like the full one. Compare with
+    ``np.testing.assert_equal``, which treats NaN as equal."""
+    return {
+        "num_evaluated": result.num_evaluated,
+        "evaluation_calls": result.evaluation_calls,
+        "top_models": [result.top_models(j) for j in range(1, k + 1)],
+        "min_error": result.min_error,
+        "best_expr": result.best_expr,
+        "success": result.success,
+        "status_counts": result.status_counts(),
+        "call_status_counts": result.status_counts(per="call"),
+        "best_so_far": result.best_so_far(),
+        "best_error_within": result.best_error_within(list(budgets)),
+        "calls_to_threshold": [result.calls_to_threshold(t) for t in thresholds],
+        "pareto_front": result.pareto_front(),
+    }
+
+
+# --- Model store runs --------------------------------------------------------------------------
+
+# Lengths 1, 1, 1, 3, 3, 5, 5: ties in length.
+STORE_POOL = [
+    ["X_0"],
+    ["X_1"],
+    ["C"],
+    ["C", "*", "X_0"],
+    ["X_0", "+", "C"],
+    ["X_0", "*", "X_0", "+", "C"],
+    ["X_1", "-", "X_0", "*", "C"],
+]
+
+
+def store_calls(max_calls: int = 25):
+    """Lists of ``(pool_index, error)``: one counted call each, of ``STORE_POOL[pool_index]``. A
+    repeated expression is a cache hit (its error is ignored). Errors come from a small set so
+    ties are frequent; ``inf`` is a failed model."""
+    entry = st.tuples(st.integers(0, len(STORE_POOL) - 1), st.sampled_from([0.1, 0.5, 1.0, float("inf")]))
+    return st.lists(entry, max_size=max_calls)
+
+
 def send_signal(sig: int) -> None:
     """Send ``sig`` to this process, but only if a handler other than the default is installed, so
     a missing handler fails the test instead of interrupting or killing the test run."""
@@ -208,12 +250,14 @@ class EventLog(SRCallbacks):
 
     events: list = []
     ended: list = []  # the stop reason of each experiment that ended
+    references: list = []  # the checkpoint reference of each experiment that ended
 
     def on_expr_evaluated(self, event):
         EventLog.events.append(event.expression)
 
     def on_experiment_end(self, event, results):
         EventLog.ended.append(results.stop_reason)
+        EventLog.references.append(results.checkpoint)
 
 
 class SignalAfter(SRCallbacks):

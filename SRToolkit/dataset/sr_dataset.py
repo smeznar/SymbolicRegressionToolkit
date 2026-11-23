@@ -67,7 +67,7 @@ from typing_extensions import Unpack
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
-from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _remove_checkpoint
+from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _reference, _remove_checkpoint
 from SRToolkit.evaluation.ranking import build_ranking
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import (
@@ -80,7 +80,7 @@ from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
-from SRToolkit.utils.types import RankingSettings
+from SRToolkit.utils.types import EvalResult, RankingSettings
 
 from . import data_cache
 from .background_knowledge import BackgroundKnowledge, VariableInfo
@@ -513,6 +513,7 @@ class SR_dataset:
         resume: bool = False,
         keep_checkpoint: bool = False,
         snapshot_interval: float | None = 300.0,
+        keep_all_models: bool = True,
     ) -> SR_results:
         """Run an SR approach on this dataset and collect the results.
 
@@ -545,8 +546,12 @@ class SR_dataset:
         call's. Without
         ``checkpoint_dir``, nothing is written to disk and no signal handlers are installed.
 
-        Every experiment's results, with all their models, are kept in memory until the call
-        returns; for long runs, use an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid],
+        A result refers to its experiment's checkpoint (its
+        [checkpoint][SRToolkit.utils.types.EvalResult]) exactly when the file remains as the call
+        returns or raises: kept, interrupted or failed.
+
+        Every experiment's results are kept in memory until the call returns; for long runs, use
+        ``keep_all_models=False``, or an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid],
         which saves each experiment's results to its own file.
 
         Args:
@@ -570,13 +575,17 @@ class SR_dataset:
                 models later. Default ``False``.
             snapshot_interval: Seconds between snapshots in an experiment with a checkpoint;
                 ``None``: only when the approach's step loop ends. Default ``300.0``.
+            keep_all_models: As for
+                [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results], for every
+                experiment, including those read from checkpoints. Default ``True``.
 
         Returns:
             ``results`` (or a new ``SR_results``) with one entry per experiment run.
 
         Raises:
             ValueError: If ``checkpoint_dir`` is given and the experiments are unseeded (``initial_seed``
-                and the dataset seed are ``None``): a checkpoint is named by its seed. Also as for
+                and the dataset seed are ``None``): a checkpoint is named by its seed; if
+                ``keep_all_models`` is ``False`` and ``top_k <= 0`` (before anything runs). Also as for
                 [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] with ``resume=True``
                 when an interrupted experiment continues (e.g. its checkpoint is of a run with other
                 settings).
@@ -589,6 +598,8 @@ class SR_dataset:
                 "give the dataset a seed."
             )
 
+        if not keep_all_models and top_k <= 0:
+            raise ValueError(f"[SR_dataset.evaluate_approach] keep_all_models=False needs top_k >= 1, got {top_k}.")
         if results is None:
             results = SR_results()
 
@@ -603,8 +614,10 @@ class SR_dataset:
 
         dataset_name = self.dataset_name
         checkpoints: list[str] = []
+        referring: list[EvalResult] = []  # results of this call that refer to their checkpoint
         adapted = False
         for experiment in range(num_experiments):
+            reference = None
             # Experiment i gets base_seed + i, as job i of an ExperimentGrid does.
             seed = None if base_seed is None else base_seed + experiment
             checkpoint = None
@@ -617,7 +630,8 @@ class SR_dataset:
                     if _finished(checkpoint):  # from an earlier call: read it, run nothing
                         if verbose:
                             print(f"Experiment {experiment + 1}/{num_experiments}: read from its checkpoint")
-                        results += SR_results.from_checkpoint(checkpoint, sr_approach.name, top_k)
+                        results += SR_results.from_checkpoint(checkpoint, sr_approach.name, top_k, keep_all_models)
+                        referring.append(results.results[-1])
                         continue
                     if sr_approach.supports_snapshots:
                         continued = True
@@ -656,12 +670,22 @@ class SR_dataset:
                 evaluator.register_callbacks(callbacks)
                 with evaluator.stop_on_signals() if checkpoint is not None else nullcontext():
                     sr_approach.run(evaluator, seed)
-                results += evaluator.get_results(sr_approach.name, top_k)
+                results += evaluator.get_results(sr_approach.name, top_k, keep_all_models=keep_all_models)
+                if checkpoint is not None:
+                    reference = _reference(evaluator._store, checkpoint)
             finally:
                 evaluator.close()
 
+            result = results.results[-1]
+            # A callback sees the reference only if the file is sure to stay; it is added afterwards otherwise,
+            # since the file remains until the call ends (and is deleted then, see below).
+            if reference is not None and (keep_checkpoint or evaluator.stop_reason == "interrupted"):
+                result.checkpoint = reference
             if callbacks is not None:
-                callbacks.on_experiment_end(event, results.results[-1])
+                callbacks.on_experiment_end(event, result)
+            if reference is not None:
+                result.checkpoint = reference
+                referring.append(result)
             if evaluator.stop_reason == "interrupted":
                 warnings.warn(
                     f"[SR_dataset.evaluate_approach] Experiment {experiment + 1}/{num_experiments} was interrupted; "
@@ -675,6 +699,9 @@ class SR_dataset:
                 _compact_checkpoint(checkpoint)
             else:
                 _remove_checkpoint(checkpoint)
+        if not keep_checkpoint:
+            for result in referring:
+                result.checkpoint = None
         return results
 
     def ranking_settings(self) -> dict[str, Any]:

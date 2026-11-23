@@ -8,10 +8,13 @@ and [TraceView][SRToolkit.evaluation.model_store.TraceView] (``se.trace``).
 Without a checkpoint the database is in memory, so nothing touches the disk and memory grows with
 the number of models (about 1 KB each). With a checkpoint path it is a file, and memory stays
 constant during the run: only the best error so far and a small page cache stay in RAM.
-Collecting the results copies every model into RAM.
+Collecting the results copies every model into RAM, unless only a summary is collected
+([summary][SRToolkit.evaluation.model_store.ModelStore.summary], used by
+``get_results(keep_all_models=False)``).
 
 A model is saved as the JSON of [ModelResult.to_dict][SRToolkit.utils.types.ModelResult.to_dict],
-with its error and status in columns of their own, so a cache hit never parses the record. Models
+with its error, status and length (number of tokens) in columns of their own, so a cache hit and
+a summary never parse the record of every model. Models
 come back as new objects (numpy scalars in ``ranking_data`` as Python scalars), so changing one
 saves nothing.
 
@@ -46,6 +49,7 @@ so the file never mixes two runs.
 
 import hashlib
 import json
+import math
 import operator
 import os
 import pickle
@@ -61,17 +65,18 @@ from typing import Any, Generic, Literal, TypeVar, cast, overload
 
 import numpy as np
 
-from SRToolkit.utils.types import ModelResult, Status
+from SRToolkit.utils.types import STATUSES, ModelResult, RunSummary, Status
 
 # Version of the file layout, written to the header table.
-_FORMAT_VERSION = 2
+_FORMAT_VERSION = 3
 # A checkpoint is committed after this many new models or seconds, whichever comes first.
 _COMMIT_MODELS = 1000
 _COMMIT_SECONDS = 30.0
 
 _SCHEMA = """
 CREATE TABLE header (key TEXT PRIMARY KEY, value TEXT);
-CREATE TABLE models (idx INTEGER PRIMARY KEY, key BLOB UNIQUE NOT NULL, error REAL, status TEXT, record TEXT);
+CREATE TABLE models (idx INTEGER PRIMARY KEY, key BLOB UNIQUE NOT NULL, error REAL, status TEXT, length INTEGER,
+                     record TEXT);
 CREATE TABLE trace (k INTEGER PRIMARY KEY, idx INTEGER NOT NULL);
 CREATE TABLE snapshot (id INTEGER PRIMARY KEY CHECK (id = 0), num_calls INTEGER, num_models INTEGER,
                        state BLOB, rngs BLOB, callbacks TEXT);
@@ -106,6 +111,11 @@ def _finished(path: str | os.PathLike) -> bool:
         return store.get_header("stop_reason") not in (None, "interrupted")
     finally:
         store.close()
+
+
+def _reference(store: "ModelStore", path: str | os.PathLike) -> dict[str, Any]:
+    # The reference to the checkpoint at path that EvalResult.checkpoint holds.
+    return {"path": os.path.abspath(path), "fingerprint": store.get_header("fingerprint", {})}
 
 
 def _remove_checkpoint(path: str | os.PathLike) -> None:
@@ -316,8 +326,8 @@ class ModelStore:
         self._con.execute("SAVEPOINT add_model")
         try:
             self._con.execute(
-                "INSERT INTO models VALUES (?, ?, ?, ?, ?)",
-                (index, _key(tokens, spec_key), float(model.error), model.status, record),
+                "INSERT INTO models VALUES (?, ?, ?, ?, ?, ?)",
+                (index, _key(tokens, spec_key), float(model.error), model.status, len(model.expr), record),
             )
             self._con.execute("INSERT INTO trace VALUES (?, ?)", (self._num_calls, index))
         except BaseException:
@@ -400,6 +410,77 @@ class ModelStore:
         """The smallest error of the stored models, ``inf`` if there are none."""
         (error,) = self._con.execute("SELECT MIN(error) FROM models").fetchone()
         return float("inf") if error is None else error
+
+    def summary(self, top_k: int) -> tuple[list[ModelResult], RunSummary]:
+        """Return the best models and a summary of the run, without loading every model.
+
+        What [EvalResult][SRToolkit.utils.types.EvalResult] would derive from all models and the
+        trace: the best ``top_k`` models ranked as by
+        [top_models][SRToolkit.utils.types.EvalResult.top_models], and a
+        [RunSummary][SRToolkit.utils.types.RunSummary] equal to the counts, best-so-far history,
+        status counts and Pareto front of the full result. Memory use grows with ``top_k`` and the
+        sizes of the history and the front, not with the run. A model with a non-finite error
+        counts as failed, as in ``EvalResult``. Sees what the store shows: in ``mode="read"``, what
+        was committed.
+
+        Args:
+            top_k: The number of best models to return, at least 1.
+
+        Returns:
+            ``(top_models, summary)``: the best ``min(top_k, number of models)`` models, best first,
+            and the summary.
+
+        Raises:
+            ValueError: If ``top_k < 1``.
+        """
+        if top_k < 1:
+            raise ValueError(f"[ModelStore.summary] top_k must be at least 1, got {top_k}.")
+
+        def model(index: int) -> ModelResult:
+            (record,) = self._con.execute("SELECT record FROM models WHERE idx = ?", (index,)).fetchone()
+            return ModelResult.from_dict(json.loads(record))
+
+        # NaN is stored as NULL; a failed model sorts after every finite one, then by length (_ranking_key).
+        failed = "(error IS NULL OR abs(error) = :inf)"
+        inf = {"inf": float("inf")}
+        top = self._con.execute(
+            f"SELECT record FROM models ORDER BY {failed}, CASE WHEN {failed} THEN 0 ELSE error END, length, idx "
+            "LIMIT :k",
+            {**inf, "k": top_k},
+        )
+        top_models = [ModelResult.from_dict(json.loads(record)) for (record,) in top]
+
+        incumbents: list[tuple[int, int, ModelResult]] = []
+        best = None
+        calls = self._con.execute("SELECT trace.idx, error FROM trace JOIN models USING (idx) ORDER BY k")
+        for call, (index, error) in enumerate(calls, start=1):
+            if error is not None and math.isfinite(error) and (best is None or error < best):
+                best = error
+                incumbents.append((call, index, model(index)))
+
+        def counts(query: str) -> dict[str, int]:
+            found = dict(self._con.execute(query).fetchall())
+            return {status: found.get(status, 0) for status in STATUSES}
+
+        # Per length, the lowest finite error and the first model with it; then keep strict improvements.
+        front: list[ModelResult] = []
+        rows = self._con.execute(
+            f"SELECT error, MIN(idx) FROM models JOIN (SELECT length, MIN(error) AS best FROM models WHERE NOT "
+            f"{failed} GROUP BY length) USING (length) WHERE error = best GROUP BY length ORDER BY length",
+            inf,
+        )
+        for error, index in rows.fetchall():
+            if not front or error < front[-1].error:
+                front.append(model(index))
+
+        return top_models, RunSummary(
+            num_evaluated=self._model_count,
+            evaluation_calls=self._call_count,
+            incumbents=incumbents,
+            status_counts=counts("SELECT status, COUNT(*) FROM models GROUP BY status"),
+            call_status_counts=counts("SELECT status, COUNT(*) FROM trace JOIN models USING (idx) GROUP BY status"),
+            pareto_front=front,
+        )
 
     def rewind(self) -> None:
         """Delete what came after the last snapshot, and commit.

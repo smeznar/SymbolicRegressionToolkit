@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import os
 from unittest.mock import MagicMock, patch
@@ -19,7 +20,7 @@ from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils import Node
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EvalResult, ModelResult
+from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
 
 # ── Shared data ────────────────────────────────────────────────────────────────
 
@@ -914,3 +915,39 @@ class TestHoldoutMetricSpecs:
         aug = HoldoutMetric((np.array([[1.0], [2.0]]), np.zeros(2)), metric="mae", scope="all", symbol_library=lib)
         aug.write_results(result)
         np.testing.assert_allclose(_values(result), [8.5, 1.5])
+
+
+# ── Compact results ───────────────────────────────────────────────────────────
+
+
+def _compact_result():
+    """The two-model result as a compact one: its top model and a summary of the run."""
+    _, full = _two_model_result()
+    top = full.top_models(1)
+    summary = RunSummary(
+        num_evaluated=2,
+        evaluation_calls=2,
+        incumbents=[(1, 0, top[0])],
+        status_counts=full.status_counts(),
+        call_status_counts=full.status_counts(per="call"),
+        pareto_front=top,
+    )
+    return dataclasses.replace(full, all_models=top, trace=[], summary=summary)
+
+
+# Reason: clause (write_results raises with scope="all" on a result with a summary; nothing is added).
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda: ExpressionToLatex(_sl, scope="all"),
+        lambda: ExpressionSimplifier(_sl, scope="all"),
+        lambda: HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl),
+    ],
+    ids=["latex", "simplifier", "holdout"],
+)
+def test_scope_all_on_compact_result_raises(make):
+    result = _compact_result()
+    with pytest.raises(ValueError, match="all"):
+        make().write_results(result)
+    assert result.augmentations == {}
+    assert result.all_models[0].augmentations == {}

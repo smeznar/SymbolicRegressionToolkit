@@ -17,8 +17,10 @@
   [sr_evaluator][SRToolkit.evaluation.sr_evaluator].
 """
 
+import bisect
 import dataclasses
 import math
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, get_args
@@ -29,6 +31,8 @@ from .serialization import _from_json_safe, _to_json_safe
 
 if TYPE_CHECKING:
     # Imported for annotations only: free_constants imports symbol_library, which imports this module.
+    from SRToolkit.evaluation.model_store import ModelStore
+
     from .free_constants import Constant
 
 VAR = "var"
@@ -436,6 +440,38 @@ class ModelResult:
         )
 
 
+@dataclass
+class RunSummary:
+    """What an [EvalResult][SRToolkit.utils.types.EvalResult] keeps of a run instead of all its models.
+
+    Made by ``get_results(keep_all_models=False)`` (see
+    [SR_evaluator.get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results]) and
+    stored in [EvalResult.summary][SRToolkit.utils.types.EvalResult]. Each field equals what the full
+    result would give, so the methods of ``EvalResult`` answer the same with either.
+
+    Attributes:
+        num_evaluated: The number of distinct models evaluated.
+        evaluation_calls: The number of counted calls (the length of the trace).
+        incumbents: One ``(call_number, model_index, model)`` per call where the best finite error
+            strictly improved, in call order: as
+            [best_so_far][SRToolkit.utils.types.EvalResult.best_so_far], with each model.
+            ``model_index`` is the model's position in the full run (and in its checkpoint, also
+            after it is compacted). Loaded from a file, each entry is again a tuple.
+        status_counts: The number of distinct models with each status, as ``status_counts()``.
+        call_status_counts: The number of counted calls with each status, as
+            ``status_counts(per="call")``.
+        pareto_front: The models of [pareto_front][SRToolkit.utils.types.EvalResult.pareto_front].
+            ``None`` if missing from a saved summary.
+    """
+
+    num_evaluated: int
+    evaluation_calls: int
+    incumbents: list[tuple[int, int, ModelResult]]
+    status_counts: dict[str, int]
+    call_status_counts: dict[str, int]
+    pareto_front: list[ModelResult] | None = None
+
+
 def _ranking_key(model: ModelResult) -> tuple[bool, float, int]:
     # Non-finite errors (failed models, or NaN in hand-built results) sort after every finite one;
     # NaN compares false with everything, so the flag leads and the error slot is a placeholder.
@@ -453,15 +489,24 @@ class EvalResult:
     The ranking behind these summaries is cached. After construction models must not be modified
     or replaced, or the summaries can be stale.
 
+    A result of a long run can instead keep only its top models and a
+    [RunSummary][SRToolkit.utils.types.RunSummary] (``keep_all_models=False``, see
+    [SR_evaluator.get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results]); its
+    methods then give the same answers, except where noted. All models of such a run stay in its
+    checkpoint, if it was kept (see
+    [open_checkpoint][SRToolkit.utils.types.EvalResult.open_checkpoint]).
+
     Attributes:
         all_models: All evaluated models, in the order they were first evaluated. ``trace``
-            indexes into this list.
+            indexes into this list. With a ``summary``, only the ``top_k`` best models, best
+            first.
         trace: The evaluation trace. ``trace[k]`` is the index into ``all_models`` of the
             expression requested by the ``(k+1)``-th counted call to ``evaluate_expr`` (a call
             that counts toward ``max_evaluations``; see
             [sr_evaluator][SRToolkit.evaluation.sr_evaluator]). Cache hits appear as repeated
             indices; calls made after evaluation was stopped are not recorded. Every entry must
             be a valid, non-negative index into ``all_models``; otherwise behaviour is undefined.
+            Empty with a ``summary``.
         approach_name: Name of the SR approach, or empty string if not provided.
         success_threshold: The experiment succeeds if an error strictly below this is found. A
             ``nan`` threshold is never reached. ``None`` if not set.
@@ -490,6 +535,16 @@ class EvalResult:
             search returned without stopping the evaluator. Any other reason than the first two
             marks a run that ended with budget left. ``None`` for results saved before it was
             recorded.
+        summary: What is kept of the run instead of all its models, or ``None`` (default) if
+            ``all_models`` and ``trace`` are complete.
+        checkpoint: A reference to the run's checkpoint, ``{"path": ..., "fingerprint": ...}``
+            (the absolute path and the evaluator's fingerprint, see
+            [Checkpoints][SRToolkit.evaluation.sr_evaluator]), or ``None``.
+            [SR_results.from_checkpoint][SRToolkit.evaluation.results.SR_results.from_checkpoint],
+            [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] and
+            [ExperimentJob.run][SRToolkit.experiments.ExperimentJob.run] set it when the file
+            still exists as they return; ``get_results`` does not. Only
+            [open_checkpoint][SRToolkit.utils.types.EvalResult.open_checkpoint] uses it.
 
     Examples:
         >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["C", "*", "X_0"], error=0.05)]
@@ -514,6 +569,8 @@ class EvalResult:
     augmentations: dict[str, dict[str, Any]] = field(default_factory=dict)
     default_constant: "Constant | None" = None
     stop_reason: str | None = None
+    summary: RunSummary | None = None
+    checkpoint: dict[str, Any] | None = None
     _ranking_cache: list[int] | None = field(default=None, init=False, repr=False, compare=False)
 
     def _ranking(self) -> list[int]:
@@ -523,18 +580,30 @@ class EvalResult:
             self._ranking_cache = sorted(range(len(self.all_models)), key=lambda i: _ranking_key(self.all_models[i]))
         return self._ranking_cache
 
+    def _incumbents(self) -> list[tuple[int, int, float]]:
+        # (call_number, model_index, error) where the best finite error strictly improved.
+        if self.summary is not None:
+            return [(call, index, model.error) for call, index, model in self.summary.incumbents]
+        history: list[tuple[int, int, float]] = []
+        for call, index in enumerate(self.trace, start=1):
+            error = self.all_models[index].error
+            if math.isfinite(error) and (not history or error < history[-1][2]):
+                history.append((call, index, error))
+        return history
+
     @property
     def num_evaluated(self) -> int:
-        """Number of distinct models evaluated (an expression with its specs): ``len(all_models)``.
+        """Number of distinct models evaluated (an expression with its specs).
 
-        Includes models the trace never references.
+        ``len(all_models)``, or ``summary.num_evaluated``. Includes models the trace never
+        references.
         """
-        return len(self.all_models)
+        return len(self.all_models) if self.summary is None else self.summary.num_evaluated
 
     @property
     def evaluation_calls(self) -> int:
-        """Number of counted calls to ``evaluate_expr``, including cache hits."""
-        return len(self.trace)
+        """Number of counted calls to ``evaluate_expr``, including cache hits (``len(trace)``, or ``summary.evaluation_calls``)."""
+        return len(self.trace) if self.summary is None else self.summary.evaluation_calls
 
     def top_models(self, k: int | None = None) -> list[ModelResult]:
         """Return the ``k`` best models, best first.
@@ -548,7 +617,8 @@ class EvalResult:
 
         Args:
             k: Number of models to return. Defaults to ``top_k``. ``0`` returns ``[]``; a negative
-                value or one larger than the number of models returns all of them.
+                value or one larger than the number of models returns all of them (with a
+                ``summary``, the ``top_k`` kept ones).
 
         Returns:
             The best ``k`` models, best first.
@@ -595,11 +665,13 @@ class EvalResult:
 
         Failed models (non-finite error) never become the incumbent. Only a strictly lower error
         changes the incumbent, so after a tie broken by length the last entry need not be
-        ``top_models(1)[0]``.
+        ``top_models(1)[0]``. With a ``summary``, read from ``summary.incumbents``, which also
+        holds each model.
 
         Returns:
             A list of ``(call_number, model_index)`` pairs, where ``call_number`` is 1-based and
-            ``model_index`` indexes into ``all_models``. Empty if no model was scored successfully.
+            ``model_index`` indexes into ``all_models`` (with a ``summary``, into the full run's
+            models, as in its checkpoint). Empty if no model was scored successfully.
 
         Examples:
             >>> failed = ModelResult(["X_1", "X_0"], float("inf"), status="invalid")
@@ -608,17 +680,12 @@ class EvalResult:
             >>> result.best_so_far()
             [(2, 0), (4, 2)]
         """
-        history: list[tuple[int, int]] = []
-        best = None
-        for call, index in enumerate(self.trace, start=1):
-            error = self.all_models[index].error
-            if math.isfinite(error) and (best is None or error < best):
-                best = error
-                history.append((call, index))
-        return history
+        return [(call, index) for call, index, _ in self._incumbents()]
 
     def calls_to_threshold(self, threshold: float | None = None) -> int | None:
         """Return the number of calls needed to first reach an error below ``threshold``.
+
+        With a ``summary``, read from ``summary.incumbents`` (the same answer).
 
         Args:
             threshold: Error threshold. Defaults to ``success_threshold``.
@@ -644,14 +711,13 @@ class EvalResult:
             threshold = self.success_threshold
         if threshold is None:
             raise ValueError("[EvalResult.calls_to_threshold] No threshold given and success_threshold is None.")
-        for call, index in enumerate(self.trace, start=1):
-            error = self.all_models[index].error
-            if math.isfinite(error) and error < threshold:
-                return call
-        return None
+        # Errors strictly decrease along the incumbents, so the first one below the threshold is the first call.
+        return next((call for call, _, error in self._incumbents() if error < threshold), None)
 
     def best_error_within(self, budgets: Sequence[int]) -> np.ndarray:
         """Return the best error found within each of the given numbers of counted calls.
+
+        With a ``summary``, read from ``summary.incumbents`` (the same answer).
 
         A budget larger than ``evaluation_calls`` gets the run's final best error. This is exact
         for a run that reached ``success_threshold``, but only an upper bound for a run that
@@ -675,19 +741,19 @@ class EvalResult:
             >>> result.best_error_within([1, 2, 3, 10])
             array([nan, 0.5, 0.1, 0.1])
         """
+        incumbents = self._incumbents()
+        calls = [call for call, _, _ in incumbents]
         curve = np.full(len(budgets), np.nan)
-        if not self.trace:
-            return curve
-        errors = np.array([self.all_models[i].error for i in self.trace], dtype=float)
-        errors[~np.isfinite(errors)] = np.nan
-        running = np.fmin.accumulate(errors)
         for j, budget in enumerate(budgets):
-            if budget > 0:
-                curve[j] = running[min(budget, len(running)) - 1]
+            position = bisect.bisect_right(calls, budget)  # incumbents found within the budget
+            if position > 0:
+                curve[j] = incumbents[position - 1][2]
         return curve
 
     def status_counts(self, per: Literal["unique", "call"] = "unique") -> dict[str, int]:
         """Return the number of models with each [Status][SRToolkit.utils.types.Status].
+
+        With a ``summary``, its stored counts.
 
         Args:
             per: ``"unique"`` counts each model (an expression with its specs) once; ``"call"`` counts every
@@ -708,16 +774,91 @@ class EvalResult:
             >>> result.status_counts(per="call")["invalid"]
             2
         """
-        if per == "unique":
-            models = self.all_models
-        elif per == "call":
-            models = [self.all_models[i] for i in self.trace]
-        else:
+        if per not in ("unique", "call"):
             raise ValueError(f"[EvalResult.status_counts] per must be 'unique' or 'call', got {per!r}.")
+        if self.summary is not None:
+            return dict(self.summary.status_counts if per == "unique" else self.summary.call_status_counts)
+        models = self.all_models if per == "unique" else [self.all_models[i] for i in self.trace]
         counts = {status: 0 for status in STATUSES}
         for model in models:
             counts[model.status] += 1
         return counts
+
+    def pareto_front(self) -> list[ModelResult]:
+        """Return the models on the error-complexity Pareto front, shortest first.
+
+        Complexity is the number of tokens (``len(model.expr)``). Failed models (non-finite error)
+        are excluded. Of the models of each length, the one with the lowest error is taken (the
+        first evaluated on ties); it is on the front if its error is strictly lower than that of
+        every shorter model on it. So errors strictly decrease along the front, and its last model
+        is ``top_models(1)[0]`` whenever that has a finite error. With a ``summary``, read from
+        ``summary.pareto_front``. The returned objects are the stored ones, not copies.
+
+        Returns:
+            The models on the front, by increasing length. Empty if no model has a finite error.
+
+        Raises:
+            ValueError: If the result has a ``summary`` without a front (written before fronts were
+                recorded).
+
+        Examples:
+            >>> models = [ModelResult(["X_0"], 0.5), ModelResult(["X_1"], 0.7), ModelResult(["C", "*", "X_0"], 0.1)]
+            >>> result = EvalResult(all_models=models, trace=[0, 1, 2], approach_name="")
+            >>> ["".join(m.expr) for m in result.pareto_front()]
+            ['X_0', 'C*X_0']
+        """
+        if self.summary is not None:
+            if self.summary.pareto_front is None:
+                raise ValueError("[EvalResult.pareto_front] The summary of this result has no Pareto front.")
+            return list(self.summary.pareto_front)
+        best: dict[int, ModelResult] = {}  # per length, the first model with the lowest finite error
+        for model in self.all_models:
+            length = len(model.expr)
+            if math.isfinite(model.error) and (length not in best or model.error < best[length].error):
+                best[length] = model
+        front: list[ModelResult] = []
+        for length in sorted(best):
+            if not front or best[length].error < front[-1].error:
+                front.append(best[length])
+        return front
+
+    def open_checkpoint(self, path: "str | os.PathLike | None" = None) -> "ModelStore":
+        """Open the run's checkpoint read-only, to reach all its models.
+
+        Its ``models`` and ``trace`` are read-only sequences that read from the file on demand, so
+        a run of any length can be gone through without loading it (see
+        [ModelStore][SRToolkit.evaluation.model_store.ModelStore]). Close it when done.
+
+        Args:
+            path: Where the checkpoint is now, if it was moved. Defaults to the path in
+                ``checkpoint``. The fingerprint is checked either way.
+
+        Returns:
+            The checkpoint, opened with ``mode="read"``.
+
+        Raises:
+            ValueError: If ``checkpoint`` is ``None``; if the file is a checkpoint of another run
+                (its fingerprint differs from the one in ``checkpoint``; the message names the
+                differing parts); if it is not a checkpoint, or one of another format version.
+            FileNotFoundError: If no file exists at the path; the message gives the path.
+        """
+        # Imported here: model_store imports this module.
+        from SRToolkit.evaluation.model_store import ModelStore
+
+        if self.checkpoint is None:
+            raise ValueError("[EvalResult.open_checkpoint] This result has no checkpoint reference.")
+        target = self.checkpoint["path"] if path is None else path
+        store = ModelStore(target, "read")
+        saved = store.get_header("fingerprint", {})
+        expected = self.checkpoint["fingerprint"]
+        changed = sorted(k for k in saved.keys() | expected.keys() if saved.get(k) != expected.get(k))
+        if changed:
+            store.close()
+            raise ValueError(
+                f"[EvalResult.open_checkpoint] The checkpoint at {os.fspath(target)!r} is of another run: "
+                f"these parameters differ: {', '.join(changed)}."
+            )
+        return store
 
     def add_augmentation(self, name: str, data: dict[str, Any], aug_type: str) -> None:
         """Attach augmentation data produced by a [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter].
@@ -754,11 +895,13 @@ class EvalResult:
         back as Python scalars.
 
         Returns:
-            A dictionary with ``"format_version": 3`` and one entry per field
-            (``default_constant`` as its ``to_dict``, or ``None``). It also holds the
+            A dictionary with ``"format_version": 4`` and one entry per field
+            (``default_constant`` as its ``to_dict``, ``summary`` as a dictionary of its fields
+            with each model as its ``to_dict``, each ``None`` if not set). It also holds the
             derived summaries ``min_error``, ``best_expr``, ``success``, ``num_evaluated``,
             ``evaluation_calls`` and ``status_counts`` (per model), for reading the file
-            directly. ``from_dict`` ignores them. ``min_error`` is ``nan`` for a result without
+            directly (with a ``summary``, the counts are its own). ``from_dict`` ignores them.
+            ``min_error`` is ``nan`` for a result without
             models, which ``json`` writes as the non-standard token ``NaN``.
 
         Raises:
@@ -773,8 +916,25 @@ class EvalResult:
             >>> d["trace"], d["min_error"]
             ([0, 0], 0.05)
         """
+        summary = None
+        if self.summary is not None:
+            summary = {
+                "num_evaluated": self.summary.num_evaluated,
+                "evaluation_calls": self.summary.evaluation_calls,
+                "incumbents": [
+                    [call, index, model._to_dict(f"summary.incumbents[{i}].")]
+                    for i, (call, index, model) in enumerate(self.summary.incumbents)
+                ],
+                "status_counts": dict(self.summary.status_counts),
+                "call_status_counts": dict(self.summary.call_status_counts),
+                "pareto_front": (
+                    None
+                    if self.summary.pareto_front is None
+                    else [m._to_dict(f"summary.pareto_front[{i}].") for i, m in enumerate(self.summary.pareto_front)]
+                ),
+            }
         return {
-            "format_version": 3,
+            "format_version": 4,
             "min_error": float(self.min_error),
             "best_expr": self.best_expr,
             "success": self.success,
@@ -796,6 +956,8 @@ class EvalResult:
                 if self.default_constant is None
                 else _to_json_safe(self.default_constant.to_dict(), "default_constant")
             ),
+            "summary": summary,
+            "checkpoint": _to_json_safe(self.checkpoint, "checkpoint"),
         }
 
     @classmethod
@@ -804,17 +966,19 @@ class EvalResult:
 
         Args:
             data: Dictionary produced by [to_dict][SRToolkit.utils.types.EvalResult.to_dict],
-                possibly after a JSON round trip, of format 3 or 2 (written before specs were
-                recorded; ``default_constant`` and each model's ``free_constants`` load as
-                ``None``). A missing ``stop_reason`` loads as ``None``. Unknown keys are ignored;
-                other malformed input has undefined behaviour.
+                possibly after a JSON round trip, of format 4, 3 (written before summaries and
+                checkpoint references; ``summary`` and ``checkpoint`` load as ``None``) or 2
+                (written before specs were recorded; ``default_constant`` and each model's
+                ``free_constants`` load as ``None`` too). A missing ``stop_reason``, or a missing
+                field of a saved ``summary`` that has a default, loads as ``None``. Unknown keys are
+                ignored; other malformed input has undefined behaviour.
 
         Returns:
             The reconstructed [EvalResult][SRToolkit.utils.types.EvalResult].
 
         Raises:
             ValueError: If ``format_version`` is missing (results saved before the evaluation trace
-                was recorded) or not ``2`` or ``3``, or if a model cannot be loaded (see
+                was recorded) or not ``2``, ``3`` or ``4``, or if a model cannot be loaded (see
                 [ModelResult.from_dict][SRToolkit.utils.types.ModelResult.from_dict]).
             ImportError: If the prior of a saved spec cannot be imported.
 
@@ -824,18 +988,29 @@ class EvalResult:
             'X_0'
         """
         fmt = data.get("format_version")
-        if fmt not in (2, 3):
+        if fmt not in (2, 3, 4):
             if fmt is None:
                 raise ValueError(
                     "[EvalResult.from_dict] These results were saved by an older SRToolkit version, without "
                     "an evaluation trace, and cannot be loaded. Rerun the experiment; with ExperimentGrid, "
                     "delete the old result files first, since existing files count as completed jobs."
                 )
-            raise ValueError(f"[EvalResult.from_dict] Unsupported format_version: {fmt!r}. Expected 2 or 3.")
+            raise ValueError(f"[EvalResult.from_dict] Unsupported format_version: {fmt!r}. Expected 2, 3 or 4.")
         # Imported here: free_constants imports symbol_library, which imports this module.
         from .free_constants import Constant
 
         default = data.get("default_constant")
+        summary = data.get("summary")
+        if summary is not None:
+            # A field with a default may be missing (saved before it existed): it loads as None.
+            values = {
+                f.name: summary.get(f.name) if f.default is not dataclasses.MISSING else summary[f.name]
+                for f in dataclasses.fields(RunSummary)
+            }
+            values["incumbents"] = [(call, index, ModelResult.from_dict(m)) for call, index, m in values["incumbents"]]
+            if values["pareto_front"] is not None:
+                values["pareto_front"] = [ModelResult.from_dict(m) for m in values["pareto_front"]]
+            summary = RunSummary(**values)
         return cls(
             all_models=[ModelResult.from_dict(m) for m in data["all_models"]],
             trace=list(data["trace"]),
@@ -848,4 +1023,6 @@ class EvalResult:
             augmentations=_from_json_safe(data["augmentations"]),
             default_constant=None if default is None else Constant.from_dict(_from_json_safe(default)),
             stop_reason=data.get("stop_reason"),
+            summary=summary,
+            checkpoint=_from_json_safe(data.get("checkpoint")),
         )

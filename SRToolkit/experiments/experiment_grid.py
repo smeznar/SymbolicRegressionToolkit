@@ -24,7 +24,7 @@ from SRToolkit.bundle._relocate import _auto_bind, _class_refs, _import_class
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
-from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _remove_checkpoint
+from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _reference, _remove_checkpoint
 from SRToolkit.evaluation.results import SR_results
 
 
@@ -136,6 +136,9 @@ class ExperimentInfo:
         snapshot_interval: Seconds between the job's snapshots (see
             [Checkpoints][SRToolkit.evaluation.sr_evaluator]); ``None``: only when the approach's
             step loop ends. Default ``300.0``.
+        keep_all_models: As for
+            [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results]: ``False``
+            saves only the ``top_k`` models and a summary of the run. Default ``True``.
     """
 
     seed: int
@@ -144,13 +147,14 @@ class ExperimentInfo:
     adapted_state_path: str | None = None
     keep_checkpoint: bool = False
     snapshot_interval: float | None = 300.0
+    keep_all_models: bool = True
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-safe dictionary.
 
         Returns:
             A flat dictionary with keys ``seed``, ``result_path``, ``top_k``, ``adapted_state_path``,
-            ``keep_checkpoint`` and ``snapshot_interval``, suitable for passing to
+            ``keep_checkpoint``, ``snapshot_interval`` and ``keep_all_models``, suitable for passing to
             [from_dict][SRToolkit.experiments.ExperimentInfo.from_dict].
         """
         return dataclasses.asdict(self)
@@ -162,8 +166,8 @@ class ExperimentInfo:
 
         Args:
             d: Dictionary with keys ``seed``, ``result_path``, ``top_k``, ``adapted_state_path``
-                and, optionally, ``keep_checkpoint`` (default ``False``) and ``snapshot_interval``
-                (default ``300.0``).
+                and, optionally, ``keep_checkpoint`` (default ``False``), ``snapshot_interval``
+                (default ``300.0``) and ``keep_all_models`` (default ``True``).
 
         Returns:
             The reconstructed [ExperimentInfo][SRToolkit.experiments.ExperimentInfo].
@@ -295,10 +299,13 @@ class ExperimentJob:
         [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals]:
 
         - a job that finishes saves its result, and only then deletes its checkpoint (or, with
-          ``info.keep_checkpoint``, compacts it into one self-contained file);
+          ``info.keep_checkpoint``, compacts it into one self-contained file, which the saved
+          result then refers to as its [checkpoint][SRToolkit.utils.types.EvalResult]; a result
+          whose checkpoint is deleted has no reference);
         - a job stopped by Ctrl-C or SIGTERM keeps its checkpoint, saves no result (a result marks
           the job done), calls ``on_experiment_end`` with its results so far and raises
-          ``KeyboardInterrupt``, so a loop or scheduler sees it did not finish;
+          ``KeyboardInterrupt``, so a loop or scheduler sees it did not finish (those results
+          refer to the checkpoint);
         - a job whose search raises keeps its checkpoint (committed and closed), and the exception
           propagates.
 
@@ -306,10 +313,17 @@ class ExperimentJob:
             KeyboardInterrupt: If the search was stopped by a signal, after the checkpoint is
                 closed.
             ValueError: As for [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator]
-                with ``resume=True``, if the checkpoint is from a run with other settings.
+                with ``resume=True``, if the checkpoint is from a run with other settings; if
+                ``info.keep_all_models`` is ``False`` and ``info.top_k <= 0`` (before anything
+                runs).
         """
+        info = self.info
+        if not info.keep_all_models and info.top_k <= 0:
+            raise ValueError(f"[ExperimentJob] keep_all_models=False needs top_k >= 1, got {info.top_k}.")
         if os.path.exists(self.checkpoint_path) and _finished(self.checkpoint_path):
-            results = SR_results.from_checkpoint(self.checkpoint_path, self.approach_name, self.info.top_k)
+            results = SR_results.from_checkpoint(
+                self.checkpoint_path, self.approach_name, info.top_k, info.keep_all_models
+            )
             self._save(results)
             return
 
@@ -369,7 +383,9 @@ class ExperimentJob:
 
             with evaluator.stop_on_signals():
                 approach.run(evaluator, self.info.seed)
-            results = evaluator.get_results(self.approach_name, self.info.top_k)
+            results = evaluator.get_results(self.approach_name, info.top_k, keep_all_models=info.keep_all_models)
+            if info.keep_checkpoint or evaluator.stop_reason == "interrupted":  # the file remains
+                results.results[-1].checkpoint = _reference(evaluator._store, self.checkpoint_path)
         finally:
             evaluator.close()
         if dispatcher is not None:
@@ -381,6 +397,8 @@ class ExperimentJob:
 
     def _save(self, results: SR_results) -> None:
         # Save the result, then delete (or compact) the checkpoint: a result marks the job done.
+        if not self.info.keep_checkpoint:
+            results.results[-1].checkpoint = None
         results.save(self.result_path)
         if self.info.keep_checkpoint:
             _compact_checkpoint(self.checkpoint_path)
@@ -442,6 +460,14 @@ class ExperimentGrid:
             symbol library): it is adapted on the first dataset listed and reused, with a warning.
         callbacks: A callback or a list of them for every job. Stored as configs in ``grid.json``,
             so each job builds fresh instances.
+        keep_all_models: Passed to every job (see
+            [ExperimentInfo][SRToolkit.experiments.ExperimentInfo]); ``False`` keeps result files
+            small for long runs. Default ``True``.
+        keep_checkpoint: Passed to every job: keep each job's checkpoint, e.g. to reach all models
+            of a run whose result keeps only the top ones. Default ``False``.
+
+    Raises:
+        ValueError: If ``keep_all_models`` is ``False`` and ``top_k <= 0``.
     """
 
     def __init__(
@@ -454,7 +480,13 @@ class ExperimentGrid:
         top_k: int = 20,
         adapted_states: dict[str, dict[str, str]] | None = None,
         callbacks: SRCallbacks | list[SRCallbacks] | None = None,
+        keep_all_models: bool = True,
+        keep_checkpoint: bool = False,
     ) -> None:
+        if not keep_all_models and top_k <= 0:
+            raise ValueError(f"[ExperimentGrid] keep_all_models=False needs top_k >= 1, got {top_k}.")
+        self.keep_all_models = keep_all_models
+        self.keep_checkpoint = keep_checkpoint
         self.num_experiments = num_experiments
         self.results_dir = results_dir
         self.initial_seed = initial_seed
@@ -667,6 +699,8 @@ class ExperimentGrid:
             result_path=os.path.join(self.results_dir, dataset_name, approach_name, f"exp_{seed}.json"),
             top_k=self.top_k,
             adapted_state_path=self._get_adapted_state_ref_path(approach_name, dataset_name),
+            keep_all_models=self.keep_all_models,
+            keep_checkpoint=self.keep_checkpoint,
         )
         return ExperimentJob(dataset=dataset_dict, approach=approach_config, info=info, callbacks=self.callback_configs)
 
@@ -858,7 +892,8 @@ class ExperimentGrid:
 
     def to_dict(self) -> dict:
         """Return the grid as one self-contained, JSON-safe dict: every dataset, approach and
-        callback config plus ``num_experiments``, ``initial_seed`` and ``top_k``; load it with
+        callback config plus ``num_experiments``, ``initial_seed``, ``top_k`` and
+        ``keep_all_models``, ``keep_checkpoint``; load it with
         [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict].
 
         Unlike [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint], it leaves out the machine-local
@@ -878,6 +913,8 @@ class ExperimentGrid:
             "num_experiments": self.num_experiments,
             "initial_seed": self.initial_seed,
             "top_k": self.top_k,
+            "keep_all_models": self.keep_all_models,
+            "keep_checkpoint": self.keep_checkpoint,
             "datasets": {name: dict(cfg) for name, cfg in self.datasets.items()},
             "approaches": [dict(cfg) for cfg in self.approach_configs],
             "callbacks": ([dict(cfg) for cfg in self.callback_configs] if self.callback_configs is not None else None),
@@ -895,7 +932,8 @@ class ExperimentGrid:
         ``*_class`` paths pointing at an installed ``.srtk`` bundle resolve automatically.
         Datasets and approaches are built lazily when jobs run; a ``*_class`` path that cannot
         be imported triggers a warning here and fails when the job runs. Load ``.zip`` archives
-        with [share.load][SRToolkit.share.load].
+        with [share.load][SRToolkit.share.load]. A recipe without ``keep_all_models`` or
+        ``keep_checkpoint`` (written before they existed) loads them as ``True`` and ``False``.
 
         Args:
             config: The recipe. One of:
@@ -920,7 +958,7 @@ class ExperimentGrid:
         Raises:
             ValueError: If ``config`` is a ``.zip`` path or not an ``ExperimentGrid`` recipe, its
                 ``format_version`` is unsupported, or ``results_dir`` is omitted when
-                loading from a dict.
+                loading from a dict; if it has ``keep_all_models`` false and ``top_k <= 0``.
         """
         default_results_dir: str | None = None
         if isinstance(config, (str, Path)):
@@ -956,6 +994,10 @@ class ExperimentGrid:
         grid.results_dir = os.path.abspath(resolved_results_dir)
         grid.initial_seed = d["initial_seed"]
         grid.top_k = d["top_k"]
+        grid.keep_all_models = d.get("keep_all_models", True)
+        grid.keep_checkpoint = d.get("keep_checkpoint", False)
+        if not grid.keep_all_models and grid.top_k <= 0:
+            raise ValueError(f"[ExperimentGrid.from_dict] keep_all_models=False needs top_k >= 1, got {grid.top_k}.")
         states = adapted_states if adapted_states is not None else d.get("adapted_states", {})
         grid._adapted_states = {
             approach: {dataset: os.path.abspath(path) for dataset, path in paths.items()}

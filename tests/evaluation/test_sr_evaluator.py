@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from strategies import SignalAfter, SteppedApproach, infix_expressions, result_dict, send_signal
+from strategies import SignalAfter, SteppedApproach, infix_expressions, result_answers, result_dict, send_signal
 
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
 from SRToolkit.dataset.sampling import UniformSampling
@@ -1327,6 +1327,49 @@ class _CountingRanking(RankingFunction):
     def score(self, expr, free_constants=None):
         self.calls += 1
         return RankingResult(score=0.5)
+
+
+# Exact ties in top_models: X_0*X_1 and X_1*X_0 (same error, same length); X_0 and X_0+X_0-X_0
+# (same error, lengths 1 and 5). "X_0 +" is invalid (error inf). Two cache hits.
+_TIE_CALLS = [
+    ["X_0"],
+    ["X_1"],
+    ["X_0"],
+    ["X_0", "+"],
+    ["X_0", "*", "X_1"],
+    ["X_1", "*", "X_0"],
+    ["X_0", "+", "X_0", "-", "X_0"],
+    ["C"],
+    ["X_1"],
+    ["C", "*", "X_1", "-", "X_0"],
+]
+
+
+class TestCompactResults:
+    # Reason: clause (keep_all_models=False keeps the top_k models and a RunSummary; the result
+    # answers as the full one, including ties, a failed model and top_k above the finite models).
+    @pytest.mark.parametrize("top_k", [1, 3, 20])
+    def test_get_results_compact_answers_like_full(self, top_k):
+        se = _make_se(seed=0, success_threshold=1e-3)
+        for expr in _TIE_CALLS:
+            se.evaluate_expr(expr)
+        full = se.get_results("A", top_k)[0]
+        compact = se.get_results("A", top_k, keep_all_models=False)[0]
+        assert compact.summary is not None
+        assert (compact.all_models, compact.trace) == (full.top_models(top_k), [])
+        assert (compact.stop_reason, compact.success_threshold, compact.checkpoint) == (full.stop_reason, 1e-3, None)
+        # Errors: X_1 2.35 < C 4.09 < X_0 4.69 (length 1), X_0*X_1 31.7 (length 3), the last 6e-9.
+        assert [m.expr for m in compact.pareto_front()] == [["X_1"], ["C", "*", "X_1", "-", "X_0"]]
+        budgets = range(-1, len(_TIE_CALLS) + 3)
+        np.testing.assert_equal(result_answers(compact, top_k, budgets), result_answers(full, top_k, budgets))
+
+    # Reason: clause (Raises: ValueError if keep_all_models is False and top_k <= 0).
+    @pytest.mark.parametrize("top_k", [0, -1])
+    def test_get_results_compact_rejects_top_k_not_positive(self, top_k):
+        se = _make_se()
+        se.evaluate_expr(["X_0"])
+        with pytest.raises(ValueError, match="top_k"):
+            se.get_results(top_k=top_k, keep_all_models=False)
 
 
 class _Recorder(SRCallbacks):
@@ -2677,7 +2720,10 @@ class TestCheckpoints:
         se.close()
         assert sorted(p.name for p in tmp_path.iterdir()) == ["run.sqlite"]
         # as get_results gave, but the run never stopped, so it reads as unfinished
-        assert SR_results.from_checkpoint(path)[0].to_dict() == {**expected, "stop_reason": "interrupted"}
+        loaded = SR_results.from_checkpoint(path)[0].to_dict()
+        assert loaded.pop("checkpoint")["path"] == str(path)
+        assert expected.pop("checkpoint") is None
+        assert loaded == {**expected, "stop_reason": "interrupted"}
         assert se.close() is None
 
     @pytest.mark.parametrize(

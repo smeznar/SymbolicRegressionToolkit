@@ -9,7 +9,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from strategies import ScriptedApproach, SignalAfter, StatelessSteppedApproach, SteppedApproach
+from strategies import (
+    EventLog,
+    ScriptedApproach,
+    SignalAfter,
+    StatelessSteppedApproach,
+    SteppedApproach,
+    result_answers,
+)
 
 from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach
 from SRToolkit.dataset import data_cache
@@ -1750,6 +1757,59 @@ class TestEvaluateApproachCheckpoints:
         saved = SR_results.from_checkpoint(tmp_path / "ds" / "scripted" / "exp_11.sqlite")[0]
         assert (saved.trace, saved.stop_reason) == ([0, 1, 0], "interrupted")  # committed and closed
 
+    # Reason: clause (keep_all_models=False for every experiment; with keep_checkpoint the compacted
+    # checkpoint holds all models, at the indices of the incumbents).
+    def test_evaluate_approach_compact_results(self, tmp_path):
+        # top_k=1: the smallest allowed; each experiment evaluates 5 distinct models.
+        results = _evaluate(ScriptedApproach(), tmp_path, 2, keep_checkpoint=True, keep_all_models=False, top_k=1)
+        full = _evaluate(ScriptedApproach(), None, 2, top_k=1)
+        assert [r.summary is not None for r in results] == [True, True]
+        assert [r.all_models for r in results] == [r.top_models(1) for r in full]
+        np.testing.assert_equal([result_answers(r, 1) for r in results], [result_answers(r, 1) for r in full])
+        store = results[1].open_checkpoint()
+        try:
+            assert list(store.trace) == full[1].trace
+            incumbents = results[1].summary.incumbents
+            assert [store.models[i] for _, i, _ in incumbents] == [m for _, _, m in incumbents]
+        finally:
+            store.close()
+
+    # Reason: clause (keep_all_models applies to experiments read from checkpoints too).
+    def test_evaluate_approach_compact_results_read_from_checkpoints(self, tmp_path):
+        _evaluate(ScriptedApproach(kill_seed=11), tmp_path, 2)  # experiment 10 finished, 11 interrupted
+        results = _evaluate(ScriptedApproach(), tmp_path, 2, resume=True, keep_all_models=False, top_k=1)
+        full = _evaluate(ScriptedApproach(), None, 2, top_k=1)
+        assert [r.summary is not None for r in results] == [True, True]
+        np.testing.assert_equal(result_answers(results[0], 1), result_answers(full[0], 1))
+
+    # Reason: clause (a result refers to its checkpoint exactly when the file remains: kept or
+    # interrupted; never without a checkpoint_dir or once it is deleted). A callback sees the
+    # reference only if the file is sure to stay (kept, or this experiment interrupted).
+    @pytest.mark.parametrize(
+        "approach, use_dir, keep, expected, seen",
+        [
+            (ScriptedApproach, False, False, [None, None], [None, None]),
+            (ScriptedApproach, True, False, [None, None], [None, None]),
+            (ScriptedApproach, True, True, ["exp_10.sqlite", "exp_11.sqlite"], ["exp_10.sqlite", "exp_11.sqlite"]),
+            (
+                lambda: ScriptedApproach(kill_seed=11),
+                True,
+                False,
+                ["exp_10.sqlite", "exp_11.sqlite"],
+                [None, "exp_11.sqlite"],
+            ),
+        ],
+        ids=["in-memory", "deleted", "kept", "interrupted"],
+    )
+    def test_evaluate_approach_checkpoint_reference(self, tmp_path, approach, use_dir, keep, expected, seen):
+        EventLog.references.clear()
+        results = _evaluate(approach(), tmp_path if use_dir else None, 2, keep_checkpoint=keep, callbacks=EventLog())
+        root = tmp_path / "ds" / "scripted"
+        assert [r.checkpoint and r.checkpoint["path"] for r in results] == [
+            name and str(root / name) for name in expected
+        ]
+        assert [r and r["path"] for r in EventLog.references] == [name and str(root / name) for name in seen]
+
     @pytest.mark.parametrize("use_dir", [False, True], ids=["in-memory", "checkpoint-dir"])
     def test_signal_handlers_only_with_checkpoint_dir(self, tmp_path, use_dir):
         approach = ScriptedApproach()
@@ -1774,8 +1834,9 @@ class TestEvaluateApproachCheckpoints:
                 ValueError,
                 r"\by\b",
             ),
+            (ScriptedApproach, lambda path: None, {"keep_all_models": False, "top_k": 0}, ValueError, "top_k"),
         ],
-        ids=["unseeded", "existing-checkpoint", "other-settings"],
+        ids=["unseeded", "existing-checkpoint", "other-settings", "compact-top-k-0"],
     )
     def test_evaluate_approach_checkpoint_errors(self, tmp_path, make, prepare, kwargs, error, match):
         prepare(tmp_path)

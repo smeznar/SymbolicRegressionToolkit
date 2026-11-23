@@ -3,6 +3,7 @@ import json
 import os
 import resource
 import signal
+import sqlite3
 import tempfile
 import warnings
 
@@ -10,10 +11,11 @@ import numpy as np
 import pytest
 from strategies import result_dict
 
+from SRToolkit.evaluation import results as results_module
 from SRToolkit.evaluation.results import ResultAugmenter, SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import EvalResult
+from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
 
 # ── Shared data ────────────────────────────────────────────────────────────────
 
@@ -57,6 +59,30 @@ def _two_result(approach_name="", top_k=5):
     se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
     se.evaluate_expr(["X_0", "+", "X_1"])
     return se.get_results(approach_name=approach_name, top_k=top_k)
+
+
+def _top():
+    return [ModelResult(["C", "*", "X_0"], 0.1), ModelResult(["X_0"], 0.5)]
+
+
+def _summary(top):
+    zeros = {"ok": 0, "invalid": 0, "rejected": 0, "undefined": 0, "error": 0}
+    return RunSummary(
+        num_evaluated=50,
+        evaluation_calls=80,
+        incumbents=[(1, 0, top[1]), (9, 30, top[0])],
+        status_counts={**zeros, "ok": 50},
+        call_status_counts={**zeros, "ok": 80},
+        pareto_front=[top[1], top[0]],
+    )
+
+
+def _with_compact(full_first=False):
+    """SR_results with a compact result (after a full one if ``full_first``)."""
+    results = _two_result(top_k=2) if full_first else SR_results()
+    top = _top()
+    results.add_results(top, [], 2, 0.2, "A", summary=_summary(top))
+    return results
 
 
 # ── ResultAugmenter ────────────────────────────────────────────────────────────
@@ -158,6 +184,52 @@ class TestSRResultsAddResults:
         se.evaluate_expr(["X_0"])
         assert se.get_results()[0].metadata is None
 
+    # Reason: clause (with a summary: models stored as given, trace empty, summary stored).
+    def test_add_results_with_summary(self):
+        top = _top()
+        summary = _summary(top)
+        results = SR_results()
+        results.add_results(top, [3, 1, 4], 2, 0.2, "A", summary=summary)
+        result = results[0]
+        assert (result.all_models, result.trace, result.summary) == (top, [], summary)
+        assert (result.num_evaluated, result.evaluation_calls) == (50, 80)
+
+    # Reason: clause ("Copies models and trace into lists").
+    def test_add_results_copies_models_and_trace(self):
+        models = [ModelResult(["X_0"], 0.5), ModelResult(["X_1"], 0.7)]
+        trace = [0, 1, 0]
+        results = SR_results()
+        results.add_results(tuple(models), tuple(trace), 2, None, "A")
+        models.append(ModelResult(["C"], 0.1))
+        trace.append(2)
+        assert (results[0].all_models, results[0].trace) == (models[:2], [0, 1, 0])
+
+    # Reason: clause (warns above 1,000,000 models without a summary; the limit patched to 2).
+    @pytest.mark.parametrize(
+        "n, with_summary, warns",
+        [(2, False, False), (3, False, True), (3, True, False)],
+        ids=["at-limit", "above-limit", "above-limit-with-summary"],
+    )
+    def test_add_results_warns_above_large_run_limit(self, monkeypatch, n, with_summary, warns):
+        monkeypatch.setattr(results_module, "_LARGE_RUN_MODELS", 2, raising=False)
+        models = [ModelResult([f"X_{i}"], float(i)) for i in range(n)]
+        summary = _summary(models[:2]) if with_summary else None
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            SR_results().add_results(models, list(range(n)), 2, None, "A", summary=summary)
+        messages = [str(w.message) for w in caught if issubclass(w.category, UserWarning)]
+        assert ["keep_all_models" in m for m in messages] == ([True] if warns else [])
+
+    # Reason: the large-run warning points at the user's call of get_results, not at library code.
+    def test_large_run_warning_points_at_the_caller(self, monkeypatch):
+        monkeypatch.setattr(results_module, "_LARGE_RUN_MODELS", 1)
+        se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 5.0]))
+        se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["C"])  # neither fits exactly, so both are stored
+        with pytest.warns(UserWarning, match="keep_all_models") as caught:
+            se.get_results()
+        assert caught[0].filename == __file__
+
 
 # ── SR_results.print_results ──────────────────────────────────────────────────
 
@@ -226,6 +298,27 @@ class TestSRResultsPrintResults:
         out = capsys.readouterr().out
         lines = [line for line in out.splitlines() if line.startswith("  ") and "error=" in line]
         assert len(lines) == 2
+
+    # Reason: clause (detailed with model_scope="all" raises if any result to print is compact,
+    # checked before anything is printed; other scopes print the kept models).
+    @pytest.mark.parametrize(
+        "kwargs, raises, model_lines",
+        [
+            ({"detailed": True, "model_scope": "all"}, True, 0),
+            ({"detailed": True, "model_scope": "all", "experiment_number": 1}, True, 0),
+            ({"detailed": False, "model_scope": "all", "experiment_number": 1}, False, 0),
+            ({"detailed": True, "model_scope": "top", "experiment_number": 1}, False, 2),
+            ({"detailed": True, "model_scope": "all", "experiment_number": 0}, False, 2),  # only the full one
+        ],
+        ids=["all-experiments", "compact-one", "not-detailed", "top", "full-one"],
+    )
+    def test_model_scope_all_on_compact_result(self, capsys, kwargs, raises, model_lines):
+        results = _with_compact(full_first=True)
+        with pytest.raises(ValueError, match="all") if raises else contextlib.nullcontext():
+            results.print_results(**kwargs)
+        out = capsys.readouterr().out
+        assert (out == "") == raises
+        assert len([line for line in out.splitlines() if line.startswith("  ") and "error=" in line]) == model_lines
 
     def test_eval_augmentation_printed_fallback(self, capsys):
         # augmentation with unresolvable _type → k/v fallback printing
@@ -594,7 +687,9 @@ class TestFromCheckpoint:
         twin = result_dict(_run(None, budget, _CALLS).get_results("A", 2)[0])
         results = SR_results.from_checkpoint(path, "A", 2)
         assert len(results) == 1
-        assert result_dict(results[0]) == {**twin, "stop_reason": stop_reason}
+        saved = result_dict(results[0])
+        assert saved == {**twin, "stop_reason": stop_reason, "checkpoint": saved["checkpoint"]}
+        assert saved["checkpoint"]["path"] == str(path)
 
     def test_from_checkpoint_sees_committed_calls_without_blocking_writer(self, tmp_path):
         path = tmp_path / "run.sqlite"
@@ -607,16 +702,118 @@ class TestFromCheckpoint:
         assert SR_results.from_checkpoint(path)[0].trace == [0, 1, 0, 2, 0]
 
     @pytest.mark.parametrize(
-        "make_file, error, match",
-        [(None, FileNotFoundError, None), (lambda path: path.write_text("keep"), ValueError, "checkpoint")],
-        ids=["missing", "not-a-checkpoint"],
+        "make_file, kwargs, error, match",
+        [
+            (None, {}, FileNotFoundError, None),
+            (lambda path: path.write_text("keep"), {}, ValueError, "checkpoint"),
+            (None, {"keep_all_models": False, "top_k": 0}, ValueError, "top_k"),  # checked before the file
+        ],
+        ids=["missing", "not-a-checkpoint", "compact-top-k-0"],
     )
-    def test_from_checkpoint_errors(self, tmp_path, make_file, error, match):
+    def test_from_checkpoint_errors(self, tmp_path, make_file, kwargs, error, match):
         path = tmp_path / "run.sqlite"
         if make_file is not None:
             make_file(path)
         with pytest.raises(error, match=match):
-            SR_results.from_checkpoint(path)
+            SR_results.from_checkpoint(path, **kwargs)
+
+    # Reason: clause (keep_all_models as for get_results).
+    def test_from_checkpoint_compact_equals_get_results(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        _run(path, 3, _CALLS).close()
+        twin = result_dict(_run(None, 3, _CALLS).get_results("A", 2, keep_all_models=False)[0])
+        saved = result_dict(SR_results.from_checkpoint(path, "A", 2, keep_all_models=False)[0])
+        assert saved["summary"] is not None
+        assert saved == {**twin, "checkpoint": saved["checkpoint"]}
+
+    # Reason: clause (checkpoint refers to the file at path, its absolute path).
+    def test_from_checkpoint_sets_absolute_reference(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _run("run.sqlite", 3, _CALLS).close()
+        reference = SR_results.from_checkpoint("run.sqlite")[0].checkpoint
+        assert set(reference) == {"path", "fingerprint"}
+        assert reference["path"] == str(tmp_path / "run.sqlite")
+
+
+# ── EvalResult.open_checkpoint ────────────────────────────────────────────────
+
+
+def _compact_from_checkpoint(path, budget=3):
+    _run(path, budget, _CALLS).close()
+    return SR_results.from_checkpoint(path, "A", 1, keep_all_models=False)[0]
+
+
+def _no_reference(tmp_path):
+    return _run(None, 3, _CALLS).get_results()[0], {}
+
+
+def _deleted(tmp_path):
+    result = _compact_from_checkpoint(tmp_path / "run.sqlite")
+    os.remove(tmp_path / "run.sqlite")
+    return result, {}
+
+
+def _other_run(tmp_path):
+    _run(tmp_path / "other.sqlite", 7, _CALLS).close()  # another max_evaluations
+    return _compact_from_checkpoint(tmp_path / "run.sqlite"), {"path": tmp_path / "other.sqlite"}
+
+
+def _not_a_checkpoint(tmp_path):
+    (tmp_path / "text.sqlite").write_text("keep")
+    return _compact_from_checkpoint(tmp_path / "run.sqlite"), {"path": tmp_path / "text.sqlite"}
+
+
+def _extra_fingerprint_part(tmp_path):
+    # A part only one of the two fingerprints has is a difference too.
+    result = _compact_from_checkpoint(tmp_path / "run.sqlite")
+    result.checkpoint["fingerprint"]["extra"] = "x"
+    return result, {}
+
+
+class TestOpenCheckpoint:
+    # Reason: clause (opens the checkpoint read-only; its models are the full run's, at the indices
+    # of the incumbents).
+    def test_open_checkpoint_reads_all_models(self, tmp_path):
+        result = _compact_from_checkpoint(tmp_path / "run.sqlite")
+        full = _run(None, 3, _CALLS).get_results()[0]
+        store = result.open_checkpoint()
+        try:
+            assert (list(store.models), list(store.trace)) == (full.all_models, full.trace)
+            incumbents = result.summary.incumbents
+            assert [store.models[i] for _, i, _ in incumbents] == [m for _, _, m in incumbents]
+            with pytest.raises(sqlite3.OperationalError):
+                store.add_call(0)
+        finally:
+            store.close()
+
+    # Reason: clause (Raises: no reference, missing file with its path, another run's checkpoint
+    # naming the differing part also with a path override, not a checkpoint).
+    @pytest.mark.parametrize(
+        "make, error, match",
+        [
+            (_no_reference, ValueError, "checkpoint"),
+            (_deleted, FileNotFoundError, "run.sqlite"),
+            (_other_run, ValueError, "max_evaluations"),
+            (_not_a_checkpoint, ValueError, "checkpoint"),
+            (_extra_fingerprint_part, ValueError, "extra"),
+        ],
+        ids=["no-reference", "missing-file", "other-run", "not-a-checkpoint", "extra-part"],
+    )
+    def test_open_checkpoint_errors(self, tmp_path, make, error, match):
+        result, kwargs = make(tmp_path)
+        with pytest.raises(error, match=match):
+            result.open_checkpoint(**kwargs)
+
+    # Reason: clause (path overrides a moved file; the reference is not changed).
+    def test_open_checkpoint_path_override(self, tmp_path):
+        result = _compact_from_checkpoint(tmp_path / "run.sqlite")
+        os.replace(tmp_path / "run.sqlite", tmp_path / "moved.sqlite")
+        store = result.open_checkpoint(tmp_path / "moved.sqlite")
+        try:
+            assert list(store.trace) == _run(None, 3, _CALLS).get_results()[0].trace
+        finally:
+            store.close()
+        assert result.checkpoint["path"] == str(tmp_path / "run.sqlite")
 
 
 # ── Atomic save ───────────────────────────────────────────────────────────────

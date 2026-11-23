@@ -1581,7 +1581,11 @@ class SR_evaluator:
         )
 
     def get_results(
-        self, approach_name: str = "", top_k: int = 20, results: "SR_results | None" = None
+        self,
+        approach_name: str = "",
+        top_k: int = 20,
+        results: "SR_results | None" = None,
+        keep_all_models: bool = True,
     ) -> "SR_results":
         """Return the results of the evaluation.
 
@@ -1617,15 +1621,26 @@ class SR_evaluator:
             results: An SR_results object containing the results of the previous evaluation. If provided,
                 the results of the current evaluation are appended to the existing results. Otherwise, a new SR_results
                 object is created.
+            keep_all_models: If ``True`` (default), the result holds every model and the trace. If
+                ``False``, only the ``top_k`` best models and a
+                [RunSummary][SRToolkit.utils.types.RunSummary] (counts, the best-so-far history with
+                its models, the Pareto front), so memory and file size do not grow with the run;
+                all models stay in the checkpoint, if one is kept. With ``True``, warns as
+                [add_results][SRToolkit.evaluation.results.SR_results.add_results] for a very large
+                run. The result's [checkpoint][SRToolkit.utils.types.EvalResult] reference is not
+                set.
 
         Returns:
             An instance of the SR_results object with the results of the evaluation. Its
             ``stop_reason`` is the evaluator's, or ``"returned"`` if evaluation has not stopped.
 
         Raises:
+            ValueError: If ``keep_all_models`` is ``False`` and ``top_k <= 0``.
             sqlite3.Error: If the commit fails (see
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
+        if not keep_all_models and top_k <= 0:
+            raise ValueError(f"[SR_evaluator.get_results] keep_all_models=False needs top_k >= 1, got {top_k}.")
         wall_time = self.wall_time  # read once: it still grows if evaluation has not stopped
         if self.checkpoint is not None:
             self._store.set_header("wall_time", wall_time)
@@ -1633,8 +1648,12 @@ class SR_evaluator:
         if results is None:
             results = SR_results()
 
+        summary = None
+        models: Sequence[ModelResult] = self.models
+        if not keep_all_models:
+            models, summary = self._store.summary(top_k)
         results.add_results(
-            self.models,
+            models,
             self.trace,
             top_k,
             self.success_threshold,
@@ -1642,6 +1661,7 @@ class SR_evaluator:
             self.metadata,
             self.default_constant,
             self.stop_reason or "returned",
+            summary,
         )
         results.results[-1].wall_time = wall_time
         return results

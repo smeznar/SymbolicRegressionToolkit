@@ -10,8 +10,16 @@ import sys
 import warnings
 from dataclasses import dataclass
 
+import numpy as np
 import pytest
-from strategies import EventLog, ScriptedApproach, SignalAfter, StatelessSteppedApproach, SteppedApproach
+from strategies import (
+    EventLog,
+    ScriptedApproach,
+    SignalAfter,
+    StatelessSteppedApproach,
+    SteppedApproach,
+    result_answers,
+)
 
 from SRToolkit.approaches import ApproachConfig, ProGED, SR_approach
 from SRToolkit.dataset import SR_dataset, data_cache
@@ -710,20 +718,23 @@ def _result(path):
     "d, expected",
     [
         (
-            ExperimentInfo(seed=1, result_path="/r.json", keep_checkpoint=True, snapshot_interval=None).to_dict(),
-            (True, None),
+            ExperimentInfo(
+                seed=1, result_path="/r.json", keep_checkpoint=True, snapshot_interval=None, keep_all_models=False
+            ).to_dict(),
+            (True, None, False),
         ),
         (
             {"seed": 1, "result_path": "/r.json", "top_k": 20, "adapted_state_path": None},
-            (False, 300.0),
+            (False, 300.0, True),
         ),  # an older dict
     ],
     ids=["round-trip", "without-keys"],
 )
 def test_experiment_info_checkpoint_settings_round_trip(d, expected):
     info = ExperimentInfo.from_dict(d)
-    assert (info.keep_checkpoint, info.snapshot_interval) == expected
-    assert (info.to_dict()["keep_checkpoint"], info.to_dict()["snapshot_interval"]) == expected
+    keys = ("keep_checkpoint", "snapshot_interval", "keep_all_models")
+    assert (info.keep_checkpoint, info.snapshot_interval, info.keep_all_models) == expected
+    assert tuple(info.to_dict()[k] for k in keys) == expected
     assert ExperimentInfo.from_dict(info.to_dict()) == info
 
 
@@ -772,10 +783,12 @@ class TestJobCheckpoints:
     def test_interrupted_job_keeps_checkpoint_and_raises(self, tmp_path, monkeypatch):
         _isolate_cache(monkeypatch, tmp_path / "cache")
         EventLog.ended.clear()
+        EventLog.references.clear()
         job = _job(tmp_path, ScriptedApproach(kill_seed=7), callbacks=EventLog())
         with pytest.raises(KeyboardInterrupt):
             job.run()
         assert EventLog.ended == ["interrupted"]
+        assert [r["path"] for r in EventLog.references] == [str(tmp_path / "r.sqlite")]  # the file remains
         assert not job.is_complete  # no result
         assert not (tmp_path / "r.sqlite-wal").exists()  # closed
         saved = SR_results.from_checkpoint(tmp_path / "r.sqlite")[0]
@@ -835,19 +848,23 @@ class TestJobCheckpoints:
         with pytest.raises(ValueError, match=r"\by\b"):
             _job(tmp_path, SteppedApproach(), dataset=other).run()
 
-    def test_finished_checkpoint_without_result_gives_the_result(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize("keep_all_models", [True, False], ids=["full", "compact"])
+    def test_finished_checkpoint_without_result_gives_the_result(self, tmp_path, monkeypatch, keep_all_models):
         # E.g. killed while saving its result: the result comes from the checkpoint and nothing runs,
-        # also for an approach that cannot continue from a snapshot.
+        # also for an approach that cannot continue from a snapshot. The checkpoint is then deleted,
+        # so the result has no reference, as one from an uninterrupted job.
         _isolate_cache(monkeypatch, tmp_path / "cache")
         _job(tmp_path, ScriptedApproach(), keep_checkpoint=True).run()
-        expected = _result(tmp_path / "r.json")
         os.remove(tmp_path / "r.json")
         approach = ScriptedApproach()
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _job(tmp_path, approach).run()
+            _job(tmp_path, approach, keep_all_models=keep_all_models).run()
         assert not [w for w in caught if "snapshot" in str(w.message)]  # not restarted
-        assert (approach.seeds, _result(tmp_path / "r.json")) == ([], expected)
+        _job(tmp_path, ScriptedApproach(), name="straight.json", keep_all_models=keep_all_models).run()
+        assert (approach.seeds, _result(tmp_path / "r.json")) == ([], _result(tmp_path / "straight.json"))
+        saved = SR_results.load(str(tmp_path / "r.json"))[0]
+        assert ((saved.summary is None), saved.checkpoint) == (keep_all_models, None)
         assert not (tmp_path / "r.sqlite").exists()
 
     def test_rerunning_a_kept_finished_job_gives_the_same_result(self, tmp_path, monkeypatch):
@@ -875,3 +892,65 @@ def test_cli_run_job_interrupted_exits_130(tmp_path, monkeypatch, capsys, sig):
     assert exit_info.value.code == 130
     assert str(checkpoint) in capsys.readouterr().out
     assert checkpoint.exists()
+
+
+# --------------------------------------------------------------------------- #
+# keep_all_models
+# --------------------------------------------------------------------------- #
+class TestKeepAllModels:
+    # Reason: clause (a job with keep_all_models=False saves the top_k models and a summary, which
+    # answer like a full job; with keep_checkpoint the result refers to the compacted file).
+    def test_job_saves_compact_result_with_checkpoint_reference(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        # top_k=1: the smallest allowed; the job evaluates 5 distinct models.
+        _job(tmp_path, ScriptedApproach(), keep_checkpoint=True, keep_all_models=False, top_k=1).run()
+        _job(tmp_path, ScriptedApproach(), name="full.json").run()
+        saved = SR_results.load(str(tmp_path / "r.json"))[0]
+        full = SR_results.load(str(tmp_path / "full.json"))[0]
+        assert saved.summary is not None
+        assert saved.all_models == full.top_models(1)
+        np.testing.assert_equal(result_answers(saved, 1), result_answers(full, 1))
+        assert saved.checkpoint["path"] == str(tmp_path / "r.sqlite")
+        store = saved.open_checkpoint()
+        try:
+            assert list(store.trace) == full.trace
+        finally:
+            store.close()
+
+    # Reason: clause (ExperimentJob.run Raises: keep_all_models False and top_k <= 0, before
+    # anything runs).
+    def test_job_compact_top_k_not_positive_raises_first(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        approach = ScriptedApproach()
+        with pytest.raises(ValueError, match="top_k"):
+            _job(tmp_path, approach, keep_all_models=False, top_k=0).run()
+        assert approach.seeds == []
+        assert ((tmp_path / "r.json").exists(), (tmp_path / "r.sqlite").exists()) == (False, False)
+
+    # Reason: clause (ExperimentGrid passes keep_all_models to its jobs and saves it in to_dict; a
+    # recipe without it loads True).
+    @pytest.mark.parametrize("flag, default", [("keep_all_models", True), ("keep_checkpoint", False)])
+    def test_grid_job_flag_round_trip(self, tmp_path, flag, default):
+        run = str(tmp_path / "run")
+
+        def job_flag(grid):
+            return getattr(grid.build_job("ds1", "ProGED", 7).info, flag)
+
+        assert job_flag(_make_grid(run)) is default
+        grid = _make_grid(run, top_k=1, **{flag: not default})  # top_k=1: the smallest allowed when compact
+        assert job_flag(grid) is (not default)
+        d = grid.to_dict()
+        assert d[flag] is (not default)
+        assert job_flag(ExperimentGrid.from_dict(d, results_dir=run)) is (not default)
+        del d[flag]  # a recipe written before the flag existed
+        assert job_flag(ExperimentGrid.from_dict(d, results_dir=run)) is default
+
+    # Reason: clause (ExperimentGrid and from_dict Raise: keep_all_models False and top_k <= 0).
+    @pytest.mark.parametrize("top_k", [0, -1])
+    def test_grid_compact_top_k_not_positive_raises(self, tmp_path, top_k):
+        run = str(tmp_path / "run")
+        with pytest.raises(ValueError, match="top_k"):
+            _make_grid(run, keep_all_models=False, top_k=top_k)
+        d = _make_grid(run, keep_all_models=False, top_k=1).to_dict() | {"top_k": top_k}
+        with pytest.raises(ValueError, match="top_k"):
+            ExperimentGrid.from_dict(d, results_dir=run)

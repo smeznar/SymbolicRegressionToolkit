@@ -8,6 +8,9 @@ import typing
 
 import numpy as np
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+from strategies import STORE_POOL
 
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.utils.free_constants import Constant, uniform_default
@@ -29,6 +32,7 @@ from SRToolkit.utils.types import (
     EvalResult,
     ModelResult,
     RankingSettings,
+    RunSummary,
     Status,
 )
 
@@ -301,6 +305,12 @@ class TestToDictErrors:
             (lambda: _er(augmentations={"a": {"v": {1}, "_type": "T"}}), "augmentations['a']['v']"),
             (lambda: _er(metadata={"m": {1}}), "metadata['m']"),
             (_er_bad_model, "all_models[3].ranking_data['z']"),
+            (lambda: _compact_with(incumbents=[(1, 7, _A), (9, 8, _bad())]), "summary.incumbents[1].ranking_data['z']"),
+            (lambda: _compact_with(pareto_front=[_A, _bad()]), "summary.pareto_front[1].ranking_data['z']"),
+            (
+                lambda: _compact(checkpoint={"path": "/r.sqlite", "fingerprint": {"s": {1}}}),
+                "checkpoint['fingerprint']['s']",
+            ),
         ],
         ids=[
             "MR-parameters",
@@ -309,6 +319,9 @@ class TestToDictErrors:
             "ER-augmentations",
             "ER-metadata",
             "ER-model-ranking_data",
+            "ER-summary-incumbent",
+            "ER-summary-front",
+            "ER-checkpoint",
         ],
     )
     def test_to_dict_type_error_names_full_path(self, make, path):
@@ -628,7 +641,7 @@ class TestEvalResultSerialization:
     def test_eval_result_to_dict_contains_version_and_summaries(self):
         d = _summary_result().to_dict()
         json.dumps(d)
-        assert d["format_version"] == 3
+        assert d["format_version"] == 4
         assert d["min_error"] == 0.05
         assert d["best_expr"] == "C*X_0"
         assert d["success"] is True
@@ -665,13 +678,176 @@ class TestEvalResultSerialization:
         [
             (lambda d: d.pop("format_version"), "evaluation trace"),
             (lambda d: d.update(format_version=1), "format_version"),
-            (lambda d: d.update(format_version=4), "format_version"),
+            (lambda d: d.update(format_version=5), "format_version"),
             (lambda d: d["all_models"][0].pop("status"), "status"),
         ],
-        ids=["version-missing", "version-1", "version-4", "model-without-status"],
+        ids=["version-missing", "version-1", "version-5", "model-without-status"],
     )
     def test_eval_result_from_dict_rejects(self, mutate, match):
         d = json.loads(json.dumps(_summary_result().to_dict()))
         mutate(d)
         with pytest.raises(ValueError, match=match):
             EvalResult.from_dict(d)
+
+
+# ---------------------------------------------------------------------------------------------
+# EvalResult: Pareto front
+# ---------------------------------------------------------------------------------------------
+
+
+def _len(n, error):
+    """A model of ``n`` tokens (``X_0`` then ``+ X_0`` pairs; n odd) with the given error."""
+    return M(["X_0"] + ["+", "X_0"] * ((n - 1) // 2), error)
+
+
+class TestParetoFront:
+    # Reason: clause (pareto_front: complexity = tokens, non-finite excluded, lowest error per length
+    # with first evaluated on ties, strictly lower than every shorter one, by length, stored objects).
+    @pytest.mark.parametrize(
+        "models, expected",
+        [
+            ([_len(1, 0.5), M(["X_1"], 0.7), M(["C", "*", "X_0"], 0.1)], [0, 2]),
+            ([_len(1, 0.7), M(["X_1"], 0.5)], [1]),
+            ([_len(1, 0.5), M(["X_1"], 0.5)], [0]),
+            ([_len(1, 0.5), _len(3, 0.5)], [0]),
+            ([_len(3, 0.2), _len(1, 0.5), _len(5, 0.3)], [1, 0]),
+            ([_len(1, NAN), M(["X_1"], INF, status="invalid"), _len(3, 0.4)], [2]),
+            ([F(), F(["C", "C"])], []),
+            ([], []),
+        ],
+        ids=[
+            "docstring",
+            "length-tie-lower-error-wins",
+            "error-tie-first-evaluated",
+            "equal-error-longer-excluded",
+            "worse-longer-excluded",
+            "non-finite-excluded",
+            "all-failed",
+            "empty",
+        ],
+    )
+    def test_pareto_front_definition(self, models, expected):
+        front = R(models, list(range(len(models)))).pareto_front()
+        assert [id(m) for m in front] == [id(models[i]) for i in expected]
+
+    # Reason: clause ("errors strictly decrease along the front, and its last model is
+    # top_models(1)[0] whenever that has a finite error").
+    @given(
+        st.lists(
+            st.tuples(st.sampled_from(STORE_POOL), st.sampled_from([0.1, 0.5, 1.0, INF, NAN])),
+            max_size=12,
+        )
+    )
+    def test_front_decreases_and_ends_at_best(self, entries):
+        models = [M(expr, error) for expr, error in entries]
+        result = R(models, list(range(len(models))))
+        front = result.pareto_front()
+        assert all(len(a.expr) < len(b.expr) and a.error > b.error for a, b in zip(front, front[1:]))
+        if math.isfinite(result.min_error):
+            assert front[-1] is result.top_models(1)[0]
+        else:
+            assert front == []
+
+
+# ---------------------------------------------------------------------------------------------
+# EvalResult: compact results (with a RunSummary)
+# ---------------------------------------------------------------------------------------------
+
+_A = M(["X_0"], 0.5)
+_B = M(["C", "*", "X_0"], 0.1)
+
+
+def _compact(**kwargs):
+    """A compact result whose summary deliberately disagrees with its two kept models, so an
+    answer read from ``all_models`` instead of the summary is caught."""
+    summary = RunSummary(
+        num_evaluated=1000,
+        evaluation_calls=5000,
+        incumbents=[(1, 7, _A), (40, 900, _B)],
+        status_counts={"ok": 990, "invalid": 10, "rejected": 0, "undefined": 0, "error": 0},
+        call_status_counts={"ok": 4000, "invalid": 1000, "rejected": 0, "undefined": 0, "error": 0},
+        pareto_front=[_A, _B],
+    )
+    defaults = {"top_k": 2, "success_threshold": 0.2, "summary": summary}
+    return R([_B, _A], [], **{**defaults, **kwargs})
+
+
+def _bad():
+    return M(["X_3"], 0.4, ranking_data={"z": {1}})
+
+
+def _compact_with(**summary_fields):
+    """``_compact()`` with some fields of its summary replaced."""
+    result = _compact()
+    return dataclasses.replace(result, summary=dataclasses.replace(result.summary, **summary_fields))
+
+
+class TestCompactResult:
+    # Reason: clause (num_evaluated, evaluation_calls, best_so_far, status_counts and pareto_front
+    # read the summary).
+    def test_compact_result_reads_the_summary(self):
+        result = _compact()
+        assert (result.num_evaluated, result.evaluation_calls) == (1000, 5000)
+        assert result.best_so_far() == [(1, 7), (40, 900)]
+        assert result.status_counts() == {"ok": 990, "invalid": 10, "rejected": 0, "undefined": 0, "error": 0}
+        assert result.status_counts(per="call")["invalid"] == 1000
+        assert [id(m) for m in result.pareto_front()] == [id(_A), id(_B)]
+
+    # Reason: clause (best_error_within and calls_to_threshold read summary.incumbents: 0.5 from
+    # call 1, 0.1 from call 40, 5000 calls).
+    def test_compact_trace_measures(self):
+        result = _compact()
+        np.testing.assert_equal(result.best_error_within([0, 1, 39, 40, 10**6]), [NAN, 0.5, 0.5, 0.1, 0.1])
+        assert [result.calls_to_threshold(t) for t in (0.6, 0.5, 0.1, NAN)] == [1, 40, None, None]
+        assert result.calls_to_threshold() == 40  # success_threshold 0.2
+
+    # Reason: clause (top_models, min_error, best_expr, success work on the kept models; k beyond
+    # top_k returns only those).
+    @pytest.mark.parametrize(
+        "k, expected", [(None, [_B, _A]), (0, []), (1, [_B]), (2, [_B, _A]), (100, [_B, _A]), (-1, [_B, _A])]
+    )
+    def test_compact_top_models_are_the_kept_ones(self, k, expected):
+        result = _compact()
+        assert [id(m) for m in result.top_models(k)] == [id(m) for m in expected]
+        assert (result.min_error, result.best_expr, result.success) == (0.1, "C*X_0", True)
+
+    # Reason: clause (from_dict: a missing summary field with a default loads as None;
+    # pareto_front raises for a summary without a front).
+    def test_summary_without_front_loads_none_and_pareto_front_raises(self):
+        d = json.loads(json.dumps(_compact().to_dict()))
+        del d["summary"]["pareto_front"]
+        back = EvalResult.from_dict(d)
+        assert back.summary.pareto_front is None
+        assert back.summary.num_evaluated == 1000
+        with pytest.raises(ValueError, match="front"):
+            back.pareto_front()
+        assert json_round_trip(_compact_with(pareto_front=None)).summary.pareto_front is None  # saved as None
+
+
+class TestCompactSerialization:
+    # Reason: clause (to_dict format 4 with summary and checkpoint; the saved counts are the
+    # summary's; incumbents load back as tuples).
+    def test_compact_result_json_round_trip(self):
+        checkpoint = {"path": "/runs/exp_0.sqlite", "fingerprint": {"seed": 0}}
+        result = _compact(checkpoint=checkpoint)
+        d = result.to_dict()
+        json.dumps(d)
+        assert d["format_version"] == 4
+        assert set(d["summary"]) == {f.name for f in dataclasses.fields(RunSummary)}
+        assert (d["num_evaluated"], d["evaluation_calls"]) == (1000, 5000)
+        assert d["status_counts"]["invalid"] == 10
+        back = json_round_trip(result)
+        assert back == result
+        assert back.checkpoint == checkpoint
+        assert back.summary.incumbents == [(1, 7, _A), (40, 900, _B)]
+        assert all(type(entry) is tuple for entry in back.summary.incumbents)
+
+    # Reason: clause (from_dict: format 3 loads with summary and checkpoint None).
+    def test_format_3_loads_without_summary_and_checkpoint(self):
+        d = json.loads(json.dumps(_summary_result().to_dict()))
+        d["format_version"] = 3
+        d.pop("summary", None)
+        d.pop("checkpoint", None)
+        back = EvalResult.from_dict(d)
+        assert (back.summary, back.checkpoint) == (None, None)
+        assert back == _summary_result()

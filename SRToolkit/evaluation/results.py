@@ -20,7 +20,10 @@ import numpy as np
 from SRToolkit.bundle._relocate import _import_class
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.serialization import _from_json_safe
-from SRToolkit.utils.types import EvalResult, ModelResult
+from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
+
+# Above this many models, add_results warns that the results may not fit in memory or a loadable file.
+_LARGE_RUN_MODELS = 1_000_000
 
 
 class ResultAugmenter(ABC):
@@ -164,12 +167,22 @@ class SR_results:
         metadata: dict | None = None,
         default_constant: Constant | None = None,
         stop_reason: str | None = None,
+        summary: RunSummary | None = None,
     ) -> None:
         """Adds the results of an evaluation to the results object.
 
+        Copies ``models`` and ``trace`` into lists; with a ``summary``, stores ``models`` as given
+        and an empty trace. Without a ``summary``, warns
+        (``UserWarning``) if there are more than 1,000,000 models, which may not fit in memory or
+        in a results file that can be loaded again; ``keep_all_models=False`` of
+        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] avoids this.
+
         Args:
-            models: Evaluated models in the order they were first evaluated.
+            models: Evaluated models in the order they were first evaluated, or, with a
+                ``summary``, the top models, best first (as returned by
+                [ModelStore.summary][SRToolkit.evaluation.model_store.ModelStore.summary]).
             trace: The evaluation trace: the index into ``models`` requested by each counted call.
+                Ignored with a ``summary``.
             top_k: Default number of models returned by ``top_models()``. Negative means all.
             success_threshold: The success threshold used to determine whether the evaluation was successful.
             approach_name: The name of the approach used to discover the equations.
@@ -178,6 +191,9 @@ class SR_results:
                 [EvalResult.default_constant][SRToolkit.utils.types.EvalResult].
             stop_reason: Why the run ended, stored as
                 [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult].
+            summary: What is kept of the run instead of all its models, stored as
+                [EvalResult.summary][SRToolkit.utils.types.EvalResult]; ``None`` if ``models`` and
+                ``trace`` are complete.
         """
         dataset_name = None
         remaining_metadata = None
@@ -189,9 +205,17 @@ class SR_results:
         elif metadata is not None:
             remaining_metadata = metadata
 
+        if summary is None and len(models) > _LARGE_RUN_MODELS:
+            warnings.warn(
+                f"[SR_results.add_results] Keeping all {len(models)} models of this run may not fit in memory or in a "
+                "results file that can be loaded again; use keep_all_models=False to keep the top models and a "
+                "summary instead.",
+                UserWarning,
+                stacklevel=3,  # the caller of get_results or from_checkpoint
+            )
         results_obj = EvalResult(
             all_models=list(models),
-            trace=list(trace),
+            trace=list(trace) if summary is None else [],
             approach_name=approach_name,
             success_threshold=success_threshold,
             top_k=top_k,
@@ -199,6 +223,7 @@ class SR_results:
             metadata=remaining_metadata,
             default_constant=default_constant,
             stop_reason=stop_reason,
+            summary=summary,
         )
 
         self.results.append(results_obj)
@@ -252,7 +277,16 @@ class SR_results:
         Raises:
             TypeError: If ``experiment_number`` is not an integer.
             IndexError: If ``experiment_number`` is out of range. Negative numbers count from the end.
+            ValueError: If *detailed* and ``model_scope="all"`` and any result to print does not
+                keep all its models (has a [summary][SRToolkit.utils.types.EvalResult]); checked
+                before anything is printed.
         """
+        selected = self.results if experiment_number is None else [self[experiment_number]]
+        if detailed and model_scope == "all" and any(result.summary is not None for result in selected):
+            raise ValueError(
+                "[SR_results.print_results] model_scope='all' needs all models, but a result keeps only its top "
+                "models (keep_all_models=False); open its checkpoint to reach all of them."
+            )
         if experiment_number is None:
             for i, result in enumerate(self.results):
                 print(f"=== Experiment {i + 1}/{len(self.results)} ===")
@@ -595,7 +629,9 @@ class SR_results:
         return sr_results
 
     @staticmethod
-    def from_checkpoint(path: str | os.PathLike, approach_name: str = "", top_k: int = 20) -> "SR_results":
+    def from_checkpoint(
+        path: str | os.PathLike, approach_name: str = "", top_k: int = 20, keep_all_models: bool = True
+    ) -> "SR_results":
         """Build results from a checkpoint file, as
         [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] would for
         everything in it.
@@ -608,16 +644,22 @@ class SR_results:
             path: The checkpoint file.
             approach_name: The name of the approach, as for ``get_results``.
             top_k: The number of top models, as for ``get_results``.
+            keep_all_models: As for ``get_results``. With ``False``, memory use does not grow with
+                the size of the run; with ``True`` (default), it warns as
+                [add_results][SRToolkit.evaluation.results.SR_results.add_results] for a very large
+                run.
 
         Returns:
             New results with one [EvalResult][SRToolkit.utils.types.EvalResult], with the
             ``success_threshold``, ``default_constant`` and ``metadata`` saved by the last session.
             ``stop_reason`` is ``"interrupted"`` if none was saved (the run crashed or is still
-            going); ``wall_time`` is the one saved with the last commit, or ``None``.
+            going); ``wall_time`` is the one saved with the last commit, or ``None``;
+            ``checkpoint`` refers to the file at ``path`` (its absolute path).
 
         Raises:
             FileNotFoundError: If no file exists at ``path``.
-            ValueError: If the file is not a checkpoint, or one of another format version.
+            ValueError: If ``keep_all_models`` is ``False`` and ``top_k <= 0`` (checked before the
+                file is opened); if the file is not a checkpoint, or one of another format version.
 
         Examples:
             >>> import tempfile
@@ -632,16 +674,22 @@ class SR_results:
             ('C*X_1', 'interrupted')
         """
         # Imported here: model_store is only needed for this conversion.
-        from SRToolkit.evaluation.model_store import ModelStore
+        from SRToolkit.evaluation.model_store import ModelStore, _reference
 
+        if not keep_all_models and top_k <= 0:
+            raise ValueError(f"[SR_results.from_checkpoint] keep_all_models=False needs top_k >= 1, got {top_k}.")
         store = ModelStore(path, "read")
         try:
             with store.consistent_read():  # a run going on may commit between the reads
                 saved = store.get_header("results", {})
                 default_constant = saved.get("default_constant")
+                summary = None
+                models: Sequence[ModelResult] = store.models
+                if not keep_all_models:
+                    models, summary = store.summary(top_k)
                 results = SR_results()
                 results.add_results(
-                    store.models,
+                    models,
                     store.trace,
                     top_k,
                     saved.get("success_threshold"),
@@ -649,8 +697,10 @@ class SR_results:
                     _from_json_safe(saved.get("metadata")),
                     None if default_constant is None else Constant.from_dict(default_constant),
                     store.get_header("stop_reason", "interrupted"),
+                    summary,
                 )
                 results.results[-1].wall_time = store.get_header("wall_time")
+                results.results[-1].checkpoint = _reference(store, path)
         finally:
             store.close()
         return results

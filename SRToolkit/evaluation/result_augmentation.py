@@ -73,7 +73,16 @@ class ExpressionToLatex(ResultAugmenter):
 
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
+
+        Raises:
+            ValueError: If ``scope`` is ``"all"`` and *results* does not keep all its models (it
+                has a [summary][SRToolkit.utils.types.EvalResult]); nothing is added then.
         """
+        if self.scope == "all" and results.summary is not None:
+            raise ValueError(
+                f"[{type(self).__name__}] scope='all' needs all models, but this result keeps only its top models "
+                "(keep_all_models=False)."
+            )
         eval_data: dict[str, Any] = {}
         try:
             eval_data["best_expr_latex"] = tokens_to_tree(results.top_models(1)[0].expr, self.symbol_library).to_latex(
@@ -206,7 +215,16 @@ class ExpressionSimplifier(ResultAugmenter):
 
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
+
+        Raises:
+            ValueError: If ``scope`` is ``"all"`` and *results* does not keep all its models (it
+                has a [summary][SRToolkit.utils.types.EvalResult]); nothing is added then.
         """
+        if self.scope == "all" and results.summary is not None:
+            raise ValueError(
+                f"[{type(self).__name__}] scope='all' needs all models, but this result keeps only its top models "
+                "(keep_all_models=False)."
+            )
         eval_data: dict[str, Any] = {}
         try:
             simplified_expr = simplify(results.top_models(1)[0].expr, self.symbol_library)
@@ -524,7 +542,16 @@ class HoldoutMetric(ResultAugmenter):
 
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
+
+        Raises:
+            ValueError: If ``scope`` is ``"all"`` and *results* does not keep all its models (it
+                has a [summary][SRToolkit.utils.types.EvalResult]); nothing is added then.
         """
+        if self.scope == "all" and results.summary is not None:
+            raise ValueError(
+                f"[{type(self).__name__}] scope='all' needs all models, but this result keeps only its top models "
+                "(keep_all_models=False)."
+            )
         # The best model is also in the scoped models, so score each expression once: rescoring would
         # cost a fit each time and, with a refit, could give a different value.
         values: dict[tuple[tuple[str, ...], str], float] = {}

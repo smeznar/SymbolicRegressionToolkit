@@ -7,7 +7,9 @@ import weakref
 
 import numpy as np
 import pytest
-from strategies import result_dict
+from hypothesis import example, given
+from hypothesis import strategies as st
+from strategies import STORE_POOL, result_answers, result_dict, store_calls
 
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation import model_store
@@ -15,7 +17,7 @@ from SRToolkit.evaluation.callbacks import SRCallbacks
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.free_constants import Constant
-from SRToolkit.utils.types import ModelResult
+from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
 
 
 def _model(expr: str, error: float = 1.0, **kwargs) -> ModelResult:
@@ -629,6 +631,80 @@ class TestSnapshots:
         for i, error in enumerate(errors):
             store.add([f"X_{i}"], "", _model(f"X_{i}", error))
         assert store.min_error == expected
+
+
+# ── Summary ────────────────────────────────────────────────────────────────────
+
+
+def _fill(store, calls):
+    # One counted call per (pool_index, error); a repeated expression is a cache hit.
+    for pool_index, error in calls:
+        tokens = STORE_POOL[pool_index]
+        found = store.lookup(tokens, "")
+        if found is None:
+            store.add(tokens, "", ModelResult(list(tokens), error, status="ok" if error < np.inf else "invalid"))
+        else:
+            store.add_call(found[0])
+    return store
+
+
+class TestSummary:
+    # Reason: clause (summary: top_k models ranked as by top_models, and a RunSummary of counts,
+    # incumbents with their full-run index, status counts and Pareto front).
+    def test_summary_fields_hand_computed(self):
+        # Calls: X_0 .5 (i0) | X_1 inf (i1) | hit i0 | C*X_0 .2 (i2) | X_0+C .2 (i3) | C .5 (i4) |
+        # X_0*X_0+C .05 (i5).
+        store = _fill(ModelStore(), [(0, 0.5), (1, np.inf), (0, 0.5), (3, 0.2), (4, 0.2), (2, 0.5), (5, 0.05)])
+        m = list(store.models)
+        top, summary = store.summary(3)
+        assert top == [m[5], m[2], m[3]]  # the tie at 0.2 (same length) goes to the first evaluated
+        assert summary == RunSummary(
+            num_evaluated=6,
+            evaluation_calls=7,
+            incumbents=[(1, 0, m[0]), (4, 2, m[2]), (7, 5, m[5])],
+            status_counts={"ok": 5, "invalid": 1, "rejected": 0, "undefined": 0, "error": 0},
+            call_status_counts={"ok": 6, "invalid": 1, "rejected": 0, "undefined": 0, "error": 0},
+            pareto_front=[m[0], m[2], m[5]],  # length 1: X_0 (first of the 0.5 tie with C)
+        )
+        assert (
+            list(summary.status_counts)
+            == list(summary.call_status_counts)
+            == ["ok", "invalid", "rejected", "undefined", "error"]
+        )
+
+    # Reason: clause (the summary equals what the full result derives, so a compact result answers
+    # like the full one: ties, failed models, fewer finite models than top_k, empty run).
+    @given(store_calls(), st.integers(1, 8))
+    @example([], 3)
+    def test_summary_result_answers_like_full_result(self, calls, top_k):
+        store = _fill(ModelStore(), calls)
+        top, summary = store.summary(top_k)
+        full = EvalResult(list(store.models), list(store.trace), "", top_k=top_k, success_threshold=0.3)
+        compact = EvalResult(top, [], "", top_k=top_k, success_threshold=0.3, summary=summary)
+        assert top == full.top_models(top_k)
+        assert compact.top_models(-1) == full.top_models(top_k)
+        budgets = range(-1, len(calls) + 3)
+        np.testing.assert_equal(result_answers(compact, top_k, budgets), result_answers(full, top_k, budgets))
+
+    # Reason: clause (Raises: ValueError if top_k < 1).
+    @pytest.mark.parametrize("top_k", [0, -1])
+    def test_summary_rejects_top_k_below_one(self, top_k):
+        with pytest.raises(ValueError, match="top_k"):
+            _filled(2).summary(top_k)
+
+    # Reason: clause ("in mode='read', what was committed").
+    def test_summary_in_read_mode_sees_committed_only(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        store = _filled(3, path)
+        store.commit()
+        store.add(["X_8"], "", _model("X_8", 0.0))
+        store.add_call(0)
+        reader = ModelStore(path, "read")
+        top, summary = reader.summary(1)
+        assert (summary.num_evaluated, summary.evaluation_calls) == (3, 3)
+        assert top == [_model("X_0", 0.0)]
+        reader.close()
+        store.close()
 
 
 @pytest.mark.parametrize(
