@@ -9,6 +9,7 @@ add post-hoc information to results. Concrete augmenters are in
 
 import json
 import os
+import uuid
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
@@ -18,6 +19,7 @@ import numpy as np
 
 from SRToolkit.bundle._relocate import _import_class
 from SRToolkit.utils.free_constants import Constant
+from SRToolkit.utils.serialization import _from_json_safe
 from SRToolkit.utils.types import EvalResult, ModelResult
 
 
@@ -110,9 +112,7 @@ class ResultAugmenter(ABC):
     def from_dict(data: dict) -> "ResultAugmenter":
         """Creates an instance of the ResultAugmenter class from the dictionary with the relevant data.
 
-        Subclasses should override this method if they support serialization. The default
-        implementation raises ``NotImplementedError``, allowing custom augmenters to skip
-        serialization if not needed.
+        Override it to make the augmenter loadable; the default raises ``NotImplementedError``.
 
         Args:
             data: the dictionary containing the data needed to recreate the augmenter.
@@ -212,12 +212,9 @@ class SR_results:
     ):
         r"""Prints the results of the SR_evaluator.
 
-        Displays the minimum error, best expression, evaluation counts, success status, stop
-        reason, metadata, and approach name. When *detailed* is ``True``, also prints per-model
-        information. Augmentation data is formatted by the corresponding
-        [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] subclass,
-        looked up from the global registry via the ``_type`` field stored in each
-        augmentation entry.
+        Shows the minimum error, best expression, evaluation counts, success status, stop reason,
+        metadata and approach name; with *detailed*, also each model. Augmentation data is
+        formatted by the augmenter that added it.
 
         Examples:
             >>> from SRToolkit.evaluation import SR_evaluator
@@ -376,18 +373,22 @@ class SR_results:
             '$C_{0} \\cdot X_{1} - X_{0}$'
 
         Args:
-            augmenters: A [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] or a list of [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] objects to apply to the results.
+            augmenters: One augmenter or a list of them.
             experiment_number: If provided, apply augmenters only to this experiment's result.
                 If None, apply to all results.
+
+        Raises:
+            TypeError: If ``experiment_number`` is not an integer.
+            IndexError: If ``experiment_number`` is out of range. Negative numbers count from the end.
         """
         if isinstance(augmenters, ResultAugmenter):
             augmenters = [augmenters]
 
         if experiment_number is not None:
-            assert experiment_number < len(self.results), "[SR_results.augment] experiment number out of bounds"
+            result = self[experiment_number]
             for augmenter in augmenters:
                 try:
-                    augmenter.write_results(self.results[experiment_number])
+                    augmenter.write_results(result)
                 except Exception as e:
                     warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
         else:
@@ -399,23 +400,23 @@ class SR_results:
                         warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
 
     def __add__(self, other: "SR_results") -> "SR_results":
-        """Returns a new SR_results object that is the concatenation of the current SR_results object with the other SR_results object.
+        """Return a new SR_results holding the results of both, these first.
 
         Args:
-            other: SR_results object to concatenate with the current SR_results object.
+            other: The results to append.
 
         Returns:
-            A new SR_results object containing the concatenated results.
+            The new results.
         """
         new = SR_results()
         new.results = self.results + other.results
         return new
 
     def __iadd__(self, other: "SR_results") -> "SR_results":
-        """In-place concatenation of SR_results objects.
+        """Append the results of ``other`` to these.
 
         Args:
-            other: SR_results object to concatenate with the current SR_results object.
+            other: The results to append.
 
         Returns:
             self
@@ -452,7 +453,7 @@ class SR_results:
         return self.results[item]
 
     def __iter__(self) -> Iterator[EvalResult]:
-        """Iterates over the results stored in the results object, in the order they were added. Usually, each result corresponds to a single experiment.
+        """Iterate over the results, in the order they were added.
 
         Examples:
             >>> from SRToolkit.evaluation import SR_evaluator
@@ -466,12 +467,12 @@ class SR_results:
             C*X_1-X_0
 
         Returns:
-            An iterator over the [EvalResult][SRToolkit.utils.types.EvalResult] objects stored in the results object.
+            An iterator over the [EvalResult][SRToolkit.utils.types.EvalResult]s.
         """
         return iter(self.results)
 
     def __len__(self) -> int:
-        """Returns the number of results stored in the results object. Usually, each result corresponds to a single experiment.
+        """Return the number of results.
 
         Examples:
             >>> from SRToolkit.evaluation import SR_evaluator
@@ -484,7 +485,7 @@ class SR_results:
             1
 
         Returns:
-            The number of results stored in the results object.
+            The number of results.
         """
         return len(self.results)
 
@@ -492,7 +493,8 @@ class SR_results:
         """Saves the results to a specific file or directory as JSON.
 
         If *path* is an existing directory, it writes ``results.json`` inside it.
-        If *path* is a file path, it must end with the ``.json`` extension.
+        If *path* is a file path, it must end with the ``.json`` extension. The file is replaced only
+        once the new one is fully written, so a crash while saving leaves the previous file (or none).
 
         Examples:
             >>> import tempfile
@@ -533,15 +535,22 @@ class SR_results:
         if target_dir and not os.path.isdir(target_dir):
             os.makedirs(target_dir)
 
-        # 3. Prepare data
         output = {
             "format_version": 1,
             "type": "SR_results",
             "results": [r.to_dict() for r in self.results],
         }
 
-        with open(target_file, "w") as f:
-            json.dump(output, f, indent=2)
+        # A new file next to the target (unlike mkstemp's, with the usual permissions), then swapped in.
+        temp_file = f"{target_file}.{uuid.uuid4().hex}.tmp"
+        try:
+            with open(temp_file, "x") as f:
+                json.dump(output, f, indent=2)
+            os.replace(temp_file, target_file)
+        except BaseException:
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            raise
 
     @staticmethod
     def load(path: str) -> "SR_results":
@@ -584,3 +593,64 @@ class SR_results:
         sr_results = SR_results()
         sr_results.results = [EvalResult.from_dict(r) for r in data["results"]]
         return sr_results
+
+    @staticmethod
+    def from_checkpoint(path: str | os.PathLike, approach_name: str = "", top_k: int = 20) -> "SR_results":
+        """Build results from a checkpoint file, as
+        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] would for
+        everything in it.
+
+        The file is opened read-only, so this also works while the run goes on (on what was
+        committed) and after a crash. Needs no data; add test-data metrics afterwards (see
+        [result_augmentation][SRToolkit.evaluation.result_augmentation]).
+
+        Args:
+            path: The checkpoint file.
+            approach_name: The name of the approach, as for ``get_results``.
+            top_k: The number of top models, as for ``get_results``.
+
+        Returns:
+            New results with one [EvalResult][SRToolkit.utils.types.EvalResult], with the
+            ``success_threshold``, ``default_constant`` and ``metadata`` saved by the last session.
+            ``stop_reason`` is ``"interrupted"`` if none was saved (the run crashed or is still
+            going); ``wall_time`` is the one saved with the last commit, or ``None``.
+
+        Raises:
+            FileNotFoundError: If no file exists at ``path``.
+            ValueError: If the file is not a checkpoint, or one of another format version.
+
+        Examples:
+            >>> import tempfile
+            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     se = SR_evaluator(X, np.array([3, 0, 3, 11]), checkpoint=tmpdir + "/run.sqlite")
+            ...     _ = se.evaluate_expr(["C", "*", "X_1"])
+            ...     se.close()  # as if the process ended here
+            ...     results = SR_results.from_checkpoint(tmpdir + "/run.sqlite")
+            >>> results[0].best_expr, results[0].stop_reason
+            ('C*X_1', 'interrupted')
+        """
+        # Imported here: model_store is only needed for this conversion.
+        from SRToolkit.evaluation.model_store import ModelStore
+
+        store = ModelStore(path, "read")
+        try:
+            with store.consistent_read():  # a run going on may commit between the reads
+                saved = store.get_header("results", {})
+                default_constant = saved.get("default_constant")
+                results = SR_results()
+                results.add_results(
+                    store.models,
+                    store.trace,
+                    top_k,
+                    saved.get("success_threshold"),
+                    approach_name,
+                    _from_json_safe(saved.get("metadata")),
+                    None if default_constant is None else Constant.from_dict(default_constant),
+                    store.get_header("stop_reason", "interrupted"),
+                )
+                results.results[-1].wall_time = store.get_header("wall_time")
+        finally:
+            store.close()
+        return results

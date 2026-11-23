@@ -1,7 +1,10 @@
+import io
+import json
 import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from tqdm import tqdm
 
 from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
@@ -297,11 +300,14 @@ class TestProgressBarCallbackOnExperimentStart:
 
 
 class TestProgressBarCallbackOnExprEvaluated:
-    def test_updates_pbar_when_present(self):
+    def test_bar_shows_the_evaluation_number(self):
         cb = ProgressBarCallback()
-        cb.pbar = MagicMock()
-        cb.on_expr_evaluated(_make_expr_evaluated())
-        cb.pbar.update.assert_called_once_with(1)
+        cb.pbar = tqdm(total=10, file=io.StringIO())
+        positions = []
+        for number in (1, 2, 7):  # 7: a resumed run continuing after the calls of earlier sessions
+            cb.on_expr_evaluated(_make_expr_evaluated(evaluation_number=number))
+            positions.append(cb.pbar.n)
+        assert positions == [1, 2, 7]
 
     def test_no_error_when_pbar_none(self):
         cb = ProgressBarCallback()
@@ -562,3 +568,100 @@ class TestLoggingCallbackSerialization:
     def test_from_dict_missing_key_gives_none(self):
         cb = LoggingCallback.from_dict({})
         assert cb.log_file is None
+
+
+# ── Checkpoint state ──────────────────────────────────────────────────────────
+
+
+class _StateA(SRCallbacks):
+    def __init__(self, tag=""):
+        self.tag = tag
+        self.got = []
+
+    def get_state(self):
+        return {"tag": self.tag}
+
+    def set_state(self, state):
+        self.got.append(state)
+
+
+class _StateB(_StateA):
+    pass
+
+
+def _clock(now):
+    return patch("SRToolkit.evaluation.callbacks.time.monotonic", new=lambda: now[0])
+
+
+class TestCallbackState:
+    def test_default_state_is_empty(self):
+        cb = _ConcreteCallback()
+        assert cb.set_state({"x": 1}) is None
+        assert cb.get_state() == {}
+
+    def test_dispatcher_get_state_lists_callbacks_in_order(self):
+        now = [100.0]
+        limit, other = TimeLimitCallback(time_limit=60), _ConcreteCallback()
+        with _clock(now):
+            limit.on_experiment_start(_make_experiment_event())
+            now[0] = 105.0
+            states = CallbackDispatcher([limit, other]).get_state()
+        assert states == [
+            {"callback_class": limit.to_dict()["callback_class"], "state": {"elapsed": 5.0}},
+            {"callback_class": other.to_dict()["callback_class"], "state": {}},
+        ]
+
+    @pytest.mark.parametrize(
+        "targets, num_states, expected",
+        [
+            ((_StateA, _StateB), 2, [[{"tag": "a"}], [{"tag": "b"}]]),
+            ((_StateB, _StateA), 2, [[], []]),
+            ((_StateA, _StateB), 1, [[{"tag": "a"}], []]),
+            ((_StateA,), 2, [[{"tag": "a"}]]),
+        ],
+        ids=["same-order", "swapped-classes", "fewer-states", "more-states"],
+    )
+    def test_dispatcher_set_state_matches_position_and_class(self, targets, num_states, expected):
+        saved = json.loads(json.dumps(CallbackDispatcher([_StateA("a"), _StateB("b")]).get_state()))
+        callbacks = [cls() for cls in targets]
+        CallbackDispatcher(callbacks).set_state(saved[:num_states])
+        assert [cb.got for cb in callbacks] == expected
+
+    def test_time_limit_state_is_elapsed_time(self):
+        now = [50.0]
+        cb = TimeLimitCallback(time_limit=60)
+        with _clock(now):
+            assert cb.get_state() == {}
+            now[0] = 100.0
+            cb.on_experiment_start(_make_experiment_event())
+            now[0] = 140.0
+            assert cb.get_state() == {"elapsed": 40.0}
+
+    @pytest.mark.parametrize("started", [True, False], ids=["after-start", "without-start"])
+    def test_time_limit_continues_from_saved_elapsed(self, started):
+        # 40 s used before; the 100 s until set_state (the replay) do not count; 20 s are left.
+        now = [1000.0]
+        cb = TimeLimitCallback(time_limit=60)
+        with _clock(now):
+            if started:
+                cb.on_experiment_start(_make_experiment_event())
+            now[0] = 1100.0
+            cb.set_state({"elapsed": 40.0})
+            now[0] = 1110.0
+            assert cb.get_state() == {"elapsed": 50.0}
+            now[0] = 1119.0
+            assert cb.on_expr_evaluated(_make_expr_evaluated()) is True
+            now[0] = 1120.0
+            assert cb.on_expr_evaluated(_make_expr_evaluated()) == "time_limit"
+
+    def test_time_limit_set_state_without_elapsed_does_nothing(self):
+        now = [1000.0]
+        cb = TimeLimitCallback(time_limit=60)
+        with _clock(now):
+            cb.on_experiment_start(_make_experiment_event())
+            now[0] = 1010.0
+            cb.set_state({})
+            now[0] = 1059.0
+            assert cb.on_expr_evaluated(_make_expr_evaluated()) is True
+            now[0] = 1060.0
+            assert cb.on_expr_evaluated(_make_expr_evaluated()) == "time_limit"

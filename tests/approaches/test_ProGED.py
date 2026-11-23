@@ -209,3 +209,14 @@ def test_from_config_defaults_for_older_configs():
         True,
         False,
     )
+
+
+def test_start_without_grammar_or_adapt_raises():
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib())
+    with pytest.raises(RuntimeError, match="adapt"):
+        ProGED().start(se, seed=0)
+
+
+def test_max_consecutive_skips_must_be_positive():
+    with pytest.raises(ValueError, match="max_consecutive_skips"):
+        ProGED(max_consecutive_skips=0)

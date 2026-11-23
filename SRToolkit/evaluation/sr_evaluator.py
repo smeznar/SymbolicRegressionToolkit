@@ -29,6 +29,16 @@ Every status except ``"ok"`` gets the error ``+inf``, so an evaluated expression
 ``NaN`` and failed models rank after every scored one. Every call counts toward
 ``max_evaluations``, whatever its status.
 
+The statuses are saved with the results, so validity can be measured after the run from
+[status_counts][SRToolkit.utils.types.EvalResult.status_counts]. Count every well-formed
+expression as valid, including rejected and undefined ones, and leave ``"error"`` out entirely,
+because those failures belong to the evaluation, not to the approach:
+
+```python
+counts = result.status_counts()  # per unique expression; per="call" counts every call
+validity_rate = 1 - counts["invalid"] / (sum(counts.values()) - counts["error"])
+```
+
 ## Stopping
 
 Evaluation stops at the first of these, which is recorded as ``stop_reason`` and saved in the
@@ -44,18 +54,7 @@ results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
 
 An approach loops while ``should_stop`` is ``False``. If its search returns without any of these,
 the results record ``"returned"``. Once evaluation has stopped, further calls are not evaluated:
-they warn, return ``nan`` and are not counted. A ``stop_reason`` other than
-``"success_threshold"`` or ``"max_evaluations"`` marks a run that ended with budget left.
-
-The statuses are saved with the results, so validity can be measured after the run from
-[status_counts][SRToolkit.utils.types.EvalResult.status_counts]. Count every well-formed
-expression as valid, including rejected and undefined ones, and leave ``"error"`` out entirely,
-because those failures belong to the evaluation, not to the approach:
-
-```python
-counts = result.status_counts()  # per unique expression; per="call" counts every call
-validity_rate = 1 - counts["invalid"] / (sum(counts.values()) - counts["error"])
-```
+they warn, return ``nan`` and are not counted.
 
 ## Free constants
 
@@ -65,7 +64,7 @@ values; see [free_constants][SRToolkit.utils.free_constants]) as the ``free_cons
 expression together with its specs: the same tokens with different specs are two models, each
 scored, cached, counted in ``num_evaluated`` and ``status_counts`` and stored in ``models`` on its
 own. Specs are matched by value (the fields that affect the score) and in any order. They are stored
-in [ModelResult.free_constants][SRToolkit.utils.types.ModelResult] sorted by label (string order),
+in [ModelResult.free_constants][SRToolkit.utils.types.ModelResult] sorted by label,
 or ``None`` when none (or an empty list) were given. Parameters without a spec, and a spec's unset
 ``prior`` or ``bounds``, use the evaluator's ``default_constant``, which is recorded in the results
 as [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]. Expressions that differ only in
@@ -78,9 +77,6 @@ specs) whatever they are. Specs that do not fit a well-formed expression, and sp
 ``simplify_expr=True``, raise; nothing is then recorded or counted. The ranking's
 [score][SRToolkit.evaluation.ranking.RankingFunction.score] receives the specs as
 ``free_constants``.
-Callback events, [invalid][SRToolkit.evaluation.sr_evaluator.SR_evaluator.invalid] and
-[best_expr][SRToolkit.utils.types.EvalResult.best_expr] carry only the token string, so two models
-with equal tokens look alike there.
 
 ## Constraints
 
@@ -110,13 +106,8 @@ carry their advisory pre-check results. Pre-checks get ``ModelResult.expr`` (sim
 ``simplify_expr=True``), post-checks the ``ModelResult``. Checks a constraint does not implement
 are skipped.
 
-A check that raises an exception, or returns something other than a ``CheckResult`` (treated as a
-``TypeError``), emits a ``UserWarning`` and counts as failed, with
-[CheckResult.error][SRToolkit.utils.types.CheckResult] set to ``"<ExceptionType>: <message>"``. For
-a required constraint the status is then ``"error"`` with the ``status_detail``
-``"<ClassName>.<pre_check|post_check> raised <ExceptionType>: <message>"``. For an advisory
-constraint the result is recorded in ``advisory_violations`` like any failed check; leave results
-with ``error`` set out when counting violations.
+A check that raises warns and counts as failed, which gives the status ``"error"`` for a required
+constraint (see [Checks that raise][SRToolkit.utils.expression_constraints]).
 
 To avoid spending evaluations on expressions that would fail a pre-check, or to filter candidates
 by the advisory constraints, an approach can call
@@ -180,17 +171,43 @@ bound, and a ``None`` from ``calls_to_threshold`` is censored at fewer calls tha
 ``checkpoint`` file, which keeps memory constant during long runs (see
 [model_store][SRToolkit.evaluation.model_store]). ``se.models[i]`` returns a new
 [ModelResult][SRToolkit.utils.types.ModelResult] each time, so changing it saves nothing. An
-evaluator holds an open database connection, so it cannot be pickled or deep-copied. It is not
-thread-safe: call it from one thread at a time.
+evaluator holds an open database connection, so it cannot be pickled or deep-copied; release it
+with [close][SRToolkit.evaluation.sr_evaluator.SR_evaluator.close] when done (a dropped evaluator
+loses only what was not committed). It is not thread-safe: call it from one thread at a time.
+
+## Checkpoints
+
+With ``checkpoint=path`` the evaluator writes the models and trace to that file as it goes, so a
+run that crashes, is killed or is stopped keeps what it evaluated: convert it to results with
+[SR_results.from_checkpoint][SRToolkit.evaluation.results.SR_results.from_checkpoint], or continue
+it with ``resume=True``. A resume with other settings than the run's (``X``, ``y``,
+``ground_truth``, the ranking and its settings, the constraints, ``symbol_library``,
+``default_constant``, ``seed``, ``max_evaluations``, ``success_threshold``) raises ``ValueError``
+naming them; the approach and the callbacks are not checked.
+
+A run continues from its last [Snapshot][SRToolkit.evaluation.model_store.Snapshot]: the approach's
+state between two steps, with the random and callback states. Approaches with the step interface
+whose state can be saved (see [SR_approach][SRToolkit.approaches.sr_approach.SR_approach]) take one
+every
+``snapshot_interval`` seconds (5 minutes by default) and when their loop ends, also after a stop or
+an interrupt; a crash or kill loses the work since the last one. Without a snapshot (no step
+interface or state, or a crash before the first one) a resume starts anew. A finished run (stopped
+for any reason but an interrupt) stays finished when resumed, with everything it evaluated.
+Snapshots may be pickled, so resume only checkpoints you trust.
 """
 
 import dataclasses
+import hashlib
+import json
 import logging
 import math
 import os
+import signal
+import threading
+import time
 import warnings
-from collections.abc import Callable, Mapping, Sequence
-from contextlib import nullcontext
+from collections.abc import Callable, Generator, Mapping, Sequence
+from contextlib import contextmanager, nullcontext
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -206,7 +223,7 @@ from SRToolkit.evaluation.callbacks import (
     ExprEvaluated,
     SRCallbacks,
 )
-from SRToolkit.evaluation.model_store import ModelStore
+from SRToolkit.evaluation.model_store import ModelStore, Snapshot, _capture_rngs
 from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.evaluation.results import SR_results
@@ -223,6 +240,7 @@ from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_toke
 from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
+from SRToolkit.utils.serialization import _to_json_safe
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import CheckResult, ModelResult, RankingSettings, Status
 
@@ -297,6 +315,19 @@ def evaluate_metric(
     except Exception as e:
         warnings.warn(f"[evaluate_metric] Error computing metric for '{''.join(expr_list)}': {e}")
         return float("nan")
+
+
+def _fingerprint_hash(value: Any, name: str) -> str:
+    # Hash of a fingerprint part: arrays by their bytes, objects with to_dict through it.
+    def encode(obj: Any) -> Any:
+        return obj.to_dict() if hasattr(obj, "to_dict") else _to_json_safe(obj, name)
+
+    if isinstance(value, np.ndarray):
+        array = np.ascontiguousarray(value)
+        data = f"{array.dtype}|{array.shape}|".encode() + array.tobytes()
+    else:
+        data = json.dumps(value, sort_keys=True, default=encode).encode()
+    return hashlib.blake2b(data, digest_size=16).hexdigest()
 
 
 def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstraint, ...]:
@@ -387,6 +418,8 @@ class SR_evaluator:
         description: str = "",
         reference_grammar: Grammar | None = None,
         checkpoint: str | os.PathLike | None = None,
+        resume: bool = False,
+        snapshot_interval: float | None = 300.0,
         **kwargs: Unpack[RankingSettings],
     ):
         """Evaluate expressions on data with a ranking function and collect the results.
@@ -450,9 +483,16 @@ class SR_evaluator:
             description: Free text about the task.
             reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
                 start from.
-            checkpoint: A file to create and store the models and trace in, committed as described
-                in [model_store][SRToolkit.evaluation.model_store]. ``None`` (default): they are
-                kept in memory.
+            checkpoint: A file to store the models and trace in, committed as described in
+                [model_store][SRToolkit.evaluation.model_store]; created, or continued with
+                ``resume=True`` (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``
+                (default): they are kept in memory.
+            resume: Continue the run saved in ``checkpoint`` from its last snapshot. Default
+                ``False``.
+            snapshot_interval: Seconds between snapshots during a run with a ``checkpoint`` (see
+                [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``: a snapshot only when
+                the step loop ends. Default ``300.0``. Not part of the fingerprint, so a resume may
+                change it.
             **kwargs: Settings from [RankingSettings][SRToolkit.utils.types.RankingSettings],
                 passed to the ranking function. A partial ``default_constant`` template is completed from
                 ``constant_bounds`` (as by ``BackgroundKnowledge``) before the ranking gets it.
@@ -466,10 +506,18 @@ class SR_evaluator:
                 Also raised as for
                 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
-                ``ranking_function`` of the wrong type.
-            ValueError: If ``max_evaluations`` is ``0``, or ``checkpoint`` is an empty path. If ``max_constants`` or ``max_expr_length``
-                is not an ``int`` or numpy integer (``bool`` is rejected), or is given, non-negative and different from the
-                limit of a constraint of its class in ``required_constraints`` (a negative setting
+                ``ranking_function`` of the wrong type. With a ``checkpoint`` (only then), also if
+                ``metadata``, a setting, the ranking or a constraint cannot be saved (see
+                [serialization][SRToolkit.utils.serialization]; settings may also hold objects with
+                a ``to_dict`` method). No file is then left behind.
+            ValueError: If ``max_evaluations`` is ``0``, ``snapshot_interval`` is not positive, or
+                ``checkpoint`` is an empty path. If
+                ``resume=True`` and ``checkpoint`` is ``None``, is not a checkpoint (or one of
+                another format version), or has a fingerprint that differs (the message names the
+                parameters). If
+                ``max_constants`` or ``max_expr_length`` is not an ``int`` or numpy integer
+                (``bool`` is rejected), or is given, non-negative and different from the limit of
+                a constraint of its class in ``required_constraints`` (a negative setting
                 adds nothing and never clashes); the message names the setting. Also raised as
                 for ``BackgroundKnowledge`` (e.g. a ``constant_bounds`` setting that is not finite
                 with ``lower < upper``, a ``default_constant`` setting with a ``label``, a
@@ -477,9 +525,10 @@ class SR_evaluator:
                 the ranking's ``setup`` for missing or malformed data (e.g. RMSE with neither ``y``
                 nor ``ground_truth``).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
-            FileExistsError: If a file exists at ``checkpoint``.
-            sqlite3.OperationalError: If the ``checkpoint`` file cannot be created (e.g. its
-                directory does not exist or is not writable).
+            FileExistsError: If a file exists at ``checkpoint`` and ``resume`` is ``False``.
+            FileNotFoundError: If ``resume=True`` and no file exists at ``checkpoint``.
+            sqlite3.OperationalError: If the ``checkpoint`` file cannot be created or opened (e.g.
+                its directory does not exist or is not writable).
 
         Attributes:
             X: The input data.
@@ -507,6 +556,10 @@ class SR_evaluator:
                 the requested expression.
             stop_reason: Why evaluation stopped (see the
                 [module docs][SRToolkit.evaluation.sr_evaluator]), or ``None`` while it runs.
+            checkpoint: The ``checkpoint`` passed, or ``None``.
+            snapshot_interval: The ``snapshot_interval`` passed.
+            resumed_from: The [Snapshot][SRToolkit.evaluation.model_store.Snapshot] a resumed
+                evaluator continues from, or ``None`` (a new run, or a checkpoint without one).
             default_constant: The run's default spec, complete:
                 [background_knowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 built from the ``default_constant`` and ``constant_bounds`` settings. The ranking
@@ -519,6 +572,7 @@ class SR_evaluator:
         self.ground_truth = ground_truth
         self._experiment_id: str = ""
         self.stop_reason: str | None = None
+        self._interrupted = False  # set by a signal caught by stop_on_signals
         self._current_best_error = float("inf")
 
         if symbol_library is None:
@@ -584,24 +638,219 @@ class SR_evaluator:
         self.X = X
         self.y = y
 
+        # The callbacks' saved state, restored before the first evaluation event after a resume.
+        self._callback_states: list[dict] | None = None
+        self.resumed_from: Snapshot | None = None
+        self._in_step = False  # inside se.step(): a signal takes effect when the step ends
+        self.checkpoint = checkpoint
+        if snapshot_interval is not None and not snapshot_interval > 0:
+            raise ValueError(f"[SR_evaluator] snapshot_interval must be positive or None, got {snapshot_interval!r}.")
+        self.snapshot_interval = snapshot_interval
+        if resume and checkpoint is None:
+            raise ValueError("[SR_evaluator] resume=True needs a checkpoint to resume.")
+        if checkpoint is not None:
+            # Computed before the store, so that unsaveable values leave no checkpoint file behind.
+            parts: dict[str, Any] = {
+                "X": X,
+                "y": y,
+                "ground_truth": None if ground_truth is None else _as_tokens(ground_truth, symbol_library),
+                "ranking_function": self.ranking,
+                "required_constraints": list(self._required_constraints),
+                "advisory_constraints": list(self._advisory_constraints),
+                "symbol_library": symbol_library,
+                "default_constant": self.default_constant,
+                "seed": seed,
+                "max_evaluations": max_evaluations,
+                "success_threshold": self.success_threshold,
+            }
+            parts.update((k, v) for k, v in ranking_settings.items() if k != "default_constant")
+            fingerprint = {name: _fingerprint_hash(value, name) for name, value in parts.items()}
+            self._results_header()  # raises TypeError for unsaveable metadata
+
         # Last, so that a failing constructor leaves no checkpoint file behind.
-        self._store = ModelStore(checkpoint)
+        self._store = ModelStore(checkpoint, "resume" if resume else "create")
         self.models = self._store.models
         self.trace = self._store.trace
+        self._started = time.monotonic()
+        self._stopped_at: float | None = None  # when evaluation stopped, which ends wall_time
+        self._earlier_time = 0.0  # wall_time of the run's earlier sessions
+        if checkpoint is None:
+            return
+        if resume:
+            saved = self._store.get_header("fingerprint", {})
+            changed = sorted(k for k in fingerprint.keys() | saved.keys() if fingerprint.get(k) != saved.get(k))
+            if changed:
+                self._store.close()
+                raise ValueError(
+                    f"[SR_evaluator] Cannot resume {os.fspath(checkpoint)!r}: these parameters differ from the "
+                    f"saved run: {', '.join(changed)}."
+                )
+            self.resumed_from = self._store.snapshot
+            if self.resumed_from is not None:
+                self._callback_states = self.resumed_from.callbacks
+            self._earlier_time = self._store.get_header("wall_time") or 0.0
+            saved_reason = self._store.get_header("stop_reason")
+            if saved_reason not in (None, "interrupted"):  # finished: kept whole, and stays stopped
+                self.stop_reason = saved_reason
+                self._stopped_at = self._started
+            else:
+                self._store.rewind()
+                self._store.set_header("stop_reason", None)
+            self._current_best_error = self._store.min_error
+        else:
+            self._store.set_header("fingerprint", fingerprint)
+        self._store.set_header("results", self._results_header())
+        self._store.commit()
+
+    def _results_header(self) -> dict[str, Any]:
+        # What SR_results.from_checkpoint needs besides the models and trace.
+        return {
+            "success_threshold": self.success_threshold,
+            "metadata": _to_json_safe(self.metadata, "metadata"),
+            "default_constant": self.default_constant.to_dict(),
+        }
 
     @property
     def should_stop(self) -> bool:
-        """Whether evaluation has stopped: ``stop_reason is not None``. Later calls to
-        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] warn and
-        return ``nan`` without being counted.
+        """Whether evaluation has stopped: ``stop_reason is not None``.
+
+        Later calls to [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+        warn and return ``nan`` without being counted. After a signal caught by
+        [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals], reading
+        it outside a [step][SRToolkit.evaluation.sr_evaluator.SR_evaluator.step] stops evaluation
+        with the reason ``"interrupted"``.
         """
+        if self._interrupted and not self._in_step and self.stop_reason is None:
+            self.stop("interrupted")
         return self.stop_reason is not None
+
+    @contextmanager
+    def step(self) -> Generator[None, None, None]:
+        """Defer an interrupt to the end of one step of an approach.
+
+        Inside the ``with`` block a signal caught by
+        [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals] does not stop
+        evaluation; the stop applies when the block ends (also with an exception). So the step's
+        candidates are all evaluated and told: without it, Ctrl-C after the 2nd of 5 candidates would
+        stop at the 3rd, the approach would be told 2, and its final snapshot would hold a state an
+        uninterrupted run never reaches, so a resumed run would differ from it. Other stops (budget,
+        threshold, callbacks, [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]) apply at
+        once, since they happen at the same call in every run. The default step loop of
+        [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] wraps each step in it.
+        """
+        self._in_step = True
+        try:
+            yield
+        finally:
+            self._in_step = False
+            if self._interrupted and self.stop_reason is None:
+                self.stop("interrupted")
+
+    @property
+    def snapshot_due(self) -> bool:
+        """Whether a snapshot is due: with a ``checkpoint``, at the first new model or call
+        ``snapshot_interval`` seconds or more after the last snapshot (or the start). Always
+        ``False`` without a ``checkpoint`` or with ``snapshot_interval=None``.
+        """
+        return (
+            self.checkpoint is not None
+            and self.snapshot_interval is not None
+            and self._store.snapshot_due(self.snapshot_interval)
+        )
+
+    def save_snapshot(self, state: bytes) -> None:
+        """Save a snapshot of the run, replacing the previous one, and commit.
+
+        The snapshot holds ``state``, the global random states (Python's ``random``, NumPy's and,
+        if PyTorch is imported, its CPU and CUDA states) and the callbacks' states, at the current
+        number of calls and models. Does nothing without a ``checkpoint``. Only the step loop of
+        [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] should call it, between two
+        steps, where ``state`` is the approach's whole search state: a resumed run always
+        continues with that loop.
+
+        Args:
+            state: The approach's state, as returned by its
+                [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state].
+
+        Raises:
+            TypeError: If a callback's state cannot be saved.
+            sqlite3.Error: If the commit fails (see
+                [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
+        """
+        if self.checkpoint is None:
+            return
+        # Callbacks not yet restored from the snapshot this run resumed from keep their saved state.
+        callbacks = self._callback_states if self._callback_states is not None else self._callbacks.get_state()
+        self._store.set_header("wall_time", self.wall_time)
+        self._store.save_snapshot(state, _capture_rngs(), callbacks)
+
+    @contextmanager
+    def stop_on_signals(self) -> Generator[None, None, None]:
+        """Stop evaluation on SIGINT (Ctrl-C) or SIGTERM while the ``with`` block runs.
+
+        The first signal stops evaluation with the reason ``"interrupted"`` at the next read of
+        ``should_stop`` or call to
+        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] outside a
+        [step][SRToolkit.evaluation.sr_evaluator.SR_evaluator.step], or at the end of the block, and
+        commits the checkpoint. A second signal raises ``KeyboardInterrupt`` at once.
+
+        Cluster schedulers send SIGTERM some time before they kill a job (30 s by default on SLURM):
+        if the current step ends in that time and the approach
+        [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots], the
+        job resumes without losing work.
+
+        The previous handlers are restored at the end of the block. Outside the main thread, where
+        Python cannot install signal handlers, the block runs without them.
+
+        Examples:
+            >>> import os
+            >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 3.0]))
+            >>> with se.stop_on_signals():
+            ...     os.kill(os.getpid(), signal.SIGINT)  # as Ctrl-C would
+            ...     se.should_stop
+            True
+            >>> se.stop_reason
+            'interrupted'
+
+        Raises:
+            KeyboardInterrupt: At a second signal.
+        """
+        # signal.signal raises ValueError outside the main thread, so run the block unprotected there.
+        if threading.current_thread() is not threading.main_thread():
+            yield
+            return
+
+        # Python runs a handler in the main thread between two bytecodes, so it can interrupt the
+        # evaluator anywhere, e.g. halfway through a store insert. It therefore only sets a flag;
+        # should_stop, evaluate_expr and the end of the block or of a step turn the flag into a
+        # stop at a point where the evaluator is consistent.
+        def handler(signum: int, frame: Any) -> None:
+            if self._interrupted:  # a second signal: the user insists, abort at once
+                raise KeyboardInterrupt
+            self._interrupted = True
+
+        # signal.signal returns the handler it replaces, kept to be restored at the end.
+        previous = {sig: signal.signal(sig, handler) for sig in (signal.SIGINT, signal.SIGTERM)}
+        try:
+            yield
+        finally:
+            # Runs on a normal end and on an exception (including the KeyboardInterrupt above).
+            for sig, old in previous.items():
+                # None: the old handler was not installed from Python; fall back to the default.
+                signal.signal(sig, signal.SIG_DFL if old is None else old)
+            if self._interrupted:
+                # A flag not yet turned into a stop (e.g. the search returned right after the
+                # signal) still records "interrupted" and commits; an earlier stop reason is kept.
+                self.stop("interrupted")
+                # Reset, so a later block or should_stop does not see this signal again.
+                self._interrupted = False
 
     def stop(self, reason: str) -> None:
         """Stop evaluation and record why, unless it has already stopped (the first reason is kept).
 
         An approach calls this when it ends its search with budget left, e.g. because its search
-        space is exhausted, so the results explain the early end.
+        space is exhausted, so the results explain the early end. The first stop saves ``reason``
+        and commits the checkpoint.
 
         Examples:
             >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
@@ -616,12 +865,45 @@ class SR_evaluator:
 
         Raises:
             ValueError: If ``reason`` is not a non-empty ``str``.
+            sqlite3.Error: If the commit fails (see
+                [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
         if not isinstance(reason, str) or not reason:
             raise ValueError(f"[SR_evaluator.stop] reason must be a non-empty str, got {reason!r}.")
         if self.stop_reason is None:
             self.stop_reason = reason
-            self._store.commit()
+            self._stopped_at = time.monotonic()
+            if self.checkpoint is not None:
+                self._store.set_header("stop_reason", reason)
+            self._commit()
+
+    def close(self) -> None:
+        """Commit and close the database of ``models`` and ``trace``.
+
+        Call it when done with the evaluator: a ``checkpoint`` file is then complete on its own,
+        without its ``-wal`` and ``-shm`` files. Collect the results first: afterwards every method that reads or writes ``models`` or ``trace`` raises
+        ``sqlite3.ProgrammingError``. Closing again does nothing.
+
+        Raises:
+            sqlite3.Error: If the final commit fails; the database is closed anyway, and the
+                checkpoint keeps what was committed before.
+        """
+        self._store.close()
+
+    def _commit(self) -> None:
+        # Commit with the wall time so far, so a checkpoint keeps it also after a crash.
+        if self.checkpoint is not None:
+            self._store.set_header("wall_time", self.wall_time)
+        self._store.commit()
+
+    @property
+    def wall_time(self) -> float:
+        """Seconds the run has taken: from the evaluator's creation until evaluation stopped, or
+        until now if it has not. A resumed run adds the time of its earlier sessions, saved in the
+        checkpoint.
+        """
+        end = time.monotonic() if self._stopped_at is None else self._stopped_at
+        return self._earlier_time + end - self._started
 
     @property
     def total_evaluations(self) -> int:
@@ -955,6 +1237,8 @@ class SR_evaluator:
             TypeError: If a spec in ``free_constants`` cannot be saved (see
                 [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]). Nothing is
                 then recorded or counted.
+            sqlite3.Error: If a commit of the checkpoint fails (see
+                [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
         specs = tuple(sorted(free_constants, key=lambda c: c.label or "")) if free_constants else None
         # Temporary: simplify() renumbers constants and drops their labels, so specs would no longer
@@ -982,6 +1266,10 @@ class SR_evaluator:
 
             expr_str = "".join(expr_list)
             spec_key = _spec_key(specs)
+            if self._callback_states is not None:
+                self._callbacks.set_state(self._callback_states)
+                self._callback_states = None
+
             found = self._store.lookup(expr_list, spec_key)
             if found is not None:
                 index, error, status = found
@@ -1001,6 +1289,8 @@ class SR_evaluator:
                 reason = self._callbacks.on_expr_evaluated(event)
                 if reason is not None:
                     self.stop(reason)
+                if self._store.commit_due:
+                    self._commit()
                 return error
 
             else:
@@ -1059,6 +1349,8 @@ class SR_evaluator:
                     reason = self._callbacks.on_best_expression(best_event)
                     if reason is not None:
                         self.stop(reason)
+                if self._store.commit_due:
+                    self._commit()
 
                 return error
 
@@ -1291,7 +1583,13 @@ class SR_evaluator:
     def get_results(
         self, approach_name: str = "", top_k: int = 20, results: "SR_results | None" = None
     ) -> "SR_results":
-        """Returns the results of the equation discovery/symbolic regression process/evaluation.
+        """Return the results of the evaluation.
+
+        Saves the [wall_time][SRToolkit.evaluation.sr_evaluator.SR_evaluator.wall_time] it reports
+        and commits the checkpoint first. It does not stop evaluation, so it can be called during a
+        run; a checkpoint records the run as finished only once evaluation stops.
+        [SR_approach.run][SRToolkit.approaches.sr_approach.SR_approach.run] stops it when the search
+        returns; after calling ``search`` directly, call ``stop`` yourself.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
@@ -1323,7 +1621,14 @@ class SR_evaluator:
         Returns:
             An instance of the SR_results object with the results of the evaluation. Its
             ``stop_reason`` is the evaluator's, or ``"returned"`` if evaluation has not stopped.
+
+        Raises:
+            sqlite3.Error: If the commit fails (see
+                [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
+        wall_time = self.wall_time  # read once: it still grows if evaluation has not stopped
+        if self.checkpoint is not None:
+            self._store.set_header("wall_time", wall_time)
         self._store.commit()
         if results is None:
             results = SR_results()
@@ -1338,5 +1643,5 @@ class SR_evaluator:
             self.default_constant,
             self.stop_reason or "returned",
         )
-
+        results.results[-1].wall_time = wall_time
         return results

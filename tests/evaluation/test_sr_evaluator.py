@@ -1,23 +1,32 @@
 import json
 import logging
 import math
+import os
+import random
 import re
+import shutil
+import signal
+import sqlite3
+import threading
 import warnings
+from contextlib import nullcontext
 from unittest.mock import ANY, MagicMock, patch
 
 import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from strategies import infix_expressions
+from strategies import SignalAfter, SteppedApproach, infix_expressions, result_dict, send_signal
 
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
 from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.evaluation import model_store
 from SRToolkit.evaluation.callbacks import (
     CallbackDispatcher,
     SRCallbacks,
 )
-from SRToolkit.evaluation.ranking import RankingFunction, RankingResult
+from SRToolkit.evaluation.model_store import ModelStore
+from SRToolkit.evaluation.ranking import RankingFunction, RankingResult, RMSERanking
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.expression_constraints import (
@@ -2305,3 +2314,545 @@ def _u_library():
     lib = SymbolLibrary.from_symbol_list(["-", "u-"], 1)
     lib.add_symbol("u", "lit", 5, "10.0")
     return lib
+
+
+# ── Checkpoints and snapshots (stages 2a, 2c) ─────────────────────────────────
+
+_CX = np.array([[1.0], [2.0], [3.0]])
+_CY = 2 * _CX[:, 0]
+# Models 0 (X_0), 1 (C*X_0, error ~0), a hit, 2 (invalid), 3 (X_0+C), a hit: trace [0, 1, 0, 2, 3, 1].
+_CALLS = [["X_0"], ["C", "*", "X_0"], ["X_0"], ["X_0", "X_0"], ["X_0", "+", "C"], ["C", "*", "X_0"]]
+_SCORED = []  # one entry per expression scored by a _CountingRMSE
+
+
+class _CountingRMSE(RMSERanking):
+    def score(self, expr, free_constants=None):
+        _SCORED.append(expr)
+        return super().score(expr, free_constants)
+
+
+def _ckpt_se(checkpoint=None, **kwargs):
+    # "mean" initialisation keeps fitted constants independent of the random state.
+    args = dict(seed=0, success_threshold=-1, ranking_function=_CountingRMSE(), initialization="mean")
+    args.update(kwargs)
+    return SR_evaluator(_CX, _CY, checkpoint=checkpoint, **args)
+
+
+def _evaluate(se, calls):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # calls after a stop
+        for expr in calls:
+            se.evaluate_expr(expr)
+
+
+def _snapshot(se):
+    return [m.to_dict() for m in se.models], list(se.trace), se.invalid
+
+
+def _saved_run(path, calls=_CALLS, **kwargs):
+    se = _ckpt_se(path, **kwargs)
+    _evaluate(se, calls)
+    se.close()
+
+
+def _straight(calls, **kwargs):
+    se = _ckpt_se(**kwargs)
+    _evaluate(se, calls)
+    return se
+
+
+class _StateLog(SRCallbacks):
+    def __init__(self, state=None):
+        self.log = []
+        self.seen = 0
+        self.state = state
+
+    def on_expr_evaluated(self, event):
+        self.seen += 1
+        self.log.append("eval")
+
+    def on_best_expression(self, event):
+        self.log.append("best")
+
+    def get_state(self):
+        return {"seen": self.seen} if self.state is None else self.state
+
+    def set_state(self, state):
+        self.log.append(("set_state", state))
+        self.seen = state["seen"]
+
+
+def _stepped(path=None, resume=False, signal_after=None, approach=None, **kwargs):
+    # One session of a SteppedApproach (batches of 2) run through SR_approach.run.
+    se = _ckpt_se(path, resume=resume, **kwargs)
+    approach = approach or SteppedApproach()
+    if signal_after is not None:
+        se.register_callbacks(SignalAfter(signal_after))
+    with se.stop_on_signals():
+        approach.run(se, seed=0)
+    return se, approach
+
+
+class TestCheckpoints:
+    def setup_method(self):
+        _SCORED.clear()
+
+    @pytest.mark.parametrize("signal_after", [3, 4], ids=["mid-step", "end-of-step"])
+    def test_resumed_run_equals_uninterrupted_run(self, tmp_path, signal_after):
+        straight, _ = _stepped(max_evaluations=10)
+        path = tmp_path / "run.sqlite"
+        first, _ = _stepped(path, signal_after=signal_after, max_evaluations=10)
+        assert (first.stop_reason, first.total_evaluations) == ("interrupted", 4)  # the step was completed
+        first.close()
+        np.random.seed(123)  # the resumed run must not depend on the random states left behind
+        random.seed(123)
+        se, approach = _stepped(path, resume=True, max_evaluations=10)
+        assert approach.started is False  # continued from the snapshot
+        assert _snapshot(se) == _snapshot(straight)
+        assert result_dict(se.get_results()[0]) == result_dict(straight.get_results()[0])
+
+    def test_crash_resumes_from_last_snapshot(self, tmp_path, monkeypatch):
+        # S3: models committed after the snapshot stay readable, but a resume cuts back to the snapshot.
+        now = [0.0]
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        _evaluate(se, _CALLS[:2])
+        se.save_snapshot(b"state")
+        now[0] = 30.0
+        _evaluate(se, _CALLS[2:4])  # a commit is due at the third call, the fourth stays pending
+        crash = tmp_path / "crash"
+        crash.mkdir()
+        for suffix in ("", "-wal", "-shm"):  # the files as a crash would leave them
+            if os.path.exists(f"{path}{suffix}"):
+                shutil.copy(f"{path}{suffix}", crash / f"run.sqlite{suffix}")
+        se.close()
+        assert SR_results.from_checkpoint(crash / "run.sqlite")[0].trace == [0, 1, 0]
+        resumed = _ckpt_se(crash / "run.sqlite", resume=True)
+        assert (resumed.resumed_from.state, resumed.resumed_from.num_calls) == (b"state", 2)
+        assert (list(resumed.trace), resumed.total_evaluations, resumed.stop_reason) == ([0, 1], 2, None)
+        assert SR_results.from_checkpoint(crash / "run.sqlite")[0].trace == [0, 1]  # rewound and committed
+
+    def test_resume_without_snapshot_starts_empty(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        _saved_run(path, _CALLS[:2])
+        se = _ckpt_se(path, resume=True)
+        assert (se.resumed_from, se.models, list(se.trace)) == (None, [], [])
+
+    @pytest.mark.parametrize(
+        "kwargs, approach, reason",
+        [
+            ({"max_evaluations": 4}, lambda: SteppedApproach(), "max_evaluations"),
+            ({"success_threshold": 100.0}, lambda: SteppedApproach(), "success_threshold"),
+            ({}, lambda: SteppedApproach(stop_after_asks=2, stop_with="done"), "done"),
+            ({}, lambda: SteppedApproach(stop_after_asks=2), "returned"),  # saved by get_results
+        ],
+        ids=["budget", "threshold", "approach-stop", "returned"],
+    )
+    def test_resumed_finished_run_stays_stopped(self, tmp_path, kwargs, approach, reason):
+        path = tmp_path / "run.sqlite"
+        first, _ = _stepped(path, approach=approach(), **kwargs)
+        expected = first.get_results()[0].to_dict()
+        assert expected["stop_reason"] == reason
+        first.close()
+        se, _ = _stepped(path, resume=True, approach=approach(), **kwargs)
+        assert se.stop_reason == reason
+        assert se.get_results()[0].to_dict() == expected  # nothing more was evaluated
+
+    def test_wall_time_ends_at_the_stop_and_adds_up_across_sessions(self, tmp_path, monkeypatch):
+        now = [100.0]
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])  # the same module as the evaluator's
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        now[0] = 110.0
+        se.stop("interrupted")
+        now[0] = 150.0  # after the stop: not counted
+        assert (se.wall_time, se.get_results()[0].wall_time) == (10.0, 10.0)
+        se.close()
+        now[0] = 200.0
+        se = _ckpt_se(path, resume=True)
+        now[0] = 205.0
+        assert se.wall_time == 15.0  # still running: until now, plus the first session
+        se.stop("done")
+        se.close()
+        assert SR_results.from_checkpoint(path)[0].wall_time == 15.0
+
+    def test_snapshot_saves_wall_time(self, tmp_path, monkeypatch):
+        now = [100.0]
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        now[0] = 105.0
+        se.save_snapshot(b"state")
+        se.close()  # as after a crash: not stopped, no results taken
+        assert SR_results.from_checkpoint(path)[0].wall_time == 5.0
+
+    def test_resume_restores_best_error(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        _evaluate(se, [["X_0", "+", "C"], ["X_0"]])  # best error sqrt(2/3)
+        se.save_snapshot(b"state")
+        se.close()
+        se = _ckpt_se(path, resume=True)
+        cb = _StateLog()
+        se.register_callbacks(cb)
+        se.evaluate_expr(["C"])  # error sqrt(8/3): not a new best
+        first = list(cb.log)
+        se.evaluate_expr(["C", "*", "X_0"])  # error ~0
+        assert (first, sorted(cb.log[len(first) :])) == (["eval"], ["best", "eval"])
+
+    def test_save_snapshot_records_state_and_callbacks(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        cb = _StateLog()
+        se.register_callbacks(cb)
+        _evaluate(se, _CALLS[:2])
+        se.save_snapshot(b"state")
+        snap = ModelStore(path, "read").snapshot
+        assert (snap.state, snap.num_calls, snap.num_models, snap.callbacks) == (
+            b"state",
+            2,
+            2,
+            CallbackDispatcher([cb]).get_state(),
+        )
+
+    def test_snapshots_need_a_checkpoint(self, tmp_path, monkeypatch):
+        now = [0.0]
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
+        in_memory, on_disk = _ckpt_se(), _ckpt_se(tmp_path / "run.sqlite")
+        _evaluate(in_memory, _CALLS[:1])
+        _evaluate(on_disk, _CALLS[:1])
+        now[0] = 299.0
+        assert (in_memory.snapshot_due, on_disk.snapshot_due) == (False, False)
+        now[0] = 300.0  # the default interval
+        assert (in_memory.snapshot_due, on_disk.snapshot_due) == (False, True)
+        assert (in_memory.save_snapshot(b"state"), in_memory.resumed_from) == (None, None)
+
+    def test_snapshot_interval(self, tmp_path, monkeypatch):
+        now = [0.0]
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
+        every_10s = _ckpt_se(tmp_path / "a.sqlite", snapshot_interval=10)
+        _evaluate(every_10s, _CALLS[:1])
+        now[0] = 10.0
+        assert every_10s.snapshot_due
+        never, _ = _stepped(tmp_path / "b.sqlite", snapshot_interval=None, max_evaluations=4)
+        now[0] = 1e9
+        assert not never.snapshot_due
+        assert ModelStore(tmp_path / "b.sqlite", "read").snapshot.num_calls == 4  # taken when the loop ended
+
+    @pytest.mark.parametrize("interval", [0, -1.0, float("nan")])
+    def test_snapshot_interval_must_be_positive(self, interval):
+        with pytest.raises(ValueError, match="snapshot_interval"):
+            _ckpt_se(snapshot_interval=interval)
+
+    @pytest.mark.parametrize("resumed", [False, True], ids=["new-run", "resumed-run"])
+    def test_snapshot_before_the_first_event_saves_the_callback_states(self, tmp_path, resumed):
+        # A new run saves the callbacks' current states; a resumed run, whose callbacks have not
+        # been restored yet, keeps the states it resumed with.
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        se.register_callbacks(_StateLog())
+        if resumed:
+            _evaluate(se, _CALLS[:2])
+            se.save_snapshot(b"state")  # seen = 2
+            se.close()
+            se = _ckpt_se(path, resume=True)
+            se.register_callbacks(_StateLog())  # seen = 0 until restored
+        se.save_snapshot(b"again")
+        callbacks = ModelStore(path, "read").snapshot.callbacks
+        assert [c["state"] for c in callbacks] == [{"seen": 2 if resumed else 0}]
+
+    @pytest.mark.parametrize("snapshot", [False, True], ids=["no-snapshot", "calls-after-snapshot"])
+    def test_resumed_finished_run_is_kept_whole(self, tmp_path, snapshot):
+        # A finished run is not cut back to its snapshot, nor emptied without one (a search approach).
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        _evaluate(se, _CALLS[:2])
+        if snapshot:
+            se.save_snapshot(b"state")
+        _evaluate(se, _CALLS[2:4])
+        se.stop("done")
+        se.close()
+        se = _ckpt_se(path, resume=True)
+        assert (se.stop_reason, se.total_evaluations) == ("done", 4)
+        se.close()
+        assert SR_results.from_checkpoint(path)[0].stop_reason == "done"
+
+    def test_callback_state_restored_from_snapshot(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        se.register_callbacks(_StateLog())
+        _evaluate(se, _CALLS[:2])
+        se.save_snapshot(b"state")  # seen = 2
+        _evaluate(se, _CALLS[2:4])
+        se.close()
+        se = _ckpt_se(path, resume=True)
+        saved, extra = _StateLog(), _StateLog()  # the second has no saved state
+        se.register_callbacks(saved)
+        se.register_callbacks(extra)
+        se.evaluate_expr(["X_0"])
+        assert (saved.log, extra.log) == ([("set_state", {"seen": 2}), "eval"], ["eval"])
+
+    @pytest.mark.parametrize(
+        "changed, name",
+        [
+            ({"X": _CX + 1}, r"\bX\b"),
+            ({"y": _CY + 1}, r"\by\b"),
+            ({"ground_truth": ["C", "*", "X_0"]}, "ground_truth"),
+            ({"ranking_function": _CountingRMSE()}, "ranking_function"),
+            ({"max_iter": 50}, "max_iter"),
+            ({"required_constraints": [MaxTreeDepth(10)]}, "required_constraints"),
+            ({"advisory_constraints": [MaxTreeDepth(10)]}, "advisory_constraints"),
+            ({"symbol_library": SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=1)}, "symbol_library"),
+            ({"constant_bounds": (-1.0, 1.0)}, "default_constant"),
+            ({"seed": 1}, "seed"),
+            ({"max_evaluations": 7}, "max_evaluations"),  # S6: no unmarked extended runs
+            ({"success_threshold": 0.5}, "success_threshold"),
+        ],
+        ids=[
+            "X",
+            "y",
+            "ground_truth",
+            "ranking",
+            "setting",
+            "required",
+            "advisory",
+            "symbols",
+            "default_constant",
+            "seed",
+            "max_evaluations",
+            "success_threshold",
+        ],
+    )
+    def test_changed_fingerprint_part_raises(self, tmp_path, changed, name):
+        path = tmp_path / "run.sqlite"
+        base = {"X": _CX, "y": _CY, "seed": 0}
+        se = SR_evaluator(**base, checkpoint=path)
+        se.evaluate_expr(["X_0"])
+        se.close()
+        with pytest.raises(ValueError, match=name):
+            SR_evaluator(**{**base, **changed}, checkpoint=path, resume=True)
+        SR_evaluator(**base, checkpoint=path, resume=True).close()  # the file is kept
+
+    @pytest.mark.parametrize(
+        "make_file, kwargs, error, match",
+        [
+            (None, {"checkpoint": None}, ValueError, "checkpoint"),
+            (None, {}, FileNotFoundError, None),
+            (lambda path: path.write_text("keep"), {}, ValueError, "checkpoint"),
+        ],
+        ids=["no-checkpoint", "missing-file", "not-a-checkpoint"],
+    )
+    def test_resume_errors(self, tmp_path, make_file, kwargs, error, match):
+        path = tmp_path / "run.sqlite"
+        if make_file is not None:
+            make_file(path)
+        with pytest.raises(error, match=match):
+            _ckpt_se(**{"checkpoint": path, **kwargs}, resume=True)
+
+    @pytest.mark.parametrize(
+        "kwargs, name",
+        [({"metadata": {"f": object()}}, "metadata"), ({"extra_setting": object()}, "extra_setting")],
+        ids=["metadata", "setting"],
+    )
+    def test_unsaveable_metadata_or_setting_with_checkpoint_raises(self, tmp_path, kwargs, name):
+        path = tmp_path / "run.sqlite"
+        with pytest.raises(TypeError, match=name):  # the message names what cannot be saved
+            _ckpt_se(path, **kwargs)
+        assert sorted(p.name for p in tmp_path.iterdir()) == []  # no file, -wal or -shm
+        _ckpt_se(**kwargs).close()  # accepted without a checkpoint
+
+    def test_unsaveable_callback_state_raises_at_snapshot(self, tmp_path):
+        se = _ckpt_se(tmp_path / "run.sqlite")
+        se.register_callbacks(_StateLog(state={"f": object()}))
+        se.evaluate_expr(["X_0"])
+        with pytest.raises(TypeError):
+            se.save_snapshot(b"state")
+
+    def test_close_leaves_a_complete_checkpoint(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        _evaluate(se, _CALLS[:3])
+        expected = se.get_results()[0].to_dict()
+        se.close()
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["run.sqlite"]
+        # as get_results gave, but the run never stopped, so it reads as unfinished
+        assert SR_results.from_checkpoint(path)[0].to_dict() == {**expected, "stop_reason": "interrupted"}
+        assert se.close() is None
+
+    @pytest.mark.parametrize(
+        "use",
+        [
+            lambda se: len(se.models),
+            lambda se: list(se.trace),
+            lambda se: se.evaluate_expr(["X_0"]),
+            lambda se: se.get_model(["X_0"]),
+            lambda se: se.get_metric(["X_0"]),
+            lambda se: se.get_results(),
+        ],
+        ids=["models", "trace", "evaluate_expr", "get_model", "get_metric", "get_results"],
+    )
+    def test_use_after_close_raises(self, tmp_path, use):
+        se = _ckpt_se(tmp_path / "run.sqlite")
+        se.evaluate_expr(["X_0"])
+        se.close()
+        with pytest.raises(sqlite3.ProgrammingError):
+            use(se)
+
+
+class TestSteps:
+    @pytest.mark.parametrize(
+        "end, raises",
+        [(lambda: None, nullcontext()), (lambda: _raise_boom(), pytest.raises(RuntimeError, match="boom"))],
+        ids=["normal-end", "exception"],
+    )
+    def test_step_defers_first_signal_to_block_end(self, tmp_path, end, raises):
+        se = _ckpt_se(tmp_path / "run.sqlite")
+        with raises, se.stop_on_signals():
+            with se.step():
+                se.evaluate_expr(["X_0"])
+                send_signal(signal.SIGINT)
+                assert se.should_stop is False
+                se.evaluate_expr(["X_0", "+", "C"])  # still counted
+                end()
+        assert (se.stop_reason, se.total_evaluations) == ("interrupted", 2)
+
+    def test_signal_outside_a_step_waits_for_the_end_of_the_next_step(self, tmp_path):
+        se = _ckpt_se(tmp_path / "run.sqlite")
+        with se.stop_on_signals():
+            send_signal(signal.SIGINT)
+            with se.step():
+                se.evaluate_expr(["X_0"])
+                assert se.should_stop is False
+            assert se.stop_reason == "interrupted"
+        assert se.total_evaluations == 1
+
+    @pytest.mark.parametrize(
+        "kwargs, stop",
+        [({"max_evaluations": 1}, lambda se: None), ({}, lambda se: se.stop("done"))],
+        ids=["budget", "stop"],
+    )
+    def test_step_does_not_defer_other_stops(self, kwargs, stop):
+        se = _ckpt_se(**kwargs)
+        with se.step():
+            se.evaluate_expr(["X_0"])
+            stop(se)
+            assert se.should_stop is True
+            with pytest.warns(UserWarning):
+                assert np.isnan(se.evaluate_expr(["X_0", "+", "C"]))
+        assert se.total_evaluations == 1
+
+    def test_second_signal_inside_step_raises(self, tmp_path):
+        se = _ckpt_se(tmp_path / "run.sqlite")
+        with pytest.raises(KeyboardInterrupt), se.stop_on_signals(), se.step():
+            send_signal(signal.SIGINT)
+            send_signal(signal.SIGINT)
+        assert se.stop_reason == "interrupted"
+
+
+def _raise_boom():
+    raise RuntimeError("boom")
+
+
+# ── Stopping on signals (stage 2b) ─────────────────────────────────────────────
+
+
+def _sentinel_handler(signum, frame):
+    raise AssertionError("the previous handler was called")
+
+
+class TestStopOnSignals:
+    @pytest.mark.parametrize(
+        "sig, safe_point",
+        [
+            (signal.SIGINT, lambda se: se.should_stop),
+            (signal.SIGINT, lambda se: se.evaluate_expr(["C", "*", "X_0"])),  # nan, not counted
+            (signal.SIGINT, lambda se: None),  # the end of the block
+            (signal.SIGTERM, lambda se: se.should_stop),
+        ],
+        ids=["should_stop", "evaluate_expr", "end-of-block", "sigterm"],
+    )
+    def test_first_signal_stops_at_next_safe_point(self, tmp_path, sig, safe_point):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # a call after the stop
+            with se.stop_on_signals():
+                se.evaluate_expr(["X_0"])
+                send_signal(sig)
+                assert se.stop_reason is None  # the handler only sets a flag
+                safe_point(se)
+        assert (se.stop_reason, se.total_evaluations) == ("interrupted", 1)
+        saved = SR_results.from_checkpoint(path)[0]  # the writer is still open: the stop committed
+        assert (saved.trace, saved.stop_reason) == ([0], "interrupted")
+
+    @pytest.mark.parametrize(
+        "between", [lambda se: None, lambda se: se.should_stop], ids=["back-to-back", "after-a-safe-point"]
+    )
+    def test_second_signal_raises_keyboard_interrupt(self, tmp_path, between):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        with pytest.raises(KeyboardInterrupt):
+            with se.stop_on_signals():
+                se.evaluate_expr(["X_0"])
+                send_signal(signal.SIGINT)
+                between(se)
+                send_signal(signal.SIGINT)
+        assert se.stop_reason == "interrupted"  # the pending stop is applied on the way out
+        assert SR_results.from_checkpoint(path)[0].stop_reason == "interrupted"
+
+    def test_signal_after_a_stop_keeps_the_first_reason(self, tmp_path):
+        se = _ckpt_se(tmp_path / "run.sqlite")
+        with pytest.raises(KeyboardInterrupt):
+            with se.stop_on_signals():
+                se.stop("done")
+                send_signal(signal.SIGINT)
+                assert (se.should_stop, se.stop_reason) == (True, "done")
+                send_signal(signal.SIGINT)
+        assert se.stop_reason == "done"
+
+    def _raise(self):
+        raise RuntimeError("boom")
+
+    @pytest.mark.parametrize(
+        "body, raises",
+        [
+            (lambda self: None, nullcontext()),
+            (lambda self: self._raise(), pytest.raises(RuntimeError, match="boom")),
+            (lambda self: (send_signal(signal.SIGINT), send_signal(signal.SIGINT)), pytest.raises(KeyboardInterrupt)),
+        ],
+        ids=["normal-exit", "exception", "second-signal"],
+    )
+    def test_handlers_restored_after_block(self, tmp_path, body, raises):
+        se = _ckpt_se(tmp_path / "run.sqlite")
+        old = {sig: signal.signal(sig, _sentinel_handler) for sig in (signal.SIGINT, signal.SIGTERM)}
+        try:
+            with raises:
+                with se.stop_on_signals():
+                    installed = (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM))
+                    body(self)
+            assert _sentinel_handler not in installed
+            assert (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM)) == (
+                _sentinel_handler,
+                _sentinel_handler,
+            )
+        finally:
+            for sig, handler in old.items():
+                signal.signal(sig, handler)
+
+    def test_block_in_worker_thread_runs_without_handlers(self):
+        se = _ckpt_se()
+        before = signal.getsignal(signal.SIGINT)
+        errors = []
+
+        def work():
+            try:
+                with se.stop_on_signals():
+                    se.evaluate_expr(["X_0"])
+            except Exception as e:  # reported below
+                errors.append(e)
+
+        worker = threading.Thread(target=work)
+        worker.start()
+        worker.join()
+        assert (errors, list(se.trace), signal.getsignal(signal.SIGINT)) == ([], [0], before)

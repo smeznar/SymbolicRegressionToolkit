@@ -137,6 +137,36 @@ class SRCallbacks(ABC):
         """
         pass
 
+    def get_state(self) -> dict:
+        """Return the runtime state to save in a checkpoint, so a resumed run continues from it.
+
+        The evaluator saves it with each snapshot of its checkpoint (see
+        [Checkpoints][SRToolkit.evaluation.sr_evaluator]) and, in a resumed run, passes it to
+        [set_state][SRToolkit.evaluation.callbacks.SRCallbacks.set_state] of the matching callback
+        (see [CallbackDispatcher.set_state][SRToolkit.evaluation.callbacks.CallbackDispatcher.set_state]).
+        Configuration belongs in [to_dict][SRToolkit.evaluation.callbacks.SRCallbacks.to_dict],
+        not here.
+
+        Returns:
+            A dict that ``json.dumps`` accepts; otherwise saving the snapshot raises ``TypeError``. The
+            default is ``{}``.
+        """
+        return {}
+
+    def set_state(self, state: dict) -> None:
+        """Restore the runtime state saved in an earlier session.
+
+        In a resumed run the evaluator calls it once, with what
+        [get_state][SRToolkit.evaluation.callbacks.SRCallbacks.get_state] returned, just before the
+        first evaluation event after the resume, so after ``on_experiment_start`` (see
+        [Checkpoints][SRToolkit.evaluation.sr_evaluator]). A callback without saved state is not
+        called. The default does nothing.
+
+        Args:
+            state: The saved state.
+        """
+        pass
+
     def to_dict(self) -> dict:
         """Serialise this callback to a JSON-safe dictionary.
 
@@ -274,6 +304,28 @@ class CallbackDispatcher:
         reasons = [_stop_reason(cb, cb.on_best_expression(event)) for cb in self._callbacks]
         return next((r for r in reasons if r is not None), None)
 
+    def get_state(self) -> list[dict]:
+        """Return the state of every callback, in order.
+
+        Returns:
+            One ``{"callback_class": <import path>, "state": <get_state()>}`` per callback.
+        """
+        return [{"callback_class": cb.to_dict()["callback_class"], "state": cb.get_state()} for cb in self._callbacks]
+
+    def set_state(self, states: list[dict]) -> None:
+        """Restore the states saved by an earlier dispatcher's ``get_state``.
+
+        The state at each position goes to the callback at the same position if its import path
+        (``callback_class``) is the same; other states are ignored, and callbacks without a state
+        are not called.
+
+        Args:
+            states: The saved states.
+        """
+        for cb, saved in zip(self._callbacks, states):
+            if saved["callback_class"] == cb.to_dict()["callback_class"]:
+                cb.set_state(saved["state"])
+
     def on_experiment_start(self, event: ExperimentEvent) -> None:
         """Dispatch to all callbacks.
 
@@ -296,6 +348,9 @@ class CallbackDispatcher:
 
 class ProgressBarCallback(SRCallbacks):
     """Displays a tqdm progress bar that updates after each expression evaluation.
+
+    The bar shows the event's ``evaluation_number``, so in a resumed run it continues from the
+    calls made before.
 
     Examples:
         >>> cb = ProgressBarCallback(desc="My search")
@@ -320,7 +375,7 @@ class ProgressBarCallback(SRCallbacks):
 
     def on_expr_evaluated(self, event: ExprEvaluated) -> bool | None:
         if self.pbar is not None:
-            self.pbar.update(1)
+            self.pbar.update(event.evaluation_number - self.pbar.n)
         return None
 
     def on_experiment_end(self, event: ExperimentEvent, results: EvalResult) -> None:
@@ -399,6 +454,9 @@ class TimeLimitCallback(SRCallbacks):
     limit is exceeded, so the search may run slightly past ``time_limit`` depending on how long a
     single evaluation takes.
 
+    In a resumed run the limit spans all sessions: the time used up to the last snapshot is
+    restored from the checkpoint. Time after that snapshot in a session that crashed is not counted.
+
     Examples:
         >>> cb = TimeLimitCallback(time_limit=60.0)
         >>> cb.time_limit
@@ -433,6 +491,21 @@ class TimeLimitCallback(SRCallbacks):
             if time.monotonic() - self._start_time >= self.time_limit:
                 return "time_limit"
         return True
+
+    def get_state(self) -> dict:
+        """Return ``{"elapsed": seconds}``, the time counted so far, or ``{}`` before the timer starts."""
+        if self._start_time is None:
+            return {}
+        return {"elapsed": time.monotonic() - self._start_time}
+
+    def set_state(self, state: dict) -> None:
+        """Continue from the saved ``"elapsed"`` time; does nothing without it.
+
+        Afterwards the elapsed time is the saved one plus the time since this call, whether or not
+        ``on_experiment_start`` was called.
+        """
+        if "elapsed" in state:
+            self._start_time = time.monotonic() - state["elapsed"]
 
     def to_dict(self) -> dict:
         return {**super().to_dict(), "time_limit": self.time_limit}

@@ -194,18 +194,6 @@ class EDHiE(SR_approach):
         """
         return "never" if self._pretrained else "once"
 
-    def prepare(self) -> None:
-        """Reset per-experiment state.
-
-        The trained HVAE weights are preserved across experiments; only the evolutionary search
-        is re-initialised on each call to
-        [search][SRToolkit.approaches.EDHiE.EDHiE.search].
-
-        Returns:
-            None
-        """
-        pass
-
     def adapt(
         self,
         X: np.ndarray,

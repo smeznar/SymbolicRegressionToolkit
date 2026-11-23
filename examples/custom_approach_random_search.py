@@ -19,11 +19,6 @@ class RandomSearch(SR_approach):
         # approach in result files and progress tables.
         super().__init__(ApproachConfig(name="RandomSearch"))
 
-    def prepare(self):
-        # Called once before search to set up any internal state (e.g. loading models). RandomSearch is
-        # stateless, so there is nothing to do here.
-        pass
-
     def search(self, sr_evaluator, seed=None):
         if seed is not None:
             np.random.seed(seed)

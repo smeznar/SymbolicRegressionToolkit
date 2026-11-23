@@ -42,6 +42,16 @@ Penalties are not part of the evaluator: a custom
 [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] can hold constraints and combine
 their ``amount``s into its score.
 
+## Checks that raise
+
+A check that raises an exception, or returns something other than a ``CheckResult`` (treated as a
+``TypeError``), makes the evaluator emit a ``UserWarning`` and count it as failed, with
+[CheckResult.error][SRToolkit.utils.types.CheckResult] set to ``"<ExceptionType>: <message>"``. For
+a required constraint the status is then ``"error"`` with the ``status_detail``
+``"<ClassName>.<pre_check|post_check> raised <ExceptionType>: <message>"``. For an advisory
+constraint the result is recorded in ``advisory_violations`` like any failed check; leave results
+with ``error`` set out when counting violations.
+
 ## Input forms of pre_check
 
 ``pre_check`` accepts a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree, and each

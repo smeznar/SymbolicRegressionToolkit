@@ -26,6 +26,7 @@ into [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] (8 by d
 ``required_constraints``. A ``MaxConstants`` / ``MaxTokens`` already in the list takes the place
 of its limit (a different non-negative limit is a ``ValueError``), and a negative limit adds
 nothing.
+
 The advisory constraints of the background knowledge only record violations. The evaluator from
 [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] gets the background
 knowledge and the required constraints, and so does an approach's
@@ -47,16 +48,16 @@ from ``ground_truth`` with the variable and target names.
 [to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict] writes format 4: the background
 knowledge under ``"background_knowledge"``, the required constraints under
 ``"required_constraints"``, and the answer (``ground_truth``, ``ground_truth_constants``) at the
-top level, outside the background knowledge. [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also
-reads formats 2 and 3 (symbol library and samplers at the top level, ``constant_bounds`` /
-``max_constants`` / ``max_expr_length`` in ``kwargs``) and gives the same objective as before;
-saving the result writes format 4.
+top level, outside the background knowledge.
+[from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also reads formats 2 and 3 of
+earlier releases, with the same objective; saving the result writes format 4.
 """
 
 import json
 import os
-import time
+import warnings
 from collections.abc import Iterable, Mapping
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, cast
 
@@ -66,6 +67,7 @@ from typing_extensions import Unpack
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
+from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _remove_checkpoint
 from SRToolkit.evaluation.ranking import build_ranking
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import (
@@ -200,11 +202,9 @@ class SR_dataset:
         advisory_constraints: Hints about the search space: violations are recorded, the score is
             not changed; ``None`` for none.
         ground_truth_constants: Specs for the labelled constants of ``ground_truth`` (see
-            [Constant][SRToolkit.utils.free_constants.Constant]); constants without one use the
-            dataset's ``default_constant``. ``y`` can be computed from the
-            ground truth only if every free constant in it is labelled and fixed by a spec; BED
-            samples the ground truth's constants from these specs. Part of the answer, not of the
-            background knowledge. ``None`` for none.
+            [Constant][SRToolkit.utils.free_constants.Constant]); others use ``default_constant``.
+            ``y`` can be computed from the ground truth only if all its constants are fixed; BED
+            samples them from these specs. Part of the answer. ``None`` for none.
         **kwargs: Ranking settings (see [RankingSettings][SRToolkit.utils.types.RankingSettings]),
             passed on to the evaluator.
 
@@ -212,11 +212,12 @@ class SR_dataset:
         ValueError: If ``X`` has a different number of columns than the symbol library has
             variables; ``max_evaluations`` is ``0``; ``max_constants`` / ``max_expr_length`` is not an integer
             or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``ground_truth`` is an ndarray
-            (pass a BED behaviour matrix as ``bed_gt``); ``ground_truth_constants`` is given
+            (pass a BED behaviour matrix to the BED ranking); ``ground_truth_constants`` is given
             without ``ground_truth`` or does not fit it (see
             [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]); an
-            ``aux_data`` key is not a valid file name; a required constraint does not fit the symbol library (raised by its ``setup``); or as
-            for [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
+            ``aux_data`` key is not a valid file name; a required constraint does not fit the symbol
+            library (raised by its ``setup``); or as for
+            [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
         TypeError: If ``required_constraints`` holds something that is not an
             ``ExpressionConstraint``, or as for ``BackgroundKnowledge``.
 
@@ -508,6 +509,10 @@ class SR_dataset:
         callbacks: SRCallbacks | CallbackDispatcher | list[SRCallbacks] | None = None,
         verbose: bool = True,
         adaptation_path: str | None = None,
+        checkpoint_dir: str | os.PathLike | None = None,
+        resume: bool = False,
+        keep_checkpoint: bool = False,
+        snapshot_interval: float | None = 300.0,
     ) -> SR_results:
         """Run an SR approach on this dataset and collect the results.
 
@@ -515,9 +520,34 @@ class SR_dataset:
         [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]. Experiment ``i``
         (from 0) is seeded with ``seed + i``, where ``seed`` is ``initial_seed`` or the dataset seed; it
         is unseeded if both are ``None``. Approaches with ``adaptation_scope="once"`` adapt before the
-        first experiment, those with ``"experiment"`` before each one;
-        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] gets ``X``, ``background_knowledge``
-        and ``required_constraints``.
+        first experiment, those with ``"experiment"`` before each one.
+
+        With ``checkpoint_dir``, each experiment keeps its models and trace in the checkpoint
+        ``checkpoint_dir/{dataset_name}/{approach_name}/exp_{seed}.sqlite`` (the layout of an
+        [ExperimentGrid][SRToolkit.experiments.ExperimentGrid]; see
+        [Checkpoints][SRToolkit.evaluation.sr_evaluator]), and its search, not its adaptation, runs
+        inside [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals]:
+
+        - when every experiment has finished, their checkpoints are deleted (or, with
+          ``keep_checkpoint=True``, kept and compacted, each into one self-contained file);
+        - if an experiment is interrupted (Ctrl-C or SIGTERM), no further experiments run: its
+          results are added with stop reason ``"interrupted"``, all checkpoints are kept, and a
+          ``UserWarning`` says where;
+        - if a search raises, all checkpoints are kept (committed and closed), and the exception
+          propagates.
+
+        With ``resume=True``, the call continues where an earlier one stopped: finished experiments
+        are read from their checkpoints as they are (without adapting, running or calling
+        callbacks), the interrupted one continues from its last snapshot (or starts anew, with a
+        ``UserWarning``, if the approach does not
+        [support snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]), and
+        the rest run. A finished run is not extended, and its settings are not checked against this
+        call's. Without
+        ``checkpoint_dir``, nothing is written to disk and no signal handlers are installed.
+
+        Every experiment's results, with all their models, are kept in memory until the call
+        returns; for long runs, use an [ExperimentGrid][SRToolkit.experiments.ExperimentGrid],
+        which saves each experiment's results to its own file.
 
         Args:
             sr_approach: The approach to run.
@@ -532,14 +562,32 @@ class SR_dataset:
             adaptation_path: For ``adaptation_scope="once"``: the state file passed to
                 [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load]; ``None``
                 adapts without saving.
+            checkpoint_dir: Directory for the experiments' checkpoints, created if missing;
+                ``None`` (default) keeps them in memory.
+            resume: Continue the experiments whose checkpoints exist in ``checkpoint_dir``.
+                Default ``False``: an existing checkpoint raises ``FileExistsError``.
+            keep_checkpoint: Keep the checkpoints of finished experiments, e.g. to inspect all their
+                models later. Default ``False``.
+            snapshot_interval: Seconds between snapshots in an experiment with a checkpoint;
+                ``None``: only when the approach's step loop ends. Default ``300.0``.
 
         Returns:
-            ``results`` (or a new ``SR_results``) with one entry per experiment.
+            ``results`` (or a new ``SR_results``) with one entry per experiment run.
 
-        Examples:
-            >>> results = dataset.evaluate_approach(my_approach, num_experiments=5)  # doctest: +SKIP
+        Raises:
+            ValueError: If ``checkpoint_dir`` is given and the experiments are unseeded (``initial_seed``
+                and the dataset seed are ``None``): a checkpoint is named by its seed. Also as for
+                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] with ``resume=True``
+                when an interrupted experiment continues (e.g. its checkpoint is of a run with other
+                settings).
+            FileExistsError: If ``resume`` is ``False`` and an experiment's checkpoint exists.
         """
         base_seed = self.seed if initial_seed is None else initial_seed
+        if checkpoint_dir is not None and base_seed is None:
+            raise ValueError(
+                "[SR_dataset.evaluate_approach] checkpoint_dir needs seeded experiments: pass initial_seed or "
+                "give the dataset a seed."
+            )
 
         if results is None:
             results = SR_results()
@@ -554,12 +602,35 @@ class SR_dataset:
                 callbacks = CallbackDispatcher(callbacks=callbacks)
 
         dataset_name = self.dataset_name
-
+        checkpoints: list[str] = []
+        adapted = False
         for experiment in range(num_experiments):
-            if verbose:
-                print(f"Running experiment {experiment + 1}/{num_experiments}")
             # Experiment i gets base_seed + i, as job i of an ExperimentGrid does.
             seed = None if base_seed is None else base_seed + experiment
+            checkpoint = None
+            continued = False
+            if checkpoint_dir is not None:
+                checkpoint = os.path.join(checkpoint_dir, dataset_name, sr_approach.name, f"exp_{seed}.sqlite")
+                os.makedirs(os.path.dirname(checkpoint), exist_ok=True)
+                checkpoints.append(checkpoint)
+                if resume and os.path.exists(checkpoint):
+                    if _finished(checkpoint):  # from an earlier call: read it, run nothing
+                        if verbose:
+                            print(f"Experiment {experiment + 1}/{num_experiments}: read from its checkpoint")
+                        results += SR_results.from_checkpoint(checkpoint, sr_approach.name, top_k)
+                        continue
+                    if sr_approach.supports_snapshots:
+                        continued = True
+                    else:
+                        warnings.warn(
+                            f"[SR_dataset.evaluate_approach] {sr_approach.name} cannot continue from a snapshot, "
+                            f"so experiment {experiment + 1}/{num_experiments} starts afresh and replaces its "
+                            f"checkpoint {checkpoint}.",
+                            UserWarning,
+                        )
+                        _remove_checkpoint(checkpoint)
+            if verbose:
+                print(f"Running experiment {experiment + 1}/{num_experiments}")
 
             event = ExperimentEvent(
                 dataset_name=dataset_name,
@@ -571,25 +642,39 @@ class SR_dataset:
             if callbacks is not None:
                 callbacks.on_experiment_start(event)
 
-            sr_approach.prepare()
-
-            if sr_approach.adaptation_scope == "once" and experiment == 0:
+            if sr_approach.adaptation_scope == "once" and not adapted:
                 self.adapt_or_load(sr_approach, adaptation_path)
+                adapted = True
             elif sr_approach.adaptation_scope == "experiment":
                 sr_approach.adapt(self.X, self.background_knowledge, self.required_constraints)
 
-            evaluator = self.create_evaluator(seed=seed)
-            evaluator._experiment_id = f"{dataset_name}_{sr_approach.name}_{seed}"
-            evaluator.register_callbacks(callbacks)
-            start_time = time.monotonic()
-            sr_approach.search(evaluator, seed)
-            elapsed = time.monotonic() - start_time
-            experiment_results = evaluator.get_results(sr_approach.name, top_k)
-            experiment_results.results[-1].wall_time = elapsed
-            results += experiment_results
+            evaluator = self.create_evaluator(
+                seed=seed, checkpoint=checkpoint, resume=continued, snapshot_interval=snapshot_interval
+            )
+            try:
+                evaluator._experiment_id = f"{dataset_name}_{sr_approach.name}_{seed}"
+                evaluator.register_callbacks(callbacks)
+                with evaluator.stop_on_signals() if checkpoint is not None else nullcontext():
+                    sr_approach.run(evaluator, seed)
+                results += evaluator.get_results(sr_approach.name, top_k)
+            finally:
+                evaluator.close()
 
             if callbacks is not None:
                 callbacks.on_experiment_end(event, results.results[-1])
+            if evaluator.stop_reason == "interrupted":
+                warnings.warn(
+                    f"[SR_dataset.evaluate_approach] Experiment {experiment + 1}/{num_experiments} was interrupted; "
+                    f"its checkpoint is kept at {checkpoint}. Call again with resume=True to continue.",
+                    UserWarning,
+                )
+                return results
+
+        for checkpoint in checkpoints:
+            if keep_checkpoint:
+                _compact_checkpoint(checkpoint)
+            else:
+                _remove_checkpoint(checkpoint)
         return results
 
     def ranking_settings(self) -> dict[str, Any]:
@@ -630,7 +715,7 @@ class SR_dataset:
         the state there with
         [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state],
         creating its parent directories. An existing file is loaded as is; it is not checked against
-        this dataset. Does not check ``adaptation_scope`` or call ``prepare``.
+        this dataset. Does not check ``adaptation_scope``.
 
         Args:
             sr_approach: The approach to adapt.
@@ -640,9 +725,6 @@ class SR_dataset:
         Raises:
             NotImplementedError: If ``path`` is set and the approach does not implement
                 ``load_adapted_state`` or ``save_adapted_state`` (whichever is needed).
-
-        Examples:
-            >>> dataset.adapt_or_load(my_approach, "states/my_approach.pt")  # doctest: +SKIP
         """
         if path is not None and not force and os.path.exists(path):
             sr_approach.load_adapted_state(path)
@@ -654,7 +736,14 @@ class SR_dataset:
                 os.makedirs(dir_name, exist_ok=True)
             sr_approach.save_adapted_state(path)
 
-    def create_evaluator(self, metadata: dict[str, Any] | None = None, seed: int | None = None) -> SR_evaluator:
+    def create_evaluator(
+        self,
+        metadata: dict[str, Any] | None = None,
+        seed: int | None = None,
+        checkpoint: str | os.PathLike | None = None,
+        resume: bool = False,
+        snapshot_interval: float | None = 300.0,
+    ) -> SR_evaluator:
         """Create an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] for this dataset.
 
         The evaluator gets the parts of the background knowledge (its ``constraints`` as advisory
@@ -667,14 +756,22 @@ class SR_dataset:
             metadata: Metadata to attach to the evaluator; ``dataset_name`` and ``dataset_metadata`` are
                 added to it in place.
             seed: Seed of the evaluator; ``None`` uses the dataset seed.
+            checkpoint: The evaluator's checkpoint file; ``None`` (default) keeps its models in
+                memory.
+            resume: Continue the run saved in ``checkpoint``. Default ``False``.
+            snapshot_interval: Seconds between the evaluator's snapshots; ``None``: only when the
+                approach's step loop ends. Default ``300.0``.
 
         Returns:
             The configured evaluator.
 
         Raises:
             ValueError: If the ranking rejects the dataset (e.g. RMSE with neither ``y`` nor
-                ``ground_truth``).
+                ``ground_truth``), ``snapshot_interval`` is not positive, or as for
+                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] with ``resume=True``.
             ImportError: If an import-path ``ranking_function`` cannot be imported.
+            FileExistsError: As for ``SR_evaluator`` with a ``checkpoint``.
+            FileNotFoundError: As for ``SR_evaluator`` with ``resume=True``.
 
         Examples:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
@@ -705,6 +802,9 @@ class SR_dataset:
             named_constants=self.background_knowledge.named_constants,
             description=self.background_knowledge.description,
             reference_grammar=self.background_knowledge.reference_grammar,
+            checkpoint=checkpoint,
+            resume=resume,
+            snapshot_interval=snapshot_interval,
             # The limits are already in required_constraints; -1 adds none of the evaluator's own.
             max_constants=-1,
             max_expr_length=-1,
@@ -793,10 +893,9 @@ class SR_dataset:
         X = _sample_inputs(self.samplers, n)
         if self.ranking_function == "bed":
             return X
-        if self.ground_truth is None or isinstance(self.ground_truth, np.ndarray):
+        if self.ground_truth is None:
             raise ValueError(
-                f"[SR_dataset.resample] Dataset '{self.dataset_name}' has no token-list ground truth — "
-                "cannot evaluate y. ground_truth must be a list of tokens or a Node."
+                f"[SR_dataset.resample] Dataset '{self.dataset_name}' has no ground truth to compute y from."
             )
 
         parameters = _ground_truth_parameters(
@@ -888,16 +987,11 @@ class SR_dataset:
             else:
                 kwargs_out[k] = v
 
-        # Serialise ground truth (symbolic only — ndarray behaviour matrices are rejected at
-        # construction and belong to the ranking function instead).
-        if self.ground_truth is None:
-            ground_truth_out = None
-        elif isinstance(self.ground_truth, list):
-            ground_truth_out = self.ground_truth
-        elif isinstance(self.ground_truth, Node):
+        ground_truth_out: list[str] | None
+        if isinstance(self.ground_truth, Node):
             ground_truth_out = self.ground_truth.to_list(symbol_library=self.symbol_library)
         else:
-            raise ValueError("[SR_dataset.to_dict] Ground truth must be either a list or a Node")
+            ground_truth_out = self.ground_truth
 
         # The test and aux splits: which arrays each holds and where it comes from (the train
         # split's source is carried top-level as `data_source`).
@@ -936,8 +1030,7 @@ class SR_dataset:
 
         Arrays come from the data cache, or are generated from their ``data_source``. Formats 2 and 3
         are migrated (see the [module docstring][SRToolkit.dataset.sr_dataset]). For
-        ``d = ds.to_dict()``, ``from_dict(d).to_dict() == d``. A missing ``ground_truth_constants``
-        key loads as ``None``. Load ``.zip`` archives with
+        ``d = ds.to_dict()``, ``from_dict(d).to_dict() == d``. Load ``.zip`` archives with
         [share.load][SRToolkit.share.load].
 
         Args:

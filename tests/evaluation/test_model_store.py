@@ -1,16 +1,18 @@
 import gc
 import operator
+import random
 import sqlite3
 import threading
 import weakref
 
 import numpy as np
 import pytest
+from strategies import result_dict
 
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation import model_store
 from SRToolkit.evaluation.callbacks import SRCallbacks
-from SRToolkit.evaluation.model_store import ModelStore
+from SRToolkit.evaluation.model_store import ModelStore, Snapshot
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.types import ModelResult
@@ -214,36 +216,40 @@ class TestCheckpoint:
             (1, 1.0, "ok"),
         )
 
-    def test_commits_every_1000_new_models(self, tmp_path):
+    def test_commit_due_after_1000_new_models(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: 0.0)
         path = tmp_path / "run.sqlite"
         store = _filled(999, path)
         store.add_call(0)  # cache hits do not count toward the 1000
-        assert _committed(path) == (0, 0)
+        assert not store.commit_due
         store.add(["X_999"], "", _model("X_999"))
-        assert _committed(path) == (1000, 1001)
+        assert store.commit_due
+        assert len(ModelStore(path, "read").models) == 0  # the store never commits on its own
+        store.commit()
+        assert not store.commit_due
         for i in range(1000, 1999):  # counted again from the last commit
             store.add([f"X_{i}"], "", _model(f"X_{i}"))
-        assert _committed(path) == (1000, 1001)
+        assert not store.commit_due
         store.add(["X_1999"], "", _model("X_1999"))
-        assert _committed(path) == (2000, 2001)
+        assert store.commit_due
 
-    def test_commits_30_seconds_after_the_last_commit(self, tmp_path, monkeypatch):
+    def test_commit_due_30_seconds_after_last_commit(self, tmp_path, monkeypatch):
         now = [0.0]
         monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
-        path = tmp_path / "run.sqlite"
-        store = _filled(1, path)
-        now[0] = 29.0
-        store.add_call(0)
-        assert _committed(path) == (0, 0)
+        store = ModelStore(tmp_path / "run.sqlite")  # opened at t = 0
         now[0] = 30.0
-        store.add_call(0)  # a cache hit commits too once the time is up
-        assert _committed(path) == (1, 3)
-        now[0] = 59.0  # 29 s after the last commit
-        store.add(["X_1"], "", _model("X_1"))
-        assert _committed(path) == (1, 3)
+        assert not store.commit_due  # 30 s since opening, but nothing new
+        store.add(["X_0"], "", _model("X_0"))
+        assert store.commit_due
+        store.commit()
+        now[0] = 59.0
+        store.add_call(0)
+        assert not store.commit_due  # 29 s since the last commit
         now[0] = 60.0
-        store.add(["X_2"], "", _model("X_2"))
-        assert _committed(path) == (3, 5)
+        assert store.commit_due
+        store.commit()
+        now[0] = 90.0
+        assert not store.commit_due  # 30 s since the last commit, but nothing new
 
     @pytest.mark.parametrize(
         "budget, callback, last_call, reason",
@@ -275,8 +281,12 @@ class TestCheckpoint:
 
     # Reason: implied (the store does not tie the evaluator to the thread that created it, as the
     # old lists did not; e.g. an approach evaluating from a worker thread).
-    def test_evaluator_works_from_another_thread(self, tmp_path):
-        se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=tmp_path / "run.sqlite")
+    @pytest.mark.parametrize("resume", [False, True], ids=["created", "resumed"])
+    def test_evaluator_works_from_another_thread(self, tmp_path, resume):
+        path = tmp_path / "run.sqlite"
+        if resume:
+            SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path).close()
+        se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path, resume=resume)
         worker = threading.Thread(target=se.evaluate_expr, args=(["X_0"],))
         worker.start()
         worker.join()
@@ -287,7 +297,7 @@ class TestCheckpoint:
             se = SR_evaluator(_X2, _y2, seed=0, success_threshold=-1, checkpoint=checkpoint)
             for expr in (["C", "*", "X_0"], ["X_0", "+", "C"], ["C", "*", "X_0"], ["X_0", "X_0"]):
                 se.evaluate_expr(expr)
-            return [m.to_dict() for m in se.models], list(se.trace), se.invalid, se.get_results()[0].to_dict()
+            return [m.to_dict() for m in se.models], list(se.trace), se.invalid, result_dict(se.get_results()[0])
 
         assert run(tmp_path / "run.sqlite") == run(None)
 
@@ -310,3 +320,330 @@ def test_dropped_evaluator_frees_its_store():
         assert store() is None
     finally:
         gc.enable()
+
+
+# ── Modes, header, close, snapshots (checkpoint stages 2a, 2c) ─────────────────────────
+
+
+def _saved(path) -> None:
+    # A closed checkpoint with the calls X_0 (error 0), X_1 (error 1), bad (invalid), X_0: trace [0, 1, 2, 0].
+    store = ModelStore(path)
+    store.add(["X_0"], "", _model("X_0", 0.0))
+    store.add(["X_1"], "", _model("X_1", 1.0))
+    store.add(["bad"], "", _model("bad", np.inf, status="invalid"))
+    store.add_call(0)
+    store.close()
+
+
+def _write_text(path):
+    path.write_text("keep")
+
+
+def _write_other_version(path):
+    store = ModelStore(path)
+    store.set_header("format_version", 999)
+    store.close()
+
+
+def _write_other_sqlite(path):
+    with sqlite3.connect(path) as con:
+        con.execute("CREATE TABLE t (x)")
+
+
+class TestOpenModes:
+    @pytest.mark.parametrize(
+        "make_file, use_path, mode, error, match",
+        [
+            (None, False, "resume", ValueError, "mode"),
+            (None, False, "read", ValueError, "mode"),
+            (_saved, True, "append", ValueError, "mode"),
+            (None, True, "resume", FileNotFoundError, None),
+            (None, True, "read", FileNotFoundError, None),
+            (_write_text, True, "resume", ValueError, "checkpoint"),
+            (_write_text, True, "read", ValueError, "checkpoint"),
+            (_write_other_sqlite, True, "resume", ValueError, "checkpoint"),
+            (_write_other_version, True, "read", ValueError, "format version 999"),
+        ],
+        ids=[
+            "none-resume",
+            "none-read",
+            "bad-mode",
+            "missing-resume",
+            "missing-read",
+            "text-resume",
+            "text-read",
+            "other-sqlite",
+            "other-version",
+        ],
+    )
+    def test_open_errors(self, tmp_path, make_file, use_path, mode, error, match):
+        path = tmp_path / "run.sqlite"
+        if make_file is not None:
+            make_file(path)
+        before = path.read_bytes() if path.exists() else None
+        with pytest.raises(error, match=match):
+            ModelStore(path if use_path else None, mode)
+        assert (path.read_bytes() if path.exists() else None) == before  # never changes or deletes a file
+
+    def test_read_mode_sees_committed_data_and_never_blocks_writer(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        writer = _filled(2, path)
+        writer.commit()
+        writer.add(["X_2"], "", _model("X_2", 2.0))  # pending
+        reader = ModelStore(path, "read")
+        assert (reader.models, list(reader.trace)) == ([_model("X_0", 0.0), _model("X_1", 1.0)], [0, 1])
+        with pytest.raises(sqlite3.OperationalError):
+            reader.add(["X_9"], "", _model("X_9"))
+        with pytest.raises(sqlite3.OperationalError):
+            reader.add_call(0)
+        with pytest.raises(sqlite3.OperationalError):
+            reader.set_header("a", 1)
+        with pytest.raises(sqlite3.OperationalError):
+            reader.save_snapshot(b"state", b"rngs", [])
+        with pytest.raises(sqlite3.OperationalError):
+            reader.rewind()
+        writer.commit()  # not blocked by the open reader
+        assert len(reader.models) == 3
+        reader.commit()
+        reader.close()
+
+    def test_consistent_read_sees_one_state(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        writer = _filled(2, path)
+        writer.commit()
+        reader = ModelStore(path, "read")
+        with reader.consistent_read():
+            assert len(reader.models) == 2
+            writer.add(["X_2"], "", _model("X_2", 2.0))
+            writer.commit()  # not blocked, but not seen inside the block
+            assert (len(reader.models), list(reader.trace)) == (2, [0, 1])
+        assert len(reader.models) == 3
+        reader.close()
+
+
+class TestHeader:
+    def test_header_round_trips_through_commit(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        store = ModelStore(path)
+        reader = ModelStore(path, "read")
+        assert store.get_header("a", 7) == 7
+        store.set_header("a", {"x": (1, 2)})
+        assert store.get_header("a") == {"x": [1, 2]}  # as json.loads gives it, before the commit too
+        assert reader.get_header("a", 7) == 7
+        store.commit()
+        assert reader.get_header("a", 7) == {"x": [1, 2]}
+        store.set_header("a", None)
+        store.commit()
+        assert (store.get_header("a", 7), reader.get_header("a", 7)) == (7, 7)
+
+    def test_set_header_rejects_unsaveable_value(self):
+        store = ModelStore()
+        store.set_header("a", 1)
+        with pytest.raises(TypeError, match="JSON"):
+            store.set_header("a", object())
+        assert store.get_header("a") == 1
+
+
+class _FailingCommits:
+    # A connection whose commits fail while fail[0] is set (a full disk); everything else is delegated.
+    def __init__(self, con, fail):
+        object.__setattr__(self, "_con", con)
+        object.__setattr__(self, "_fail", fail)
+
+    def execute(self, sql, *args):
+        if self._fail[0] and sql.strip().upper().startswith(("COMMIT", "END")):
+            raise sqlite3.OperationalError("database or disk is full")
+        return self._con.execute(sql, *args)
+
+    def commit(self):
+        if self._fail[0]:
+            raise sqlite3.OperationalError("database or disk is full")
+        return self._con.commit()
+
+    def __getattr__(self, name):
+        return getattr(self._con, name)
+
+    def __setattr__(self, name, value):
+        setattr(self._con, name, value)
+
+    def __enter__(self):
+        return self._con.__enter__()
+
+    def __exit__(self, *exc):
+        return self._con.__exit__(*exc)
+
+
+class _InterruptAfterCommit:
+    # A connection that raises KeyboardInterrupt right after its next COMMIT, as a signal there would.
+    def __init__(self, con):
+        object.__setattr__(self, "_con", con)
+        object.__setattr__(self, "armed", False)
+
+    def execute(self, sql, *args):
+        result = self._con.execute(sql, *args)
+        if self.armed and sql == "COMMIT":
+            object.__setattr__(self, "armed", False)
+            raise KeyboardInterrupt
+        return result
+
+    def __getattr__(self, name):
+        return getattr(self._con, name)
+
+
+class TestCommitAndClose:
+    def test_close_after_interrupt_between_commit_and_begin(self, tmp_path, monkeypatch):
+        connect = sqlite3.connect
+        monkeypatch.setattr(sqlite3, "connect", lambda *a, **kw: _InterruptAfterCommit(connect(*a, **kw)))
+        path = tmp_path / "run.sqlite"
+        store = _filled(2, path)
+        store._con.armed = True
+        with pytest.raises(KeyboardInterrupt):
+            store.commit()  # committed, but no new transaction was begun
+        store.close()
+        assert len(ModelStore(path, "read").models) == 2
+
+    @pytest.mark.parametrize("trigger", ["commit", "close"])
+    def test_failed_commit_rolls_back_and_closes(self, tmp_path, monkeypatch, trigger):
+        fail = [False]
+        connect = sqlite3.connect
+        monkeypatch.setattr(sqlite3, "connect", lambda *a, **kw: _FailingCommits(connect(*a, **kw), fail))
+        path = tmp_path / "run.sqlite"
+        store = _filled(2, path)
+        store.commit()
+        store.add(["X_2"], "", _model("X_2"))
+        fail[0] = True
+        with pytest.raises(sqlite3.Error):
+            getattr(store, trigger)()
+        fail[0] = False
+        with pytest.raises(RuntimeError):
+            store.lookup(["X_0"], "")
+        with pytest.raises(RuntimeError):
+            store.commit()
+        assert len(ModelStore(path, "read").models) == 2  # the committed models stay
+        assert len(ModelStore(path, "resume").models) == 2  # and can be resumed
+
+    def test_close_completes_the_file_and_blocks_use(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        store = _filled(2, path)
+        models = store.models
+        store.close()
+        assert not (tmp_path / "run.sqlite-wal").exists()
+        assert not (tmp_path / "run.sqlite-shm").exists()
+        assert (ModelStore(path, "read").models, list(ModelStore(path, "read").trace)) == (
+            [_model("X_0", 0.0), _model("X_1", 1.0)],
+            [0, 1],
+        )
+        with pytest.raises(sqlite3.ProgrammingError):
+            store.lookup(["X_0"], "")
+        with pytest.raises(sqlite3.ProgrammingError):
+            store.add_call(0)
+        with pytest.raises(sqlite3.ProgrammingError):
+            len(models)
+        assert store.close() is None  # closing again does nothing
+
+
+class _FailingSchema:
+    # A connection that fails writing the header after the schema (e.g. a full disk), when the
+    # file, its -wal and its -shm exist; everything else is delegated.
+    def __init__(self, con):
+        self._con = con
+
+    def execute(self, sql, *args):
+        if sql.startswith("INSERT INTO header"):
+            raise sqlite3.OperationalError("database or disk is full")
+        return self._con.execute(sql, *args)
+
+    def __getattr__(self, name):
+        return getattr(self._con, name)
+
+
+def test_failed_create_removes_the_file(tmp_path, monkeypatch):
+    connect = sqlite3.connect
+    monkeypatch.setattr(sqlite3, "connect", lambda *a, **kw: _FailingSchema(connect(*a, **kw)))
+    with pytest.raises(sqlite3.OperationalError):
+        ModelStore(tmp_path / "run.sqlite")
+    assert list(tmp_path.iterdir()) == []  # no file, -wal or -shm
+
+
+class TestSnapshots:
+    def test_save_snapshot_replaces_and_commits(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        store = _filled(2, path)
+        store.save_snapshot(b"a", b"r", [])
+        store.add(["X_2"], "", _model("X_2", 2.0))
+        store.save_snapshot(b"b", b"r", [{"callback_class": "c", "state": {"n": 1}}])
+        expected = Snapshot(b"b", b"r", [{"callback_class": "c", "state": {"n": 1}}], 3, 3)
+        assert (store.snapshot, ModelStore(path, "read").snapshot) == (expected, expected)  # committed
+
+    def test_save_snapshot_rejects_unsaveable_callbacks(self, tmp_path):
+        store = _filled(1, tmp_path / "run.sqlite")
+        store.save_snapshot(b"a", b"r", [])
+        with pytest.raises(TypeError):
+            store.save_snapshot(b"b", b"r", [{"state": object()}])
+        assert store.snapshot == Snapshot(b"a", b"r", [], 1, 1)
+
+    @pytest.mark.parametrize(
+        "with_snapshot, models, trace, next_index",
+        [(True, [_model("X_0", 0.0), _model("X_1", 1.0)], [0, 1, 0], 2), (False, [], [], 0)],
+        ids=["with-snapshot", "without-snapshot"],
+    )
+    def test_rewind_cuts_back_to_snapshot(self, tmp_path, with_snapshot, models, trace, next_index):
+        path = tmp_path / "run.sqlite"
+        store = _filled(2, path)
+        store.add_call(0)
+        if with_snapshot:
+            store.save_snapshot(b"s", b"r", [])  # at 3 calls and 2 models
+        store.add(["X_2"], "", _model("X_2", 2.0))
+        store.add_call(1)
+        store.close()
+        resumed = ModelStore(path, "resume")
+        resumed.rewind()
+        assert (resumed.models, list(resumed.trace), resumed.lookup(["X_2"], "")) == (models, trace, None)
+        reader = ModelStore(path, "read")  # rewind commits
+        assert (reader.models, list(reader.trace)) == (models, trace)
+        assert resumed.add(["X_9"], "", _model("X_9")) == next_index
+
+    def test_snapshot_due_after_interval_with_something_new(self, tmp_path, monkeypatch):
+        now = [0.0]
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
+        store = _filled(1000, tmp_path / "run.sqlite")
+        assert (store.commit_due, store.snapshot_due(300)) == (True, False)  # new models do not count
+        store.commit()
+        now[0] = 299.0
+        assert not store.snapshot_due(300)
+        now[0] = 300.0
+        assert (store.snapshot_due(300), store.snapshot_due(301)) == (True, False)  # a commit is not a snapshot
+        store.save_snapshot(b"s", b"r", [])
+        now[0] = 900.0
+        assert not store.snapshot_due(300)  # nothing new since the snapshot
+        store.add_call(0)
+        assert store.snapshot_due(300) and not store.snapshot_due(601)  # counted from the snapshot
+
+    @pytest.mark.parametrize(
+        "errors, expected",
+        [([], np.inf), ([3.0, np.inf, 1.0], 1.0), ([np.inf], np.inf)],
+        ids=["empty", "smallest", "only-invalid"],
+    )
+    def test_min_error(self, errors, expected):
+        store = ModelStore()
+        for i, error in enumerate(errors):
+            store.add([f"X_{i}"], "", _model(f"X_{i}", error))
+        assert store.min_error == expected
+
+
+@pytest.mark.parametrize(
+    "draw",
+    [
+        lambda: random.random(),
+        lambda: float(np.random.random()),
+        lambda: float(pytest.importorskip("torch").rand(1)),
+    ],
+    ids=["random", "numpy", "torch"],
+)
+def test_rng_round_trip(draw):
+    # Private helpers, tested directly: the torch state is not reachable without a torch approach.
+    draw()
+    saved = model_store._capture_rngs()
+    first = draw()
+    model_store._restore_rngs(saved)
+    assert draw() == first

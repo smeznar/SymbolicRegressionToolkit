@@ -4,7 +4,7 @@ title: Implementing a Custom Approach
 
 # Implementing a Custom Approach
 
-All SR approaches subclass [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] and implement two abstract methods: `prepare()` and `search()`. Optionally, override `adapt()` when your approach benefits from a pre-training or warm-up phase.
+All SR approaches subclass [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] and implement `search()`, or the step interface `start()`, `ask()` and `tell()` (see the [module docs][SRToolkit.approaches.sr_approach]). Optionally, override `adapt()` when your approach benefits from a pre-training or warm-up phase.
 
 ## Minimal example
 
@@ -24,9 +24,6 @@ class RandomSearch(SR_approach):
     def __init__(self, batch_size: int = 50):
         super().__init__(RandomSearchConfig(batch_size=batch_size))
         self.batch_size = batch_size
-
-    def prepare(self):
-        pass  # stateless — nothing to reset
 
     def search(self, sr_evaluator: SR_evaluator, seed: int | None = None):
         rng = np.random.default_rng(seed)

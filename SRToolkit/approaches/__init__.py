@@ -17,9 +17,9 @@ import types as _types
 from typing import Any
 
 from .ProGED import ProGED
-from .sr_approach import ApproachConfig, SR_approach
+from .sr_approach import ApproachConfig, Candidate, SR_approach
 
-__all__ = ["SR_approach", "ProGED", "ApproachConfig", "EDHiE", "EDHiEConfig"]
+__all__ = ["SR_approach", "Candidate", "ProGED", "ApproachConfig", "EDHiE", "EDHiEConfig"]
 
 _LAZY_EDHIE = ("EDHiE", "EDHiEConfig")
 _INSTALL_HINT = (

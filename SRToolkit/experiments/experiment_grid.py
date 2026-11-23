@@ -7,7 +7,7 @@ Provides three public classes:
 - [ExperimentJob][SRToolkit.experiments.ExperimentJob] — one atomic experiment: a single dataset ×
   approach × seed triple. Can be run in-process or dispatched to a CLI worker.
 - [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] — a full cross-product grid of datasets and
-  approaches.  Manages serialization, parallelism via HPC command files, progress tracking, and
+  approaches. Manages serialization, parallelism via HPC command files, progress tracking, and
   result loading.
 """
 
@@ -15,7 +15,6 @@ import dataclasses
 import json
 import os
 import shlex
-import time
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +24,7 @@ from SRToolkit.bundle._relocate import _auto_bind, _class_refs, _import_class
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
+from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _remove_checkpoint
 from SRToolkit.evaluation.results import SR_results
 
 
@@ -109,11 +109,8 @@ class ExperimentInfo:
     expressions to keep, and — for approaches with ``adaptation_scope="once"`` — where
     the pre-adapted state is stored.
 
-    [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] builds these in memory inside
-    [build_job][SRToolkit.experiments.ExperimentGrid.build_job] — both
-    [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs] and the ``run_job`` CLI
-    derive the seed and result path from the grid plus the (dataset, approach, seed)
-    identifiers, so no per-job ``info`` files are written to disk.
+    [ExperimentGrid.build_job][SRToolkit.experiments.ExperimentGrid.build_job] builds these; you need one
+    only to run an [ExperimentJob][SRToolkit.experiments.ExperimentJob] yourself.
 
     Examples:
         >>> info = ExperimentInfo(seed=42, result_path="/results/exp_42.json")
@@ -127,25 +124,34 @@ class ExperimentInfo:
 
     Attributes:
         seed: Random seed passed to the evaluator and the approach's ``search()`` method.
-        result_path: File path where the result JSON will be written.  If a directory is
+        result_path: File path where the result JSON will be written. If a directory is
             passed to [ExperimentJob][SRToolkit.experiments.ExperimentJob], the filename
             ``exp_{seed}.json`` is appended automatically.
         top_k: Number of top-ranked expressions to retain in the result. Default ``20``.
-        adapted_state_path: Path to the pre-adapted state for ``"once"``-scope approaches; its
-            parent directories are created when the state is saved. ``None`` means the approach
-            will adapt from scratch on every run and the state will not be saved.
+        adapted_state_path: Path to the adapted state of a ``"once"``-scope approach; its parent
+            directories are created when the state is saved. ``None``: adapt without saving.
+        keep_checkpoint: Keep the job's checkpoint after its result is saved, compacted into one
+            self-contained file, e.g. to inspect all its models later. Default ``False``: it is
+            deleted.
+        snapshot_interval: Seconds between the job's snapshots (see
+            [Checkpoints][SRToolkit.evaluation.sr_evaluator]); ``None``: only when the approach's
+            step loop ends. Default ``300.0``.
     """
 
     seed: int
     result_path: str
     top_k: int = 20
     adapted_state_path: str | None = None
+    keep_checkpoint: bool = False
+    snapshot_interval: float | None = 300.0
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-safe dictionary.
 
         Returns:
-            A flat dictionary with keys ``seed``, ``result_path``, ``top_k``, and ``adapted_state_path``, suitable for passing to [from_dict][SRToolkit.experiments.ExperimentInfo.from_dict].
+            A flat dictionary with keys ``seed``, ``result_path``, ``top_k``, ``adapted_state_path``,
+            ``keep_checkpoint`` and ``snapshot_interval``, suitable for passing to
+            [from_dict][SRToolkit.experiments.ExperimentInfo.from_dict].
         """
         return dataclasses.asdict(self)
 
@@ -155,8 +161,9 @@ class ExperimentInfo:
         produced by [to_dict][SRToolkit.experiments.ExperimentInfo.to_dict].
 
         Args:
-            d: Dictionary with keys ``seed``, ``result_path``, ``top_k``, and
-                ``adapted_state_path``.
+            d: Dictionary with keys ``seed``, ``result_path``, ``top_k``, ``adapted_state_path``
+                and, optionally, ``keep_checkpoint`` (default ``False``) and ``snapshot_interval``
+                (default ``300.0``).
 
         Returns:
             The reconstructed [ExperimentInfo][SRToolkit.experiments.ExperimentInfo].
@@ -167,31 +174,21 @@ class ExperimentInfo:
 class ExperimentJob:
     """A single atomic experiment: one dataset × one approach × one seed.
 
-    An ``ExperimentJob`` is built from three components:
-
-    - **dataset**: the dataset to evaluate on — an ``SR_dataset`` instance, a path to a
-      ``SR_dataset.to_dict()`` JSON file, or the dict itself.
-    - **approach**: the SR approach — an ``SR_approach`` instance, a path to an
-      ``ApproachConfig.to_dict()`` JSON file, or the dict itself.
-    - **info**: job metadata — an [ExperimentInfo][SRToolkit.experiments.ExperimentInfo] instance,
-      a path to an ``ExperimentInfo.to_dict()`` JSON file, or the dict itself.
-
-    For Python use, you can pass instances directly::
+    Built from a dataset, an approach and an [ExperimentInfo][SRToolkit.experiments.ExperimentInfo],
+    each given as an instance, a dict or the path of a JSON file::
 
         job = ExperimentJob(my_dataset, my_approach,
                             ExperimentInfo(seed=0, result_path="/out/"))
         job.run()
 
-    Within a grid you rarely build these by hand —
-    [ExperimentGrid.build_job][SRToolkit.experiments.ExperimentGrid.build_job] assembles
-    one from the grid's stored configs, which is also how the ``run_job`` CLI executes a
-    single (dataset, approach, seed) triple from just the ``grid.json`` file.
+    In a grid, [build_job][SRToolkit.experiments.ExperimentGrid.build_job] builds them.
 
     Attributes:
         dataset_name: Name of the dataset, resolved at construction time.
         approach_name: Name of the approach, resolved at construction time.
         seed: Random seed (from ``info``).
         result_path: File path where the experiment result is saved (from ``info``).
+        checkpoint_path: The job's checkpoint: ``result_path`` with the extension ``.sqlite``.
         info: The [ExperimentInfo][SRToolkit.experiments.ExperimentInfo] for this job.
         is_complete: ``True`` if the result file already exists on disk.
     """
@@ -204,31 +201,15 @@ class ExperimentJob:
         callbacks: SRCallbacks | list[SRCallbacks] | dict | list[dict] | None = None,
     ) -> None:
         """Args:
-            dataset: The dataset.  One of:
-
-                - ``SR_dataset`` instance — used directly in memory.
-                - ``str`` — path to a JSON produced by ``SR_dataset.to_dict()``.
-                - ``dict`` — the ``SR_dataset.to_dict()`` output directly.
-
-            approach: The SR approach.  One of:
-
-                - ``SR_approach`` instance — used directly in memory.
-                - ``str`` — path to a JSON produced by ``ApproachConfig.to_dict()``.
-                - ``dict`` — the ``ApproachConfig.to_dict()`` output directly.
-
-            info: Job metadata.  One of:
-
-                - [ExperimentInfo][SRToolkit.experiments.ExperimentInfo] instance.
-                - ``str`` — path to a JSON produced by ``ExperimentInfo.to_dict()``.
-                - ``dict`` — the ``ExperimentInfo.to_dict()`` output directly.
-
-            callbacks: Optional callbacks to attach during
-                [run][SRToolkit.experiments.ExperimentJob.run].  Accepts a single
-                [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance, a list
-                of instances, a single serialised callback dict, or a list of dicts.
-                Instances are serialised to dicts immediately so that
-                [run][SRToolkit.experiments.ExperimentJob.run] always reconstructs fresh
-                instances (no shared state between jobs).  Defaults to ``None``.
+            dataset: An ``SR_dataset``, or its ``to_dict()`` as a dict or the path of a JSON file.
+            approach: An ``SR_approach``, or its config's ``to_dict()`` as a dict or the path of a
+                JSON file.
+            info: An [ExperimentInfo][SRToolkit.experiments.ExperimentInfo], or its ``to_dict()``
+                as a dict or the path of a JSON file.
+            callbacks: Callbacks for [run][SRToolkit.experiments.ExperimentJob.run]: an
+                [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], a callback's
+                ``to_dict()``, or a list of either. Stored as configs, so each run builds fresh
+                instances. ``None`` for none.
 
         Raises:
             ValueError: If ``info.result_path`` is not a directory and does not end
@@ -288,6 +269,7 @@ class ExperimentJob:
                     f"Invalid file extension '{extension}'. SR_results can only be saved as '.json' files."
                 )
             self.result_path = self.info.result_path
+        self.checkpoint_path = os.path.splitext(self.result_path)[0] + ".sqlite"
 
     @property
     def is_complete(self) -> bool:
@@ -297,19 +279,40 @@ class ExperimentJob:
     def run(self) -> None:
         """Execute this experiment and save the result to ``result_path``.
 
-        Handles adaptation according to
-        [SR_approach.adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope]:
+        Adapts as
+        [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope] says
+        (``"once"``: [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] with
+        ``info.adapted_state_path``).
 
-        - ``"never"``: no adaptation.
-        - ``"once"``: [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] with
-          [ExperimentInfo][SRToolkit.experiments.ExperimentInfo]'s ``adapted_state_path``.
-        - ``"experiment"``: adapts fresh every run.
+        The evaluator keeps its models and trace in the checkpoint at ``checkpoint_path`` and
+        continues it from its last snapshot if it exists (see
+        [Checkpoints][SRToolkit.evaluation.sr_evaluator]), so running an unfinished job again
+        resumes it. An approach whose runs cannot be resumed (see
+        [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]) starts
+        its job afresh, with a ``UserWarning``, and replaces the checkpoint. A checkpoint of a
+        finished run (e.g. killed while saving its result) gives the result directly, without
+        adapting or running anything. The search runs inside
+        [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals]:
 
-        [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt] gets the dataset's ``X``,
-        ``background_knowledge`` and ``required_constraints``.
-        The result is saved via
-        [SR_results.save][SRToolkit.evaluation.results.SR_results.save] to ``result_path``.
+        - a job that finishes saves its result, and only then deletes its checkpoint (or, with
+          ``info.keep_checkpoint``, compacts it into one self-contained file);
+        - a job stopped by Ctrl-C or SIGTERM keeps its checkpoint, saves no result (a result marks
+          the job done), calls ``on_experiment_end`` with its results so far and raises
+          ``KeyboardInterrupt``, so a loop or scheduler sees it did not finish;
+        - a job whose search raises keeps its checkpoint (committed and closed), and the exception
+          propagates.
+
+        Raises:
+            KeyboardInterrupt: If the search was stopped by a signal, after the checkpoint is
+                closed.
+            ValueError: As for [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator]
+                with ``resume=True``, if the checkpoint is from a run with other settings.
         """
+        if os.path.exists(self.checkpoint_path) and _finished(self.checkpoint_path):
+            results = SR_results.from_checkpoint(self.checkpoint_path, self.approach_name, self.info.top_k)
+            self._save(results)
+            return
+
         # The constructor sets exactly one of the instance and the dict of each.
         if self._dataset_instance is not None:
             dataset = self._dataset_instance
@@ -323,42 +326,66 @@ class ExperimentJob:
             assert self._approach_dict is not None
             approach = SR_approach.from_config_dict(self._approach_dict)
 
-        # Honors the contract for callers passing a live instance; a no-op for the
-        # grid's own from-config reconstruction (nothing has accumulated yet).
-        approach.prepare()
-
         if approach.adaptation_scope == "once":
             dataset.adapt_or_load(approach, self.info.adapted_state_path)
         elif approach.adaptation_scope == "experiment":
             approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
 
-        evaluator = dataset.create_evaluator(seed=self.info.seed)
-        evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
-        dispatcher: CallbackDispatcher | None = None
-        if self._callback_configs:
-            cbs = [SRCallbacks.from_config_dict(d) for d in self._callback_configs]
-            dispatcher = CallbackDispatcher(callbacks=cbs)
-            evaluator.register_callbacks(dispatcher)
-
-        event = ExperimentEvent(
-            dataset_name=self.dataset_name,
-            approach_name=self.approach_name,
-            max_evaluations=evaluator.max_evaluations,
-            success_threshold=evaluator.success_threshold,
+        checkpoint_dir = os.path.dirname(self.checkpoint_path)
+        if checkpoint_dir:
+            os.makedirs(checkpoint_dir, exist_ok=True)
+        resume = os.path.exists(self.checkpoint_path)
+        if resume and not approach.supports_snapshots:
+            warnings.warn(
+                f"[ExperimentJob] {self.approach_name} cannot continue from a snapshot, so its checkpoint "
+                f"{self.checkpoint_path} cannot be resumed; the job starts afresh and replaces it.",
+                UserWarning,
+            )
+            _remove_checkpoint(self.checkpoint_path)
+            resume = False
+        evaluator = dataset.create_evaluator(
             seed=self.info.seed,
+            checkpoint=self.checkpoint_path,
+            resume=resume,
+            snapshot_interval=self.info.snapshot_interval,
         )
-        if dispatcher is not None:
-            dispatcher.on_experiment_start(event)
+        try:
+            evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
+            dispatcher: CallbackDispatcher | None = None
+            if self._callback_configs:
+                cbs = [SRCallbacks.from_config_dict(d) for d in self._callback_configs]
+                dispatcher = CallbackDispatcher(callbacks=cbs)
+                evaluator.register_callbacks(dispatcher)
 
-        start_time = time.monotonic()
-        approach.search(evaluator, self.info.seed)
-        elapsed = time.monotonic() - start_time
+            event = ExperimentEvent(
+                dataset_name=self.dataset_name,
+                approach_name=self.approach_name,
+                max_evaluations=evaluator.max_evaluations,
+                success_threshold=evaluator.success_threshold,
+                seed=self.info.seed,
+            )
+            if dispatcher is not None:
+                dispatcher.on_experiment_start(event)
 
-        results = evaluator.get_results(self.approach_name, self.info.top_k)
-        results.results[-1].wall_time = elapsed
+            with evaluator.stop_on_signals():
+                approach.run(evaluator, self.info.seed)
+            results = evaluator.get_results(self.approach_name, self.info.top_k)
+        finally:
+            evaluator.close()
         if dispatcher is not None:
             dispatcher.on_experiment_end(event, results.results[-1])
+        # An interrupted job saves no result: a result marks the job done.
+        if evaluator.stop_reason == "interrupted":
+            raise KeyboardInterrupt(f"The job was interrupted; its checkpoint is kept at {self.checkpoint_path}.")
+        self._save(results)
+
+    def _save(self, results: SR_results) -> None:
+        # Save the result, then delete (or compact) the checkpoint: a result marks the job done.
         results.save(self.result_path)
+        if self.info.keep_checkpoint:
+            _compact_checkpoint(self.checkpoint_path)
+        else:
+            _remove_checkpoint(self.checkpoint_path)
 
     def __repr__(self) -> str:
         status = "complete" if self.is_complete else "pending"
@@ -401,29 +428,20 @@ class ExperimentGrid:
             [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] (all
             datasets in the benchmark are included), or a list containing
             ``SR_dataset``-s and ``SR_benchmark``-s.
-        approaches: One or more SR approaches.  Accepts a single
+        approaches: One or more SR approaches. Accepts a single
             [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] or a list of them.
         num_experiments: Number of independent experiments per (dataset, approach) pair.
         results_dir: Root directory where all results and grid metadata are stored.
-        initial_seed: Seed for the first experiment.  Subsequent experiments use
+        initial_seed: Seed for the first experiment. Subsequent experiments use
             ``initial_seed + 1``, ``initial_seed + 2``, etc.
         top_k: Number of top expressions to highlight per experiment.
-        adapted_states: Optional mapping ``{approach_name: {dataset_name: path}}``
-            providing paths for pre-adapted state files; relative paths are made absolute against
-            the current directory. Jobs for listed (approach, dataset) pairs will load state from
-            the given path if it exists, or adapt and save to it otherwise (creating its parent
-            directories). Pairs not listed will adapt on every run without saving. Several datasets may deliberately share one
-            ``path`` for approaches whose adaptation depends only on what those datasets share
-            (e.g. EDHiE, for datasets with the same symbol library, reference grammar and
-            required constraints): the path is then adapted once on the first dataset listed for
-            it and the others reuse that state. An informational warning lists any such
-            shared paths so an accidental collision can be spotted; give each dataset a
-            distinct ``path`` if adaptation must differ per dataset.
-        callbacks: Optional callback or list of callbacks forwarded to every job
-            created by [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs].
-            Stored as configs, so each job builds fresh instances (no shared state between
-            jobs) and they travel inside ``grid.json``, from which
-            [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] rebuilds them.
+        adapted_states: ``{approach_name: {dataset_name: path}}`` of state files for ``"once"``
+            approaches; relative paths are made absolute. A listed pair loads its state, or adapts
+            and saves it; an unlisted pair adapts on every run without saving. Datasets may share a
+            path when the approach's adaptation depends only on what they share (e.g. EDHiE with one
+            symbol library): it is adapted on the first dataset listed and reused, with a warning.
+        callbacks: A callback or a list of them for every job. Stored as configs in ``grid.json``,
+            so each job builds fresh instances.
     """
 
     def __init__(
@@ -530,19 +548,10 @@ class ExperimentGrid:
         return self._adapted_states.get(approach_name, {}).get(dataset_name)
 
     def materialize_data(self) -> None:
-        """Materialise every dataset's data into the local cache, once, in this process.
+        """Load every dataset once in this process, so its ``data_source`` fills the data cache
+        before parallel workers only read it.
 
-        Reconstructing each dataset via
-        [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] triggers
-        its ``data_source`` to download or sample the arrays into the shared data cache (a
-        no-op for datasets already cached). Because this runs single-process, it is
-        race-free — the intended counterpart to running it before parallel workers, which
-        then only *read* the cache rather than each materialising the same dataset.
-
-        [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] calls this by
-        default, so the data is obtained once on the machine that writes the commands
-        (which, on a cluster, is typically the only node with network access for
-        ``UrlSource`` datasets).
+        [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] calls this by default.
 
         Raises:
             FileNotFoundError: If a ``null``-source dataset has no data in the local cache
@@ -552,18 +561,9 @@ class ExperimentGrid:
             SR_dataset.from_dict(self.datasets[dataset_name])
 
     def _pairs_needing_adaptation(self) -> "list[tuple[str, str]]":
-        """Return ``(approach_name, dataset_name)`` pairs whose ``"once"`` state is absent.
-
-        A pair qualifies when the approach is ``adaptation_scope="once"``, has a state path
-        registered in the ``adapted_states`` mapping, and that state file does not yet exist
-        on disk.
-
-        When several pairs map to the *same* ``state_path``, only the first is returned and an
-        informational warning is emitted: the path is adapted once on the first dataset listed
-        for it and the rest reuse the result. This is intended for approaches whose adaptation
-        depends only on what those datasets share (e.g. EDHiE, for datasets with the same symbol
-        library, reference grammar and required constraints); give each dataset a distinct
-        ``state_path`` if adaptation must differ per dataset.
+        """Return the ``(approach_name, dataset_name)`` pairs of ``"once"`` approaches whose state
+        path is listed in ``adapted_states`` but missing. Of pairs sharing a path, only the first is
+        returned, with a warning listing the others.
         """
         pairs: "list[tuple[str, str]]" = []
         seen_paths: dict[str, "tuple[str, str]"] = {}
@@ -598,20 +598,12 @@ class ExperimentGrid:
         return pairs
 
     def adapt_one(self, approach_name: str, dataset_name: str, force: bool = False) -> None:
-        """Adapt a single (approach, dataset) pair and persist its state.
+        """Adapt one (approach, dataset) pair and save its state.
 
-        This is the unit the per-pair adaptation commands in ``prepare.txt`` invoke (via the
-        ``adapt`` CLI with ``--dataset``/``--approach``), so independent pairs can adapt in
-        parallel across a cluster. It loads the dataset and calls
-        [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] with
-        ``force=True``.
-
-        Silently returns (no-op) when there is nothing to do: the approach is not
-        ``"once"``-scope, or has no registered state path for this dataset. By default it also
-        no-ops when the state file already exists; pass ``force=True`` to re-adapt and overwrite
-        it (e.g. after the adaptation logic or the dataset changed, or to replace a corrupt
-        state). Because the dataset is named explicitly here, ``force`` is unambiguous even when
-        several datasets share one state path: it adapts on *this* dataset and overwrites.
+        The ``adapt`` commands of [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] call it
+        per pair, so pairs can adapt in parallel. Does nothing if the approach is not
+        ``"once"``-scoped, has no state path for this dataset, or the state file exists (unless
+        ``force``).
 
         Args:
             approach_name: Name of an approach in this grid.
@@ -637,19 +629,9 @@ class ExperimentGrid:
         dataset.adapt_or_load(approach, state_path, force=True)
 
     def adapt_if_missing(self):
-        """Pre-adapt all ``adaptation_scope="once"`` approaches where the state file is absent.
-
-        Runs [adapt_one][SRToolkit.experiments.ExperimentGrid.adapt_one] for each
-        (approach, dataset) pair whose state file does not yet exist on disk. Pairs whose state
-        file already exists are skipped.
-
-        Approaches whose ``adaptation_scope`` is not ``"once"``, or that have no entry in
-        the ``adapted_states`` mapping passed at construction, are skipped entirely.
-
-        This adapts every pair sequentially in this process. To distribute the work, use
-        [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands], which emits one
-        [adapt_one][SRToolkit.experiments.ExperimentGrid.adapt_one] command per pair into
-        ``prepare.txt``.
+        """Adapt, in this process, every ``"once"`` pair whose state file is missing (see
+        [adapt_one][SRToolkit.experiments.ExperimentGrid.adapt_one]). To adapt in parallel, use
+        [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands].
         """
         for approach_name, dataset_name in self._pairs_needing_adaptation():
             self.adapt_one(approach_name, dataset_name)
@@ -658,10 +640,8 @@ class ExperimentGrid:
         """Construct the single [ExperimentJob][SRToolkit.experiments.ExperimentJob] for one
         (dataset, approach, seed) triple, using this grid's stored configs.
 
-        This is the unit of work both
-        [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs] and the
-        ``run_job`` CLI build from, so a worker only needs the grid file plus the three
-        identifiers — no per-job config files on disk.
+        [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs] and the ``run_job`` CLI use it, so a
+        worker needs only ``grid.json`` and the three identifiers.
 
         Args:
             dataset_name: Name of a dataset in this grid.
@@ -694,14 +674,11 @@ class ExperimentGrid:
         """Return the list of [ExperimentJob][SRToolkit.experiments.ExperimentJob] instances for
         this grid.
 
-        Does **not** trigger adaptation — call
-        [adapt_if_missing][SRToolkit.experiments.ExperimentGrid.adapt_if_missing] first if any
-        approach has ``adaptation_scope="once"``. It also does **not** materialise data:
-        running the returned jobs sequentially warms the cache lazily on first use, but if you
-        dispatch them in parallel yourself, call
-        [materialize_data][SRToolkit.experiments.ExperimentGrid.materialize_data] first so
-        workers don't race to materialise the same dataset.
-        ([save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] does both for you.)
+        Neither adapts nor loads data: call
+        [adapt_if_missing][SRToolkit.experiments.ExperimentGrid.adapt_if_missing] first for ``"once"``
+        approaches, and [materialize_data][SRToolkit.experiments.ExperimentGrid.materialize_data] before
+        running the jobs in parallel. [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands]
+        does both.
 
         Args:
             skip_completed: If ``True`` (default), omit jobs whose result file
@@ -750,12 +727,9 @@ class ExperimentGrid:
               python -m SRToolkit.experiments adapt \\
                   --grid /path/grid.json --dataset NG-1 --approach ProGED
 
-        Data is materialised, once, in this process (``materialize_data=True``):
-        every dataset's ``data_source`` is resolved into the shared cache before any command
-        runs. This is single-process and therefore race-free, fetches each ``UrlSource``
-        exactly once, and happens on the machine writing the commands — typically the only
-        node with network access on a cluster. Workers (adaptation and experiments) then
-        only *read* the warm cache.
+        With ``materialize_data``, every dataset's data is fetched into the cache first, once, on
+        this machine (on a cluster often the only one with network access), so workers only read
+        it.
 
         Args:
             path: File path to write the experiment commands to.
@@ -866,17 +840,13 @@ class ExperimentGrid:
     def load_results(self, dataset_name: str, approach_name: str) -> SR_results:
         """Load and merge all completed per-experiment results for a (dataset, approach) pair.
 
-        Examples:
-            >>> results = grid.load_results("Nguyen-1", "ProGED")  # doctest: +SKIP
-            >>> len(results)  # number of completed experiments  # doctest: +SKIP
-            5
-
         Args:
             dataset_name: Name of the dataset.
             approach_name: Name of the approach.
 
         Returns:
-            An [SR_results][SRToolkit.evaluation.results.SR_results] object containing one [EvalResult][SRToolkit.utils.types.EvalResult] per completed experiment.  Returns an empty ``SR_results`` if no experiments have completed yet.
+            [SR_results][SRToolkit.evaluation.results.SR_results] with one
+            [EvalResult][SRToolkit.utils.types.EvalResult] per completed experiment; empty if none.
         """
         merged = SR_results()
         for i in range(self.num_experiments):
@@ -887,23 +857,14 @@ class ExperimentGrid:
         return merged
 
     def to_dict(self) -> dict:
-        """Serialize the grid to a single self-contained, JSON-safe dict — the *recipe*.
+        """Return the grid as one self-contained, JSON-safe dict: every dataset, approach and
+        callback config plus ``num_experiments``, ``initial_seed`` and ``top_k``; load it with
+        [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict].
 
-        The returned dict inlines every dataset config, approach config, and callback
-        config alongside the run metadata (``num_experiments``, ``initial_seed``,
-        ``top_k``). It is the portable, one-file form of the grid: pass it (or a JSON
-        file holding it) straight to [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict].
-
-        Unlike [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint], it omits the
-        machine-local, absolute ``adapted_states`` paths; ``results_dir`` is supplied at load
-        time. The per-approach ``adaptation_scope`` travels inside each approach config, so a
-        recipient re-adapts to their own paths.
-
-        Dataset configs are the full per-dataset recipe (``data_source`` + samplers +
-        ground truth), not bare references, and contain no data arrays — those are
-        regenerated or downloaded from each dataset's ``data_source`` on first use. A
-        ``null``-source dataset's data must already be present in the recipient's cache;
-        ship it with [share.save][SRToolkit.share.save] otherwise.
+        Unlike [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint], it leaves out the machine-local
+        ``adapted_states`` paths, and ``results_dir`` is given when loading. Datasets hold no
+        arrays; a dataset without a ``data_source`` must already be in the recipient's cache, or be
+        shared with [share.save][SRToolkit.share.save].
 
         Returns:
             A JSON-safe dict with ``format_version`` ``2``, suitable for ``json.dump``.
@@ -1011,11 +972,12 @@ class ExperimentGrid:
     def checkpoint(self) -> None:
         """Write the grid to ``results_dir/grid.json``.
 
-        Resume it with [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict]. Creates
-        ``results_dir`` if needed and overwrites an existing ``grid.json``. The file is the [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] recipe plus the
-        machine-local ``adapted_states`` paths. To share a grid with someone else, use
-        [share.save][SRToolkit.share.save].
-        [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands] calls this.
+        Resume it with [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict]. Creates ``results_dir`` if
+        needed and overwrites an existing ``grid.json``. The file is the
+        [to_dict][SRToolkit.experiments.ExperimentGrid.to_dict] recipe plus the machine-local
+        ``adapted_states`` paths. To share a grid with someone else, use
+        [share.save][SRToolkit.share.save]. [save_commands][SRToolkit.experiments.ExperimentGrid.save_commands]
+        calls this.
         """
         os.makedirs(self.results_dir, exist_ok=True)
         payload = self.to_dict()

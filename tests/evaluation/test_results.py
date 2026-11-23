@@ -1,8 +1,14 @@
+import contextlib
 import json
 import os
+import resource
+import signal
+import tempfile
+import warnings
 
 import numpy as np
 import pytest
+from strategies import result_dict
 
 from SRToolkit.evaluation.results import ResultAugmenter, SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
@@ -318,11 +324,15 @@ class TestSRResultsAugment:
         assert "aug" in combined[0].augmentations
         assert "aug" in combined[1].augmentations
 
-    def test_augment_specific_experiment(self):
+    @pytest.mark.parametrize("number, augmented", [(0, [True, False]), (-1, [False, True])])
+    def test_augment_specific_experiment(self, number, augmented):
         combined = _single_result() + _single_result()
-        combined.augment([_TestAugmenter("aug")], experiment_number=0)
-        assert "aug" in combined[0].augmentations
-        assert "aug" not in combined[1].augmentations
+        combined.augment([_TestAugmenter("aug")], experiment_number=number)
+        assert ["aug" in r.augmentations for r in combined] == augmented
+
+    def test_augment_experiment_out_of_range(self):
+        with pytest.raises(IndexError):
+            _single_result().augment([_TestAugmenter("aug")], experiment_number=1)
 
     def test_augment_single_augmenter_not_in_list(self):
         results = _single_result()
@@ -415,6 +425,16 @@ class TestSRResultsSaveLoad:
         path = str(tmp_path / "out.json")
         results.save(path)
         assert os.path.isfile(path)
+
+    def test_saved_file_has_a_normal_files_mode(self, tmp_path):
+        umask = os.umask(0o022)
+        try:
+            _single_result().save(str(tmp_path / "out.json"))
+            with open(tmp_path / "plain", "w"):
+                pass
+        finally:
+            os.umask(umask)
+        assert os.stat(tmp_path / "out.json").st_mode == os.stat(tmp_path / "plain").st_mode
 
     def test_save_to_existing_directory(self, tmp_path):
         results = _single_result()
@@ -532,3 +552,132 @@ class TestSRResultsSaveLoad:
         orig_value = results[0].top_models()[0].augmentations["HoldoutMetric"]["value"]
         rest_value = loaded[0].top_models()[0].augmentations["HoldoutMetric"]["value"]
         assert abs(rest_value - orig_value) < 1e-12
+
+
+# ── from_checkpoint ───────────────────────────────────────────────────────────
+
+_CALLS = [["X_0"], ["C", "*", "X_1"], ["X_0"], ["C", "*", "X_1", "-", "X_0"]]
+
+
+def _run(checkpoint, budget, calls):
+    se = SR_evaluator(
+        _X,
+        _y,
+        seed=0,
+        success_threshold=-1,
+        max_evaluations=budget,
+        checkpoint=checkpoint,
+        metadata={"dataset_name": "d", "k": 1},
+        initialization="mean",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # the call after the budget is used up
+        for expr in calls:
+            se.evaluate_expr(expr)
+    return se
+
+
+class TestFromCheckpoint:
+    @pytest.mark.parametrize(
+        "budget, finish, stop_reason",
+        [
+            (3, lambda se: (se.get_results(), se.close()), "max_evaluations"),
+            (3, lambda se: None, "max_evaluations"),  # writer still open; the stop committed
+            (-1, lambda se: se.get_results(), "interrupted"),  # results taken during the run do not finish it
+            (-1, lambda se: se.close(), "interrupted"),  # no reason saved
+        ],
+        ids=["stopped-closed", "stopped-open", "results-mid-run", "unstopped-closed"],
+    )
+    def test_from_checkpoint_equals_get_results(self, tmp_path, budget, finish, stop_reason):
+        path = tmp_path / "run.sqlite"
+        finish(_run(path, budget, _CALLS))
+        twin = result_dict(_run(None, budget, _CALLS).get_results("A", 2)[0])
+        results = SR_results.from_checkpoint(path, "A", 2)
+        assert len(results) == 1
+        assert result_dict(results[0]) == {**twin, "stop_reason": stop_reason}
+
+    def test_from_checkpoint_sees_committed_calls_without_blocking_writer(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _run(path, -1, _CALLS[:3])
+        se.get_results()  # commits
+        se.evaluate_expr(["X_1"])
+        se.evaluate_expr(["X_0"])  # both pending
+        assert SR_results.from_checkpoint(path)[0].trace == [0, 1, 0]
+        se.get_results()  # the writer still commits
+        assert SR_results.from_checkpoint(path)[0].trace == [0, 1, 0, 2, 0]
+
+    @pytest.mark.parametrize(
+        "make_file, error, match",
+        [(None, FileNotFoundError, None), (lambda path: path.write_text("keep"), ValueError, "checkpoint")],
+        ids=["missing", "not-a-checkpoint"],
+    )
+    def test_from_checkpoint_errors(self, tmp_path, make_file, error, match):
+        path = tmp_path / "run.sqlite"
+        if make_file is not None:
+            make_file(path)
+        with pytest.raises(error, match=match):
+            SR_results.from_checkpoint(path)
+
+
+# ── Atomic save ───────────────────────────────────────────────────────────────
+
+
+@contextlib.contextmanager
+def _file_size_limit(limit):
+    # A disk that fills up: writes past ``limit`` bytes raise OSError (EFBIG).
+    old_limit = resource.getrlimit(resource.RLIMIT_FSIZE)
+    old_handler = signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+    resource.setrlimit(resource.RLIMIT_FSIZE, (limit, old_limit[1]))
+    try:
+        yield
+    finally:
+        resource.setrlimit(resource.RLIMIT_FSIZE, old_limit)
+        signal.signal(signal.SIGXFSZ, old_handler)
+
+
+def _unsaveable(result):
+    result.add_augmentation("broken", {"value": object()}, "test")
+
+
+def _too_big(result):
+    result.add_augmentation("big", {"value": "x" * 100_000}, "test")  # past the 20 kB limit below
+
+
+@pytest.mark.parametrize(
+    "previous, spoil, error",
+    [(True, _unsaveable, TypeError), (True, _too_big, OSError), (False, _too_big, OSError)],
+    ids=["unsaveable-data", "disk-full", "disk-full-no-previous-file"],
+)
+def test_failed_save_keeps_previous_file(tmp_path, previous, spoil, error):
+    path = tmp_path / "results.json"
+    se = SR_evaluator(_X, _y, seed=0)
+    se.evaluate_expr(["X_0"])
+    if previous:
+        se.get_results().save(str(path))
+    before = path.read_bytes() if previous else None
+    bad = se.get_results()
+    spoil(bad[0])
+    with _file_size_limit(20_000), pytest.raises(error):
+        bad.save(str(path))
+    assert (path.read_bytes() if path.exists() else None) == before  # written whole or not at all
+    assert sorted(p.name for p in tmp_path.iterdir()) == (["results.json"] if previous else [])  # no temp file
+
+
+@pytest.mark.parametrize("relative", [False, True], ids=["other-directory", "bare-file-name"])
+def test_save_writes_its_temporary_file_next_to_the_target(tmp_path, monkeypatch, relative):
+    # "the JSON goes to a temporary file next to it": saving works although the working directory
+    # and the system temp directory are read-only.
+    locked, out = tmp_path / "locked", tmp_path / "out"
+    locked.mkdir()
+    out.mkdir()
+    locked.chmod(0o500)
+    monkeypatch.setattr(tempfile, "tempdir", str(locked))
+    monkeypatch.chdir(out if relative else locked)
+    se = SR_evaluator(_X, _y, seed=0)
+    se.evaluate_expr(["X_0"])
+    try:
+        se.get_results().save("results.json" if relative else str(out / "results.json"))
+    finally:
+        locked.chmod(0o700)
+    assert sorted(os.listdir(out)) == ["results.json"]
+    assert SR_results.load(str(out / "results.json"))[0].trace == [0]

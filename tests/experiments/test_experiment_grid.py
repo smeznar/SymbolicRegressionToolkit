@@ -4,14 +4,19 @@ results_dir anchoring fix in load()."""
 import json
 import os
 import shutil
+import signal
+import sqlite3
+import sys
 import warnings
 from dataclasses import dataclass
 
 import pytest
+from strategies import EventLog, ScriptedApproach, SignalAfter, StatelessSteppedApproach, SteppedApproach
 
 from SRToolkit.approaches import ApproachConfig, ProGED, SR_approach
 from SRToolkit.dataset import SR_dataset, data_cache
 from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.evaluation.results import SR_results
 from SRToolkit.experiments import ExperimentGrid, ExperimentInfo, ExperimentJob
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth
 
@@ -613,9 +618,6 @@ class _GridRecorder(SR_approach):
     def adaptation_scope(self):
         return self.config.scope
 
-    def prepare(self):
-        self.events.append("prepare")
-
     def adapt(self, X, background_knowledge, required_constraints):
         self.events.append("adapt")
         required = tuple(required_constraints)
@@ -685,3 +687,191 @@ def test_job_run_once_reuses_state_only_with_path(tmp_path, monkeypatch, with_pa
     assert (first.events.count("adapt"), second.events.count("adapt"), len(second.loaded_from)) == expected
     assert second.loaded_from == [path] * expected[2]
     assert state.exists() is with_path
+
+
+# --------------------------------------------------------------------------- #
+# Checkpoints of jobs (stage 2b)
+# --------------------------------------------------------------------------- #
+def _journal_mode(path):
+    with sqlite3.connect(path) as con:
+        return con.execute("PRAGMA journal_mode").fetchone()[0]
+
+
+def _job(tmp_path, approach, dataset=None, keep_checkpoint=False, name="r.json", callbacks=None, **info_kwargs):
+    info = ExperimentInfo(seed=7, result_path=str(tmp_path / name), keep_checkpoint=keep_checkpoint, **info_kwargs)
+    return ExperimentJob(dataset or _make_dataset(), approach, info, callbacks=callbacks)
+
+
+def _result(path):
+    return {**SR_results.load(str(path))[0].to_dict(), "wall_time": None}
+
+
+@pytest.mark.parametrize(
+    "d, expected",
+    [
+        (
+            ExperimentInfo(seed=1, result_path="/r.json", keep_checkpoint=True, snapshot_interval=None).to_dict(),
+            (True, None),
+        ),
+        (
+            {"seed": 1, "result_path": "/r.json", "top_k": 20, "adapted_state_path": None},
+            (False, 300.0),
+        ),  # an older dict
+    ],
+    ids=["round-trip", "without-keys"],
+)
+def test_experiment_info_checkpoint_settings_round_trip(d, expected):
+    info = ExperimentInfo.from_dict(d)
+    assert (info.keep_checkpoint, info.snapshot_interval) == expected
+    assert (info.to_dict()["keep_checkpoint"], info.to_dict()["snapshot_interval"]) == expected
+    assert ExperimentInfo.from_dict(info.to_dict()) == info
+
+
+def test_job_passes_snapshot_interval(tmp_path):
+    approach = SteppedApproach(stop_after_asks=1)
+    _job(tmp_path, approach, snapshot_interval=60.0).run()
+    assert approach.evaluator.snapshot_interval == 60.0
+
+
+@pytest.mark.parametrize("as_dir, expected", [(False, "r.sqlite"), (True, "exp_7.sqlite")], ids=["file", "directory"])
+def test_checkpoint_path_naming(tmp_path, monkeypatch, as_dir, expected):
+    _isolate_cache(monkeypatch, tmp_path)
+    info = ExperimentInfo(seed=7, result_path=str(tmp_path) if as_dir else str(tmp_path / "r.json"))
+    job = ExperimentJob(_make_dataset(), ScriptedApproach(), info)
+    assert os.fspath(job.checkpoint_path) == str(tmp_path / expected)
+
+
+class TestJobCheckpoints:
+    @pytest.mark.parametrize(
+        "keep, files, journal",
+        [(False, ["r.json"], None), (True, ["r.json", "r.sqlite"], "delete")],
+        ids=["delete", "keep"],
+    )
+    def test_finished_job_deletes_or_compacts_checkpoint(self, tmp_path, monkeypatch, keep, files, journal):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        job = _job(tmp_path / "out", ScriptedApproach(), keep_checkpoint=keep)
+        os.makedirs(tmp_path / "out")
+        job.run()
+        assert sorted(os.listdir(tmp_path / "out")) == files  # compacted: no -wal or -shm
+        checkpoint = tmp_path / "out" / "r.sqlite"
+        assert (_journal_mode(checkpoint) if checkpoint.exists() else None) == journal
+
+    def test_failed_result_save_keeps_checkpoint(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+
+        def disk_full(*args, **kwargs):
+            raise OSError("No space left on device")
+
+        job = _job(tmp_path, ScriptedApproach())
+        monkeypatch.setattr(os, "replace", disk_full)  # the last step of an atomic save
+        monkeypatch.setattr(os, "rename", disk_full)
+        with pytest.raises(OSError, match="No space"):
+            job.run()
+        assert (job.is_complete, (tmp_path / "r.sqlite").exists()) == (False, True)
+
+    def test_interrupted_job_keeps_checkpoint_and_raises(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        EventLog.ended.clear()
+        job = _job(tmp_path, ScriptedApproach(kill_seed=7), callbacks=EventLog())
+        with pytest.raises(KeyboardInterrupt):
+            job.run()
+        assert EventLog.ended == ["interrupted"]
+        assert not job.is_complete  # no result
+        assert not (tmp_path / "r.sqlite-wal").exists()  # closed
+        saved = SR_results.from_checkpoint(tmp_path / "r.sqlite")[0]
+        assert (saved.trace, saved.stop_reason) == ([0, 1, 0], "interrupted")
+
+    def test_rerun_of_interrupted_job_equals_uninterrupted_job(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        with pytest.raises(KeyboardInterrupt):  # in the second step: 4 calls and a snapshot are saved
+            _job(tmp_path, SteppedApproach(stop_after_asks=3), callbacks=SignalAfter(3)).run()
+        EventLog.events.clear()
+        _job(tmp_path, SteppedApproach(stop_after_asks=3), callbacks=EventLog()).run()
+        assert len(EventLog.events) == 2  # continued from the snapshot
+        _job(tmp_path, SteppedApproach(stop_after_asks=3), name="straight.json").run()
+        assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
+        assert not (tmp_path / "r.sqlite").exists()
+
+    def test_rerun_of_search_only_job_restarts_with_warning(self, tmp_path, monkeypatch):
+        # S4: an approach that cannot continue from a snapshot cannot resume; its job starts afresh.
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        with pytest.raises(KeyboardInterrupt):
+            _job(tmp_path, ScriptedApproach(kill_seed=7)).run()
+        with pytest.warns(UserWarning, match="snapshot"):
+            _job(tmp_path, ScriptedApproach()).run()
+        _job(tmp_path, ScriptedApproach(), name="straight.json").run()
+        assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
+        assert not (tmp_path / "r.sqlite").exists()
+
+    def test_rerun_of_stateless_step_job_restarts_with_warning(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        with pytest.raises(KeyboardInterrupt):
+            _job(tmp_path, StatelessSteppedApproach(stop_after_asks=3), callbacks=SignalAfter(3)).run()
+        with pytest.warns(UserWarning, match="snapshot"):
+            _job(tmp_path, StatelessSteppedApproach(stop_after_asks=3)).run()
+        _job(tmp_path, StatelessSteppedApproach(stop_after_asks=3), name="straight.json").run()
+        assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
+
+    def test_job_search_exception_keeps_checkpoint(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        job = _job(tmp_path, ScriptedApproach(raise_seed=7))
+        with pytest.raises(RuntimeError, match="boom"):
+            job.run()
+        assert (job.is_complete, (tmp_path / "r.sqlite").exists()) == (False, True)
+
+    def test_job_resume_with_other_settings_raises(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        with pytest.raises(KeyboardInterrupt):
+            _job(tmp_path, SteppedApproach(), callbacks=SignalAfter(3)).run()
+        other = SR_dataset.from_samplers(
+            ground_truth=["X_0", "+", "X_0"],
+            samplers=[UniformSampling(0.5, 5.0)],
+            n_samples=64,
+            seed=1,
+            dataset_name="ds1",
+            benchmark="unit_test",
+            version="1.0.0",
+        )
+        with pytest.raises(ValueError, match=r"\by\b"):
+            _job(tmp_path, SteppedApproach(), dataset=other).run()
+
+    def test_finished_checkpoint_without_result_gives_the_result(self, tmp_path, monkeypatch):
+        # E.g. killed while saving its result: the result comes from the checkpoint and nothing runs,
+        # also for an approach that cannot continue from a snapshot.
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _job(tmp_path, ScriptedApproach(), keep_checkpoint=True).run()
+        expected = _result(tmp_path / "r.json")
+        os.remove(tmp_path / "r.json")
+        approach = ScriptedApproach()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _job(tmp_path, approach).run()
+        assert not [w for w in caught if "snapshot" in str(w.message)]  # not restarted
+        assert (approach.seeds, _result(tmp_path / "r.json")) == ([], expected)
+        assert not (tmp_path / "r.sqlite").exists()
+
+    def test_rerunning_a_kept_finished_job_gives_the_same_result(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _job(tmp_path, SteppedApproach(stop_after_asks=3), keep_checkpoint=True).run()
+        expected = _result(tmp_path / "r.json")
+        EventLog.events.clear()
+        _job(tmp_path, SteppedApproach(stop_after_asks=3), keep_checkpoint=True, callbacks=EventLog()).run()
+        assert (EventLog.events, _result(tmp_path / "r.json")) == ([], expected)  # finished: nothing evaluated
+
+
+@pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM], ids=["sigint", "sigterm"])
+def test_cli_run_job_interrupted_exits_130(tmp_path, monkeypatch, capsys, sig):
+    from SRToolkit.experiments.__main__ import main
+
+    _isolate_cache(monkeypatch, tmp_path / "cache")
+    run = tmp_path / "run"
+    grid = _make_grid(str(run), approaches=[ScriptedApproach(kill_seed=7, sig=int(sig))], num_experiments=1)
+    grid.checkpoint()
+    argv = ["srtk", "run_job", "--grid", str(run / "grid.json"), "--dataset", "ds1", "--approach", "scripted"]
+    monkeypatch.setattr(sys, "argv", argv + ["--seed", "7"])
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+    checkpoint = run / "ds1" / "scripted" / "exp_7.sqlite"
+    assert exit_info.value.code == 130
+    assert str(checkpoint) in capsys.readouterr().out
+    assert checkpoint.exists()

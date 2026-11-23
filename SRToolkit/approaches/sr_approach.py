@@ -1,6 +1,90 @@
-"""Abstract base class and configuration dataclass for symbolic regression approaches."""
+"""Base class and configuration of symbolic regression approaches.
 
-from abc import ABC, abstractmethod
+## Lifecycle
+
+One approach object can run many experiments. Each part of it sets up one kind of state:
+
+- ``__init__``: the hyperparameters, from the config.
+- [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt]: what the task alone determines, e.g. a
+  grammar for its symbol library or a trained model; how often it runs is set by
+  [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope]. A resumed run
+  adapts again or loads the adapted state.
+- the search: everything a run learns, set up anew for each run from its seed.
+
+## Two ways to implement the search
+
+An approach implements either [search][SRToolkit.approaches.sr_approach.SR_approach.search], its own
+loop that calls ``evaluate_expr`` until ``should_stop``, or the **step interface**, in which the
+framework runs the loop:
+
+- [start][SRToolkit.approaches.sr_approach.SR_approach.start]``(se, seed)`` seeds the approach's
+  random generators and resets the search state to empty (e.g. no population yet);
+- [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]``(se)`` proposes the next expressions: the
+  first call creates them from scratch (e.g. a random population), later ones build on what
+  ``tell`` stored;
+- [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]``(se, candidates, results)`` updates the
+  search state from their [ModelResult][SRToolkit.utils.types.ModelResult]s (e.g. selects the
+  next population); an approach that learns nothing from the results (e.g. random sampling) need
+  not implement it;
+- optionally, [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state] and
+  [set_search_state][SRToolkit.approaches.sr_approach.SR_approach.set_search_state] save and restore
+  the search state between two steps.
+
+One **step** is one ``ask``, the evaluation of its candidates and one ``tell``. What it covers (one
+sample, a batch, a generation of a genetic algorithm) is the approach's choice; document it. Only
+the framework evaluates: ``start``, ``ask`` and ``tell`` never call ``evaluate_expr``, so every
+evaluation falls in a step, which an interrupt lets finish and a snapshot never splits.
+
+## Which one to implement
+
+``search`` is the simpler choice: write the loop as you would anyway, or call a library that runs
+its own. Its runs write checkpoints like any other, so their results survive a crash, but a
+stopped run starts again from the beginning.
+
+The step interface takes more work, since the search state lives in the object between calls.
+With the state methods, a stopped or crashed run then continues from its last snapshot and finds
+the same models as a run that was never stopped (see
+[Checkpoints][SRToolkit.evaluation.sr_evaluator]).
+
+## The step loop
+
+For a step approach, the framework calls ``start`` and then runs this loop (this is what the
+inherited ``search`` does). An approach that overrides ``search`` runs its own loop instead, and
+``start``, ``ask`` and ``tell`` are never called. ``snapshots`` is true when the evaluator has a
+checkpoint and the approach has the state methods:
+
+```python
+while not se.should_stop:
+    if snapshots and se.snapshot_due:
+        se.save_snapshot(approach.get_search_state())
+    candidates = approach.ask(se)
+    if not candidates:
+        break  # as if search had returned
+    with se.step():
+        results = []
+        for candidate in candidates:
+            if se.should_stop:
+                break
+            if not isinstance(candidate, Candidate):  # a token list or a Node
+                candidate = Candidate(candidate)
+            if candidate.evaluate:
+                se.evaluate_expr(candidate.expr, candidate.free_constants,
+                                 canonicalise_constants=candidate.canonicalise_constants)
+                results.append(se.models[se.trace[-1]])
+            else:  # a lookup, without spending budget; None if never evaluated
+                results.append(se.get_model(candidate.expr, candidate.free_constants,
+                                            candidate.canonicalise_constants))
+    approach.tell(se, candidates[: len(results)], results)
+if snapshots:  # when the loop ends normally, also after a stop
+    se.save_snapshot(approach.get_search_state())
+```
+
+Snapshots fall between steps, where nothing is half done; none is taken after an exception.
+[run][SRToolkit.approaches.sr_approach.SR_approach.run] continues this loop from the evaluator's
+snapshot when resuming, and calls ``search`` otherwise.
+"""
+
+from abc import ABC
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -9,12 +93,16 @@ import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.evaluation.model_store import _restore_rngs
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports this module.
     from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
+    from SRToolkit.utils.expression_tree import Node
+    from SRToolkit.utils.free_constants import Constant
+    from SRToolkit.utils.types import ModelResult
 
 
 def check_dependencies(packages: list[str]) -> None:
@@ -95,19 +183,38 @@ class ApproachConfig:
         return cls(**_from_json_safe(d))
 
 
+@dataclass(frozen=True)
+class Candidate:
+    """An expression an approach proposes from [ask][SRToolkit.approaches.sr_approach.SR_approach.ask],
+    with the arguments the framework passes to
+    [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr].
+
+    Attributes:
+        expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
+        free_constants: Specs for its labelled constants, or ``None``.
+        canonicalise_constants: Canonicalise its constants before evaluating. Default ``False``.
+        evaluate: ``False`` only looks up the stored model of an expression evaluated before (see
+            [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), spending no
+            budget; ``tell`` gets ``None`` for it if there is none. Default ``True``.
+    """
+
+    expr: "list[str] | Node"
+    free_constants: "Sequence[Constant] | None" = None
+    canonicalise_constants: bool = False
+    evaluate: bool = True
+
+
 class SR_approach(ABC):
     def __init__(self, config: ApproachConfig) -> None:
         """Abstract base class for all symbolic regression approaches.
 
-        Subclasses must implement [prepare][SRToolkit.approaches.sr_approach.SR_approach.prepare]
-        and [search][SRToolkit.approaches.sr_approach.SR_approach.search], and optionally override
+        Subclasses implement either [search][SRToolkit.approaches.sr_approach.SR_approach.search]
+        or the step interface (see the [module docs][SRToolkit.approaches.sr_approach]), and
+        optionally override
         [adapt][SRToolkit.approaches.sr_approach.SR_approach.adapt],
         [save_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.save_adapted_state], and
         [load_adapted_state][SRToolkit.approaches.sr_approach.SR_approach.load_adapted_state]
         according to their [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope].
-
-        The ``config.approach_class`` field is set automatically to the fully-qualified class path
-        of the concrete subclass, so the config dict alone is sufficient to reconstruct the approach.
 
         Args:
             config: Configuration dataclass for the approach. Every concrete approach defines its
@@ -163,23 +270,6 @@ class SR_approach(ABC):
         """
         return False
 
-    def prepare(self) -> None:
-        """Reset the approach's per-experiment state in preparation for a new run.
-
-        Called by the framework before ``adapt()`` and ``search()`` for every
-        experiment, so any state accumulated during a previous run is cleared
-        before the next one starts.
-
-        Three example cases:
-
-        - **Stateless** (e.g. random sampling): implement as ``pass``.
-        - **Stateful search** (e.g. GP): reset the population or any other
-          mutable search state to its initial configuration.
-        - **Pretrained weights + per-run search state** (e.g. neural): reset
-          only the search state; leave pretrained weights untouched.
-        """
-        pass
-
     def adapt(
         self,
         X: np.ndarray,
@@ -188,14 +278,16 @@ class SR_approach(ABC):
     ) -> None:
         """Adapt the approach to a task before searching, without seeing the targets.
 
-        The framework calls it after ``prepare()`` and before ``search()``, as
+        The framework calls it before ``search()``, as
         [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope] says. Use
         what you need and ignore the rest. It must not fit or evaluate expressions on data (e.g.
         through an evaluator kept from an earlier run); calling ``pre_check`` of a constraint is
         allowed, since it only looks at the expression.
 
         The default does nothing. Override it when ``adaptation_scope`` is ``"once"`` or
-        ``"experiment"``.
+        ``"experiment"``. With ``"experiment"``, a resumed run adapts again, so ``adapt`` should
+        give the same result for the same inputs (e.g. seed its own random generators) for a
+        resumed run to equal an uninterrupted one.
 
         Args:
             X: Inputs of shape ``(n_samples, n_variables)``, columns in the symbol library's
@@ -206,18 +298,17 @@ class SR_approach(ABC):
         """
         pass
 
-    @abstractmethod
     def search(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
-        """Run the symbolic regression search.
+        """Run the search of one experiment.
 
-        Implementations must call ``sr_evaluator.evaluate_expr(expr)`` to score
-        candidate expressions. The evaluator accumulates all results internally;
-        do not call ``sr_evaluator.get_results()`` — that is handled by the
-        framework after ``search`` finishes.
+        The default runs the step interface: ``start``, then the step loop shown in the
+        [module docs][SRToolkit.approaches.sr_approach]. Approaches without the step interface
+        override it and set up their search state anew from ``seed`` (see the lifecycle in the
+        module docs). Score expressions with ``evaluate_expr``; the framework collects the results.
 
         Search while ``sr_evaluator.should_stop`` is ``False``; it turns ``True`` when the success
-        threshold or the budget is reached, or a callback stops the run. To end the search early
-        (e.g. the search space is exhausted), call
+        threshold or the budget is reached, a callback stops the run, or the run is interrupted
+        (Ctrl-C or SIGTERM). To end the search early (e.g. the search space is exhausted), call
         [sr_evaluator.stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with a reason, so
         the results explain why; returning without it is recorded as ``"returned"``.
 
@@ -233,8 +324,188 @@ class SR_approach(ABC):
                 stored inside this object.
             seed: Optional random seed for reproducible expression generation.
 
+        Raises:
+            NotImplementedError: If the approach implements neither ``search`` nor the step
+                interface.
+        """
+        if not self.supports_steps:
+            raise NotImplementedError(
+                f"[{type(self).__name__}] implements neither search() nor the step interface (start/ask/tell)."
+            )
+        self.start(sr_evaluator, seed)
+        self._step_loop(sr_evaluator)
+
+    @property
+    def supports_steps(self) -> bool:
+        """Whether the approach implements the step interface (it overrides ``ask``)."""
+        return type(self).ask is not SR_approach.ask
+
+    @property
+    def supports_snapshots(self) -> bool:
+        """Whether a run of the approach can be snapshotted and resumed: it implements the step
+        interface and overrides both ``get_search_state`` and ``set_search_state``.
+        """
+        cls = type(self)
+        return (
+            self.supports_steps
+            and cls.get_search_state is not SR_approach.get_search_state
+            and cls.set_search_state is not SR_approach.set_search_state
+        )
+
+    def run(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
+        """Run the approach on ``sr_evaluator``: continue from its snapshot, or search anew.
+
+        If ``sr_evaluator.resumed_from`` holds a
+        [Snapshot][SRToolkit.evaluation.model_store.Snapshot], the approach state is restored with
+        [set_search_state][SRToolkit.approaches.sr_approach.SR_approach.set_search_state], then the
+        global random states, and the step loop continues (``start`` is not called).
+        Otherwise it calls [search][SRToolkit.approaches.sr_approach.SR_approach.search]. If the
+        search returns while evaluation goes on, ``run`` stops it with the reason ``"returned"``,
+        so the checkpoint records the run as finished.
+        [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] and
+        [ExperimentJob.run][SRToolkit.experiments.ExperimentJob.run] call it.
+
+        Args:
+            sr_evaluator: The evaluator, new or resumed.
+            seed: The seed passed to ``search`` for a new run; ignored when continuing.
+
+        Raises:
+            ValueError: If the evaluator holds a snapshot but the approach cannot continue from it
+                (see [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]).
+        """
+        snapshot = sr_evaluator.resumed_from
+        if snapshot is None:
+            self.search(sr_evaluator, seed)
+        else:
+            if not self.supports_snapshots:
+                raise ValueError(
+                    f"[{type(self).__name__}] cannot continue from a snapshot: it lacks the step interface "
+                    "(start/ask/tell) or get_search_state/set_search_state."
+                )
+            self.set_search_state(snapshot.state)
+            _restore_rngs(snapshot.rngs)
+            self._step_loop(sr_evaluator)
+        if not sr_evaluator.should_stop:
+            sr_evaluator.stop("returned")
+
+    def _step_loop(self, se: SR_evaluator) -> None:
+        # The loop of the step interface (shown in the module docstring), used by search and run.
+        snapshots = se.checkpoint is not None and self.supports_snapshots
+        while not se.should_stop:
+            if snapshots and se.snapshot_due:
+                se.save_snapshot(self.get_search_state())
+            candidates = self.ask(se)
+            if not candidates:
+                break
+            results: list[ModelResult | None] = []
+            with se.step():
+                for item in candidates:
+                    if se.should_stop:
+                        break
+                    c = item if isinstance(item, Candidate) else Candidate(item)
+                    if c.evaluate:
+                        se.evaluate_expr(c.expr, c.free_constants, canonicalise_constants=c.canonicalise_constants)
+                        results.append(se.models[se.trace[-1]])
+                    else:
+                        results.append(se.get_model(c.expr, c.free_constants, c.canonicalise_constants))
+            self.tell(se, candidates[: len(results)], results)
+        if snapshots:
+            se.save_snapshot(self.get_search_state())
+
+    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
+        """Seed the approach's random generators and reset its search state to empty (step
+        interface).
+
+        Called once per run before the first ``ask``, but not when a run resumes (see
+        [run][SRToolkit.approaches.sr_approach.SR_approach.run]). Create nothing to evaluate here;
+        the first ``ask`` does that.
+
+        Args:
+            sr_evaluator: The evaluator of the run.
+            seed: The run's seed, or ``None``.
+
+        Raises:
+            NotImplementedError: Unless overridden.
+        """
+        raise NotImplementedError(
+            f"[{type(self).__name__}] implements ask but not start; start must seed the approach's "
+            "random generators and set up its search state."
+        )
+
+    def ask(self, sr_evaluator: SR_evaluator) -> "list[Candidate | list[str] | Node]":
+        """Propose the next expressions to evaluate (step interface).
+
+        The first call after ``start`` creates them from scratch (e.g. a random population); later
+        calls build on what ``tell`` stored. It may use the unbilled ``get_model`` and
+        ``check_constraints`` of ``sr_evaluator``, but not ``evaluate_expr``. An empty list ends the
+        search, as if ``search`` had returned; to record why, call ``sr_evaluator.stop(reason)``
+        first. Only evaluations spend the budget, so an approach that may propose nothing but
+        lookups (``evaluate=False``) step after step must stop the run itself.
+
+        Args:
+            sr_evaluator: The evaluator of the run.
+
         Returns:
-            None
+            The expressions, in the order they are to be evaluated: token lists or
+            [Node][SRToolkit.utils.expression_tree.Node]s, or
+            [Candidate][SRToolkit.approaches.sr_approach.Candidate]s to pass free-constant specs,
+            ``canonicalise_constants`` or ``evaluate=False``.
+
+        Raises:
+            NotImplementedError: Unless overridden.
+        """
+        raise NotImplementedError
+
+    def tell(
+        self,
+        sr_evaluator: SR_evaluator,
+        candidates: "list[Candidate | list[str] | Node]",
+        results: "list[ModelResult | None]",
+    ) -> None:
+        """Update the search state from the results of the evaluated candidates (step interface),
+        e.g. select the next population. Like ``ask``, it does not call ``evaluate_expr``.
+
+        If evaluation stopped in the middle of a step, ``candidates`` holds only those evaluated
+        before it stopped, the first ones that ``ask`` returned; both lists may be empty. The
+        default does nothing.
+
+        Args:
+            sr_evaluator: The evaluator of the run.
+            candidates: The evaluated candidates, in order, as ``ask`` returned them.
+            results: Their models, with the error, status, fitted constants, etc. A model's
+                ``expr`` is a token list, canonicalised if its candidate asked for it. ``None`` for
+                a candidate with ``evaluate=False`` that was never evaluated.
+        """
+        pass
+
+    def get_search_state(self) -> bytes:
+        """Return the search state between two steps (step interface).
+
+        What ``start`` set up and ``tell`` changed, including the approach's own random generators
+        and anything the search fine-tunes (e.g. model weights). Leave out the global random states
+        (Python, NumPy, PyTorch), which the framework saves itself, and what adaptation set up,
+        which it restores before ``set_search_state``.
+
+        Returns:
+            The state, e.g. pickled.
+
+        Raises:
+            NotImplementedError: Unless overridden.
+        """
+        raise NotImplementedError
+
+    def set_search_state(self, state: bytes) -> None:
+        """Restore a state returned by
+        [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state]
+        (step interface).
+
+        Called after adaptation, so it overrides what that set up.
+
+        Args:
+            state: The saved state.
+
+        Raises:
+            NotImplementedError: Unless overridden.
         """
         raise NotImplementedError
 

@@ -2,10 +2,14 @@
 
 import json
 import shutil
+import signal
+import sqlite3
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
+from strategies import ScriptedApproach, SignalAfter, StatelessSteppedApproach, SteppedApproach
 
 from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach
 from SRToolkit.dataset import data_cache
@@ -14,6 +18,8 @@ from SRToolkit.dataset.data_source import SampleSource
 from SRToolkit.dataset.data_split import DataSplit
 from SRToolkit.dataset.sampling import LogUniformSampling, UniformSampling
 from SRToolkit.dataset.sr_dataset import SR_dataset
+from SRToolkit.evaluation.callbacks import SRCallbacks
+from SRToolkit.evaluation.results import SR_results
 from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import (
     ConsistentUnits,
@@ -1296,9 +1302,6 @@ class _SeedRecorder(SR_approach):
         super().__init__(ApproachConfig(name="recorder"))
         self.seeds = []
 
-    def prepare(self):
-        pass
-
     def search(self, sr_evaluator, seed=None):
         self.seeds.append(seed)
         sr_evaluator.evaluate_expr(["X_0"])
@@ -1337,9 +1340,6 @@ class _AdaptRecorder(SR_approach):
     @property
     def adaptation_scope(self):
         return self._scope
-
-    def prepare(self):
-        self.events.append("prepare")
 
     def adapt(self, X, background_knowledge, required_constraints):
         self.events.append("adapt")
@@ -1423,9 +1423,9 @@ class TestEvaluateApproachAdapt:
     @pytest.mark.parametrize(
         "scope, with_path, expected",
         [
-            ("never", False, ["prepare", "search", "prepare", "search"]),
-            ("once", False, ["prepare", "adapt", "search", "prepare", "search"]),
-            ("experiment", True, ["prepare", "adapt", "search", "prepare", "adapt", "search"]),
+            ("never", False, ["search", "search"]),
+            ("once", False, ["adapt", "search", "search"]),
+            ("experiment", True, ["adapt", "search", "adapt", "search"]),
         ],
         ids=["never", "once-without-path", "experiment-not-saved"],
     )
@@ -1443,11 +1443,11 @@ class TestEvaluateApproachAdapt:
         path = str(tmp_path / "state")
         first = _AdaptRecorder("once")
         _task_dataset().evaluate_approach(first, num_experiments=2, verbose=False, adaptation_path=path)
-        assert first.events == ["prepare", "adapt", "save", "search", "prepare", "search"]
+        assert first.events == ["adapt", "save", "search", "search"]
 
         second = _AdaptRecorder("once")
         _task_dataset().evaluate_approach(second, num_experiments=2, verbose=False, adaptation_path=path)
-        assert second.events == ["prepare", "load", "search", "prepare", "search"]
+        assert second.events == ["load", "search", "search"]
         assert second.loaded_from == [path]
 
 
@@ -1457,9 +1457,6 @@ class _AdaptOnly(SR_approach):
     def __init__(self):
         super().__init__(ApproachConfig(name="adapt-only"))
         self.adapted = 0
-
-    def prepare(self):
-        pass
 
     def adapt(self, X, background_knowledge, required_constraints):
         self.adapted += 1
@@ -1480,7 +1477,7 @@ class TestAdaptOrLoad:
         ids=["no-path", "missing-file", "existing-file", "existing-force"],
     )
     def test_adapt_or_load_calls_per_path_state(self, tmp_path, rel_path, existing, force, events, content):
-        # scope "never": adapt_or_load ignores adaptation_scope and never calls prepare
+        # scope "never": adapt_or_load ignores adaptation_scope
         approach = _AdaptRecorder("never")
         path = None if rel_path is None else str(tmp_path / rel_path)
         if existing:
@@ -1615,3 +1612,179 @@ class TestDefaultConstant:
         assert ds.ranking_settings()["default_constant"].to_dict() == expected
         assert ds.create_evaluator().default_constant.to_dict() == expected
         assert "default_constant" not in ds.to_dict()["kwargs"]
+
+
+# ── Checkpoints in evaluate_approach (stage 2b) ───────────────────────────────
+
+
+def _ckpt_dataset(scale=2.0, seed=None):
+    X = np.array([[1.0], [2.0], [3.0]])
+    return SR_dataset(X, SymbolLibrary.default_symbols(1), y=scale * X[:, 0], dataset_name="ds", seed=seed)
+
+
+def _without_wall_time(results):
+    return [{**r.to_dict(), "wall_time": None} for r in results.results]
+
+
+def _files(root):
+    return sorted(p.name for p in root.rglob("*") if p.is_file())
+
+
+def _journal_mode(path):
+    with sqlite3.connect(path) as con:
+        return con.execute("PRAGMA journal_mode").fetchone()[0]
+
+
+class _PerSeed(SRCallbacks):
+    # Counts the evaluation events of each experiment and records how each one ended.
+    def __init__(self):
+        self.counts = {}
+        self.ended = []
+
+    def on_experiment_start(self, event):
+        self.current = event.seed
+        self.counts.setdefault(event.seed, 0)
+
+    def on_expr_evaluated(self, event):
+        self.counts[self.current] += 1
+
+    def on_experiment_end(self, event, results):
+        self.ended.append((event.seed, results.stop_reason))
+
+
+def _evaluate(approach, checkpoint_dir=None, num_experiments=3, **kwargs):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        return _ckpt_dataset().evaluate_approach(
+            approach,
+            num_experiments=num_experiments,
+            initial_seed=10,
+            verbose=False,
+            checkpoint_dir=checkpoint_dir,
+            **kwargs,
+        )
+
+
+class TestEvaluateApproachCheckpoints:
+    def test_create_evaluator_passes_checkpoint_and_resume(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_dataset().create_evaluator(seed=0, checkpoint=path)
+        se.evaluate_expr(["X_0"])
+        se.save_snapshot(b"state")
+        se.close()
+        with pytest.raises(FileExistsError):
+            _ckpt_dataset().create_evaluator(seed=0, checkpoint=path)
+        se = _ckpt_dataset().create_evaluator(seed=0, checkpoint=path, resume=True, snapshot_interval=60.0)
+        assert (se.resumed_from.state, list(se.trace), se.snapshot_interval) == (b"state", [0], 60.0)
+
+    @pytest.mark.parametrize("kwargs, expected", [({}, 300.0), ({"snapshot_interval": None}, None)])
+    def test_evaluate_approach_passes_snapshot_interval(self, tmp_path, kwargs, expected):
+        approach = SteppedApproach(stop_after_asks=1)
+        _evaluate(approach, tmp_path, num_experiments=1, **kwargs)
+        assert approach.evaluator.snapshot_interval == expected
+
+    def test_finished_experiments_delete_checkpoints(self, tmp_path):
+        root = tmp_path / "ck" / "sub"  # created if missing
+        results = _evaluate(ScriptedApproach(), root, num_experiments=2)
+        assert root.is_dir() and _files(root) == []
+        assert _without_wall_time(results) == _without_wall_time(_evaluate(ScriptedApproach(), num_experiments=2))
+
+    def test_keep_checkpoint_keeps_compacted_files(self, tmp_path):
+        results = _evaluate(ScriptedApproach(), tmp_path, num_experiments=2, keep_checkpoint=True)
+        path = tmp_path / "ds" / "scripted" / "exp_10.sqlite"
+        assert _files(tmp_path) == ["exp_10.sqlite", "exp_11.sqlite"]  # no -wal or -shm
+        assert _journal_mode(path) == "delete"
+        assert SR_results.from_checkpoint(path)[0].trace == results[0].trace
+        se = _ckpt_dataset().create_evaluator(seed=10, checkpoint=path, resume=True)
+        assert _journal_mode(path) == "wal"  # resuming switches back to WAL
+        se.close()
+
+    def test_interrupt_returns_partial_results_and_keeps_checkpoints(self, tmp_path):
+        approach, recorder, results = ScriptedApproach(kill_seed=11), _PerSeed(), SR_results()
+        with pytest.warns(UserWarning, match="exp_11.sqlite"):
+            returned = _ckpt_dataset().evaluate_approach(
+                approach,
+                3,
+                initial_seed=10,
+                results=results,
+                callbacks=recorder,
+                verbose=False,
+                checkpoint_dir=tmp_path,
+            )
+        assert returned is results  # appended to
+        assert approach.seeds == [10, 11]  # experiment 12 is not run
+        assert [r.stop_reason for r in results.results] == ["returned", "interrupted"]
+        assert results[1].trace == [0, 1, 0]
+        assert recorder.ended == [(10, "returned"), (11, "interrupted")]
+        assert _files(tmp_path) == ["exp_10.sqlite", "exp_11.sqlite"]  # all kept
+
+    def test_rerun_with_resume_equals_uninterrupted_run(self, tmp_path):
+        # Interrupted in the second step of experiment 11; that step is completed, so 4 calls are saved.
+        _evaluate(SteppedApproach(stop_after_asks=3), tmp_path, callbacks=SignalAfter(3, seed=11))
+        recorder = _PerSeed()
+        results = _evaluate(SteppedApproach(stop_after_asks=3), tmp_path, resume=True, callbacks=recorder)
+        assert _without_wall_time(results) == _without_wall_time(_evaluate(SteppedApproach(stop_after_asks=3)))
+        assert recorder.counts == {11: 2, 12: 6}  # 10 is read from its checkpoint; 11 continues from its snapshot
+        assert _files(tmp_path) == []
+
+    @pytest.mark.parametrize(
+        "make",
+        [ScriptedApproach, lambda: StatelessSteppedApproach(stop_after_asks=3)],
+        ids=["search-only", "stateless"],
+    )
+    def test_rerun_without_snapshots_restarts_the_interrupted_experiment(self, tmp_path, make):
+        first = _evaluate(make(), tmp_path, callbacks=SignalAfter(2, seed=11))
+        recorder = _PerSeed()
+        with pytest.warns(UserWarning, match="exp_11.sqlite"):
+            results = _ckpt_dataset().evaluate_approach(
+                make(), 3, initial_seed=10, verbose=False, checkpoint_dir=tmp_path, resume=True, callbacks=recorder
+            )
+        assert list(recorder.counts) == [11, 12]  # 10 is read from its checkpoint, 11 starts afresh
+        assert _without_wall_time(results) == _without_wall_time(_evaluate(make()))
+        assert results[0].wall_time == first[0].wall_time  # saved in the checkpoint
+
+    def test_search_exception_keeps_checkpoints(self, tmp_path):
+        with pytest.raises(RuntimeError, match="boom"):
+            _evaluate(ScriptedApproach(raise_seed=11), tmp_path)
+        assert _files(tmp_path) == ["exp_10.sqlite", "exp_11.sqlite"]
+        saved = SR_results.from_checkpoint(tmp_path / "ds" / "scripted" / "exp_11.sqlite")[0]
+        assert (saved.trace, saved.stop_reason) == ([0, 1, 0], "interrupted")  # committed and closed
+
+    @pytest.mark.parametrize("use_dir", [False, True], ids=["in-memory", "checkpoint-dir"])
+    def test_signal_handlers_only_with_checkpoint_dir(self, tmp_path, use_dir):
+        approach = ScriptedApproach()
+        _evaluate(approach, tmp_path if use_dir else None, num_experiments=1)
+        assert (approach.handlers[0] is signal.getsignal(signal.SIGINT)) is not use_dir
+
+    @pytest.mark.parametrize(
+        "make, prepare, kwargs, error, match",
+        [
+            (ScriptedApproach, lambda path: None, {"initial_seed": None}, ValueError, "seed"),
+            (
+                ScriptedApproach,
+                lambda path: _evaluate(ScriptedApproach(), path, keep_checkpoint=True),
+                {},
+                FileExistsError,
+                None,
+            ),
+            (  # continuing the interrupted experiment 11 with other data
+                SteppedApproach,
+                lambda path: _evaluate(SteppedApproach(stop_after_asks=3), path, callbacks=SignalAfter(3, seed=11)),
+                {"resume": True, "dataset": _ckpt_dataset(scale=3.0)},
+                ValueError,
+                r"\by\b",
+            ),
+        ],
+        ids=["unseeded", "existing-checkpoint", "other-settings"],
+    )
+    def test_evaluate_approach_checkpoint_errors(self, tmp_path, make, prepare, kwargs, error, match):
+        prepare(tmp_path)
+        # Reading a checkpoint in WAL mode may add -wal / -shm files; the checkpoints themselves stay unchanged.
+        before = {p: p.read_bytes() for p in tmp_path.rglob("*.sqlite")}
+        args = {"initial_seed": 10, **kwargs}  # a copy: the parameter dict is shared between runs
+        dataset = args.pop("dataset", _ckpt_dataset())
+        approach = make()
+        with pytest.raises(error, match=match):
+            dataset.evaluate_approach(approach, 3, verbose=False, checkpoint_dir=tmp_path, **args)
+        assert {p: p.read_bytes() for p in tmp_path.rglob("*.sqlite")} == before
+        assert getattr(approach, "seeds", []) == []  # nothing was run

@@ -1,5 +1,6 @@
 """ProGED approach — probabilistic grammar-based equation discovery by Brence et al."""
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -7,10 +8,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import Grammar, SymbolLibrary, generate_n_expressions
+from SRToolkit.utils import Grammar, Node, SymbolLibrary, generate_n_expressions
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
-from .sr_approach import ApproachConfig, SR_approach
+from .sr_approach import ApproachConfig, Candidate, SR_approach
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports the approaches.
@@ -106,7 +107,7 @@ class ProGED(SR_approach):
                   knowledge: its ``reference_grammar`` if set, else a generic grammar from the
                   symbol library. A generic grammar forgoes the approach's main advantage.
             max_consecutive_skips: Number of samples in a row that may be skipped (see
-                [search][SRToolkit.approaches.ProGED.ProGED.search]) before the search stops early.
+                [ask][SRToolkit.approaches.ProGED.ProGED.ask]) before the search stops early.
             skip_evaluated: Skip samples that were already evaluated. ``False`` evaluates repeats
                 too, as cache hits that use the budget.
             skip_rejected: Skip samples that break a required constraint. ``False`` evaluates them,
@@ -115,7 +116,12 @@ class ProGED(SR_approach):
                 labelled (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) as one expression; passed to
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] and
                 ``get_model``. Useful only for grammars with labelled constants as terminals.
+
+        Raises:
+            ValueError: If ``max_consecutive_skips`` is less than 1.
         """
+        if max_consecutive_skips < 1:
+            raise ValueError(f"[ProGED] max_consecutive_skips must be at least 1, got {max_consecutive_skips}.")
         if isinstance(grammar, Grammar):
             grammar_dict = grammar.to_dict()
         elif isinstance(grammar, SymbolLibrary):
@@ -143,14 +149,7 @@ class ProGED(SR_approach):
         self.canonicalise_constants = canonicalise_constants
         # The grammar search samples from: the constructor's, or the one adapt chose for this task.
         self._sampling_grammar: Grammar | None = grammar
-
-    def prepare(self) -> None:
-        """ProGED is stateless — this method does nothing.
-
-        Returns:
-            None
-        """
-        pass
+        self._skipped = 0  # samples skipped in a row
 
     @property
     def adaptation_scope(self) -> str:
@@ -184,45 +183,76 @@ class ProGED(SR_approach):
             return
         self._sampling_grammar = background_knowledge.sampling_grammar()
 
-    def search(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
-        """Sample expressions from the grammar and evaluate the new ones until the evaluator stops.
+    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
+        """Seed NumPy's global random state, which the grammar samples from.
 
-        A sample is skipped, without using the budget, if it was already evaluated
-        ([get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]) and
-        ``skip_evaluated`` is set, or if it breaks a required constraint
-        ([check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints]) and
-        ``skip_rejected`` is set.
-        After ``max_consecutive_skips`` skipped samples in a row, the grammar yields few new valid
-        expressions: the search [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] the
-        evaluator with a reason starting with ``"ProGED"`` and returns.
+        ProGED implements the step interface (see [sr_approach][SRToolkit.approaches.sr_approach]):
+        each step proposes one expression and evaluates it, so it can be resumed from a snapshot.
 
         Args:
-            sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to
-                score candidate expressions.
+            sr_evaluator: The evaluator of the run.
             seed: Optional random seed for reproducible sampling.
 
         Raises:
             RuntimeError: If no grammar was given to the constructor and ``adapt`` was not called.
         """
         if self._sampling_grammar is None:
-            raise RuntimeError("ProGED.search() must be called after adapt() if grammar is not provided.")
+            raise RuntimeError("ProGED.start() must be called after adapt() if grammar is not provided.")
         np.random.seed(seed)
-        skipped = 0
-        while not sr_evaluator.should_stop:
+        self._skipped = 0
+
+    def ask(self, sr_evaluator: SR_evaluator) -> list[Candidate | list[str] | Node]:
+        """Sample expressions from the grammar until one is not skipped, and propose it.
+
+        A sample is skipped, without using the budget, if it was already evaluated
+        ([get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]) and
+        ``skip_evaluated`` is set, or if it breaks a required constraint
+        ([check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints]) and
+        ``skip_rejected`` is set. After ``max_consecutive_skips`` skipped samples in a row, the grammar
+        yields few new valid expressions: it [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]
+        the evaluator with a reason starting with ``"ProGED"`` and returns no candidate.
+
+        Args:
+            sr_evaluator: The evaluator of the run.
+
+        Returns:
+            One candidate, or none after too many skipped samples or if the run is interrupted
+            while sampling.
+        """
+        assert self._sampling_grammar is not None  # set by the constructor or adapt; checked in start
+        while self._skipped < self.max_consecutive_skips:
+            if sr_evaluator.should_stop:  # interrupted while sampling; the snapshot keeps the count
+                return []
             expr = generate_n_expressions(self._sampling_grammar, 1, verbose=False)[0]
             evaluated = self.skip_evaluated and (
                 sr_evaluator.get_model(expr, canonicalise_constants=self.canonicalise_constants) is not None
             )
-            if evaluated or (self.skip_rejected and sr_evaluator.check_constraints(expr)[0]):
-                skipped += 1
-                if skipped >= self.max_consecutive_skips:
-                    sr_evaluator.stop(
-                        f"ProGED: {skipped} samples in a row were already evaluated or broke a required constraint"
-                    )
-                    return
-                continue
-            skipped = 0
-            sr_evaluator.evaluate_expr(expr, canonicalise_constants=self.canonicalise_constants)
+            if not (evaluated or (self.skip_rejected and sr_evaluator.check_constraints(expr)[0])):
+                self._skipped = 0
+                return [Candidate(expr, canonicalise_constants=self.canonicalise_constants)]
+            self._skipped += 1
+        sr_evaluator.stop(
+            f"ProGED: {self.max_consecutive_skips} samples in a row were already evaluated or broke a required "
+            "constraint"
+        )
+        return []
+
+    def get_search_state(self) -> bytes:
+        """Return the sampling grammar and the number of samples skipped in a row (the search state
+        besides NumPy's global random state, which the framework saves), as JSON bytes.
+        """
+        assert self._sampling_grammar is not None
+        return json.dumps({"grammar": self._sampling_grammar.to_dict(), "skipped": self._skipped}).encode()
+
+    def set_search_state(self, state: bytes) -> None:
+        """Restore the state returned by ``get_search_state``.
+
+        Args:
+            state: The saved state.
+        """
+        saved = json.loads(state)
+        self._sampling_grammar = Grammar.from_dict(saved["grammar"])
+        self._skipped = saved["skipped"]
 
     @classmethod
     def from_config(cls, config: dict) -> "ProGED":

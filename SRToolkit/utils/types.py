@@ -470,9 +470,10 @@ class EvalResult:
         dataset_name: Name of the dataset. ``None`` if not provided.
         metadata: The evaluator's metadata without ``dataset_name`` (e.g. model name, seed, and
             the dataset's metadata under ``"dataset_metadata"``). ``None`` if there is none.
-        wall_time: Wall-clock duration in seconds of the approach's search for this
-            experiment, measured around ``search()`` by the experiment runner. ``None`` if
-            the result was not produced by a runner that records timing.
+        wall_time: Seconds the run took, all sessions of a resumed run together (see
+            [SR_evaluator.wall_time][SRToolkit.evaluation.sr_evaluator.SR_evaluator.wall_time]).
+            ``None`` if not known, e.g. from a checkpoint of a run that crashed before its first
+            commit.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
             [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] subclasses via
             [add_augmentation][SRToolkit.utils.types.EvalResult.add_augmentation].

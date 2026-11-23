@@ -2,7 +2,10 @@
 
 Four subcommands:
 
-    run_job   -- Execute one experiment identified by (grid, dataset, approach, seed).
+    run_job   -- Execute one experiment identified by (grid, dataset, approach, seed). Running it
+                 again resumes an unfinished job from its checkpoint. If the job is stopped by
+                 Ctrl-C or SIGTERM, it prints where the checkpoint is and exits with status 130
+                 (for SIGTERM too).
     adapt     -- Pre-adapt "once"-scope approaches: all missing pairs, or a single
                  (dataset, approach) pair when both --dataset and --approach are given.
                  Add --force to re-adapt and overwrite an existing state (single pair only).
@@ -29,6 +32,8 @@ Usage examples::
 """
 
 import argparse
+import os
+import sys
 
 from .experiment_grid import ExperimentGrid
 
@@ -36,7 +41,16 @@ from .experiment_grid import ExperimentGrid
 def _cmd_run_job(args: argparse.Namespace) -> None:
     grid = ExperimentGrid.from_dict(args.grid)
     job = grid.build_job(args.dataset, args.approach, args.seed)
-    job.run()
+    try:
+        job.run()
+    except KeyboardInterrupt:
+        if os.path.exists(job.checkpoint_path):
+            print(
+                f"[run_job] Interrupted; the checkpoint is kept at {job.checkpoint_path}. Run the job again to resume it."
+            )
+        else:
+            print("[run_job] Interrupted before the search started; nothing was saved.")
+        sys.exit(130)
     print(f"[run_job] Saved result to {job.result_path}")
 
 

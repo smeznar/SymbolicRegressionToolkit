@@ -82,8 +82,6 @@ def custom(tmp_path):
         "class CustomAp(SR_approach):\n"
         "    def __init__(self):\n"
         "        super().__init__(ApproachConfig(name='CustomAp'))\n"
-        "    def prepare(self):\n"
-        "        pass\n"
         "    def search(self, sr_evaluator, seed=None):\n"
         "        pass\n"
         "    @classmethod\n"
