@@ -65,6 +65,9 @@ while not se.should_stop:
         for candidate in candidates:
             if se.should_stop:
                 break
+            if candidate is None:  # not an expression: neither looked up nor evaluated
+                results.append(None)
+                continue
             if not isinstance(candidate, Candidate):  # a token list or a Node
                 candidate = Candidate(candidate)
             if candidate.evaluate:
@@ -402,6 +405,9 @@ class SR_approach(ABC):
                 for item in candidates:
                     if se.should_stop:
                         break
+                    if item is None:
+                        results.append(None)
+                        continue
                     c = item if isinstance(item, Candidate) else Candidate(item)
                     if c.evaluate:
                         se.evaluate_expr(c.expr, c.free_constants, canonicalise_constants=c.canonicalise_constants)
@@ -432,7 +438,7 @@ class SR_approach(ABC):
             "random generators and set up its search state."
         )
 
-    def ask(self, sr_evaluator: SR_evaluator) -> "list[Candidate | list[str] | Node]":
+    def ask(self, sr_evaluator: SR_evaluator) -> "list[Candidate | list[str] | Node | None]":
         """Propose the next expressions to evaluate (step interface).
 
         The first call after ``start`` creates them from scratch (e.g. a random population); later
@@ -449,7 +455,9 @@ class SR_approach(ABC):
             The expressions, in the order they are to be evaluated: token lists or
             [Node][SRToolkit.utils.expression_tree.Node]s, or
             [Candidate][SRToolkit.approaches.sr_approach.Candidate]s to pass free-constant specs,
-            ``canonicalise_constants`` or ``evaluate=False``.
+            ``canonicalise_constants`` or ``evaluate=False``. ``None`` marks a proposal that is not an
+            expression (e.g. a latent vector that does not decode): it is neither looked up nor
+            evaluated, and ``tell`` gets ``None`` for it.
 
         Raises:
             NotImplementedError: Unless overridden.
@@ -459,7 +467,7 @@ class SR_approach(ABC):
     def tell(
         self,
         sr_evaluator: SR_evaluator,
-        candidates: "list[Candidate | list[str] | Node]",
+        candidates: "list[Candidate | list[str] | Node | None]",
         results: "list[ModelResult | None]",
     ) -> None:
         """Update the search state from the results of the evaluated candidates (step interface),
@@ -474,7 +482,8 @@ class SR_approach(ABC):
             candidates: The evaluated candidates, in order, as ``ask`` returned them.
             results: Their models, with the error, status, fitted constants, etc. A model's
                 ``expr`` is a token list, canonicalised if its candidate asked for it. ``None`` for
-                a candidate with ``evaluate=False`` that was never evaluated.
+                a ``None`` entry and for a candidate with ``evaluate=False`` that was never
+                evaluated.
         """
         pass
 

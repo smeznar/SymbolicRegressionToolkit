@@ -849,7 +849,11 @@ class EvalResult:
             raise ValueError("[EvalResult.open_checkpoint] This result has no checkpoint reference.")
         target = self.checkpoint["path"] if path is None else path
         store = ModelStore(target, "read")
-        saved = store.get_header("fingerprint", {})
+        try:
+            saved = store.get_header("fingerprint", {})
+        except BaseException:
+            store.close()
+            raise
         expected = self.checkpoint["fingerprint"]
         changed = sorted(k for k in saved.keys() | expected.keys() if saved.get(k) != expected.get(k))
         if changed:

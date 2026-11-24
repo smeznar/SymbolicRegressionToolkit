@@ -201,7 +201,7 @@ class ProGED(SR_approach):
         np.random.seed(seed)
         self._skipped = 0
 
-    def ask(self, sr_evaluator: SR_evaluator) -> list[Candidate | list[str] | Node]:
+    def ask(self, sr_evaluator: SR_evaluator) -> list[Candidate | list[str] | Node | None]:
         """Sample expressions from the grammar until one is not skipped, and propose it.
 
         A sample is skipped, without using the budget, if it was already evaluated

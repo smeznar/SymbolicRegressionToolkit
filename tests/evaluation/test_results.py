@@ -12,6 +12,7 @@ import pytest
 from strategies import result_dict
 
 from SRToolkit.evaluation import results as results_module
+from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.results import ResultAugmenter, SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -803,6 +804,19 @@ class TestOpenCheckpoint:
         result, kwargs = make(tmp_path)
         with pytest.raises(error, match=match):
             result.open_checkpoint(**kwargs)
+
+    # Reason: regression (a header that could not be read left the store open).
+    def test_open_checkpoint_closes_the_store_when_the_header_is_unreadable(self, tmp_path, monkeypatch):
+        result = _compact_from_checkpoint(tmp_path / "run.sqlite")
+        with sqlite3.connect(tmp_path / "run.sqlite") as con:
+            con.execute("UPDATE header SET value = '{' WHERE key = 'fingerprint'")
+        con.close()
+        closed = []
+        close = ModelStore.close
+        monkeypatch.setattr(ModelStore, "close", lambda store: (closed.append(store), close(store)))
+        with pytest.raises(json.JSONDecodeError):
+            result.open_checkpoint()
+        assert len(closed) == 1
 
     # Reason: clause (path overrides a moved file; the reference is not changed).
     def test_open_checkpoint_path_override(self, tmp_path):

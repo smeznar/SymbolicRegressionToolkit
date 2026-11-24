@@ -153,10 +153,11 @@ def test_step_loop_takes_candidates_nodes_and_token_lists():
 
 
 class _Lookups(SteppedApproach):
-    # Step 1 evaluates X_0; step 2 only looks up X_0 (evaluated) and X_1 (never); step 3 evaluates X_1.
+    # Step 1 evaluates X_0; step 2 only looks up X_0 (evaluated) and X_1 (never), with a None entry
+    # (not an expression) between them; step 3 evaluates X_1.
     _STEPS = [
         [["X_0"]],
-        [Candidate(["X_0"], evaluate=False), Candidate(["X_1"], evaluate=False)],
+        [Candidate(["X_0"], evaluate=False), None, Candidate(["X_1"], evaluate=False)],
         [["X_1"]],
     ]
 
@@ -165,12 +166,12 @@ class _Lookups(SteppedApproach):
         return self._STEPS[self.asks - 1] if self.asks <= len(self._STEPS) else []
 
 
-def test_lookup_candidates_spend_no_budget():
+def test_lookup_and_none_candidates_spend_no_budget():
     se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
     approach = _Lookups()
     approach.search(se, seed=0)
     [(_, first), (_, lookups), _] = approach.told  # the step of lookups did not end the run
-    assert lookups == [first[0], None]
+    assert lookups == [first[0], None, None]
     assert ([m.expr for m in se.models], list(se.trace)) == ([["X_0"], ["X_1"]], [0, 1])
 
 

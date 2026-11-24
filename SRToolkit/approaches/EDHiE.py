@@ -5,6 +5,8 @@ Requires the optional ``approaches`` extra (PyTorch and pymoo). Install with::
     pip install 'symbolic-regression-toolkit[approaches]'
 """
 
+import hashlib
+import pickle
 import random
 import warnings
 from collections.abc import Iterator, Sequence
@@ -17,20 +19,21 @@ from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils import Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
-from .sr_approach import ApproachConfig, SR_approach, check_dependencies
+from .sr_approach import ApproachConfig, Candidate, SR_approach, check_dependencies
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports the approaches.
     from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
+    from SRToolkit.utils.types import ModelResult
 
 try:
     from pymoo.algorithms.soo.nonconvex.ga import GA
     from pymoo.core.crossover import Crossover
     from pymoo.core.mutation import Mutation
+    from pymoo.core.population import Population
     from pymoo.core.problem import Problem
     from pymoo.core.sampling import Sampling
-    from pymoo.core.termination import Termination
-    from pymoo.optimize import minimize
+    from pymoo.core.termination import NoTermination
 except ImportError:
     raise ImportError(
         "EDHiE requires pymoo. Install dependencies either manually or with "
@@ -103,16 +106,16 @@ class EDHiE(SR_approach):
         r"""EDHiE — Equation Discovery with Hierarchical variational autoEncoders by Mežnar et al.
 
         Trains a Hierarchical VAE (HVAE) on randomly generated expressions for the task
-        ([adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt]), then explores the learned latent space with a genetic algorithm to find
-        expressions that best fit the target dataset (``search``).
+        ([adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt]), then explores the learned latent space
+        with a genetic algorithm to find expressions that best fit the target dataset.
 
-        References:
-            [Mežnar et al. (2023)][cite-edhie]
-
-        Examples:
-            >>> model = EDHiE(latent_size=24, num_expressions=100, epochs=1, verbose=False)
-            >>> model.name
-            'EDHiE'
+        The search uses the step interface (see [sr_approach][SRToolkit.approaches.sr_approach]):
+        one step is one generation, and with the search state methods a stopped run resumes from its
+        last snapshot. Resuming needs the same HVAE and settings as the interrupted run: load the
+        HVAE from a file (``weights_path``, or a state saved by
+        [save_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.save_adapted_state] and loaded by
+        [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load]), or train it again
+        with the same ``training_seed``.
 
         Args:
             latent_size: Dimensionality of the HVAE latent space.
@@ -127,19 +130,35 @@ class EDHiE(SR_approach):
             batch_size: Batch size used during HVAE training.
             max_beta: Maximum value of the KL annealing coefficient (controls regularization strength).
             population_size: GA population size used during latent space search.
-            weights_path: Optional path to load/save HVAE weights from/to disk.
-            verbose: If ``True``, prints training loss and new best expressions during search.
-            max_consecutive_skips: Number of samples in a row that may be rejected, both when
-                sampling the training expressions and in
-                [search][SRToolkit.approaches.EDHiE.EDHiE.search], before giving up.
-            skip_evaluated: In ``search``, do not evaluate an expression again: reuse its cached
-                error. ``False`` evaluates repeats too, as cache hits that use the budget.
-            skip_rejected: In ``search``, do not evaluate expressions that break a required
+            weights_path: Optional path of a file written by
+                [save_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.save_adapted_state]; the HVAE
+                is loaded from it here and used for every task.
+            verbose: If ``True``, prints the training loss and sample reconstructions while training
+                the HVAE. The search prints nothing.
+            max_consecutive_skips: After this many skipped samples in a row, sampling the training
+                expressions gives up (see
+                [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]) and the
+                search stops (see [ask][SRToolkit.approaches.EDHiE.EDHiE.ask]).
+            skip_evaluated: In the search, do not evaluate an expression again: look up its model,
+                without using the budget. ``False`` evaluates repeats too, as cache hits that use
+                the budget.
+            skip_rejected: In the search, do not evaluate expressions that break a required
                 constraint. ``False`` evaluates them, so they use the budget and appear in the
                 results as ``"rejected"``.
             training_seed: Seed for [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] (sampling the
                 training expressions and training the HVAE); the global random states are restored
                 afterwards. ``None`` (default): unseeded.
+
+        Raises:
+            ValueError: If ``max_consecutive_skips`` is below 1.
+
+        Examples:
+            >>> model = EDHiE(latent_size=24, num_expressions=100, epochs=1, verbose=False)
+            >>> model.name
+            'EDHiE'
+
+        References:
+            [Mežnar et al. (2023)][cite-edhie]
         """
         super().__init__(
             EDHiEConfig(
@@ -159,6 +178,8 @@ class EDHiE(SR_approach):
                 training_seed=training_seed,
             )
         )
+        if max_consecutive_skips < 1:
+            raise ValueError(f"[EDHiE] max_consecutive_skips must be at least 1, got {max_consecutive_skips}.")
         check_dependencies(["pytorch", "pymoo"])
         self.latent_size = latent_size
         self.num_expressions = num_expressions
@@ -175,6 +196,11 @@ class EDHiE(SR_approach):
         self.training_seed = training_seed
 
         self.model: HVAE | None = None
+        # Search state, set up by start: the GA, individuals in a row not evaluated, and between
+        # ask and tell the asked generation.
+        self._ga: GA | None = None
+        self._skipped = 0
+        self._pending: Population | None = None
         self._pretrained = weights_path is not None
         if weights_path is not None:
             self.load_adapted_state(weights_path)
@@ -367,55 +393,185 @@ class EDHiE(SR_approach):
         )
         self.model.load_state_dict(checkpoint["state_dict"])
 
-    def search(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
-        """Explore the HVAE latent space with a genetic algorithm to find the best expression.
+    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
+        """Set up a new genetic algorithm in the latent space.
 
-        Each individual is decoded to an expression and scored without using the budget if it was
-        already evaluated and ``skip_evaluated`` is set (its cached error, from
-        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), or if it breaks a
-        required constraint and ``skip_rejected`` is set, or does not decode (error ``inf``). Other
-        individuals are evaluated. After ``max_consecutive_skips`` individuals in a row scored
-        without evaluation, the search [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]
-        the evaluator with a reason starting with ``"EDHiE"``.
+        See [start][SRToolkit.approaches.sr_approach.SR_approach.start]. With ``seed`` set, it seeds
+        the global random states (Python, NumPy, PyTorch), which are not restored afterwards, and
+        the algorithm's own generator, so the same seed, HVAE and evaluator settings give the same
+        models and trace. With ``None``, the algorithm's generator is seeded from fresh entropy.
 
         Args:
-            sr_evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to
-                score candidate expressions.
-            seed: Optional random seed for reproducibility.
+            sr_evaluator: The evaluator of the run.
+            seed: The run's seed, or ``None``.
 
         Raises:
-            RuntimeError: If [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] has not been called
-                before ``search``.
+            RuntimeError: If there is no HVAE: [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] has not
+                been called and no ``weights_path`` was given.
         """
         if self.model is None:
-            raise RuntimeError("EDHiE.adapt() must be called before search().")
-
+            raise RuntimeError("EDHiE needs an HVAE: call adapt() or pass weights_path before start().")
         if seed is not None:
             np.random.seed(seed)
             torch.manual_seed(seed)
             random.seed(seed)
+        self._ga = self._new_ga(seed)
+        self._skipped = 0
+        self._pending = None
 
-        problem = _HVAEProblem(
-            self.model,
-            sr_evaluator,
-            self.latent_size,
-            self.skip_evaluated,
-            self.skip_rejected,
-            self.max_consecutive_skips,
-        )
+    def ask(self, sr_evaluator: SR_evaluator) -> list[Candidate | list[str] | Node | None]:
+        """Decode the next generation and propose one entry per individual, in order.
+
+        See [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]. Each individual, checked in
+        this order, is proposed as
+
+        1. ``None`` if it does not decode;
+        2. a lookup (``Candidate(..., evaluate=False)``) if ``skip_evaluated`` is set and its
+           expression was evaluated before
+           ([get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]) or proposed
+           earlier in the same generation;
+        3. a lookup if ``skip_rejected`` is set and it breaks a required constraint
+           ([check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints]);
+           it was never evaluated, so ``tell`` gets ``None`` for it;
+        4. its expression, to be evaluated, otherwise.
+
+        Cases 1-3 count as skipped, case 4 resets the count; the count runs across generations.
+        When it reaches ``max_consecutive_skips``, the list ends with that individual, and the next
+        call [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] the run with a reason
+        starting with ``"EDHiE"`` and returns an empty list.
+
+        Args:
+            sr_evaluator: The evaluator of the run.
+
+        Returns:
+            One entry per individual, up to the one that reached ``max_consecutive_skips``; an
+            empty list once the count has reached it.
+
+        Raises:
+            RuntimeError: If neither ``start`` nor ``set_search_state`` has been called.
+        """
+        if self._ga is None or self.model is None:
+            raise RuntimeError("EDHiE.start() must be called before ask().")
+        # Checked here, not in tell: the count is in the search state, so a run resumed after an
+        # interrupt in the step that reached the limit stops here too.
+        if self._skipped >= self.max_consecutive_skips:
+            sr_evaluator.stop(
+                f"EDHiE: {self._skipped} individuals in a row were already evaluated, broke a required "
+                "constraint or did not decode"
+            )
+            return []
+        self._pending = self._ga.ask()
+        X = self._pending.get("X")
+        device = next(self.model.parameters()).device
+        trees = self.model.decode(torch.tensor(X, device=device, dtype=torch.float32))
+        candidates: list[Candidate | list[str] | Node | None] = []
+        evaluated: set[tuple[str, ...]] = set()  # expressions proposed for evaluation
+        for tree in trees:
+            if tree is None:  # Shouldn't happen but just to be safe
+                candidates.append(None)
+                self._skipped += 1
+            else:
+                key = tuple(tree.to_list(sr_evaluator.symbol_library))
+                if (self.skip_evaluated and (key in evaluated or sr_evaluator.get_model(tree) is not None)) or (
+                    self.skip_rejected and sr_evaluator.check_constraints(tree)[0]
+                ):
+                    candidates.append(Candidate(tree, evaluate=False))
+                    self._skipped += 1
+                else:
+                    candidates.append(tree)
+                    evaluated.add(key)
+                    self._skipped = 0
+            if self._skipped >= self.max_consecutive_skips:
+                break
+        return candidates
+
+    def tell(
+        self,
+        sr_evaluator: SR_evaluator,
+        candidates: list[Candidate | list[str] | Node | None],
+        results: "list[ModelResult | None]",
+    ) -> None:
+        """Score the generation from ``ask`` and select the next population.
+
+        See [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]. Individual *i* gets the error
+        of ``results[i]``; it gets ``inf`` if that is ``None`` or its error is ``nan``, and if it has
+        no result (the list from ``ask`` was cut at ``max_consecutive_skips``, or the run stopped in
+        the middle of the step).
+
+        Args:
+            sr_evaluator: The evaluator of the run.
+            candidates: The evaluated candidates.
+            results: Their models.
+        """
+        assert self._ga is not None and self._pending is not None  # set by ask
+        errors = np.full(len(self._pending), np.inf)
+        for i, result in enumerate(results):
+            if result is not None and not np.isnan(result.error):
+                errors[i] = result.error
+        self._pending.set("F", errors[:, None])
+        self._ga.tell(infills=self._pending)
+        self._pending = None
+
+    def get_search_state(self) -> bytes:
+        """Return the search state between two steps.
+
+        See [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state].
+
+        Returns:
+            The genetic algorithm (population, generation, its own random generator), the number of
+            individuals skipped in a row and a digest of the HVAE, pickled. The HVAE itself is not
+            included.
+
+        Raises:
+            RuntimeError: If neither ``start`` nor ``set_search_state`` has been called.
+        """
+        if self._ga is None or self.model is None:
+            raise RuntimeError("EDHiE.start() must be called before get_search_state().")
+        # The GA itself does not pickle (tournament selection holds a local function); mating is
+        # configuration only and the problem holds the HVAE, so both are rebuilt on restore.
+        ga = {k: v for k, v in vars(self._ga).items() if k not in ("mating", "problem")}
+        return pickle.dumps({"ga": ga, "skipped": self._skipped, "model": _digest(self.model)})
+
+    def set_search_state(self, state: bytes) -> None:
+        """Restore a state returned by ``get_search_state``.
+
+        See [set_search_state][SRToolkit.approaches.sr_approach.SR_approach.set_search_state]. On
+        resume it takes the place of ``start``: it rebuilds the genetic algorithm and restores the
+        skip count.
+
+        Args:
+            state: The saved state.
+
+        Raises:
+            RuntimeError: If there is no HVAE.
+            ValueError: If the HVAE's weights differ from those the state was saved with.
+        """
+        if self.model is None:
+            raise RuntimeError("EDHiE needs an HVAE to restore a search state: call adapt() or pass weights_path.")
+        saved = pickle.loads(state)
+        if saved["model"] != _digest(self.model):
+            raise ValueError(
+                "EDHiE: the HVAE differs from the one the search state was saved with; load the same model "
+                "(weights_path or a saved adapted state) or train it with the same training_seed."
+            )
+        self._ga = self._new_ga(None)
+        vars(self._ga).update(saved["ga"])
+        self._skipped = saved["skipped"]
+        self._pending = None
+
+    def _new_ga(self, seed: int | None) -> GA:
+        """Return a GA with this approach's settings, set up on the latent space."""
+        assert self.model is not None
         ga = GA(
             pop_size=self.population_size,
             sampling=_TorchNormalSampling(),
             crossover=_LICrossover(),
             mutation=_RandomMutation(),
             eliminate_duplicates=False,
+            seed=seed,
         )
-        minimize(
-            problem,
-            ga,
-            _BestTermination(),
-            verbose=False,
-        )
+        ga.setup(_LatentSpace(self.model, self.latent_size), termination=NoTermination())
+        return ga
 
     @classmethod
     def from_config(cls, config: dict) -> "EDHiE":
@@ -1203,66 +1359,32 @@ def train_hvae(
                         print(f"P: {''.join(decoded_trees[0].to_list(symbol_library=symbol_library))}")
 
 
-class _HVAEProblem(Problem):
-    """pymoo ``Problem`` that wraps HVAE decoding and SR expression evaluation.
+def _digest(model: HVAE) -> str:
+    """Return the sha256 hex digest of the model's state dict (names and weights, read on the CPU)."""
+    digest = hashlib.sha256()
+    for name, tensor in model.state_dict().items():
+        digest.update(name.encode())
+        digest.update(tensor.detach().cpu().numpy().tobytes())
+    return digest.hexdigest()
 
-    Each call to ``_evaluate`` decodes a batch of latent vectors to expression trees,
-    evaluates them via the [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator],
-    and returns the error values as the objective.
+
+class _LatentSpace(Problem):
+    """pymoo ``Problem`` for the HVAE latent space.
+
+    EDHiE scores the individuals itself (``ask`` / ``tell``), so the problem only carries the model
+    and the symbol indices for [_RandomMutation][SRToolkit.approaches.EDHiE._RandomMutation].
     """
 
-    _FALLBACK_SCORE = float("inf")
+    def __init__(self, model: HVAE, dim: int):
+        """Set up the problem on a trained HVAE.
 
-    def __init__(
-        self,
-        model: HVAE,
-        evaluator: SR_evaluator,
-        dim: int,
-        skip_evaluated: bool,
-        skip_rejected: bool,
-        max_consecutive_skips: int,
-    ):
-        """Args:
-        model: Trained [HVAE][SRToolkit.approaches.EDHiE.HVAE] used to decode latent vectors.
-        evaluator: [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] used to score
-            decoded expressions.
-        dim: Dimensionality of the latent space (number of decision variables for pymoo).
-        skip_evaluated: Score already evaluated expressions with their cached error.
-        skip_rejected: Score expressions that break a required constraint with ``inf``.
-        max_consecutive_skips: Skips in a row after which the evaluator is stopped.
+        Args:
+            model: Trained [HVAE][SRToolkit.approaches.EDHiE.HVAE].
+            dim: Dimensionality of the latent space (number of decision variables for pymoo).
         """
         self.model = model
-        self.evaluator = evaluator
-        self.skip_evaluated = skip_evaluated
-        self.skip_rejected = skip_rejected
-        self.max_consecutive_skips = max_consecutive_skips
-        self.skipped = 0  # individuals in a row scored without evaluation
-        self.symbol2index = evaluator.symbol_library.symbols2index()
+        self.symbol2index = model.decoder.symbol_library.symbols2index()
         super().__init__(n_var=dim, n_obj=1)
-
-    def _evaluate(self, x, out, *args, **kwargs):
-        device = next(self.model.parameters()).device
-        trees = self.model.decode(torch.tensor(x[:, :], device=device, dtype=torch.float32))
-        errors = []
-        for tree in trees:
-            if self.evaluator.should_stop:
-                errors.append(self._FALLBACK_SCORE)
-                continue
-            # Scored without evaluation: no decode, already evaluated, or would be rejected.
-            cached = self.evaluator.get_model(tree) if tree is not None and self.skip_evaluated else None
-            if tree is None or cached is not None or (self.skip_rejected and self.evaluator.check_constraints(tree)[0]):
-                errors.append(cached.error if cached is not None else self._FALLBACK_SCORE)
-                self.skipped += 1
-                if self.skipped >= self.max_consecutive_skips:
-                    self.evaluator.stop(
-                        f"EDHiE: {self.skipped} individuals in a row were already evaluated, broke a required "
-                        "constraint or did not decode"
-                    )
-                continue
-            self.skipped = 0
-            error = self.evaluator.evaluate_expr(tree)
-            errors.append(error if not np.isnan(error) else self._FALLBACK_SCORE)
-        out["F"] = np.array(errors)
 
 
 class _TorchNormalSampling(Sampling):
@@ -1270,26 +1392,15 @@ class _TorchNormalSampling(Sampling):
     standard normal distribution in latent space.
     """
 
-    def _do(self, problem: _HVAEProblem, n_samples: int, **kwargs) -> np.ndarray:
+    def _do(self, problem: _LatentSpace, n_samples: int, **kwargs) -> np.ndarray:
         """Args:
-            problem: The [_HVAEProblem][SRToolkit.approaches.EDHiE._HVAEProblem].
+            problem: The [_LatentSpace][SRToolkit.approaches.EDHiE._LatentSpace].
             n_samples: Number of individuals to generate.
 
         Returns:
             Array of shape ``(n_samples, n_var)`` sampled from ``N(0, 1)`` in latent space.
         """
         return np.random.standard_normal((n_samples, problem.n_var))
-
-
-class _BestTermination(Termination):
-    """pymoo ``Termination`` that stops the GA when the evaluator signals early stopping
-    (``should_stop``).
-    """
-
-    def _update(self, algorithm):
-        if algorithm.problem.evaluator.should_stop:
-            self.terminate()
-        return 0.0
 
 
 class _LICrossover(Crossover):
@@ -1320,7 +1431,7 @@ class _RandomMutation(Mutation):
         """Initialises the mutation operator."""
         super().__init__()
 
-    def _do(self, problem: _HVAEProblem, X, **kwargs):
+    def _do(self, problem: _LatentSpace, X, **kwargs):
         device = next(problem.model.parameters()).device
         trees = problem.model.decode(torch.tensor(X, device=device, dtype=torch.float32))
         batch = create_batch(trees, problem.symbol2index)
