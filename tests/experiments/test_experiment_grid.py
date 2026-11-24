@@ -1,11 +1,14 @@
 """Tests for ExperimentGrid serialization (to_dict / from_dict) and the
 results_dir anchoring fix in load()."""
 
+import contextlib
+import fcntl
 import json
 import os
 import shutil
 import signal
 import sqlite3
+import subprocess
 import sys
 import warnings
 from dataclasses import dataclass
@@ -579,8 +582,9 @@ def test_cli_progress(tmp_path):
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert "ds1" in result.stdout and "ProGED" in result.stdout
-    assert "1/2" in result.stdout
+    lines = result.stdout.splitlines()
+    assert (lines[0].split(), lines[2].split()) == (["Dataset", "ProGED"], ["ds1", "1/2"])
+    assert lines[3:] == []  # nothing running, interrupted or crashed: no summary
 
 
 # --------------------------------------------------------------------------- #
@@ -790,11 +794,12 @@ class TestJobCheckpoints:
         assert EventLog.ended == ["interrupted"]
         assert [r["path"] for r in EventLog.references] == [str(tmp_path / "r.sqlite")]  # the file remains
         assert not job.is_complete  # no result
+        assert (tmp_path / "r.lock").exists()  # deleted only once a result is saved
         assert not (tmp_path / "r.sqlite-wal").exists()  # closed
         saved = SR_results.from_checkpoint(tmp_path / "r.sqlite")[0]
         assert (saved.trace, saved.stop_reason) == ([0, 1, 0], "interrupted")
 
-    def test_rerun_of_interrupted_job_equals_uninterrupted_job(self, tmp_path, monkeypatch):
+    def test_resume_of_interrupted_job_equals_uninterrupted_job(self, tmp_path, monkeypatch):
         _isolate_cache(monkeypatch, tmp_path / "cache")
         with pytest.raises(KeyboardInterrupt):  # in the second step: 4 calls and a snapshot are saved
             _job(tmp_path, SteppedApproach(stop_after_asks=3), callbacks=SignalAfter(3)).run()
@@ -805,7 +810,7 @@ class TestJobCheckpoints:
         assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
         assert not (tmp_path / "r.sqlite").exists()
 
-    def test_rerun_of_search_only_job_restarts_with_warning(self, tmp_path, monkeypatch):
+    def test_resume_of_search_only_job_restarts_with_warning(self, tmp_path, monkeypatch):
         # S4: an approach that cannot continue from a snapshot cannot resume; its job starts afresh.
         _isolate_cache(monkeypatch, tmp_path / "cache")
         with pytest.raises(KeyboardInterrupt):
@@ -816,7 +821,7 @@ class TestJobCheckpoints:
         assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
         assert not (tmp_path / "r.sqlite").exists()
 
-    def test_rerun_of_stateless_step_job_restarts_with_warning(self, tmp_path, monkeypatch):
+    def test_resume_of_stateless_step_job_restarts_with_warning(self, tmp_path, monkeypatch):
         _isolate_cache(monkeypatch, tmp_path / "cache")
         with pytest.raises(KeyboardInterrupt):
             _job(tmp_path, StatelessSteppedApproach(stop_after_asks=3), callbacks=SignalAfter(3)).run()
@@ -830,7 +835,11 @@ class TestJobCheckpoints:
         job = _job(tmp_path, ScriptedApproach(raise_seed=7))
         with pytest.raises(RuntimeError, match="boom"):
             job.run()
-        assert (job.is_complete, (tmp_path / "r.sqlite").exists()) == (False, True)
+        assert (job.is_complete, (tmp_path / "r.sqlite").exists(), (tmp_path / "r.lock").exists()) == (
+            False,
+            True,
+            True,
+        )
 
     def test_job_resume_with_other_settings_raises(self, tmp_path, monkeypatch):
         _isolate_cache(monkeypatch, tmp_path / "cache")
@@ -867,14 +876,6 @@ class TestJobCheckpoints:
         assert ((saved.summary is None), saved.checkpoint) == (keep_all_models, None)
         assert not (tmp_path / "r.sqlite").exists()
 
-    def test_rerunning_a_kept_finished_job_gives_the_same_result(self, tmp_path, monkeypatch):
-        _isolate_cache(monkeypatch, tmp_path / "cache")
-        _job(tmp_path, SteppedApproach(stop_after_asks=3), keep_checkpoint=True).run()
-        expected = _result(tmp_path / "r.json")
-        EventLog.events.clear()
-        _job(tmp_path, SteppedApproach(stop_after_asks=3), keep_checkpoint=True, callbacks=EventLog()).run()
-        assert (EventLog.events, _result(tmp_path / "r.json")) == ([], expected)  # finished: nothing evaluated
-
 
 @pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM], ids=["sigint", "sigterm"])
 def test_cli_run_job_interrupted_exits_130(tmp_path, monkeypatch, capsys, sig):
@@ -892,6 +893,421 @@ def test_cli_run_job_interrupted_exits_130(tmp_path, monkeypatch, capsys, sig):
     assert exit_info.value.code == 130
     assert str(checkpoint) in capsys.readouterr().out
     assert checkpoint.exists()
+
+
+# --------------------------------------------------------------------------- #
+# Job lock and status (stage 5)
+# --------------------------------------------------------------------------- #
+@contextlib.contextmanager
+def _held_lock(path):
+    """Hold the job lock at ``path`` as another process would (flock locks are per open file)."""
+    with open(path, "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
+def _lock_taken(path):
+    """``True`` if some open file holds an exclusive flock on ``path``."""
+    with open(path, "a") as probe:
+        try:
+            fcntl.flock(probe, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        return False
+
+
+def _files(directory):
+    return sorted(set(os.listdir(directory)) - {"cache"})
+
+
+def _no_files(tmp_path):
+    pass
+
+
+def _finished(tmp_path):
+    _job(tmp_path, ScriptedApproach(), keep_checkpoint=True).run()
+
+
+def _finished_unsaved(tmp_path):  # killed while saving its result
+    _finished(tmp_path)
+    os.remove(tmp_path / "r.json")
+
+
+def _interrupted(tmp_path):
+    with pytest.raises(KeyboardInterrupt):
+        _job(tmp_path, ScriptedApproach(kill_seed=7)).run()
+
+
+def _raised(tmp_path):  # a checkpoint without a stop reason, as after SIGKILL
+    with pytest.raises(RuntimeError, match="boom"):
+        _job(tmp_path, ScriptedApproach(raise_seed=7)).run()
+
+
+def _garbage(tmp_path):
+    (tmp_path / "r.sqlite").write_text("not a database")
+
+
+class _LockProbe(_GridRecorder):
+    """Records, in ``adapt`` and ``search``, whether the job's lock file is locked."""
+
+    def __init__(self, lock_path):
+        super().__init__("experiment")
+        self.lock_path = lock_path
+        self.locked = []
+
+    def adapt(self, X, background_knowledge, required_constraints):
+        self.locked.append(("adapt", _lock_taken(self.lock_path)))
+
+    def search(self, sr_evaluator, seed=None):
+        self.locked.append(("search", _lock_taken(self.lock_path)))
+        sr_evaluator.evaluate_expr(["X_0"])
+
+
+def _bad_header(tmp_path):  # a checkpoint whose stop reason cannot be read
+    _interrupted(tmp_path)
+    with contextlib.closing(sqlite3.connect(tmp_path / "r.sqlite")) as con, con:
+        con.execute("UPDATE header SET value = 'not json' WHERE key = 'stop_reason'")
+
+
+class _StatusProbe(_GridRecorder):
+    """Records ``job.status`` during its search."""
+
+    def search(self, sr_evaluator, seed=None):
+        self.seen = self.job.status
+        sr_evaluator.evaluate_expr(["X_0"])
+
+
+class _FailingSetup(_GridRecorder):
+    def adapt(self, X, background_knowledge, required_constraints):
+        raise RuntimeError("setup failed")
+
+
+def _before_lock(monkeypatch, action):
+    """Run ``action`` between ``run()`` opening the lock file and locking it, as another process
+    finishing the job at that moment would."""
+    real = fcntl.flock
+
+    def flock(file, operation):
+        action()
+        monkeypatch.setattr(fcntl, "flock", real)
+        return real(file, operation)
+
+    monkeypatch.setattr(fcntl, "flock", flock)
+
+
+class TestJobStatus:
+    # Reason: clause (one row per status; a result wins over a held lock; an unreadable checkpoint
+    # is "crashed"). Implied: reading the status creates no lock file.
+    @pytest.mark.parametrize(
+        "setup, locked, expected",
+        [
+            (_no_files, False, "not started"),
+            (_finished, False, "done"),
+            (_no_files, True, "running"),
+            (_finished, True, "done"),
+            (_interrupted, False, "interrupted"),
+            (_raised, False, "crashed"),
+            (_finished_unsaved, False, "crashed"),
+            (_garbage, False, "crashed"),
+            (_bad_header, False, "crashed"),
+        ],
+        ids=[
+            "not-started",
+            "done",
+            "running",
+            "done-locked",
+            "interrupted",
+            "raised",
+            "finished-unsaved",
+            "garbage",
+            "bad-header",
+        ],
+    )
+    def test_status_from_files(self, tmp_path, monkeypatch, setup, locked, expected):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        setup(tmp_path)
+        job = _job(tmp_path, ScriptedApproach())
+        with _held_lock(tmp_path / "r.lock") if locked else contextlib.nullcontext():
+            lock_file = (tmp_path / "r.lock").exists()
+            assert job.status == expected
+            assert (tmp_path / "r.lock").exists() is lock_file
+
+    # Reason: clause (another process holds the lock -> RuntimeError before anything is changed;
+    # rerun deletes only after taking the lock).
+    def test_locked_job_raises_and_touches_nothing(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _finished(tmp_path)
+        before = {name: (tmp_path / name).read_bytes() for name in ("r.json", "r.sqlite")}
+        approach = ScriptedApproach()
+        with _held_lock(tmp_path / "r.lock"):
+            with pytest.raises(RuntimeError, match="another process"):
+                _job(tmp_path, approach).run(rerun=True)
+        assert approach.seeds == []
+        assert {name: (tmp_path / name).read_bytes() for name in ("r.json", "r.sqlite")} == before
+        assert _files(tmp_path) == ["r.json", "r.lock", "r.sqlite"]
+
+    # Reason: clause (the lock is held while the job runs, adaptation included).
+    def test_lock_is_held_during_adaptation_and_search(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        approach = _LockProbe(tmp_path / "r.lock")
+        _job(tmp_path, approach).run()
+        assert approach.locked == [("adapt", True), ("search", True)]
+
+    # Reason: implied (the OS frees the lock of a process that dies, so its job shows as crashed
+    # and runs again).
+    def test_lock_of_a_killed_process_is_free(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _raised(tmp_path)
+        holder = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import fcntl, sys, time; f = open(sys.argv[1], 'a'); fcntl.flock(f, fcntl.LOCK_EX); "
+                "print('locked', flush=True); time.sleep(60)",
+                str(tmp_path / "r.lock"),
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert holder.stdout.readline().strip() == "locked"
+            assert _job(tmp_path, ScriptedApproach()).status == "running"
+        finally:
+            holder.kill()
+            holder.wait()
+        job = _job(tmp_path, ScriptedApproach())
+        assert job.status == "crashed"
+        with pytest.warns(UserWarning, match="snapshot"):  # S4: it cannot resume, so it restarts
+            job.run()
+        assert job.status == "done"
+
+    # Reason: clause (where files cannot be locked, status cannot see a running job, and run warns
+    # and runs unlocked).
+    @pytest.mark.parametrize("no_lock", ["no-fcntl", "flock-fails"])
+    def test_without_locking_warns_and_runs(self, tmp_path, monkeypatch, no_lock):
+        import SRToolkit.experiments.experiment_grid as eg
+
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        job = _job(tmp_path, ScriptedApproach())
+        with _held_lock(tmp_path / "r.lock"):
+            if no_lock == "no-fcntl":
+                monkeypatch.setattr(eg, "fcntl", None)
+            else:
+
+                def unsupported(*args):
+                    raise OSError(38, "Function not implemented")
+
+                monkeypatch.setattr(fcntl, "flock", unsupported)
+            assert job.status == "not started"  # a running job is not seen
+        with pytest.warns(UserWarning, match="cannot be locked"):
+            job.run()
+        assert _files(tmp_path) == ["r.json"]
+
+    # Reason: clause (a done job does nothing, even while its lock is held; rerun deletes the
+    # result and checkpoint and runs it again; the lock file is deleted once the result is saved).
+    def test_done_job_runs_again_only_with_rerun(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _job(tmp_path, ScriptedApproach(), keep_checkpoint=True).run()  # a finished checkpoint is not reused
+        assert _files(tmp_path) == ["r.json", "r.sqlite"]
+        approach = ScriptedApproach()
+        with _held_lock(tmp_path / "r.lock"):
+            _job(tmp_path, approach).run()
+        assert approach.seeds == []
+        _job(tmp_path, approach, keep_checkpoint=True).run(rerun=True)
+        assert approach.seeds == [7]
+        assert _files(tmp_path) == ["r.json", "r.sqlite"]
+
+    # Reason: clause (rerun runs afresh: an unfinished checkpoint is not resumed).
+    def test_rerun_discards_an_unfinished_checkpoint(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        with pytest.raises(KeyboardInterrupt):
+            _job(tmp_path, SteppedApproach(stop_after_asks=3), callbacks=SignalAfter(3)).run()
+        EventLog.events.clear()
+        _job(tmp_path, SteppedApproach(stop_after_asks=3), callbacks=EventLog()).run(rerun=True)
+        rerun_events = list(EventLog.events)
+        EventLog.events.clear()
+        _job(tmp_path, SteppedApproach(stop_after_asks=3), name="straight.json", callbacks=EventLog()).run()
+        assert rerun_events == EventLog.events  # from the start; a resume evaluates only the last 2
+        assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
+
+    # Regression (code review): a rerun whose setup fails keeps the old result.
+    def test_rerun_with_failing_setup_keeps_the_result(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _finished(tmp_path)
+        before = {name: (tmp_path / name).read_bytes() for name in ("r.json", "r.sqlite")}
+        with pytest.raises(RuntimeError, match="setup failed"):
+            _job(tmp_path, _FailingSetup()).run(rerun=True)
+        assert {name: (tmp_path / name).read_bytes() for name in ("r.json", "r.sqlite")} == before
+
+    # Regression (code review): status inside the running process neither opens nor locks the lock
+    # file (on NFS that would release the run's lock).
+    def test_status_during_the_run(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        approach = _StatusProbe()
+        job = _job(tmp_path, approach)
+        approach.job = job
+        calls = []
+        real = fcntl.flock
+        monkeypatch.setattr(fcntl, "flock", lambda file, operation: (calls.append(operation), real(file, operation)))
+        job.run()
+        assert (approach.seen, calls) == ("running", [fcntl.LOCK_EX | fcntl.LOCK_NB])
+
+    # Regression (code review): another process finishes the job between run() opening the lock
+    # file and locking it. Without rerun the job is done and nothing runs; with rerun the lock file
+    # was replaced, so run() raises and changes nothing. No lock file is left behind.
+    @pytest.mark.parametrize("deleted, rerun", [(True, False), (False, False), (True, True)])
+    def test_job_finished_while_taking_the_lock(self, tmp_path, monkeypatch, deleted, rerun):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _finished(tmp_path)
+        if not rerun:
+            os.replace(tmp_path / "r.json", tmp_path / "done.json")
+
+        def finish():
+            if not rerun:
+                os.replace(tmp_path / "done.json", tmp_path / "r.json")
+            if deleted:
+                os.remove(tmp_path / "r.lock")
+
+        _before_lock(monkeypatch, finish)
+        approach = ScriptedApproach()
+        if rerun:
+            with pytest.raises(RuntimeError, match="just finished"):
+                _job(tmp_path, approach).run(rerun=True)
+        else:
+            _job(tmp_path, approach).run()
+        assert approach.seeds == []
+        assert _files(tmp_path) == ["r.json", "r.sqlite"]
+
+
+def _grid_with_statuses(tmp_path, monkeypatch):
+    """A grid of seeds 7-11: 7 done, 8 crashed, 9 running (lock held by the caller), 10 interrupted,
+    11 not started."""
+    _isolate_cache(monkeypatch, tmp_path / "cache")
+    run = tmp_path / "run"
+    grid = _make_grid(str(run), approaches=[ScriptedApproach(raise_seed=8, kill_seed=10)], num_experiments=5)
+    grid.build_job("ds1", "scripted", 7).run()
+    with pytest.raises(RuntimeError, match="boom"):
+        grid.build_job("ds1", "scripted", 8).run()
+    with pytest.raises(KeyboardInterrupt):
+        grid.build_job("ds1", "scripted", 10).run()
+    return grid, run / "ds1" / "scripted" / "exp_9.lock"
+
+
+def _command_seeds(path):
+    return [line.split("--seed ")[1] for line in path.read_text().splitlines() if not line.startswith("#")]
+
+
+# Reason: clause (skip_completed skips done and running jobs, keeps interrupted and crashed ones;
+# save_commands(skip_completed=False) adds --rerun to done jobs only).
+def test_grid_job_selection_skips_done_and_running(tmp_path, monkeypatch):
+    grid, lock = _grid_with_statuses(tmp_path, monkeypatch)
+    commands = tmp_path / "commands.sh"
+    with _held_lock(lock):
+        assert [job.seed for job in grid.create_jobs()] == [8, 10, 11]
+        assert [job.seed for job in grid.create_jobs(skip_completed=False)] == [7, 8, 9, 10, 11]
+        grid.save_commands(str(commands), materialize_data=False)
+        assert _command_seeds(commands) == ["8", "10", "11"]
+        grid_json = tmp_path / "run" / "grid.json"
+        assert (
+            f"python -m SRToolkit.experiments run_job --grid {grid_json} --dataset ds1 --approach scripted --seed 8"
+            in (commands.read_text().splitlines())
+        )
+        grid.save_commands(str(commands), materialize_data=False, skip_completed=False)
+        assert _command_seeds(commands) == ["7 --rerun", "8", "9", "10", "11"]
+
+
+# Regression (code review): a job that finishes while the commands are written gets no --rerun
+# line when done jobs are skipped.
+def test_save_commands_skipping_done_jobs_never_reruns(tmp_path, monkeypatch):
+    _isolate_cache(monkeypatch, tmp_path / "cache")
+    grid = _make_grid(str(tmp_path / "run"), num_experiments=1)
+    reads = iter(["not started", "done"])  # finished between the two reads
+    monkeypatch.setattr(ExperimentJob, "status", property(lambda job: next(reads, "done")))
+    commands = tmp_path / "commands.sh"
+    grid.save_commands(str(commands), materialize_data=False)
+    assert _command_seeds(commands) == ["7"]
+
+
+# Reason: clause (progress: done/total table, counts of running, interrupted and crashed jobs,
+# and the interrupted and crashed ones in dataset, approach, seed order).
+def test_progress_lists_unfinished_jobs(tmp_path, monkeypatch, capsys):
+    grid, lock = _grid_with_statuses(tmp_path, monkeypatch)
+    with _held_lock(lock):
+        grid.progress()
+    out = capsys.readouterr().out.splitlines()
+    assert (out[0].split(), set(out[1]), out[2].split()) == (["Dataset", "scripted"], {"-"}, ["ds1", "1/5"])
+    assert out[2].endswith("1/5")  # counts are right-aligned, as in the example
+    assert out[3:5] == ["", "running 1, interrupted 1, crashed 1"]
+    assert [line.split() for line in out[5:]] == [
+        ["crashed", "ds1", "/", "scripted", "/", "seed", "8"],
+        ["interrupted", "ds1", "/", "scripted", "/", "seed", "10"],
+    ]
+
+
+def _cli(monkeypatch, *argv):
+    """Run the CLI with ``argv`` in-process and return its exit code."""
+    from SRToolkit.experiments.__main__ import main
+
+    monkeypatch.setattr(sys, "argv", ["srtk", *argv])
+    try:
+        main()
+    except SystemExit as exit_info:
+        return exit_info.code or 0
+    return 0
+
+
+def _cli_run_job(monkeypatch, run, *extra):
+    """Run ``run_job`` for seed 7 of the grid at ``run`` in-process and return its exit code."""
+    grid = ["--grid", str(run / "grid.json"), "--dataset", "ds1", "--approach", "scripted", "--seed", "7"]
+    return _cli(monkeypatch, "run_job", *grid, *extra)
+
+
+def _cli_grid(tmp_path, monkeypatch, result):
+    """A checkpointed one-job grid; ``result`` (if not None) is written as the job's result."""
+    _isolate_cache(monkeypatch, tmp_path / "cache")
+    run = tmp_path / "run"
+    _make_grid(str(run), approaches=[ScriptedApproach()], num_experiments=1).checkpoint()
+    (run / "ds1" / "scripted").mkdir(parents=True)
+    if result is not None:
+        (run / "ds1" / "scripted" / "exp_7.json").write_text(result)
+    return run
+
+
+# Reason: clause (run_job: a job running elsewhere prints one line and exits 1; a done job, even
+# with its lock held, prints "Already done" and exits 0; both on stdout, leaving the result as is).
+@pytest.mark.parametrize(
+    "result, locked, code, message",
+    [(None, True, 1, "another process"), ("{}", False, 0, "Already done"), ("{}", True, 0, "Already done")],
+    ids=["running", "done", "done-locked"],
+)
+def test_cli_run_job_running_or_done(tmp_path, monkeypatch, capsys, result, locked, code, message):
+    run = _cli_grid(tmp_path, monkeypatch, result)
+    job_dir = run / "ds1" / "scripted"
+    with _held_lock(job_dir / "exp_7.lock") if locked else contextlib.nullcontext():
+        assert _cli_run_job(monkeypatch, run) == code
+    out, err = capsys.readouterr()
+    assert (len(out.splitlines()), message in out, err) == (1, True, "")
+    assert sorted(set(os.listdir(job_dir)) - {"exp_7.lock"}) == (["exp_7.json"] if result else [])
+    assert result is None or (job_dir / "exp_7.json").read_text() == result
+
+
+# Reason: clause (run_job --rerun runs a done job again).
+def test_cli_run_job_rerun(tmp_path, monkeypatch, capsys):
+    run = _cli_grid(tmp_path, monkeypatch, "{}")  # a placeholder result: the job counts as done
+    assert _cli_run_job(monkeypatch, run, "--rerun") == 0
+    assert "Already done" not in capsys.readouterr().out
+    assert len(SR_results.load(str(run / "ds1" / "scripted" / "exp_7.json"))) == 1
+
+
+# Reason: clause (commands skips done jobs; --all lists them with --rerun; --python sets the executable).
+@pytest.mark.parametrize("flags, seeds", [([], []), (["--all"], ["7 --rerun"])], ids=["default", "all"])
+def test_cli_commands_all_reruns_done_jobs(tmp_path, monkeypatch, flags, seeds):
+    run = _cli_grid(tmp_path, monkeypatch, "{}")
+    commands = tmp_path / "commands.sh"
+    argv = ["commands", "--grid", str(run / "grid.json"), "--out", str(commands), "--python", "py3", *flags]
+    assert _cli(monkeypatch, *argv) == 0
+    assert _command_seeds(commands) == seeds
+    assert all(line.startswith("py3 -m ") for line in commands.read_text().splitlines()[1:])
 
 
 # --------------------------------------------------------------------------- #
@@ -927,23 +1343,40 @@ class TestKeepAllModels:
         assert approach.seeds == []
         assert ((tmp_path / "r.json").exists(), (tmp_path / "r.sqlite").exists()) == (False, False)
 
-    # Reason: clause (ExperimentGrid passes keep_all_models to its jobs and saves it in to_dict; a
-    # recipe without it loads True).
-    @pytest.mark.parametrize("flag, default", [("keep_all_models", True), ("keep_checkpoint", False)])
-    def test_grid_job_flag_round_trip(self, tmp_path, flag, default):
+    # Reason: clause (the ValueError comes before anything is changed: rerun keeps the old result).
+    def test_rerun_with_compact_top_k_not_positive_keeps_the_result(self, tmp_path, monkeypatch):
+        _isolate_cache(monkeypatch, tmp_path / "cache")
+        _job(tmp_path, ScriptedApproach(), keep_checkpoint=True).run()
+        before = {name: (tmp_path / name).read_bytes() for name in ("r.json", "r.sqlite")}
+        with pytest.raises(ValueError, match="top_k"):
+            _job(tmp_path, ScriptedApproach(), keep_all_models=False, top_k=0).run(rerun=True)
+        assert {name: (tmp_path / name).read_bytes() for name in ("r.json", "r.sqlite")} == before
+
+    # Reason: clause (ExperimentGrid passes keep_all_models, keep_checkpoint and snapshot_interval to
+    # its jobs and saves them in to_dict; a recipe without one loads its default).
+    @pytest.mark.parametrize(
+        "flag, default, other",
+        [
+            ("keep_all_models", True, False),
+            ("keep_checkpoint", False, True),
+            ("snapshot_interval", 300.0, None),
+            ("snapshot_interval", 300.0, 0.5),  # any positive value is allowed
+        ],
+    )
+    def test_grid_job_flag_round_trip(self, tmp_path, flag, default, other):
         run = str(tmp_path / "run")
 
         def job_flag(grid):
             return getattr(grid.build_job("ds1", "ProGED", 7).info, flag)
 
-        assert job_flag(_make_grid(run)) is default
-        grid = _make_grid(run, top_k=1, **{flag: not default})  # top_k=1: the smallest allowed when compact
-        assert job_flag(grid) is (not default)
+        assert job_flag(_make_grid(run)) == default
+        grid = _make_grid(run, top_k=1, **{flag: other})  # top_k=1: the smallest allowed when compact
+        assert job_flag(grid) == other
         d = grid.to_dict()
-        assert d[flag] is (not default)
-        assert job_flag(ExperimentGrid.from_dict(d, results_dir=run)) is (not default)
+        assert d[flag] == other
+        assert job_flag(ExperimentGrid.from_dict(d, results_dir=run)) == other
         del d[flag]  # a recipe written before the flag existed
-        assert job_flag(ExperimentGrid.from_dict(d, results_dir=run)) is default
+        assert job_flag(ExperimentGrid.from_dict(d, results_dir=run)) == default
 
     # Reason: clause (ExperimentGrid and from_dict Raise: keep_all_models False and top_k <= 0).
     @pytest.mark.parametrize("top_k", [0, -1])
@@ -953,4 +1386,14 @@ class TestKeepAllModels:
             _make_grid(run, keep_all_models=False, top_k=top_k)
         d = _make_grid(run, keep_all_models=False, top_k=1).to_dict() | {"top_k": top_k}
         with pytest.raises(ValueError, match="top_k"):
+            ExperimentGrid.from_dict(d, results_dir=run)
+
+    # Reason: clause (ExperimentGrid and from_dict Raise: snapshot_interval not positive and not None).
+    @pytest.mark.parametrize("interval", [0, -1.0])
+    def test_grid_snapshot_interval_not_positive_raises(self, tmp_path, interval):
+        run = str(tmp_path / "run")
+        with pytest.raises(ValueError, match="snapshot_interval"):
+            _make_grid(run, snapshot_interval=interval)
+        d = _make_grid(run).to_dict() | {"snapshot_interval": interval}
+        with pytest.raises(ValueError, match="snapshot_interval"):
             ExperimentGrid.from_dict(d, results_dir=run)

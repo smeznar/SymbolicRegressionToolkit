@@ -9,23 +9,50 @@ Provides three public classes:
 - [ExperimentGrid][SRToolkit.experiments.ExperimentGrid] — a full cross-product grid of datasets and
   approaches. Manages serialization, parallelism via HPC command files, progress tracking, and
   result loading.
+
+Each job keeps its files in one directory (in a grid, ``results_dir/{dataset}/{approach}/``): its
+result ``exp_{seed}.json``, which marks it done; its checkpoint ``exp_{seed}.sqlite`` while it is
+unfinished (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]); and the lock file
+``exp_{seed}.lock``, locked while it runs and deleted once its result is saved.
+[ExperimentJob.status][SRToolkit.experiments.ExperimentJob.status] reads the job's state from
+them, and running an unfinished job again resumes it. Reading a running job's checkpoint from
+another node over a network filesystem is not guaranteed to work.
 """
 
+import contextlib
 import dataclasses
 import json
 import os
 import shlex
+import sqlite3
 import warnings
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+try:
+    import fcntl
+except ImportError:  # e.g. Windows: jobs are not locked
+    fcntl = None  # type: ignore[assignment]
 
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind, _class_refs, _import_class
 from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
-from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _reference, _remove_checkpoint
+from SRToolkit.evaluation.model_store import (
+    ModelStore,
+    _compact_checkpoint,
+    _finished,
+    _reference,
+    _remove_checkpoint,
+)
 from SRToolkit.evaluation.results import SR_results
+
+# Lock files this process holds. status() must not open them: on NFS, flock is emulated by fcntl
+# locks, and closing any descriptor of a file drops all of this process's locks on it.
+_held_locks: set[str] = set()
 
 
 def _warn_missing_class_deps(configs: list[dict]) -> None:
@@ -195,6 +222,7 @@ class ExperimentJob:
         checkpoint_path: The job's checkpoint: ``result_path`` with the extension ``.sqlite``.
         info: The [ExperimentInfo][SRToolkit.experiments.ExperimentInfo] for this job.
         is_complete: ``True`` if the result file already exists on disk.
+        status: The job's state (see [status][SRToolkit.experiments.ExperimentJob.status]).
     """
 
     def __init__(
@@ -274,14 +302,64 @@ class ExperimentJob:
                 )
             self.result_path = self.info.result_path
         self.checkpoint_path = os.path.splitext(self.result_path)[0] + ".sqlite"
+        self._lock_path = os.path.splitext(self.result_path)[0] + ".lock"
 
     @property
     def is_complete(self) -> bool:
         """``True`` if the result file at ``result_path`` already exists on disk."""
         return os.path.exists(self.result_path)
 
-    def run(self) -> None:
+    @property
+    def status(self) -> Literal["done", "running", "not started", "interrupted", "crashed"]:
+        """The job's state, read from its files.
+
+        The first that applies (for the files, see
+        [experiment_grid][SRToolkit.experiments.experiment_grid]):
+
+        - ``"done"``: its result exists (even while a process holds its lock);
+        - ``"running"``: a process holds its lock (see [run][SRToolkit.experiments.ExperimentJob.run]);
+        - ``"not started"``: it has no checkpoint;
+        - ``"interrupted"``: its checkpoint records a stop by Ctrl-C or SIGTERM;
+        - ``"crashed"``: it has another checkpoint: the process was killed or the search raised, its
+          result was not saved, or the checkpoint cannot be read.
+
+        Running an interrupted or crashed job resumes it. Where files cannot be locked, a running
+        job shows as ``"not started"`` or ``"crashed"``.
+        """
+        if self.is_complete:
+            return "done"
+        if os.path.abspath(self._lock_path) in _held_locks:
+            return "running"
+        if fcntl is not None:
+            try:
+                with open(self._lock_path, "rb") as lock:
+                    # Shared: on NFS (flock emulated by fcntl locks) an exclusive lock needs write access.
+                    fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)  # released when closed
+            except BlockingIOError:
+                return "running"
+            except OSError:  # no lock file, or no locking
+                pass
+        if not os.path.exists(self.checkpoint_path):
+            return "not started"
+        try:
+            store = ModelStore(self.checkpoint_path, "read")
+            try:
+                reason = store.get_header("stop_reason")
+            finally:
+                store.close()
+        except (ValueError, sqlite3.Error):  # not a readable checkpoint
+            return "crashed"
+        return "interrupted" if reason == "interrupted" else "crashed"
+
+    def run(self, rerun: bool = False) -> None:
         """Execute this experiment and save the result to ``result_path``.
+
+        A job whose result exists does nothing, unless ``rerun``. For the whole run, adaptation
+        included, the job holds an exclusive ``fcntl.flock`` on its lock file (``result_path`` with
+        the extension ``.lock``), so it never runs in two processes at once. The lock file is
+        deleted once the result is saved; after an interrupt or an exception it stays, unlocked.
+        Where files cannot be locked (Windows, or a filesystem without ``flock``), it warns with a
+        ``UserWarning`` and runs unlocked.
 
         Adapts as
         [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope] says
@@ -309,94 +387,143 @@ class ExperimentJob:
         - a job whose search raises keeps its checkpoint (committed and closed), and the exception
           propagates.
 
+        Args:
+            rerun: Run the job afresh: once the dataset and approach are set up (adapted), delete its
+                result and checkpoint (the adapted state of a ``"once"`` approach is kept). A setup
+                that fails keeps the old result; a new run that does not finish loses it. Default
+                ``False``.
+
         Raises:
             KeyboardInterrupt: If the search was stopped by a signal, after the checkpoint is
                 closed.
-            ValueError: As for [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator]
-                with ``resume=True``, if the checkpoint is from a run with other settings; if
-                ``info.keep_all_models`` is ``False`` and ``info.top_k <= 0`` (before anything
-                runs).
+            RuntimeError: If another process holds the job's lock, or (with ``rerun``) finished the
+                job while this one was taking it, before any job file is changed.
+            ValueError: If ``info.keep_all_models`` is ``False`` and ``info.top_k <= 0``, before
+                any job file is changed; as for
+                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] with
+                ``resume=True``, if the checkpoint is from a run with other settings or
+                ``info.snapshot_interval`` is not positive.
         """
         info = self.info
         if not info.keep_all_models and info.top_k <= 0:
             raise ValueError(f"[ExperimentJob] keep_all_models=False needs top_k >= 1, got {info.top_k}.")
-        if os.path.exists(self.checkpoint_path) and _finished(self.checkpoint_path):
-            results = SR_results.from_checkpoint(
-                self.checkpoint_path, self.approach_name, info.top_k, info.keep_all_models
-            )
-            self._save(results)
+        if self.is_complete and not rerun:
             return
+        os.makedirs(os.path.dirname(os.path.abspath(self.result_path)), exist_ok=True)
+        lock_path = os.path.abspath(self._lock_path)
+        with open(lock_path, "a") if fcntl is not None else contextlib.nullcontext() as lock:
+            try:
+                if fcntl is None:
+                    raise OSError("no fcntl")
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise RuntimeError(
+                    f"[ExperimentJob] The job is running in another process (it holds {lock_path})."
+                ) from None
+            except OSError:
+                warnings.warn(
+                    "[ExperimentJob] Files cannot be locked here, so the same job could run in two processes at once.",
+                    UserWarning,
+                )
+            else:
+                # A process that finished the job after this one opened the lock file has deleted it.
+                if not os.path.exists(lock_path) or os.stat(lock_path).st_ino != os.fstat(lock.fileno()).st_ino:
+                    if self.is_complete and not rerun:
+                        return
+                    raise RuntimeError("[ExperimentJob] The job just finished in another process; run it again.")
+                _held_locks.add(lock_path)
+            try:
+                if not rerun and self.is_complete:  # finished by another process in the meantime
+                    if os.path.exists(self._lock_path):
+                        os.remove(self._lock_path)
+                    return
 
-        # The constructor sets exactly one of the instance and the dict of each.
-        if self._dataset_instance is not None:
-            dataset = self._dataset_instance
-        else:
-            assert self._dataset_dict is not None
-            dataset = SR_dataset.from_dict(self._dataset_dict)
+                if not rerun and os.path.exists(self.checkpoint_path) and _finished(self.checkpoint_path):
+                    results = SR_results.from_checkpoint(
+                        self.checkpoint_path, self.approach_name, info.top_k, info.keep_all_models
+                    )
+                    self._save(results)
+                    return
 
-        if self._approach_instance is not None:
-            approach = self._approach_instance
-        else:
-            assert self._approach_dict is not None
-            approach = SR_approach.from_config_dict(self._approach_dict)
+                # The constructor sets exactly one of the instance and the dict of each.
+                if self._dataset_instance is not None:
+                    dataset = self._dataset_instance
+                else:
+                    assert self._dataset_dict is not None
+                    dataset = SR_dataset.from_dict(self._dataset_dict)
 
-        if approach.adaptation_scope == "once":
-            dataset.adapt_or_load(approach, self.info.adapted_state_path)
-        elif approach.adaptation_scope == "experiment":
-            approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
+                if self._approach_instance is not None:
+                    approach = self._approach_instance
+                else:
+                    assert self._approach_dict is not None
+                    approach = SR_approach.from_config_dict(self._approach_dict)
 
-        checkpoint_dir = os.path.dirname(self.checkpoint_path)
-        if checkpoint_dir:
-            os.makedirs(checkpoint_dir, exist_ok=True)
-        resume = os.path.exists(self.checkpoint_path)
-        if resume and not approach.supports_snapshots:
-            warnings.warn(
-                f"[ExperimentJob] {self.approach_name} cannot continue from a snapshot, so its checkpoint "
-                f"{self.checkpoint_path} cannot be resumed; the job starts afresh and replaces it.",
-                UserWarning,
-            )
-            _remove_checkpoint(self.checkpoint_path)
-            resume = False
-        evaluator = dataset.create_evaluator(
-            seed=self.info.seed,
-            checkpoint=self.checkpoint_path,
-            resume=resume,
-            snapshot_interval=self.info.snapshot_interval,
-        )
-        try:
-            evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
-            dispatcher: CallbackDispatcher | None = None
-            if self._callback_configs:
-                cbs = [SRCallbacks.from_config_dict(d) for d in self._callback_configs]
-                dispatcher = CallbackDispatcher(callbacks=cbs)
-                evaluator.register_callbacks(dispatcher)
+                if approach.adaptation_scope == "once":
+                    dataset.adapt_or_load(approach, self.info.adapted_state_path)
+                elif approach.adaptation_scope == "experiment":
+                    approach.adapt(dataset.X, dataset.background_knowledge, dataset.required_constraints)
 
-            event = ExperimentEvent(
-                dataset_name=self.dataset_name,
-                approach_name=self.approach_name,
-                max_evaluations=evaluator.max_evaluations,
-                success_threshold=evaluator.success_threshold,
-                seed=self.info.seed,
-            )
-            if dispatcher is not None:
-                dispatcher.on_experiment_start(event)
+                if rerun:  # only now that setup succeeded
+                    if os.path.exists(self.result_path):
+                        os.remove(self.result_path)
+                    _remove_checkpoint(self.checkpoint_path)
+                resume = os.path.exists(self.checkpoint_path)
+                if resume and not approach.supports_snapshots:
+                    warnings.warn(
+                        f"[ExperimentJob] {self.approach_name} cannot continue from a snapshot, so its checkpoint "
+                        f"{self.checkpoint_path} cannot be resumed; the job starts afresh and replaces it.",
+                        UserWarning,
+                    )
+                    _remove_checkpoint(self.checkpoint_path)
+                    resume = False
+                evaluator = dataset.create_evaluator(
+                    seed=self.info.seed,
+                    checkpoint=self.checkpoint_path,
+                    resume=resume,
+                    snapshot_interval=self.info.snapshot_interval,
+                )
+                try:
+                    evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
+                    dispatcher: CallbackDispatcher | None = None
+                    if self._callback_configs:
+                        cbs = [SRCallbacks.from_config_dict(d) for d in self._callback_configs]
+                        dispatcher = CallbackDispatcher(callbacks=cbs)
+                        evaluator.register_callbacks(dispatcher)
 
-            with evaluator.stop_on_signals():
-                approach.run(evaluator, self.info.seed)
-            results = evaluator.get_results(self.approach_name, info.top_k, keep_all_models=info.keep_all_models)
-            if info.keep_checkpoint or evaluator.stop_reason == "interrupted":  # the file remains
-                results.results[-1].checkpoint = _reference(evaluator._store, self.checkpoint_path)
-        finally:
-            evaluator.close()
-        if dispatcher is not None:
-            dispatcher.on_experiment_end(event, results.results[-1])
-        # An interrupted job saves no result: a result marks the job done.
-        if evaluator.stop_reason == "interrupted":
-            raise KeyboardInterrupt(f"The job was interrupted; its checkpoint is kept at {self.checkpoint_path}.")
-        self._save(results)
+                    event = ExperimentEvent(
+                        dataset_name=self.dataset_name,
+                        approach_name=self.approach_name,
+                        max_evaluations=evaluator.max_evaluations,
+                        success_threshold=evaluator.success_threshold,
+                        seed=self.info.seed,
+                    )
+                    if dispatcher is not None:
+                        dispatcher.on_experiment_start(event)
+
+                    with evaluator.stop_on_signals():
+                        approach.run(evaluator, self.info.seed)
+                    results = evaluator.get_results(
+                        self.approach_name, info.top_k, keep_all_models=info.keep_all_models
+                    )
+                    if info.keep_checkpoint or evaluator.stop_reason == "interrupted":  # the file remains
+                        results.results[-1].checkpoint = _reference(evaluator._store, self.checkpoint_path)
+                finally:
+                    evaluator.close()
+                if dispatcher is not None:
+                    dispatcher.on_experiment_end(event, results.results[-1])
+                # An interrupted job saves no result: a result marks the job done.
+                if evaluator.stop_reason == "interrupted":
+                    raise KeyboardInterrupt(
+                        f"The job was interrupted; its checkpoint is kept at {self.checkpoint_path}."
+                    )
+                self._save(results)
+            finally:
+                _held_locks.discard(lock_path)
 
     def _save(self, results: SR_results) -> None:
-        # Save the result, then delete (or compact) the checkpoint: a result marks the job done.
+        # Save the result, then delete (or compact) the checkpoint and delete the lock file: a
+        # result marks the job done. The lock file goes only once the result exists, so a process
+        # that opened it just before sees the result after taking the lock and does nothing.
         if not self.info.keep_checkpoint:
             results.results[-1].checkpoint = None
         results.save(self.result_path)
@@ -404,12 +531,13 @@ class ExperimentJob:
             _compact_checkpoint(self.checkpoint_path)
         else:
             _remove_checkpoint(self.checkpoint_path)
+        if os.path.exists(self._lock_path):
+            os.remove(self._lock_path)
 
     def __repr__(self) -> str:
-        status = "complete" if self.is_complete else "pending"
         return (
             f"ExperimentJob(dataset={self.dataset_name!r}, approach={self.approach_name!r}, "
-            f"seed={self.seed}, status={status!r})"
+            f"seed={self.seed}, status={self.status!r})"
         )
 
 
@@ -465,9 +593,14 @@ class ExperimentGrid:
             small for long runs. Default ``True``.
         keep_checkpoint: Passed to every job: keep each job's checkpoint, e.g. to reach all models
             of a run whose result keeps only the top ones. Default ``False``.
+        snapshot_interval: Passed to every job (see
+            [ExperimentInfo][SRToolkit.experiments.ExperimentInfo]): seconds between its snapshots,
+            positive; ``None``: a snapshot only when the approach's step loop ends. Default
+            ``300.0``.
 
     Raises:
-        ValueError: If ``keep_all_models`` is ``False`` and ``top_k <= 0``.
+        ValueError: If ``keep_all_models`` is ``False`` and ``top_k <= 0``, or if
+            ``snapshot_interval`` is neither positive nor ``None``.
     """
 
     def __init__(
@@ -482,11 +615,15 @@ class ExperimentGrid:
         callbacks: SRCallbacks | list[SRCallbacks] | None = None,
         keep_all_models: bool = True,
         keep_checkpoint: bool = False,
+        snapshot_interval: float | None = 300.0,
     ) -> None:
         if not keep_all_models and top_k <= 0:
             raise ValueError(f"[ExperimentGrid] keep_all_models=False needs top_k >= 1, got {top_k}.")
+        if snapshot_interval is not None and not snapshot_interval > 0:
+            raise ValueError(f"[ExperimentGrid] snapshot_interval must be positive or None, got {snapshot_interval!r}.")
         self.keep_all_models = keep_all_models
         self.keep_checkpoint = keep_checkpoint
+        self.snapshot_interval = snapshot_interval
         self.num_experiments = num_experiments
         self.results_dir = results_dir
         self.initial_seed = initial_seed
@@ -701,12 +838,12 @@ class ExperimentGrid:
             adapted_state_path=self._get_adapted_state_ref_path(approach_name, dataset_name),
             keep_all_models=self.keep_all_models,
             keep_checkpoint=self.keep_checkpoint,
+            snapshot_interval=self.snapshot_interval,
         )
         return ExperimentJob(dataset=dataset_dict, approach=approach_config, info=info, callbacks=self.callback_configs)
 
     def create_jobs(self, skip_completed: bool = True) -> list[ExperimentJob]:
-        """Return the list of [ExperimentJob][SRToolkit.experiments.ExperimentJob] instances for
-        this grid.
+        """Return the grid's jobs, one per (dataset, approach, seed) triple.
 
         Neither adapts nor loads data: call
         [adapt_if_missing][SRToolkit.experiments.ExperimentGrid.adapt_if_missing] first for ``"once"``
@@ -715,18 +852,22 @@ class ExperimentGrid:
         does both.
 
         Args:
-            skip_completed: If ``True`` (default), omit jobs whose result file
-                (``exp_{seed}.json``) already exists on disk.
+            skip_completed: If ``True`` (default), omit done and running jobs (see
+                [status][SRToolkit.experiments.ExperimentJob.status]); interrupted and crashed ones
+                stay, and running them resumes them. ``False``: every job; the
+                [run][SRToolkit.experiments.ExperimentJob.run] of a done one does nothing unless
+                ``rerun=True``, and that of a running one raises ``RuntimeError``.
 
         Returns:
-            List of jobs, one per (dataset, approach, seed) triple that has not yet completed.
+            The [ExperimentJob][SRToolkit.experiments.ExperimentJob]-s in approach, dataset, seed
+            order, without the skipped ones.
         """
         jobs: list[ExperimentJob] = []
         for approach_config in self.approach_configs:
             for dataset_name in self.datasets:
                 for i in range(self.num_experiments):
                     job = self.build_job(dataset_name, approach_config["name"], self.initial_seed + i)
-                    if skip_completed and job.is_complete:
+                    if skip_completed and job.status in ("done", "running"):
                         continue
                     jobs.append(job)
         return jobs
@@ -749,7 +890,10 @@ class ExperimentGrid:
         without scheduler-specific dependency tricks — **run the prepare file to completion,
         then the experiments file**:
 
-        - ``path`` — one ``run_job`` line per pending (dataset, approach, seed) triple::
+        - ``path`` — one ``run_job`` line per job
+          [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs] returns with the same
+          ``skip_completed``; the line of a done job ends with ``--rerun``, so it reruns the job
+          each time the file is run::
 
               python -m SRToolkit.experiments run_job \\
                   --grid /path/grid.json --dataset NG-1 --approach ProGED --seed 0
@@ -768,7 +912,9 @@ class ExperimentGrid:
         Args:
             path: File path to write the experiment commands to.
             python_executable: Python executable to use in the commands.
-            skip_completed: If ``True`` (default), omit already-completed jobs.
+            skip_completed: If ``True`` (default), omit jobs that are done or running, as
+                [create_jobs][SRToolkit.experiments.ExperimentGrid.create_jobs] does. ``False``:
+                every job, done ones with ``--rerun``.
             materialize_data: If ``True`` (default), resolve every dataset's data into the
                 local cache before writing commands. Set ``False`` to only (re)generate the
                 command text without touching data (e.g. the cache is already warm, or this
@@ -803,20 +949,14 @@ class ExperimentGrid:
         if prepare_path is not None:
             header.append(f"# Run '{os.path.basename(prepare_path)}' to completion FIRST, then these commands.")
         lines = list(header)
-        for approach_config in self.approach_configs:
-            for dataset_name in self.datasets:
-                approach_name = approach_config["name"]
-                for i in range(self.num_experiments):
-                    seed = self.initial_seed + i
-                    if skip_completed and self.build_job(dataset_name, approach_name, seed).is_complete:
-                        continue
-                    lines.append(
-                        f"{python_executable} -m SRToolkit.experiments run_job "
-                        f"--grid {grid_path} "
-                        f"--dataset {shlex.quote(dataset_name)} "
-                        f"--approach {shlex.quote(approach_name)} "
-                        f"--seed {seed}"
-                    )
+        for job in self.create_jobs(skip_completed):
+            lines.append(
+                f"{python_executable} -m SRToolkit.experiments run_job "
+                f"--grid {grid_path} "
+                f"--dataset {shlex.quote(job.dataset_name)} "
+                f"--approach {shlex.quote(job.approach_name)} "
+                f"--seed {job.seed}" + (" --rerun" if not skip_completed and job.status == "done" else "")
+            )
 
         out_dir = os.path.dirname(os.path.abspath(path))
         if out_dir:
@@ -831,18 +971,30 @@ class ExperimentGrid:
     def progress(self) -> None:
         """Print a dataset × approach progress table to stdout.
 
-        Each cell shows ``done/total`` experiments completed for that pair, based on
-        the presence of the per-experiment ``exp_{seed}.json`` files on disk.
+        Each cell shows ``done/total`` for that pair (see
+        [status][SRToolkit.experiments.ExperimentJob.status]). If any job is running, interrupted or
+        crashed, a blank line follows, then their counts (zero counts left out) and one line per
+        interrupted or crashed job, in dataset, approach, seed order; running these again resumes
+        them.
 
         Example output::
 
-            Dataset        ProGED    EDHiE
-            -----------   -------   ------
-            NG-1             5/5      3/5
-            NG-2             2/5      0/5
+            Dataset    ProGED   EDHiE
+            -------------------------
+            NG-1          5/5     3/5
+            NG-2          2/5     0/5
+
+            running 2, crashed 1
+            crashed      NG-2 / ProGED / seed 3
         """
         dataset_names = list(self.datasets.keys())
         approach_names = [cfg["name"] for cfg in self.approach_configs]
+        statuses = {
+            (dataset_name, approach_name, seed): self.build_job(dataset_name, approach_name, seed).status
+            for dataset_name in dataset_names
+            for approach_name in approach_names
+            for seed in range(self.initial_seed, self.initial_seed + self.num_experiments)
+        }
 
         total_str = str(self.num_experiments)
         ds_w = max(len(n) for n in dataset_names + ["Dataset"]) + 2
@@ -853,23 +1005,21 @@ class ExperimentGrid:
         print(header)
         print(separator)
 
+        done = Counter((ds, ap) for (ds, ap, _), status in statuses.items() if status == "done")
         for dataset_name in dataset_names:
             row = f"{dataset_name:<{ds_w}}"
             for approach_name in approach_names:
-                done = sum(
-                    1
-                    for i in range(self.num_experiments)
-                    if os.path.exists(
-                        os.path.join(
-                            self.results_dir,
-                            dataset_name,
-                            approach_name,
-                            f"exp_{self.initial_seed + i}.json",
-                        )
-                    )
-                )
-                row += f"{done}/{self.num_experiments}".rjust(col_w)
+                row += f"{done[dataset_name, approach_name]}/{self.num_experiments}".rjust(col_w)
             print(row)
+
+        counts: Counter[str] = Counter(statuses.values())
+        unfinished = [f"{name} {counts[name]}" for name in ("running", "interrupted", "crashed") if counts[name]]
+        if unfinished:
+            print()
+            print(", ".join(unfinished))
+            for (dataset_name, approach_name, seed), status in statuses.items():
+                if status in ("interrupted", "crashed"):
+                    print(f"{status:<13}{dataset_name} / {approach_name} / seed {seed}")
 
     def load_results(self, dataset_name: str, approach_name: str) -> SR_results:
         """Load and merge all completed per-experiment results for a (dataset, approach) pair.
@@ -891,10 +1041,11 @@ class ExperimentGrid:
         return merged
 
     def to_dict(self) -> dict:
-        """Return the grid as one self-contained, JSON-safe dict: every dataset, approach and
-        callback config plus ``num_experiments``, ``initial_seed``, ``top_k`` and
-        ``keep_all_models``, ``keep_checkpoint``; load it with
-        [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict].
+        """Return the grid as one self-contained, JSON-safe dict.
+
+        It holds every dataset, approach and callback config plus ``num_experiments``,
+        ``initial_seed``, ``top_k``, ``keep_all_models``, ``keep_checkpoint`` and
+        ``snapshot_interval``; load it with [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict].
 
         Unlike [checkpoint][SRToolkit.experiments.ExperimentGrid.checkpoint], it leaves out the machine-local
         ``adapted_states`` paths, and ``results_dir`` is given when loading. Datasets hold no
@@ -915,6 +1066,7 @@ class ExperimentGrid:
             "top_k": self.top_k,
             "keep_all_models": self.keep_all_models,
             "keep_checkpoint": self.keep_checkpoint,
+            "snapshot_interval": self.snapshot_interval,
             "datasets": {name: dict(cfg) for name, cfg in self.datasets.items()},
             "approaches": [dict(cfg) for cfg in self.approach_configs],
             "callbacks": ([dict(cfg) for cfg in self.callback_configs] if self.callback_configs is not None else None),
@@ -932,8 +1084,9 @@ class ExperimentGrid:
         ``*_class`` paths pointing at an installed ``.srtk`` bundle resolve automatically.
         Datasets and approaches are built lazily when jobs run; a ``*_class`` path that cannot
         be imported triggers a warning here and fails when the job runs. Load ``.zip`` archives
-        with [share.load][SRToolkit.share.load]. A recipe without ``keep_all_models`` or
-        ``keep_checkpoint`` (written before they existed) loads them as ``True`` and ``False``.
+        with [share.load][SRToolkit.share.load]. A recipe without ``keep_all_models``,
+        ``keep_checkpoint`` or ``snapshot_interval`` (written before they existed) loads them as
+        ``True``, ``False`` and ``300.0``.
 
         Args:
             config: The recipe. One of:
@@ -958,7 +1111,8 @@ class ExperimentGrid:
         Raises:
             ValueError: If ``config`` is a ``.zip`` path or not an ``ExperimentGrid`` recipe, its
                 ``format_version`` is unsupported, or ``results_dir`` is omitted when
-                loading from a dict; if it has ``keep_all_models`` false and ``top_k <= 0``.
+                loading from a dict; if it has ``keep_all_models`` false and ``top_k <= 0``, or a
+                ``snapshot_interval`` that is neither positive nor ``None``.
         """
         default_results_dir: str | None = None
         if isinstance(config, (str, Path)):
@@ -996,8 +1150,13 @@ class ExperimentGrid:
         grid.top_k = d["top_k"]
         grid.keep_all_models = d.get("keep_all_models", True)
         grid.keep_checkpoint = d.get("keep_checkpoint", False)
+        grid.snapshot_interval = d.get("snapshot_interval", 300.0)
         if not grid.keep_all_models and grid.top_k <= 0:
             raise ValueError(f"[ExperimentGrid.from_dict] keep_all_models=False needs top_k >= 1, got {grid.top_k}.")
+        if grid.snapshot_interval is not None and not grid.snapshot_interval > 0:
+            raise ValueError(
+                f"[ExperimentGrid.from_dict] snapshot_interval must be positive or None, got {grid.snapshot_interval!r}."
+            )
         states = adapted_states if adapted_states is not None else d.get("adapted_states", {})
         grid._adapted_states = {
             approach: {dataset: os.path.abspath(path) for dataset, path in paths.items()}

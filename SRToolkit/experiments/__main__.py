@@ -3,19 +3,25 @@
 Four subcommands:
 
     run_job   -- Execute one experiment identified by (grid, dataset, approach, seed). Running it
-                 again resumes an unfinished job from its checkpoint. If the job is stopped by
-                 Ctrl-C or SIGTERM, it prints where the checkpoint is and exits with status 130
-                 (for SIGTERM too).
+                 again resumes an unfinished job from its checkpoint. A done job prints "Already
+                 done" and exits with status 0, unless --rerun is given, which deletes its result
+                 and checkpoint and runs it afresh. A job running in another process prints a
+                 message and exits with status 1. If the job is stopped by Ctrl-C or SIGTERM, it
+                 prints where the checkpoint is and exits with status 130 (for SIGTERM too).
     adapt     -- Pre-adapt "once"-scope approaches: all missing pairs, or a single
                  (dataset, approach) pair when both --dataset and --approach are given.
                  Add --force to re-adapt and overwrite an existing state (single pair only).
-    commands  -- Write a commands file of run_job calls for HPC/terminal use.
-    progress  -- Print a dataset × approach table of completed experiments.
+    commands  -- Write a commands file of run_job calls for HPC/terminal use, one per job that is
+                 not done or running; with --all one per job, done ones with --rerun.
+    progress  -- Print a dataset × approach table of done experiments, then the counts of running,
+                 interrupted and crashed jobs and a list of the interrupted and crashed ones.
 
 Usage examples::
 
     python -m SRToolkit.experiments run_job \\
         --grid /out/run1/grid.json --dataset NG-1 --approach ProGED --seed 42
+    python -m SRToolkit.experiments run_job \\
+        --grid /out/run1/grid.json --dataset NG-1 --approach ProGED --seed 42 --rerun  # afresh
 
     python -m SRToolkit.experiments adapt --grid /out/run1/grid.json            # all pairs
     python -m SRToolkit.experiments adapt \\
@@ -27,6 +33,8 @@ Usage examples::
         --grid /out/run1/grid.json \\
         --out /out/run1/commands.txt \\
         --python python3
+    python -m SRToolkit.experiments commands \\
+        --grid /out/run1/grid.json --out /out/run1/commands.txt --all       # every job
 
     python -m SRToolkit.experiments progress --grid /out/run1/grid.json
 """
@@ -41,8 +49,15 @@ from .experiment_grid import ExperimentGrid
 def _cmd_run_job(args: argparse.Namespace) -> None:
     grid = ExperimentGrid.from_dict(args.grid)
     job = grid.build_job(args.dataset, args.approach, args.seed)
+    status = job.status
+    if status == "running":
+        print("[run_job] The job is running in another process; not started.")
+        sys.exit(1)
+    if status == "done" and not args.rerun:
+        print(f"[run_job] Already done: {job.result_path}. Pass --rerun to run it again.")
+        return
     try:
-        job.run()
+        job.run(rerun=args.rerun)
     except KeyboardInterrupt:
         if os.path.exists(job.checkpoint_path):
             print(
@@ -101,6 +116,7 @@ def main() -> None:
     p_run.add_argument("--dataset", required=True, metavar="NAME", help="Dataset name within the grid.")
     p_run.add_argument("--approach", required=True, metavar="NAME", help="Approach name within the grid.")
     p_run.add_argument("--seed", required=True, type=int, metavar="N", help="Random seed for this run.")
+    p_run.add_argument("--rerun", action="store_true", help="Delete the job's result and checkpoint and run it afresh.")
 
     # ---- adapt ----
     p_adapt = subparsers.add_parser(
@@ -129,12 +145,16 @@ def main() -> None:
         metavar="EXECUTABLE",
         help='Python executable to use in commands (default: "python").',
     )
-    p_cmds.add_argument("--all", action="store_true", help="Include already-completed jobs (default: skip them).")
+    p_cmds.add_argument(
+        "--all",
+        action="store_true",
+        help="Include done jobs (with --rerun) and running ones (default: skip them).",
+    )
 
     # ---- progress ----
     p_prog = subparsers.add_parser(
         "progress",
-        help="Print a dataset × approach table of completed experiments.",
+        help="Print a dataset × approach table of completed experiments and the unfinished jobs.",
     )
     p_prog.add_argument("--grid", required=True, metavar="PATH", help="Path to the grid.json file.")
 
