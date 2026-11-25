@@ -1,13 +1,14 @@
 """Event-driven callback system for monitoring and controlling SR evaluation.
 
 Provides event dataclasses fired during evaluation, the
-[SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] base class for implementing custom callbacks,
+[SR_callback][SRToolkit.evaluation.callbacks.SR_callback] base class for implementing custom callbacks,
 a [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] for managing multiple callbacks,
 and built-in implementations for progress display, early stopping, and logging.
 """
 
 import os
 import time
+import warnings
 from abc import ABC
 from dataclasses import dataclass
 from datetime import timedelta
@@ -80,17 +81,17 @@ class ExperimentEvent:
     seed: int | None
 
 
-class SRCallbacks(ABC):
+class SR_callback(ABC):
     """Abstract base class for SR evaluation callbacks.
 
     Implement only the methods you need. To stop the search, return a reason (a ``str``) from
-    [on_expr_evaluated][SRToolkit.evaluation.callbacks.SRCallbacks.on_expr_evaluated] or
-    [on_best_expression][SRToolkit.evaluation.callbacks.SRCallbacks.on_best_expression]; it is
+    [on_expr_evaluated][SRToolkit.evaluation.callbacks.SR_callback.on_expr_evaluated] or
+    [on_best_expression][SRToolkit.evaluation.callbacks.SR_callback.on_best_expression]; it is
     recorded as the run's ``stop_reason``. ``False`` also stops, with the reason
     ``"callback:<ClassName>"``. Return ``True`` or ``None`` to continue.
 
     Examples:
-        >>> class PrintBestCallback(SRCallbacks):
+        >>> class PrintBestCallback(SR_callback):
         ...     def on_best_expression(self, event):
         ...         print(f"New best: {event.expression} (error={event.error:.4g})")
         >>> cb = PrintBestCallback()
@@ -142,9 +143,9 @@ class SRCallbacks(ABC):
 
         The evaluator saves it with each snapshot of its checkpoint (see
         [Checkpoints][SRToolkit.evaluation.sr_evaluator]) and, in a resumed run, passes it to
-        [set_state][SRToolkit.evaluation.callbacks.SRCallbacks.set_state] of the matching callback
+        [set_state][SRToolkit.evaluation.callbacks.SR_callback.set_state] of the matching callback
         (see [CallbackDispatcher.set_state][SRToolkit.evaluation.callbacks.CallbackDispatcher.set_state]).
-        Configuration belongs in [to_dict][SRToolkit.evaluation.callbacks.SRCallbacks.to_dict],
+        Configuration belongs in [to_dict][SRToolkit.evaluation.callbacks.SR_callback.to_dict],
         not here.
 
         Returns:
@@ -157,7 +158,7 @@ class SRCallbacks(ABC):
         """Restore the runtime state saved in an earlier session.
 
         In a resumed run the evaluator calls it once, with what
-        [get_state][SRToolkit.evaluation.callbacks.SRCallbacks.get_state] returned, just before the
+        [get_state][SRToolkit.evaluation.callbacks.SR_callback.get_state] returned, just before the
         first evaluation event after the resume, so after ``on_experiment_start`` (see
         [Checkpoints][SRToolkit.evaluation.sr_evaluator]). A callback without saved state is not
         called. The default does nothing.
@@ -172,7 +173,7 @@ class SRCallbacks(ABC):
 
         The default implementation stores only the fully-qualified class path.
         Override in subclasses to include constructor parameters so that
-        [from_dict][SRToolkit.evaluation.callbacks.SRCallbacks.from_dict] can
+        [from_dict][SRToolkit.evaluation.callbacks.SR_callback.from_dict] can
         reconstruct a functionally identical instance.
 
         Returns:
@@ -181,7 +182,7 @@ class SRCallbacks(ABC):
         return {"callback_class": f"{self.__class__.__module__}.{self.__class__.__qualname__}"}
 
     @classmethod
-    def from_dict(cls, d: dict) -> "SRCallbacks":
+    def from_dict(cls, d: dict) -> "SR_callback":
         """Reconstruct a callback from a serialised dictionary.
 
         The default implementation calls ``cls()`` with no arguments. Override in
@@ -189,7 +190,7 @@ class SRCallbacks(ABC):
 
         Args:
             d: Dictionary produced by
-                [to_dict][SRToolkit.evaluation.callbacks.SRCallbacks.to_dict].
+                [to_dict][SRToolkit.evaluation.callbacks.SR_callback.to_dict].
 
         Returns:
             A new instance of this callback class.
@@ -197,21 +198,21 @@ class SRCallbacks(ABC):
         return cls()
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> "SRCallbacks":
+    def from_config_dict(cls, config: dict) -> "SR_callback":
         """Reconstruct a callback from a config dict that includes a ``callback_class`` path.
 
         This is the self-dispatching counterpart to
-        [from_dict][SRToolkit.evaluation.callbacks.SRCallbacks.from_dict]: it binds the
+        [from_dict][SRToolkit.evaluation.callbacks.SR_callback.from_dict]: it binds the
         config to any installed ``.srtk`` bundle, resolves the concrete callback class named
         by ``callback_class``, and delegates to that class's
-        [from_dict][SRToolkit.evaluation.callbacks.SRCallbacks.from_dict]. Mirrors
+        [from_dict][SRToolkit.evaluation.callbacks.SR_callback.from_dict]. Mirrors
         [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict], which
         resolves its own class the same way.
 
         Args:
             config: A serialised callback config containing a ``callback_class`` key, as
                 produced by
-                [to_dict][SRToolkit.evaluation.callbacks.SRCallbacks.to_dict].
+                [to_dict][SRToolkit.evaluation.callbacks.SR_callback.to_dict].
 
         Returns:
             A new instance of the concrete callback class.
@@ -219,14 +220,14 @@ class SRCallbacks(ABC):
         Raises:
             ImportError: If ``callback_class`` cannot be imported (e.g. its ``.srtk`` bundle
                 is not installed, or the config has no ``_bundle`` key and was never bound).
-            TypeError: If ``callback_class`` is not an SRCallbacks subclass.
+            TypeError: If ``callback_class`` is not an SR_callback subclass.
         """
         config = _auto_bind(config)
-        target_cls = _import_class(config["callback_class"], "callback", SRCallbacks)
+        target_cls = _import_class(config["callback_class"], "callback", SR_callback)
         return target_cls.from_dict(config)
 
 
-def _stop_reason(callback: SRCallbacks, signal: bool | str | None) -> str | None:
+def _stop_reason(callback: SR_callback, signal: bool | str | None) -> str | None:
     # A callback's return value as a stop reason: its text, its class for False or "", else None.
     if isinstance(signal, str) or (isinstance(signal, bool) and not signal):
         return signal or f"callback:{type(callback).__name__}"
@@ -234,7 +235,7 @@ def _stop_reason(callback: SRCallbacks, signal: bool | str | None) -> str | None
 
 
 class CallbackDispatcher:
-    """Manages multiple [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instances and
+    """Manages multiple [SR_callback][SRToolkit.evaluation.callbacks.SR_callback] instances and
     dispatches events to all of them.
 
     Examples:
@@ -243,36 +244,36 @@ class CallbackDispatcher:
         'early_stopping:success_threshold'
     """
 
-    def __init__(self, callbacks: list[SRCallbacks] | None = None):
+    def __init__(self, callbacks: list[SR_callback] | None = None):
         """Args:
         callbacks: Initial list of callbacks. Defaults to an empty list.
         """
         if callbacks is None:
-            self._callbacks: list[SRCallbacks] = []
+            self._callbacks: list[SR_callback] = []
         else:
             self._callbacks = callbacks
 
-    def get_callbacks(self) -> list[SRCallbacks]:
+    def get_callbacks(self) -> list[SR_callback]:
         """Returns the list of callbacks.
 
         Returns:
-            A list of [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instances in this dispatcher.
+            A list of [SR_callback][SRToolkit.evaluation.callbacks.SR_callback] instances in this dispatcher.
         """
         return self._callbacks
 
-    def add(self, callback: SRCallbacks) -> None:
+    def add(self, callback: SR_callback) -> None:
         """Add a callback to the dispatcher.
 
         Args:
-            callback: The [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance to add.
+            callback: The [SR_callback][SRToolkit.evaluation.callbacks.SR_callback] instance to add.
         """
         self._callbacks.append(callback)
 
-    def remove(self, callback: SRCallbacks) -> None:
+    def remove(self, callback: SR_callback) -> None:
         """Remove a callback from the dispatcher.
 
         Args:
-            callback: The [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] instance to remove.
+            callback: The [SR_callback][SRToolkit.evaluation.callbacks.SR_callback] instance to remove.
 
         Raises:
             ValueError: If ``callback`` is not currently registered.
@@ -316,15 +317,26 @@ class CallbackDispatcher:
         """Restore the states saved by an earlier dispatcher's ``get_state``.
 
         The state at each position goes to the callback at the same position if its import path
-        (``callback_class``) is the same; other states are ignored, and callbacks without a state
-        are not called.
+        (``callback_class``) is the same, and callbacks without a saved state are not called. A
+        non-empty state (not ``{}``, which
+        [get_state][SRToolkit.evaluation.callbacks.SR_callback.get_state] returns by default) whose
+        class is only at other positions is dropped with a ``UserWarning``: the callbacks were
+        reordered, so e.g. a time limit would start counting from zero. A state of a callback that
+        is no longer there is dropped silently.
 
         Args:
             states: The saved states.
         """
-        for cb, saved in zip(self._callbacks, states):
-            if saved["callback_class"] == cb.to_dict()["callback_class"]:
-                cb.set_state(saved["state"])
+        classes = [cb.to_dict()["callback_class"] for cb in self._callbacks]
+        for i, saved in enumerate(states):
+            if i < len(classes) and saved["callback_class"] == classes[i]:
+                self._callbacks[i].set_state(saved["state"])
+            elif saved["state"] and saved["callback_class"] in classes:
+                warnings.warn(
+                    f"[CallbackDispatcher] The saved state of {saved['callback_class']} (position {i}) is "
+                    "dropped: that class is now at another position.",
+                    UserWarning,
+                )
 
     def on_experiment_start(self, event: ExperimentEvent) -> None:
         """Dispatch to all callbacks.
@@ -346,7 +358,7 @@ class CallbackDispatcher:
             cb.on_experiment_end(event, results)
 
 
-class ProgressBarCallback(SRCallbacks):
+class ProgressBarCallback(SR_callback):
     """Displays a tqdm progress bar that updates after each expression evaluation.
 
     The bar shows the event's ``evaluation_number``, so in a resumed run it continues from the
@@ -391,7 +403,7 @@ class ProgressBarCallback(SRCallbacks):
         return cls(desc=d.get("desc"))
 
 
-class EarlyStoppingCallback(SRCallbacks):
+class EarlyStoppingCallback(SR_callback):
     """Stops the search when the best error falls below a threshold or after a number of evaluations.
 
     The evaluator already enforces its own ``success_threshold`` and ``max_evaluations``; use this
@@ -444,11 +456,11 @@ class EarlyStoppingCallback(SRCallbacks):
         return cls(threshold=d.get("threshold"), max_evaluations=d.get("max_evaluations"))
 
 
-class TimeLimitCallback(SRCallbacks):
+class TimeLimitCallback(SR_callback):
     """Stops the search once a wall-clock time limit has elapsed.
 
     The timer starts when the experiment begins
-    ([on_experiment_start][SRToolkit.evaluation.callbacks.SRCallbacks.on_experiment_start])
+    ([on_experiment_start][SRToolkit.evaluation.callbacks.SR_callback.on_experiment_start])
     and uses `time.monotonic` so it is unaffected by system clock adjustments. The stop
     request (reason ``"time_limit"``) is issued from the next expression evaluation after the
     limit is exceeded, so the search may run slightly past ``time_limit`` depending on how long a
@@ -515,7 +527,7 @@ class TimeLimitCallback(SRCallbacks):
         return cls(time_limit=d["time_limit"])
 
 
-class LoggingCallback(SRCallbacks):
+class LoggingCallback(SR_callback):
     """Logs each new best expression to stdout or a file.
 
     ``log_file`` may contain placeholders that are resolved at experiment start

@@ -16,8 +16,10 @@ from strategies import (
     StatelessSteppedApproach,
     SteppedApproach,
     result_answers,
+    result_dict,
 )
 
+from SRToolkit.approaches import ProGED
 from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach
 from SRToolkit.dataset import data_cache
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
@@ -25,7 +27,8 @@ from SRToolkit.dataset.data_source import SampleSource
 from SRToolkit.dataset.data_split import DataSplit
 from SRToolkit.dataset.sampling import LogUniformSampling, UniformSampling
 from SRToolkit.dataset.sr_dataset import SR_dataset
-from SRToolkit.evaluation.callbacks import SRCallbacks
+from SRToolkit.evaluation.callbacks import SR_callback, TimeLimitCallback
+from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.utils import units as u
 from SRToolkit.utils.expression_constraints import (
@@ -1342,6 +1345,7 @@ class _AdaptRecorder(SR_approach):
         self._scope = scope
         self.events = []
         self.adapt_args = []
+        self.adapt_args = []
         self.loaded_from = []
 
     @property
@@ -1630,7 +1634,7 @@ def _ckpt_dataset(scale=2.0, seed=None):
 
 
 def _without_wall_time(results):
-    return [{**r.to_dict(), "wall_time": None} for r in results.results]
+    return [result_dict(r) for r in results.results]
 
 
 def _files(root):
@@ -1642,7 +1646,7 @@ def _journal_mode(path):
         return con.execute("PRAGMA journal_mode").fetchone()[0]
 
 
-class _PerSeed(SRCallbacks):
+class _PerSeed(SR_callback):
     # Counts the evaluation events of each experiment and records how each one ended.
     def __init__(self):
         self.counts = {}
@@ -1849,3 +1853,353 @@ class TestEvaluateApproachCheckpoints:
             dataset.evaluate_approach(approach, 3, verbose=False, checkpoint_dir=tmp_path, **args)
         assert {p: p.read_bytes() for p in tmp_path.rglob("*.sqlite")} == before
         assert getattr(approach, "seeds", []) == []  # nothing was run
+
+
+# --------------------------------------------------------------------------- #
+# extend_run (checkpoint stage 6)
+# --------------------------------------------------------------------------- #
+def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, **settings):
+    X = np.array([[1.0], [2.0], [3.0]])
+    return SR_dataset(
+        X,
+        SymbolLibrary.default_symbols(1),
+        y=scale * X[:, 0],
+        dataset_name="ds",
+        max_evaluations=max_evaluations,
+        success_threshold=success_threshold,
+        initialization="mean",  # fitted constants do not depend on the random state
+        **settings,
+    )
+
+
+def _first_run(tmp_path, approach, dataset, **kwargs):
+    # One kept experiment seeded 10; returns its checkpoint.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        dataset.evaluate_approach(
+            approach, 1, initial_seed=10, verbose=False, checkpoint_dir=tmp_path, keep_checkpoint=True, **kwargs
+        )
+    return tmp_path / "ds" / approach.name / "exp_10.sqlite"
+
+
+def _extend(dataset, approach, path, **kwargs):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        return dataset.extend_run(approach, path, **kwargs)[0]
+
+
+def _run_dict(result):
+    return {**result_dict(result), "checkpoint": None}
+
+
+def _straight(dataset, approach):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        return dataset.evaluate_approach(approach, 1, initial_seed=10, verbose=False)[0]
+
+
+class _Tick(SR_callback):
+    # Advances the fake clock of TimeLimitCallback by one second per evaluation.
+    now = [0.0]
+
+    def on_expr_evaluated(self, event):
+        _Tick.now[0] += 1.0
+
+
+class _ExperimentEvents(SR_callback):
+    # Records each experiment start, the experiment ids of the evaluations and how each experiment ended.
+    def __init__(self):
+        self.starts, self.ends, self.ids = [], [], set()
+
+    def on_experiment_start(self, event):
+        self.starts.append(
+            (event.dataset_name, event.approach_name, event.max_evaluations, event.success_threshold, event.seed)
+        )
+
+    def on_expr_evaluated(self, event):
+        self.ids.add(event.experiment_id)
+
+    def on_experiment_end(self, event, results):
+        self.ends.append((results.evaluation_calls, results.stop_reason))
+
+
+class _Unsaveable(SR_callback):
+    def to_dict(self):
+        return {**super().to_dict(), "limit": {1}}
+
+
+class _AdaptingStepped(SteppedApproach):
+    # A SteppedApproach that adapts with the given scope and logs adapt / save / load and each ask.
+    def __init__(self, scope="experiment", **kwargs):
+        super().__init__(**kwargs)
+        self._scope = scope
+        self.events = []
+        self.adapt_args = []
+
+    @property
+    def adaptation_scope(self):
+        return self._scope
+
+    def adapt(self, X, background_knowledge, required_constraints):
+        self.events.append("adapt")
+        self.adapt_args.append((X.tolist(), [c.to_dict() for c in required_constraints]))
+
+    def save_adapted_state(self, path):
+        self.events.append("save")
+        Path(path).write_text("state")
+
+    def load_adapted_state(self, path):
+        self.events.append("load")
+
+    def ask(self, sr_evaluator):
+        self.events.append("ask")
+        return super().ask(sr_evaluator)
+
+
+class _FailingStepped(SteppedApproach):
+    # A SteppedApproach whose ask raises once the search state reaches ``fail_at`` asks.
+    def __init__(self, fail_at, **kwargs):
+        super().__init__(**kwargs)
+        self.fail_at = fail_at
+
+    def ask(self, sr_evaluator):
+        if self.asks == self.fail_at:
+            raise RuntimeError("boom")
+        return super().ask(sr_evaluator)
+
+
+def _plain_file(path):
+    other = path.with_name("notes.sqlite")
+    other.write_text("not a checkpoint")
+    return other
+
+
+class TestExtendRun:
+    # Reason: clause (an extended run equals a run that had the new limits from the start). Batches of
+    # two with an odd budget, or a threshold met in a batch, cut the last step: the extension continues
+    # from the snapshot before it (or, without one, from the seed). The new segment starts at the calls
+    # of that snapshot (``kept``): ProGED evaluates one expression per step, so its last step is complete
+    # (6); batches of two cut by a budget of 5 keep 4, or 0 without a snapshot; seeded 10, the threshold
+    # 1.0 is first met by call 3 (X_0 + C), the first of the second batch, so 2 are kept.
+    @pytest.mark.parametrize(
+        "make, first, new, interval, kept",
+        [
+            (lambda: ProGED(), (6, -1.0), {"max_evaluations": 12}, 300.0, 6),
+            (lambda: SteppedApproach(), (5, -1.0), {"max_evaluations": 10}, 1e-9, 4),
+            (lambda: SteppedApproach(), (5, -1.0), {"max_evaluations": 10}, None, 0),
+            (lambda: SteppedApproach(), (12, 1.0), {"success_threshold": 0.5}, 1e-9, 2),
+        ],
+        ids=["ProGED-budget", "cut-budget", "cut-without-snapshot", "cut-threshold"],
+    )
+    def test_extension_equals_straight_run(self, tmp_path, make, first, new, interval, kept):
+        path = _first_run(tmp_path, make(), _limited(*first), snapshot_interval=interval)
+        stopped = SR_results.from_checkpoint(path)[0]
+        assert stopped.stop_reason == ("max_evaluations" if "max_evaluations" in new else "success_threshold")
+        limits = (new.get("max_evaluations", first[0]), new.get("success_threshold", first[1]))
+        extended = _extend(_limited(*first), make(), path, **new)
+        straight = _straight(_limited(*limits), make())
+        assert _run_dict(extended) == _run_dict(straight)
+        assert extended.extended and not straight.extended
+        segment = extended.limits[1]
+        assert (segment["max_evaluations"], segment["success_threshold"]) == limits
+        assert (segment["previous_stop_reason"], segment["callbacks"]) == (stopped.stop_reason, [])
+        assert segment["calls"] == kept
+        assert extended.checkpoint["path"] == str(path) and _journal_mode(path) == "delete"  # compacted
+
+    # Reason: clause (an extension of a run that already meets its limits stops at once, without a call,
+    # with "success_threshold" checked first; an approach that stopped the run itself stops it again at
+    # its first ask; the new segment records no callbacks). "both": every expression has an error below
+    # 100, so the first run stops after one call, and the budget 1 is then met too.
+    @pytest.mark.parametrize(
+        "make, first, new, reason",
+        [
+            (lambda: ProGED(), (6, -1.0), {}, "max_evaluations"),
+            (lambda: SteppedApproach(batch=1), (20, 1.0), {}, "success_threshold"),
+            (lambda: SteppedApproach(batch=1), (20, 100.0), {"max_evaluations": 1}, "success_threshold"),
+            (
+                lambda: SteppedApproach(batch=1, stop_after_asks=3, stop_with="exhausted"),
+                (-1, -1.0),
+                {"max_evaluations": 10},
+                "exhausted",
+            ),
+        ],
+        ids=["budget", "threshold", "both", "stops-itself"],
+    )
+    def test_run_meeting_its_limits_stops_at_once(self, tmp_path, make, first, new, reason):
+        path = _first_run(tmp_path, make(), _limited(*first))
+        stopped = SR_results.from_checkpoint(path)[0]
+        counter = _PerSeed()
+        extended = _extend(_limited(*first), make(), path, callbacks=counter, **new)
+        assert (extended.trace, extended.stop_reason) == (stopped.trace, reason)
+        assert counter.counts == {10: 0}
+        assert (len(extended.limits), extended.limits[1]["callbacks"]) == (2, None)
+
+    # Reason: clause (an extension that changes nothing adds no segment and is a plain resume; so a
+    # repeated extension, or one after a segment that made no call, adds none). The first run's threshold
+    # is an int: regression (code review), it hashed differently once read back as a float, so an
+    # extension with no new limits raised.
+    def test_extension_changing_nothing_adds_no_segment(self, tmp_path):
+        path = _first_run(tmp_path, ProGED(), _limited(6, -1))
+        assert _extend(_limited(6), ProGED(), path).limits == SR_results.from_checkpoint(path)[0].limits
+        once = _extend(_limited(6), ProGED(), path, max_evaluations=12)
+        twice = _extend(_limited(6), ProGED(), path, max_evaluations=12)
+        assert (len(twice.limits), twice.trace, twice.stop_reason) == (2, once.trace, "max_evaluations")
+        counter = _PerSeed()
+        _extend(_limited(6), ProGED(), path, callbacks=counter)  # stops at once: a segment without callbacks
+        assert len(_extend(_limited(6), ProGED(), path).limits) == 3
+
+    # Reason: clause (interrupted runs are extended too; an interrupted extension continues with the
+    # new limits, here through extend_run again).
+    def test_interrupted_extension_continues(self, tmp_path):
+        path = _first_run(tmp_path, SteppedApproach(), _limited(6), callbacks=SignalAfter(3))
+        assert SR_results.from_checkpoint(path)[0].stop_reason == "interrupted"
+        with pytest.warns(UserWarning, match="interrupted"):
+            interrupted = _limited(6).extend_run(SteppedApproach(), path, max_evaluations=10, callbacks=SignalAfter(1))[
+                0
+            ]
+        assert interrupted.stop_reason == "interrupted"
+        extended = _extend(_limited(6), SteppedApproach(), path)  # None keeps the new budget
+        assert _run_dict(extended) == _run_dict(_straight(_limited(10), SteppedApproach()))
+        assert [s["previous_stop_reason"] for s in extended.limits] == [None, "interrupted", "interrupted"]
+
+    # Reason: clause (a TimeLimitCallback with a longer limit counts on from the time saved with the
+    # snapshot; callbacks are not checked at the start, so one whose limit is already used up stops the
+    # run after one call).
+    def test_longer_time_limit_continues_from_saved_time(self, tmp_path, monkeypatch):
+        from SRToolkit.evaluation import callbacks
+
+        _Tick.now[0] = 0.0
+        monkeypatch.setattr(callbacks.time, "monotonic", lambda: _Tick.now[0])
+        cbs = [_Tick(), TimeLimitCallback(3)]
+        path = _first_run(tmp_path, SteppedApproach(batch=1), _limited(-1), callbacks=cbs, snapshot_interval=1e-9)
+        assert SR_results.from_checkpoint(path)[0].evaluation_calls == 3
+        _Tick.now[0] = 100.0  # time between the sessions does not count
+        extended = _extend(_limited(-1), SteppedApproach(batch=1), path, callbacks=[_Tick(), TimeLimitCallback(5)])
+        assert (extended.evaluation_calls, extended.stop_reason) == (5, "time_limit")
+        assert [s["callbacks"][1]["time_limit"] for s in extended.limits] == [3, 5]
+        # the saved elapsed time is 5 >= 5: the first call (one more second) stops the run
+        again = _extend(
+            _limited(-1), SteppedApproach(batch=1), path, max_evaluations=100, callbacks=[_Tick(), TimeLimitCallback(5)]
+        )
+        assert (again.evaluation_calls, again.stop_reason) == (6, "time_limit")
+
+    # Reason: clause (callbacks get on_experiment_start with the new limits and the run's seed, and
+    # on_experiment_end with the result; the evaluations carry the experiment id; top_k and
+    # keep_all_models are as for get_results).
+    def test_extension_reports_new_limits_to_callbacks(self, tmp_path):
+        path = _first_run(tmp_path, ProGED(), _limited(6))
+        events = _ExperimentEvents()
+        extended = _extend(
+            _limited(6),
+            ProGED(),
+            path,
+            max_evaluations=12,
+            success_threshold=-2.0,
+            callbacks=events,
+            top_k=1,
+            keep_all_models=False,
+        )
+        assert events.starts == [("ds", "ProGED", 12, -2.0, 10)]
+        assert (events.ends, events.ids) == ([(12, "max_evaluations")], {"ds_ProGED_10"})
+        assert (len(extended.all_models), extended.summary is not None) == (1, True)
+
+    # Reason: clause (the approach adapts first, as in evaluate_approach: "experiment" adapts again,
+    # "once" loads the state saved at adaptation_path). A run of 6 calls in batches of two extended to 8
+    # makes one ask.
+    @pytest.mark.parametrize(
+        "scope, expected, adapts",
+        [("experiment", ["adapt", "ask"], 1), ("once", ["load", "ask"], 0)],
+        ids=["experiment", "once"],
+    )
+    def test_extension_adapts_before_running(self, tmp_path, scope, expected, adapts):
+        state = str(tmp_path / "adapted")
+        path = _first_run(tmp_path, _AdaptingStepped(scope), _limited(6), adaptation_path=state)
+        approach, dataset = _AdaptingStepped(scope), _limited(6)
+        _extend(dataset, approach, path, max_evaluations=8, adaptation_path=state)
+        assert approach.events == expected
+        assert (
+            approach.adapt_args == [(dataset.X.tolist(), [c.to_dict() for c in dataset.required_constraints])] * adapts
+        )
+
+    # Regression (dev-check): a callback whose config cannot be saved raised only after the approach had
+    # adapted (and, for "once", saved its state).
+    def test_unsaveable_callback_raises_before_adapting(self, tmp_path):
+        path = _first_run(tmp_path, _AdaptingStepped(), _limited(6))
+        approach = _AdaptingStepped()
+        with pytest.raises(TypeError, match="set"):
+            _limited(6).extend_run(approach, path, callbacks=_Unsaveable())
+        assert approach.events == []
+
+    # Reason: clause (after a failure the checkpoint keeps the new limits, and extend_run with None limits
+    # continues the run); implied (snapshot_interval applies to the extension: with 1e-9 a snapshot is
+    # due before every step, so the run of 6 calls extended to 12 keeps its snapshot at 10 calls when the
+    # sixth ask raises).
+    def test_failed_extension_continues(self, tmp_path):
+        path = _first_run(tmp_path, SteppedApproach(), _limited(6))
+        with pytest.raises(RuntimeError, match="boom"):
+            _extend(_limited(6), _FailingStepped(5), path, max_evaluations=12, snapshot_interval=1e-9)
+        store = ModelStore(path, "read")
+        assert (store.snapshot.num_calls, len(store.get_header("limits"))) == (10, 2)
+        store.close()
+        extended = _extend(_limited(6), SteppedApproach(), path)
+        assert _run_dict(extended) == _run_dict(_straight(_limited(12), SteppedApproach()))
+
+    # Reason: boundary (an extension does not shorten a run: a budget below the calls the run made raises,
+    # one equal to them is accepted). Batches of two with a budget of 5 make 5 calls, the snapshot keeps 4,
+    # so the budget 5 (with a new callback, so that the extension is not a no-op) redoes the fifth call
+    # and stops there.
+    def test_budget_cannot_shorten_the_run(self, tmp_path):
+        path = _first_run(tmp_path, SteppedApproach(), _limited(5), snapshot_interval=1e-9)
+        stopped = SR_results.from_checkpoint(path)[0]
+        with pytest.raises(ValueError, match="below the 5 calls"):
+            _limited(5).extend_run(SteppedApproach(), path, max_evaluations=4)
+        counter = _PerSeed()
+        extended = _extend(_limited(5), SteppedApproach(), path, max_evaluations=5, callbacks=counter)
+        assert (extended.trace, extended.stop_reason, counter.counts) == (stopped.trace, "max_evaluations", {10: 1})
+
+    # Reason: clause (validation happens before anything is changed).
+    @pytest.mark.parametrize(
+        "approach, dataset, target, kwargs, error, match",
+        [
+            (StatelessSteppedApproach(), _limited(6), None, {}, ValueError, "snapshot"),
+            (SteppedApproach(), _limited(6), None, {"max_evaluations": 4}, ValueError, "below the 6 calls"),
+            (SteppedApproach(), _limited(6), None, {"max_evaluations": 0}, ValueError, "positive"),
+            (SteppedApproach(), _limited(6), None, {"max_evaluations": True}, TypeError, "int"),
+            (SteppedApproach(), _limited(6), None, {"success_threshold": "0.1"}, TypeError, "success_threshold"),
+            (SteppedApproach(), _limited(6), None, {"success_threshold": True}, TypeError, "success_threshold"),
+            (SteppedApproach(), _limited(6, scale=3.0), None, {}, ValueError, "other settings than this dataset's: y"),
+            (SteppedApproach(), _limited(6, tol=1e-3), None, {}, ValueError, "other settings than this dataset's: tol"),
+            (SteppedApproach(), _limited(6), None, {"keep_all_models": False, "top_k": 0}, ValueError, "top_k"),
+            (SteppedApproach(), _limited(6), None, {"callbacks": _Unsaveable()}, TypeError, "set"),
+            (SteppedApproach(), _limited(6), _plain_file, {}, ValueError, "checkpoint"),
+            (
+                SteppedApproach(),
+                _limited(6),
+                lambda p: p.with_name("missing.sqlite"),
+                {},
+                FileNotFoundError,
+                "missing.sqlite",
+            ),
+        ],
+        ids=[
+            "no-snapshots",
+            "below-calls",
+            "zero",
+            "bool",
+            "threshold-str",
+            "threshold-bool",
+            "other-data",
+            "extra-setting",
+            "top_k",
+            "unsaveable-callback",
+            "not-a-checkpoint",
+            "missing-file",
+        ],
+    )
+    def test_invalid_extension_changes_nothing(self, tmp_path, approach, dataset, target, kwargs, error, match):
+        path = _first_run(tmp_path, SteppedApproach(), _limited(6))
+        path = target(path) if target else path
+        before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+        with pytest.raises(error, match=match):
+            dataset.extend_run(approach, path, **kwargs)
+        assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()} == before

@@ -54,7 +54,9 @@ inherited ``search`` does). An approach that overrides ``search`` runs its own l
 checkpoint and the approach has the state methods:
 
 ```python
+stepped, complete = False, True
 while not se.should_stop:
+    stepped = True
     if snapshots and se.snapshot_due:
         se.save_snapshot(approach.get_search_state())
     candidates = approach.ask(se)
@@ -78,11 +80,16 @@ while not se.should_stop:
                 results.append(se.get_model(candidate.expr, candidate.free_constants,
                                             candidate.canonicalise_constants))
     approach.tell(se, candidates[: len(results)], results)
-if snapshots:  # when the loop ends normally, also after a stop
+    complete = len(results) == len(candidates)
+if snapshots and stepped and complete:  # when the loop ends normally, unless its last step was cut
     se.save_snapshot(approach.get_search_state())
 ```
 
-Snapshots fall between steps, where nothing is half done; none is taken after an exception.
+Snapshots fall between steps, where nothing is half done. None is taken after an exception; after
+a step that a stop cut short (its ``tell`` saw only part of its results), so that an
+[extended run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] redoes that step in full; or at
+the end of a session that ran no step (e.g. a finished run resumed), which keeps the snapshot it
+has.
 [run][SRToolkit.approaches.sr_approach.SR_approach.run] continues this loop from the evaluator's
 snapshot when resuming, and calls ``search`` otherwise.
 """
@@ -394,7 +401,10 @@ class SR_approach(ABC):
     def _step_loop(self, se: SR_evaluator) -> None:
         # The loop of the step interface (shown in the module docstring), used by search and run.
         snapshots = se.checkpoint is not None and self.supports_snapshots
+        stepped = False  # whether this session ran a step
+        complete = True  # whether the last step got all its results
         while not se.should_stop:
+            stepped = True
             if snapshots and se.snapshot_due:
                 se.save_snapshot(self.get_search_state())
             candidates = self.ask(se)
@@ -415,7 +425,8 @@ class SR_approach(ABC):
                     else:
                         results.append(se.get_model(c.expr, c.free_constants, c.canonicalise_constants))
             self.tell(se, candidates[: len(results)], results)
-        if snapshots:
+            complete = len(results) == len(candidates)
+        if snapshots and stepped and complete:
             se.save_snapshot(self.get_search_state())
 
     def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:

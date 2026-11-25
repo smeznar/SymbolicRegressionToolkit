@@ -715,7 +715,7 @@ def _job(tmp_path, approach, dataset=None, keep_checkpoint=False, name="r.json",
 
 
 def _result(path):
-    return {**SR_results.load(str(path))[0].to_dict(), "wall_time": None}
+    return {**SR_results.load(str(path))[0].to_dict(), "wall_time": None, "limits": None}
 
 
 @pytest.mark.parametrize(
@@ -1397,3 +1397,77 @@ class TestKeepAllModels:
         d = _make_grid(run).to_dict() | {"snapshot_interval": interval}
         with pytest.raises(ValueError, match="snapshot_interval"):
             ExperimentGrid.from_dict(d, results_dir=run)
+
+
+# --------------------------------------------------------------------------- #
+# Extending jobs (stage 6)
+# --------------------------------------------------------------------------- #
+def _extension_grid(tmp_path, monkeypatch, name="run", budget=5, keep_checkpoint=True):
+    _isolate_cache(monkeypatch, tmp_path / "cache")
+    return _make_grid(
+        str(tmp_path / name),
+        datasets=[_make_dataset(max_evaluations=budget)],
+        approaches=[SteppedApproach()],
+        num_experiments=1,
+        keep_checkpoint=keep_checkpoint,
+        snapshot_interval=1e-9,
+    )
+
+
+class TestExtendJobs:
+    # Reason: clause (extend() continues a done job with the given limits, replaces its result, keeps the
+    # checkpoint compacted and releases the lock).
+    def test_done_job_extends_to_the_given_limits(self, tmp_path, monkeypatch):
+        grid = _extension_grid(tmp_path, monkeypatch)
+        job = grid.build_job("ds1", "stepped", 7)
+        job.run()  # 5 calls: the budget cuts the third step
+        job.extend(max_evaluations=10, success_threshold=5e-8)  # below RMSE's default 1e-7, met by no candidate
+        straight = _extension_grid(tmp_path, monkeypatch, name="straight", budget=10, keep_checkpoint=False)
+        straight.build_job("ds1", "stepped", 7).run()
+        extended = SR_results.load(job.result_path)[0]
+        assert {**_result(job.result_path), "checkpoint": None, "success_threshold": None} == {
+            **_result(straight.build_job("ds1", "stepped", 7).result_path),
+            "success_threshold": None,
+        }
+        assert [(s["max_evaluations"], s["success_threshold"]) for s in extended.limits] == [(5, 1e-7), (10, 5e-8)]
+        assert (_journal_mode(job.checkpoint_path), os.path.exists(job._lock_path)) == ("delete", False)
+        assert job.status == "done"
+
+    # Reason: clause (errors: a job without a checkpoint, never started or done without keep_checkpoint,
+    # raises ValueError; a job whose lock another process holds raises RuntimeError; the result stays).
+    @pytest.mark.parametrize(
+        "run_first, keep, locked, error, match",
+        [
+            (False, False, False, ValueError, "never started"),
+            (True, False, False, ValueError, "rerun"),
+            (True, True, True, RuntimeError, "another process"),
+        ],
+        ids=["new", "done", "locked"],
+    )
+    def test_job_that_cannot_be_extended(self, tmp_path, monkeypatch, run_first, keep, locked, error, match):
+        grid = _extension_grid(tmp_path, monkeypatch, keep_checkpoint=keep)
+        job = grid.build_job("ds1", "stepped", 7)
+        if run_first:
+            job.run()
+        before = job.is_complete and open(job.result_path).read()
+        with _held_lock(job._lock_path) if locked else contextlib.nullcontext():
+            with pytest.raises(error, match=match):
+                job.extend(max_evaluations=10)
+        assert (job.is_complete and open(job.result_path).read()) == before
+
+    # Reason: clause (an interrupt raises KeyboardInterrupt and keeps the checkpoint; a done job keeps its
+    # old result and status "done" until an extend finishes, which continues with the new limits).
+    def test_interrupted_extension_keeps_the_done_result(self, tmp_path, monkeypatch):
+        grid = _extension_grid(tmp_path, monkeypatch)
+        job = grid.build_job("ds1", "stepped", 7)
+        job.run()
+        before = open(job.result_path).read()
+        with pytest.raises(KeyboardInterrupt), pytest.warns(UserWarning, match="interrupted"):
+            job.extend(max_evaluations=10, callbacks=SignalAfter(1))
+        assert (open(job.result_path).read(), job.status, os.path.exists(job.checkpoint_path)) == (before, "done", True)
+        job.extend()  # None keeps the new budget
+        straight = _extension_grid(tmp_path, monkeypatch, name="straight", budget=10, keep_checkpoint=False)
+        straight.build_job("ds1", "stepped", 7).run()
+        assert {**_result(job.result_path), "checkpoint": None} == _result(
+            straight.build_job("ds1", "stepped", 7).result_path
+        )

@@ -47,7 +47,7 @@ results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
 - ``"success_threshold"``: a new expression has an error below ``success_threshold``;
 - ``"max_evaluations"``: the call used the last evaluation of the budget (a call that does both
   records ``"success_threshold"``);
-- a callback asked to stop (see [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks]), e.g.
+- a callback asked to stop (see [SR_callback][SRToolkit.evaluation.callbacks.SR_callback]), e.g.
   ``"time_limit"``;
 - the approach called [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with its own
   reason, e.g. because its search space is exhausted.
@@ -163,7 +163,8 @@ median_curve = np.nanmedian(curves, axis=0)
 A run whose ``stop_reason`` is neither ``"success_threshold"`` nor ``"max_evaluations"`` (e.g.
 ``"time_limit"``) ended with budget left: ``best_error_within`` past its last call is only an upper
 bound, and a ``None`` from ``calls_to_threshold`` is censored at fewer calls than the budget. Check
-``stop_reason`` before comparing approaches.
+``stop_reason``, and [extended][SRToolkit.utils.types.EvalResult.extended] (see Extending runs
+below), before comparing approaches.
 
 ## Storage
 
@@ -180,22 +181,38 @@ loses only what was not committed). It is not thread-safe: call it from one thre
 With ``checkpoint=path`` the evaluator writes the models and trace to that file as it goes, so a
 run that crashes, is killed or is stopped keeps what it evaluated: convert it to results with
 [SR_results.from_checkpoint][SRToolkit.evaluation.results.SR_results.from_checkpoint], or continue
-it with ``resume=True``. A resume with other settings than the run's (``X``, ``y``,
-``ground_truth``, the ranking and its settings, the constraints, ``symbol_library``,
-``default_constant``, ``seed``, ``max_evaluations``, ``success_threshold``) raises ``ValueError``
-naming them; the approach and the callbacks are not checked.
+it with ``resume=True``. Resuming with settings other than the run's (data, ranking, constraints,
+symbols, seed or limits) raises ``ValueError`` naming them; to change the limits,
+[extend the run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run]. The approach is not checked,
+and other callbacks only warn.
 
-A run continues from its last [Snapshot][SRToolkit.evaluation.model_store.Snapshot]: the approach's
-state between two steps, with the random and callback states. Approaches with the step interface
-whose state can be saved (see [SR_approach][SRToolkit.approaches.sr_approach.SR_approach]) take one
-every
-``snapshot_interval`` seconds (5 minutes by default) and when their loop ends, also after a stop or
-an interrupt; a crash or kill loses the work since the last one. Without a snapshot (no step
-interface or state, or a crash before the first one) a resume starts anew. A finished run (stopped
-for any reason but an interrupt) stays finished when resumed, with everything it evaluated.
-Snapshots may be pickled, so resume only checkpoints you trust.
+Resuming continues from the run's last [snapshot][SRToolkit.evaluation.model_store.Snapshot], the
+approach's state saved between two steps. Approaches that support snapshots (see
+[SR_approach][SRToolkit.approaches.sr_approach.SR_approach]) save one every ``snapshot_interval``
+seconds (5 minutes by default) and when they stop. A crash loses only the work since the last
+snapshot. A run without any snapshot starts over. A finished run (stopped for any reason except an
+interrupt) is not run again. Snapshots may be pickled, so resume only checkpoints you trust.
+
+## Extending runs
+
+To give a run a larger budget, a lower threshold or a longer time limit, extend it with
+[SR_dataset.extend_run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run]:
+
+```python
+results = dataset.evaluate_approach(approach, checkpoint_dir="runs", keep_checkpoint=True)
+path = results[0].checkpoint["path"]
+results = dataset.extend_run(approach, path, max_evaluations=50_000)
+```
+
+The run goes back to its last snapshot and continues from there with the new limits. So the result
+is the same as a run that had these limits from the start. The work since that snapshot is done
+again. If the run already meets the new limits, it stops right away. Each extension is recorded in
+[EvalResult.limits][SRToolkit.utils.types.EvalResult].
+
+To change callbacks, extend the run too: a plain resume with other callbacks only warns.
 """
 
+import copy
 import dataclasses
 import hashlib
 import json
@@ -221,7 +238,7 @@ from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
     CallbackDispatcher,
     ExprEvaluated,
-    SRCallbacks,
+    SR_callback,
 )
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot, _capture_rngs
 from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
@@ -240,7 +257,7 @@ from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_toke
 from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
-from SRToolkit.utils.serialization import _to_json_safe
+from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import CheckResult, ModelResult, RankingSettings, Status
 
@@ -487,8 +504,9 @@ class SR_evaluator:
                 [model_store][SRToolkit.evaluation.model_store]; created, or continued with
                 ``resume=True`` (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``
                 (default): they are kept in memory.
-            resume: Continue the run saved in ``checkpoint`` from its last snapshot. Default
-                ``False``.
+            resume: Continue the run saved in ``checkpoint`` (see
+                [Checkpoints][SRToolkit.evaluation.sr_evaluator]). If the run already meets a limit,
+                the evaluator starts stopped. Default ``False``.
             snapshot_interval: Seconds between snapshots during a run with a ``checkpoint`` (see
                 [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``: a snapshot only when
                 the step loop ends. Default ``300.0``. Not part of the fingerprint, so a resume may
@@ -560,6 +578,9 @@ class SR_evaluator:
             snapshot_interval: The ``snapshot_interval`` passed.
             resumed_from: The [Snapshot][SRToolkit.evaluation.model_store.Snapshot] a resumed
                 evaluator continues from, or ``None`` (a new run, or a checkpoint without one).
+            limits: The run's limit segments (see
+                [EvalResult.limits][SRToolkit.utils.types.EvalResult]); a resume reads them from
+                the checkpoint.
             default_constant: The run's default spec, complete:
                 [background_knowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 built from the ``default_constant`` and ``constant_bounds`` settings. The ranking
@@ -648,23 +669,20 @@ class SR_evaluator:
         self.snapshot_interval = snapshot_interval
         if resume and checkpoint is None:
             raise ValueError("[SR_evaluator] resume=True needs a checkpoint to resume.")
+        # The run's limit segments (see EvalResult.limits); a resume reads them from the checkpoint.
+        self.limits: list[dict[str, Any]] = [
+            {
+                "calls": 0,
+                "max_evaluations": int(max_evaluations),
+                "success_threshold": None if self.success_threshold is None else float(self.success_threshold),
+                "callbacks": None,  # not known yet: registered after construction, recorded at the first evaluation
+                "previous_stop_reason": None,
+            }
+        ]
+        self._callbacks_ready = False  # whether the callbacks' states are restored and recorded in limits
         if checkpoint is not None:
             # Computed before the store, so that unsaveable values leave no checkpoint file behind.
-            parts: dict[str, Any] = {
-                "X": X,
-                "y": y,
-                "ground_truth": None if ground_truth is None else _as_tokens(ground_truth, symbol_library),
-                "ranking_function": self.ranking,
-                "required_constraints": list(self._required_constraints),
-                "advisory_constraints": list(self._advisory_constraints),
-                "symbol_library": symbol_library,
-                "default_constant": self.default_constant,
-                "seed": seed,
-                "max_evaluations": max_evaluations,
-                "success_threshold": self.success_threshold,
-            }
-            parts.update((k, v) for k, v in ranking_settings.items() if k != "default_constant")
-            fingerprint = {name: _fingerprint_hash(value, name) for name, value in parts.items()}
+            fingerprint = self._fingerprint()
             self._results_header()  # raises TypeError for unsaveable metadata
 
         # Last, so that a failing constructor leaves no checkpoint file behind.
@@ -681,10 +699,16 @@ class SR_evaluator:
             changed = sorted(k for k in fingerprint.keys() | saved.keys() if fingerprint.get(k) != saved.get(k))
             if changed:
                 self._store.close()
+                hint = (
+                    " Change limits with SR_dataset.extend_run."
+                    if set(changed) <= {"max_evaluations", "success_threshold"}
+                    else ""
+                )
                 raise ValueError(
                     f"[SR_evaluator] Cannot resume {os.fspath(checkpoint)!r}: these parameters differ from the "
-                    f"saved run: {', '.join(changed)}."
+                    f"saved run: {', '.join(changed)}.{hint}"
                 )
+            self.limits = _from_json_safe(self._store.get_header("limits"))
             self.resumed_from = self._store.snapshot
             if self.resumed_from is not None:
                 self._callback_states = self.resumed_from.callbacks
@@ -699,8 +723,35 @@ class SR_evaluator:
             self._current_best_error = self._store.min_error
         else:
             self._store.set_header("fingerprint", fingerprint)
+            self._store.set_header("seed", None if seed is None else int(seed))
+            self._store.set_header("limits", _to_json_safe(self.limits, "limits"))
         self._store.set_header("results", self._results_header())
+        if self.stop_reason is None:
+            # Limits the run already meets (e.g. after an extension that did not raise them).
+            if self.success_threshold is not None and self._current_best_error < self.success_threshold:
+                self.stop("success_threshold")
+            elif 0 <= self.max_evaluations <= self.total_evaluations:
+                self.stop("max_evaluations")
         self._store.commit()
+
+    def _fingerprint(self) -> dict[str, str]:
+        # One hash per setting a resumed run must share with the saved one (see Checkpoints).
+        parts: dict[str, Any] = {
+            "X": self.X,
+            "y": self.y,
+            "ground_truth": None if self.ground_truth is None else _as_tokens(self.ground_truth, self.symbol_library),
+            "ranking_function": self.ranking,
+            "required_constraints": list(self._required_constraints),
+            "advisory_constraints": list(self._advisory_constraints),
+            "symbol_library": self.symbol_library,
+            "default_constant": self.default_constant,
+            "seed": self.seed,
+            # Normalised as in limits, so a threshold given as -1 and one read back as -1.0 match.
+            "max_evaluations": int(self.max_evaluations),
+            "success_threshold": None if self.success_threshold is None else float(self.success_threshold),
+        }
+        parts.update((k, v) for k, v in self.kwargs.items() if k not in _DEFAULT_LIMITS and k != "default_constant")
+        return {name: _fingerprint_hash(value, name) for name, value in parts.items()}
 
     def _results_header(self) -> dict[str, Any]:
         # What SR_results.from_checkpoint needs besides the models and trace.
@@ -1110,7 +1161,7 @@ class SR_evaluator:
             _failed_checks(self._advisory_constraints, "pre", expr_list),
         )
 
-    def register_callbacks(self, callbacks: SRCallbacks | CallbackDispatcher | None = None) -> None:
+    def register_callbacks(self, callbacks: SR_callback | CallbackDispatcher | None = None) -> None:
         """Add callbacks for monitoring and early stopping to those already registered.
 
         The evaluator enforces ``success_threshold`` and ``max_evaluations`` itself; callbacks add
@@ -1124,21 +1175,21 @@ class SR_evaluator:
             >>> se.register_callbacks(TimeLimitCallback(time_limit=60))
 
         Args:
-            callbacks: A single [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], or a
+            callbacks: A single [SR_callback][SRToolkit.evaluation.callbacks.SR_callback], or a
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] whose
                 callbacks are added (the dispatcher itself is not changed). ``None`` adds nothing.
 
         Raises:
             TypeError: If ``callbacks`` is of another type (e.g. a list).
         """
-        if isinstance(callbacks, SRCallbacks):
+        if isinstance(callbacks, SR_callback):
             self._callbacks.add(callbacks)
         elif isinstance(callbacks, CallbackDispatcher):
             for cb in callbacks.get_callbacks():
                 self._callbacks.add(cb)
         elif callbacks is not None:
             raise TypeError(
-                "[SR_evaluator.register_callbacks] Expected an SRCallbacks, a CallbackDispatcher or None, "
+                "[SR_evaluator.register_callbacks] Expected an SR_callback, a CallbackDispatcher or None, "
                 f"got {type(callbacks).__name__}."
             )
 
@@ -1156,11 +1207,11 @@ class SR_evaluator:
         function and stored in ``models`` (statuses and the order of checks are in the
         [module docs][SRToolkit.evaluation.sr_evaluator]). An expression evaluated before with the
         same specs is not scored again; its stored error is returned. Either way the call is
-        appended to ``trace``,
-        counts toward ``max_evaluations`` and is reported to the callbacks: ``on_expr_evaluated``
-        for every call, plus ``on_best_expression`` when the error improves on the best so far.
-        Evaluation then stops if the error is below ``success_threshold``, the budget is used up,
-        or a callback asks to stop (see [Stopping][SRToolkit.evaluation.sr_evaluator]).
+        appended to ``trace``, counts toward ``max_evaluations`` and is reported to the callbacks:
+        ``on_expr_evaluated`` for every call, plus ``on_best_expression`` when the error improves
+        on the best so far. Evaluation then stops if the error is below ``success_threshold``, the
+        budget is used up, or a callback asks to stop (see
+        [Stopping][SRToolkit.evaluation.sr_evaluator]).
 
         Note:
             ``simplify_expr=True`` makes a call much slower: simplifying with SymPy usually takes
@@ -1229,14 +1280,15 @@ class SR_evaluator:
             is not counted.
 
         Raises:
-            TypeError: If ``expr`` is neither a token list nor a ``Node``.
+            TypeError: If ``expr`` is neither a token list nor a ``Node``. If a spec in
+                ``free_constants`` cannot be saved (see
+                [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]); nothing is
+                then recorded or counted. At the first call, if a callback's ``to_dict`` cannot be
+                saved; nothing is then counted.
             ValueError: If ``free_constants`` is given with ``simplify_expr=True`` (simplifying
                 renumbers constants and loses their labels), or does not fit a well-formed ``expr``
                 (see [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
                 Nothing is then recorded or counted.
-            TypeError: If a spec in ``free_constants`` cannot be saved (see
-                [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]). Nothing is
-                then recorded or counted.
             sqlite3.Error: If a commit of the checkpoint fails (see
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
@@ -1266,9 +1318,29 @@ class SR_evaluator:
 
             expr_str = "".join(expr_list)
             spec_key = _spec_key(specs)
-            if self._callback_states is not None:
-                self._callbacks.set_state(self._callback_states)
-                self._callback_states = None
+            if not self._callbacks_ready:
+                # Callbacks are registered after construction, so they are set up at the first call:
+                # restore their saved states, then record them in the current limit segment, or warn
+                # if a plain resume has other ones. A config that cannot be saved raises here, at the
+                # start, also without a checkpoint (results are saved with their limits).
+                configs = [cb.to_dict() for cb in self._callbacks.get_callbacks()]
+                saved = _to_json_safe(configs, "callbacks")
+                if self._callback_states is not None:
+                    self._callbacks.set_state(self._callback_states)
+                    self._callback_states = None
+                segment = self.limits[-1]
+                if segment["callbacks"] is None:
+                    if self.checkpoint is not None:
+                        recorded = [*self.limits[:-1], {**segment, "callbacks": configs}]
+                        self._store.set_header("limits", _to_json_safe(recorded, "limits"))
+                    segment["callbacks"] = configs
+                elif saved != _to_json_safe(segment["callbacks"], "callbacks"):
+                    warnings.warn(
+                        "[SR_evaluator] The callbacks differ from those this part of the run started with; "
+                        "change limits with SR_dataset.extend_run.",
+                        UserWarning,
+                    )
+                self._callbacks_ready = True
 
             found = self._store.lookup(expr_list, spec_key)
             if found is not None:
@@ -1662,6 +1734,7 @@ class SR_evaluator:
             self.default_constant,
             self.stop_reason or "returned",
             summary,
+            copy.deepcopy(self.limits),
         )
         results.results[-1].wall_time = wall_time
         return results

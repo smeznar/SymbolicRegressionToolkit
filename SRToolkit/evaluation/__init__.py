@@ -12,7 +12,7 @@ Modules:
         the base class for their post-processing.
     result_augmentation: [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter] implementations
         that post-process results with LaTeX, simplified forms, and held-out metrics.
-    callbacks: [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] and
+    callbacks: [SR_callback][SRToolkit.evaluation.callbacks.SR_callback] and
         [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] — event-driven hooks
         for monitoring and early stopping during evaluation.
 """
@@ -27,7 +27,7 @@ from .callbacks import (
     ExprEvaluated,
     LoggingCallback,
     ProgressBarCallback,
-    SRCallbacks,
+    SR_callback,
     TimeLimitCallback,
 )
 from .parameter_estimator import ParameterEstimator
@@ -50,7 +50,7 @@ __all__ = [
     "ExpressionSimplifier",
     "HoldoutMetric",
     "ExpressionToLatex",
-    "SRCallbacks",
+    "SR_callback",
     "CallbackDispatcher",
     "EarlyStoppingCallback",
     "ProgressBarCallback",

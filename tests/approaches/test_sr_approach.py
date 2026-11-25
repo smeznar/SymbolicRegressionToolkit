@@ -91,6 +91,49 @@ def test_mid_batch_stop_tells_only_evaluated_prefix():
     assert (len(se.trace), se.stop_reason) == (3, "max_evaluations")
 
 
+# Reason: clause (the final snapshot is taken only after a complete step; a step cut by a stop
+# keeps the snapshot before it).
+@pytest.mark.parametrize("budget, expected", [(4, 4), (5, 4)], ids=["complete", "cut"])
+def test_final_snapshot_only_after_a_complete_step(tmp_path, monkeypatch, budget, expected):
+    now = [0.0]
+    monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
+    path = tmp_path / "run.sqlite"
+    se = _se(path, max_evaluations=budget, snapshot_interval=1.0)
+    approach = SteppedApproach()
+
+    def tick(*args):  # a snapshot is due before every step
+        now[0] += 1.0
+        return SteppedApproach.ask(approach, *args)
+
+    approach.ask = tick
+    approach.run(se, seed=0)
+    se.close()
+    assert ModelStore(path, "read").snapshot.num_calls == expected
+
+
+# Regression (dev-check audit): a session that runs no step (a finished run resumed directly) kept
+# its old snapshot state but saved it with the newer call count, so a later extension rewound to the
+# wrong point.
+def test_session_without_steps_keeps_the_snapshot(tmp_path, monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
+    path = tmp_path / "run.sqlite"
+    se = _se(path, max_evaluations=5, snapshot_interval=1.0)
+    approach = SteppedApproach()
+
+    def tick(*args):  # a snapshot is due before every step
+        now[0] += 1.0
+        return SteppedApproach.ask(approach, *args)
+
+    approach.ask = tick
+    approach.run(se, seed=0)  # the budget cuts the third step: the snapshot stays at 4 calls
+    se.close()
+    se = _se(path, resume=True, max_evaluations=5)  # finished: stays stopped, runs no step
+    SteppedApproach().run(se, seed=0)
+    se.close()
+    assert ModelStore(path, "read").snapshot.num_calls == 4
+
+
 def test_interrupt_in_step_completes_step_and_snapshots(tmp_path):
     path = tmp_path / "run.sqlite"
     se, approach = _se(path), SteppedApproach()

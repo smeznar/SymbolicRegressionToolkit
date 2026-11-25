@@ -545,6 +545,16 @@ class EvalResult:
             [ExperimentJob.run][SRToolkit.experiments.ExperimentJob.run] set it when the file
             still exists as they return; ``get_results`` does not. Only
             [open_checkpoint][SRToolkit.utils.types.EvalResult.open_checkpoint] uses it.
+        limits: The run's limit segments: one for its start and one per
+            [extension][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] that changed something
+            (a plain resume adds none; see [Extending runs][SRToolkit.evaluation.sr_evaluator]).
+            Each is a dict with ``calls`` (the calls kept when the segment starts),
+            ``max_evaluations`` (negative: no limit), ``success_threshold`` (``None``: none),
+            ``callbacks`` (the ``to_dict()`` of each callback; ``[]`` if calls were made without
+            callbacks, ``None`` if the segment made no call) and ``previous_stop_reason`` (why the segment before ended; ``None`` for
+            the first, or after a crash). Check [extended][SRToolkit.utils.types.EvalResult.extended]
+            beside ``stop_reason`` before comparing runs. ``[]`` if not recorded (results saved
+            before it was, or built by hand).
 
     Examples:
         >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["C", "*", "X_0"], error=0.05)]
@@ -571,6 +581,7 @@ class EvalResult:
     stop_reason: str | None = None
     summary: RunSummary | None = None
     checkpoint: dict[str, Any] | None = None
+    limits: list[dict[str, Any]] = field(default_factory=list)
     _ranking_cache: list[int] | None = field(default=None, init=False, repr=False, compare=False)
 
     def _ranking(self) -> list[int]:
@@ -590,6 +601,16 @@ class EvalResult:
             if math.isfinite(error) and (not history or error < history[-1][2]):
                 history.append((call, index, error))
         return history
+
+    @property
+    def extended(self) -> bool:
+        """Whether the run was extended with new limits: ``limits`` has more than one segment.
+
+        An extension that changed nothing adds no segment, so it does not count. An extended run
+        may differ from one that had its final limits from the start: e.g. an approach that reads
+        its budget ran its first segment under the old one, and a time limit is not reproducible.
+        """
+        return len(self.limits) > 1
 
     @property
     def num_evaluated(self) -> int:
@@ -839,7 +860,9 @@ class EvalResult:
         Raises:
             ValueError: If ``checkpoint`` is ``None``; if the file is a checkpoint of another run
                 (its fingerprint differs from the one in ``checkpoint``; the message names the
-                differing parts); if it is not a checkpoint, or one of another format version.
+                differing parts), which includes the run after an
+                [extension][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] that changed its
+                limits; if it is not a checkpoint, or one of another format version.
             FileNotFoundError: If no file exists at the path; the message gives the path.
         """
         # Imported here: model_store imports this module.
@@ -858,9 +881,14 @@ class EvalResult:
         changed = sorted(k for k in saved.keys() | expected.keys() if saved.get(k) != expected.get(k))
         if changed:
             store.close()
+            hint = (
+                " If the run was extended, use the extended run's results."
+                if set(changed) <= {"max_evaluations", "success_threshold"}
+                else ""
+            )
             raise ValueError(
                 f"[EvalResult.open_checkpoint] The checkpoint at {os.fspath(target)!r} is of another run: "
-                f"these parameters differ: {', '.join(changed)}."
+                f"these parameters differ: {', '.join(changed)}.{hint}"
             )
         return store
 
@@ -909,7 +937,7 @@ class EvalResult:
             models, which ``json`` writes as the non-standard token ``NaN``.
 
         Raises:
-            TypeError: If ``metadata`` or ``augmentations`` contain a value that cannot be saved,
+            TypeError: If ``metadata``, ``augmentations`` or ``limits`` contain a value that cannot be saved,
                 or a model's ``to_dict`` raises (see
                 [ModelResult.to_dict][SRToolkit.utils.types.ModelResult.to_dict]). The
                 message gives its full path, e.g. ``all_models[3].ranking_data['z']``.
@@ -962,6 +990,7 @@ class EvalResult:
             ),
             "summary": summary,
             "checkpoint": _to_json_safe(self.checkpoint, "checkpoint"),
+            "limits": _to_json_safe(self.limits, "limits"),
         }
 
     @classmethod
@@ -974,7 +1003,8 @@ class EvalResult:
                 checkpoint references; ``summary`` and ``checkpoint`` load as ``None``) or 2
                 (written before specs were recorded; ``default_constant`` and each model's
                 ``free_constants`` load as ``None`` too). A missing ``stop_reason``, or a missing
-                field of a saved ``summary`` that has a default, loads as ``None``. Unknown keys are
+                field of a saved ``summary`` that has a default, loads as ``None``; missing
+                ``limits`` load as ``[]``. Unknown keys are
                 ignored; other malformed input has undefined behaviour.
 
         Returns:
@@ -1029,4 +1059,5 @@ class EvalResult:
             stop_reason=data.get("stop_reason"),
             summary=summary,
             checkpoint=_from_json_safe(data.get("checkpoint")),
+            limits=_from_json_safe(data.get("limits", [])),
         )

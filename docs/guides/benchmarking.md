@@ -98,12 +98,12 @@ results = dataset.evaluate_approach(
 
 ### Writing a custom callback
 
-Subclass [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks] and override only the events you need. Return a reason (a string) from `on_expr_evaluated` or `on_best_expression` to stop the search early; it is saved in the results as `stop_reason`.
+Subclass [SR_callback][SRToolkit.evaluation.callbacks.SR_callback] and override only the events you need. Return a reason (a string) from `on_expr_evaluated` or `on_best_expression` to stop the search early; it is saved in the results as `stop_reason`.
 
 ```python
-from SRToolkit.evaluation.callbacks import SRCallbacks, BestExpressionFound
+from SRToolkit.evaluation.callbacks import SR_callback, BestExpressionFound
 
-class PrintEveryImprovement(SRCallbacks):
+class PrintEveryImprovement(SR_callback):
     def on_best_expression(self, event: BestExpressionFound):
         print(f"  [{event.evaluation_number}] {event.expression}  error={event.error:.4g}")
 ```

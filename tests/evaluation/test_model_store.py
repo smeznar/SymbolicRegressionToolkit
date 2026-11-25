@@ -13,7 +13,7 @@ from strategies import STORE_POOL, result_answers, result_dict, store_calls
 
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation import model_store
-from SRToolkit.evaluation.callbacks import SRCallbacks
+from SRToolkit.evaluation.callbacks import SR_callback
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.free_constants import Constant
@@ -42,7 +42,7 @@ _X2 = np.array([[1.0], [2.0], [3.0]])
 _y2 = np.array([2.0, 4.0, 6.0])
 
 
-class _StopOnNextCall(SRCallbacks):
+class _StopOnNextCall(SR_callback):
     def on_expr_evaluated(self, event):
         return "callback"  # a string stops with that reason
 

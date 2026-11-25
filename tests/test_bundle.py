@@ -15,7 +15,7 @@ from SRToolkit.bundle._pack import pack
 from SRToolkit.bundle._relocate import _import_class, _relocate_class_paths
 from SRToolkit.dataset.data_source import DataSource
 from SRToolkit.dataset.sampling import Sampler, UniformSampling
-from SRToolkit.evaluation.callbacks import SRCallbacks
+from SRToolkit.evaluation.callbacks import SR_callback
 from SRToolkit.utils.grammar.constraints import GrammarConstraint
 
 # ---------------------------------------------------------------------------
@@ -432,7 +432,7 @@ class TestImportClass:
             (Sampler.from_dict, "sampler_class"),
             (DataSource.from_dict, "source_class"),
             (SR_approach.from_config_dict, "approach_class"),
-            (SRCallbacks.from_config_dict, "callback_class"),
+            (SR_callback.from_config_dict, "callback_class"),
             (GrammarConstraint.from_dict, "constraint_class"),
         ],
         ids=["sampler", "data-source", "approach", "callback", "grammar-constraint"],

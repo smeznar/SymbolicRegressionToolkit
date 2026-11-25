@@ -53,7 +53,9 @@ top level, outside the background knowledge.
 earlier releases, with the same objective; saving the result writes format 4.
 """
 
+import copy
 import json
+import numbers
 import os
 import warnings
 from collections.abc import Iterable, Mapping
@@ -66,8 +68,14 @@ from typing_extensions import Unpack
 
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind
-from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SRCallbacks
-from SRToolkit.evaluation.model_store import _compact_checkpoint, _finished, _reference, _remove_checkpoint
+from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SR_callback
+from SRToolkit.evaluation.model_store import (
+    ModelStore,
+    _checkpoint_reference,
+    _compact_checkpoint,
+    _remove_checkpoint,
+    _run_finished,
+)
 from SRToolkit.evaluation.ranking import build_ranking
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import (
@@ -80,6 +88,7 @@ from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
+from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 from SRToolkit.utils.types import EvalResult, RankingSettings
 
 from . import data_cache
@@ -506,7 +515,7 @@ class SR_dataset:
         top_k: int = 20,
         initial_seed: int | None = None,
         results: SR_results | None = None,
-        callbacks: SRCallbacks | CallbackDispatcher | list[SRCallbacks] | None = None,
+        callbacks: SR_callback | CallbackDispatcher | list[SR_callback] | None = None,
         verbose: bool = True,
         adaptation_path: str | None = None,
         checkpoint_dir: str | os.PathLike | None = None,
@@ -561,7 +570,7 @@ class SR_dataset:
             initial_seed: Base seed; ``None`` uses the dataset seed.
             results: [SR_results][SRToolkit.evaluation.results.SR_results] to append to in place;
                 ``None`` creates a new one.
-            callbacks: An [SRCallbacks][SRToolkit.evaluation.callbacks.SRCallbacks], a list of them, or a
+            callbacks: An [SR_callback][SRToolkit.evaluation.callbacks.SR_callback], a list of them, or a
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher].
             verbose: Print a line as each experiment starts.
             adaptation_path: For ``adaptation_scope="once"``: the state file passed to
@@ -603,7 +612,7 @@ class SR_dataset:
         if results is None:
             results = SR_results()
 
-        if isinstance(callbacks, SRCallbacks):
+        if isinstance(callbacks, SR_callback):
             dispatcher = CallbackDispatcher(callbacks=[callbacks])
             callbacks = dispatcher
         elif isinstance(callbacks, list):
@@ -627,7 +636,7 @@ class SR_dataset:
                 os.makedirs(os.path.dirname(checkpoint), exist_ok=True)
                 checkpoints.append(checkpoint)
                 if resume and os.path.exists(checkpoint):
-                    if _finished(checkpoint):  # from an earlier call: read it, run nothing
+                    if _run_finished(checkpoint):  # from an earlier call: read it, run nothing
                         if verbose:
                             print(f"Experiment {experiment + 1}/{num_experiments}: read from its checkpoint")
                         results += SR_results.from_checkpoint(checkpoint, sr_approach.name, top_k, keep_all_models)
@@ -672,7 +681,7 @@ class SR_dataset:
                     sr_approach.run(evaluator, seed)
                 results += evaluator.get_results(sr_approach.name, top_k, keep_all_models=keep_all_models)
                 if checkpoint is not None:
-                    reference = _reference(evaluator._store, checkpoint)
+                    reference = _checkpoint_reference(evaluator._store, checkpoint)
             finally:
                 evaluator.close()
 
@@ -702,6 +711,222 @@ class SR_dataset:
         if not keep_checkpoint:
             for result in referring:
                 result.checkpoint = None
+        return results
+
+    def extend_run(
+        self,
+        sr_approach: SR_approach,
+        checkpoint: str | os.PathLike,
+        *,
+        max_evaluations: int | None = None,
+        success_threshold: float | None = None,
+        callbacks: SR_callback | CallbackDispatcher | list[SR_callback] | None = None,
+        top_k: int = 20,
+        keep_all_models: bool = True,
+        snapshot_interval: float | None = 300.0,
+        adaptation_path: str | None = None,
+    ) -> SR_results:
+        """Continue the run saved in ``checkpoint`` with new limits.
+
+        Use it to give a finished or interrupted run a larger budget, a lower threshold or other
+        callbacks (e.g. a longer time limit). The run goes back to its last snapshot and continues
+        from there, with its seed (see [Extending runs][SRToolkit.evaluation.sr_evaluator]). If the
+        approach's search depends only on its saved state, not on its limits, the result equals a
+        run that had the new limits from the start.
+
+        Limits left as ``None`` stay as they were; this dataset's own ``max_evaluations`` and
+        ``success_threshold`` are not used. If nothing changes (the same limits and callbacks), the
+        call is a plain resume: a finished run stays finished and an interrupted one continues. As
+        in [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach], the
+        approach adapts first, the callbacks get ``on_experiment_start`` and ``on_experiment_end``,
+        and Ctrl-C stops the run cleanly.
+
+        The checkpoint must come from this dataset: the same settings apart from the limits. The
+        approach is not checked, so pass the run's approach. If an extension is interrupted, call
+        ``extend_run`` again with ``None`` limits to continue it. When the run ends, the checkpoint
+        is compacted into one file, which the result refers to.
+
+        Note:
+            The checkpoint is extended in place, so afterwards it holds the extended run. The
+            results of the original run do not change: keep them (e.g. with
+            [save][SRToolkit.evaluation.results.SR_results.save]), or copy the checkpoint first if
+            you need the original file. Their
+            [open_checkpoint][SRToolkit.utils.types.EvalResult.open_checkpoint] raises once the
+            limits change. For an approach that is deterministic from its state, the extended run
+            starts with the original run's calls, so the statistics of its first ``n`` calls (e.g.
+            [best_error_within][SRToolkit.utils.types.EvalResult.best_error_within] ``([n])``) are
+            those of the original run, with ``n`` its ``evaluation_calls``.
+
+        Args:
+            sr_approach: The approach of the run, which must support snapshots (see
+                [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]).
+            checkpoint: The run's checkpoint.
+            max_evaluations: The new total budget, at least the calls the run made; negative for
+                no limit; ``None`` (default) keeps the last segment's.
+            success_threshold: The new threshold (a negative one is never reached); ``None``
+                (default) keeps the last segment's.
+            callbacks: An [SR_callback][SRToolkit.evaluation.callbacks.SR_callback], a list of them,
+                or a [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher];
+                ``None`` for none; the run's earlier callbacks are not reused. Give them in the run's
+                order, so they get their saved states (e.g. a longer ``TimeLimitCallback`` counts on from the
+                time saved with the snapshot).
+            top_k: As for [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
+            keep_all_models: As for ``get_results``.
+            snapshot_interval: As for [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+                Default ``300.0``.
+            adaptation_path: For ``adaptation_scope="once"``: the state file passed to
+                [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load].
+
+        Returns:
+            New results with the run's [EvalResult][SRToolkit.utils.types.EvalResult]; its
+            ``stop_reason`` is ``"interrupted"`` after Ctrl-C or SIGTERM (with a ``UserWarning``).
+
+        Raises:
+            TypeError: Before anything is changed: if ``max_evaluations``
+                is not an ``int``, numpy integer or ``None``, or ``success_threshold`` is not a real
+                number or ``None`` (``bool`` is rejected for both); if a callback's ``to_dict``
+                holds a value that cannot be saved (see
+                [serialization][SRToolkit.utils.serialization]).
+            ValueError: Before anything is changed: if ``max_evaluations`` is ``0``, or
+                non-negative and below the calls the run made (an extension does not shorten a
+                run); if ``keep_all_models`` is ``False`` and ``top_k <= 0``; if the approach does
+                not support snapshots; if the file is not a checkpoint, or is of a run with other
+                settings than this dataset's (the message names them).
+            FileNotFoundError: If no file exists at ``checkpoint``.
+
+        Examples:
+            >>> import tempfile
+            >>> from SRToolkit.approaches import ProGED
+            >>> dataset = SR_dataset(np.array([[1.0], [2.0], [3.0]]), SymbolLibrary.default_symbols(1),
+            ...                      y=np.array([2.0, 4.0, 6.0]), max_evaluations=5, success_threshold=-1, seed=0)
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     first = dataset.evaluate_approach(ProGED(), checkpoint_dir=tmpdir, keep_checkpoint=True,
+            ...                                       verbose=False)
+            ...     extended = dataset.extend_run(ProGED(), first[0].checkpoint["path"], max_evaluations=10)
+            >>> extended[0].evaluation_calls, extended[0].extended
+            (10, True)
+        """
+        if isinstance(max_evaluations, bool) or not isinstance(max_evaluations, (int, np.integer, type(None))):
+            raise TypeError(
+                f"[SR_dataset.extend_run] max_evaluations must be an int or None, got {type(max_evaluations).__name__}."
+            )
+        if max_evaluations == 0:
+            raise ValueError("[SR_dataset.extend_run] max_evaluations must be positive, or negative for no limit.")
+        if isinstance(success_threshold, bool) or not isinstance(success_threshold, (numbers.Real, type(None))):
+            raise TypeError(
+                "[SR_dataset.extend_run] success_threshold must be a real number or None, got "
+                f"{type(success_threshold).__name__}."
+            )
+        if not keep_all_models and top_k <= 0:
+            raise ValueError(f"[SR_dataset.extend_run] keep_all_models=False needs top_k >= 1, got {top_k}.")
+        if not sr_approach.supports_snapshots:
+            raise ValueError(
+                f"[SR_dataset.extend_run] {sr_approach.name} cannot continue from a snapshot, so its runs cannot "
+                "be extended."
+            )
+        if isinstance(callbacks, SR_callback):
+            callbacks = CallbackDispatcher(callbacks=[callbacks])
+        elif isinstance(callbacks, list):
+            callbacks = CallbackDispatcher(callbacks=callbacks) if callbacks else None
+        # Raises TypeError for a config that cannot be saved, before anything is changed.
+        configs = _to_json_safe([cb.to_dict() for cb in (callbacks.get_callbacks() if callbacks else [])], "callbacks")
+        store = ModelStore(checkpoint, "read")
+        try:
+            seed = store.get_header("seed")
+            last = _from_json_safe(store.get_header("limits"))[-1]
+            saved = store.get_header("fingerprint", {})
+            calls = len(store.trace)
+        finally:
+            store.close()
+        if max_evaluations is not None and 0 <= max_evaluations < calls:
+            raise ValueError(
+                f"[SR_dataset.extend_run] max_evaluations={max_evaluations} is below the {calls} calls the run "
+                "made; an extension does not shorten a run."
+            )
+        # A copy of this dataset with the new limits builds the run's evaluators.
+        dataset = copy.copy(self)
+        dataset.max_evaluations = last["max_evaluations"] if max_evaluations is None else int(max_evaluations)
+        dataset.success_threshold = last["success_threshold"] if success_threshold is None else float(success_threshold)
+        probe = dataset.create_evaluator(seed=seed)
+        fingerprint = probe._fingerprint()
+        probe.close()
+        changed = sorted(
+            k
+            for k in fingerprint.keys() | saved.keys()
+            if k not in ("max_evaluations", "success_threshold") and fingerprint.get(k) != saved.get(k)
+        )
+        if changed:
+            raise ValueError(
+                f"[SR_dataset.extend_run] {os.fspath(checkpoint)!r} is of a run with other settings than this "
+                f"dataset's: {', '.join(changed)}."
+            )
+
+        if sr_approach.adaptation_scope == "once":
+            self.adapt_or_load(sr_approach, adaptation_path)
+        elif sr_approach.adaptation_scope == "experiment":
+            sr_approach.adapt(self.X, self.background_knowledge, self.required_constraints)
+
+        # An extension that changes nothing is a plain resume: no new segment, and a finished run
+        # stays finished. A segment without recorded callbacks (it made no call) matches any.
+        unchanged = (last["max_evaluations"], last["success_threshold"]) == (
+            dataset.max_evaluations,
+            probe.success_threshold,
+        ) and (last["callbacks"] is None or _to_json_safe(last["callbacks"], "callbacks") == configs)
+        if not unchanged:
+            # Reopen the run with the new limits: the new fingerprint, a limit segment starting at the
+            # snapshot, and no stop reason, so the resume below rewinds it to the snapshot.
+            store = ModelStore(checkpoint, "resume")
+            try:
+                limits = _from_json_safe(store.get_header("limits"))
+                limits.append(
+                    {
+                        "calls": 0 if store.snapshot is None else store.snapshot.num_calls,
+                        "max_evaluations": dataset.max_evaluations,
+                        "success_threshold": probe.success_threshold,
+                        "callbacks": None,  # recorded at the first evaluation, as for a new run
+                        "previous_stop_reason": store.get_header("stop_reason"),
+                    }
+                )
+                store.set_header("fingerprint", fingerprint)
+                store.set_header("limits", _to_json_safe(limits, "limits"))
+                store.set_header("stop_reason", None)
+                store.commit()
+            finally:
+                store.close()
+        evaluator = dataset.create_evaluator(
+            seed=seed, checkpoint=checkpoint, resume=True, snapshot_interval=snapshot_interval
+        )
+        event = ExperimentEvent(
+            dataset_name=self.dataset_name,
+            approach_name=sr_approach.name,
+            success_threshold=evaluator.success_threshold,
+            max_evaluations=evaluator.max_evaluations,
+            seed=seed,
+        )
+        try:
+            evaluator._experiment_id = f"{self.dataset_name}_{sr_approach.name}_{seed}"
+            evaluator.register_callbacks(callbacks)
+            if callbacks is not None:
+                callbacks.on_experiment_start(event)
+            with evaluator.stop_on_signals():
+                sr_approach.run(evaluator, seed)
+            results = evaluator.get_results(sr_approach.name, top_k, keep_all_models=keep_all_models)
+            reference = _checkpoint_reference(evaluator._store, checkpoint)
+        finally:
+            evaluator.close()
+        interrupted = evaluator.stop_reason == "interrupted"
+        if not interrupted:
+            _compact_checkpoint(checkpoint)
+        result = results.results[-1]
+        result.checkpoint = reference
+        if callbacks is not None:
+            callbacks.on_experiment_end(event, result)
+        if interrupted:
+            warnings.warn(
+                f"[SR_dataset.extend_run] The run was interrupted; its checkpoint is kept at {checkpoint}. Call "
+                "extend_run again to continue it.",
+                UserWarning,
+            )
         return results
 
     def ranking_settings(self) -> dict[str, Any]:

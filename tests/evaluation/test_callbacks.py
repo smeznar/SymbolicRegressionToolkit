@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import warnings
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,7 +15,7 @@ from SRToolkit.evaluation.callbacks import (
     ExprEvaluated,
     LoggingCallback,
     ProgressBarCallback,
-    SRCallbacks,
+    SR_callback,
     TimeLimitCallback,
 )
 from SRToolkit.utils.types import EvalResult, ModelResult
@@ -22,7 +23,7 @@ from SRToolkit.utils.types import EvalResult, ModelResult
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-class _ConcreteCallback(SRCallbacks):
+class _ConcreteCallback(SR_callback):
     """Minimal concrete subclass used to instantiate the abstract base."""
 
     pass
@@ -99,10 +100,10 @@ class TestExperimentEventDataclass:
         assert ev.seed is None
 
 
-# ── SRCallbacks defaults ───────────────────────────────────────────────────────
+# ── SR_callback defaults ───────────────────────────────────────────────────────
 
 
-class TestSRCallbacksDefaults:
+class TestSRCallbackDefaults:
     def test_on_expr_evaluated_returns_none(self):
         cb = _ConcreteCallback()
         assert cb.on_expr_evaluated(_make_expr_evaluated()) is None
@@ -186,7 +187,7 @@ class TestCallbackDispatcherRemove:
 _HOOKS = [("on_expr_evaluated", _make_expr_evaluated), ("on_best_expression", _make_best_found)]
 
 
-class _NamedStop(SRCallbacks):
+class _NamedStop(SR_callback):
     def on_expr_evaluated(self, event):
         return False
 
@@ -197,7 +198,7 @@ class _NamedStop(SRCallbacks):
 @pytest.mark.parametrize("hook, make_event", _HOOKS)
 class TestCallbackDispatcherStopReason:
     def _cb(self, hook, value):
-        cb = MagicMock(spec=SRCallbacks)
+        cb = MagicMock(spec=SR_callback)
         getattr(cb, hook).return_value = value
         return cb
 
@@ -228,7 +229,7 @@ class TestCallbackDispatcherStopReason:
 
 class TestCallbackDispatcherOnExperimentStart:
     def test_dispatches_to_all_callbacks(self):
-        cb1, cb2 = MagicMock(spec=SRCallbacks), MagicMock(spec=SRCallbacks)
+        cb1, cb2 = MagicMock(spec=SR_callback), MagicMock(spec=SR_callback)
         event = _make_experiment_event()
         CallbackDispatcher(callbacks=[cb1, cb2]).on_experiment_start(event)
         cb1.on_experiment_start.assert_called_once_with(event)
@@ -240,7 +241,7 @@ class TestCallbackDispatcherOnExperimentStart:
 
 class TestCallbackDispatcherOnExperimentEnd:
     def test_dispatches_to_all_callbacks(self):
-        cb1, cb2 = MagicMock(spec=SRCallbacks), MagicMock(spec=SRCallbacks)
+        cb1, cb2 = MagicMock(spec=SR_callback), MagicMock(spec=SR_callback)
         event = _make_experiment_event()
         result = _make_eval_result()
         CallbackDispatcher(callbacks=[cb1, cb2]).on_experiment_end(event, result)
@@ -573,7 +574,7 @@ class TestLoggingCallbackSerialization:
 # ── Checkpoint state ──────────────────────────────────────────────────────────
 
 
-class _StateA(SRCallbacks):
+class _StateA(SR_callback):
     def __init__(self, tag=""):
         self.tag = tag
         self.got = []
@@ -586,6 +587,15 @@ class _StateA(SRCallbacks):
 
 
 class _StateB(_StateA):
+    pass
+
+
+class _EmptyA(_StateA):
+    def get_state(self):
+        return {}
+
+
+class _EmptyB(_EmptyA):
     pass
 
 
@@ -611,21 +621,29 @@ class TestCallbackState:
             {"callback_class": other.to_dict()["callback_class"], "state": {}},
         ]
 
+    # Reason: clause (a non-empty state whose class is only at another position is dropped with a
+    # warning; that of a removed callback silently; reordered callbacks without state do not warn).
     @pytest.mark.parametrize(
-        "targets, num_states, expected",
+        "targets, num_states, expected, dropped",
         [
-            ((_StateA, _StateB), 2, [[{"tag": "a"}], [{"tag": "b"}]]),
-            ((_StateB, _StateA), 2, [[], []]),
-            ((_StateA, _StateB), 1, [[{"tag": "a"}], []]),
-            ((_StateA,), 2, [[{"tag": "a"}]]),
+            ((_StateA, _StateB), 2, [[{"tag": "a"}], [{"tag": "b"}]], []),
+            ((_StateB, _StateA), 2, [[], []], ["_StateA (position 0)", "_StateB (position 1)"]),
+            ((_StateA, _StateB), 1, [[{"tag": "a"}], []], []),
+            ((_StateA,), 2, [[{"tag": "a"}]], []),  # _StateB removed: dropped silently
+            ((_StateA, _StateB, _EmptyB, _EmptyA), 4, [[{"tag": "a"}], [{"tag": "b"}], [], []], []),
         ],
-        ids=["same-order", "swapped-classes", "fewer-states", "more-states"],
+        ids=["same-order", "swapped-classes", "fewer-states", "more-states", "swapped-stateless"],
     )
-    def test_dispatcher_set_state_matches_position_and_class(self, targets, num_states, expected):
-        saved = json.loads(json.dumps(CallbackDispatcher([_StateA("a"), _StateB("b")]).get_state()))
+    def test_dispatcher_set_state_matches_position_and_class(self, targets, num_states, expected, dropped):
+        saved = json.loads(
+            json.dumps(CallbackDispatcher([_StateA("a"), _StateB("b"), _EmptyA(), _EmptyB()]).get_state())
+        )
         callbacks = [cls() for cls in targets]
-        CallbackDispatcher(callbacks).set_state(saved[:num_states])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            CallbackDispatcher(callbacks).set_state(saved[:num_states])
         assert [cb.got for cb in callbacks] == expected
+        assert [next(d for d in dropped if d in str(w.message)) for w in caught] == dropped
 
     def test_time_limit_state_is_elapsed_time(self):
         now = [50.0]

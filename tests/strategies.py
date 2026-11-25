@@ -15,7 +15,7 @@ from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
 from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach
-from SRToolkit.evaluation.callbacks import SRCallbacks
+from SRToolkit.evaluation.callbacks import SR_callback
 
 # --- Expressions -----------------------------------------------------------------------------
 
@@ -151,8 +151,9 @@ SCRIPTED_CALLS = [["X_0"], ["X_0", "+", "C"], ["X_0"], ["X_0", "-", "C"], ["C"],
 
 
 def result_dict(result):
-    """``result.to_dict()`` without ``wall_time``, which differs between two runs that are otherwise equal."""
-    return {**result.to_dict(), "wall_time": None}
+    """``result.to_dict()`` without ``wall_time`` and ``limits``, which differ between two runs that are
+    otherwise equal (e.g. an interrupted run records the callback that interrupted it)."""
+    return {**result.to_dict(), "wall_time": None, "limits": None}
 
 
 def result_answers(result, k, budgets=range(-1, 12), thresholds=(0.05, 0.1, 0.3, 0.5, 1.0, 2.0, float("nan"))):
@@ -244,7 +245,7 @@ class ScriptedApproach(SR_approach):
                 raise RuntimeError("boom")
 
 
-class EventLog(SRCallbacks):
+class EventLog(SR_callback):
     """Appends each evaluation event to the class-level ``events``, so it can be read even when a job
     rebuilds its callbacks from their dicts. Clear ``EventLog.events`` before use."""
 
@@ -260,7 +261,7 @@ class EventLog(SRCallbacks):
         EventLog.references.append(results.checkpoint)
 
 
-class SignalAfter(SRCallbacks):
+class SignalAfter(SR_callback):
     """Sends ``sig`` to the process at the ``n``-th evaluation event (inside the step that made it),
     only in the experiment seeded ``seed`` if that is set."""
 

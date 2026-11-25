@@ -788,13 +788,14 @@ class TestOpenCheckpoint:
             store.close()
 
     # Reason: clause (Raises: no reference, missing file with its path, another run's checkpoint
-    # naming the differing part also with a path override, not a checkpoint).
+    # naming the differing part also with a path override, and pointing to an extension when only
+    # limits differ; not a checkpoint).
     @pytest.mark.parametrize(
         "make, error, match",
         [
             (_no_reference, ValueError, "checkpoint"),
             (_deleted, FileNotFoundError, "run.sqlite"),
-            (_other_run, ValueError, "max_evaluations"),
+            (_other_run, ValueError, r"max_evaluations\. If the run was extended"),
             (_not_a_checkpoint, ValueError, "checkpoint"),
             (_extra_fingerprint_part, ValueError, "extra"),
         ],

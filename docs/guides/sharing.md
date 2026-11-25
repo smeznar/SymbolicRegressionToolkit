@@ -156,7 +156,7 @@ class PhysicsConstraint(GrammarConstraint):
 ```
 
 Custom [samplers][SRToolkit.dataset.sampling.Sampler],
-[callbacks][SRToolkit.evaluation.callbacks.SRCallbacks], and
+[callbacks][SRToolkit.evaluation.callbacks.SR_callback], and
 [data sources][SRToolkit.dataset.data_source.DataSource] follow the same pattern, dispatched
 via `sampler_class`, `callback_class`, and `source_class` respectively.
 

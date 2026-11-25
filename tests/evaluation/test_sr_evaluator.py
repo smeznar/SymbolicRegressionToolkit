@@ -23,7 +23,8 @@ from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation import model_store
 from SRToolkit.evaluation.callbacks import (
     CallbackDispatcher,
-    SRCallbacks,
+    SR_callback,
+    TimeLimitCallback,
 )
 from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.ranking import RankingFunction, RankingResult, RMSERanking
@@ -56,7 +57,7 @@ _LIB_BED = SymbolLibrary.default_symbols(2)
 # ── Concrete helpers ──────────────────────────────────────────────────────────
 
 
-class _SimpleCb(SRCallbacks):
+class _SimpleCb(SR_callback):
     pass
 
 
@@ -71,6 +72,13 @@ def _make_se(**kwargs):
     defaults = dict(seed=42, success_threshold=-1)
     defaults.update(kwargs)
     return SR_evaluator(_X, _y, **defaults)
+
+
+def _mock_callback():
+    # A mock callback whose config can be saved: the evaluator records it at the first call.
+    cb = MagicMock(spec=SR_callback)
+    cb.to_dict.return_value = {"callback_class": "unittest.mock.MagicMock"}
+    return cb
 
 
 # ── SR_evaluator.__init__ — RMSE ──────────────────────────────────────────────
@@ -507,7 +515,7 @@ class TestStopReason:
 
     def test_callback_reason_is_recorded_after_evaluators_own(self):
         se = _make_se(max_evaluations=1, success_threshold=-1)
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = "time_limit"
         cb.on_best_expression.return_value = None
         se.register_callbacks(cb)
@@ -516,7 +524,7 @@ class TestStopReason:
 
     def test_callback_reason_is_recorded(self):
         se = _make_se()
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = None
         cb.on_best_expression.return_value = "plateau"
         se.register_callbacks(cb)
@@ -526,7 +534,7 @@ class TestStopReason:
     def test_callback_reason_on_cache_hit_is_recorded(self):
         se = _make_se(success_threshold=-1)
         se.evaluate_expr(["X_0"])
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = "plateau"
         se.register_callbacks(cb)
         se.evaluate_expr(["X_0"])
@@ -570,7 +578,7 @@ class TestEvaluateExprRmse:
     def test_cache_hit_still_fires_on_expr_evaluated(self):
         se = _make_se()
         se.evaluate_expr(["X_0"])
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = None
         se.register_callbacks(cb)
         se.evaluate_expr(["X_0"])  # cache hit
@@ -604,7 +612,7 @@ class TestEvaluateExprRmse:
 
     def test_first_evaluation_fires_best_expression_callback(self):
         se = _make_se()
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = None
         cb.on_best_expression.return_value = None
         se.register_callbacks(cb)
@@ -614,7 +622,7 @@ class TestEvaluateExprRmse:
     def test_worse_evaluation_does_not_fire_best_expression_callback(self):
         se = _make_se()
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])  # near-zero — sets the bar
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = None
         cb.on_best_expression.return_value = None
         se.register_callbacks(cb)
@@ -623,7 +631,7 @@ class TestEvaluateExprRmse:
 
     def test_callback_returning_false_sets_should_stop(self):
         se = _make_se()
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = False
         se.register_callbacks(cb)
         se.evaluate_expr(["X_0"])
@@ -754,7 +762,7 @@ class TestEvaluationTrace:
         se = _make_se()
         numbers = []
 
-        class _Recorder(SRCallbacks):
+        class _Recorder(SR_callback):
             def on_expr_evaluated(self, event):
                 numbers.append((event.evaluation_number, len(se.trace)))
 
@@ -1008,7 +1016,7 @@ class TestEvaluationStatus:
         assert se.models[0].status == "undefined"
 
     def test_failed_models_never_become_best(self):
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = True
         cb.on_best_expression.return_value = True
         se = _make_se()
@@ -1020,7 +1028,7 @@ class TestEvaluationStatus:
         assert cb.on_best_expression.call_count == 1
 
     def test_cache_hit_event_carries_status(self):
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = True
         se = _make_se()
         se.register_callbacks(cb)
@@ -1083,7 +1091,7 @@ class TestEvaluateExprBed:
         assert "C*X_1X_0" in self.se.invalid
 
     def test_bed_callback_stop_sets_should_stop(self):
-        cb = MagicMock(spec=SRCallbacks)
+        cb = _mock_callback()
         cb.on_expr_evaluated.return_value = False
         self.se.register_callbacks(cb)
         self.se.evaluate_expr(["C", "+", "X_0"])
@@ -1372,7 +1380,7 @@ class TestCompactResults:
             se.get_results(top_k=top_k, keep_all_models=False)
 
 
-class _Recorder(SRCallbacks):
+class _Recorder(SR_callback):
     def __init__(self):
         self.events = []
 
@@ -2404,7 +2412,7 @@ def _straight(calls, **kwargs):
     return se
 
 
-class _StateLog(SRCallbacks):
+class _StateLog(SR_callback):
     def __init__(self, state=None):
         self.log = []
         self.seen = 0
@@ -2902,3 +2910,124 @@ class TestStopOnSignals:
         worker.start()
         worker.join()
         assert (errors, list(se.trace), signal.getsignal(signal.SIGINT)) == ([], [0], before)
+
+
+# --------------------------------------------------------------------------- #
+# Limits of a run (checkpoint stage 6)
+# --------------------------------------------------------------------------- #
+class _ArrayConfig(SR_callback):
+    # A callback whose config holds a tuple and an array, as SRToolkit's encoder saves them.
+    def to_dict(self):
+        return {**super().to_dict(), "window": (1, 2), "weights": np.array([0.5, 1.5])}
+
+
+class _SetConfig(SR_callback):
+    # A callback whose config holds a set, which cannot be saved.
+    def to_dict(self):
+        return {**super().to_dict(), "limit": {1}}
+
+
+class TestLimits:
+    # Regression (code review): without a checkpoint an unsaveable callback config was recorded unchecked,
+    # so the run went on and only saving its results raised.
+    @pytest.mark.parametrize("with_checkpoint", [False, True], ids=["in-memory", "checkpoint"])
+    def test_unsaveable_callback_config_raises_at_the_first_call(self, tmp_path, with_checkpoint):
+        se = _ckpt_se(tmp_path / "run.sqlite" if with_checkpoint else None)
+        se.register_callbacks(_SetConfig())
+        with pytest.raises(TypeError, match="callbacks"):
+            se.evaluate_expr(["X_0"])
+        assert (se.total_evaluations, se.limits[0]["callbacks"]) == (0, None)
+
+    # Regression (dev-check): recording callbacks in a checkpoint used plain JSON, so a config holding an
+    # array raised TypeError at the first evaluation, and tuples came back from the checkpoint as lists.
+    def test_callback_configs_round_trip_through_the_checkpoint(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        se.register_callbacks(_ArrayConfig())
+        se.evaluate_expr(["X_0"])
+        se.save_snapshot(b"state")
+        recorded = se.get_results()[0].limits[0]["callbacks"][0]
+        se.close()
+        saved = SR_results.from_checkpoint(path)[0].limits[0]["callbacks"][0]
+        for config in (recorded, saved):
+            assert config["window"] == (1, 2)
+            np.testing.assert_array_equal(config["weights"], [0.5, 1.5])
+        se = _ckpt_se(path, resume=True)
+        se.register_callbacks(_ArrayConfig())
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # the same callbacks: no "callbacks differ" warning
+            se.evaluate_expr(["X_0"])
+
+    # Reason: clause (the first segment holds the run's limits; its callbacks are recorded at the
+    # first evaluation, in the checkpoint too).
+    @pytest.mark.parametrize("with_checkpoint", [False, True], ids=["in-memory", "checkpoint"])
+    def test_first_segment_records_limits_and_callbacks(self, tmp_path, with_checkpoint):
+        path = tmp_path / "run.sqlite" if with_checkpoint else None
+        se = _ckpt_se(path, max_evaluations=np.int64(5), success_threshold=0.25)
+        assert se.limits[0]["callbacks"] is None  # before the first evaluation
+        se.register_callbacks(TimeLimitCallback(60))
+        se.evaluate_expr(["X_0"])
+        expected = [
+            {
+                "calls": 0,
+                "max_evaluations": 5,
+                "success_threshold": 0.25,
+                "callbacks": [TimeLimitCallback(60).to_dict()],
+                "previous_stop_reason": None,
+            }
+        ]
+        assert se.limits == expected
+        assert se.get_results()[0].limits == expected
+        se.close()
+        if with_checkpoint:
+            assert SR_results.from_checkpoint(path)[0].limits == expected
+
+    # Reason: clause (a plain resume with changed limits raises and points to extend_run; other changed
+    # settings, which an extension cannot change either, get no such hint).
+    @pytest.mark.parametrize(
+        "changes, match",
+        [
+            ({"max_evaluations": 10}, "max_evaluations. Change limits with SR_dataset.extend_run"),
+            ({"max_evaluations": 10, "success_threshold": 0.5}, "max_evaluations, success_threshold. Change"),
+            ({"seed": 1}, r"seed\.$"),
+        ],
+        ids=["budget", "both-limits", "seed"],
+    )
+    def test_resume_with_changed_limits_points_to_extend_run(self, tmp_path, changes, match):
+        path = tmp_path / "run.sqlite"
+        _saved_run(path, _CALLS[:2], max_evaluations=5)
+        with pytest.raises(ValueError, match=match):
+            _ckpt_se(path, resume=True, **{"max_evaluations": 5, **changes})
+
+    # Reason: boundary (a run that makes no call keeps its first segment, without callbacks, in the
+    # checkpoint; also with seed None).
+    def test_run_without_calls_keeps_its_segment(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        _ckpt_se(path, seed=None, max_evaluations=5).close()
+        assert SR_results.from_checkpoint(path)[0].limits == [
+            {
+                "calls": 0,
+                "max_evaluations": 5,
+                "success_threshold": -1.0,
+                "callbacks": None,
+                "previous_stop_reason": None,
+            }
+        ]
+
+    # Reason: clause (a plain resume with other callbacks warns and records nothing; the same ones
+    # are silent).
+    @pytest.mark.parametrize("limit, warned", [(60, []), (120, [True])], ids=["same", "other"])
+    def test_resume_with_other_callbacks_warns(self, tmp_path, limit, warned):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        se.register_callbacks(TimeLimitCallback(60))
+        _evaluate(se, _CALLS[:2])
+        se.save_snapshot(b"state")
+        se.close()
+        se = _ckpt_se(path, resume=True)
+        se.register_callbacks(TimeLimitCallback(limit))
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            se.evaluate_expr(["X_0"])
+        assert ["callbacks differ" in str(w.message) for w in caught] == warned
+        assert se.limits[0]["callbacks"] == [TimeLimitCallback(60).to_dict()]

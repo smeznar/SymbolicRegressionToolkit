@@ -104,7 +104,7 @@ class Snapshot:
     num_models: int
 
 
-def _finished(path: str | os.PathLike) -> bool:
+def _run_finished(path: str | os.PathLike) -> bool:
     # Whether a checkpoint holds a finished run: one stopped for any reason but an interrupt.
     store = ModelStore(path, "read")
     try:
@@ -113,7 +113,7 @@ def _finished(path: str | os.PathLike) -> bool:
         store.close()
 
 
-def _reference(store: "ModelStore", path: str | os.PathLike) -> dict[str, Any]:
+def _checkpoint_reference(store: "ModelStore", path: str | os.PathLike) -> dict[str, Any]:
     # The reference to the checkpoint at path that EvalResult.checkpoint holds.
     return {"path": os.path.abspath(path), "fingerprint": store.get_header("fingerprint", {})}
 
@@ -160,7 +160,7 @@ def _restore_rngs(rngs: bytes) -> None:
             torch.cuda.set_rng_state_all(states["cuda"])
 
 
-def _key(tokens: Sequence[str], spec_key: str) -> bytes:
+def _model_key(tokens: Sequence[str], spec_key: str) -> bytes:
     # 128-bit hash of the model's identity; collisions are negligible for any realistic run.
     return hashlib.blake2b(("\x1f".join(tokens) + "\x1e" + spec_key).encode(), digest_size=16).digest()
 
@@ -242,8 +242,8 @@ class ModelStore:
                 )
             if not self._read:
                 self._con.execute("PRAGMA synchronous=NORMAL")
-        self._num_models = 0 if mode == "create" else self._count("models", "idx")
-        self._num_calls = 0 if mode == "create" else self._count("trace", "k")
+        self._num_models = 0 if mode == "create" else self._row_count("models", "idx")
+        self._num_calls = 0 if mode == "create" else self._row_count("trace", "k")
         self._pending = 0
         self._dirty = False
         self._last_commit = time.monotonic()
@@ -252,7 +252,7 @@ class ModelStore:
         if not self._read:
             self._con.execute("BEGIN")
 
-    def _count(self, table: str, column: str) -> int:
+    def _row_count(self, table: str, column: str) -> int:
         # Rows of a table numbered 0, 1, ... in column (an index lookup, unlike COUNT(*)).
         return self._con.execute(f"SELECT COALESCE(MAX({column}) + 1, 0) FROM {table}").fetchone()[0]
 
@@ -260,13 +260,13 @@ class ModelStore:
     def _model_count(self) -> int:
         if self._closed:
             self._con.execute("SELECT 1")  # raises: ProgrammingError if closed, RuntimeError if a commit failed
-        return self._count("models", "idx") if self._read else self._num_models
+        return self._row_count("models", "idx") if self._read else self._num_models
 
     @property
     def _call_count(self) -> int:
         if self._closed:
             self._con.execute("SELECT 1")
-        return self._count("trace", "k") if self._read else self._num_calls
+        return self._row_count("trace", "k") if self._read else self._num_calls
 
     def _check_writable(self) -> None:
         if self._read:
@@ -296,7 +296,7 @@ class ModelStore:
             ``(index, error, status)`` of the model, or ``None`` if it is not stored.
         """
         row = self._con.execute(
-            "SELECT idx, error, status FROM models WHERE key = ?", (_key(tokens, spec_key),)
+            "SELECT idx, error, status FROM models WHERE key = ?", (_model_key(tokens, spec_key),)
         ).fetchone()
         return None if row is None else (row[0], row[1], cast(Status, row[2]))
 
@@ -327,7 +327,7 @@ class ModelStore:
         try:
             self._con.execute(
                 "INSERT INTO models VALUES (?, ?, ?, ?, ?, ?)",
-                (index, _key(tokens, spec_key), float(model.error), model.status, len(model.expr), record),
+                (index, _model_key(tokens, spec_key), float(model.error), model.status, len(model.expr), record),
             )
             self._con.execute("INSERT INTO trace VALUES (?, ?)", (self._num_calls, index))
         except BaseException:

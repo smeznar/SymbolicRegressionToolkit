@@ -168,6 +168,7 @@ class SR_results:
         default_constant: Constant | None = None,
         stop_reason: str | None = None,
         summary: RunSummary | None = None,
+        limits: list[dict[str, Any]] | None = None,
     ) -> None:
         """Adds the results of an evaluation to the results object.
 
@@ -194,6 +195,8 @@ class SR_results:
             summary: What is kept of the run instead of all its models, stored as
                 [EvalResult.summary][SRToolkit.utils.types.EvalResult]; ``None`` if ``models`` and
                 ``trace`` are complete.
+            limits: The run's limit segments, stored as
+                [EvalResult.limits][SRToolkit.utils.types.EvalResult]; ``None`` means ``[]``.
         """
         dataset_name = None
         remaining_metadata = None
@@ -224,6 +227,7 @@ class SR_results:
             default_constant=default_constant,
             stop_reason=stop_reason,
             summary=summary,
+            limits=[] if limits is None else limits,
         )
 
         self.results.append(results_obj)
@@ -651,7 +655,8 @@ class SR_results:
 
         Returns:
             New results with one [EvalResult][SRToolkit.utils.types.EvalResult], with the
-            ``success_threshold``, ``default_constant`` and ``metadata`` saved by the last session.
+            ``success_threshold``, ``default_constant`` and ``metadata`` saved by the last session
+            and the run's ``limits``.
             ``stop_reason`` is ``"interrupted"`` if none was saved (the run crashed or is still
             going); ``wall_time`` is the one saved with the last commit, or ``None``;
             ``checkpoint`` refers to the file at ``path`` (its absolute path).
@@ -674,7 +679,7 @@ class SR_results:
             ('C*X_1', 'interrupted')
         """
         # Imported here: model_store is only needed for this conversion.
-        from SRToolkit.evaluation.model_store import ModelStore, _reference
+        from SRToolkit.evaluation.model_store import ModelStore, _checkpoint_reference
 
         if not keep_all_models and top_k <= 0:
             raise ValueError(f"[SR_results.from_checkpoint] keep_all_models=False needs top_k >= 1, got {top_k}.")
@@ -698,9 +703,10 @@ class SR_results:
                     None if default_constant is None else Constant.from_dict(default_constant),
                     store.get_header("stop_reason", "interrupted"),
                     summary,
+                    _from_json_safe(store.get_header("limits", [])),
                 )
                 results.results[-1].wall_time = store.get_header("wall_time")
-                results.results[-1].checkpoint = _reference(store, path)
+                results.results[-1].checkpoint = _checkpoint_reference(store, path)
         finally:
             store.close()
         return results

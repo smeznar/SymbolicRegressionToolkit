@@ -21,6 +21,7 @@ from strategies import SignalAfter  # noqa: E402
 from SRToolkit.approaches.EDHiE import EDHiE  # noqa: E402
 from SRToolkit.approaches.sr_approach import Candidate  # noqa: E402
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge  # noqa: E402
+from SRToolkit.dataset.sr_dataset import SR_dataset  # noqa: E402
 from SRToolkit.evaluation import SR_evaluator  # noqa: E402
 from SRToolkit.evaluation.model_store import ModelStore  # noqa: E402
 from SRToolkit.evaluation.results import SR_results  # noqa: E402
@@ -573,3 +574,39 @@ def test_resume_equals_straight_run(tmp_path, trained_model, case):
     resumed = SR_results.from_checkpoint(path)[0]
     assert [m.to_dict() for m in resumed.all_models] == [m.to_dict() for m in straight.models]
     assert resumed.trace == list(straight.trace)
+
+
+def _extension_dataset(budget):
+    X = np.random.default_rng(0).random((10, 2)) + 0.5
+    lib = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
+    return SR_dataset(X, lib, y=X[:, 0], dataset_name="ds", max_evaluations=budget, success_threshold=-1, seed=0)
+
+
+# Reason: clause (stage 6: an extension after a budget that cut a generation equals a run with the
+# larger budget from the start; the cut generation is redone from the snapshot before it).
+@pytest.mark.slow  # runs EDHiE three times
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_extension_after_a_cut_generation_equals_straight_run(tmp_path, trained_model):
+    weights = tmp_path / "hvae.pt"
+    _stepper(trained_model).save_adapted_state(str(weights))
+
+    def approach():
+        return EDHiE(
+            latent_size=8,
+            max_expression_length=10,
+            population_size=10,
+            verbose=False,
+            max_consecutive_skips=200,
+            weights_path=str(weights),
+        )
+
+    first = _extension_dataset(_N).evaluate_approach(
+        approach(), checkpoint_dir=tmp_path, keep_checkpoint=True, verbose=False, snapshot_interval=1e-9
+    )[0]
+    assert first.stop_reason == "max_evaluations"
+    path = first.checkpoint["path"]
+    assert ModelStore(path, "read").snapshot.num_calls < _N  # the budget cut a generation
+    extended = _extension_dataset(_N).extend_run(approach(), path, max_evaluations=40)[0]
+    straight = _extension_dataset(40).evaluate_approach(approach(), verbose=False)[0]
+    assert [m.to_dict() for m in extended.all_models] == [m.to_dict() for m in straight.all_models]
+    assert extended.trace == straight.trace
