@@ -12,7 +12,7 @@ required methods.
 import copy
 import warnings
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -21,6 +21,11 @@ from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.results import ResultAugmenter
 from SRToolkit.evaluation.sr_evaluator import evaluate_metric
 from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
+from SRToolkit.utils.expression_simplifier import (
+    DefaultRules,
+    SimplificationRules,
+    _check_settings,
+)
 from SRToolkit.utils.expression_tree import _constant_indices
 from SRToolkit.utils.free_constants import Constant, _spec_key
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
@@ -179,11 +184,19 @@ class ExpressionSimplifier(ResultAugmenter):
         scope: str = "top",
         verbose: bool = False,
         name: str = "ExpressionSimplifier",
+        rules: SimplificationRules | None = None,
+        max_iterations: int | None = None,
+        max_nodes: int | None = None,
+        max_time: float | None = None,
     ) -> None:
-        """Algebraically simplifies expressions inside the results using SymPy.
+        """Simplified expressions of the best, top or all models of a result.
+
+        Each expression is simplified by [simplify][SRToolkit.utils.expression_simplifier.simplify]
+        with its model's ``free_constants``.
 
         Args:
-            symbol_library: Symbol library used by the simplifier to resolve token types.
+            symbol_library: Symbol library of the expressions. It also decides which of the
+                [DefaultRules][SRToolkit.utils.expression_simplifier.DefaultRules] apply.
             scope: Which expressions to simplify.
 
                 - ``"best"``: only the best expression.
@@ -195,12 +208,32 @@ class ExpressionSimplifier(ResultAugmenter):
                 ``augmentations`` dict of [EvalResult][SRToolkit.utils.types.EvalResult] and
                 [ModelResult][SRToolkit.utils.types.ModelResult].
                 Default ``"ExpressionSimplifier"``.
+            rules: As in [simplify][SRToolkit.utils.expression_simplifier.simplify].
+            max_iterations: As in [simplify][SRToolkit.utils.expression_simplifier.simplify]; a
+                non-negative ``int``, or ``None`` for its default.
+            max_nodes: As in [simplify][SRToolkit.utils.expression_simplifier.simplify]; a
+                non-negative ``int``, or ``None`` for its default.
+            max_time: As in [simplify][SRToolkit.utils.expression_simplifier.simplify]; a positive
+                number or ``None``.
+
+        Raises:
+            TypeError: If ``rules`` is neither a
+                [SimplificationRules][SRToolkit.utils.expression_simplifier.SimplificationRules] nor
+                ``None``.
+            ValueError: If ``scope`` is not ``"best"``, ``"top"`` or ``"all"``; if
+                ``max_iterations`` or ``max_nodes`` is not a non-negative ``int`` or numpy integer
+                (``bool`` is rejected); if ``max_time`` is not ``None`` or a positive number
+                (``bool`` and ``nan`` are rejected).
         """
         super().__init__(name)
-        self.symbol_library = symbol_library
-
         if scope not in ["best", "top", "all"]:
-            raise Exception(f"[RMSE augmenter] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+            raise ValueError(f"[ExpressionSimplifier] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
+        _check_settings(rules, max_iterations, max_nodes, max_time)
+        self.symbol_library = symbol_library
+        self.rules = DefaultRules() if rules is None else rules
+        self.max_iterations = max_iterations
+        self.max_nodes = max_nodes
+        self.max_time = max_time
         self.scope = scope
 
         self.verbose = verbose
@@ -208,10 +241,12 @@ class ExpressionSimplifier(ResultAugmenter):
     def write_results(self, results: EvalResult) -> None:
         """Write simplified expressions into *results* and its models.
 
-        Stores ``{"simplified_best_expr": ...}`` in
-        [EvalResult][SRToolkit.utils.types.EvalResult] ``augmentations`` if
-        simplification succeeds. Also stores ``{"simplified_expr": ...}`` in each model's
-        augmentations when ``scope`` is ``"top"`` or ``"all"``.
+        Stores ``{"simplified_best_expr": ...}`` in the
+        [EvalResult][SRToolkit.utils.types.EvalResult] ``augmentations``, and
+        ``{"simplified_expr": ...}`` in each model's when ``scope`` is ``"top"`` or ``"all"``. A
+        value is the simplified tokens joined into one string (e.g. ``"(C+C)*X_0"``). If
+        simplifying an expression fails, its entry has no such key (with a warning if
+        ``verbose``). A result without models gets an entry without ``"simplified_best_expr"``.
 
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.
@@ -225,35 +260,28 @@ class ExpressionSimplifier(ResultAugmenter):
                 f"[{type(self).__name__}] scope='all' needs all models, but this result keeps only its top models "
                 "(keep_all_models=False)."
             )
-        eval_data: dict[str, Any] = {}
-        try:
-            simplified_expr = simplify(results.top_models(1)[0].expr, self.symbol_library)
-            if isinstance(simplified_expr, list):
-                eval_data["simplified_best_expr"] = "".join(simplified_expr)
-            elif isinstance(simplified_expr, Node):
-                eval_data["simplified_best_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
-            else:
-                raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
-        except Exception as e:
-            if self.verbose:
-                warnings.warn(f"Unable to simplify {results.best_expr}: {e}")
-        results.add_augmentation(self.name, eval_data, self._type)
-
+        if not results.top_models(1):  # nothing was evaluated
+            results.add_augmentation(self.name, {}, self._type)
+            return
+        best = results.top_models(1)[0]
         scoped = results.all_models if self.scope == "all" else results.top_models() if self.scope == "top" else []
-        for model in scoped:
-            model_data: dict[str, Any] = {}
+        for model, key in [(best, "simplified_best_expr"), *((m, "simplified_expr") for m in scoped)]:
+            data: dict[str, Any] = {}
             try:
-                simplified_expr = simplify(model.expr, self.symbol_library)
-                if isinstance(simplified_expr, list):
-                    model_data["simplified_expr"] = "".join(simplified_expr)
-                elif isinstance(simplified_expr, Node):
-                    model_data["simplified_expr"] = "".join(simplified_expr.to_list(self.symbol_library))
-                else:
-                    raise Exception(f"Simplified expression is not a list or Node: {simplified_expr}")
+                limits = {"max_iterations": self.max_iterations, "max_nodes": self.max_nodes}
+                simplified, _ = simplify(
+                    model.expr,
+                    self.symbol_library,
+                    model.free_constants,
+                    self.rules,
+                    max_time=self.max_time,
+                    **{k: v for k, v in limits.items() if v is not None},
+                )
+                data[key] = "".join(cast(list[str], simplified))  # model.expr is a token list
             except Exception as e:
                 if self.verbose:
                     warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
-            model.add_augmentation(self.name, model_data, self._type)
+            (results if key == "simplified_best_expr" else model).add_augmentation(self.name, data, self._type)
 
     @classmethod
     def format_eval_result(cls, data: dict[str, Any]) -> str:
@@ -282,43 +310,60 @@ class ExpressionSimplifier(ResultAugmenter):
         return f"Simplified: {simplified}" if simplified else ""
 
     def to_dict(self, base_path: str, name: str) -> dict:
-        """Creates a dictionary representation of the ExpressionSimplifier augmenter.
+        """Serialize the augmenter to a JSON-compatible dictionary.
 
         Args:
-            base_path: Unused and ignored
-            name: Unused and ignored
+            base_path: Ignored.
+            name: Ignored.
 
         Returns:
-            A dictionary containing the necessary information to recreate the augmenter.
+            Format 2: ``format_version``, ``type``, ``name``, ``symbol_library``, ``scope``,
+            ``verbose``, ``rules``, ``max_iterations``, ``max_nodes`` and ``max_time``.
         """
         return {
-            "format_version": 1,
+            "format_version": 2,
             "type": "ExpressionSimplifier",
             "name": self.name,
             "symbol_library": self.symbol_library.to_dict(),
             "scope": self.scope,
             "verbose": self.verbose,
+            "rules": self.rules.to_dict(),
+            "max_iterations": self.max_iterations,
+            "max_nodes": self.max_nodes,
+            "max_time": self.max_time,
         }
 
     @staticmethod
     def from_dict(data: dict) -> "ExpressionSimplifier":
-        """Creates an instance of the ExpressionSimplifier augmenter from a dictionary.
+        """Reconstruct the augmenter from the output of ``to_dict``.
 
         Args:
-            data: A dictionary containing the necessary information to recreate the augmenter.
+            data: A dictionary of format 1 or 2 (``format_version``; a dictionary without it is
+                read as format 1). Format 1 (before the rules and limits were saved) gets the
+                default rules and limits.
 
         Returns:
-            An instance of the ExpressionSimplifier augmenter.
+            The augmenter.
+
+        Raises:
+            ValueError: If ``format_version`` is neither 1 nor 2.
+            ImportError: If the class of the saved rules cannot be imported (see
+                [SimplificationRules.from_dict][SRToolkit.utils.expression_simplifier.SimplificationRules.from_dict]).
         """
-        if data.get("format_version", 1) != 1:
+        if data.get("format_version", 1) not in (1, 2):
             raise ValueError(
-                f"[ExpressionSimplifier.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
+                f"[ExpressionSimplifier.from_dict] Unsupported format_version: {data.get('format_version')!r}. "
+                "Expected 1 or 2."
             )
         return ExpressionSimplifier(
-            symbol_library=data["symbol_library"],
+            symbol_library=SymbolLibrary.from_dict(data["symbol_library"]),
             scope=data["scope"],
             verbose=data["verbose"],
             name=data["name"],
+            rules=SimplificationRules.from_dict(data["rules"]) if "rules" in data else None,
+            max_iterations=data.get("max_iterations"),
+            max_nodes=data.get("max_nodes"),
+            max_time=data.get("max_time"),
         )
 
 

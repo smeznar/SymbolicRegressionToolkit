@@ -104,6 +104,10 @@ class TestRankingSettings:
             "ranking_seed",
             "ranking_resample",
             "num_consts_sampled",
+            "simplify_rules",
+            "simplify_max_iterations",
+            "simplify_max_nodes",
+            "simplify_max_time",
         }
         assert RankingSettings.__optional_keys__ == documented
         assert RankingSettings.__required_keys__ == frozenset()

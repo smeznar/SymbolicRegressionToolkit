@@ -73,12 +73,12 @@ while not se.should_stop:
             if not isinstance(candidate, Candidate):  # a token list or a Node
                 candidate = Candidate(candidate)
             if candidate.evaluate:
-                se.evaluate_expr(candidate.expr, candidate.free_constants,
-                                 canonicalise_constants=candidate.canonicalise_constants)
+                se.evaluate_expr(candidate.expr, candidate.free_constants, candidate.simplify_expr,
+                                 candidate.canonicalise_constants)
                 results.append(se.models[se.trace[-1]])
             else:  # a lookup, without spending budget; None if never evaluated
                 results.append(se.get_model(candidate.expr, candidate.free_constants,
-                                            candidate.canonicalise_constants))
+                                            candidate.simplify_expr, candidate.canonicalise_constants))
     approach.tell(se, candidates[: len(results)], results)
     complete = len(results) == len(candidates)
 if snapshots and stepped and complete:  # when the loop ends normally, unless its last step was cut
@@ -202,6 +202,9 @@ class Candidate:
     Attributes:
         expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
         free_constants: Specs for its labelled constants, or ``None``.
+        simplify_expr: Simplify it before evaluating (see
+            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]); a lookup
+            simplifies it the same way. Default ``False``.
         canonicalise_constants: Canonicalise its constants before evaluating. Default ``False``.
         evaluate: ``False`` only looks up the stored model of an expression evaluated before (see
             [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), spending no
@@ -210,6 +213,7 @@ class Candidate:
 
     expr: "list[str] | Node"
     free_constants: "Sequence[Constant] | None" = None
+    simplify_expr: bool = False
     canonicalise_constants: bool = False
     evaluate: bool = True
 
@@ -420,10 +424,12 @@ class SR_approach(ABC):
                         continue
                     c = item if isinstance(item, Candidate) else Candidate(item)
                     if c.evaluate:
-                        se.evaluate_expr(c.expr, c.free_constants, canonicalise_constants=c.canonicalise_constants)
+                        se.evaluate_expr(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
                         results.append(se.models[se.trace[-1]])
                     else:
-                        results.append(se.get_model(c.expr, c.free_constants, c.canonicalise_constants))
+                        results.append(
+                            se.get_model(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
+                        )
             self.tell(se, candidates[: len(results)], results)
             complete = len(results) == len(candidates)
         if snapshots and stepped and complete:

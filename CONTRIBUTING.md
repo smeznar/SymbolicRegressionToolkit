@@ -134,7 +134,7 @@ mkdocs build --strict
 Tests check what the code is **supposed** to do (the docstring), not what it currently does.
 
 - Design tests from the signature and docstring first, then use coverage to find untested branches. `python scripts/spec_view.py <module>` prints a module's spec without function bodies.
-- Use the strongest oracle available: a hand-computed or analytic value, then a trusted reference implementation (SciPy, NumPy, SymPy), then a property (Hypothesis), then a metamorphic relation. Snapshot ("same as last time") tests are a last resort.
+- Use the strongest oracle available: a hand-computed or analytic value, then a trusted reference implementation (SciPy, NumPy), then a property (Hypothesis), then a metamorphic relation. Snapshot ("same as last time") tests are a last resort.
 - Every assertion must be able to fail for a plausible bug. `isinstance(result, float)` on its own is not a test.
 - Never set an expected value by copying the code's current output. A failing test is a finding: decide whether the code, the docstring or the test is wrong. Record confirmed bugs as `@pytest.mark.xfail(strict=True, reason="BUG: ...")`.
 - Test through the public API. Use `pytest.raises(SpecificError, match="...")`, seed all randomness, and mock only external boundaries (network, filesystem locations, time).

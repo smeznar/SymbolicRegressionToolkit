@@ -67,7 +67,7 @@ if __name__ == "__main__":
     print("\nLaTeX:", latex)
 
     # ------------------------------------------- Simplification ------------------------------------------------
-    # simplify applies algebraic simplification followed by constant folding (requires SymPy). Wrap calls in
-    # try/except when batch-processing, as it may fail for tokens outside the default symbol set.
-    simplified = simplify(["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], sl)
-    print("Simplified:", simplified)  # ['C', '+', 'X_1']
+    # simplify rewrites an expression into a shorter equivalent one with e-graphs. It keeps every free constant, so
+    # the result is the same hypothesis, and returns it with the specs of the labelled constants that remain.
+    simplified, specs = simplify(["X_0", "*", "X_1", "/", "X_0", "+", "C", "*", "X_1"], sl)
+    print("Simplified:", simplified)  # e.g. ['X_1', '+', 'C', '*', 'X_1']

@@ -73,8 +73,10 @@ unless the approach passes ``canonicalise_constants=True``, which
 [canonicalises][SRToolkit.utils.free_constants.canonicalise] them first.
 
 Specs are checked right after parsing: a malformed expression is ``"invalid"`` (and stored with its
-specs) whatever they are. Specs that do not fit a well-formed expression, and specs combined with
-``simplify_expr=True``, raise; nothing is then recorded or counted. The ranking's
+specs) whatever they are. Specs that do not fit a well-formed expression raise; nothing is then
+recorded or counted. With ``simplify_expr=True``, the specs are checked against the expression as
+given, and the specs of labels that simplification removes are dropped; if none remain, the call
+is treated as one without specs. The ranking's
 [score][SRToolkit.evaluation.ranking.RankingFunction.score] receives the specs as
 ``free_constants``.
 
@@ -252,8 +254,8 @@ from SRToolkit.utils.expression_constraints import (
     _set_up_copy,
     _validate_limit,
 )
-from SRToolkit.utils.expression_simplifier import simplify
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, tokens_to_tree
+from SRToolkit.utils.expression_simplifier import _check_settings, simplify
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, _as_tree, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
@@ -363,6 +365,8 @@ def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstra
 
 # Defaults of the limit settings, turned into MaxConstants / MaxTokens (negative = none).
 _DEFAULT_LIMITS: dict[str, int] = {"max_constants": 8, "max_expr_length": -1}
+# Settings of simplify_expr=True, each the simplify() argument named without the prefix.
+_SIMPLIFY_SETTINGS = ("simplify_rules", "simplify_max_iterations", "simplify_max_nodes", "simplify_max_time")
 
 
 def _add_limit_constraints_from_kwargs(
@@ -524,7 +528,9 @@ class SR_evaluator:
                 Also raised as for
                 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
-                ``ranking_function`` of the wrong type. With a ``checkpoint`` (only then), also if
+                ``ranking_function`` of the wrong type. If the ``simplify_rules`` setting is neither a
+                [SimplificationRules][SRToolkit.utils.expression_simplifier.SimplificationRules]
+                nor ``None``. With a ``checkpoint`` (only then), also if
                 ``metadata``, a setting, the ranking or a constraint cannot be saved (see
                 [serialization][SRToolkit.utils.serialization]; settings may also hold objects with
                 a ``to_dict`` method). No file is then left behind.
@@ -541,7 +547,10 @@ class SR_evaluator:
                 with ``lower < upper``, a ``default_constant`` setting with a ``label``, a
                 ``value`` or ``fixed=True``, or ``samplers`` without one sampler per variable), and by
                 the ranking's ``setup`` for missing or malformed data (e.g. RMSE with neither ``y``
-                nor ``ground_truth``).
+                nor ``ground_truth``). If ``simplify_max_iterations`` or ``simplify_max_nodes`` is
+                not a non-negative ``int`` or numpy integer (``bool`` is rejected), or
+                ``simplify_max_time`` is not ``None`` or a positive number (``bool`` and ``nan`` are
+                rejected).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
             FileExistsError: If a file exists at ``checkpoint`` and ``resume`` is ``False``.
             FileNotFoundError: If ``resume=True`` and no file exists at ``checkpoint``.
@@ -642,7 +651,16 @@ class SR_evaluator:
         # The ranking function owns all of its data-derived state (parameter estimator for RMSE,
         # behaviour matrix + evaluation points bed_X for BED); the evaluator just calls score().
         # The limits are enforced here, as required constraints; the ranking does not get them.
-        ranking_settings: dict[str, Any] = {k: v for k, v in kwargs.items() if k not in _DEFAULT_LIMITS}
+        _check_settings(
+            kwargs.get("simplify_rules"),
+            kwargs.get("simplify_max_iterations"),
+            kwargs.get("simplify_max_nodes"),
+            kwargs.get("simplify_max_time"),
+            "simplify_",
+        )
+        ranking_settings: dict[str, Any] = {
+            k: v for k, v in kwargs.items() if k not in _DEFAULT_LIMITS and k not in _SIMPLIFY_SETTINGS
+        }
         ranking_settings["default_constant"] = self.default_constant  # completed by the background knowledge
         self.ranking: RankingFunction = build_ranking(ranking_function)
         # A ranking_seed (fixed per dataset) replaces the evaluator's seed here, so every ranking,
@@ -1057,20 +1075,62 @@ class SR_evaluator:
             "advisory": [c.summary() for c in self._advisory_constraints],
         }
 
+    def _stored_form(
+        self,
+        expr: list[str] | Node,
+        free_constants: Sequence[Constant] | None,
+        simplify_expr: bool,
+        canonicalise_constants: bool,
+        warn: bool = False,
+    ) -> tuple[list[str] | Node, list[str], tuple[Constant, ...] | None]:
+        # The form evaluate_expr scores and stores a model under: (expr, its tokens, its specs sorted
+        # by label or None). Simplified if asked (as given if that fails, with a warning if warn),
+        # then canonicalised if asked and there are no specs. Shared with get_model and get_metric
+        # so their lookups match.
+        if simplify_expr:
+            # The simplify_* settings given (not None), as simplify's arguments.
+            settings: dict[str, Any] = {
+                k.removeprefix("simplify_"): v
+                for k, v in self.kwargs.items()
+                if k in _SIMPLIFY_SETTINGS and v is not None
+            }
+            try:
+                expr, free_constants = simplify(expr, self.symbol_library, free_constants, **settings)
+            except Exception as e:
+                if warn:
+                    expr_str = "".join(_as_tokens(expr, self.symbol_library))
+                    warnings.warn(f"Unable to simplify: {expr_str}, problems with subexpression {e}")
+        specs = tuple(sorted(free_constants, key=lambda c: c.label or "")) if free_constants else None
+        tokens = _as_tokens(expr, self.symbol_library)
+        if canonicalise_constants and specs is None:
+            canonical = canonicalise(tokens, self.symbol_library)
+            if canonical != tokens:
+                # The ranking gets the canonical tokens, so the fit's seed is that of the canonical form.
+                expr = tokens = canonical
+        return expr, tokens, specs
+
     def get_model(
         self,
         expr: list[str] | Node,
         free_constants: Sequence[Constant] | None = None,
+        simplify_expr: bool = False,
         canonicalise_constants: bool = False,
     ) -> ModelResult | None:
         """Return the result of an already evaluated expression, or ``None``.
 
         Does not count toward ``max_evaluations`` and fires no callbacks. The expression is matched
-        token for token, without simplifying it, together with its specs.
+        token for token, together with its specs, after the same simplification and
+        canonicalisation as in
+        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]. With the
+        ``simplify_max_time`` setting, a lookup with ``simplify_expr=True`` can simplify differently
+        from the evaluation (the time limit depends on the machine's load) and then miss the model.
 
         Args:
             expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
             free_constants: The specs it was evaluated with, in any order; ``None`` or empty for none.
+            simplify_expr: As in
+                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]; pass
+                the value ``expr`` was evaluated with. Default ``False``.
             canonicalise_constants: As in
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]; pass
                 the value ``expr`` was evaluated with. Default ``False``.
@@ -1088,10 +1148,8 @@ class SR_evaluator:
             >>> se.get_model(["X_0"]).status
             'ok'
         """
-        tokens = _as_tokens(expr, self.symbol_library)
-        if canonicalise_constants and not free_constants:
-            tokens = canonicalise(tokens, self.symbol_library)
-        found = self._store.lookup(tokens, _spec_key(free_constants))
+        _, tokens, specs = self._stored_form(expr, free_constants, simplify_expr, canonicalise_constants)
+        found = self._store.lookup(tokens, _spec_key(specs))
         return None if found is None else self.models[found[0]]
 
     def check_constraints(
@@ -1214,9 +1272,8 @@ class SR_evaluator:
         [Stopping][SRToolkit.evaluation.sr_evaluator]).
 
         Note:
-            ``simplify_expr=True`` makes a call much slower: simplifying with SymPy usually takes
-            longer than scoring the expression. Use it to inspect the best results after a search,
-            not on every candidate during it.
+            ``simplify_expr=True`` makes a call slower, but the simplified expression is shorter and
+            easier to read, and expressions that simplify alike share one cache entry.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -1236,7 +1293,7 @@ class SR_evaluator:
             >>> # With simplify_expr, the simplified expression is scored and stored
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
             >>> se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1)
-            >>> _ = se.evaluate_expr(["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
+            >>> _ = se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
             >>> "".join(se.models[0].expr), bool(0.99 < se.models[0].parameters[0] < 1.01)
             ('C+X_1', True)
             >>> # A malformed expression gets the error inf and the status "invalid"
@@ -1259,10 +1316,17 @@ class SR_evaluator:
                 without one, and a spec's unset ``prior`` or ``bounds``, use ``default_constant``.
                 Passed to the ranking and stored as ``ModelResult.free_constants``. ``None`` or
                 empty: no specs.
-            simplify_expr: If ``True``, simplify the expression first; the simplified
-                expression is then checked, scored, cached and stored as ``ModelResult.expr``, so
-                inputs that simplify alike share one cache entry. If simplification fails, a
-                warning is emitted and the expression is evaluated as given. Default ``False``.
+            simplify_expr: If ``True``, simplify the expression first with
+                [simplify][SRToolkit.utils.expression_simplifier.simplify], with the rules and
+                limits of the settings ``simplify_rules``, ``simplify_max_iterations``,
+                ``simplify_max_nodes`` and ``simplify_max_time`` (see
+                [RankingSettings][SRToolkit.utils.types.RankingSettings]);
+                the simplified expression is then checked, scored, cached and stored as
+                ``ModelResult.expr``, so inputs that simplify alike share one cache entry. Only the
+                specs of labels it still contains are kept; with none left,
+                ``ModelResult.free_constants`` is ``None`` as for a call without specs. If
+                simplification fails, a warning is emitted and the expression is evaluated as
+                given. Default ``False``.
             canonicalise_constants: If ``True``, [canonicalise][SRToolkit.utils.free_constants.canonicalise]
                 the expression (after simplifying); the canonical form replaces it for the rest of
                 the call, so ``C_1*X_0 + C_1`` after ``C_0*X_0 + C_0`` is a cache hit. For approaches
@@ -1285,36 +1349,27 @@ class SR_evaluator:
                 [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]); nothing is
                 then recorded or counted. At the first call, if a callback's ``to_dict`` cannot be
                 saved; nothing is then counted.
-            ValueError: If ``free_constants`` is given with ``simplify_expr=True`` (simplifying
-                renumbers constants and loses their labels), or does not fit a well-formed ``expr``
-                (see [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
+            ValueError: If ``free_constants`` does not fit a well-formed ``expr`` (see
+                [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
                 Nothing is then recorded or counted.
             sqlite3.Error: If a commit of the checkpoint fails (see
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
-        specs = tuple(sorted(free_constants, key=lambda c: c.label or "")) if free_constants else None
-        # Temporary: simplify() renumbers constants and drops their labels, so specs would no longer
-        # fit. Remove once simplify() takes free_constants and returns the specs with the simplified
-        # expression.
-        if specs is not None and simplify_expr:
-            raise ValueError("free_constants cannot be combined with simplify_expr=True.")
         if self.should_stop:
             warnings.warn(f"Evaluation has already stopped ({self.stop_reason}); the call is not evaluated or counted.")
             return np.nan
         else:
-            if simplify_expr:
+            if simplify_expr and free_constants:
+                # Specs that do not fit raise here, not as a failed simplification (see _evaluate_new).
                 try:
-                    expr = simplify(expr, self.symbol_library)
-                except Exception as e:
-                    expr_list = _as_tokens(expr, self.symbol_library)
-                    warnings.warn(f"Unable to simplify: {''.join(expr_list)}, problems with subexpression {e}")
-
-            expr_list = _as_tokens(expr, self.symbol_library)
-            if canonicalise_constants and specs is None:
-                canonical = canonicalise(expr_list, self.symbol_library)
-                if canonical != expr_list:
-                    # The ranking gets the canonical tokens, so the fit's seed is that of the canonical form.
-                    expr = expr_list = canonical
+                    tree = _as_tree(expr, self.symbol_library)
+                except ExpressionParseError:
+                    tree = None  # malformed: simplify fails too, and the model is "invalid"
+                if tree is not None:
+                    resolve_constants(tree, free_constants, self.default_constant, self.symbol_library)
+            expr, expr_list, specs = self._stored_form(
+                expr, free_constants, simplify_expr, canonicalise_constants, warn=True
+            )
 
             expr_str = "".join(expr_list)
             spec_key = _spec_key(specs)
@@ -1549,6 +1604,7 @@ class SR_evaluator:
         expr: list[str] | Node,
         metric: str | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float] = "r2",
         free_constants: Sequence[Constant] | None = None,
+        simplify_expr: bool = False,
         canonicalise_constants: bool = False,
     ) -> float:
         """Compute an alternative, read-only metric for an already-evaluated expression.
@@ -1562,7 +1618,7 @@ class SR_evaluator:
 
         The expression **must already have been evaluated** with the same specs via
         ``evaluate_expr`` so its constants are fitted and cached — otherwise a ``ValueError`` is
-        raised. It is matched without simplifying it, as in
+        raised. It is matched as in
         [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]. This is the
         guard that keeps the budget meaningful: a custom ``metric`` callable cannot be used to
         score un-evaluated expressions for free.
@@ -1601,6 +1657,8 @@ class SR_evaluator:
                 has the fitted constants bound in. Default ``"r2"``.
             free_constants: The specs ``expr`` was evaluated with, as in ``evaluate_expr``;
                 ``None`` or empty for none.
+            simplify_expr: As in ``evaluate_expr``; pass the value ``expr`` was evaluated with.
+                Default ``False``.
             canonicalise_constants: As in ``evaluate_expr``; pass the value ``expr`` was evaluated
                 with. Default ``False``.
 
@@ -1613,12 +1671,10 @@ class SR_evaluator:
                 is a string that is not a known built-in metric.
             TypeError: If ``metric`` is neither a string nor a callable.
         """
-        expr_list = _as_tokens(expr, self.symbol_library)
-        if canonicalise_constants and not free_constants:
-            expr_list = canonicalise(expr_list, self.symbol_library)
+        _, expr_list, specs = self._stored_form(expr, free_constants, simplify_expr, canonicalise_constants)
         expr_str = "".join(expr_list)
 
-        found = self._store.lookup(expr_list, _spec_key(free_constants))
+        found = self._store.lookup(expr_list, _spec_key(specs))
         if found is None:
             raise ValueError(
                 f"[SR_evaluator.get_metric] Expression '{expr_str}' has not been evaluated yet. "

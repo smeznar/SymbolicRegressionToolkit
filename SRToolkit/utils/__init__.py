@@ -7,7 +7,7 @@ Modules:
         for expressions.
     expression_compiler: Compiles token-list or tree expressions into executable Python
         callables.
-    expression_simplifier: SymPy-backed algebraic simplification, including constant folding.
+    expression_simplifier: Algebraic simplification with e-graphs and its rewrite rules.
     expression_constraints: Constraints on candidate expressions, checked before scoring (on the
         expression) or after (on the fitted model), and enforced by the evaluator (required) or
         recorded (advisory) —
@@ -45,7 +45,13 @@ from .expression_constraints import (
     RequiredVariables,
 )
 from .expression_generator import generate_n_expressions
-from .expression_simplifier import simplify
+from .expression_simplifier import (
+    ConstTree,
+    DefaultRules,
+    EggExpr,
+    SimplificationRules,
+    simplify,
+)
 from .expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, parameter_labels, tokens_to_tree
 from .free_constants import Constant, canonicalise, resolve_constants, uniform_default
 from .grammar import (
@@ -140,6 +146,10 @@ __all__ = [
     "compile_expr",
     "compile_expr_rmse",
     "simplify",
+    "SimplificationRules",
+    "DefaultRules",
+    "EggExpr",
+    "ConstTree",
     "generate_n_expressions",
     "bed",
     "create_behavior_matrix",

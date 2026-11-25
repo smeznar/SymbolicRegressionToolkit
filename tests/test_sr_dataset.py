@@ -40,6 +40,7 @@ from SRToolkit.utils.expression_constraints import (
     OutputBounds,
     RequiredVariables,
 )
+from SRToolkit.utils.expression_simplifier import DefaultRules
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.grammar.constraints import MaxDepth
@@ -1020,6 +1021,23 @@ class TestFormat4:
         path = tmp_path / "ds.json"
         path.write_text(json.dumps(d))
         assert SR_dataset.from_dict(path).to_dict() == d
+
+    # Reason: clause (RankingSettings simplify_*: stored as dataset kwargs, the rules saved with their
+    # to_dict, and read by the evaluator): rules without "powers" keep X_0*X_0 after a JSON round trip.
+    def test_simplify_rules_round_trip_and_reach_evaluator(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        rules = DefaultRules(exclude=["powers"])
+        ds = SR_dataset(
+            _X2, SymbolLibrary.default_symbols(2), y=_Y, benchmark="b", version="1",
+            simplify_rules=rules, simplify_max_iterations=5,
+        )  # fmt: skip
+        d = json.loads(json.dumps(ds.to_dict()))
+        assert d["kwargs"] == {"simplify_rules": rules.to_dict(), "simplify_max_iterations": 5}
+        restored = SR_dataset.from_dict(d)
+        assert restored.to_dict() == d
+        se = restored.create_evaluator()
+        se.evaluate_expr(["X_0", "*", "X_0"], simplify_expr=True)
+        assert se.models[0].expr == ["X_0", "*", "X_0"]
 
     def test_migrates_v3_without_samplers(self, tmp_path, monkeypatch):
         # Array data saved in an older version: no samplers, no data_source, arrays in the cache.

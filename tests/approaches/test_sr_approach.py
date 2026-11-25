@@ -218,6 +218,30 @@ def test_lookup_and_none_candidates_spend_no_budget():
     assert ([m.expr for m in se.models], list(se.trace)) == ([["X_0"], ["X_1"]], [0, 1])
 
 
+class _SimplifiedLookup(SteppedApproach):
+    # Step 1 evaluates X_0*X_1/X_0 simplified; step 2 looks it up simplified and as written.
+    _EXPR = ["X_0", "*", "X_1", "/", "X_0"]
+    _STEPS = [
+        [Candidate(_EXPR, simplify_expr=True)],
+        [Candidate(_EXPR, simplify_expr=True, evaluate=False), Candidate(_EXPR, evaluate=False)],
+    ]
+
+    def ask(self, sr_evaluator):
+        self.asks += 1
+        return self._STEPS[self.asks - 1] if self.asks <= len(self._STEPS) else []
+
+
+# Reason: clause (Candidate.simplify_expr: simplify before evaluating; a lookup simplifies it the
+# same way).
+def test_candidate_simplify_expr_is_used_for_evaluation_and_lookup():
+    se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
+    approach = _SimplifiedLookup()
+    approach.search(se, seed=0)
+    [(_, [evaluated]), (_, [simplified, as_written])] = approach.told
+    assert evaluated.expr == ["X_1"]
+    assert (simplified, as_written) == (evaluated, None)
+
+
 class _FailingSecondTell(SteppedApproach):
     def tell(self, sr_evaluator, candidates, results):
         super().tell(sr_evaluator, candidates, results)

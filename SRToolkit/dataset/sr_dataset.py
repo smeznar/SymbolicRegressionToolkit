@@ -86,6 +86,7 @@ from SRToolkit.evaluation.sr_evaluator import (
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
+from SRToolkit.utils.expression_simplifier import SimplificationRules
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
@@ -1231,11 +1232,13 @@ class SR_dataset:
         # regenerated on load, so _persist_to_cache skips them and this stays side-effect-free.
         self._persist_to_cache()
 
-        # Serialise kwargs, converting ndarray values
+        # Serialise kwargs, converting ndarray values and simplification rules
         kwargs_out = {}
         for k, v in self.kwargs.items():
             if isinstance(v, np.ndarray):
                 kwargs_out[k] = v.tolist()
+            elif isinstance(v, SimplificationRules):
+                kwargs_out[k] = v.to_dict()
             else:
                 kwargs_out[k] = v
 
@@ -1329,6 +1332,8 @@ class SR_dataset:
             raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2, 3 or 4.")
         # Read the task part in either layout, validating it before any data is loaded or generated.
         task_args: dict[str, Any] = dict(dd.get("kwargs") or {})
+        if task_args.get("simplify_rules") is not None:
+            task_args["simplify_rules"] = SimplificationRules.from_dict(task_args["simplify_rules"])
         if "background_knowledge" in dd:  # format 4
             required = tuple(ExpressionConstraint.from_dict(c) for c in dd.get("required_constraints") or ())
             bk = BackgroundKnowledge.from_dict(dd["background_knowledge"])

@@ -17,7 +17,7 @@ from SRToolkit.evaluation.result_augmentation import (
 )
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
-from SRToolkit.utils import Node
+from SRToolkit.utils.expression_simplifier import DefaultRules, simplify
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
@@ -270,9 +270,30 @@ class TestExpressionSimplifierInit:
         assert aug.verbose is False
         assert aug.name == "ExpressionSimplifier"
 
-    def test_invalid_scope_raises(self):
-        with pytest.raises(Exception, match="scope"):
-            ExpressionSimplifier(_sl, scope="invalid")
+    # Reason: clause (Raises: TypeError for rules that are not SimplificationRules or None; ValueError
+    # for an unknown scope, limits that are not non-negative ints (bool rejected), max_time not
+    # None or positive (bool, nan rejected)). The message names the argument.
+    @pytest.mark.parametrize(
+        "kwargs, error",
+        [
+            ({"scope": "invalid"}, ValueError),
+            ({"rules": "d"}, TypeError),
+            ({"max_iterations": "30"}, ValueError),
+            ({"max_iterations": -1}, ValueError),
+            ({"max_iterations": True}, ValueError),
+            ({"max_nodes": -1}, ValueError),
+            ({"max_time": 0}, ValueError),
+            ({"max_time": True}, ValueError),
+            ({"max_time": float("nan")}, ValueError),
+        ],
+        ids=[
+            "scope", "rules", "iterations-string", "iterations-negative", "iterations-bool", "nodes-negative",
+            "time-zero", "time-bool", "time-nan",
+        ],
+    )  # fmt: skip
+    def test_invalid_arguments_raise(self, kwargs, error):
+        with pytest.raises(error, match=next(iter(kwargs))):
+            ExpressionSimplifier(_sl, **kwargs)
 
 
 # ── ExpressionSimplifier.write_results ───────────────────────────────────────
@@ -302,17 +323,6 @@ class TestExpressionSimplifierWriteResults:
         ExpressionSimplifier(_sl, scope="all").write_results(result)
         assert "ExpressionSimplifier" in result.all_models[1].augmentations
 
-    def test_node_return_from_simplify_uses_to_list(self):
-        _, result = _one_model_result()
-        aug = ExpressionSimplifier(_sl, scope="best")
-        mock_node = MagicMock(spec=Node)
-        mock_node.to_list.return_value = ["X", "_", "0"]
-        with patch("SRToolkit.evaluation.result_augmentation.simplify", return_value=mock_node):
-            aug.write_results(result)
-        mock_node.to_list.assert_called_once_with(_sl)
-        simplified = result.augmentations["ExpressionSimplifier"]["simplified_best_expr"]
-        assert simplified == "X_0"
-
     def test_simplification_failure_verbose_warns(self):
         _, result = _one_model_result()
         aug = ExpressionSimplifier(_sl, scope="best", verbose=True)
@@ -333,79 +343,104 @@ class TestExpressionSimplifierWriteResults:
         aug = ExpressionSimplifier(_sl, scope="top", verbose=True)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X", "_", "0"], ValueError("model fail")],
+            side_effect=[(["X_0"], None), ValueError("model fail")],
         ):
-            with pytest.warns(UserWarning):
+            with pytest.warns(UserWarning, match="model fail"):
                 aug.write_results(result)
+        assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "X_0"
 
     def test_model_simplification_failure_silent(self):
         _, result = _one_model_result()
         aug = ExpressionSimplifier(_sl, scope="top", verbose=False)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X", "_", "0"], ValueError("model fail")],
+            side_effect=[(["X_0"], None), ValueError("model fail")],
         ):
             with patch("SRToolkit.evaluation.result_augmentation.warnings.warn") as mock_warn:
                 aug.write_results(result)
         mock_warn.assert_not_called()
+        assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "X_0"
 
     def test_best_expr_invalid_return_warns_verbose(self):
-        # Covers line 229: else raise when simplify returns neither list nor Node
+        # simplify returns a pair whose expression is not a token list: nothing is stored, a warning
         _, result = _one_model_result()
         aug = ExpressionSimplifier(_sl, scope="best", verbose=True)
-        with patch("SRToolkit.evaluation.result_augmentation.simplify", return_value=42):
-            with pytest.warns(UserWarning):
+        with patch("SRToolkit.evaluation.result_augmentation.simplify", return_value=(42, None)):
+            with pytest.warns(UserWarning, match="Unable to simplify"):
                 aug.write_results(result)
-
-    def test_top_model_node_return_uses_to_list(self):
-        # Covers lines 242-243: Node branch in the top_models loop
-        _, result = _one_model_result()
-        aug = ExpressionSimplifier(_sl, scope="top")
-        mock_node = MagicMock(spec=Node)
-        mock_node.to_list.return_value = ["X", "_", "1"]
-        with patch(
-            "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X_0"], mock_node],
-        ):
-            aug.write_results(result)
-        mock_node.to_list.assert_called_once_with(_sl)
-        assert result.top_models()[0].augmentations["ExpressionSimplifier"]["simplified_expr"] == "X_1"
+        assert "simplified_best_expr" not in result.augmentations["ExpressionSimplifier"]
 
     def test_top_model_invalid_return_warns_verbose(self):
-        # Covers lines 244-245: else raise in top_models loop
+        # The top model's simplified expression is not a token list: warning, nothing stored for it
         _, result = _one_model_result()
         aug = ExpressionSimplifier(_sl, scope="top", verbose=True)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X_0"], 42],
+            side_effect=[(["X_0"], None), (42, None)],
         ):
-            with pytest.warns(UserWarning):
+            with pytest.warns(UserWarning, match="Unable to simplify"):
                 aug.write_results(result)
-
-    def test_all_model_node_return_uses_to_list(self):
-        # Node branch in the all_models loop
-        _, result = _two_model_result()
-        aug = ExpressionSimplifier(_sl, scope="all")
-        mock_node = MagicMock(spec=Node)
-        mock_node.to_list.return_value = ["X", "_", "1"]
-        # calls: best_expr, all_models[0], all_models[1] (Node)
-        with patch(
-            "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X_0"], ["X_0"], mock_node],
-        ):
-            aug.write_results(result)
-        assert result.all_models[1].augmentations["ExpressionSimplifier"]["simplified_expr"] == "X_1"
+        assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "X_0"
+        assert "simplified_expr" not in result.top_models()[0].augmentations["ExpressionSimplifier"]
 
     def test_all_model_invalid_return_warns_verbose(self):
-        # Else raise and verbose warn in the all_models loop
+        # The second model's simplified expression is not a token list: warning, nothing stored for it
         _, result = _two_model_result()
         aug = ExpressionSimplifier(_sl, scope="all", verbose=True)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[["X_0"], ["X_0"], 42],
+            side_effect=[(["X_0"], None), (["X_0"], None), (42, None)],
         ):
-            with pytest.warns(UserWarning):
+            with pytest.warns(UserWarning, match="Unable to simplify"):
                 aug.write_results(result)
+        assert result.all_models[0].augmentations["ExpressionSimplifier"]["simplified_expr"] == "X_0"
+        assert "simplified_expr" not in result.all_models[1].augmentations["ExpressionSimplifier"]
+
+    # Reason: boundary ("A result without models gets an entry without simplified_best_expr").
+    def test_result_without_models_gets_entry_without_expression(self):
+        result = _rmse_se().get_results()[0]
+        ExpressionSimplifier(_sl, scope="top", verbose=True).write_results(result)
+        assert result.augmentations["ExpressionSimplifier"] == {"_type": ExpressionSimplifier._type}
+
+    # Reason: clause (symbol_library, rules, max_iterations: "As in simplify"; the entry is added with
+    # the augmenter's type, per ResultAugmenter): X_0*X_0 is X_0^2 by default, stays with a library
+    # without ^2, without the "powers" group or with no steps.
+    @pytest.mark.parametrize(
+        "library, kwargs, expected",
+        [
+            (_sl, {"rules": DefaultRules(exclude=["powers"])}, "X_0*X_0"),
+            (_sl, {"max_iterations": 0}, "X_0*X_0"),
+            (SymbolLibrary.from_symbol_list(["+", "-", "*", "/"], num_variables=2), {}, "X_0*X_0"),
+            (_sl, {}, "X_0^2"),
+        ],
+        ids=["exclude-powers", "no-steps", "library-without-^2", "default"],
+    )
+    def test_write_results_uses_rules_and_limits(self, library, kwargs, expected):
+        se = _rmse_se()
+        se.evaluate_expr(["X_0", "*", "X_0"])
+        result = se.get_results(top_k=1)[0]
+        ExpressionSimplifier(library, scope="top", **kwargs).write_results(result)
+        kind = ExpressionSimplifier._type
+        assert result.augmentations["ExpressionSimplifier"] == {"_type": kind, "simplified_best_expr": expected}
+        assert result.top_models()[0].augmentations["ExpressionSimplifier"] == {
+            "_type": kind,
+            "simplified_expr": expected,
+        }
+
+    # Reason: clause ("each with its model's specs"): C_1 fixed at 2 makes C_1-2 zero; without specs
+    # C_1 is free and nothing combines.
+    @pytest.mark.parametrize(
+        "specs, expected",
+        [([Constant("C_1", value=2.0, fixed=True)], "0"), (None, "C_1-2")],
+        ids=["fixed", "no-specs"],
+    )
+    def test_write_results_uses_model_specs(self, specs, expected):
+        se = _rmse_se()
+        se.evaluate_expr(["C_1", "-", "2"], specs)
+        result = se.get_results(top_k=1)[0]
+        ExpressionSimplifier(_sl, scope="top").write_results(result)
+        assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == expected
+        assert result.top_models()[0].augmentations["ExpressionSimplifier"]["simplified_expr"] == expected
 
 
 # ── ExpressionSimplifier.format_eval_result ───────────────────────────────────
@@ -445,11 +480,13 @@ class TestExpressionSimplifierSerialization:
     def test_to_dict_has_expected_keys(self):
         aug = ExpressionSimplifier(_sl, scope="all", verbose=True, name="S")
         d = aug.to_dict("", "")
-        assert d["format_version"] == 1
+        assert d["format_version"] == 2
         assert d["type"] == "ExpressionSimplifier"
         assert d["scope"] == "all"
         assert d["verbose"] is True
         assert d["name"] == "S"
+        assert d["rules"] == DefaultRules().to_dict()
+        assert (d["max_iterations"], d["max_nodes"], d["max_time"]) == (None, None, None)  # None: simplify's defaults
 
     def test_from_dict_round_trip(self):
         aug = ExpressionSimplifier(_sl, scope="all", verbose=True, name="myS")
@@ -458,6 +495,50 @@ class TestExpressionSimplifierSerialization:
         assert restored.scope == "all"
         assert restored.verbose is True
         assert restored.name == "myS"
+
+    # Reason: clause (from_dict recreates the augmenter from to_dict): library, rules and limits
+    # survive a JSON round trip; the restored augmenter with a library without ^2 and rules without
+    # "powers" leaves X_0*X_0 as it is.
+    def test_to_dict_from_dict_round_trip(self):
+        lib = SymbolLibrary.default_symbols(2)
+        lib.remove_symbol("^2")
+        aug = ExpressionSimplifier(
+            lib, scope="top", rules=DefaultRules(exclude=["powers"]), max_iterations=5, max_nodes=500, max_time=0.5
+        )
+        d = json.loads(json.dumps(aug.to_dict("", "")))
+        assert (d["max_iterations"], d["max_nodes"], d["max_time"]) == (5, 500, 0.5)
+        restored = ExpressionSimplifier.from_dict(d)
+        assert restored.to_dict("", "") == d
+        assert "^2" not in restored.symbol_library
+        se = _rmse_se()
+        se.evaluate_expr(["X_0", "*", "X_0"])
+        result = se.get_results(top_k=1)[0]
+        with patch("SRToolkit.evaluation.result_augmentation.simplify", wraps=simplify) as spy:
+            restored.write_results(result)
+        assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "X_0*X_0"
+        # the limits reach simplify (max_time cannot be observed from the output)
+        assert {k: spy.call_args.kwargs[k] for k in ("max_iterations", "max_nodes", "max_time")} == {
+            "max_iterations": 5,
+            "max_nodes": 500,
+            "max_time": 0.5,
+        }
+
+    # Reason: clause (from_dict: version 1, saved before the rules and limits, gets the defaults).
+    # The format-1 layout is the to_dict of the previous release.
+    def test_from_dict_format_1_gets_defaults(self):
+        d = {
+            "format_version": 1,
+            "type": "ExpressionSimplifier",
+            "name": "old",
+            "symbol_library": _sl.to_dict(),
+            "scope": "best",
+            "verbose": False,
+        }
+        restored = ExpressionSimplifier.from_dict(d)
+        assert (restored.name, restored.scope, restored.verbose) == ("old", "best", False)
+        assert restored.to_dict("", "")["symbol_library"] == _sl.to_dict()
+        assert restored.rules.to_dict() == DefaultRules().to_dict()
+        assert (restored.max_iterations, restored.max_nodes, restored.max_time) == (None, None, None)
 
     def test_from_dict_invalid_format_version_raises(self):
         d = ExpressionSimplifier(_sl).to_dict("", "")

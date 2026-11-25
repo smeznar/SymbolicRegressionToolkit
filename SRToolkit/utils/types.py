@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     # Imported for annotations only: free_constants imports symbol_library, which imports this module.
     from SRToolkit.evaluation.model_store import ModelStore
 
+    from .expression_simplifier import SimplificationRules
     from .free_constants import Constant
 
 VAR = "var"
@@ -175,6 +176,23 @@ class RankingSettings(TypedDict, total=False):
             ``SR_evaluator``, they are validated by the ranking's ``setup``. Set by
             [SR_dataset.ranking_settings][SRToolkit.dataset.sr_dataset.SR_dataset.ranking_settings]
             from the dataset's ``ground_truth_constants``. Default: ``None``.
+        simplify_rules: Rewrite rules of
+            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
+            ``evaluate_expr(simplify_expr=True)``. Read only by the evaluator. ``None``:
+            [DefaultRules][SRToolkit.utils.expression_simplifier.DefaultRules]. Default: ``None``.
+        simplify_max_iterations: ``max_iterations`` of
+            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
+            ``evaluate_expr(simplify_expr=True)``, a non-negative ``int`` or numpy integer
+            (not ``bool``). Read only by the evaluator. Default: ``simplify``'s (``30``).
+        simplify_max_nodes: ``max_nodes`` of
+            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
+            ``evaluate_expr(simplify_expr=True)``, a non-negative ``int`` or numpy integer
+            (not ``bool``). Read only by the evaluator. Default: ``simplify``'s (``10_000``).
+        simplify_max_time: ``max_time`` of
+            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
+            ``evaluate_expr(simplify_expr=True)``: seconds, a positive number (not ``bool``), or
+            ``None`` for no time limit. With a time limit the simplified expression, and so what is scored, can
+            depend on the machine. Read only by the evaluator. Default: ``None``.
 
     Examples:
         >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
@@ -197,6 +215,10 @@ class RankingSettings(TypedDict, total=False):
     num_consts_sampled: int
     ground_truth_constants: Sequence["Constant"] | None
     default_constant: "Constant | None"
+    simplify_rules: "SimplificationRules | None"
+    simplify_max_iterations: int
+    simplify_max_nodes: int
+    simplify_max_time: float | None
 
 
 def _add_augmentation(augmentations: dict[str, dict[str, Any]], name: str, data: dict[str, Any], aug_type: str) -> None:

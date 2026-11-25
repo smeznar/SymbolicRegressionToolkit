@@ -1,6 +1,6 @@
 numpy
 scipy
-sympy
+egglog>=11.4,<12
 nltk
 zss
 tqdm

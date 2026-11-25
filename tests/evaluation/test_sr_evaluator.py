@@ -38,6 +38,7 @@ from SRToolkit.utils.expression_constraints import (
     OutputBounds,
     RequiredVariables,
 )
+from SRToolkit.utils.expression_simplifier import DefaultRules
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, canonicalise, resolve_constants, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
@@ -639,11 +640,9 @@ class TestEvaluateExprRmse:
 
     def test_simplify_expr_stores_simplified_key(self):
         se = _make_se()
-        se.evaluate_expr(
-            ["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"],
-            simplify_expr=True,
-        )
-        assert [m.expr for m in se.models] == [["C", "+", "X_1"]]
+        se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
+        assert len(se.models) == 1
+        assert "".join(se.models[0].expr) in {"C+X_1", "X_1+C"}
 
     def test_simplify_expr_failure_warns_and_continues(self):
         se = _make_se()
@@ -1774,24 +1773,22 @@ class TestConstraintEvaluation:
         assert (advised.models[0].error, advised.models[0].status) == (plain.models[0].error, plain.models[0].status)
 
     @pytest.mark.parametrize(
-        "make_expr, simplify, expected",
+        "make_expr, simplify, allowed",
         [
-            (lambda sl: ["X_0", "+", "C"], False, ["X_0", "+", "C"]),
-            (lambda sl: tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), False, ["X_0", "+", "C"]),
-            (
-                lambda sl: ["C", "+", "C", "*", "C", "+", "X_0", "*", "X_1", "/", "X_0"],
-                True,
-                ["C", "+", "X_1"],
-            ),
+            (lambda sl: ["X_0", "+", "C"], False, {"X_0+C"}),
+            (lambda sl: tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), False, {"X_0+C"}),
+            # simplified: C + X_1 in either order (same-cost forms may come back in either order)
+            (lambda sl: ["C", "+", "X_0", "*", "X_1", "/", "X_0"], True, {"C+X_1", "X_1+C"}),
         ],
         ids=["list", "tree-written-out", "simplified"],
     )
-    def test_checks_receive_stored_expression(self, make_expr, simplify, expected):
+    def test_checks_receive_stored_expression(self, make_expr, simplify, allowed):
         required, advisory = _Spy(), _Spy()
         se = _make_se(symbol_library=_LIB2(), required_constraints=[required], advisory_constraints=[advisory])
         se.evaluate_expr(make_expr(se.symbol_library), simplify_expr=simplify)
         model = se.models[0]
-        assert model.expr == expected
+        expected = model.expr
+        assert "".join(expected) in allowed
         assert (required.pre, advisory.pre) == ([expected], [expected])
         assert [m.expr for m in required.post] == [expected]
         assert [m.expr for m in advisory.post] == [expected]
@@ -2024,8 +2021,24 @@ class TestGetModel:
 
     def test_get_model_does_not_simplify(self):
         se = SR_evaluator(_X, _y, symbol_library=_LIB2())
-        se.evaluate_expr(["X_0", "+", "X_0"], simplify_expr=True)
-        assert se.get_model(["X_0", "+", "X_0"]) is None
+        se.evaluate_expr(["X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
+        assert se.get_model(["X_0", "*", "X_1", "/", "X_0"]) is None
+
+    # Reason: clause (get_model / get_metric simplify_expr: "pass the value expr was evaluated
+    # with"; the lookup simplifies as evaluate_expr did, with the evaluator's simplify_* settings).
+    @pytest.mark.parametrize("settings, stored", [({}, ["X_1"]), ({"simplify_max_iterations": 0}, None)])
+    def test_lookups_with_simplify_expr_match_evaluate_expr(self, settings, stored):
+        expr = ["X_0", "*", "X_1", "/", "X_0"]
+        se = SR_evaluator(_X, _y, symbol_library=_LIB2(), **settings)
+        se.evaluate_expr(expr, simplify_expr=True)
+        stored_expr = se.models[0].expr
+        if stored is not None:
+            assert stored_expr == stored
+        assert se.get_model(expr, simplify_expr=True).to_dict() == se.models[0].to_dict()
+        assert se.get_metric(expr, "mse", simplify_expr=True) == se.get_metric(stored_expr, "mse")
+        if stored is not None:
+            with pytest.raises(ValueError, match="not been evaluated"):
+                se.get_metric(expr, "mse")
 
 
 # ── Free-constant specs (constants rework, stage 1 step 5) ────────────────────
@@ -2128,23 +2141,27 @@ class TestFreeConstants:
         assert (None if first_specs is None else [c.label for c in first_specs]) == given_order
         assert se.get_model(expr, second()).to_dict() == se.models[0].to_dict()
 
-    # Reason: clause (error contract: specs that do not fit, or specs with simplify_expr=True, raise
-    # ValueError and nothing is recorded or counted; check_constraints checks them the same way).
+    # Reason: clause (error contract: specs that do not fit raise ValueError, also with
+    # simplify_expr=True (checked against the input before simplifying, so no warning), and nothing
+    # is recorded or counted;
+    # check_constraints checks them the same way).
     @pytest.mark.parametrize(
         "call, match",
         [
             (lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
             (lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0), _fix("C_0", 2.0)]), "C_0"),
             (lambda se: se.evaluate_expr(_E, [Constant(value=1.0, fixed=True)]), "label"),
-            (lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0)], simplify_expr=True), "simplif"),
+            (lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)], simplify_expr=True), "C_9"),
             (lambda se: se.check_constraints(_E, [_fix("C_9", 1.0)]), "C_9"),
         ],
         ids=["unknown-label", "duplicate-label", "no-label", "simplify", "check_constraints"],
     )
     def test_invalid_specs_raise_and_record_nothing(self, call, match):
         se = _spec_se()
-        with pytest.raises(ValueError, match=match):
-            call(se)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # checked before simplifying: no "Unable to simplify" warning
+            with pytest.raises(ValueError, match=match):
+                call(se)
         assert se.models == []
         assert se.trace == []
         assert se.total_evaluations == 0
@@ -2219,6 +2236,94 @@ class TestFreeConstants:
             default_constant=result.default_constant,
         )
         assert rebed == pytest.approx(model.error, abs=1e-9)
+
+
+class TestSimplifySettings:
+    # Reason: clause (RankingSettings simplify_*: rules a SimplificationRules or None; limits
+    # non-negative ints; max_time a positive number or None; settled: wrong rules -> TypeError, bad
+    # limits -> ValueError). The message names the setting.
+    @pytest.mark.parametrize(
+        "settings, error",
+        [
+            ({"simplify_rules": ["powers"]}, TypeError),
+            ({"simplify_rules": DefaultRules}, TypeError),
+            ({"simplify_max_iterations": -1}, ValueError),
+            ({"simplify_max_iterations": 2.5}, ValueError),
+            ({"simplify_max_iterations": True}, ValueError),
+            ({"simplify_max_nodes": -1}, ValueError),
+            ({"simplify_max_nodes": 10.0}, ValueError),
+            ({"simplify_max_nodes": False}, ValueError),
+            ({"simplify_max_time": 0}, ValueError),
+            ({"simplify_max_time": -1.0}, ValueError),
+            ({"simplify_max_time": True}, ValueError),
+            ({"simplify_max_time": "1"}, ValueError),
+            ({"simplify_max_time": float("nan")}, ValueError),
+        ],
+        ids=[
+            "rules-list", "rules-class", "iter-negative", "iter-float", "iter-bool", "nodes-negative",
+            "nodes-float", "nodes-bool", "time-zero", "time-negative", "time-bool", "time-string", "time-nan",
+        ],
+    )  # fmt: skip
+    def test_invalid_simplify_settings_raise(self, settings, error):
+        with pytest.raises(error, match=next(iter(settings))):
+            _make_se(**settings)
+
+    # Reason: clause (evaluate_expr simplify_expr: simplified "with the rules and limits of the
+    # settings simplify_*") + boundary (limits 0 and max_time None, and an int max_time, are accepted;
+    # settled: max_iterations=0 returns the input as the same tree).
+    @pytest.mark.parametrize(
+        "settings, expr, expected",
+        [
+            ({"simplify_rules": DefaultRules(exclude=["powers"])}, ["X_0", "*", "X_0"], ["X_0", "*", "X_0"]),
+            ({"simplify_max_iterations": 0}, ["X_0", "*", "X_0", "/", "X_0"], ["X_0", "*", "X_0", "/", "X_0"]),
+            (
+                {"simplify_max_iterations": 0, "simplify_max_nodes": 0, "simplify_max_time": None},
+                ["X_0", "*", "X_0", "/", "X_0"],
+                ["X_0", "*", "X_0", "/", "X_0"],
+            ),
+            ({"simplify_max_time": 10}, ["X_0", "*", "X_0", "/", "X_0"], ["X_0"]),
+        ],
+        ids=["exclude-powers", "no-steps", "zero-limits", "int-time"],
+    )
+    def test_simplify_settings_are_used(self, settings, expr, expected):
+        # Compared as trees: with no steps the input comes back as the same tree, written out with
+        # Node.to_list, which may add redundant brackets.
+        se = _make_se(**settings)
+        se.evaluate_expr(expr, simplify_expr=True)
+        lib = se.symbol_library
+        assert tokens_to_tree(se.models[0].expr, lib).to_list(lib) == tokens_to_tree(expected, lib).to_list(lib)
+
+    # Reason: clause ("With simplify_expr=True, the specs of labels that simplification removes are
+    # dropped"; a fixed spec is used as its value; settled: free_constants None when no spec remains).
+    @pytest.mark.parametrize(
+        "expr, specs, expected_expr, kept",
+        [
+            (
+                ["C_1", "+", "C_2", "-", "C_1"],
+                [Constant("C_1", value=1.0), Constant("C_2", value=2.0)],
+                ["C_2"],
+                ["C_2"],
+            ),
+            (["X_0", "+", "C_1", "-", "2"], [_fix("C_1", 2.0)], ["X_0"], None),
+        ],
+        ids=["label-cancelled", "fixed-combined"],
+    )
+    def test_simplify_with_specs(self, expr, specs, expected_expr, kept):
+        se = _spec_se()
+        se.evaluate_expr(expr, specs, simplify_expr=True)
+        model = se.models[0]
+        assert model.expr == expected_expr
+        labels = None if model.free_constants is None else [c.label for c in model.free_constants]
+        assert labels == kept
+
+    # Reason: regression (module docs: "a malformed expression is invalid (and stored with its specs)
+    # whatever they are", also with simplify_expr=True; simplification fails, so it warns).
+    def test_malformed_expression_with_specs_is_invalid_when_simplifying(self):
+        se = _spec_se()
+        with pytest.warns(UserWarning, match="Unable to simplify"):
+            assert se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)], simplify_expr=True) == math.inf
+        assert se.models[0].status == "invalid"
+        assert [c.label for c in se.models[0].free_constants] == ["C_9"]
 
 
 _y3_affine = 2 * _X3[:, 0] + 2  # fitted by C_0*X_0 + C_0 with C_0 = 2

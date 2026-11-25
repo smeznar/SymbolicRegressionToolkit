@@ -27,7 +27,7 @@ keywords = [
 dependencies = [
   "numpy>=2.0",
   "scipy",
-  "sympy",
+  "egglog>=11.4,<12",
   "zss",
   "tqdm",
   "typing_extensions>=4.0",
