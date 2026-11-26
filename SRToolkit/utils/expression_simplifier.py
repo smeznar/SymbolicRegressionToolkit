@@ -1,4 +1,4 @@
-"""Algebraic simplification of expressions with e-graphs.
+"""Algebraic simplification and constant folding of expressions with e-graphs.
 
 [simplify][SRToolkit.utils.expression_simplifier.simplify] puts an expression into an e-graph
 ([egglog](https://egglog-python.readthedocs.io/)), applies rewrite rules that add equivalent forms
@@ -7,7 +7,11 @@ of its parts, and returns the cheapest equivalent expression found.
 **Cost.** The cost of an expression is the number of its written-out tokens (operators,
 functions, variables, constants and numbers); brackets are not counted. The input is one of the
 candidates, so the output is never longer than it. Forms of equal cost are not ordered: ``3*X_0``
-may come back as ``X_0*3``.
+may come back as ``X_0*3``. With folding and ``fold_aware=True``, the e-graph is searched once more
+with a cost that counts each part folding would merge as one token (ties: the written-out token
+count). That cost cannot see everything that keeps a part from folding (e.g. a label used
+elsewhere), so its result is used only if it is shorter than the token-count result once both are
+folded.
 
 **Constants.** Simplification keeps the hypothesis: every free constant and label of the input
 that is not cancelled stays in the output, e.g. ``C*X_0 + C*X_0`` becomes ``(C+C)*X_0``. Each bare
@@ -15,6 +19,22 @@ that is not cancelled stays in the output, e.g. ``C*X_0 + C*X_0`` becomes ``(C+C
 ``C_1 - C_1`` becomes ``0`` and ``C_1 + C_2 - C_1`` becomes ``C_2``. If a rule copies a bare ``C``,
 its copies share a fresh label, so they stay one parameter: the lowest ``C_k`` (with the library's
 constant symbol) that is not in the input and not a symbol of the library.
+
+**Folding.** [fold][SRToolkit.utils.expression_simplifier.fold] replaces each *constant part* of
+an expression, a subexpression without variables that contains a free constant, with one new bare
+``C``: ``C*C*X_0`` and ``sin(C + 2)*X_0`` both become ``C*X_0``. The expression gets shorter and has
+fewer parameters, but it is a different hypothesis. The new ``C`` gets the default spec, so it ranges
+over different values than the part did: with bounds ``(-5, 5)``, ``2*C`` reaches ``[-10, 10]`` and
+``sqrt(C)`` is never negative, while ``C`` stays in ``[-5, 5]``. Fitting and BED can therefore give a
+different score.
+
+A part that contains a label also used elsewhere is not folded, since that would split one parameter
+into two (``sin(C_1)*X_0 + cos(C_1)*X_1`` stays). The ``mode`` decides which constants may fold at
+all.
+
+Folding works best after simplification, which first gathers constants: ``C*X_0 + C*X_0`` folds only
+once [simplify][SRToolkit.utils.expression_simplifier.simplify] has made it ``(C+C)*X_0``, so use
+``simplify(fold=...)`` rather than ``fold`` alone.
 
 **Fixed values** are numbers, labelled constants with a fixed spec and every ``"lit"`` symbol of
 the library, with the value of its ``python_str`` (a custom ``pi`` of ``3.0`` makes ``2*pi`` into
@@ -48,13 +68,13 @@ import numbers
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import egglog as egg
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.utils.expression_constraints import _validate_limit
-from SRToolkit.utils.expression_tree import Node, _as_tree, parameter_labels
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tree, is_float, parameter_labels
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import _DEFAULT_SYMBOLS, SymbolLibrary
 
@@ -532,10 +552,20 @@ class DefaultRules(SimplificationRules):
         return cls(exclude=d["exclude"])
 
 
-def _check_settings(rules: Any, max_iterations: Any, max_nodes: Any, max_time: Any, prefix: str = "") -> None:
+_FOLD_MODES = ("none", "default", "keep")  # the modes of fold; see its docstring
+
+
+def _check_fold_mode(mode: Any, name: str) -> None:
+    if not isinstance(mode, str) or mode not in _FOLD_MODES:
+        raise ValueError(f"{name} must be one of {list(_FOLD_MODES)}, got {mode!r}.")
+
+
+def _check_settings(
+    rules: Any, max_iterations: Any, max_nodes: Any, max_time: Any, fold_aware: Any, prefix: str = ""
+) -> None:
     # The checks of the simplification settings of SR_evaluator (prefix "simplify_") and the
-    # ExpressionSimplifier augmenter: TypeError for rules, ValueError for the limits. None means
-    # simplify's default and is not checked.
+    # ExpressionSimplifier augmenter: TypeError for rules and fold_aware, ValueError for the limits.
+    # None means simplify's default and is not checked.
     if rules is not None and not isinstance(rules, SimplificationRules):
         raise TypeError(f"{prefix}rules must be a SimplificationRules or None, got {rules!r}.")
     if max_iterations is not None:
@@ -546,6 +576,149 @@ def _check_settings(rules: Any, max_iterations: Any, max_nodes: Any, max_time: A
         isinstance(max_time, bool) or not isinstance(max_time, numbers.Real) or not float(max_time) > 0
     ):
         raise ValueError(f"{prefix}max_time must be a positive number or None, got {max_time!r}.")
+    if fold_aware is not None and not isinstance(fold_aware, bool):
+        raise TypeError(f"{prefix}fold_aware must be a bool or None, got {fold_aware!r}.")
+
+
+def _check_specs(free_constants: Sequence[Constant] | None, labels: set[str | None]) -> dict[str | None, Constant]:
+    # The specs by label; raises unless each has a distinct label from labels (the expression's).
+    specs = {spec.label: spec for spec in free_constants or ()}
+    if None in specs or len(specs) != len(free_constants or ()) or not labels.issuperset(specs):
+        raise ValueError(
+            f"Every spec in 'free_constants' needs a distinct label of a labelled constant of the expression, "
+            f"got {[spec.label for spec in free_constants or ()]}."
+        )
+    return specs
+
+
+def fold(
+    expr: list[str] | Node,
+    symbol_library: SymbolLibrary | None = None,
+    free_constants: Sequence[Constant] | None = None,
+    mode: Literal["none", "default", "keep"] = "keep",
+) -> tuple[list[str] | Node, tuple[Constant, ...] | None]:
+    """Replace the constant parts of an expression with single constants.
+
+    A constant part is a subexpression without variables that contains a free constant (one without a
+    fixed spec). Each largest one becomes a bare ``C`` (the library's constant symbol), together with
+    any numbers, ``"lit"`` symbols and fixed constants in it: ``C*C*X_0`` and ``sin(C + 2)*X_0`` both
+    become ``C*X_0``. A part stays as it is if
+    it contains a label also used elsewhere in the expression, or a constant that ``mode`` keeps.
+
+    ``fold`` computes no values and does no algebra;
+    [simplify][SRToolkit.utils.expression_simplifier.simplify] does both and gathers constants
+    first, so ``simplify(fold=...)`` usually folds more. The result is a different hypothesis (see
+    the module docs).
+
+    Args:
+        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        symbol_library: Symbol library of the expression. ``None`` uses the active or default library.
+        free_constants: Specs of labelled constants of ``expr``, in any order.
+        mode: Which constants may fold.
+
+            - ``"none"``: nothing is folded or checked; ``expr`` and ``free_constants`` come
+              back as given.
+            - ``"default"``: every constant may fold; the specs of folded labels are dropped.
+            - ``"keep"``: labelled constants with a spec (fixed or not) never fold and keep their
+              specs. Without specs the same as ``"default"``.
+
+    Returns:
+        The folded expression, in the form of ``expr`` (a token list as given if nothing folds), and
+        the specs of ``free_constants`` whose label it still contains, in the given order (``()`` if
+        none, ``None`` if ``free_constants`` is ``None``).
+
+    Raises:
+        TypeError: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
+        ExpressionParseError: If a token list cannot be parsed, or a symbol is neither in the library
+            nor a number.
+        ValueError: If ``mode`` is unknown, or a spec in ``free_constants`` has no label, two share
+            one, or its label is not a labelled constant of ``expr``.
+
+    Examples:
+        >>> "".join(fold(["C", "*", "C", "*", "X_0", "+", "sin", "(", "C", "+", "2", ")"])[0])
+        'C*X_0+C'
+        >>> from SRToolkit.utils import Constant
+        >>> g = Constant(label="C_1", value=9.81, fixed=True)
+        >>> "".join(fold(["C_1", "*", "C", "*", "X_0"], free_constants=[g])[0])
+        'C_1*C*X_0'
+        >>> expr, specs = fold(["C_1", "*", "C", "*", "X_0"], free_constants=[g], mode="default")
+        >>> "".join(expr), specs
+        ('C*X_0', ())
+    """
+    _check_fold_mode(mode, "mode")
+    if mode == "none":
+        return (expr if isinstance(expr, Node) else list(expr)), (
+            None if free_constants is None else tuple(free_constants)
+        )
+    if symbol_library is None:
+        symbol_library = SymbolLibrary.get_or_default()
+    tree = _as_tree(expr, symbol_library)
+    constant = symbol_library.constant_symbol
+    kinds: dict[str, str | None] = {}  # symbol -> its type in the library (None for a number)
+
+    # Bottom-up, for each node: (has a variable, has a bare constant, the labels inside with their
+    # counts, or None if there are none).
+    info: dict[int, tuple[bool, bool, dict[str, int] | None]] = {}
+
+    def scan(node: Node) -> tuple[bool, bool, dict[str, int] | None]:
+        if node.symbol not in kinds:
+            symbol = symbol_library.get(node.symbol)
+            if symbol is None and not is_float(node.symbol):  # a tree is not checked by _as_tree
+                raise ExpressionParseError(f"Unknown symbol {node.symbol!r}: not in the symbol library or a number.")
+            kinds[node.symbol] = symbol.type if symbol is not None else None
+        kind = kinds[node.symbol]
+        has_var = kind == "var"
+        bare = kind == "const" and node.symbol == constant
+        labels = {node.symbol: 1} if kind == "const" and not bare else None
+        for child in (node.left, node.right):
+            if child is not None:
+                child_var, child_bare, inside = scan(child)
+                has_var, bare = has_var or child_var, bare or child_bare
+                if inside and labels is None:
+                    labels = inside  # shared with the child; copied before it is changed
+                elif inside and labels is not None:
+                    labels = {**labels}
+                    for label, n in inside.items():
+                        labels[label] = labels.get(label, 0) + n
+        info[id(node)] = (has_var, bare, labels)
+        return info[id(node)]
+
+    total = scan(tree)[2] or {}
+    specs = _check_specs(free_constants, set(total))
+    pinned = set(specs) if mode == "keep" else set()
+    free = {label for label in total if not (label in specs and specs[label].fixed)}
+    folded: set[str] = set()  # the labels folded away (all their occurrences)
+    changed = False
+
+    def rebuild(node: Node) -> Node:
+        nonlocal changed
+        has_var, bare, labels = info[id(node)]
+        labels = labels or {}
+        if (
+            node.left is not None
+            and not has_var
+            and (bare or not free.isdisjoint(labels))
+            and pinned.isdisjoint(labels)
+            and all(total[label] == n for label, n in labels.items() if label in free)
+        ):
+            folded.update(label for label, n in labels.items() if total[label] == n)
+            changed = True
+            return Node(cast(str, constant))
+        return Node(
+            node.symbol,
+            left=rebuild(node.left) if node.left is not None else None,
+            right=rebuild(node.right) if node.right is not None else None,
+        )
+
+    result = rebuild(tree)
+    kept = None if free_constants is None else tuple(spec for spec in free_constants if spec.label not in folded)
+    if isinstance(expr, Node):
+        return result, kept
+    # Written out only if something folded: to_list may add brackets.
+    return (result.to_list(symbol_library=symbol_library) if changed else list(expr)), kept
+
+
+_fold = fold  # simplify's argument "fold" hides the function
 
 
 def simplify(
@@ -556,8 +729,10 @@ def simplify(
     max_iterations: int = 30,
     max_nodes: int = 10_000,
     max_time: float | None = None,
+    fold: Literal["none", "default", "keep"] = "none",
+    fold_aware: bool = True,
 ) -> tuple[list[str] | Node, tuple[Constant, ...] | None]:
-    """Simplify an expression algebraically.
+    """Simplify an expression algebraically, and fold its constants if asked.
 
     The rules are applied in steps (see the module docs for the cost, constants and fixed values).
     After a step that finds a cheaper expression, the search continues from a new e-graph holding
@@ -575,11 +750,18 @@ def simplify(
         free_constants: Specs of labelled constants of ``expr``, in any order. A fixed one is used
             as its value; the bounds of the others are recorded but not used by the default rules.
         rules: The rewrite rules; ``None`` uses [DefaultRules][SRToolkit.utils.expression_simplifier.DefaultRules].
-        max_iterations: Maximum number of steps; ``0`` returns ``expr`` unchanged (as a tree; a
-            token list may gain redundant brackets).
+        max_iterations: Maximum number of steps; ``0`` applies no rules (the result is still
+            folded; a token list may gain redundant brackets).
         max_nodes: The search stops once the e-graph has grown to more than ``max_nodes``
             entries since the last cheaper expression was found.
         max_time: Seconds after which the search stops; ``None`` for no time limit.
+        fold: Fold the result with [fold][SRToolkit.utils.expression_simplifier.fold] in this
+            mode (``"none"``, ``"default"`` or ``"keep"``, see its ``mode``); ``"none"`` keeps the
+            hypothesis.
+        fold_aware: With folding, also look for the form that is shortest after folding (see the
+            module docs): never longer than with ``False``, often shorter, but slower (up to about
+            ten times on hard expressions). ``False`` chooses by token count and then folds.
+            Ignored with ``fold="none"``.
 
     Returns:
         The simplified expression, in the form of ``expr`` (token list or
@@ -590,31 +772,28 @@ def simplify(
     Raises:
         TypeError: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
         ExpressionParseError: If a token list cannot be parsed.
-        ValueError: If a spec in ``free_constants`` has no label, two share one, or its label is not
-            a labelled constant of ``expr``.
+        ValueError: If ``fold`` is unknown, or a spec in ``free_constants`` has no label, two share
+            one, or its label is not a labelled constant of ``expr``.
 
     Examples:
         >>> print("".join(simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"])[0]))
         (C+C)*X_0
+        >>> print("".join(simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"], fold="keep")[0]))
+        C*X_0
         >>> from SRToolkit.utils import Constant
         >>> fixed = Constant(label="C_1", value=2.0, fixed=True)
         >>> expr, specs = simplify(["C_1", "*", "X_0", "+", "C_1", "*", "3"], free_constants=[fixed])
         >>> "".join(expr), specs == (fixed,)
         ('C_1*X_0+6', True)
     """
+    _check_fold_mode(fold, "fold")
     if symbol_library is None:
         symbol_library = SymbolLibrary.get_or_default()
     if rules is None:
         rules = DefaultRules()
     tree = _as_tree(expr, symbol_library)
-
-    specs = {spec.label: spec for spec in free_constants or ()}
     labels = set(parameter_labels(tree, symbol_library))
-    if None in specs or len(specs) != len(free_constants or ()) or not labels.issuperset(specs):
-        raise ValueError(
-            f"Every spec in 'free_constants' needs a distinct label of a labelled constant of the expression, "
-            f"got {[spec.label for spec in free_constants or ()]}."
-        )
+    specs = _check_specs(free_constants, labels)
 
     tokens: list[str] = []  # leaf id -> token
     labelled: dict[str, EggExpr] = {}  # label -> its constant
@@ -657,30 +836,34 @@ def simplify(
         return egraph, egraph.let("expr", term)
 
     egraph, handle = new_egraph(best)
+    found: tuple[egg.EGraph, Any] | None = None  # the e-graph in which best was found, and its handle
+    explored = False  # whether rules ran on the current e-graph without finding anything cheaper
     best_cost = math.inf
     for _ in range(max_iterations):
         report = egraph.run(schedule)
         candidate, cost = egraph.extract(handle, include_cost=True)
+        explored = True
         if cost < best_cost:
             best, best_cost = candidate, cost
+            found = egraph, handle
             egraph, handle = new_egraph(best)
+            explored = False
         elif not report.updated or sum(size for _, size in egraph.all_function_sizes()) > max_nodes:
             break
         if max_time is not None and time.monotonic() - start > max_time:
             break
 
-    copies: dict[int, list[Node]] = {}  # leaf id of a bare constant -> its nodes in the result
-
-    def to_node(term: Any) -> Node:
+    def to_node(term: Any, copies: dict[int, list[Node]]) -> Node:
+        # The term as a tree; copies collects the nodes of each bare constant (leaf id -> nodes).
         fn, args = egg.get_callable_fn(term), cast(Any, egg.get_callable_args(term))
         if fn == EggExpr.var:
             return Node(args[0].value)
         if fn == EggExpr.op or fn == ConstTree.node2:
-            return Node(args[0].value, left=to_node(args[1]), right=to_node(args[2]))
+            return Node(args[0].value, left=to_node(args[1], copies), right=to_node(args[2], copies))
         if fn == EggExpr.fn or fn == ConstTree.node1:
-            return Node(args[0].value, left=to_node(args[1]))
+            return Node(args[0].value, left=to_node(args[1], copies))
         if fn == EggExpr.c:
-            return to_node(args[0])
+            return to_node(args[0], copies)
         leaf_id = args[0].value
         if leaf_id >= 0:
             node = Node(tokens[leaf_id])
@@ -690,21 +873,61 @@ def simplify(
         value = args[1].value
         return Node(str(int(value)) if value.is_integer() else repr(value))
 
-    result = to_node(best)
-    # A bare constant that a rule copied is one parameter, so its copies share a new label: the
-    # lowest C_k not used in the input and not a symbol of the library.
-    k = 0
-    for nodes in copies.values():
-        if len(nodes) > 1:
-            while (label := f"{symbol_library.constant_symbol}_{k}") in labels or label in symbol_library.symbols:
+    def write_out(term: Any) -> tuple[Node, tuple[Constant, ...] | None]:
+        # The term as a tree with the specs of the labels it contains, folded if asked.
+        copies: dict[int, list[Node]] = {}
+        result = to_node(term, copies)
+        # A bare constant that a rule copied is one parameter, so its copies share a new label: the
+        # lowest C_k not used in the input and not a symbol of the library.
+        k = 0
+        for nodes in copies.values():
+            if len(nodes) > 1:
+                while (label := f"{symbol_library.constant_symbol}_{k}") in labels or label in symbol_library.symbols:
+                    k += 1
                 k += 1
-            k += 1
-            for node in nodes:
-                node.symbol = label
-    kept = None
-    if free_constants is not None:
-        remaining = set(parameter_labels(result, symbol_library))
-        kept = tuple(spec for spec in free_constants if spec.label in remaining)
+                for node in nodes:
+                    node.symbol = label
+        kept = None
+        if free_constants is not None:
+            remaining = set(parameter_labels(result, symbol_library))
+            kept = tuple(spec for spec in free_constants if spec.label in remaining)
+        if fold == "none":
+            return result, kept
+        folded, kept = _fold(result, symbol_library, kept, fold)
+        return cast(Node, folded), kept
+
+    result, kept = write_out(best)
+    if fold != "none" and fold_aware:
+        # The forms that are cheapest after folding, from the e-graph in which best was found and
+        # from the last one if rules ran on it (both hold best). The cost cannot see what keeps a
+        # part from folding (labels used elsewhere, bare constants a rule copied, values the rules
+        # cannot compute), so a fold-aware form is kept only if it is shorter once folded.
+        pinned = frozenset(i for i, token in enumerate(tokens) if token in specs) if fold == "keep" else frozenset()
+
+        def fold_cost(egraph: egg.EGraph, expr: egg.BaseExpr, children_costs: list[Any]) -> Any:
+            # (tokens after folding, written-out tokens, not absorbable); an absorbable part has no
+            # variable and no pinned leaf (leaf ids of constants that must not fold) and folds to
+            # one token.
+            fn = egg.get_callable_fn(expr)
+            if fn is None:  # a primitive argument: a name, id or bound
+                return (0, 0, False)
+            kind = cast(Any, fn).__egg_ref__.method_name
+            if kind == "leaf":
+                return (1, 1, bool(pinned) and cast(Any, egg.get_callable_args(expr))[0].value in pinned)
+            if kind == "var":
+                return (1, 1, True)
+            if kind == "c":
+                return children_costs[0]
+            parts = children_costs[1:]  # op, fn, node1, node2: the first argument is the name
+            tokens = 1 + sum(part[1] for part in parts)
+            if not any(part[2] for part in parts):
+                return (1, tokens, False)
+            return (1 + sum(part[0] for part in parts), tokens, True)
+
+        for graph, graph_handle in [g for g in (found, (egraph, handle) if explored else None) if g is not None]:
+            aware, aware_kept = write_out(graph.extract(graph_handle, cost_model=fold_cost))
+            if len(aware) < len(result):
+                result, kept = aware, aware_kept
     if isinstance(expr, Node):
         return result, kept
     return result.to_list(symbol_library=symbol_library), kept

@@ -295,6 +295,17 @@ class TestExpressionSimplifierInit:
         with pytest.raises(error, match=next(iter(kwargs))):
             ExpressionSimplifier(_sl, **kwargs)
 
+    # Reason: clause (Raises: ValueError for a fold that is neither None nor a fold mode, TypeError for
+    # a fold_aware that is neither a bool nor None).
+    @pytest.mark.parametrize(
+        "kwargs, error, match",
+        [({"fold": "all"}, ValueError, "^fold must"), ({"fold_aware": "yes"}, TypeError, "^fold_aware must")],
+        ids=["fold", "fold-aware"],
+    )
+    def test_invalid_fold_arguments_raise(self, kwargs, error, match):
+        with pytest.raises(error, match=match):
+            ExpressionSimplifier(_sl, **kwargs)
+
 
 # ── ExpressionSimplifier.write_results ───────────────────────────────────────
 
@@ -427,6 +438,25 @@ class TestExpressionSimplifierWriteResults:
             "simplified_expr": expected,
         }
 
+    # Reason: clause (fold, fold_aware: "As in simplify"; with folding each entry has "folded": True,
+    # and the format functions say so).
+    def test_write_results_folds(self):
+        se = _rmse_se()
+        se.evaluate_expr(["C", "*", "C", "*", "X_0"])
+        result = se.get_results(top_k=1)[0]
+        ExpressionSimplifier(_sl, scope="top", fold="keep", fold_aware=False).write_results(result)
+        data = result.augmentations["ExpressionSimplifier"]
+        assert (data["simplified_best_expr"], data["folded"]) == ("C*X_0", True)
+        assert result.top_models()[0].augmentations["ExpressionSimplifier"]["folded"] is True
+        assert ExpressionSimplifier.format_eval_result(data) == "Simplified (folded): C*X_0"
+        assert ExpressionSimplifier.format_model_result({"simplified_expr": "C", "folded": True}) == (
+            "Simplified (folded): C"
+        )
+        ExpressionSimplifier(_sl, scope="best", fold="none", name="Plain").write_results(result)
+        assert "folded" not in result.augmentations["Plain"]
+        assert ExpressionSimplifier.format_eval_result({"simplified_best_expr": "C*X_0"}) == "Simplified: C*X_0"
+        assert ExpressionSimplifier.format_model_result({"simplified_expr": "C*X_0"}) == "Simplified: C*X_0"
+
     # Reason: clause ("each with its model's specs"): C_1 fixed at 2 makes C_1-2 zero; without specs
     # C_1 is free and nothing combines.
     @pytest.mark.parametrize(
@@ -487,6 +517,7 @@ class TestExpressionSimplifierSerialization:
         assert d["name"] == "S"
         assert d["rules"] == DefaultRules().to_dict()
         assert (d["max_iterations"], d["max_nodes"], d["max_time"]) == (None, None, None)  # None: simplify's defaults
+        assert (d["fold"], d["fold_aware"]) == (None, None)
 
     def test_from_dict_round_trip(self):
         aug = ExpressionSimplifier(_sl, scope="all", verbose=True, name="myS")
@@ -503,10 +534,13 @@ class TestExpressionSimplifierSerialization:
         lib = SymbolLibrary.default_symbols(2)
         lib.remove_symbol("^2")
         aug = ExpressionSimplifier(
-            lib, scope="top", rules=DefaultRules(exclude=["powers"]), max_iterations=5, max_nodes=500, max_time=0.5
-        )
+            lib, scope="top", rules=DefaultRules(exclude=["powers"]), max_iterations=5, max_nodes=500, max_time=0.5,
+            fold="keep", fold_aware=False,
+        )  # fmt: skip
         d = json.loads(json.dumps(aug.to_dict("", "")))
-        assert (d["max_iterations"], d["max_nodes"], d["max_time"]) == (5, 500, 0.5)
+        assert (d["max_iterations"], d["max_nodes"], d["max_time"], d["fold"], d["fold_aware"]) == (
+            5, 500, 0.5, "keep", False
+        )  # fmt: skip
         restored = ExpressionSimplifier.from_dict(d)
         assert restored.to_dict("", "") == d
         assert "^2" not in restored.symbol_library
@@ -517,10 +551,14 @@ class TestExpressionSimplifierSerialization:
             restored.write_results(result)
         assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "X_0*X_0"
         # the limits reach simplify (max_time cannot be observed from the output)
-        assert {k: spy.call_args.kwargs[k] for k in ("max_iterations", "max_nodes", "max_time")} == {
+        assert {
+            k: spy.call_args.kwargs[k] for k in ("max_iterations", "max_nodes", "max_time", "fold", "fold_aware")
+        } == {
             "max_iterations": 5,
             "max_nodes": 500,
             "max_time": 0.5,
+            "fold": "keep",
+            "fold_aware": False,
         }
 
     # Reason: clause (from_dict: version 1, saved before the rules and limits, gets the defaults).
@@ -539,6 +577,7 @@ class TestExpressionSimplifierSerialization:
         assert restored.to_dict("", "")["symbol_library"] == _sl.to_dict()
         assert restored.rules.to_dict() == DefaultRules().to_dict()
         assert (restored.max_iterations, restored.max_nodes, restored.max_time) == (None, None, None)
+        assert (restored.fold, restored.fold_aware) == (None, None)
 
     def test_from_dict_invalid_format_version_raises(self):
         d = ExpressionSimplifier(_sl).to_dict("", "")

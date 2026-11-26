@@ -108,6 +108,8 @@ class TestRankingSettings:
             "simplify_max_iterations",
             "simplify_max_nodes",
             "simplify_max_time",
+            "simplify_fold_aware",
+            "fold_constants",
         }
         assert RankingSettings.__optional_keys__ == documented
         assert RankingSettings.__required_keys__ == frozenset()

@@ -38,7 +38,7 @@ from SRToolkit.utils.expression_constraints import (
     OutputBounds,
     RequiredVariables,
 )
-from SRToolkit.utils.expression_simplifier import DefaultRules
+from SRToolkit.utils.expression_simplifier import DefaultRules, simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, canonicalise, resolve_constants, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
@@ -2258,14 +2258,18 @@ class TestSimplifySettings:
             ({"simplify_max_time": True}, ValueError),
             ({"simplify_max_time": "1"}, ValueError),
             ({"simplify_max_time": float("nan")}, ValueError),
+            ({"simplify_fold_aware": 1}, TypeError),
+            ({"fold_constants": "all"}, ValueError),
+            ({"fold_constants": ""}, ValueError),
         ],
         ids=[
             "rules-list", "rules-class", "iter-negative", "iter-float", "iter-bool", "nodes-negative",
             "nodes-float", "nodes-bool", "time-zero", "time-negative", "time-bool", "time-string", "time-nan",
+            "fold-aware-int", "fold-unknown", "fold-empty",
         ],
     )  # fmt: skip
     def test_invalid_simplify_settings_raise(self, settings, error):
-        with pytest.raises(error, match=next(iter(settings))):
+        with pytest.raises(error, match=f"^{next(iter(settings))}"):
             _make_se(**settings)
 
     # Reason: clause (evaluate_expr simplify_expr: simplified "with the rules and limits of the
@@ -2324,6 +2328,123 @@ class TestSimplifySettings:
             assert se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)], simplify_expr=True) == math.inf
         assert se.models[0].status == "invalid"
         assert [c.label for c in se.models[0].free_constants] == ["C_9"]
+
+
+class TestFoldConstants:
+    # Reason: clause (RankingSettings fold_constants: every scored expression is folded, after
+    # simplifying with simplify_expr=True; default "none") + get_model finds it with the same
+    # arguments. C*C*X_0 folds to C*X_0 without simplification.
+    @pytest.mark.parametrize("simplify_expr", [False, True])
+    def test_expressions_are_folded(self, simplify_expr):
+        se = _make_se(fold_constants="keep")
+        se.evaluate_expr(["C", "*", "C", "*", "X_0"], simplify_expr=simplify_expr)
+        assert se.models[0].expr == ["C", "*", "X_0"]
+        found = se.get_model(["C", "*", "C", "*", "X_0"], simplify_expr=simplify_expr)
+        assert (found.expr, found.error) == (se.models[0].expr, se.models[0].error)
+
+    # Reason: clause (with simplify_expr=True the expression is simplified, then folded, with the
+    # evaluator's library and without a warning; fold alone would leave the first input as it is).
+    def test_simplified_then_folded_with_library(self):
+        lib = SymbolLibrary.default_symbols(2, const_symbol="K")
+        se = _make_se(fold_constants="keep", symbol_library=lib)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            se.evaluate_expr(["K", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "K"], simplify_expr=True)
+            se.evaluate_expr(["K", "*", "K", "*", "X_1"])
+        assert "".join(se.models[0].expr) in {"K*X_0", "X_0*K"}
+        assert se.models[1].expr == ["K", "*", "X_1"]
+
+    # Reason: clause (module docs: "Specs that do not fit a well-formed expression raise; nothing is
+    # then recorded or counted"), also when only fold_constants would fold the label away. 10 is
+    # outside the default bounds (-5, 5).
+    def test_bad_specs_raise_before_folding(self):
+        se = _make_se(fold_constants="default")
+        with pytest.raises(ValueError):
+            se.evaluate_expr(["C_1", "*", "C", "*", "X_0"], [Constant("C_1", value=10.0)])
+        assert len(se.models) == 0
+
+    # Reason: boundary (a malformed expression is "invalid" also with folding, stored as given).
+    def test_malformed_expression_is_invalid(self):
+        se = _make_se(fold_constants="keep")
+        assert se.evaluate_expr(["C", "*", "*", "X_0"]) == math.inf
+        assert (se.models[0].status, se.models[0].expr) == ("invalid", ["C", "*", "*", "X_0"])
+
+    # Reason: regression (with folding a malformed tree, an unknown symbol, was folded away and scored
+    # as "ok"); it now fails as without folding.
+    def test_unknown_symbol_not_folded_away(self):
+        tree = Node("*", left=Node("C"), right=Node("X_7"))
+        for setting in ("none", "default"):
+            se = _spec_se(fold_constants=setting)
+            with pytest.raises(Exception, match="X_7"):
+                se.evaluate_expr(tree)
+
+    # Reason: clause (RankingSettings: fold_constants and simplify_* are "Read only by the
+    # evaluator", so the ranking does not get them).
+    def test_settings_do_not_reach_ranking(self):
+        class _Recording(_SeedRecordingRanking):
+            def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+                self.settings = settings
+
+        ranking = _Recording()
+        SR_evaluator(
+            _X, _y, ranking_function=ranking, fold_constants="keep", simplify_fold_aware=False,
+            simplify_max_nodes=100, max_iter=5,
+        )  # fmt: skip
+        assert set(ranking.settings) == {"max_iter", "default_constant"}
+
+    # Reason: regression (with fold_constants a lookup with specs that do not fit raised; like the
+    # simplify path, it misses).
+    def test_lookup_with_unfit_specs_misses(self):
+        se = _spec_se(fold_constants="keep")
+        assert se.get_model(["C", "*", "X_0"], [Constant("C_9", value=1.0)]) is None
+
+    # Reason: clause (get_model simplify_expr: "A failed simplification is not warned about").
+    def test_lookup_does_not_warn_when_simplification_fails(self):
+        se = _make_se()
+        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                assert se.get_model(["X_0"], simplify_expr=True) is None
+
+    # Reason: clause (default "none", and None is "none": the expression is stored and scored as given).
+    @pytest.mark.parametrize("setting", [{"fold_constants": "none"}, {"fold_constants": None}], ids=["none", "None"])
+    def test_default_does_not_fold(self, setting):
+        se, plain = _make_se(), _make_se(**setting)
+        se.evaluate_expr(["C", "*", "C", "*", "X_0"])
+        plain.evaluate_expr(["C", "*", "C", "*", "X_0"])
+        assert se.models[0].expr == ["C", "*", "C", "*", "X_0"]
+        assert se.models[0].error == plain.models[0].error
+
+    # Reason: clause (module docs: "folded labels lose their specs"; free_constants None when none
+    # remain) and fold mode "keep" keeps a spec'd label.
+    @pytest.mark.parametrize(
+        "mode, expr, kept", [("default", ["C", "*", "X_0"], None), ("keep", ["C_0", "*", "C", "*", "X_0"], ["C_0"])]
+    )
+    def test_specs_of_folded_labels_are_dropped(self, mode, expr, kept):
+        se = _spec_se(fold_constants=mode)
+        se.evaluate_expr(["C_0", "*", "C", "*", "X_0"], [Constant("C_0", bounds=(0.0, 3.0))])
+        model = se.models[0]
+        lib = se.symbol_library
+        assert tokens_to_tree(model.expr, lib).to_list(lib) == tokens_to_tree(expr, lib).to_list(lib)
+        assert (None if model.free_constants is None else [c.label for c in model.free_constants]) == kept
+
+    # Reason: clause (evaluate_expr: if simplification fails the expression is "evaluated as given
+    # (still folded)").
+    def test_folded_after_failed_simplification(self):
+        se = _make_se(fold_constants="keep")
+        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
+            with pytest.warns(UserWarning, match="Unable to simplify"):
+                se.evaluate_expr(["C", "*", "C", "*", "X_0"], simplify_expr=True)
+        assert se.models[0].expr == ["C", "*", "X_0"]
+
+    # Reason: clause (simplify_fold_aware reaches simplify as fold_aware; fold_constants as fold) +
+    # both settings are part of the fingerprint (through the evaluator's settings).
+    def test_settings_reach_simplify_and_fingerprint(self):
+        se = _make_se(fold_constants="keep", simplify_fold_aware=False)
+        with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
+            se.evaluate_expr(["X_0"], simplify_expr=True)
+        assert (spy.call_args.kwargs["fold"], spy.call_args.kwargs["fold_aware"]) == ("keep", False)
+        assert {"fold_constants", "simplify_fold_aware"} <= set(se._fingerprint())
 
 
 _y3_affine = 2 * _X3[:, 0] + 2  # fitted by C_0*X_0 + C_0 with C_0 = 2

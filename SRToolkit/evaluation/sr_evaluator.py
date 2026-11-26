@@ -76,7 +76,8 @@ Specs are checked right after parsing: a malformed expression is ``"invalid"`` (
 specs) whatever they are. Specs that do not fit a well-formed expression raise; nothing is then
 recorded or counted. With ``simplify_expr=True``, the specs are checked against the expression as
 given, and the specs of labels that simplification removes are dropped; if none remain, the call
-is treated as one without specs. The ranking's
+is treated as one without specs. The same holds for the setting ``fold_constants``: folded labels
+lose their specs. The ranking's
 [score][SRToolkit.evaluation.ranking.RankingFunction.score] receives the specs as
 ``free_constants``.
 
@@ -254,7 +255,7 @@ from SRToolkit.utils.expression_constraints import (
     _set_up_copy,
     _validate_limit,
 )
-from SRToolkit.utils.expression_simplifier import _check_settings, simplify
+from SRToolkit.utils.expression_simplifier import _check_fold_mode, _check_settings, fold, simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, _as_tree, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
@@ -366,7 +367,13 @@ def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstra
 # Defaults of the limit settings, turned into MaxConstants / MaxTokens (negative = none).
 _DEFAULT_LIMITS: dict[str, int] = {"max_constants": 8, "max_expr_length": -1}
 # Settings of simplify_expr=True, each the simplify() argument named without the prefix.
-_SIMPLIFY_SETTINGS = ("simplify_rules", "simplify_max_iterations", "simplify_max_nodes", "simplify_max_time")
+_SIMPLIFY_SETTINGS = (
+    "simplify_rules",
+    "simplify_max_iterations",
+    "simplify_max_nodes",
+    "simplify_max_time",
+    "simplify_fold_aware",
+)
 
 
 def _add_limit_constraints_from_kwargs(
@@ -530,7 +537,8 @@ class SR_evaluator:
                 and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
                 ``ranking_function`` of the wrong type. If the ``simplify_rules`` setting is neither a
                 [SimplificationRules][SRToolkit.utils.expression_simplifier.SimplificationRules]
-                nor ``None``. With a ``checkpoint`` (only then), also if
+                nor ``None``, or ``simplify_fold_aware`` is neither a ``bool`` nor ``None``. With a
+                ``checkpoint`` (only then), also if
                 ``metadata``, a setting, the ranking or a constraint cannot be saved (see
                 [serialization][SRToolkit.utils.serialization]; settings may also hold objects with
                 a ``to_dict`` method). No file is then left behind.
@@ -550,7 +558,8 @@ class SR_evaluator:
                 nor ``ground_truth``). If ``simplify_max_iterations`` or ``simplify_max_nodes`` is
                 not a non-negative ``int`` or numpy integer (``bool`` is rejected), or
                 ``simplify_max_time`` is not ``None`` or a positive number (``bool`` and ``nan`` are
-                rejected).
+                rejected). If ``fold_constants`` is not
+                ``"none"``, ``"default"`` or ``"keep"``.
             ImportError: If an import-path ``ranking_function`` cannot be imported.
             FileExistsError: If a file exists at ``checkpoint`` and ``resume`` is ``False``.
             FileNotFoundError: If ``resume=True`` and no file exists at ``checkpoint``.
@@ -656,10 +665,16 @@ class SR_evaluator:
             kwargs.get("simplify_max_iterations"),
             kwargs.get("simplify_max_nodes"),
             kwargs.get("simplify_max_time"),
+            kwargs.get("simplify_fold_aware"),
             "simplify_",
         )
+        fold_constants = kwargs.get("fold_constants")
+        self._fold_constants = "none" if fold_constants is None else fold_constants
+        _check_fold_mode(self._fold_constants, "fold_constants")
         ranking_settings: dict[str, Any] = {
-            k: v for k, v in kwargs.items() if k not in _DEFAULT_LIMITS and k not in _SIMPLIFY_SETTINGS
+            k: v
+            for k, v in kwargs.items()
+            if k not in _DEFAULT_LIMITS and k not in _SIMPLIFY_SETTINGS and k != "fold_constants"
         }
         ranking_settings["default_constant"] = self.default_constant  # completed by the background knowledge
         self.ranking: RankingFunction = build_ranking(ranking_function)
@@ -1085,8 +1100,10 @@ class SR_evaluator:
     ) -> tuple[list[str] | Node, list[str], tuple[Constant, ...] | None]:
         # The form evaluate_expr scores and stores a model under: (expr, its tokens, its specs sorted
         # by label or None). Simplified if asked (as given if that fails, with a warning if warn),
-        # then canonicalised if asked and there are no specs. Shared with get_model and get_metric
-        # so their lookups match.
+        # folded with the fold_constants setting, then canonicalised if asked and there are no
+        # specs. Shared with get_model and get_metric so their lookups match.
+        mode = self._fold_constants
+        folded = False
         if simplify_expr:
             # The simplify_* settings given (not None), as simplify's arguments.
             settings: dict[str, Any] = {
@@ -1095,11 +1112,19 @@ class SR_evaluator:
                 if k in _SIMPLIFY_SETTINGS and v is not None
             }
             try:
-                expr, free_constants = simplify(expr, self.symbol_library, free_constants, **settings)
+                expr, free_constants = simplify(expr, self.symbol_library, free_constants, fold=mode, **settings)
+                folded = True
             except Exception as e:
                 if warn:
                     expr_str = "".join(_as_tokens(expr, self.symbol_library))
                     warnings.warn(f"Unable to simplify: {expr_str}, problems with subexpression {e}")
+        if mode != "none" and not folded:
+            try:
+                expr, free_constants = fold(expr, self.symbol_library, free_constants, mode)
+            except ValueError:
+                # Malformed (ExpressionParseError): scored as given, as "invalid". Specs that do not
+                # fit: evaluate_expr has raised already, so this is a lookup, which then misses.
+                pass
         specs = tuple(sorted(free_constants, key=lambda c: c.label or "")) if free_constants else None
         tokens = _as_tokens(expr, self.symbol_library)
         if canonicalise_constants and specs is None:
@@ -1130,7 +1155,8 @@ class SR_evaluator:
             free_constants: The specs it was evaluated with, in any order; ``None`` or empty for none.
             simplify_expr: As in
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]; pass
-                the value ``expr`` was evaluated with. Default ``False``.
+                the value ``expr`` was evaluated with. A failed simplification is not warned about.
+                Default ``False``.
             canonicalise_constants: As in
                 [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]; pass
                 the value ``expr`` was evaluated with. Default ``False``.
@@ -1319,16 +1345,17 @@ class SR_evaluator:
             simplify_expr: If ``True``, simplify the expression first with
                 [simplify][SRToolkit.utils.expression_simplifier.simplify], with the rules and
                 limits of the settings ``simplify_rules``, ``simplify_max_iterations``,
-                ``simplify_max_nodes`` and ``simplify_max_time`` (see
+                ``simplify_max_nodes``, ``simplify_max_time`` and ``simplify_fold_aware`` (see
                 [RankingSettings][SRToolkit.utils.types.RankingSettings]);
                 the simplified expression is then checked, scored, cached and stored as
                 ``ModelResult.expr``, so inputs that simplify alike share one cache entry. Only the
                 specs of labels it still contains are kept; with none left,
                 ``ModelResult.free_constants`` is ``None`` as for a call without specs. If
                 simplification fails, a warning is emitted and the expression is evaluated as
-                given. Default ``False``.
+                given (still folded). With the setting ``fold_constants``, the expression is folded
+                after simplifying (or, without ``simplify_expr``, as given). Default ``False``.
             canonicalise_constants: If ``True``, [canonicalise][SRToolkit.utils.free_constants.canonicalise]
-                the expression (after simplifying); the canonical form replaces it for the rest of
+                the expression (after simplifying and folding); the canonical form replaces it for the rest of
                 the call, so ``C_1*X_0 + C_1`` after ``C_0*X_0 + C_0`` is a cache hit. For approaches
                 that write labelled constants; pass the same value to ``get_model`` and ``get_metric``.
                 Ignored with ``free_constants``: labels with specs are kept as written. Default
@@ -1359,8 +1386,8 @@ class SR_evaluator:
             warnings.warn(f"Evaluation has already stopped ({self.stop_reason}); the call is not evaluated or counted.")
             return np.nan
         else:
-            if simplify_expr and free_constants:
-                # Specs that do not fit raise here, not as a failed simplification (see _evaluate_new).
+            if (simplify_expr or self._fold_constants != "none") and free_constants:
+                # Specs that do not fit raise here, not as a failed simplification or fold (see _evaluate_new).
                 try:
                     tree = _as_tree(expr, self.symbol_library)
                 except ExpressionParseError:
@@ -1657,8 +1684,8 @@ class SR_evaluator:
                 has the fitted constants bound in. Default ``"r2"``.
             free_constants: The specs ``expr`` was evaluated with, as in ``evaluate_expr``;
                 ``None`` or empty for none.
-            simplify_expr: As in ``evaluate_expr``; pass the value ``expr`` was evaluated with.
-                Default ``False``.
+            simplify_expr: As in ``evaluate_expr``; pass the value ``expr`` was evaluated with. A
+                failed simplification is not warned about. Default ``False``.
             canonicalise_constants: As in ``evaluate_expr``; pass the value ``expr`` was evaluated
                 with. Default ``False``.
 

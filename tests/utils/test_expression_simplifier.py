@@ -16,6 +16,7 @@ from SRToolkit.utils.expression_simplifier import (
     DefaultRules,
     EggExpr,
     SimplificationRules,
+    fold,
     no_const,
     simplify,
 )
@@ -490,3 +491,224 @@ class TestCopiedConstants:
         out = simplify(_t(expr), _SL)[0]
         assert sorted(t for t in out if t.startswith("C_")) == labels
         assert len(parameter_labels(out, _SL)) == n_params
+
+
+def _f(expr, **kwargs):
+    """Folded expression (default library) joined into one string."""
+    return "".join(fold(_t(expr), _SL, **kwargs)[0])
+
+
+class TestFold:
+    # Reason: clause (fold: each largest part with an operator or function at its top, no variable
+    # and a free constant becomes the bare constant; numbers and "lit" symbols in it fold with it).
+    @pytest.mark.parametrize(
+        "expr, expected",
+        [
+            ("C * C * X_0", "C*X_0"),
+            ("sin ( C + 2 ) * X_0", "C*X_0"),
+            ("C_1 / C_2 + X_0", "C+X_0"),
+            ("pi * C", "C"),
+            ("C * X_0 + C * C", "C*X_0+C"),
+        ],
+        ids=["product", "function-with-number", "labels", "lit", "two-parts"],
+    )
+    def test_folds_constant_parts(self, expr, expected):
+        assert _f(expr) == expected
+
+    # Reason: clause (not folded: parts with a variable, single tokens, parts without a free
+    # constant); boundary: the token list comes back as given, without added brackets.
+    @pytest.mark.parametrize(
+        "expr",
+        ["C * X_0", "sin ( X_0 ) + C", "C_1", "2 * pi", "( C * X_0 ) + X_1"],
+        ids=["with-variable", "variable-in-function", "single-label", "no-free-constant", "brackets-kept"],
+    )
+    def test_leaves_other_parts(self, expr):
+        assert fold(_t(expr), _SL)[0] == _t(expr)
+
+    # Reason: clause ("no label that also occurs outside it"): a label shared with another part
+    # blocks folding; a label only inside the part folds with it.
+    @pytest.mark.parametrize(
+        "expr, expected",
+        [("sin ( C_1 ) * X_0 + cos ( C_1 ) * X_1", "sin(C_1)*X_0+cos(C_1)*X_1"), ("C_1 * C_1 * X_0", "C*X_0")],
+        ids=["shared", "only-inside"],
+    )
+    def test_shared_labels(self, expr, expected):
+        assert _f(expr) == expected
+
+    # Reason: clause (fold mode "keep": labelled constants with a spec, fixed or not, never fold and
+    # keep their specs; others still fold. "default": every free constant may fold, a fixed spec
+    # like a number, the specs of folded labels are dropped).
+    @pytest.mark.parametrize(
+        "spec", [Constant("C_1", bounds=(0.0, 1.0)), Constant("C_1", value=9.81, fixed=True)], ids=["free", "fixed"]
+    )
+    def test_modes_with_specs(self, spec):
+        expr = _t("C_1 * C * X_0 + C_2 * C * X_1")
+        out, specs = fold(expr, _SL, [spec], mode="keep")
+        assert _tree(out) == "(C_1*C)*X_0+C*X_1"
+        assert specs == (spec,)
+        out, specs = fold(expr, _SL, [spec], mode="default")
+        assert "".join(out) == "C*X_0+C*X_1"
+        assert specs == ()
+
+    # Reason: clause ("none": nothing is folded; Returns: specs None for None).
+    def test_none_folds_nothing(self):
+        spec = Constant("C_1", value=1.0)
+        assert fold(_t("C_1 * C * X_0"), _SL, [spec], mode="none") == (_t("C_1 * C * X_0"), (spec,))
+        assert fold(_t("C * C"), _SL, mode="none") == (_t("C * C"), None)
+
+    # Reason: clause (Raises ValueError: unknown mode; spec without label, duplicate or not in expr).
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"mode": "all"},
+            {"mode": None},
+            {"free_constants": [Constant(value=1.0)]},
+            {"free_constants": [Constant("C_1", value=1.0), Constant("C_1", value=2.0)]},
+            {"free_constants": [Constant("C_9", value=1.0)]},
+        ],
+        ids=["mode", "mode-none-value", "no-label", "duplicate", "not-in-expr"],
+    )
+    def test_invalid_arguments_raise(self, kwargs):
+        match = r"^mode must be one of \['none', 'default', 'keep'\]" if "mode" in kwargs else "label"
+        with pytest.raises(ValueError, match=match):
+            fold(_t("C_1 * C"), _SL, **kwargs)
+
+    # Reason: clause (symbol_library: the constants of the given library; None uses the active or
+    # default library). With the constant K, K*K folds and the spec'd K_1 is kept.
+    def test_symbol_library(self):
+        lib = SymbolLibrary.default_symbols(2, const_symbol="K")
+        spec = Constant("K_1", bounds=(0.0, 1.0))
+        assert fold(_t("K_1 * X_0 + K * K"), lib, [spec]) == (_t("K_1 * X_0 + K"), (spec,))
+        assert fold(["C", "*", "C"]) == (["C"], None)
+
+    # Reason: regression (a fixed label used elsewhere blocked folding, but it is not a parameter, so
+    # folding splits nothing); its spec stays while the label occurs.
+    def test_shared_fixed_label_folds(self):
+        g = Constant("C_1", value=2.0, fixed=True)
+        out = fold(_t("C_1 * C * X_0 + C_1 * X_1"), _SL, [g], mode="default")
+        assert out == (_t("C * X_0 + C_1 * X_1"), (g,))
+
+    # Reason: clause (fold mode "default": a fixed spec folds like a number, so a part needs a free
+    # constant to fold).
+    def test_fixed_constant_alone_does_not_fold(self):
+        g = Constant("C_1", value=9.81, fixed=True)
+        assert fold(_t("C_1 * 2 + X_0"), _SL, [g], mode="default") == (_t("C_1 * 2 + X_0"), (g,))
+
+    # Reason: clause (Raises ExpressionParseError: a symbol neither in the library nor a number);
+    # regression: an unknown symbol in a tree was folded away like a number.
+    @pytest.mark.parametrize(
+        "tree",
+        [Node("*", left=Node("C"), right=Node("X_7")), Node("foo", left=Node("C"))],
+        ids=["unknown-variable", "unknown-function"],
+    )
+    def test_unknown_symbol_raises(self, tree):
+        with pytest.raises(ExpressionParseError, match="Unknown symbol"):
+            fold(tree, SymbolLibrary.default_symbols(1))
+
+    # Reason: clause (Returns: "in the form of expr"); implied (the input is not mutated).
+    def test_form_of_input(self):
+        tree = tokens_to_tree(_t("C * C * X_0"), _SL)
+        before = tree.to_list(_SL)
+        out = fold(tree, _SL)[0]
+        assert isinstance(out, Node)
+        assert out.to_list(_SL) == ["C", "*", "X_0"]
+        assert tree.to_list(_SL) == before
+
+    # Reason: implied (folding never adds parameters, and the result is a valid expression).
+    @settings(max_examples=50, deadline=None)
+    @given(labelled_infix_expressions())
+    def test_parameter_count_never_grows(self, expr):
+        out = fold(expr, _SL)[0]
+        assert len(parameter_labels(out, _SL)) <= len(parameter_labels(expr, _SL))
+        tokens_to_tree(out, _SL)
+
+
+class TestSimplifyFold:
+    # Reason: clause (simplify fold: the result is folded after the algebra; the algebra gathers
+    # the constants first). The second case is what the SymPy simplifier gave.
+    @pytest.mark.parametrize(
+        "expr, expected",
+        [("C * X_0 + X_1 * X_0 / X_1 * C", {"C*X_0", "X_0*C"}), ("C + C * C + X_0 * X_1 / X_0", {"C+X_1", "X_1+C"})],
+        ids=["gathered", "sympy-case"],
+    )
+    @pytest.mark.parametrize("aware", [True, False])
+    def test_simplify_folds(self, expr, expected, aware):
+        assert _s(expr, fold="keep", fold_aware=aware) in expected
+
+    # Reason: clause (fold_aware: "choose the result by its length after folding"; False chooses by
+    # token count and then folds). From notes/egraphs-main/data/40k.pkl: only reordering folds C.
+    def test_fold_aware_finds_shorter(self):
+        assert _s("( C / sin ( X_0 ) ) * C", fold="keep") == "C/sin(X_0)"
+        assert _tree(simplify(_t("( C / sin ( X_0 ) ) * C"), _SL, fold="keep", fold_aware=False)[0]) == (
+            "(C/sin(X_0))*C"
+        )
+
+    # Reason: clause (fold_aware "Ignored with fold='none'"): on this expression the two extractions
+    # differ, so a fold-aware extraction without folding would show.
+    def test_fold_aware_ignored_without_fold(self):
+        expr = _t("( C / sin ( X_0 ) ) * C")
+        assert simplify(expr, _SL) == simplify(expr, _SL, fold_aware=False)
+
+    # Reason: clause (simplify folds with the given library).
+    def test_folds_with_library(self):
+        lib = SymbolLibrary.default_symbols(2, const_symbol="K")
+        assert "".join(simplify(_t("K * K * X_0"), lib, fold="keep")[0]) in {"K*X_0", "X_0*K"}
+
+    # Reason: clause (simplify fold="default": specs of folded labels are dropped).
+    def test_default_mode_drops_specs(self):
+        out, specs = simplify(_t("C_1 * C * X_0"), _SL, [Constant("C_1", bounds=(0.0, 1.0))], fold="default")
+        assert "".join(out) in {"C*X_0", "X_0*C"}
+        assert specs == ()
+
+    # Reason: clause (fold_aware "never longer than with False, often shorter"; module docs: the
+    # output is never longer than the input). Token counts by hand; the last three are regressions
+    # (labels the cost cannot see made the fold-aware form longer than the input).
+    @pytest.mark.parametrize(
+        "expr, mode, spec, length",
+        [
+            ("( sin ( C ) / ( C / ( ( C_1 * 1 ) - X_0 ) ) )", "default", False, 5),
+            ("C + ( ( ( 2 - C_1 ) + sin ( 1 ) ) + ( C + ( C - C ) ) )", "keep", True, 3),
+            ("exp ( ( X_1 - C_1 ) - exp ( cos ( 2 ) ) )", "default", True, 4),
+            ("exp ( sin ( 2 ) - C_1 / C ) * 1", "keep", True, 7),
+            ("exp ( X_1 - 2 ) / ( C_1 * X_0 - C_1 ) + C", "default", False, 12),
+            ("( 2 - ( X_1 * C - ( X_1 + C ) ) ) / ( C + cos ( 2 ) * C )", "keep", False, 11),
+            ("cos ( exp ( C * 2 ) ) / ( ( ( C_1 - C ) / C ) - 1 )", "keep", True, 9),
+        ],
+        ids=["gathers", "keeps-spec", "drops-spec", "tie", "shared-label", "copied-constant", "spec-and-copies"],
+    )
+    def test_fold_aware_length(self, expr, mode, spec, length):
+        specs = [Constant("C_1", bounds=(0.0, 1.0))] if spec else None
+        aware = simplify(_t(expr), _SL, specs, fold=mode)[0]
+        plain = simplify(_t(expr), _SL, specs, fold=mode, fold_aware=False)[0]
+        assert _cost(aware) == length
+        assert _cost(aware) <= min(_cost(plain), _cost(_t(expr)))
+
+    # Reason: regression (the fold-aware search ran only on the last e-graph, which after a cheaper
+    # step holds only that form, so one more step could give a longer result).
+    def test_more_steps_never_longer(self):
+        expr = _t("C / ( C * X_0 ) + X_1 * X_0 / X_1")
+        lengths = [_cost(simplify(expr, _SL, fold="keep", max_iterations=i)[0]) for i in range(1, 8)]
+        assert lengths == sorted(lengths, reverse=True)
+        assert lengths[-1] == 5  # C/X_0+X_0
+
+    # Reason: regression (on a tie the fold-aware form was kept, adding a label C_0 for nothing).
+    def test_tie_keeps_token_count_form(self):
+        expr = _t("C * ( X_0 + X_1 ) + C * X_0")
+        assert simplify(expr, _SL, fold="keep") == simplify(expr, _SL, fold="keep", fold_aware=False)
+
+    # Reason: clause (fold_aware "Ignored with fold='none'"; fold="none" keeps the hypothesis).
+    def test_no_fold_by_default(self):
+        expr = "C * X_0 + X_1 * X_0 / X_1 * C"
+        assert _s(expr) == _s(expr, fold_aware=False) == "(C+C)*X_0"
+
+    # Reason: clause ("keep": a spec'd label does not fold and keeps its spec, through simplify).
+    def test_simplify_keeps_spec(self):
+        spec = Constant("C_1", bounds=(0.0, 1.0))
+        out, specs = simplify(_t("C_1 * C * C * X_0"), _SL, [spec], fold="keep")
+        assert "C_1" in out and len(parameter_labels(out, _SL)) == 2
+        assert specs == (spec,)
+
+    # Reason: clause (Raises ValueError: fold unknown).
+    def test_unknown_fold_raises(self):
+        with pytest.raises(ValueError, match="^fold must"):
+            simplify(["X_0"], _SL, fold="yes")

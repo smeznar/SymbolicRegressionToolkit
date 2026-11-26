@@ -12,7 +12,7 @@ required methods.
 import copy
 import warnings
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 
@@ -24,6 +24,7 @@ from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
 from SRToolkit.utils.expression_simplifier import (
     DefaultRules,
     SimplificationRules,
+    _check_fold_mode,
     _check_settings,
 )
 from SRToolkit.utils.expression_tree import _constant_indices
@@ -188,6 +189,8 @@ class ExpressionSimplifier(ResultAugmenter):
         max_iterations: int | None = None,
         max_nodes: int | None = None,
         max_time: float | None = None,
+        fold: Literal["none", "default", "keep"] | None = None,
+        fold_aware: bool | None = None,
     ) -> None:
         """Simplified expressions of the best, top or all models of a result.
 
@@ -215,25 +218,34 @@ class ExpressionSimplifier(ResultAugmenter):
                 non-negative ``int``, or ``None`` for its default.
             max_time: As in [simplify][SRToolkit.utils.expression_simplifier.simplify]; a positive
                 number or ``None``.
+            fold: As in [simplify][SRToolkit.utils.expression_simplifier.simplify], or ``None`` for
+                its default (no folding).
+            fold_aware: As in [simplify][SRToolkit.utils.expression_simplifier.simplify], or
+                ``None`` for its default.
 
         Raises:
             TypeError: If ``rules`` is neither a
                 [SimplificationRules][SRToolkit.utils.expression_simplifier.SimplificationRules] nor
-                ``None``.
+                ``None``, or ``fold_aware`` is neither a ``bool`` nor ``None``.
             ValueError: If ``scope`` is not ``"best"``, ``"top"`` or ``"all"``; if
                 ``max_iterations`` or ``max_nodes`` is not a non-negative ``int`` or numpy integer
                 (``bool`` is rejected); if ``max_time`` is not ``None`` or a positive number
-                (``bool`` and ``nan`` are rejected).
+                (``bool`` and ``nan`` are rejected); if ``fold`` is neither ``None`` nor
+                ``"none"``, ``"default"`` or ``"keep"``.
         """
         super().__init__(name)
         if scope not in ["best", "top", "all"]:
             raise ValueError(f"[ExpressionSimplifier] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
-        _check_settings(rules, max_iterations, max_nodes, max_time)
+        _check_settings(rules, max_iterations, max_nodes, max_time, fold_aware)
+        if fold is not None:
+            _check_fold_mode(fold, "fold")
         self.symbol_library = symbol_library
         self.rules = DefaultRules() if rules is None else rules
         self.max_iterations = max_iterations
         self.max_nodes = max_nodes
         self.max_time = max_time
+        self.fold = fold
+        self.fold_aware = fold_aware
         self.scope = scope
 
         self.verbose = verbose
@@ -244,7 +256,9 @@ class ExpressionSimplifier(ResultAugmenter):
         Stores ``{"simplified_best_expr": ...}`` in the
         [EvalResult][SRToolkit.utils.types.EvalResult] ``augmentations``, and
         ``{"simplified_expr": ...}`` in each model's when ``scope`` is ``"top"`` or ``"all"``. A
-        value is the simplified tokens joined into one string (e.g. ``"(C+C)*X_0"``). If
+        value is the simplified tokens joined into one string (e.g. ``"(C+C)*X_0"``). With folding
+        (``fold`` other than ``None`` or ``"none"``), each entry also has ``"folded": True``: the
+        simplified expression is then a different hypothesis. If
         simplifying an expression fails, its entry has no such key (with a warning if
         ``verbose``). A result without models gets an entry without ``"simplified_best_expr"``.
 
@@ -268,16 +282,23 @@ class ExpressionSimplifier(ResultAugmenter):
         for model, key in [(best, "simplified_best_expr"), *((m, "simplified_expr") for m in scoped)]:
             data: dict[str, Any] = {}
             try:
-                limits = {"max_iterations": self.max_iterations, "max_nodes": self.max_nodes}
+                options: dict[str, Any] = {
+                    "max_iterations": self.max_iterations,
+                    "max_nodes": self.max_nodes,
+                    "fold": self.fold,
+                    "fold_aware": self.fold_aware,
+                }
                 simplified, _ = simplify(
                     model.expr,
                     self.symbol_library,
                     model.free_constants,
                     self.rules,
                     max_time=self.max_time,
-                    **{k: v for k, v in limits.items() if v is not None},
+                    **{k: v for k, v in options.items() if v is not None},
                 )
                 data[key] = "".join(cast(list[str], simplified))  # model.expr is a token list
+                if self.fold not in (None, "none"):
+                    data["folded"] = True
             except Exception as e:
                 if self.verbose:
                     warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
@@ -294,7 +315,8 @@ class ExpressionSimplifier(ResultAugmenter):
             A human-readable string, or empty string if no data is present.
         """
         simplified = data.get("simplified_best_expr", "")
-        return f"Simplified: {simplified}" if simplified else ""
+        label = "Simplified (folded)" if data.get("folded") else "Simplified"
+        return f"{label}: {simplified}" if simplified else ""
 
     @classmethod
     def format_model_result(cls, data: dict[str, Any]) -> str:
@@ -307,7 +329,8 @@ class ExpressionSimplifier(ResultAugmenter):
             A human-readable string, or empty string if no data is present.
         """
         simplified = data.get("simplified_expr", "")
-        return f"Simplified: {simplified}" if simplified else ""
+        label = "Simplified (folded)" if data.get("folded") else "Simplified"
+        return f"{label}: {simplified}" if simplified else ""
 
     def to_dict(self, base_path: str, name: str) -> dict:
         """Serialize the augmenter to a JSON-compatible dictionary.
@@ -318,7 +341,8 @@ class ExpressionSimplifier(ResultAugmenter):
 
         Returns:
             Format 2: ``format_version``, ``type``, ``name``, ``symbol_library``, ``scope``,
-            ``verbose``, ``rules``, ``max_iterations``, ``max_nodes`` and ``max_time``.
+            ``verbose``, ``rules``, ``max_iterations``, ``max_nodes``, ``max_time``, ``fold`` and
+            ``fold_aware``.
         """
         return {
             "format_version": 2,
@@ -331,6 +355,8 @@ class ExpressionSimplifier(ResultAugmenter):
             "max_iterations": self.max_iterations,
             "max_nodes": self.max_nodes,
             "max_time": self.max_time,
+            "fold": self.fold,
+            "fold_aware": self.fold_aware,
         }
 
     @staticmethod
@@ -340,7 +366,8 @@ class ExpressionSimplifier(ResultAugmenter):
         Args:
             data: A dictionary of format 1 or 2 (``format_version``; a dictionary without it is
                 read as format 1). Format 1 (before the rules and limits were saved) gets the
-                default rules and limits.
+                default rules and limits; a dictionary without ``fold`` or ``fold_aware`` gets
+                ``None`` for them.
 
         Returns:
             The augmenter.
@@ -364,6 +391,8 @@ class ExpressionSimplifier(ResultAugmenter):
             max_iterations=data.get("max_iterations"),
             max_nodes=data.get("max_nodes"),
             max_time=data.get("max_time"),
+            fold=data.get("fold"),
+            fold_aware=data.get("fold_aware"),
         )
 
 

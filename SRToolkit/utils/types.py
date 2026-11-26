@@ -193,6 +193,14 @@ class RankingSettings(TypedDict, total=False):
             ``evaluate_expr(simplify_expr=True)``: seconds, a positive number (not ``bool``), or
             ``None`` for no time limit. With a time limit the simplified expression, and so what is scored, can
             depend on the machine. Read only by the evaluator. Default: ``None``.
+        simplify_fold_aware: ``fold_aware`` of
+            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
+            ``evaluate_expr(simplify_expr=True)`` with folding: ``False`` is faster and folds less.
+            Read only by the evaluator. Default: ``simplify``'s (``True``).
+        fold_constants: ``mode`` of [fold][SRToolkit.utils.expression_simplifier.fold] (``"none"``,
+            ``"default"`` or ``"keep"``) for every expression the evaluator scores, after simplifying if
+            ``simplify_expr=True``; the folded form is scored and stored, and is a different hypothesis.
+            ``None`` is ``"none"``. Read only by the evaluator. Default: ``"none"``.
 
     Examples:
         >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
@@ -219,6 +227,8 @@ class RankingSettings(TypedDict, total=False):
     simplify_max_iterations: int
     simplify_max_nodes: int
     simplify_max_time: float | None
+    simplify_fold_aware: bool
+    fold_constants: Literal["none", "default", "keep"]
 
 
 def _add_augmentation(augmentations: dict[str, dict[str, Any]], name: str, data: dict[str, Any], aug_type: str) -> None:
