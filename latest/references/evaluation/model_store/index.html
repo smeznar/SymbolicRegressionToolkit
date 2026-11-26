@@ -3002,12 +3002,12 @@ Collecting the results copies every model into RAM, unless only a summary is col
 (<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;summary&lt;/span&gt;" href="#SRToolkit.evaluation.model_store.ModelStore.summary">summary</a>, used by
 <code>get_results(keep_all_models=False)</code>).</p>
 <p>A model is saved as the JSON of <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.ModelResult.to_dict">ModelResult.to_dict</a>,
-with its error, status and length (number of tokens) in columns of their own, so a cache hit and
-a summary never parse the record of every model. Models
+with its error, status and length (number of tokens) in columns of their own, so a lookup and a
+summary never parse the record of every model (a cache hit parses only the record it returns). Models
 come back as new objects (numpy scalars in <code>ranking_data</code> as Python scalars), so changing one
 saves nothing.</p>
 <p>Only <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;evaluate_expr&lt;/span&gt;" href="../sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr">evaluate_expr</a> writes to the
-store. Do not change the database or the file yourself: a cache hit returns the stored error and
+store. Do not change the database or the file yourself: a cache hit returns the stored model and
 the trace refers to models by position, so a changed or removed row makes later results wrong.</p>
 <h4 id="SRToolkit.evaluation.model_store--checkpoint-file">Checkpoint file</h4>
 <p>The file layout is internal; read a checkpoint with <code>mode="read"</code> or
