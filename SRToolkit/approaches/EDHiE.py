@@ -79,7 +79,7 @@ class EDHiEConfig(ApproachConfig):
     population_size: int = 40
     weights_path: str | None = None
     verbose: bool = True
-    max_consecutive_skips: int = 10000
+    max_training_skips: int = 10000
     skip_evaluated: bool = True
     skip_rejected: bool = True
     training_seed: int | None = None
@@ -98,7 +98,7 @@ class EDHiE(SR_approach):
         population_size: int = 40,
         weights_path: str | None = None,
         verbose: bool = True,
-        max_consecutive_skips: int = 10000,
+        max_training_skips: int = 10000,
         skip_evaluated: bool = True,
         skip_rejected: bool = True,
         training_seed: int | None = None,
@@ -135,10 +135,12 @@ class EDHiE(SR_approach):
                 is loaded from it here and used for every task.
             verbose: If ``True``, prints the training loss and sample reconstructions while training
                 the HVAE. The search prints nothing.
-            max_consecutive_skips: After this many skipped samples in a row, sampling the training
-                expressions gives up (see
-                [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]) and the
-                search stops (see [ask][SRToolkit.approaches.EDHiE.EDHiE.ask]).
+            max_training_skips: Limit for sampling the training expressions (see
+                [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]): this
+                many samples in a row that break a required constraint raise ``ValueError``, and
+                this many repeats in a row allow repeats. It does not limit the search; the
+                evaluator's setting ``max_consecutive_skips`` does (see
+                [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
             skip_evaluated: In the search, do not evaluate an expression again: look up its model,
                 without using the budget. ``False`` evaluates repeats too, as cache hits that use
                 the budget.
@@ -150,7 +152,7 @@ class EDHiE(SR_approach):
                 afterwards. ``None`` (default): unseeded.
 
         Raises:
-            ValueError: If ``max_consecutive_skips`` is below 1.
+            ValueError: If ``max_training_skips`` is below 1.
 
         Examples:
             >>> model = EDHiE(latent_size=24, num_expressions=100, epochs=1, verbose=False)
@@ -172,14 +174,14 @@ class EDHiE(SR_approach):
                 population_size=population_size,
                 weights_path=weights_path,
                 verbose=verbose,
-                max_consecutive_skips=max_consecutive_skips,
+                max_training_skips=max_training_skips,
                 skip_evaluated=skip_evaluated,
                 skip_rejected=skip_rejected,
                 training_seed=training_seed,
             )
         )
-        if max_consecutive_skips < 1:
-            raise ValueError(f"[EDHiE] max_consecutive_skips must be at least 1, got {max_consecutive_skips}.")
+        if max_training_skips < 1:
+            raise ValueError(f"[EDHiE] max_training_skips must be at least 1, got {max_training_skips}.")
         check_dependencies(["pytorch", "pymoo"])
         self.latent_size = latent_size
         self.num_expressions = num_expressions
@@ -190,16 +192,14 @@ class EDHiE(SR_approach):
         self.max_beta = max_beta
         self.population_size = population_size
         self.verbose = verbose
-        self.max_consecutive_skips = max_consecutive_skips
+        self.max_training_skips = max_training_skips
         self.skip_evaluated = skip_evaluated
         self.skip_rejected = skip_rejected
         self.training_seed = training_seed
 
         self.model: HVAE | None = None
-        # Search state, set up by start: the GA, individuals in a row not evaluated, and between
-        # ask and tell the asked generation.
+        # Search state, set up by start: the GA, and between ask and tell the asked generation.
         self._ga: GA | None = None
-        self._skipped = 0
         self._pending: Population | None = None
         self._pretrained = weights_path is not None
         if weights_path is not None:
@@ -287,7 +287,7 @@ class EDHiE(SR_approach):
         Labelled constants (``C_0``) are made bare (``C``), since EDHiE does not generate shared
         constants. Keeps only expressions of at most ``max_expression_length`` tokens that pass the
         pre-checks of all ``required_constraints``. With ``only_unique_expressions`` they are distinct until
-        ``max_consecutive_skips`` valid samples in a row are repeats; the rest is then filled with
+        ``max_training_skips`` valid samples in a row are repeats; the rest is then filled with
         further valid samples, repeats included, with a warning.
 
         Args:
@@ -298,7 +298,7 @@ class EDHiE(SR_approach):
             ``num_expressions`` expressions as token lists.
 
         Raises:
-            ValueError: If ``max_consecutive_skips`` samples in a row break a required constraint.
+            ValueError: If ``max_training_skips`` samples in a row break a required constraint.
         """
         grammar = background_knowledge.sampling_grammar()
         symbol_library = background_knowledge.symbol_library
@@ -322,7 +322,7 @@ class EDHiE(SR_approach):
                 expr = [constant if (s := symbol_library.get(t)) is not None and s.type == "const" else t for t in expr]
                 if any(r.implemented and not r.passed for r in (c.pre_check(expr) for c in required_constraints)):
                     rejected += 1
-                    if rejected >= self.max_consecutive_skips:
+                    if rejected >= self.max_training_skips:
                         raise ValueError(
                             f"[EDHiE] {rejected} sampled expressions in a row broke a required constraint; "
                             "the grammar cannot produce valid training expressions."
@@ -332,7 +332,7 @@ class EDHiE(SR_approach):
                 key = "".join(expr)
                 if not allow_repeats and key in seen:
                     repeats += 1
-                    if repeats >= self.max_consecutive_skips:
+                    if repeats >= self.max_training_skips:
                         allow_repeats = True
                         warnings.warn(
                             f"[EDHiE] Only {len(expressions)} distinct valid training expressions found; "
@@ -416,7 +416,6 @@ class EDHiE(SR_approach):
             torch.manual_seed(seed)
             random.seed(seed)
         self._ga = self._new_ga(seed)
-        self._skipped = 0
         self._pending = None
 
     def ask(self, sr_evaluator: SR_evaluator) -> list[Candidate | list[str] | Node | None]:
@@ -426,40 +425,33 @@ class EDHiE(SR_approach):
         this order, is proposed as
 
         1. ``None`` if it does not decode;
-        2. a lookup (``Candidate(..., evaluate=False)``) if ``skip_evaluated`` is set and its
+        2. a skip with the reason ``"evaluated"`` (see
+           [Candidate][SRToolkit.approaches.sr_approach.Candidate]) if ``skip_evaluated`` is set and its
            expression was evaluated before
            ([get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]) or proposed
-           earlier in the same generation;
-        3. a lookup if ``skip_rejected`` is set and it breaks a required constraint
+           for evaluation earlier in the same generation;
+        3. a skip with the reason ``"rejected"`` if ``skip_rejected`` is set and it breaks a
+           required constraint
            ([check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints]);
-           it was never evaluated, so ``tell`` gets ``None`` for it;
+           ``tell`` gets ``None`` for it (it is never evaluated);
         4. its expression, to be evaluated, otherwise.
 
-        Cases 1-3 count as skipped, case 4 resets the count; the count runs across generations.
-        When it reaches ``max_consecutive_skips``, the list ends with that individual, and the next
-        call [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] the run with a reason
-        starting with ``"EDHiE"`` and returns an empty list.
+        The step loop counts cases 1-3 as skips (``None`` as ``"not_expression"``) when it reaches
+        them, so the evaluator's setting ``max_consecutive_skips`` stops a run that skips too many
+        individuals in a row (see
+        [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
 
         Args:
             sr_evaluator: The evaluator of the run.
 
         Returns:
-            One entry per individual, up to the one that reached ``max_consecutive_skips``; an
-            empty list once the count has reached it.
+            One entry per individual.
 
         Raises:
             RuntimeError: If neither ``start`` nor ``set_search_state`` has been called.
         """
         if self._ga is None or self.model is None:
             raise RuntimeError("EDHiE.start() must be called before ask().")
-        # Checked here, not in tell: the count is in the search state, so a run resumed after an
-        # interrupt in the step that reached the limit stops here too.
-        if self._skipped >= self.max_consecutive_skips:
-            sr_evaluator.stop(
-                f"EDHiE: {self._skipped} individuals in a row were already evaluated, broke a required "
-                "constraint or did not decode"
-            )
-            return []
         self._pending = self._ga.ask()
         X = self._pending.get("X")
         device = next(self.model.parameters()).device
@@ -469,20 +461,15 @@ class EDHiE(SR_approach):
         for tree in trees:
             if tree is None:  # Shouldn't happen but just to be safe
                 candidates.append(None)
-                self._skipped += 1
+                continue
+            key = tuple(tree.to_list(sr_evaluator.symbol_library))
+            if self.skip_evaluated and (key in evaluated or sr_evaluator.get_model(tree) is not None):
+                candidates.append(Candidate(tree, skip="evaluated"))
+            elif self.skip_rejected and sr_evaluator.check_constraints(tree)[0]:
+                candidates.append(Candidate(tree, skip="rejected"))
             else:
-                key = tuple(tree.to_list(sr_evaluator.symbol_library))
-                if (self.skip_evaluated and (key in evaluated or sr_evaluator.get_model(tree) is not None)) or (
-                    self.skip_rejected and sr_evaluator.check_constraints(tree)[0]
-                ):
-                    candidates.append(Candidate(tree, evaluate=False))
-                    self._skipped += 1
-                else:
-                    candidates.append(tree)
-                    evaluated.add(key)
-                    self._skipped = 0
-            if self._skipped >= self.max_consecutive_skips:
-                break
+                candidates.append(tree)
+                evaluated.add(key)
         return candidates
 
     def tell(
@@ -494,13 +481,13 @@ class EDHiE(SR_approach):
         """Score the generation from ``ask`` and select the next population.
 
         See [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]. Individual *i* gets the error
-        of ``results[i]``; it gets ``inf`` if that is ``None`` or its error is ``nan``, and if it has
-        no result (the list from ``ask`` was cut at ``max_consecutive_skips``, or the run stopped in
-        the middle of the step).
+        of ``results[i]``; it gets ``inf`` if that is ``None`` or its error is ``nan``, or if it has
+        no result (the run stopped in the middle of the step).
 
         Args:
             sr_evaluator: The evaluator of the run.
-            candidates: The evaluated candidates.
+            candidates: The entries of the list from ``ask`` that the step loop reached, skips and
+                ``None`` entries included.
             results: Their models.
         """
         assert self._ga is not None and self._pending is not None  # set by ask
@@ -518,9 +505,8 @@ class EDHiE(SR_approach):
         See [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state].
 
         Returns:
-            The genetic algorithm (population, generation, its own random generator), the number of
-            individuals skipped in a row and a digest of the HVAE, pickled. The HVAE itself is not
-            included.
+            The genetic algorithm (population, generation, its own random generator) and a digest of
+            the HVAE, pickled. The HVAE itself is not included.
 
         Raises:
             RuntimeError: If neither ``start`` nor ``set_search_state`` has been called.
@@ -530,14 +516,13 @@ class EDHiE(SR_approach):
         # The GA itself does not pickle (tournament selection holds a local function); mating is
         # configuration only and the problem holds the HVAE, so both are rebuilt on restore.
         ga = {k: v for k, v in vars(self._ga).items() if k not in ("mating", "problem")}
-        return pickle.dumps({"ga": ga, "skipped": self._skipped, "model": _digest(self.model)})
+        return pickle.dumps({"ga": ga, "model": _digest(self.model)})
 
     def set_search_state(self, state: bytes) -> None:
         """Restore a state returned by ``get_search_state``.
 
         See [set_search_state][SRToolkit.approaches.sr_approach.SR_approach.set_search_state]. On
-        resume it takes the place of ``start``: it rebuilds the genetic algorithm and restores the
-        skip count.
+        resume it takes the place of ``start``: it rebuilds the genetic algorithm.
 
         Args:
             state: The saved state.
@@ -556,7 +541,6 @@ class EDHiE(SR_approach):
             )
         self._ga = self._new_ga(None)
         vars(self._ga).update(saved["ga"])
-        self._skipped = saved["skipped"]
         self._pending = None
 
     def _new_ga(self, seed: int | None) -> GA:
@@ -575,6 +559,14 @@ class EDHiE(SR_approach):
 
     @classmethod
     def from_config(cls, config: dict) -> "EDHiE":
+        """Rebuild the approach from a config dict.
+
+        Missing keys take the constructor defaults and unknown keys are ignored.
+        ``max_training_skips`` falls back to the old key ``max_consecutive_skips``.
+
+        Returns:
+            The approach.
+        """
         return cls(
             latent_size=config.get("latent_size", 32),
             num_expressions=config.get("num_expressions", 20000),
@@ -586,7 +578,7 @@ class EDHiE(SR_approach):
             population_size=config.get("population_size", 40),
             weights_path=config.get("weights_path", None),
             verbose=config.get("verbose", True),
-            max_consecutive_skips=config.get("max_consecutive_skips", 10000),
+            max_training_skips=config.get("max_training_skips", config.get("max_consecutive_skips", 10000)),
             skip_evaluated=config.get("skip_evaluated", True),
             skip_rejected=config.get("skip_rejected", True),
             training_seed=config.get("training_seed", None),

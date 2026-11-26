@@ -2540,8 +2540,8 @@ class TestFoldConstants:
             with pytest.raises(Exception, match="X_7"):
                 se.evaluate_expr(tree)
 
-    # Reason: clause (RankingSettings: fold_constants and simplify_* are "Read only by the
-    # evaluator", so the ranking does not get them).
+    # Reason: clause (RankingSettings: fold_constants, simplify_* and max_consecutive_skips are "Read
+    # only by the evaluator", so the ranking does not get them).
     def test_settings_do_not_reach_ranking(self):
         class _Recording(_SeedRecordingRanking):
             def setup(self, X, y, ground_truth, symbol_library, seed, settings):
@@ -2550,7 +2550,7 @@ class TestFoldConstants:
         ranking = _Recording()
         SR_evaluator(
             _X, _y, ranking_function=ranking, fold_constants="keep", simplify_fold_aware=False,
-            simplify_max_nodes=100, max_iter=5,
+            simplify_max_nodes=100, max_consecutive_skips=5, max_iter=5,
         )  # fmt: skip
         assert set(ranking.settings) == {"max_iter", "default_constant"}
 
@@ -2923,8 +2923,10 @@ class TestCheckpoints:
         se = _ckpt_se(path)
         now[0] = 105.0
         se.save_snapshot(b"state")
-        se.close()  # as after a crash: not stopped, no results taken
+        now[0] = 107.0
+        # As after a crash: read before close, which would save the wall time itself.
         assert SR_results.from_checkpoint(path)[0].wall_time == 5.0
+        se.close()
 
     def test_resume_restores_best_error(self, tmp_path):
         path = tmp_path / "run.sqlite"
@@ -3102,23 +3104,35 @@ class TestCheckpoints:
         _ckpt_se(**kwargs).close()  # accepted without a checkpoint
 
     def test_unsaveable_callback_state_raises_at_snapshot(self, tmp_path):
-        se = _ckpt_se(tmp_path / "run.sqlite")
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
         se.register_callbacks(_StateLog(state={"f": object()}))
         se.evaluate_expr(["X_0"])
+        se.count_skip("rejected")
         with pytest.raises(TypeError):
             se.save_snapshot(b"state")
+        se.close()
+        # Regression (code review): the snapshot's skip counts were saved although the snapshot was not.
+        store = ModelStore(path, "read")
+        assert (store.snapshot, store.get_header("snapshot_skips")) == (None, None)
 
-    def test_close_leaves_a_complete_checkpoint(self, tmp_path):
+    def test_close_leaves_a_complete_checkpoint(self, tmp_path, monkeypatch):
+        now = [0.0]
+        monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])  # the evaluator's clock too
         path = tmp_path / "run.sqlite"
         se = _ckpt_se(path)
         _evaluate(se, _CALLS[:3])
+        now[0] = 5.0
         expected = se.get_results()[0].to_dict()
+        now[0] = 6.0
         se.close()
         assert sorted(p.name for p in tmp_path.iterdir()) == ["run.sqlite"]
         # as get_results gave, but the run never stopped, so it reads as unfinished
         loaded = SR_results.from_checkpoint(path)[0].to_dict()
         assert loaded.pop("checkpoint")["path"] == str(path)
         assert expected.pop("checkpoint") is None
+        # close saves the wall time until then: the run never stopped, so it is still running
+        assert (loaded.pop("wall_time"), expected.pop("wall_time")) == (6.0, 5.0)
         assert loaded == {**expected, "stop_reason": "interrupted"}
         assert se.close() is None
 
@@ -3378,8 +3392,9 @@ class TestLimits:
             ({"max_evaluations": 10}, "max_evaluations. Change limits with SR_dataset.extend_run"),
             ({"max_evaluations": 10, "success_threshold": 0.5}, "max_evaluations, success_threshold. Change"),
             ({"seed": 1}, r"seed\.$"),
+            ({"max_consecutive_skips": 5}, r"max_consecutive_skips\.$"),  # a setting, not a limit
         ],
-        ids=["budget", "both-limits", "seed"],
+        ids=["budget", "both-limits", "seed", "skip-limit"],
     )
     def test_resume_with_changed_limits_points_to_extend_run(self, tmp_path, changes, match):
         path = tmp_path / "run.sqlite"
@@ -3419,3 +3434,129 @@ class TestLimits:
             se.evaluate_expr(["X_0"])
         assert ["callbacks differ" in str(w.message) for w in caught] == warned
         assert se.limits[0]["callbacks"] == [TimeLimitCallback(60).to_dict()]
+
+
+# --------------------------------------------------------------------------- #
+# Skips reported by the approach (count_skip)
+# --------------------------------------------------------------------------- #
+class TestSkips:
+    def test_count_skip_counts_by_reason_into_the_results(self):
+        se = _ckpt_se()
+        for reason in ["rejected", "evaluated", "rejected", "custom"]:
+            se.count_skip(reason)
+        assert se.get_results()[0].skips == {"rejected": 2, "evaluated": 1, "custom": 1}
+
+    @pytest.mark.parametrize("reason", ["", None, 3], ids=["empty", "none", "int"])
+    def test_count_skip_rejects_a_bad_reason(self, reason):
+        se = _ckpt_se()
+        with pytest.raises(ValueError, match="reason"):
+            se.count_skip(reason)
+        assert se.skips == {}
+
+    # Reason: clause (a resume continues from the counts of its snapshot, or from zero without one; a
+    # finished run keeps its counts).
+    @pytest.mark.parametrize(
+        "snapshot, finished, expected",
+        [(True, False, {"rejected": 1}), (False, False, {}), (True, True, {"rejected": 2})],
+        ids=["snapshot", "no-snapshot", "finished"],
+    )
+    def test_resume_restores_the_skips(self, tmp_path, snapshot, finished, expected):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        se.evaluate_expr(["X_0"])
+        se.count_skip("rejected")
+        if snapshot:
+            se.save_snapshot(b"state")
+            assert SR_results.from_checkpoint(path)[0].skips == {"rejected": 1}  # saved with the snapshot
+        se.count_skip("rejected")  # after the snapshot: a resume redoes it
+        se.stop("done" if finished else "interrupted")
+        se.close()
+        resumed = _ckpt_se(path, resume=True)
+        assert resumed.skips == expected
+        assert SR_results.from_checkpoint(path)[0].skips == expected  # the file agrees before any new commit
+        assert resumed.get_results()[0].skips == expected
+
+    # Reason: clause (count_skip: max_consecutive_skips skips in a row stop the run; every counted
+    # evaluate_expr call, a cache hit too, resets the count; lookups do not).
+    def test_skip_limit_stops_after_that_many_in_a_row(self):
+        se = _ckpt_se(max_consecutive_skips=3)
+        for _ in range(2):
+            se.count_skip("a")
+        se.evaluate_expr(["X_0"])  # new model
+        for _ in range(2):
+            se.count_skip("a")
+        se.evaluate_expr(["X_0"])  # cache hit
+        se.count_skip("a")
+        se.get_model(["X_0"])  # lookups do not reset the count
+        se.check_constraints(["X_0"])
+        se.count_skip("a")
+        assert not se.should_stop
+        se.count_skip("a")
+        assert se.stop_reason == "max_consecutive_skips"
+
+    # Reason: boundary (default 10000; negative means no limit).
+    @pytest.mark.parametrize(
+        "kwargs, stops", [({}, True), ({"max_consecutive_skips": -1}, False)], ids=["default", "none"]
+    )
+    def test_skip_limit_default_and_no_limit(self, kwargs, stops):
+        se = _ckpt_se(**kwargs)
+        for _ in range(9999):
+            se.count_skip("a")
+        assert not se.should_stop
+        se.count_skip("a")
+        assert se.should_stop is stops
+
+    @pytest.mark.parametrize("value", [0, True, 2.5], ids=["zero", "bool", "float"])
+    def test_skip_limit_setting_is_checked(self, value):
+        with pytest.raises(ValueError, match="max_consecutive_skips"):
+            _ckpt_se(max_consecutive_skips=value)
+
+    # Reason: boundary (1 is the smallest allowed limit; numpy integers are accepted).
+    @pytest.mark.parametrize("value", [1, np.int64(1)], ids=["int", "numpy"])
+    def test_skip_limit_of_one_stops_at_the_first_skip(self, value):
+        se = _ckpt_se(max_consecutive_skips=value)
+        se.count_skip("a")
+        assert se.stop_reason == "max_consecutive_skips"
+
+    # Reason: clause (a resume continues from the skips in a row of its snapshot; one that already
+    # meets the limit stops at once, as with the other limits).
+    @pytest.mark.parametrize(
+        "in_a_row, at_resume, after_one_more",
+        [(2, None, "max_consecutive_skips"), (3, "max_consecutive_skips", "max_consecutive_skips")],
+        ids=["below", "at-limit"],
+    )
+    def test_resume_restores_the_skips_in_a_row(self, tmp_path, in_a_row, at_resume, after_one_more):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path, max_consecutive_skips=3)
+        se.evaluate_expr(["X_0"])
+        for _ in range(in_a_row):
+            se.count_skip("a")
+        se.save_snapshot(b"state")
+        se.close()
+        store = ModelStore(path, "resume")
+        store.set_header("stop_reason", None)  # as extend_run does for a finished run
+        store.close()
+        resumed = _ckpt_se(path, resume=True, max_consecutive_skips=3)
+        assert resumed.stop_reason == at_resume
+        resumed.count_skip("a")  # below: the 3rd in a row, so the count was restored, not reset
+        assert resumed.stop_reason == after_one_more
+
+    # Reason: implied (checkpoints saved before skips were recorded have neither header; the format
+    # version did not change, so they still resume, with no counts).
+    @pytest.mark.parametrize("finished", [True, False], ids=["finished", "snapshot"])
+    def test_checkpoint_without_skips_resumes_with_none(self, tmp_path, finished):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        se.evaluate_expr(["X_0"])
+        se.count_skip("rejected")
+        se.save_snapshot(b"state")
+        se.stop("done" if finished else "interrupted")
+        se.close()
+        store = ModelStore(path, "resume")
+        store.set_header("skips", None)
+        store.set_header("snapshot_skips", None)
+        store.close()
+        resumed = _ckpt_se(path, resume=True)
+        assert resumed.skips == {}
+        resumed.count_skip("evaluated")
+        assert resumed.skips == {"evaluated": 1}

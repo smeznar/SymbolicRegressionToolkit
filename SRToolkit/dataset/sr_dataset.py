@@ -743,7 +743,8 @@ class SR_dataset:
         and Ctrl-C stops the run cleanly.
 
         The checkpoint must come from this dataset: the same settings apart from the limits. The
-        approach is not checked, so pass the run's approach. If an extension is interrupted, call
+        setting ``max_consecutive_skips`` is not a limit and cannot change, so a run stopped by it
+        stops again at once. The approach is not checked, so pass the run's approach. If an extension is interrupted, call
         ``extend_run`` again with ``None`` limits to continue it. When the run ends, the checkpoint
         is compacted into one file, which the result refers to.
 

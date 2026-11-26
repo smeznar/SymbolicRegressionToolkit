@@ -7,6 +7,7 @@ add post-hoc information to results. Concrete augmenters are in
 [result_augmentation][SRToolkit.evaluation.result_augmentation].
 """
 
+import copy
 import json
 import os
 import uuid
@@ -169,11 +170,13 @@ class SR_results:
         stop_reason: str | None = None,
         summary: RunSummary | None = None,
         limits: list[dict[str, Any]] | None = None,
+        skips: dict[str, int] | None = None,
     ) -> None:
-        """Adds the results of an evaluation to the results object.
+        """Add one run's results as a new [EvalResult][SRToolkit.utils.types.EvalResult].
 
-        Copies ``models`` and ``trace`` into lists; with a ``summary``, stores ``models`` as given
-        and an empty trace. Without a ``summary``, warns
+        Stores ``models`` and ``trace`` as new lists and copies of ``limits`` and ``skips``, so later
+        changes to the arguments do not affect the results; with a ``summary``, the trace is stored
+        empty. Without a ``summary``, warns
         (``UserWarning``) if there are more than 1,000,000 models, which may not fit in memory or
         in a results file that can be loaded again; ``keep_all_models=False`` of
         [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] avoids this.
@@ -197,6 +200,8 @@ class SR_results:
                 ``trace`` are complete.
             limits: The run's limit segments, stored as
                 [EvalResult.limits][SRToolkit.utils.types.EvalResult]; ``None`` means ``[]``.
+            skips: How many expressions the approach skipped, by reason, stored as
+                [EvalResult.skips][SRToolkit.utils.types.EvalResult]; ``None`` means ``{}``.
         """
         dataset_name = None
         remaining_metadata = None
@@ -227,7 +232,8 @@ class SR_results:
             default_constant=default_constant,
             stop_reason=stop_reason,
             summary=summary,
-            limits=[] if limits is None else limits,
+            limits=[] if limits is None else copy.deepcopy(limits),
+            skips={} if skips is None else dict(skips),
         )
 
         self.results.append(results_obj)
@@ -636,11 +642,11 @@ class SR_results:
     def from_checkpoint(
         path: str | os.PathLike, approach_name: str = "", top_k: int = 20, keep_all_models: bool = True
     ) -> "SR_results":
-        """Build results from a checkpoint file, as
-        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] would for
-        everything in it.
+        """Build results from a checkpoint file.
 
-        The file is opened read-only, so this also works while the run goes on (on what was
+        The results are those
+        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] would give for
+        everything in the file. It is opened read-only, so this also works while the run goes on (on what was
         committed) and after a crash. Needs no data; add test-data metrics afterwards (see
         [result_augmentation][SRToolkit.evaluation.result_augmentation]).
 
@@ -658,8 +664,8 @@ class SR_results:
             ``success_threshold``, ``default_constant`` and ``metadata`` saved by the last session
             and the run's ``limits``.
             ``stop_reason`` is ``"interrupted"`` if none was saved (the run crashed or is still
-            going); ``wall_time`` is the one saved with the last commit, or ``None``;
-            ``checkpoint`` refers to the file at ``path`` (its absolute path).
+            going); ``wall_time`` and ``skips`` are those saved with the last commit (``None`` and
+            ``{}`` if none was saved); ``checkpoint`` refers to the file at ``path`` (its absolute path).
 
         Raises:
             FileNotFoundError: If no file exists at ``path``.
@@ -704,6 +710,7 @@ class SR_results:
                     store.get_header("stop_reason", "interrupted"),
                     summary,
                     _from_json_safe(store.get_header("limits", [])),
+                    store.get_header("skips", {}),
                 )
                 results.results[-1].wall_time = store.get_header("wall_time")
                 results.results[-1].checkpoint = _checkpoint_reference(store, path)

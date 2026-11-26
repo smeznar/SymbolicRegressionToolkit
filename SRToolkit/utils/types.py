@@ -201,6 +201,11 @@ class RankingSettings(TypedDict, total=False):
             ``"default"`` or ``"keep"``) for every expression the evaluator scores, after simplifying if
             ``simplify_expr=True``; the folded form is scored and stored, and is a different hypothesis.
             ``None`` is ``"none"``. Read only by the evaluator. Default: ``"none"``.
+        max_consecutive_skips: Evaluation stops with the reason ``"max_consecutive_skips"`` after
+            this many skips in a row (see
+            [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]); negative for no
+            limit (then an approach that only skips never stops), ``0`` is rejected. Read only by the
+            evaluator. Default: ``10000``.
 
     Examples:
         >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
@@ -229,6 +234,7 @@ class RankingSettings(TypedDict, total=False):
     simplify_max_time: float | None
     simplify_fold_aware: bool
     fold_constants: Literal["none", "default", "keep"]
+    max_consecutive_skips: int
 
 
 def _add_augmentation(augmentations: dict[str, dict[str, Any]], name: str, data: dict[str, Any], aug_type: str) -> None:
@@ -587,6 +593,12 @@ class EvalResult:
             the first, or after a crash). Check [extended][SRToolkit.utils.types.EvalResult.extended]
             beside ``stop_reason`` before comparing runs. ``[]`` if not recorded (results saved
             before it was, or built by hand).
+        skips: How many expressions the approach skipped without evaluating them, by reason (see
+            [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]), e.g.
+            ``{"evaluated": 12, "rejected": 3}``. Evaluated calls are not counted: calls that repeat
+            an evaluated model (cache hits) number ``evaluation_calls - num_evaluated``, rejected
+            calls ``status_counts(per="call")["rejected"]``. ``{}`` if the approach reported none,
+            or if not recorded (results saved before it was, or built by hand).
 
     Examples:
         >>> models = [ModelResult(expr=["X_0"], error=0.5), ModelResult(expr=["C", "*", "X_0"], error=0.05)]
@@ -614,6 +626,7 @@ class EvalResult:
     summary: RunSummary | None = None
     checkpoint: dict[str, Any] | None = None
     limits: list[dict[str, Any]] = field(default_factory=list)
+    skips: dict[str, int] = field(default_factory=dict)
     _ranking_cache: list[int] | None = field(default=None, init=False, repr=False, compare=False)
 
     def _ranking(self) -> list[int]:
@@ -969,7 +982,7 @@ class EvalResult:
             models, which ``json`` writes as the non-standard token ``NaN``.
 
         Raises:
-            TypeError: If ``metadata``, ``augmentations`` or ``limits`` contain a value that cannot be saved,
+            TypeError: If ``metadata``, ``augmentations``, ``limits`` or ``skips`` contain a value that cannot be saved,
                 or a model's ``to_dict`` raises (see
                 [ModelResult.to_dict][SRToolkit.utils.types.ModelResult.to_dict]). The
                 message gives its full path, e.g. ``all_models[3].ranking_data['z']``.
@@ -1023,6 +1036,7 @@ class EvalResult:
             "summary": summary,
             "checkpoint": _to_json_safe(self.checkpoint, "checkpoint"),
             "limits": _to_json_safe(self.limits, "limits"),
+            "skips": _to_json_safe(self.skips, "skips"),
         }
 
     @classmethod
@@ -1036,7 +1050,7 @@ class EvalResult:
                 (written before specs were recorded; ``default_constant`` and each model's
                 ``free_constants`` load as ``None`` too). A missing ``stop_reason``, or a missing
                 field of a saved ``summary`` that has a default, loads as ``None``; missing
-                ``limits`` load as ``[]``. Unknown keys are
+                ``limits`` and ``skips`` load as ``[]`` and ``{}``. Unknown keys are
                 ignored; other malformed input has undefined behaviour.
 
         Returns:
@@ -1092,4 +1106,5 @@ class EvalResult:
             summary=summary,
             checkpoint=_from_json_safe(data.get("checkpoint")),
             limits=_from_json_safe(data.get("limits", [])),
+            skips=_from_json_safe(data.get("skips", {})),
         )

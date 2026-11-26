@@ -194,16 +194,23 @@ class TestSRResultsAddResults:
         result = results[0]
         assert (result.all_models, result.trace, result.summary) == (top, [], summary)
         assert (result.num_evaluated, result.evaluation_calls) == (50, 80)
+        assert (result.limits, result.skips) == ([], {})  # None means [] and {}
 
-    # Reason: clause ("Copies models and trace into lists").
-    def test_add_results_copies_models_and_trace(self):
+    # Reason: clause (models and trace stored as new lists, copies of limits and skips).
+    def test_add_results_copies_its_arguments(self):
         models = [ModelResult(["X_0"], 0.5), ModelResult(["X_1"], 0.7)]
         trace = [0, 1, 0]
+        limits = [{"calls": 0, "max_evaluations": 5}]
+        skips = {"rejected": 1}
         results = SR_results()
-        results.add_results(tuple(models), tuple(trace), 2, None, "A")
+        results.add_results(tuple(models), tuple(trace), 2, None, "A", limits=limits, skips=skips)
         models.append(ModelResult(["C"], 0.1))
         trace.append(2)
+        limits[0]["calls"] = 3
+        limits.append({"calls": 3})
+        skips["rejected"] = 5
         assert (results[0].all_models, results[0].trace) == (models[:2], [0, 1, 0])
+        assert (results[0].limits, results[0].skips) == ([{"calls": 0, "max_evaluations": 5}], {"rejected": 1})
 
     # Reason: clause (warns above 1,000,000 models without a summary; the limit patched to 2).
     @pytest.mark.parametrize(
@@ -664,6 +671,7 @@ def _run(checkpoint, budget, calls):
         metadata={"dataset_name": "d", "k": 1},
         initialization="mean",
     )
+    se.count_skip("evaluated")  # saved with each commit, like the models
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)  # the call after the budget is used up
         for expr in calls:
@@ -678,6 +686,7 @@ class TestFromCheckpoint:
             (3, lambda se: (se.get_results(), se.close()), "max_evaluations"),
             (3, lambda se: None, "max_evaluations"),  # writer still open; the stop committed
             (-1, lambda se: se.get_results(), "interrupted"),  # results taken during the run do not finish it
+            # Regression (dev-check): close committed without saving skips and wall_time.
             (-1, lambda se: se.close(), "interrupted"),  # no reason saved
         ],
         ids=["stopped-closed", "stopped-open", "results-mid-run", "unstopped-closed"],
@@ -692,15 +701,25 @@ class TestFromCheckpoint:
         assert saved == {**twin, "stop_reason": stop_reason, "checkpoint": saved["checkpoint"]}
         assert saved["checkpoint"]["path"] == str(path)
 
+    # Reason: boundary (nothing committed after the evaluator was created: skips {} and wall_time None).
+    def test_from_checkpoint_before_any_commit(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        _run(path, -1, [])  # counts one skip, not committed
+        result = SR_results.from_checkpoint(path)[0]
+        assert (result.skips, result.wall_time, result.trace) == ({}, None, [])
+
     def test_from_checkpoint_sees_committed_calls_without_blocking_writer(self, tmp_path):
         path = tmp_path / "run.sqlite"
         se = _run(path, -1, _CALLS[:3])
         se.get_results()  # commits
         se.evaluate_expr(["X_1"])
         se.evaluate_expr(["X_0"])  # both pending
-        assert SR_results.from_checkpoint(path)[0].trace == [0, 1, 0]
+        se.count_skip("x")
+        committed = SR_results.from_checkpoint(path)[0]
+        assert (committed.trace, committed.skips) == ([0, 1, 0], {"evaluated": 1})
         se.get_results()  # the writer still commits
-        assert SR_results.from_checkpoint(path)[0].trace == [0, 1, 0, 2, 0]
+        committed = SR_results.from_checkpoint(path)[0]
+        assert (committed.trace, committed.skips) == ([0, 1, 0, 2, 0], {"evaluated": 1, "x": 1})
 
     @pytest.mark.parametrize(
         "make_file, kwargs, error, match",

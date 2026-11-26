@@ -424,16 +424,22 @@ _GROUPS: dict[str, tuple[str, tuple[tuple[tuple[str, ...], Any], ...]]] = {
                 ("/", "exp", "-"),
                 egg.birewrite(_op("/", _fn("exp", _a), _fn("exp", _b))).to(_fn("exp", _op("-", _a, _b))),
             ),
+            # One way only: the left side is defined only for non-negative (or positive) arguments,
+            # where both sides are equal; the other way would rewrite sqrt(a*b) or ln(a*b) of two
+            # negative values (e.g. sqrt(X_0*X_0) -> sqrt(X_0)^2 -> X_0).
+            # TODO: look at these four rules again later (one-way since the sqrt(X_0*X_0) -> X_0 fix;
+            # check whether they still find the simplifications they were meant for, and whether other
+            # rules have the same domain problem).
             (
                 ("*", "sqrt"),
-                egg.birewrite(_op("*", _fn("sqrt", _a), _fn("sqrt", _b))).to(_fn("sqrt", _op("*", _a, _b))),
+                egg.rewrite(_op("*", _fn("sqrt", _a), _fn("sqrt", _b))).to(_fn("sqrt", _op("*", _a, _b))),
             ),
             (
                 ("/", "sqrt"),
-                egg.birewrite(_op("/", _fn("sqrt", _a), _fn("sqrt", _b))).to(_fn("sqrt", _op("/", _a, _b))),
+                egg.rewrite(_op("/", _fn("sqrt", _a), _fn("sqrt", _b))).to(_fn("sqrt", _op("/", _a, _b))),
             ),
-            (("ln", "*", "+"), egg.birewrite(_fn("ln", _op("*", _a, _b))).to(_op("+", _fn("ln", _a), _fn("ln", _b)))),
-            (("ln", "/", "-"), egg.birewrite(_fn("ln", _op("/", _a, _b))).to(_op("-", _fn("ln", _a), _fn("ln", _b)))),
+            (("ln", "*", "+"), egg.rewrite(_op("+", _fn("ln", _a), _fn("ln", _b))).to(_fn("ln", _op("*", _a, _b)))),
+            (("ln", "/", "-"), egg.rewrite(_op("-", _fn("ln", _a), _fn("ln", _b))).to(_fn("ln", _op("/", _a, _b)))),
         ),
     ),
 }
@@ -457,8 +463,9 @@ class DefaultRules(SimplificationRules):
       ``a - c*a -> (1 - c)*a``, for ``a`` without constants.
     - ``"commutativity"``, ``"associativity"`` (with mixed ``+``/``-`` and ``*``/``/``),
       ``"distributivity"``, ``"powers"`` (``^2`` and ``^3`` of products and quotients,
-      ``a*a = a^2``, ``a^2*a = a^3``), ``"exp_ln_sqrt"`` (``exp``, ``sqrt`` of sums and products,
-      ``ln`` of products and quotients).
+      ``a*a = a^2``, ``a^2*a = a^3``), ``"exp_ln_sqrt"`` (``exp`` of sums and differences, and
+      ``sqrt(a)*sqrt(b) -> sqrt(a*b)``, ``ln(a) + ln(b) -> ln(a*b)`` and their ``/`` and ``-``
+      forms in that direction only, where they hold wherever the left side is defined).
 
     A rule is used only if every operator and function it relies on is in the symbol library with
     the type and ``python_str`` of the predefined symbol (so a custom ``ln`` with another meaning

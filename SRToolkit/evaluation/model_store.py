@@ -370,22 +370,30 @@ class ModelStore:
         """
         return self._snapshot_dirty and time.monotonic() - self._last_snapshot >= interval
 
-    def save_snapshot(self, state: bytes, rngs: bytes, callbacks: list[dict]) -> None:
-        """Record a snapshot at the current number of calls and models, replacing the previous one,
-        and commit.
+    def save_snapshot(
+        self, state: bytes, rngs: bytes, callbacks: list[dict], headers: dict[str, Any] | None = None
+    ) -> None:
+        """Record a snapshot at the current number of calls and models, and commit.
+
+        The snapshot replaces the previous one.
 
         Args:
             state: The approach's state.
             rngs: The pickled global random states.
             callbacks: The callbacks' states; must be accepted by ``json.dumps``.
+            headers: Header values (key to value), written in the same commit as the snapshot: both
+                are saved or neither. ``None``: no header values.
 
         Raises:
-            TypeError: If ``callbacks`` cannot be saved as JSON. Nothing is then recorded.
+            TypeError: If ``callbacks`` or a header value cannot be saved as JSON. Nothing is then
+                recorded.
             sqlite3.Error: If the commit fails (see
                 [commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
         self._check_writable()
         saved_callbacks = json.dumps(callbacks)
+        saved_headers = [(key, json.dumps(value)) for key, value in (headers or {}).items()]
+        self._con.executemany("INSERT OR REPLACE INTO header VALUES (?, ?)", saved_headers)
         self._con.execute(
             "INSERT OR REPLACE INTO snapshot VALUES (0, ?, ?, ?, ?, ?)",
             (self._num_calls, self._num_models, state, rngs, saved_callbacks),

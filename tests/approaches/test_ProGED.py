@@ -102,10 +102,16 @@ def test_search_skips_repeats_and_rejected_then_stops():
     grammar = Grammar(Rule.from_line("E -> E '+' 'X_0' [0.3] | 'X_0' [0.7]"), start="E")
     lib = _lib()
     se = SR_evaluator(
-        _X, _X[:, 0], symbol_library=lib, max_evaluations=10, success_threshold=-1, required_constraints=[MaxTokens(3)]
+        _X,
+        _X[:, 0],
+        symbol_library=lib,
+        max_evaluations=10,
+        success_threshold=-1,
+        required_constraints=[MaxTokens(3)],
+        max_consecutive_skips=50,
     )
-    ProGED(grammar, max_consecutive_skips=50).search(se, seed=0)
-    assert se.stop_reason.startswith("ProGED")
+    ProGED(grammar).search(se, seed=0)
+    assert se.stop_reason == "max_consecutive_skips"
     assert se.total_evaluations == 2
     assert sorted("".join(m.expr) for m in se.models) == ["X_0", "X_0+X_0"]
     assert all(m.status != "rejected" for m in se.models)
@@ -125,9 +131,11 @@ def test_search_canonicalise_constants(canonicalise, exprs):
     grammar = Grammar(
         Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_1' '*' 'X_0' '+' 'C_1' [0.5]"), start="E"
     )
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
-    ProGED(grammar, max_consecutive_skips=20, canonicalise_constants=canonicalise).search(se, seed=0)
-    assert se.stop_reason.startswith("ProGED")
+    se = SR_evaluator(
+        _X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, max_consecutive_skips=20
+    )
+    ProGED(grammar, canonicalise_constants=canonicalise).search(se, seed=0)
+    assert se.stop_reason == "max_consecutive_skips"
     assert sorted(m.expr for m in se.models) == exprs
 
 
@@ -161,35 +169,65 @@ def test_search_skip_flags_are_independent(skip_evaluated, skip_rejected):
     assert se.total_evaluations == 5
     assert (len(se.models) == 5) is skip_evaluated  # no repeats exactly when they are skipped
     assert any(m.status == "rejected" for m in se.models) is not skip_rejected
+    assert set(se.skips) == {r for r, on in [("evaluated", skip_evaluated), ("rejected", skip_rejected)] if on}
 
 
 def test_config_round_trip_keeps_skip_settings():
-    approach = ProGED(max_consecutive_skips=7, skip_evaluated=False, skip_rejected=False, canonicalise_constants=True)
+    approach = ProGED(skip_evaluated=False, skip_rejected=False, canonicalise_constants=True)
     rebuilt = ProGED.from_config(approach.config.to_dict())
     c = rebuilt.config
-    assert (c.max_consecutive_skips, c.skip_evaluated, c.skip_rejected, c.canonicalise_constants) == (
-        7,
-        False,
-        False,
-        True,
-    )
+    assert (c.skip_evaluated, c.skip_rejected, c.canonicalise_constants) == (False, False, True)
     r = rebuilt
-    assert (r.max_consecutive_skips, r.skip_evaluated, r.skip_rejected, r.canonicalise_constants) == (
-        7,
-        False,
-        False,
-        True,
-    )
+    assert (r.skip_evaluated, r.skip_rejected, r.canonicalise_constants) == (False, False, True)
 
 
-def test_search_stops_after_exactly_max_consecutive_skips():
+# Reason: clause (stops after exactly max_consecutive_skips skips, each counted once: as "evaluated" if both
+# conditions hold, each with its flag set, otherwise as "rejected"). The grammar only gives X_0; in the
+# rejecting cases the user evaluated it (as rejected) before the search.
+@pytest.mark.parametrize(
+    "rejects, skip_evaluated, expected",
+    [
+        (False, True, {"evaluated": 3}),
+        (True, True, {"evaluated": 3}),
+        (True, False, {"rejected": 3}),
+    ],
+    ids=["repeats", "evaluated-and-rejected", "rejected-skip-evaluated-off"],
+)
+def test_search_stops_after_exactly_max_consecutive_skips(rejects, skip_evaluated, expected):
     only_x0 = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
+    constraints = [MaxTokens(0)] if rejects else None
+    se = SR_evaluator(
+        _X,
+        _X[:, 0],
+        symbol_library=_lib(),
+        max_evaluations=10,
+        success_threshold=-1,
+        required_constraints=constraints,
+        max_consecutive_skips=3,
+    )
+    if rejects:
+        se.evaluate_expr(["X_0"])
     with warnings.catch_warnings():
         warnings.simplefilter("error", UserWarning)
-        ProGED(only_x0, max_consecutive_skips=3).search(se, seed=0)
-    assert se.stop_reason.startswith("ProGED: 3 samples")
+        ProGED(only_x0, skip_evaluated=skip_evaluated).search(se, seed=0)
+    assert se.stop_reason == "max_consecutive_skips"
     assert se.total_evaluations == 1
+    assert se.skips == expected
+
+
+# Reason: clause (ask: one sample per call; a skipped sample is a lookup with its skip reason, which
+# the step loop counts, not ask).
+def test_ask_proposes_skipped_samples_as_lookups():
+    only_x0 = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
+    approach = ProGED(only_x0)
+    approach.start(se, seed=0)
+    (first,) = approach.ask(se)
+    assert (first.expr, first.skip) == (["X_0"], None)
+    se.evaluate_expr(first.expr)
+    (second,) = approach.ask(se)
+    assert (second.expr, second.skip) == (["X_0"], "evaluated")
+    assert (se.skips, se.should_stop) == ({}, False)
 
 
 def test_search_is_reproducible_with_a_seed():
@@ -203,20 +241,30 @@ def test_search_is_reproducible_with_a_seed():
 
 def test_from_config_defaults_for_older_configs():
     a = ProGED.from_config({"grammar": None})
-    assert (a.max_consecutive_skips, a.skip_evaluated, a.skip_rejected, a.canonicalise_constants) == (
-        10000,
-        True,
-        True,
-        False,
-    )
+    assert (a.skip_evaluated, a.skip_rejected, a.canonicalise_constants) == (True, True, False)
+    # Unknown keys, such as the removed max_consecutive_skips, are ignored.
+    b = ProGED.from_config({"grammar": None, "max_consecutive_skips": 7, "no_such_key": 1})
+    assert (b.skip_evaluated, b.skip_rejected, b.canonicalise_constants) == (True, True, False)
+
+
+# Reason: clause (get_search_state: the sampling grammar is the whole search state besides NumPy's
+# global random state; set_search_state restores it in place of start).
+def test_search_state_round_trips_the_grammar():
+    grammar = _products_of("X_0")
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
+    original = ProGED(grammar)
+    original.start(se, seed=0)
+    state = original.get_search_state()
+    restored = ProGED()  # no grammar of its own: it can only sample from the state
+    restored.set_search_state(state)
+    np.random.seed(1)
+    expected = ["".join(original.ask(se)[0].expr) for _ in range(5)]
+    np.random.seed(1)
+    assert ["".join(restored.ask(se)[0].expr) for _ in range(5)] == expected
+    assert len(set(expected)) > 1  # precondition: the samples depend on the random state
 
 
 def test_start_without_grammar_or_adapt_raises():
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib())
     with pytest.raises(RuntimeError, match="adapt"):
         ProGED().start(se, seed=0)
-
-
-def test_max_consecutive_skips_must_be_positive():
-    with pytest.raises(ValueError, match="max_consecutive_skips"):
-        ProGED(max_consecutive_skips=0)

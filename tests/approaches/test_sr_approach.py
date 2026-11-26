@@ -1,7 +1,6 @@
 """Tests for the step interface of SRToolkit.approaches.sr_approach: the default step loop,
 SR_approach.run and resuming from snapshots (checkpoint stage 2c)."""
 
-import json
 import pickle
 import signal
 import subprocess
@@ -134,6 +133,20 @@ def test_session_without_steps_keeps_the_snapshot(tmp_path, monkeypatch):
     assert ModelStore(path, "read").snapshot.num_calls == 4
 
 
+# Reason: clause (step loop: an empty ask ends the loop normally, so the final snapshot is taken).
+def test_search_ended_by_an_empty_ask_takes_the_final_snapshot(tmp_path):
+    path = tmp_path / "run.sqlite"
+    se, approach = _se(path), SteppedApproach(stop_after_asks=2)
+    approach.run(se, seed=0)
+    snapshot = ModelStore(path, "read").snapshot
+    assert (se.stop_reason, snapshot.num_calls, snapshot.state) == (
+        "returned",
+        len(se.trace),
+        pickle.dumps({"asks": 2}),
+    )
+    assert len(se.trace) > 0
+
+
 def test_interrupt_in_step_completes_step_and_snapshots(tmp_path):
     path = tmp_path / "run.sqlite"
     se, approach = _se(path), SteppedApproach()
@@ -195,12 +208,12 @@ def test_step_loop_takes_candidates_nodes_and_token_lists():
     assert results[0].free_constants == (_SPEC,)
 
 
-class _Lookups(SteppedApproach):
-    # Step 1 evaluates X_0; step 2 only looks up X_0 (evaluated) and X_1 (never), with a None entry
+class _SkipsAndNone(SteppedApproach):
+    # Step 1 evaluates X_0; step 2 only skips X_0 (evaluated) and X_1 (never), with a None entry
     # (not an expression) between them; step 3 evaluates X_1.
     _STEPS = [
         [["X_0"]],
-        [Candidate(["X_0"], evaluate=False), None, Candidate(["X_1"], evaluate=False)],
+        [Candidate(["X_0"], skip="a"), None, Candidate(["X_1"], skip="b")],
         [["X_1"]],
     ]
 
@@ -209,21 +222,82 @@ class _Lookups(SteppedApproach):
         return self._STEPS[self.asks - 1] if self.asks <= len(self._STEPS) else []
 
 
-def test_lookup_and_none_candidates_spend_no_budget():
+# Reason: clause (Candidate.skip: a skip is looked up, spending no budget; tell gets its stored model,
+# or None if it was never evaluated, and None for a None entry).
+def test_skip_and_none_candidates_spend_no_budget():
     se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
-    approach = _Lookups()
+    approach = _SkipsAndNone()
     approach.search(se, seed=0)
-    [(_, first), (_, lookups), _] = approach.told  # the step of lookups did not end the run
-    assert lookups == [first[0], None, None]
+    [(_, first), (_, skipped), _] = approach.told  # the step of skips did not end the run
+    assert skipped == [first[0], None, None]
     assert ([m.expr for m in se.models], list(se.trace)) == ([["X_0"], ["X_1"]], [0, 1])
 
 
+class _Steps(SteppedApproach):
+    # Proposes the given steps in turn, then nothing; ask_skip: a skip counted from ask in every ask.
+    def __init__(self, steps, ask_skip=None):
+        super().__init__()
+        self.steps, self.ask_skip = steps, ask_skip
+
+    def ask(self, sr_evaluator):
+        if self.ask_skip is not None:
+            sr_evaluator.count_skip(self.ask_skip)
+        self.asks += 1
+        return self.steps[self.asks - 1] if self.asks <= len(self.steps) else []
+
+
+# Step 1: a skip, a None entry, an evaluation (resets the skips in a row) and a second skip; step 2
+# evaluates X_1.
+_SKIP_STEPS = [
+    [Candidate(["X_0"], skip="a"), None, ["X_0"], Candidate(["X_1"], skip="b")],
+    [["X_1"]],
+]
+
+
+# Reason: clause (the step loop counts a None entry as "not_expression" and a candidate's skip reason,
+# in order; an evaluation resets the skips in a row; reaching max_consecutive_skips stops the run at
+# that entry, and tell gets the entries up to it).
+@pytest.mark.parametrize(
+    "steps, limit, told, skips, calls, stop_reason",
+    [
+        (_SKIP_STEPS, 3, 4, {"a": 1, "not_expression": 1, "b": 1}, 2, "returned"),
+        (_SKIP_STEPS, 2, 2, {"a": 1, "not_expression": 1}, 0, "max_consecutive_skips"),
+    ],
+    ids=["reset-by-evaluation", "limit-reached"],
+)
+def test_step_loop_counts_skips_in_order(steps, limit, told, skips, calls, stop_reason):
+    se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1, max_consecutive_skips=limit)
+    approach = _Steps(steps)
+    approach.run(se, seed=0)
+    assert (len(approach.told[0][1]), se.skips, len(se.trace), se.stop_reason) == (told, skips, calls, stop_reason)
+
+
+# Reason: clause (Skips: a count_skip from ask is counted before the step's candidates, so it can stop
+# the run before any of them is evaluated; tell then gets empty lists).
+def test_count_skip_in_ask_can_stop_before_the_step():
+    se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1, max_consecutive_skips=1)
+    approach = _Steps([[["X_0"]]], ask_skip="x")
+    approach.run(se, seed=0)
+    assert (approach.told, len(se.trace), se.skips, se.stop_reason) == (
+        [([], [])],
+        0,
+        {"x": 1},
+        "max_consecutive_skips",
+    )
+
+
+@pytest.mark.parametrize("skip", ["", 3], ids=["empty", "not-str"])
+def test_candidate_skip_must_be_a_non_empty_str(skip):
+    with pytest.raises(ValueError, match="skip"):
+        Candidate(["X_0"], skip=skip)
+
+
 class _SimplifiedLookup(SteppedApproach):
-    # Step 1 evaluates X_0*X_1/X_0 simplified; step 2 looks it up simplified and as written.
+    # Step 1 evaluates X_0*X_1/X_0 simplified; step 2 skips it (a lookup) simplified and as written.
     _EXPR = ["X_0", "*", "X_1", "/", "X_0"]
     _STEPS = [
         [Candidate(_EXPR, simplify_expr=True)],
-        [Candidate(_EXPR, simplify_expr=True, evaluate=False), Candidate(_EXPR, evaluate=False)],
+        [Candidate(_EXPR, simplify_expr=True, skip="s"), Candidate(_EXPR, skip="s")],
     ]
 
     def ask(self, sr_evaluator):
@@ -231,8 +305,8 @@ class _SimplifiedLookup(SteppedApproach):
         return self._STEPS[self.asks - 1] if self.asks <= len(self._STEPS) else []
 
 
-# Reason: clause (Candidate.simplify_expr: simplify before evaluating; a lookup simplifies it the
-# same way).
+# Reason: clause (Candidate.simplify_expr: simplify before evaluating; a skip is looked up simplified
+# the same way).
 def test_candidate_simplify_expr_is_used_for_evaluation_and_lookup():
     se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
     approach = _SimplifiedLookup()
@@ -372,6 +446,7 @@ def test_proged_resume_equals_straight_run(tmp_path, fresh_process):
     resumed = SR_results.from_checkpoint(path)[0]
     assert [m.to_dict() for m in resumed.all_models] == [m.to_dict() for m in straight.models]
     assert resumed.trace == list(straight.trace)
+    assert resumed.skips == straight.skips
 
 
 class _NoSearch(SR_approach):  # neither search nor the step interface
@@ -397,7 +472,7 @@ def _proged_session(path=None, resume=False, signal_on_skip=False):
     # ProGED on a small grammar that repeats itself, so samples are skipped as already evaluated.
     X = np.random.default_rng(0).random((10, 2)) + 0.5
     lib = SymbolLibrary.from_symbol_list(["+", "*"], num_variables=2)
-    approach = ProGED(max_consecutive_skips=3)  # small, so the skip count decides where the run ends
+    approach = ProGED()
     approach.adapt(X, BackgroundKnowledge(lib), ())
     se = SR_evaluator(
         X,
@@ -408,13 +483,14 @@ def _proged_session(path=None, resume=False, signal_on_skip=False):
         success_threshold=-1,
         checkpoint=path,
         resume=resume,
+        max_consecutive_skips=3,  # small, so the skip limit decides where the run ends
     )
-    if signal_on_skip:  # interrupt at the second skip in a row, one before the limit, in the middle of an ask
+    if signal_on_skip:  # interrupt in the step of the second skip in a row, one before the limit
         get_model = se.get_model
 
         def lookup(*args, **kwargs):
             model = get_model(*args, **kwargs)
-            if model is not None and approach._skipped == 1 and not se._interrupted:
+            if model is not None and se._skips_in_a_row == 1 and not se._interrupted:
                 send_signal(signal.SIGINT)
             return model
 
@@ -424,17 +500,18 @@ def _proged_session(path=None, resume=False, signal_on_skip=False):
     return se
 
 
-def test_proged_interrupted_while_sampling_resumes_as_straight_run(tmp_path):
+def test_proged_interrupted_among_skips_resumes_as_straight_run(tmp_path):
     path = tmp_path / "run.sqlite"
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         first = _proged_session(path, signal_on_skip=True)
         assert first.stop_reason == "interrupted"
         first.close()
-        assert json.loads(ModelStore(path, "read").snapshot.state)["skipped"] == 2  # mid-ask
+        assert ModelStore(path, "read").get_header("snapshot_skips")["in_a_row"] == 2  # one before the limit
         _proged_session(path, resume=True).close()
         straight = _proged_session()
-    assert straight.stop_reason.startswith("ProGED")  # ended by skips
+    assert straight.stop_reason == "max_consecutive_skips"
     resumed = SR_results.from_checkpoint(path)[0]
     assert [m.to_dict() for m in resumed.all_models] == [m.to_dict() for m in straight.models]
     assert resumed.trace == list(straight.trace)
+    assert resumed.skips == straight.skips

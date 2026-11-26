@@ -337,6 +337,13 @@ class TestSimplifyProperties:
         defined = np.isfinite(before)
         np.testing.assert_allclose(after[defined], before[defined], rtol=1e-7, atol=1e-9)
 
+    # Regression (hypothesis found sqrt(X_0*X_0) -> X_0): sqrt(a*b) -> sqrt(a)*sqrt(b) holds only for
+    # non-negative a and b, so the rule may only rewrite the other way.
+    def test_sqrt_of_a_square_keeps_negative_values(self):
+        expr = _t("sqrt ( X_0 * X_0 )")
+        assert (_X[:, 0] < 0).any()  # precondition: negative X_0
+        np.testing.assert_allclose(_values(simplify(expr, _SL)[0], {}), _values(expr, {}), rtol=1e-7, atol=1e-9)
+
 
 class TestRuleAvailability:
     # Reason: clause ("A rule is used only if every token it relies on is in the symbol library with

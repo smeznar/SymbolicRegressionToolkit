@@ -47,6 +47,9 @@ results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
 - ``"success_threshold"``: a new expression has an error below ``success_threshold``;
 - ``"max_evaluations"``: the call used the last evaluation of the budget (a call that does both
   records ``"success_threshold"``);
+- ``"max_consecutive_skips"``: the approach skipped ``max_consecutive_skips`` expressions in a row
+  (a setting, default ``10000``; see
+  [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]);
 - a callback asked to stop (see [SR_callback][SRToolkit.evaluation.callbacks.SR_callback]), e.g.
   ``"time_limit"``;
 - the approach called [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with its own
@@ -215,7 +218,6 @@ again. If the run already meets the new limits, it stops right away. Each extens
 To change callbacks, extend the run too: a plain resume with other callbacks only warns.
 """
 
-import copy
 import dataclasses
 import hashlib
 import json
@@ -366,6 +368,8 @@ def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstra
 
 # Defaults of the limit settings, turned into MaxConstants / MaxTokens (negative = none).
 _DEFAULT_LIMITS: dict[str, int] = {"max_constants": 8, "max_expr_length": -1}
+# Default of the max_consecutive_skips setting.
+_MAX_CONSECUTIVE_SKIPS = 10000
 # Settings of simplify_expr=True, each the simplify() argument named without the prefix.
 _SIMPLIFY_SETTINGS = (
     "simplify_rules",
@@ -559,7 +563,8 @@ class SR_evaluator:
                 not a non-negative ``int`` or numpy integer (``bool`` is rejected), or
                 ``simplify_max_time`` is not ``None`` or a positive number (``bool`` and ``nan`` are
                 rejected). If ``fold_constants`` is not
-                ``"none"``, ``"default"`` or ``"keep"``.
+                ``"none"``, ``"default"`` or ``"keep"``. If ``max_consecutive_skips`` is ``0`` or not
+                an ``int`` or numpy integer (``bool`` is rejected).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
             FileExistsError: If a file exists at ``checkpoint`` and ``resume`` is ``False``.
             FileNotFoundError: If ``resume=True`` and no file exists at ``checkpoint``.
@@ -599,6 +604,9 @@ class SR_evaluator:
             limits: The run's limit segments (see
                 [EvalResult.limits][SRToolkit.utils.types.EvalResult]); a resume reads them from
                 the checkpoint.
+            skips: How many expressions the approach skipped without evaluating them, by reason; a
+                resume restores them (see
+                [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
             default_constant: The run's default spec, complete:
                 [background_knowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 built from the ``default_constant`` and ``constant_bounds`` settings. The ranking
@@ -671,10 +679,19 @@ class SR_evaluator:
         fold_constants = kwargs.get("fold_constants")
         self._fold_constants = "none" if fold_constants is None else fold_constants
         _check_fold_mode(self._fold_constants, "fold_constants")
+        max_skips = kwargs.get("max_consecutive_skips", _MAX_CONSECUTIVE_SKIPS)
+        if isinstance(max_skips, bool) or not isinstance(max_skips, (int, np.integer)) or max_skips == 0:
+            raise ValueError(
+                "[SR_evaluator] max_consecutive_skips must be a positive int, or negative for no limit; "
+                f"got {max_skips!r}."
+            )
+        self._max_consecutive_skips = int(max_skips)
         ranking_settings: dict[str, Any] = {
             k: v
             for k, v in kwargs.items()
-            if k not in _DEFAULT_LIMITS and k not in _SIMPLIFY_SETTINGS and k != "fold_constants"
+            if k not in _DEFAULT_LIMITS
+            and k not in _SIMPLIFY_SETTINGS
+            and k not in ("fold_constants", "max_consecutive_skips")
         }
         ranking_settings["default_constant"] = self.default_constant  # completed by the background knowledge
         self.ranking: RankingFunction = build_ranking(ranking_function)
@@ -713,6 +730,8 @@ class SR_evaluator:
             }
         ]
         self._callbacks_ready = False  # whether the callbacks' states are restored and recorded in limits
+        self.skips: dict[str, int] = {}
+        self._skips_in_a_row = 0  # skips since the last counted evaluate_expr call
         if checkpoint is not None:
             # Computed before the store, so that unsaveable values leave no checkpoint file behind.
             fingerprint = self._fingerprint()
@@ -750,9 +769,15 @@ class SR_evaluator:
             if saved_reason not in (None, "interrupted"):  # finished: kept whole, and stays stopped
                 self.stop_reason = saved_reason
                 self._stopped_at = self._started
+                self.skips = self._store.get_header("skips", {})
             else:
                 self._store.rewind()
                 self._store.set_header("stop_reason", None)
+                if self.resumed_from is not None:
+                    saved_skips = self._store.get_header("snapshot_skips", {})
+                    self.skips = saved_skips.get("counts", {})
+                    self._skips_in_a_row = saved_skips.get("in_a_row", 0)
+                self._store.set_header("skips", self.skips)
             self._current_best_error = self._store.min_error
         else:
             self._store.set_header("fingerprint", fingerprint)
@@ -765,6 +790,8 @@ class SR_evaluator:
                 self.stop("success_threshold")
             elif 0 <= self.max_evaluations <= self.total_evaluations:
                 self.stop("max_evaluations")
+            elif 0 <= self._max_consecutive_skips <= self._skips_in_a_row:
+                self.stop("max_consecutive_skips")
         self._store.commit()
 
     def _fingerprint(self) -> dict[str, str]:
@@ -846,7 +873,8 @@ class SR_evaluator:
         """Save a snapshot of the run, replacing the previous one, and commit.
 
         The snapshot holds ``state``, the global random states (Python's ``random``, NumPy's and,
-        if PyTorch is imported, its CPU and CUDA states) and the callbacks' states, at the current
+        if PyTorch is imported, its CPU and CUDA states), the callbacks' states and the
+        skip counts (``skips`` and the count of skips in a row), at the current
         number of calls and models. Does nothing without a ``checkpoint``. Only the step loop of
         [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] should call it, between two
         steps, where ``state`` is the approach's whole search state: a resumed run always
@@ -865,8 +893,12 @@ class SR_evaluator:
             return
         # Callbacks not yet restored from the snapshot this run resumed from keep their saved state.
         callbacks = self._callback_states if self._callback_states is not None else self._callbacks.get_state()
-        self._store.set_header("wall_time", self.wall_time)
-        self._store.save_snapshot(state, _capture_rngs(), callbacks)
+        headers = {
+            "wall_time": self.wall_time,
+            "skips": self.skips,
+            "snapshot_skips": {"counts": self.skips, "in_a_row": self._skips_in_a_row},  # what a resume restores
+        }
+        self._store.save_snapshot(state, _capture_rngs(), callbacks, headers)
 
     @contextmanager
     def stop_on_signals(self) -> Generator[None, None, None]:
@@ -961,8 +993,51 @@ class SR_evaluator:
                 self._store.set_header("stop_reason", reason)
             self._commit()
 
+    def count_skip(self, reason: str) -> None:
+        """Count one expression the approach skipped without evaluating it, by reason.
+
+        Call it for each expression the approach discards without passing it to
+        ``evaluate_expr``, so the results show how many it discarded and why (see
+        [EvalResult.skips][SRToolkit.utils.types.EvalResult]). It uses no budget and may be called
+        from ``search``, ``ask`` or ``tell``. The built-in approaches use the reasons
+        ``"evaluated"`` (evaluated before), ``"rejected"`` (breaks a required constraint) and
+        ``"not_expression"`` (e.g. a latent vector that does not decode); others are allowed.
+
+        Skips in a row are counted too, and every counted call of ``evaluate_expr`` (cache hits
+        included) resets them, lookups (``get_model``, ``check_constraints``) do not; at the setting ``max_consecutive_skips`` (see
+        [RankingSettings][SRToolkit.utils.types.RankingSettings]), evaluation
+        [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with the reason
+        ``"max_consecutive_skips"``. Step approaches report skipped proposals through
+        [Candidate][SRToolkit.approaches.sr_approach.Candidate] instead.
+
+        The counts are saved with each commit and snapshot. A resumed run continues from the counts
+        of its snapshot, or from zero without one, so they match its models; a finished run resumed
+        as is keeps its counts.
+
+        Args:
+            reason: Why the expression was skipped.
+
+        Raises:
+            ValueError: If ``reason`` is not a non-empty ``str``.
+            sqlite3.Error: If the commit of a stop fails (see
+                [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
+
+        Examples:
+            >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
+            >>> se.count_skip("rejected")
+            >>> se.count_skip("rejected")
+            >>> se.skips
+            {'rejected': 2}
+        """
+        if not isinstance(reason, str) or not reason:
+            raise ValueError(f"[SR_evaluator.count_skip] reason must be a non-empty str, got {reason!r}.")
+        self.skips[reason] = self.skips.get(reason, 0) + 1
+        self._skips_in_a_row += 1
+        if 0 <= self._max_consecutive_skips <= self._skips_in_a_row:
+            self.stop("max_consecutive_skips")
+
     def close(self) -> None:
-        """Commit and close the database of ``models`` and ``trace``.
+        """Commit, with the wall time and skips so far, and close the database of ``models`` and ``trace``.
 
         Call it when done with the evaluator: a ``checkpoint`` file is then complete on its own,
         without its ``-wal`` and ``-shm`` files. Collect the results first: afterwards every method that reads or writes ``models`` or ``trace`` raises
@@ -972,12 +1047,16 @@ class SR_evaluator:
             sqlite3.Error: If the final commit fails; the database is closed anyway, and the
                 checkpoint keeps what was committed before.
         """
+        if self.checkpoint is not None and not self._store._closed:
+            self._store.set_header("wall_time", self.wall_time)
+            self._store.set_header("skips", self.skips)
         self._store.close()
 
     def _commit(self) -> None:
-        # Commit with the wall time so far, so a checkpoint keeps it also after a crash.
+        # Commit with the wall time and skips so far, so a checkpoint keeps them also after a crash.
         if self.checkpoint is not None:
             self._store.set_header("wall_time", self.wall_time)
+            self._store.set_header("skips", self.skips)
         self._store.commit()
 
     @property
@@ -1291,7 +1370,9 @@ class SR_evaluator:
         function and stored in ``models`` (statuses and the order of checks are in the
         [module docs][SRToolkit.evaluation.sr_evaluator]). An expression evaluated before with the
         same specs is not scored again; its stored model is returned. Either way the call is
-        appended to ``trace``, counts toward ``max_evaluations`` and is reported to the callbacks:
+        appended to ``trace``, counts toward ``max_evaluations``, resets the count of skips in a row
+        (see [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]) and is
+        reported to the callbacks:
         ``on_expr_evaluated`` for every call, plus ``on_best_expression`` when the error improves
         on the best so far. Evaluation then stops if the error is below ``success_threshold``, the
         budget is used up, or a callback asks to stop (see
@@ -1432,6 +1513,7 @@ class SR_evaluator:
                 self._callbacks_ready = True
 
             found = self._store.lookup(expr_list, spec_key)
+            self._skips_in_a_row = 0  # either way a counted call follows
             if found is not None:
                 index, error, status = found
                 if verbose > 0:
@@ -1751,8 +1833,8 @@ class SR_evaluator:
     ) -> "SR_results":
         """Return the results of the evaluation.
 
-        Saves the [wall_time][SRToolkit.evaluation.sr_evaluator.SR_evaluator.wall_time] it reports
-        and commits the checkpoint first. It does not stop evaluation, so it can be called during a
+        Saves the [wall_time][SRToolkit.evaluation.sr_evaluator.SR_evaluator.wall_time] and
+        ``skips`` it reports and commits the checkpoint first. It does not stop evaluation, so it can be called during a
         run; a checkpoint records the run as finished only once evaluation stops.
         [SR_approach.run][SRToolkit.approaches.sr_approach.SR_approach.run] stops it when the search
         returns; after calling ``search`` directly, call ``stop`` yourself.
@@ -1806,6 +1888,7 @@ class SR_evaluator:
         wall_time = self.wall_time  # read once: it still grows if evaluation has not stopped
         if self.checkpoint is not None:
             self._store.set_header("wall_time", wall_time)
+            self._store.set_header("skips", self.skips)
         self._store.commit()
         if results is None:
             results = SR_results()
@@ -1824,7 +1907,8 @@ class SR_evaluator:
             self.default_constant,
             self.stop_reason or "returned",
             summary,
-            copy.deepcopy(self.limits),
+            self.limits,  # add_results copies limits and skips
+            self.skips,
         )
         results.results[-1].wall_time = wall_time
         return results

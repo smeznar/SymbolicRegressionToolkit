@@ -16,7 +16,6 @@ import pytest
 torch = pytest.importorskip("torch")
 pytest.importorskip("pymoo")
 
-from strategies import SignalAfter  # noqa: E402
 
 from SRToolkit.approaches.EDHiE import EDHiE  # noqa: E402
 from SRToolkit.approaches.sr_approach import Candidate  # noqa: E402
@@ -53,7 +52,7 @@ def _tiny(**kwargs):
 def test_training_expressions_from_reference_grammar_follow_constraints(caplog):
     lib = _lib()
     bk = BackgroundKnowledge(lib, reference_grammar=_products_of_x0())
-    approach = _tiny(num_expressions=20, max_consecutive_skips=50)
+    approach = _tiny(num_expressions=20, max_training_skips=50)
     with caplog.at_level(logging.INFO, logger=_LOGGER), pytest.warns(UserWarning):
         expressions = approach.training_expressions(bk, (_set_up(MaxTokens(5), lib),))
     assert len(expressions) == 20
@@ -76,7 +75,7 @@ def test_training_expressions_from_symbol_library_are_unique():
 def test_training_expressions_raise_when_nothing_passes():
     lib = _lib()
     bk = BackgroundKnowledge(lib, reference_grammar=_products_of_x0())
-    approach = _tiny(num_expressions=20, max_consecutive_skips=50)
+    approach = _tiny(num_expressions=20, max_training_skips=50)
     with pytest.raises(ValueError):
         approach.training_expressions(bk, (_set_up(RequiredVariables(["X_1"]), lib),))
 
@@ -87,7 +86,7 @@ def test_training_expressions_write_labelled_constants_bare_before_filtering():
     # C*X_0+C, which has 2 parameters and fails MaxConstants(1); C_0*X_0 becomes C*X_0 and passes.
     lib = _lib()
     grammar = Grammar(Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_0' '*' 'X_0' [0.5]"), start="E")
-    approach = _tiny(num_expressions=5, max_consecutive_skips=20)
+    approach = _tiny(num_expressions=5, max_training_skips=20)
     with pytest.warns(UserWarning):
         expressions = approach.training_expressions(
             BackgroundKnowledge(lib, reference_grammar=grammar), (_set_up(MaxConstants(1), lib),)
@@ -183,8 +182,8 @@ def _stepper(model, **kwargs):
     return approach
 
 
-def _search(model, seed=0, **kwargs):
-    se = _evaluator()
+def _search(model, seed=0, max_consecutive_skips=10000, **kwargs):
+    se = _evaluator(max_consecutive_skips=max_consecutive_skips)
     _stepper(model, **kwargs).search(se, seed=seed)
     return se
 
@@ -205,32 +204,23 @@ def test_search_without_skipping_bills_every_individual(trained_model):
     assert len(se.models) < 30
 
 
-@pytest.mark.slow
-def test_skip_stop_keeps_its_generations_evaluations(trained_model):
-    # Clause (ask/tell): at max_consecutive_skips, ask proposes nothing after that individual and
-    # tell stops the run with an "EDHiE" reason, so the generation's earlier evaluations are kept.
-    first = _stepper(trained_model, max_consecutive_skips=1)
-    se = _evaluator()
-    first.start(se, seed=0)
-    generation = _proposals(first.ask(se))
-    assert len(generation) < 10 or not generation[-1][1]  # precondition: a skip in generation 1
-    assert not se.should_stop  # the stop belongs to tell, not ask
-    run = _search(trained_model, max_consecutive_skips=1)
-    assert run.stop_reason.startswith("EDHiE")
-    assert [tuple(run.models[k].expr) for k in run.trace] == [t for t, evaluate in generation if evaluate]
-
-
 def test_config_round_trip_keeps_skip_settings():
-    config = _tiny(max_consecutive_skips=7, skip_evaluated=False, skip_rejected=False, training_seed=3).config.to_dict()
+    config = _tiny(max_training_skips=7, skip_evaluated=False, skip_rejected=False, training_seed=3).config.to_dict()
     rebuilt = EDHiE.from_config(config)
-    settings = (rebuilt.max_consecutive_skips, rebuilt.skip_evaluated, rebuilt.skip_rejected, rebuilt.training_seed)
+    settings = (rebuilt.max_training_skips, rebuilt.skip_evaluated, rebuilt.skip_rejected, rebuilt.training_seed)
     assert settings == (7, False, False, 3)
 
 
 def test_from_config_defaults_for_older_configs():
     approach = EDHiE.from_config({"latent_size": 8})
-    settings = (approach.max_consecutive_skips, approach.skip_evaluated, approach.skip_rejected, approach.training_seed)
+    settings = (approach.max_training_skips, approach.skip_evaluated, approach.skip_rejected, approach.training_seed)
     assert settings == (10000, True, True, None)
+    assert EDHiE.from_config({"latent_size": 8, "max_consecutive_skips": 7}).max_training_skips == 7  # its old name
+    assert (
+        EDHiE.from_config({"latent_size": 8, "max_training_skips": 5, "max_consecutive_skips": 7}).max_training_skips
+        == 5
+    )
+    assert EDHiE.from_config({"latent_size": 8, "no_such_key": 1}).latent_size == 8  # unknown keys are ignored
 
 
 # --------------------------------------------------------------------------- #
@@ -242,13 +232,13 @@ def _proposals(candidates):
     return [
         None
         if c is None
-        else (tuple(c.expr if isinstance(c.expr, list) else c.expr.to_list(symbol_library=_lib())), c.evaluate)
+        else (tuple(c.expr if isinstance(c.expr, list) else c.expr.to_list(symbol_library=_lib())), c.skip is None)
         for c in wrapped
     ]
 
 
 def _run(approach, seed):
-    se = _evaluator(seed=0)  # seeds constant fitting, so models compare exactly
+    se = _evaluator(seed=0, max_consecutive_skips=200)  # seeds constant fitting, so models compare exactly
     approach.search(se, seed=seed)
     return list(se.trace), [m.to_dict() for m in se.models]
 
@@ -257,7 +247,7 @@ def _run(approach, seed):
 @pytest.mark.filterwarnings("ignore::UserWarning")
 def test_search_with_same_seed_repeats_its_run(trained_model):
     # Regression: pymoo's generator was unseeded. One object for all runs: start resets the state.
-    approach = _stepper(trained_model, max_consecutive_skips=200)
+    approach = _stepper(trained_model)
     first, again, other_seed = _run(approach, 0), _run(approach, 0), _run(approach, 1)
     assert again == first
     assert other_seed[0] != first[0]
@@ -267,8 +257,11 @@ def test_search_with_same_seed_repeats_its_run(trained_model):
 def test_ask_proposes_evaluated_and_repeated_expressions_as_lookups(trained_model):
     first, se = _stepper(trained_model), _evaluator()
     first.start(se, seed=0)
-    proposals = _proposals(first.ask(se))
+    first_candidates = first.ask(se)
+    proposals = _proposals(first_candidates)
     assert any(not evaluate for _, evaluate in proposals)  # precondition: generation 1 repeats one
+    assert _skips(first_candidates) == [None if evaluate else "evaluated" for _, evaluate in proposals]
+    assert se.skips == {}  # counted by the step loop, not by ask
     # On an empty evaluator an expression is evaluated exactly at its first occurrence.
     assert [evaluate for _, evaluate in proposals] == [
         tokens not in [earlier for earlier, _ in proposals[:i]] for i, (tokens, _) in enumerate(proposals)
@@ -283,63 +276,30 @@ def test_ask_proposes_evaluated_and_repeated_expressions_as_lookups(trained_mode
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
-def test_ask_stops_proposing_at_max_consecutive_skips(trained_model):
-    # Clause: after max_consecutive_skips skips in a row ask proposes nothing more (a lookup still
-    # counts and is proposed); the next ask stops the run. Without skip_rejected every decoded
-    # individual is proposed, so lookups are the only skips.
-    unlimited, se = _stepper(trained_model, skip_rejected=False), _evaluator()
-    unlimited.start(se, seed=0)
-    generation = _proposals(unlimited.ask(se))
+def test_skip_limit_stops_inside_a_generation(trained_model):
+    # Clause (ask + count_skip): the step loop counts lookups in order, an evaluation resets the count
+    # in a row, and the limit stops the run at the skip that reaches it, keeping the generation's
+    # earlier evaluations. Without skip_rejected every decoded individual is proposed, so lookups are
+    # the only skips.
+    probe, se = _stepper(trained_model, skip_rejected=False), _evaluator()
+    probe.start(se, seed=0)
+    generation = _proposals(probe.ask(se))
     assert len(generation) == 10  # precondition: every individual decoded
     lookups = [not evaluate for _, evaluate in generation]
     first_pair = next(i for i in range(1, 10) if lookups[i - 1] and lookups[i])
     assert any(lookups[: first_pair - 1])  # precondition: a single lookup before, which must not stop
-    limited, se = _stepper(trained_model, skip_rejected=False, max_consecutive_skips=2), _evaluator()
-    limited.start(se, seed=0)
-    candidates = limited.ask(se)
-    assert _proposals(candidates) == generation[: first_pair + 1]
-    assert not se.should_stop
-    limited.tell(se, candidates, [None] * len(candidates))
-    assert not se.should_stop
-    assert limited.ask(se) == []
-    assert se.stop_reason.startswith("EDHiE")
+    run = _search(trained_model, max_consecutive_skips=2, skip_rejected=False)
+    assert run.stop_reason == "max_consecutive_skips"
+    assert [tuple(run.models[k].expr) for k in run.trace] == [t for t, e in generation[: first_pair + 1] if e]
+    assert run.skips == {"evaluated": sum(lookups[: first_pair + 1])}
 
 
-@pytest.mark.filterwarnings("ignore::UserWarning")
-def test_skip_stop_survives_an_interrupt_in_its_step(tmp_path, trained_model):
-    # Regression: an interrupt in the step that reached max_consecutive_skips lost the skip stop, so
-    # the resumed run went on past where a straight run stops.
-    def session(signal_after=None, **kwargs):
-        approach = _stepper(trained_model, skip_rejected=False, max_consecutive_skips=2)
-        se = _evaluator(seed=0, **kwargs)
-        if signal_after is not None:
-            se.register_callbacks(SignalAfter(signal_after))
-        with se.stop_on_signals():
-            approach.run(se, seed=0)
-        return se
-
-    straight = session()
-    path = tmp_path / "run.sqlite"
-    first = session(signal_after=1, checkpoint=path)
-    assert first.stop_reason == "interrupted"
-    assert list(first.trace) == list(straight.trace)  # precondition: the limit is reached in the first step
-    first.close()
-    resumed = session(checkpoint=path, resume=True)
-    assert resumed.stop_reason == straight.stop_reason
-    assert resumed.stop_reason.startswith("EDHiE")
-    assert ([m.to_dict() for m in resumed.models], list(resumed.trace)) == (
-        [m.to_dict() for m in straight.models],
-        list(straight.trace),
-    )
-    resumed.close()
+def test_max_training_skips_below_one_raises():
+    with pytest.raises(ValueError, match="max_training_skips"):
+        _tiny(max_training_skips=0)
 
 
-def test_max_consecutive_skips_below_one_raises():
-    with pytest.raises(ValueError, match="max_consecutive_skips"):
-        _tiny(max_consecutive_skips=0)
-
-
-def _rejecting_evaluator():
+def _rejecting_evaluator(**kwargs):
     return SR_evaluator(
         _X,
         _X[:, 0],
@@ -347,20 +307,50 @@ def _rejecting_evaluator():
         max_evaluations=30,
         success_threshold=-1,
         required_constraints=[MaxTokens(0)],  # rejects everything
+        **kwargs,
     )
+
+
+def _skips(candidates):
+    """The skip reason the step loop counts per proposal: "not_expression" for None, None if evaluated."""
+    return ["not_expression" if c is None else c.skip if isinstance(c, Candidate) else None for c in candidates]
 
 
 def test_rejected_individuals_are_proposed_as_lookups(trained_model):
     # Clause: a rejected individual is a lookup (one entry per individual), so a generation of only
-    # rejected individuals is a step of its own; the skip stop still ends the run, with no evaluation.
-    approach, se = _stepper(trained_model, max_consecutive_skips=25), _rejecting_evaluator()
+    # rejected individuals is a step of its own; the skip limit still ends the run, with no evaluation.
+    # ask neither truncates the generation at the limit nor stops the run: only the step loop counts.
+    approach, se = _stepper(trained_model), _rejecting_evaluator(max_consecutive_skips=2)
     approach.start(se, seed=0)
-    assert [evaluate for _, evaluate in _proposals(approach.ask(se))] == [False] * 10
+    candidates = approach.ask(se)
+    proposals = _proposals(candidates)
+    assert [evaluate for _, evaluate in proposals] == [False] * 10
     assert not se.should_stop
+    assert _skips(candidates) == ["rejected"] * 10  # repeats of a rejected individual were not proposed for evaluation
+    # An individual both evaluated before and rejected is an "evaluated" skip (case 2 comes first).
+    evaluated_before = proposals[-1][0]
+    copies = [tokens for tokens, _ in proposals].count(evaluated_before)
+    assert 1 < copies < 10  # precondition: the generation also holds other individuals
     se = _rejecting_evaluator()
+    se.evaluate_expr(list(evaluated_before))
+    approach.start(se, seed=0)
+    assert _skips(approach.ask(se)) == ["evaluated" if t == evaluated_before else "rejected" for t, _ in proposals]
+    se = _rejecting_evaluator(max_consecutive_skips=25)
     approach.search(se, seed=0)  # 25 skips in a row: in the third generation
-    assert se.stop_reason.startswith("EDHiE")
+    assert se.stop_reason == "max_consecutive_skips"
     assert se.total_evaluations == 0
+    assert se.skips == {"rejected": 25}
+
+
+def test_undecodable_individuals_are_proposed_as_none(trained_model, monkeypatch):
+    # Clause (ask case 1): an individual that does not decode is a None entry, counted as "not_expression".
+    # Patching decode is the only way: the public API cannot produce a latent vector that does not decode.
+    approach, se = _stepper(trained_model), _evaluator(max_consecutive_skips=15)
+    monkeypatch.setattr(trained_model, "decode", lambda z: [None] * len(z))
+    approach.start(se, seed=0)
+    assert approach.ask(se) == [None] * 10
+    approach.search(se, seed=0)
+    assert (se.stop_reason, se.total_evaluations, se.skips) == ("max_consecutive_skips", 0, {"not_expression": 15})
 
 
 def _global_rng_states():
@@ -410,7 +400,7 @@ def test_start_with_same_seed_repeats_the_second_generation(trained_model):
 def _model_of(se, candidate):
     """Evaluate a proposal as the step loop does and return its model."""
     candidate = candidate if isinstance(candidate, Candidate) else Candidate(candidate)
-    if candidate.evaluate:
+    if candidate.skip is None:
         se.evaluate_expr(candidate.expr)
     return se.get_model(candidate.expr)
 
@@ -500,7 +490,7 @@ _SESSION = textwrap.dedent(
         X = np.random.default_rng(0).random((10, 2)) + 0.5
         lib = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
         approach = EDHiE(latent_size=8, max_expression_length=10, population_size=10, verbose=False,
-                         max_consecutive_skips=200, weights_path=weights)  # a fresh object each session
+                         weights_path=weights)  # a fresh object each session
         # No MaxTokens: with it the tiny model runs out of new expressions before the budget.
         se = SR_evaluator(X, X[:, 0], symbol_library=lib, max_evaluations=40, seed=0, success_threshold=-1,
                           checkpoint=checkpoint, resume=resume, snapshot_interval=snapshot_interval)
@@ -574,6 +564,7 @@ def test_resume_equals_straight_run(tmp_path, trained_model, case):
     resumed = SR_results.from_checkpoint(path)[0]
     assert [m.to_dict() for m in resumed.all_models] == [m.to_dict() for m in straight.models]
     assert resumed.trace == list(straight.trace)
+    assert resumed.skips == straight.skips
 
 
 def _extension_dataset(budget):
@@ -596,7 +587,6 @@ def test_extension_after_a_cut_generation_equals_straight_run(tmp_path, trained_
             max_expression_length=10,
             population_size=10,
             verbose=False,
-            max_consecutive_skips=200,
             weights_path=str(weights),
         )
 

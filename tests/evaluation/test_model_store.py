@@ -573,16 +573,29 @@ class TestSnapshots:
         store = _filled(2, path)
         store.save_snapshot(b"a", b"r", [])
         store.add(["X_2"], "", _model("X_2", 2.0))
-        store.save_snapshot(b"b", b"r", [{"callback_class": "c", "state": {"n": 1}}])
+        store.save_snapshot(b"b", b"r", [{"callback_class": "c", "state": {"n": 1}}], headers={"k": {"n": 1}})
         expected = Snapshot(b"b", b"r", [{"callback_class": "c", "state": {"n": 1}}], 3, 3)
-        assert (store.snapshot, ModelStore(path, "read").snapshot) == (expected, expected)  # committed
+        reader = ModelStore(path, "read")
+        assert (store.snapshot, reader.snapshot) == (expected, expected)  # committed
+        assert reader.get_header("k") == {"n": 1}  # in the same commit
 
-    def test_save_snapshot_rejects_unsaveable_callbacks(self, tmp_path):
-        store = _filled(1, tmp_path / "run.sqlite")
+    # Reason: clause (TypeError if callbacks or a header value cannot be saved as JSON; the snapshot and
+    # the headers are both saved or neither).
+    @pytest.mark.parametrize(
+        "callbacks, headers",
+        [([{"state": object()}], {"k": 1}), ([], {"k": object()})],
+        ids=["bad-callback", "bad-header"],
+    )
+    def test_save_snapshot_saves_headers_and_snapshot_or_neither(self, tmp_path, callbacks, headers):
+        path = tmp_path / "run.sqlite"
+        store = _filled(1, path)
         store.save_snapshot(b"a", b"r", [])
         with pytest.raises(TypeError):
-            store.save_snapshot(b"b", b"r", [{"state": object()}])
-        assert store.snapshot == Snapshot(b"a", b"r", [], 1, 1)
+            store.save_snapshot(b"b", b"r", callbacks, headers=headers)
+        store.commit()
+        reader = ModelStore(path, "read")
+        assert (store.snapshot, store.get_header("k")) == (Snapshot(b"a", b"r", [], 1, 1), None)
+        assert (reader.snapshot, reader.get_header("k")) == (Snapshot(b"a", b"r", [], 1, 1), None)
 
     @pytest.mark.parametrize(
         "with_snapshot, models, trace, next_index",

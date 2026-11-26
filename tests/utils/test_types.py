@@ -110,6 +110,7 @@ class TestRankingSettings:
             "simplify_max_time",
             "simplify_fold_aware",
             "fold_constants",
+            "max_consecutive_skips",
         }
         assert RankingSettings.__optional_keys__ == documented
         assert RankingSettings.__required_keys__ == frozenset()
@@ -299,6 +300,7 @@ class TestToDictErrors:
             (lambda: _er(augmentations={"a": {"v": {1}, "_type": "T"}}), "set"),
             (_er_bad_model, "set"),
             (lambda: _er(limits=[{**_SEGMENT, "calls": {1}}]), r"set at limits\[0\]\['calls'\]"),
+            (lambda: _er(skips={"a": {1}}), r"set at skips\['a'\]"),
         ],
         ids=[
             "MR-parameters-complex",
@@ -307,6 +309,7 @@ class TestToDictErrors:
             "ER-augmentations-set",
             "ER-model-ranking_data-set",
             "ER-limits-set",
+            "ER-skips-set",
         ],
     )
     def test_to_dict_raises_type_error_for_unsaveable_value(self, make, type_name):
@@ -574,6 +577,7 @@ class TestEvalResultSerialization:
             augmentations={"aug": {"t": (1, "a"), 7: [1.0, INF], "_type": "Aug"}},
             default_constant=uniform_default((-2.0, 4.0)),
             limits=[_SEGMENT, {**_SEGMENT, "calls": 4, "max_evaluations": -1, "previous_stop_reason": "time_limit"}],
+            skips={"evaluated": np.int64(2), "rejected": 1},  # a numpy count saves as int
         )
         back = json_round_trip(result)
         assert [m.expr for m in back.all_models] == [["X_0"], ["C", "*", "X_0"], ["X_0", "X_1"]]
@@ -594,6 +598,8 @@ class TestEvalResultSerialization:
         assert type(back.augmentations["aug"]["t"]) is tuple
         assert back.default_constant.to_dict() == uniform_default((-2.0, 4.0)).to_dict()
         assert back.limits == result.limits
+        assert back.skips == {"evaluated": 2, "rejected": 1}
+        assert type(back.skips["evaluated"]) is int
 
     # Reason: clause (extended: limits has more than one segment; limits missing from a saved result load
     # as [], which is not extended).
@@ -605,6 +611,11 @@ class TestEvalResultSerialization:
         assert EvalResult.from_dict(d).extended == extended
         missing = EvalResult.from_dict({k: v for k, v in d.items() if k != "limits"})
         assert (missing.limits, missing.extended) == ([], False)
+
+    # Reason: clause (skips missing from a saved result load as {}).
+    def test_skips_missing_from_a_saved_result_load_empty(self):
+        d = json.loads(json.dumps(R([M(["X_0"], 0.1)], [0]).to_dict()))
+        assert EvalResult.from_dict({k: v for k, v in d.items() if k != "skips"}).skips == {}
 
     # Reason: regression (spec dicts were written without _to_json_safe, so a prior with numpy-integer
     # bounds made the results unsavable as JSON).

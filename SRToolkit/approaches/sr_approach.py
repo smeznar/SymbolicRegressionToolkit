@@ -69,15 +69,17 @@ while not se.should_stop:
                 break
             if candidate is None:  # not an expression: neither looked up nor evaluated
                 results.append(None)
+                se.count_skip("not_expression")
                 continue
             if not isinstance(candidate, Candidate):  # a token list or a Node
                 candidate = Candidate(candidate)
-            if candidate.evaluate:
+            if candidate.skip is None:
                 results.append(se.evaluate_expr(candidate.expr, candidate.free_constants,
                                                 candidate.simplify_expr, candidate.canonicalise_constants))
-            else:  # a lookup, without spending budget; None if never evaluated
+            else:  # a skip: looked up without spending budget (None if never evaluated) and counted
                 results.append(se.get_model(candidate.expr, candidate.free_constants,
                                             candidate.simplify_expr, candidate.canonicalise_constants))
+                se.count_skip(candidate.skip)
     approach.tell(se, candidates[: len(results)], results)
     complete = len(results) == len(candidates)
 if snapshots and stepped and complete:  # when the loop ends normally, unless its last step was cut
@@ -91,6 +93,22 @@ the end of a session that ran no step (e.g. a finished run resumed), which keeps
 has.
 [run][SRToolkit.approaches.sr_approach.SR_approach.run] continues this loop from the evaluator's
 snapshot when resuming, and calls ``search`` otherwise.
+
+## Skips
+
+A skip is an expression the approach discards without evaluating it. Skips are counted by reason
+(see [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]), and the run stops
+after ``max_consecutive_skips`` of them in a row (an ``evaluate_expr`` call resets the count).
+
+A step approach reports a skip through its proposals, and the loop above counts them in order:
+
+- a candidate with a ``skip`` reason, e.g. ``Candidate(expr, skip="rejected")`` (see
+  [Candidate][SRToolkit.approaches.sr_approach.Candidate]): it is looked up instead of evaluated,
+  so ``tell`` still gets its model if it was evaluated before;
+- ``None`` for something that is not an expression, counted as ``"not_expression"``.
+
+Calling ``count_skip`` from ``ask`` instead counts the skip before the step's candidates run, so it
+can stop the run before any of them is evaluated. Prefer proposing the expression as a skip.
 """
 
 from abc import ABC
@@ -194,27 +212,39 @@ class ApproachConfig:
 
 @dataclass(frozen=True)
 class Candidate:
-    """An expression an approach proposes from [ask][SRToolkit.approaches.sr_approach.SR_approach.ask],
-    with the arguments the framework passes to
-    [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr].
+    """An expression an approach proposes from ``ask``, and how the step loop handles it.
+
+    See [ask][SRToolkit.approaches.sr_approach.SR_approach.ask] and the
+    [step loop][SRToolkit.approaches.sr_approach].
 
     Attributes:
         expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
         free_constants: Specs for its labelled constants, or ``None``.
         simplify_expr: Simplify it before evaluating (see
-            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]); a lookup
-            simplifies it the same way. Default ``False``.
+            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]). Default
+            ``False``.
         canonicalise_constants: Canonicalise its constants before evaluating. Default ``False``.
-        evaluate: ``False`` only looks up the stored model of an expression evaluated before (see
-            [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), spending no
-            budget; ``tell`` gets ``None`` for it if there is none. Default ``True``.
+        skip: ``None`` (default) to evaluate it. A reason (e.g. ``"evaluated"`` or ``"rejected"``)
+            marks it as a skip: it is not evaluated but looked up (see
+            [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), with its specs,
+            simplified and canonicalised as above and spending no budget, and counted with
+            [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]; ``tell`` gets
+            its stored model, or ``None`` if it was never evaluated.
+
+    Raises:
+        ValueError: If ``skip`` is neither ``None`` nor a non-empty ``str``.
     """
 
     expr: "list[str] | Node"
     free_constants: "Sequence[Constant] | None" = None
     simplify_expr: bool = False
     canonicalise_constants: bool = False
-    evaluate: bool = True
+    skip: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate ``skip``."""
+        if self.skip is not None and (not isinstance(self.skip, str) or not self.skip):
+            raise ValueError(f"[Candidate] skip must be None or a non-empty str, got {self.skip!r}.")
 
 
 class SR_approach(ABC):
@@ -333,7 +363,11 @@ class SR_approach(ABC):
         objects. Do not read ``sr_evaluator.ground_truth``: it is the answer.
         [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model] and
         [check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints] do not
-        use the budget: use them to skip expressions that were already evaluated or would be rejected.
+        use the budget: use them to skip expressions that were already evaluated or would be rejected,
+        and report each expression skipped this way with
+        [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip] (reasons such as
+        ``"evaluated"`` and ``"rejected"``). After the setting ``max_consecutive_skips`` of them
+        with no ``evaluate_expr`` call in between, the run stops.
 
         Args:
             sr_evaluator: Evaluator used to score expressions. All results are
@@ -423,9 +457,10 @@ class SR_approach(ABC):
                         break
                     if item is None:
                         results.append(None)
+                        se.count_skip("not_expression")
                         continue
                     c = item if isinstance(item, Candidate) else Candidate(item)
-                    if c.evaluate:
+                    if c.skip is None:
                         results.append(
                             se.evaluate_expr(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
                         )
@@ -433,6 +468,7 @@ class SR_approach(ABC):
                         results.append(
                             se.get_model(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
                         )
+                        se.count_skip(c.skip)
             self.tell(se, candidates[: len(results)], results)
             complete = len(results) == len(candidates)
         if snapshots and stepped and complete:
@@ -465,8 +501,8 @@ class SR_approach(ABC):
         calls build on what ``tell`` stored. It may use the unbilled ``get_model`` and
         ``check_constraints`` of ``sr_evaluator``, but not ``evaluate_expr``. An empty list ends the
         search, as if ``search`` had returned; to record why, call ``sr_evaluator.stop(reason)``
-        first. Only evaluations spend the budget, so an approach that may propose nothing but
-        lookups (``evaluate=False``) step after step must stop the run itself.
+        first. To discard an expression without evaluating it, propose it with a ``skip`` reason (see
+        [Skips][SRToolkit.approaches.sr_approach]).
 
         Args:
             sr_evaluator: The evaluator of the run.
@@ -474,10 +510,10 @@ class SR_approach(ABC):
         Returns:
             The expressions, in the order they are to be evaluated: token lists or
             [Node][SRToolkit.utils.expression_tree.Node]s, or
-            [Candidate][SRToolkit.approaches.sr_approach.Candidate]s to pass free-constant specs,
-            ``canonicalise_constants`` or ``evaluate=False``. ``None`` marks a proposal that is not an
-            expression (e.g. a latent vector that does not decode): it is neither looked up nor
-            evaluated, and ``tell`` gets ``None`` for it.
+            [Candidate][SRToolkit.approaches.sr_approach.Candidate]s to pass their other fields.
+            ``None`` marks a proposal that is not an expression (e.g. a latent vector that does not
+            decode): it is neither looked up nor evaluated, is counted as the skip
+            ``"not_expression"``, and ``tell`` gets ``None`` for it.
 
         Raises:
             NotImplementedError: Unless overridden.
@@ -502,8 +538,7 @@ class SR_approach(ABC):
             candidates: The evaluated candidates, in order, as ``ask`` returned them.
             results: Their models, with the error, status, fitted constants, etc. A model's
                 ``expr`` is a token list, canonicalised if its candidate asked for it. ``None`` for
-                a ``None`` entry and for a candidate with ``evaluate=False`` that was never
-                evaluated.
+                a ``None`` entry and for a skip that was never evaluated.
         """
         pass
 
