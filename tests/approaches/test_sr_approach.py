@@ -2,10 +2,12 @@
 SR_approach.run and resuming from snapshots (checkpoint stage 2c)."""
 
 import pickle
+import random
 import signal
 import subprocess
 import sys
 import textwrap
+import threading
 import warnings
 from pathlib import Path
 
@@ -14,7 +16,6 @@ import pytest
 from strategies import (
     ScriptedApproach,
     SignalAfter,
-    StatelessSteppedApproach,
     SteppedApproach,
     result_dict,
     send_signal,
@@ -47,36 +48,16 @@ def _result(se):
 
 @pytest.mark.parametrize(
     "approach, expected",
-    [
-        (SteppedApproach(), (True, True)),
-        (StatelessSteppedApproach(), (True, False)),
-        (ScriptedApproach(), (False, False)),
-        (ProGED(), (True, True)),
-    ],
-    ids=["stepped", "stateless", "search-only", "ProGED"],
+    [(SteppedApproach(), True), (ScriptedApproach(), False), (ProGED(), True)],
+    ids=["stepped", "search-only", "ProGED"],
 )
-def test_supports_steps_and_snapshots(approach, expected):
-    assert (approach.supports_steps, approach.supports_snapshots) == expected
-
-
-@pytest.mark.parametrize("with_checkpoint", [False, True], ids=["in-memory", "checkpoint"])
-def test_stateless_step_approach_runs_without_snapshots(tmp_path, monkeypatch, with_checkpoint):
-    now = [0.0]
-    monkeypatch.setattr(model_store.time, "monotonic", lambda: now[0])
-    path = tmp_path / "run.sqlite" if with_checkpoint else None
-    se = _se(path, max_evaluations=6)
-    now[0] = 1e9  # a snapshot would be due at every step
-    StatelessSteppedApproach().run(se, seed=0)  # get_search_state would raise NotImplementedError
-    assert (se.stop_reason, se.total_evaluations) == ("max_evaluations", 6)
-    se.close()
-    if with_checkpoint:
-        assert ModelStore(path, "read").snapshot is None
+def test_supports_steps(approach, expected):
+    assert approach.supports_steps is expected
 
 
 def test_default_search_runs_the_step_loop():
     se, approach = _se(), SteppedApproach(stop_after_asks=3)
     approach.search(se, seed=0)
-    assert approach.started is True
     assert len(se.trace) == 6  # three steps of two candidates
     told = [pair for candidates, results in approach.told for pair in zip(candidates, results)]
     assert told == [(se.models[i].expr, se.models[i]) for i in se.trace]  # in order, as evaluated
@@ -133,18 +114,20 @@ def test_session_without_steps_keeps_the_snapshot(tmp_path, monkeypatch):
     assert ModelStore(path, "read").snapshot.num_calls == 4
 
 
-# Reason: clause (step loop: an empty ask ends the loop normally, so the final snapshot is taken).
-def test_search_ended_by_an_empty_ask_takes_the_final_snapshot(tmp_path):
+# Reason: clause (step loop: an empty ask ends the loop normally, so the final snapshot is taken);
+# boundary: an empty first ask (nothing evaluated) still ran a step.
+@pytest.mark.parametrize("asks, calls", [(2, 4), (0, 0)], ids=["after-two-steps", "first-ask-empty"])
+def test_search_ended_by_an_empty_ask_takes_the_final_snapshot(tmp_path, asks, calls):
     path = tmp_path / "run.sqlite"
-    se, approach = _se(path), SteppedApproach(stop_after_asks=2)
+    se, approach = _se(path), SteppedApproach(stop_after_asks=asks)  # batches of 2
     approach.run(se, seed=0)
     snapshot = ModelStore(path, "read").snapshot
-    assert (se.stop_reason, snapshot.num_calls, snapshot.state) == (
+    assert (se.stop_reason, len(se.trace), snapshot.num_calls, pickle.loads(snapshot.state)) == (
         "returned",
-        len(se.trace),
-        pickle.dumps({"asks": 2}),
+        calls,
+        calls,
+        {"asks": asks},
     )
-    assert len(se.trace) > 0
 
 
 def test_interrupt_in_step_completes_step_and_snapshots(tmp_path):
@@ -155,37 +138,141 @@ def test_interrupt_in_step_completes_step_and_snapshots(tmp_path):
         approach.run(se, seed=0)
     assert (se.stop_reason, len(se.trace), [len(e) for e, _ in approach.told]) == ("interrupted", 2, [2])
     snapshot = ModelStore(path, "read").snapshot  # the final snapshot, at the step boundary
-    assert (snapshot.num_calls, snapshot.state) == (2, approach.get_search_state())
+    assert (snapshot.num_calls, pickle.loads(snapshot.state)) == (2, {"asks": 1})
 
 
-class _Recording(SteppedApproach):
-    # Records the evaluator each step-interface method gets.
+class _Log(SteppedApproach):
+    # Logs (method, state) for every step-interface call, and the evaluator start and tell get.
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.evaluators = []
+        self.log, self.evaluators = [], []
 
     def start(self, sr_evaluator, seed=None):
         self.evaluators.append(sr_evaluator)
-        super().start(sr_evaluator, seed)
+        state = super().start(sr_evaluator, seed)
+        self.log.append(("start", state))
+        return state
 
-    def tell(self, sr_evaluator, candidates, results):
+    def ask(self, sr_evaluator, state):
+        self.log.append(("ask", state))
+        return super().ask(sr_evaluator, state)
+
+    def tell(self, sr_evaluator, state, candidates, results):
+        self.log.append(("tell", state))
         self.evaluators.append(sr_evaluator)
-        super().tell(sr_evaluator, candidates, results)
+        super().tell(sr_evaluator, state, candidates, results)
+
+    def dump_search_state(self, state):
+        self.log.append(("dump", state))
+        return super().dump_search_state(state)
 
 
-def test_step_interface_methods_get_the_evaluator():
-    se, approach = _se(), _Recording(stop_after_asks=2)
-    approach.search(se, seed=0)
+# Reason: clause (module step loop and start: start once before the first ask; with a checkpoint one
+# dump before the first step; the same state object reaches every ask, tell and dump of a session).
+def test_step_loop_passes_one_state_object_in_documented_order(tmp_path):
+    se = _se(tmp_path / "run.sqlite", max_evaluations=4, snapshot_interval=None)
+    approach = _Log()  # batches of 2: two steps spend the budget, then the final snapshot
+    approach.run(se, seed=0)
+    assert [name for name, _ in approach.log] == ["start", "dump", "ask", "tell", "ask", "tell", "dump"]
+    state = approach.log[0][1]
+    assert all(s is state for _, s in approach.log)
     assert approach.evaluators == [se, se, se]  # start and two tells
+
+
+class _Unpicklable(SteppedApproach):
+    def start(self, sr_evaluator, seed=None):
+        return {**super().start(sr_evaluator, seed), "lock": threading.Lock()}
+
+
+# Reason: clause (dump_search_state: with a checkpoint the state is dumped once before the first step,
+# so a state that cannot be saved fails before any budget is spent; without one it is never dumped).
+@pytest.mark.parametrize("checkpoint", [True, False], ids=["checkpoint", "in-memory"])
+def test_unpicklable_state_fails_before_first_step_only_with_checkpoint(tmp_path, checkpoint):
+    path = tmp_path / "run.sqlite"
+    se, approach = _se(path if checkpoint else None), _Unpicklable(stop_after_asks=2)
+    if checkpoint:
+        with pytest.raises(TypeError, match="pickle"):
+            approach.run(se, seed=0)
+        evaluations = se.total_evaluations
+        se.close()
+        assert (approach.told, evaluations, ModelStore(path, "read").snapshot) == ([], 0, None)
+    else:
+        approach.run(se, seed=0)
+        assert (se.stop_reason, se.total_evaluations) == ("returned", 4)
+
+
+class _ResumeOnly(_Log):
+    # Fails if a resumed run starts or searches anew; load_search_state disturbs the global random
+    # states, which the framework restores after it.
+    def start(self, sr_evaluator, seed=None):
+        raise AssertionError("start called on resume")
+
+    def search(self, sr_evaluator, seed=None):
+        raise AssertionError("search called on resume")
+
+    def load_search_state(self, data):
+        random.seed(999)
+        np.random.seed(999)
+        state = super().load_search_state(data)
+        self.log.append(("load", state))
+        return state
+
+
+# Reason: clause (run: on resume neither start nor search is called; load_search_state runs before
+# the global random states are restored; the loaded object reaches every ask, tell and dump).
+@pytest.mark.filterwarnings("ignore:.*callbacks differ:UserWarning")  # the interrupting callback is not re-registered
+def test_resume_calls_neither_start_nor_search_and_keeps_the_loaded_state(tmp_path):
+    straight = _se(max_evaluations=8)
+    SteppedApproach().run(straight, seed=0)
+    path = tmp_path / "run.sqlite"
+    first = _se(path, max_evaluations=8)
+    first.register_callbacks(SignalAfter(4))  # at the end of the second step
+    with first.stop_on_signals():
+        SteppedApproach().run(first, seed=0)
+    first.close()
+    se, approach = _se(path, resume=True, max_evaluations=8), _ResumeOnly()
+    approach.run(se, seed=0)
+    assert _result(se) == _result(straight)
+    assert [name for name, _ in approach.log[:3]] == ["load", "dump", "ask"]  # dumped before the first step
+    state = approach.log[0][1]
+    assert all(s is state for _, s in approach.log)
+
+
+class _BadLoad(SteppedApproach):
+    def load_search_state(self, data):
+        raise ValueError("bad state")
+
+
+# Reason: clause (run: errors of load_search_state propagate).
+@pytest.mark.filterwarnings("ignore:.*callbacks differ:UserWarning")  # the interrupting callback is not re-registered
+def test_run_propagates_load_search_state_errors(tmp_path):
+    path = tmp_path / "run.sqlite"
+    first = _se(path, max_evaluations=8)
+    first.register_callbacks(SignalAfter(2))
+    with first.stop_on_signals():
+        SteppedApproach().run(first, seed=0)
+    first.close()
+    with pytest.raises(ValueError, match="bad state"):
+        _BadLoad().run(_se(path, resume=True, max_evaluations=8), seed=0)
+
+
+# Reason: clause (dump/load_search_state pickle by default; the approach's own generator belongs in the
+# state; dump must not change the state).
+def test_default_state_methods_round_trip_with_own_generator():
+    approach = SteppedApproach()
+    state = {"asks": 3, "rng": np.random.default_rng(0)}
+    loaded = approach.load_search_state(approach.dump_search_state(state))
+    assert loaded["asks"] == 3
+    np.testing.assert_array_equal(loaded["rng"].random(3), state["rng"].random(3))
 
 
 class _Mixed(SteppedApproach):
     # Proposes Candidates (one with a free-constant spec, one canonicalised), a Node and a token
     # list, then stops.
-    def ask(self, sr_evaluator):
-        if self.asks:
+    def ask(self, sr_evaluator, state):
+        if state["asks"]:
             return []
-        self.asks += 1
+        state["asks"] += 1
         self.proposed = [
             Candidate(["C_0", "*", "X_0"], [_SPEC]),
             Candidate(["C_0", "+", "X_0"], canonicalise_constants=True),
@@ -217,9 +304,9 @@ class _SkipsAndNone(SteppedApproach):
         [["X_1"]],
     ]
 
-    def ask(self, sr_evaluator):
-        self.asks += 1
-        return self._STEPS[self.asks - 1] if self.asks <= len(self._STEPS) else []
+    def ask(self, sr_evaluator, state):
+        state["asks"] += 1
+        return self._STEPS[state["asks"] - 1] if state["asks"] <= len(self._STEPS) else []
 
 
 # Reason: clause (Candidate.skip: a skip is looked up, spending no budget; tell gets its stored model,
@@ -239,11 +326,11 @@ class _Steps(SteppedApproach):
         super().__init__()
         self.steps, self.ask_skip = steps, ask_skip
 
-    def ask(self, sr_evaluator):
+    def ask(self, sr_evaluator, state):
         if self.ask_skip is not None:
             sr_evaluator.count_skip(self.ask_skip)
-        self.asks += 1
-        return self.steps[self.asks - 1] if self.asks <= len(self.steps) else []
+        state["asks"] += 1
+        return self.steps[state["asks"] - 1] if state["asks"] <= len(self.steps) else []
 
 
 # Step 1: a skip, a None entry, an evaluation (resets the skips in a row) and a second skip; step 2
@@ -292,33 +379,45 @@ def test_candidate_skip_must_be_a_non_empty_str(skip):
         Candidate(["X_0"], skip=skip)
 
 
-class _SimplifiedLookup(SteppedApproach):
-    # Step 1 evaluates X_0*X_1/X_0 simplified; step 2 skips it (a lookup) simplified and as written.
+class _FieldLookup(SteppedApproach):
+    # Step 1 evaluates X_0*X_1/X_0 simplified, C_0*X_0 with a spec and C_0+X_0 canonicalised; step 2
+    # skips (looks up) each with the same fields and without them.
     _EXPR = ["X_0", "*", "X_1", "/", "X_0"]
     _STEPS = [
-        [Candidate(_EXPR, simplify_expr=True)],
-        [Candidate(_EXPR, simplify_expr=True, skip="s"), Candidate(_EXPR, skip="s")],
+        [
+            Candidate(_EXPR, simplify_expr=True),
+            Candidate(["C_0", "*", "X_0"], [_SPEC]),
+            Candidate(["C_0", "+", "X_0"], canonicalise_constants=True),
+        ],
+        [
+            Candidate(_EXPR, simplify_expr=True, skip="s"),
+            Candidate(_EXPR, skip="s"),
+            Candidate(["C_0", "*", "X_0"], [_SPEC], skip="s"),
+            Candidate(["C_0", "*", "X_0"], skip="s"),
+            Candidate(["C_0", "+", "X_0"], canonicalise_constants=True, skip="s"),
+            Candidate(["C_0", "+", "X_0"], skip="s"),
+        ],
     ]
 
-    def ask(self, sr_evaluator):
-        self.asks += 1
-        return self._STEPS[self.asks - 1] if self.asks <= len(self._STEPS) else []
+    def ask(self, sr_evaluator, state):
+        state["asks"] += 1
+        return self._STEPS[state["asks"] - 1] if state["asks"] <= len(self._STEPS) else []
 
 
-# Reason: clause (Candidate.simplify_expr: simplify before evaluating; a skip is looked up simplified
-# the same way).
-def test_candidate_simplify_expr_is_used_for_evaluation_and_lookup():
+# Reason: clause (Candidate: simplify_expr, free_constants and canonicalise_constants are used for
+# evaluating; a skip is looked up "with its specs, simplified and canonicalised as above").
+def test_candidate_fields_are_used_for_evaluation_and_lookup():
     se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
-    approach = _SimplifiedLookup()
+    approach = _FieldLookup()
     approach.search(se, seed=0)
-    [(_, [evaluated]), (_, [simplified, as_written])] = approach.told
-    assert evaluated.expr == ["X_1"]
-    assert (simplified, as_written) == (evaluated, None)
+    [(_, [simplified, with_spec, canonical]), (_, looked_up)] = approach.told
+    assert [simplified.expr, with_spec.free_constants, canonical.expr] == [["X_1"], (_SPEC,), ["C", "+", "X_0"]]
+    assert looked_up == [simplified, None, with_spec, None, canonical, None]
 
 
 class _FailingSecondTell(SteppedApproach):
-    def tell(self, sr_evaluator, candidates, results):
-        super().tell(sr_evaluator, candidates, results)
+    def tell(self, sr_evaluator, state, candidates, results):
+        super().tell(sr_evaluator, state, candidates, results)
         if len(self.told) == 2:
             raise RuntimeError("boom")
 
@@ -335,11 +434,11 @@ def test_due_snapshot_is_taken_between_steps(tmp_path, monkeypatch):
         approach.run(se, seed=0)
     se.close()
     snapshot = ModelStore(path, "read").snapshot
-    assert (snapshot.num_calls, snapshot.state) == (2, pickle.dumps({"asks": 1}))
+    assert (snapshot.num_calls, pickle.loads(snapshot.state)) == (2, {"asks": 1})
 
 
 class _FailingTell(SteppedApproach):
-    def tell(self, sr_evaluator, candidates, results):
+    def tell(self, sr_evaluator, state, candidates, results):
         raise RuntimeError("boom")
 
 
@@ -360,15 +459,14 @@ def test_run_without_snapshot_searches(make):
     assert _result(run) == _result(search)
 
 
-@pytest.mark.parametrize("approach", [ScriptedApproach, StatelessSteppedApproach], ids=["search-only", "stateless"])
-def test_run_with_snapshot_needs_state_methods(tmp_path, approach):
+def test_run_with_snapshot_needs_the_step_interface(tmp_path):
     path = tmp_path / "run.sqlite"
     se = _se(path)
     se.evaluate_expr(["X_0"])
     se.save_snapshot(b"state")
     se.close()
     with pytest.raises(ValueError, match="snapshot"):
-        approach().run(_se(path, resume=True), seed=0)
+        ScriptedApproach().run(_se(path, resume=True), seed=0)
 
 
 # --------------------------------------------------------------------------- #
@@ -454,18 +552,25 @@ class _NoSearch(SR_approach):  # neither search nor the step interface
         super().__init__(SteppedApproach().config)
 
 
-def test_search_without_step_interface_raises():
-    with pytest.raises(NotImplementedError, match="step interface"):
-        _NoSearch().search(_se(), seed=0)
-
-
 class _NoStart(SteppedApproach):
     start = SR_approach.start
 
 
-def test_step_interface_without_start_raises():
-    with pytest.raises(NotImplementedError, match="implements ask but not start"):
-        _NoStart().search(_se(), seed=0)
+# Reason: clause (search raises if the approach implements neither search nor ask, or ask without
+# start; start and ask raise unless overridden).
+@pytest.mark.parametrize(
+    "call, match",
+    [
+        (lambda: _NoSearch().search(_se(), seed=0), "step interface"),
+        (lambda: _NoStart().search(_se(), seed=0), "implements ask but not start"),
+        (lambda: SR_approach.start(SteppedApproach(), _se(), seed=0), "start"),
+        (lambda: SR_approach.ask(SteppedApproach(), _se(), None), None),  # the type is all the spec says
+    ],
+    ids=["neither", "ask-without-start", "start-default", "ask-default"],
+)
+def test_unimplemented_step_interface_raises(call, match):
+    with pytest.raises(NotImplementedError, match=match):
+        call()
 
 
 def _proged_session(path=None, resume=False, signal_on_skip=False):

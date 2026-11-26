@@ -173,8 +173,6 @@ In future releases, our primary focus will:
 
 * **Result Visualization:** Implement a robust visualization and result aggregation framework for SR results.
 
-* **Simplification:** Implement a better (more accurate, efficient, and stable) simplification system for expressions.
-
 * **Constraints:** Implement more robust expression generation constraints using techniques like attribute grammars.
 
 * **Improved Benchmarking:** Improve the robustness and efficiency of the benchmarking framework (continuous).
@@ -193,3 +191,7 @@ We are especially looking for contributions of:
 * Implementations of additional **Symbolic Regression Approaches** (once the core framework for comparison is finalized).
 
 Instructions on how to contribute can be found in the [Contribution Guide](https://github.com/smeznar/SymbolicRegressionToolkit/blob/master/CONTRIBUTING.md).
+
+## Acknowledgements
+
+The e-graph expression simplifier was created by [Martin Perčinić](https://github.com/mpercinic) and adapted for SRToolkit by Sebastian Mežnar.

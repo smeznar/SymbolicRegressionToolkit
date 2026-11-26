@@ -88,8 +88,8 @@ class Snapshot:
     """The point of a run that a resumed run continues from.
 
     Attributes:
-        state: The approach's state, as returned by its
-            [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state].
+        state: The approach's search state, as returned by its
+            [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].
         rngs: The global random states (Python, NumPy and, if imported, PyTorch), as pickled bytes.
         callbacks: The callbacks' states (see
             [CallbackDispatcher.get_state][SRToolkit.evaluation.callbacks.CallbackDispatcher.get_state]).

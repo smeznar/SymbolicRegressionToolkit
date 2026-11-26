@@ -5,6 +5,8 @@ type: software
 authors:
   - family-names: "Mežnar"
     given-names: "Sebastian"
+  - family-names: "Perčinić"
+    given-names: "Martin"
 version: 1.6.0
 date-released: 2026-06-23
 license: GPL-3.0-only

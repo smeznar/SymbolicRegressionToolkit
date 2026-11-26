@@ -1,6 +1,5 @@
 """ProGED approach — probabilistic grammar-based equation discovery by Brence et al."""
 
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -8,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import Grammar, Node, SymbolLibrary, generate_n_expressions
+from SRToolkit.utils import Grammar, Node, SymbolLibrary
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
 from .sr_approach import ApproachConfig, Candidate, SR_approach
@@ -20,20 +19,14 @@ if TYPE_CHECKING:
 
 @dataclass
 class ProGEDConfig(ApproachConfig):
-    """Configuration dataclass for the [ProGED][SRToolkit.approaches.ProGED.ProGED] approach.
+    """Configuration of [ProGED][SRToolkit.approaches.ProGED.ProGED].
 
     Attributes:
-        grammar: The constructor's grammar, saved with
-            [Grammar.to_dict][SRToolkit.utils.grammar.grammar.Grammar.to_dict], or ``None``.
+        grammar: The constructor's grammar as a
+            [Grammar.to_dict][SRToolkit.utils.grammar.grammar.Grammar.to_dict] dict, or ``None``.
         skip_evaluated: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
         skip_rejected: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
         canonicalise_constants: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
-
-    Examples:
-        >>> cfg = ProGEDConfig()
-        >>> cfg.name
-        'ProGED'
-        >>> d = cfg.to_dict()
     """
 
     name: str = "ProGED"
@@ -51,70 +44,44 @@ class ProGED(SR_approach):
         skip_rejected: bool = True,
         canonicalise_constants: bool = False,
     ) -> None:
-        r"""A slimmed-down version of ProGED — probabilistic grammar-based equation discovery.
+        r"""Random sampling from a probabilistic context-free grammar (a slimmed-down ProGED).
 
-        Randomly samples expressions from a probabilistic context-free grammar (PCFG).
-        The grammar defines both which expressions are structurally valid (hard constraints via
-        registered [GrammarConstraint][SRToolkit.utils.grammar.GrammarConstraint] objects) and a probability
-        distribution over them (soft constraints via production rule weights), biasing sampling
-        toward shorter or domain-appropriate expressions. Providing a domain-specific grammar is
-        the main strength of this approach — it encodes prior knowledge about the expected form
-        of the target expression and makes the search significantly more efficient. The full
-        version of the approach is available at https://github.com/brencej/ProGED.
+        The grammar's rule weights bias sampling toward likely expressions and its registered
+        [GrammarConstraint][SRToolkit.utils.grammar.GrammarConstraint]s exclude invalid ones; a
+        domain-specific grammar is how this approach uses prior knowledge. Full version:
+        https://github.com/brencej/ProGED.
 
-        ProGED implements the step interface (see [sr_approach][SRToolkit.approaches.sr_approach]):
-        each step proposes one sample, to be evaluated or, if skipped, looked up, so a stopped run
-        can resume from a snapshot.
+        Each step of the [step interface][SRToolkit.approaches.sr_approach] proposes one sample, and
+        a stopped run can be resumed. Resuming needs the same grammar (the same constructor
+        argument, or the same task for ``adapt``); a different one is not detected.
 
         References:
             [Brence et al. (2021)][cite-proged]
 
         Examples:
             >>> from SRToolkit.dataset import Feynman
-            >>> benchmark = Feynman()
-            >>> dataset = benchmark.create_dataset('I.16.6')
+            >>> dataset = Feynman().create_dataset('I.16.6')
             >>> dataset.max_evaluations = 100
-            >>> model = ProGED()
-            >>> results = dataset.evaluate_approach(model, num_experiments=1, initial_seed=19, verbose=False)
-            >>> r = results[0]
-            >>> r.dataset_name
-            'I.16.6'
-            >>> r.approach_name
-            'ProGED'
-            >>> r.best_expr
+            >>> results = dataset.evaluate_approach(ProGED(), num_experiments=1, initial_seed=19, verbose=False)
+            >>> results[0].best_expr
             'C-X_0/C-X_0'
-            >>> r.num_evaluated
-            100
-            >>> bool(r.success)
-            False
 
         Args:
-            grammar: Grammar used for sampling. Its production rule weights define a probability
-                distribution over expressions — higher-weight rules are sampled more often,
-                acting as a soft prior. Registered constraints impose hard structural limits.
-                Providing a carefully designed, domain-specific grammar is strongly recommended,
-                as it is the primary way to incorporate prior knowledge and improve search
-                efficiency. One of:
-
-                - A [Grammar][SRToolkit.utils.grammar.Grammar] object (used directly,
-                  including its weights and any registered constraints).
-                - A grammar string in the notation used by
-                  [Grammar.from_grammar_string][SRToolkit.utils.grammar.Grammar.from_grammar_string].
-                - A [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] — converted
-                  automatically via
-                  [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library].
-                - ``None`` — the grammar is chosen per task by
-                  [adapt][SRToolkit.approaches.ProGED.ProGED.adapt] from the task's background
-                  knowledge: its ``reference_grammar`` if set, else a generic grammar from the
-                  symbol library. A generic grammar forgoes the approach's main advantage.
+            grammar: Grammar to sample from: a [Grammar][SRToolkit.utils.grammar.Grammar], a string
+                for [Grammar.from_grammar_string][SRToolkit.utils.grammar.Grammar.from_grammar_string],
+                a [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary] (converted with
+                [Grammar.from_symbol_library][SRToolkit.utils.grammar.Grammar.from_symbol_library]),
+                or ``None`` to let [adapt][SRToolkit.approaches.ProGED.ProGED.adapt] choose one per
+                task. Sample length is bounded only by the derivation limit of
+                [ask][SRToolkit.approaches.ProGED.ProGED.ask]; a ``MaxTokens`` required constraint
+                rejects long samples.
             skip_evaluated: Skip samples that were already evaluated. ``False`` evaluates repeats
                 too, as cache hits that use the budget.
             skip_rejected: Skip samples that break a required constraint. ``False`` evaluates them,
                 so they use the budget and appear in the results as ``"rejected"``.
-            canonicalise_constants: Treat samples that differ only in how their constants are
-                labelled (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) as one expression; passed to
-                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] and
-                ``get_model``. Useful only for grammars with labelled constants as terminals.
+            canonicalise_constants: Treat samples that differ only in constant labels
+                (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) as one expression. Useful only for
+                grammars with labelled constants as terminals.
         """
         if isinstance(grammar, Grammar):
             grammar_dict = grammar.to_dict()
@@ -144,14 +111,7 @@ class ProGED(SR_approach):
 
     @property
     def adaptation_scope(self) -> str:
-        """``"never"`` if a grammar was given to the constructor, else ``"experiment"``.
-
-        Without a grammar, [adapt][SRToolkit.approaches.ProGED.ProGED.adapt] chooses one for each
-        task.
-
-        Returns:
-            ``"never"`` or ``"experiment"``.
-        """
+        """``"never"`` if a grammar was given to the constructor, else ``"experiment"``."""
         return "experiment" if self.grammar is None else "never"
 
     def adapt(
@@ -160,55 +120,46 @@ class ProGED(SR_approach):
         background_knowledge: "BackgroundKnowledge",
         required_constraints: Sequence[ExpressionConstraint],
     ) -> None:
-        """Choose the grammar to sample from, if none was given to the constructor.
+        """Choose the grammar for this task, unless the constructor was given one.
 
         Uses [BackgroundKnowledge.sampling_grammar][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.sampling_grammar]:
-        the reference grammar if it is set, otherwise a generic grammar for the symbol library.
-
-        Args:
-            X: Inputs; not used.
-            background_knowledge: Source of the reference grammar or the symbol library.
-            required_constraints: Not used.
+        the reference grammar if set, else a generic grammar for the symbol library. ``X`` and
+        ``required_constraints`` are not used.
         """
         if self.grammar is not None:
             return
         self._sampling_grammar = background_knowledge.sampling_grammar()
 
     def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
-        """Seed NumPy's global random state, which the grammar samples from.
+        """Seed NumPy's global random state, unless ``seed`` is ``None``.
 
-        Args:
-            sr_evaluator: The evaluator of the run.
-            seed: Optional random seed for reproducible sampling.
+        The same seed, grammar and evaluator settings give the same samples.
 
         Raises:
             RuntimeError: If no grammar was given to the constructor and ``adapt`` was not called.
         """
         if self._sampling_grammar is None:
             raise RuntimeError("ProGED.start() must be called after adapt() if grammar is not provided.")
-        np.random.seed(seed)
+        if seed is not None:
+            np.random.seed(seed)
 
-    def ask(self, sr_evaluator: SR_evaluator) -> list[Candidate | list[str] | Node | None]:
-        """Sample one expression from the grammar and propose it.
+    def ask(self, sr_evaluator: SR_evaluator, state: None) -> list[Candidate | list[str] | Node | None]:
+        """Propose one sample from the grammar.
 
-        A sample is skipped, without using the budget, if it was already evaluated
-        ([get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]) and
-        ``skip_evaluated`` is set, or if it breaks a required constraint
-        ([check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints]) and
-        ``skip_rejected`` is set. A skipped sample is proposed with a ``skip`` reason
-        (see [Candidate][SRToolkit.approaches.sr_approach.Candidate]): ``"evaluated"`` if it was
-        evaluated before (with ``skip_evaluated`` set), otherwise ``"rejected"``. The evaluator's setting
-        ``max_consecutive_skips`` stops a run that skips too many samples in a row (see
-        [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
-
-        Args:
-            sr_evaluator: The evaluator of the run.
+        A derivation that needs more than 1000 rule applications, or in which no rule fits, fails
+        and is proposed as ``None`` (the skip ``"not_expression"``), not redrawn. A sample is
+        proposed with the skip reason ``"evaluated"`` if ``skip_evaluated`` is set and it was
+        evaluated before, else ``"rejected"`` if ``skip_rejected`` is set and it breaks a required
+        constraint.
 
         Returns:
-            A list with one [Candidate][SRToolkit.approaches.sr_approach.Candidate].
+            A one-element list: a [Candidate][SRToolkit.approaches.sr_approach.Candidate], or
+            ``None`` if the derivation failed.
         """
         assert self._sampling_grammar is not None  # set by the constructor or adapt; checked in start
-        expr = generate_n_expressions(self._sampling_grammar, 1, verbose=False)[0]
+        expr = self._sampling_grammar.generate_one(max_retries=1)
+        if expr is None:
+            return [None]
         if (
             self.skip_evaluated
             and sr_evaluator.get_model(expr, canonicalise_constants=self.canonicalise_constants) is not None
@@ -220,32 +171,11 @@ class ProGED(SR_approach):
             return [Candidate(expr, canonicalise_constants=self.canonicalise_constants)]
         return [Candidate(expr, canonicalise_constants=self.canonicalise_constants, skip=reason)]
 
-    def get_search_state(self) -> bytes:
-        """Return the sampling grammar as JSON bytes.
-
-        It is the whole search state besides NumPy's global random state, which the framework
-        saves.
-        """
-        assert self._sampling_grammar is not None
-        return json.dumps({"grammar": self._sampling_grammar.to_dict()}).encode()
-
-    def set_search_state(self, state: bytes) -> None:
-        """Restore the state returned by ``get_search_state``.
-
-        On resume it takes the place of ``start``, and restores a grammar chosen by ``adapt``.
-
-        Args:
-            state: The saved state.
-        """
-        saved = json.loads(state)
-        self._sampling_grammar = Grammar.from_dict(saved["grammar"])
-
     @classmethod
     def from_config(cls, config: dict) -> "ProGED":
-        """Rebuild the approach from a config dict.
+        """Rebuild the approach from a config dict; missing keys take the constructor defaults.
 
-        Missing keys take the constructor defaults and unknown keys (e.g. the removed
-        ``max_consecutive_skips``) are ignored.
+        Unknown keys (e.g. the removed ``max_consecutive_skips``) are ignored.
 
         Returns:
             The approach.

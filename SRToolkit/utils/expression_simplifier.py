@@ -1,5 +1,8 @@
 """Algebraic simplification and constant folding of expressions with e-graphs.
 
+The e-graph simplifier was created by Martin Perčinić ([mpercinic](https://github.com/mpercinic))
+and adapted for SRToolkit by Sebastian Mežnar.
+
 [simplify][SRToolkit.utils.expression_simplifier.simplify] puts an expression into an e-graph
 ([egglog](https://egglog-python.readthedocs.io/)), applies rewrite rules that add equivalent forms
 of its parts, and returns the cheapest equivalent expression found.

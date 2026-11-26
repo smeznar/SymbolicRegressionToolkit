@@ -57,16 +57,7 @@ except ImportError:
 
 @dataclass
 class EDHiEConfig(ApproachConfig):
-    """Configuration dataclass for the [EDHiE][SRToolkit.approaches.EDHiE.EDHiE] approach.
-
-    Examples:
-        >>> cfg = EDHiEConfig(latent_size=32, epochs=10)
-        >>> cfg.name
-        'EDHiE'
-        >>> d = cfg.to_dict()
-        >>> EDHiEConfig.from_dict(d).latent_size
-        32
-    """
+    """Configuration of [EDHiE][SRToolkit.approaches.EDHiE.EDHiE]; the fields are its constructor arguments."""
 
     name: str = "EDHiE"
     latent_size: int = 32
@@ -83,6 +74,14 @@ class EDHiEConfig(ApproachConfig):
     skip_evaluated: bool = True
     skip_rejected: bool = True
     training_seed: int | None = None
+
+
+@dataclass
+class _GASearch:
+    """EDHiE's search state: the GA and, between ``ask`` and ``tell``, the asked generation."""
+
+    ga: GA
+    pending: Population | None = None
 
 
 class EDHiE(SR_approach):
@@ -103,53 +102,39 @@ class EDHiE(SR_approach):
         skip_rejected: bool = True,
         training_seed: int | None = None,
     ) -> None:
-        r"""EDHiE — Equation Discovery with Hierarchical variational autoEncoders by Mežnar et al.
+        r"""EDHiE: equation discovery with hierarchical variational autoencoders by Mežnar et al.
 
-        Trains a Hierarchical VAE (HVAE) on randomly generated expressions for the task
-        ([adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt]), then explores the learned latent space
-        with a genetic algorithm to find expressions that best fit the target dataset.
+        [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] trains a hierarchical VAE (HVAE) on random
+        expressions for the task; the search runs a genetic algorithm in its latent space. In the
+        [step interface][SRToolkit.approaches.sr_approach], one step is one generation and is never
+        empty, so the search runs until the evaluator stops it.
 
-        The search uses the step interface (see [sr_approach][SRToolkit.approaches.sr_approach]):
-        one step is one generation, and with the search state methods a stopped run resumes from its
-        last snapshot. Resuming needs the same HVAE and settings as the interrupted run: load the
-        HVAE from a file (``weights_path``, or a state saved by
-        [save_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.save_adapted_state] and loaded by
-        [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load]), or train it again
-        with the same ``training_seed``.
+        A stopped run resumes only with the same HVAE, bit for bit: load it from a file
+        (``weights_path`` or a saved adapted state), or train it again with the same
+        ``training_seed`` on the same device and PyTorch version. Other settings are not checked.
 
         Args:
-            latent_size: Dimensionality of the HVAE latent space.
-            num_expressions: Number of random expressions generated to train the HVAE.
-            max_expression_length: Longest training expression, in tokens. A required ``MaxTokens``
-                with a lower limit shortens them further.
-            only_unique_expressions: Prefer distinct training expressions: each is used once until
-                the grammar yields no new valid ones (see
-                [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]).
-                ``False`` keeps repeats as sampled, so likely expressions weigh more in training.
-            epochs: Number of training epochs for the HVAE.
-            batch_size: Batch size used during HVAE training.
-            max_beta: Maximum value of the KL annealing coefficient (controls regularization strength).
-            population_size: GA population size used during latent space search.
-            weights_path: Optional path of a file written by
-                [save_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.save_adapted_state]; the HVAE
-                is loaded from it here and used for every task.
-            verbose: If ``True``, prints the training loss and sample reconstructions while training
-                the HVAE. The search prints nothing.
+            latent_size: Dimension of the HVAE latent space.
+            num_expressions: Number of training expressions.
+            max_expression_length: Longest training expression, in tokens.
+            only_unique_expressions: Train on distinct expressions while the grammar yields new ones
+                (see [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]).
+                ``False`` keeps repeats, so likely expressions weigh more.
+            epochs: Number of HVAE training epochs.
+            batch_size: HVAE training batch size.
+            max_beta: Largest KL weight of the annealing schedule (regularisation strength).
+            population_size: GA population size. A resumed run keeps the snapshot's.
+            weights_path: File written by [save_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.save_adapted_state];
+                the HVAE is loaded from it here and used for every task.
+            verbose: Print the training loss and reconstructions while training (the search prints nothing).
             max_training_skips: Limit for sampling the training expressions (see
-                [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]): this
-                many samples in a row that break a required constraint raise ``ValueError``, and
-                this many repeats in a row allow repeats. It does not limit the search; the
-                evaluator's setting ``max_consecutive_skips`` does (see
-                [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
-            skip_evaluated: In the search, do not evaluate an expression again: look up its model,
-                without using the budget. ``False`` evaluates repeats too, as cache hits that use
-                the budget.
-            skip_rejected: In the search, do not evaluate expressions that break a required
-                constraint. ``False`` evaluates them, so they use the budget and appear in the
-                results as ``"rejected"``.
-            training_seed: Seed for [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] (sampling the
-                training expressions and training the HVAE); the global random states are restored
-                afterwards. ``None`` (default): unseeded.
+                ``training_expressions``). It does not limit the search; the evaluator's
+                ``max_consecutive_skips`` does.
+            skip_evaluated: Skip expressions evaluated before (see [ask][SRToolkit.approaches.EDHiE.EDHiE.ask]).
+                ``False`` evaluates them again, as cache hits that use the budget.
+            skip_rejected: Skip expressions that break a required constraint. ``False`` evaluates
+                them, so they use the budget and appear in the results as ``"rejected"``.
+            training_seed: Seed for ``adapt``, or ``None`` for unseeded.
 
         Raises:
             ValueError: If ``max_training_skips`` is below 1.
@@ -198,22 +183,13 @@ class EDHiE(SR_approach):
         self.training_seed = training_seed
 
         self.model: HVAE | None = None
-        # Search state, set up by start: the GA, and between ask and tell the asked generation.
-        self._ga: GA | None = None
-        self._pending: Population | None = None
         self._pretrained = weights_path is not None
         if weights_path is not None:
             self.load_adapted_state(weights_path)
 
     @property
     def adaptation_scope(self) -> str:
-        """When the framework trains the HVAE.
-
-        ``"never"`` if the constructor got ``weights_path``: that model is used for every task.
-        Otherwise ``"once"``: the framework calls [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt]
-        (or loads a saved state) before the first experiment of each
-        [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] call or grid
-        job, so the model matches the task.
+        """When the framework trains the HVAE: ``"never"`` if ``weights_path`` was given, else ``"once"``.
 
         Returns:
             ``"once"`` or ``"never"``.
@@ -226,26 +202,19 @@ class EDHiE(SR_approach):
         background_knowledge: "BackgroundKnowledge",
         required_constraints: Sequence[ExpressionConstraint],
     ) -> None:
-        """Train the HVAE for this task.
+        """Train a new HVAE on the task's training expressions, replacing any earlier one.
 
-        1. Collects ``num_expressions`` training expressions with
-           [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions]: from the
-           reference grammar if the background knowledge has one, otherwise from the symbol
-           library, keeping only those that pass the required constraints.
-        2. Trains a new HVAE on them for ``epochs`` epochs, replacing any earlier model.
-
-        Later experiments of the same run reuse the model. With ``training_seed`` set, both steps
-        are reproducible, and the global random states are left as they were.
+        The expressions come from [training_expressions][SRToolkit.approaches.EDHiE.EDHiE.training_expressions].
+        With ``training_seed`` set, sampling and training are reproducible and the global random
+        states are restored afterwards.
 
         Args:
             X: Not used.
-            background_knowledge: Its reference grammar or symbol library supplies the training
-                expressions.
+            background_knowledge: Supplies the training expressions.
             required_constraints: Every training expression passes them.
 
         Raises:
-            ValueError: If no valid training expressions can be sampled (see
-                ``training_expressions``).
+            ValueError: If no valid training expressions can be sampled.
         """
         # Seed this training only: the global states are restored afterwards, so later unseeded
         # searches stay random.
@@ -282,20 +251,18 @@ class EDHiE(SR_approach):
     ) -> list[list[str]]:
         """Sample the expressions the HVAE is trained on.
 
-        Samples from [BackgroundKnowledge.sampling_grammar][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.sampling_grammar]
-        (the reference grammar if it is set, otherwise a generic grammar for the symbol library).
-        Labelled constants (``C_0``) are made bare (``C``), since EDHiE does not generate shared
-        constants. Keeps only expressions of at most ``max_expression_length`` tokens that pass the
-        pre-checks of all ``required_constraints``. With ``only_unique_expressions`` they are distinct until
-        ``max_training_skips`` valid samples in a row are repeats; the rest is then filled with
-        further valid samples, repeats included, with a warning.
+        Samples from [sampling_grammar][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.sampling_grammar]
+        and keeps those of at most ``max_expression_length`` tokens that pass the pre-checks of
+        ``required_constraints``. With
+        ``only_unique_expressions``, they are distinct until ``max_training_skips`` valid samples in a
+        row are repeats; then repeats fill the rest, with a warning.
 
         Args:
-            background_knowledge: Source of the reference grammar or the symbol library.
+            background_knowledge: Supplies the grammar.
             required_constraints: Set-up constraints every expression must pass.
 
         Returns:
-            ``num_expressions`` expressions as token lists.
+            ``num_expressions`` token lists.
 
         Raises:
             ValueError: If ``max_training_skips`` samples in a row break a required constraint.
@@ -347,19 +314,16 @@ class EDHiE(SR_approach):
         return expressions
 
     def save_adapted_state(self, path: str) -> None:
-        """Save the trained HVAE model weights and architecture metadata to disk.
-
-        Saves a single checkpoint file containing the symbol library, latent size,
-        hidden size, max height, and model weights — enough to fully reconstruct
-        the model in [load_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.load_adapted_state]
-        without needing to call [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] first.
+        """Save the HVAE (architecture, symbol library and weights) to ``path``.
 
         Args:
-            path: File path to save the checkpoint to, including the file extension, e.g. ``path/model.pt``.
+            path: File to write, e.g. ``path/model.pt``.
+
+        Raises:
+            RuntimeError: If there is no HVAE (no ``adapt`` and no ``weights_path``).
         """
         if self.model is None:
-            warnings.warn("[EDHiE.save_adapted_state] No model to save.")
-            return
+            raise RuntimeError("EDHiE has no HVAE to save: call adapt() or pass weights_path first.")
         torch.save(
             {
                 "symbol_library": self.model.decoder.symbol_library.to_dict(),
@@ -372,15 +336,10 @@ class EDHiE(SR_approach):
         )
 
     def load_adapted_state(self, path: str) -> None:
-        """Restore a previously trained HVAE model from disk.
-
-        Reconstructs the ``HVAE`` from the architecture
-        metadata saved alongside the weights, so no prior call to
-        [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] is required.
+        """Load the HVAE from ``path``, replacing any current one.
 
         Args:
-            path: File path previously passed to
-                [save_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.save_adapted_state].
+            path: File written by [save_adapted_state][SRToolkit.approaches.EDHiE.EDHiE.save_adapted_state].
         """
         checkpoint = torch.load(path, weights_only=False)
         symbol_library = SymbolLibrary.from_dict(checkpoint["symbol_library"])
@@ -393,21 +352,23 @@ class EDHiE(SR_approach):
         )
         self.model.load_state_dict(checkpoint["state_dict"])
 
-    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
-        """Set up a new genetic algorithm in the latent space.
+    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> _GASearch:
+        """Seed the random states and start a new search.
 
-        See [start][SRToolkit.approaches.sr_approach.SR_approach.start]. With ``seed`` set, it seeds
-        the global random states (Python, NumPy, PyTorch), which are not restored afterwards, and
-        the algorithm's own generator, so the same seed, HVAE and evaluator settings give the same
-        models and trace. With ``None``, the algorithm's generator is seeded from fresh entropy.
+        See [start][SRToolkit.approaches.sr_approach.SR_approach.start]. With ``seed`` set, it seeds the global
+        random states (Python, NumPy, PyTorch; not restored) and the GA's own generator, so the same
+        seed, HVAE, approach and evaluator settings give the same run; with ``None``, the GA's
+        generator draws fresh entropy.
 
         Args:
             sr_evaluator: The evaluator of the run.
             seed: The run's seed, or ``None``.
 
+        Returns:
+            The search state.
+
         Raises:
-            RuntimeError: If there is no HVAE: [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] has not
-                been called and no ``weights_path`` was given.
+            RuntimeError: If there is no HVAE (no ``adapt`` and no ``weights_path``).
         """
         if self.model is None:
             raise RuntimeError("EDHiE needs an HVAE: call adapt() or pass weights_path before start().")
@@ -415,45 +376,30 @@ class EDHiE(SR_approach):
             np.random.seed(seed)
             torch.manual_seed(seed)
             random.seed(seed)
-        self._ga = self._new_ga(seed)
-        self._pending = None
+        return _GASearch(self._new_ga(seed))
 
-    def ask(self, sr_evaluator: SR_evaluator) -> list[Candidate | list[str] | Node | None]:
+    def ask(self, sr_evaluator: SR_evaluator, state: _GASearch) -> list[Candidate | list[str] | Node | None]:
         """Decode the next generation and propose one entry per individual, in order.
 
-        See [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]. Each individual, checked in
-        this order, is proposed as
+        See [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]. Each individual is proposed as the first of
+        these that applies:
 
         1. ``None`` if it does not decode;
-        2. a skip with the reason ``"evaluated"`` (see
-           [Candidate][SRToolkit.approaches.sr_approach.Candidate]) if ``skip_evaluated`` is set and its
-           expression was evaluated before
-           ([get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]) or proposed
-           for evaluation earlier in the same generation;
-        3. a skip with the reason ``"rejected"`` if ``skip_rejected`` is set and it breaks a
-           required constraint
-           ([check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints]);
-           ``tell`` gets ``None`` for it (it is never evaluated);
-        4. its expression, to be evaluated, otherwise.
-
-        The step loop counts cases 1-3 as skips (``None`` as ``"not_expression"``) when it reaches
-        them, so the evaluator's setting ``max_consecutive_skips`` stops a run that skips too many
-        individuals in a row (see
-        [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
+        2. a skip ``"evaluated"`` if ``skip_evaluated`` is set and its expression was evaluated
+           before or is proposed for evaluation earlier in this generation;
+        3. a skip ``"rejected"`` if ``skip_rejected`` is set and it breaks a required constraint;
+        4. its expression, to be evaluated.
 
         Args:
             sr_evaluator: The evaluator of the run.
+            state: The search state.
 
         Returns:
-            One entry per individual.
-
-        Raises:
-            RuntimeError: If neither ``start`` nor ``set_search_state`` has been called.
+            One entry per individual; never empty.
         """
-        if self._ga is None or self.model is None:
-            raise RuntimeError("EDHiE.start() must be called before ask().")
-        self._pending = self._ga.ask()
-        X = self._pending.get("X")
+        assert self.model is not None  # checked by start and load_search_state
+        state.pending = state.ga.ask()
+        X = state.pending.get("X")
         device = next(self.model.parameters()).device
         trees = self.model.decode(torch.tensor(X, device=device, dtype=torch.float32))
         candidates: list[Candidate | list[str] | Node | None] = []
@@ -475,73 +421,77 @@ class EDHiE(SR_approach):
     def tell(
         self,
         sr_evaluator: SR_evaluator,
+        state: _GASearch,
         candidates: list[Candidate | list[str] | Node | None],
         results: "list[ModelResult | None]",
     ) -> None:
         """Score the generation from ``ask`` and select the next population.
 
-        See [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]. Individual *i* gets the error
-        of ``results[i]``; it gets ``inf`` if that is ``None`` or its error is ``nan``, or if it has
-        no result (the run stopped in the middle of the step).
+        See [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]. Individual *i* gets the error of
+        ``results[i]`` (lower is better), or ``inf`` if that is ``None``, its error is ``nan``, or
+        the step stopped before it.
 
         Args:
             sr_evaluator: The evaluator of the run.
-            candidates: The entries of the list from ``ask`` that the step loop reached, skips and
-                ``None`` entries included.
-            results: Their models.
+            state: The search state.
+            candidates: Not used.
+            results: The models of the entries from ``ask`` that the step loop reached.
         """
-        assert self._ga is not None and self._pending is not None  # set by ask
-        errors = np.full(len(self._pending), np.inf)
+        assert state.pending is not None  # set by ask
+        errors = np.full(len(state.pending), np.inf)
         for i, result in enumerate(results):
             if result is not None and not np.isnan(result.error):
                 errors[i] = result.error
-        self._pending.set("F", errors[:, None])
-        self._ga.tell(infills=self._pending)
-        self._pending = None
+        state.pending.set("F", errors[:, None])
+        state.ga.tell(infills=state.pending)
+        state.pending = None
 
-    def get_search_state(self) -> bytes:
-        """Return the search state between two steps.
+    def dump_search_state(self, state: _GASearch) -> bytes:
+        """Serialise the search state between two steps.
 
-        See [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state].
-
-        Returns:
-            The genetic algorithm (population, generation, its own random generator) and a digest of
-            the HVAE, pickled. The HVAE itself is not included.
-
-        Raises:
-            RuntimeError: If neither ``start`` nor ``set_search_state`` has been called.
-        """
-        if self._ga is None or self.model is None:
-            raise RuntimeError("EDHiE.start() must be called before get_search_state().")
-        # The GA itself does not pickle (tournament selection holds a local function); mating is
-        # configuration only and the problem holds the HVAE, so both are rebuilt on restore.
-        ga = {k: v for k, v in vars(self._ga).items() if k not in ("mating", "problem")}
-        return pickle.dumps({"ga": ga, "model": _digest(self.model)})
-
-    def set_search_state(self, state: bytes) -> None:
-        """Restore a state returned by ``get_search_state``.
-
-        See [set_search_state][SRToolkit.approaches.sr_approach.SR_approach.set_search_state]. On
-        resume it takes the place of ``start``: it rebuilds the genetic algorithm.
+        See [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].
 
         Args:
-            state: The saved state.
+            state: The search state.
+
+        Returns:
+            The search state without the HVAE; only a fingerprint of the HVAE is saved, and
+            ``load_search_state`` checks it.
+        """
+        assert self.model is not None  # checked by start and load_search_state
+        # The GA itself does not pickle (tournament selection holds a local function); mating is
+        # configuration only and the problem holds the HVAE, so both are rebuilt on load.
+        ga = {k: v for k, v in vars(state.ga).items() if k not in ("mating", "problem")}
+        return pickle.dumps({"ga": ga, "model": _digest(self.model)})
+
+    def load_search_state(self, data: bytes) -> _GASearch:
+        """Rebuild a search state from ``dump_search_state``, on this approach's HVAE.
+
+        See [load_search_state][SRToolkit.approaches.sr_approach.SR_approach.load_search_state].
+
+        Args:
+            data: The serialised state.
+
+        Returns:
+            The search state, with the dumped GA settings.
 
         Raises:
-            RuntimeError: If there is no HVAE.
-            ValueError: If the HVAE's weights differ from those the state was saved with.
+            RuntimeError: If there is no HVAE (no ``adapt`` and no ``weights_path``).
+            ValueError: If the HVAE differs from the one the state was saved with (state dicts
+                compared bit for bit).
         """
         if self.model is None:
             raise RuntimeError("EDHiE needs an HVAE to restore a search state: call adapt() or pass weights_path.")
-        saved = pickle.loads(state)
+        saved = pickle.loads(data)
         if saved["model"] != _digest(self.model):
             raise ValueError(
-                "EDHiE: the HVAE differs from the one the search state was saved with; load the same model "
-                "(weights_path or a saved adapted state) or train it with the same training_seed."
+                "EDHiE: the HVAE differs from the one the search state was saved with (weights must match "
+                "bit for bit); load the same model (weights_path or a saved adapted state) or train it with "
+                "the same training_seed on the same device and PyTorch version."
             )
-        self._ga = self._new_ga(None)
-        vars(self._ga).update(saved["ga"])
-        self._pending = None
+        ga = self._new_ga(None)
+        vars(ga).update(saved["ga"])
+        return _GASearch(ga)
 
     def _new_ga(self, seed: int | None) -> GA:
         """Return a GA with this approach's settings, set up on the latent space."""

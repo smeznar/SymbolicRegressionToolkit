@@ -345,7 +345,7 @@ class ExperimentJob:
         continues it from its last snapshot if it exists (see
         [Checkpoints][SRToolkit.evaluation.sr_evaluator]), so running an unfinished job again
         resumes it. An approach whose runs cannot be resumed (see
-        [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]) starts
+        [supports_steps][SRToolkit.approaches.sr_approach.SR_approach.supports_steps]) starts
         its job afresh, with a ``UserWarning``, and replaces the checkpoint. A checkpoint of a
         finished run (e.g. killed while saving its result) gives the result directly, without
         adapting or running anything. The search runs inside
@@ -413,7 +413,7 @@ class ExperimentJob:
                     os.remove(self.result_path)
                 _remove_checkpoint(self.checkpoint_path)
             resume = os.path.exists(self.checkpoint_path)
-            if resume and not approach.supports_snapshots:
+            if resume and not approach.supports_steps:
                 warnings.warn(
                     f"[ExperimentJob] {self.approach_name} cannot continue from a snapshot, so its checkpoint "
                     f"{self.checkpoint_path} cannot be resumed; the job starts afresh and replaces it.",

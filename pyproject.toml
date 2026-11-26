@@ -16,7 +16,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-3.0-only"}
 authors = [
-  { name = "Sebastian Mežnar", email = "smeznar@gmail.com" }
+  { name = "Sebastian Mežnar", email = "smeznar@gmail.com" },
+  { name = "Martin Perčinić" },
 ]
 keywords = [
   "symbolic regression",

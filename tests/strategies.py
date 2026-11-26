@@ -4,7 +4,6 @@ Sizes are bounded so that property tests stay fast.
 """
 
 import os
-import pickle
 import random
 import signal
 from dataclasses import dataclass
@@ -315,12 +314,11 @@ class SteppedApproach(SR_approach):
     STEPPED_POOL with both. After ``stop_after_asks`` asks it returns no candidate, first calling
     ``se.stop(stop_with)`` if that is set. ``tell`` logs what it gets; ``started`` records ``start``
     and ``evaluator`` the evaluator it got.
-    The search state is the number of asks.
+    The search state is ``{"asks": number of asks}``, pickled by the default state methods.
     """
 
     def __init__(self, **kwargs):
         super().__init__(SteppedConfig(**kwargs))
-        self.asks = 0
         self.told = []
         self.started = False
         self.evaluator = None
@@ -332,31 +330,18 @@ class SteppedApproach(SR_approach):
     def start(self, sr_evaluator, seed=None):
         self.started = True
         self.evaluator = sr_evaluator
-        self.asks = 0
         random.seed(seed)
         np.random.seed(seed)
+        return {"asks": 0}
 
-    def ask(self, sr_evaluator):
-        if self.config.stop_after_asks is not None and self.asks >= self.config.stop_after_asks:
+    def ask(self, sr_evaluator, state):
+        if self.config.stop_after_asks is not None and state["asks"] >= self.config.stop_after_asks:
             if self.config.stop_with is not None:
                 sr_evaluator.stop(self.config.stop_with)
             return []
-        self.asks += 1
+        state["asks"] += 1
         n = len(STEPPED_POOL)
         return [STEPPED_POOL[(int(np.random.randint(n)) + random.randrange(n)) % n] for _ in range(self.config.batch)]
 
-    def tell(self, sr_evaluator, candidates, results):
+    def tell(self, sr_evaluator, state, candidates, results):
         self.told.append((list(candidates), list(results)))
-
-    def get_search_state(self):
-        return pickle.dumps({"asks": self.asks})
-
-    def set_search_state(self, state):
-        self.asks = pickle.loads(state)["asks"]
-
-
-class StatelessSteppedApproach(SteppedApproach):
-    """A SteppedApproach without the state methods: it takes no snapshots and cannot be resumed."""
-
-    get_search_state = SR_approach.get_search_state
-    set_search_state = SR_approach.set_search_state

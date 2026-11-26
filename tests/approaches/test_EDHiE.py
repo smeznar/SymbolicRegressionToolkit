@@ -46,7 +46,8 @@ def _set_up(constraint, lib):
 
 
 def _tiny(**kwargs):
-    return EDHiE(latent_size=8, max_expression_length=10, epochs=1, population_size=10, verbose=False, **kwargs)
+    settings = {"latent_size": 8, "max_expression_length": 10, "epochs": 1, "population_size": 10, "verbose": False}
+    return EDHiE(**{**settings, **kwargs})
 
 
 def test_training_expressions_from_reference_grammar_follow_constraints(caplog):
@@ -237,31 +238,15 @@ def _proposals(candidates):
     ]
 
 
-def _run(approach, seed):
-    se = _evaluator(seed=0, max_consecutive_skips=200)  # seeds constant fitting, so models compare exactly
-    approach.search(se, seed=seed)
-    return list(se.trace), [m.to_dict() for m in se.models]
-
-
-@pytest.mark.slow
-@pytest.mark.filterwarnings("ignore::UserWarning")
-def test_search_with_same_seed_repeats_its_run(trained_model):
-    # Regression: pymoo's generator was unseeded. One object for all runs: start resets the state.
-    approach = _stepper(trained_model)
-    first, again, other_seed = _run(approach, 0), _run(approach, 0), _run(approach, 1)
-    assert again == first
-    assert other_seed[0] != first[0]
-
-
 @pytest.mark.filterwarnings("ignore::UserWarning")
 def test_ask_proposes_evaluated_and_repeated_expressions_as_lookups(trained_model):
     first, se = _stepper(trained_model), _evaluator()
-    first.start(se, seed=0)
-    first_candidates = first.ask(se)
+    first_candidates = first.ask(se, first.start(se, seed=0))
     proposals = _proposals(first_candidates)
     assert any(not evaluate for _, evaluate in proposals)  # precondition: generation 1 repeats one
     assert _skips(first_candidates) == [None if evaluate else "evaluated" for _, evaluate in proposals]
     assert se.skips == {}  # counted by the step loop, not by ask
+    assert se.total_evaluations == 0  # only the step loop evaluates
     # On an empty evaluator an expression is evaluated exactly at its first occurrence.
     assert [evaluate for _, evaluate in proposals] == [
         tokens not in [earlier for earlier, _ in proposals[:i]] for i, (tokens, _) in enumerate(proposals)
@@ -271,8 +256,9 @@ def test_ask_proposes_evaluated_and_repeated_expressions_as_lookups(trained_mode
     se_with_model = _evaluator()
     se_with_model.evaluate_expr(list(looked_up))
     second = _stepper(trained_model)
-    second.start(se_with_model, seed=0)
-    assert _proposals(second.ask(se_with_model)) == [(t, e and t != looked_up) for t, e in proposals]
+    assert _proposals(second.ask(se_with_model, second.start(se_with_model, seed=0))) == [
+        (t, e and t != looked_up) for t, e in proposals
+    ]
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -282,8 +268,7 @@ def test_skip_limit_stops_inside_a_generation(trained_model):
     # earlier evaluations. Without skip_rejected every decoded individual is proposed, so lookups are
     # the only skips.
     probe, se = _stepper(trained_model, skip_rejected=False), _evaluator()
-    probe.start(se, seed=0)
-    generation = _proposals(probe.ask(se))
+    generation = _proposals(probe.ask(se, probe.start(se, seed=0)))
     assert len(generation) == 10  # precondition: every individual decoded
     lookups = [not evaluate for _, evaluate in generation]
     first_pair = next(i for i in range(1, 10) if lookups[i - 1] and lookups[i])
@@ -321,8 +306,7 @@ def test_rejected_individuals_are_proposed_as_lookups(trained_model):
     # rejected individuals is a step of its own; the skip limit still ends the run, with no evaluation.
     # ask neither truncates the generation at the limit nor stops the run: only the step loop counts.
     approach, se = _stepper(trained_model), _rejecting_evaluator(max_consecutive_skips=2)
-    approach.start(se, seed=0)
-    candidates = approach.ask(se)
+    candidates = approach.ask(se, approach.start(se, seed=0))
     proposals = _proposals(candidates)
     assert [evaluate for _, evaluate in proposals] == [False] * 10
     assert not se.should_stop
@@ -333,8 +317,9 @@ def test_rejected_individuals_are_proposed_as_lookups(trained_model):
     assert 1 < copies < 10  # precondition: the generation also holds other individuals
     se = _rejecting_evaluator()
     se.evaluate_expr(list(evaluated_before))
-    approach.start(se, seed=0)
-    assert _skips(approach.ask(se)) == ["evaluated" if t == evaluated_before else "rejected" for t, _ in proposals]
+    assert _skips(approach.ask(se, approach.start(se, seed=0))) == [
+        "evaluated" if t == evaluated_before else "rejected" for t, _ in proposals
+    ]
     se = _rejecting_evaluator(max_consecutive_skips=25)
     approach.search(se, seed=0)  # 25 skips in a row: in the third generation
     assert se.stop_reason == "max_consecutive_skips"
@@ -347,10 +332,21 @@ def test_undecodable_individuals_are_proposed_as_none(trained_model, monkeypatch
     # Patching decode is the only way: the public API cannot produce a latent vector that does not decode.
     approach, se = _stepper(trained_model), _evaluator(max_consecutive_skips=15)
     monkeypatch.setattr(trained_model, "decode", lambda z: [None] * len(z))
-    approach.start(se, seed=0)
-    assert approach.ask(se) == [None] * 10
+    assert approach.ask(se, approach.start(se, seed=0)) == [None] * 10
     approach.search(se, seed=0)
     assert (se.stop_reason, se.total_evaluations, se.skips) == ("max_consecutive_skips", 0, {"not_expression": 15})
+
+
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_search_leaves_the_approach_unchanged(trained_model):
+    # Clause (lifecycle): the search does not change the approach object; its state lives in the
+    # state that start returns, so nothing carries over to the next run.
+    approach = _stepper(trained_model)
+    attributes = dict(vars(approach))
+    weights = {k: v.clone() for k, v in trained_model.state_dict().items()}
+    approach.search(_evaluator(max_consecutive_skips=50), seed=0)
+    assert vars(approach) == attributes
+    assert all(torch.equal(v, weights[k]) for k, v in trained_model.state_dict().items())
 
 
 def _global_rng_states():
@@ -363,38 +359,81 @@ def _restore_global_rng_states(states):
     torch.set_rng_state(states[2])
 
 
-def test_search_state_round_trips_without_weights(trained_model):
+def _no_generation(approach, se, state):
+    pass
+
+
+def _one_generation(approach, se, state):
+    candidates = approach.ask(se, state)
+    approach.tell(se, state, candidates, [None] * len(candidates))  # all inf: survival ties use the GA's generator
+
+
+@pytest.mark.parametrize(
+    "before_dump", [_no_generation, _one_generation], ids=["before-first-ask", "after-a-generation"]
+)
+def test_search_state_round_trips_without_weights(trained_model, before_dump):
+    # Clause (dump/load): the HVAE is not in the dump; the loaded state is ready for ask and proposes
+    # what the original would, with the snapshot's population size (10), not the restoring approach's (4).
     original, se = _stepper(trained_model), _evaluator()
-    original.start(se, seed=0)
-    candidates = original.ask(se)
-    original.tell(se, candidates, [None] * len(candidates))  # all inf: survival ties use the GA's generator
-    state = original.get_search_state()
+    state = original.start(se, seed=0)
+    before_dump(original, se, state)
+    data = original.dump_search_state(state)
     largest = max(trained_model.parameters(), key=lambda p: p.numel())
-    assert largest.detach().numpy().tobytes() not in state
-    assert len(state) < len(pickle.dumps(trained_model.state_dict()))
-    restored = _stepper(copy.deepcopy(trained_model))  # equal weights, another object
-    restored.set_search_state(state)
+    assert largest.detach().numpy().tobytes() not in data
+    assert len(data) < len(pickle.dumps(trained_model.state_dict()))
+    restored = _stepper(copy.deepcopy(trained_model), population_size=4)  # equal weights, another object
+    restored_state = restored.load_search_state(data)
     rngs = _global_rng_states()
-    expected = _proposals(original.ask(se))
+    expected = _proposals(original.ask(se, state))
     _restore_global_rng_states(rngs)
-    assert expected
-    candidates = restored.ask(se)
-    assert _proposals(candidates) == expected
-    restored.tell(se, candidates, [None] * len(candidates))
-    assert not se.should_stop  # no skip stop was restored with the state
+    assert len(expected) == 10
+    assert _proposals(restored.ask(se, restored_state)) == expected
 
 
-def _second_generation(model):
-    approach, se = _stepper(model), _evaluator()
-    approach.start(se, seed=0)
-    candidates = approach.ask(se)
-    approach.tell(se, candidates, [None] * len(candidates))  # all inf: survival ties use the GA's generator
-    return _proposals(approach.ask(se))
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_states_of_one_approach_are_independent(trained_model):
+    # Clause (lifecycle, start): each start returns a new state and the search keeps nothing on the
+    # approach, so advancing one state leaves another of the same object unchanged. Regression:
+    # pymoo's generator was unseeded (survival ties under all-inf errors use the state's generator).
+    approach, se = _stepper(trained_model), _evaluator()
+    state_a = approach.start(se, seed=0)
+    first_a = approach.ask(se, state_a)
+    approach.tell(se, state_a, first_a, [None] * len(first_a))
+    state_b = approach.start(se, seed=0)  # after A advanced; reseeds the global random states
+    first_b = approach.ask(se, state_b)
+    approach.tell(se, state_b, first_b, [None] * len(first_b))
+    before_second = _global_rng_states()
+    second_b = _proposals(approach.ask(se, state_b))
+    _restore_global_rng_states(before_second)
+    assert _proposals(first_b) == _proposals(first_a)
+    assert _proposals(approach.ask(se, state_a)) == second_b
 
 
-def test_start_with_same_seed_repeats_the_second_generation(trained_model):
-    # Regression (fast form of test_search_with_same_seed_repeats_its_run): pymoo's generator was unseeded.
-    assert _second_generation(trained_model) == _second_generation(trained_model)
+def _started_state(model, seed=0):
+    approach = _stepper(model)
+    return approach.dump_search_state(approach.start(_evaluator(), seed=seed))
+
+
+def test_start_state_depends_on_the_seed(trained_model):
+    # Clause (start): the seed sets the algorithm's own generator (part of the dump); None draws fresh entropy.
+    assert _started_state(trained_model, 0) == _started_state(trained_model, 0)
+    assert _started_state(trained_model, 1) != _started_state(trained_model, 0)
+    assert _started_state(trained_model, None) != _started_state(trained_model, None)
+
+
+def _draws_after_start(model, earlier_seed):
+    """One draw from each global generator after start(seed=0), with globals first set by earlier_seed."""
+    random.seed(earlier_seed)
+    np.random.seed(earlier_seed)
+    torch.manual_seed(earlier_seed)
+    _stepper(model).start(_evaluator(), seed=0)
+    return random.random(), np.random.random(), torch.rand(1).item()
+
+
+def test_start_seeds_the_global_random_states(trained_model):
+    # Clause (start): with a seed, it seeds the global random states (Python, NumPy, PyTorch) and does
+    # not restore them, so what they draw next does not depend on their state before.
+    assert _draws_after_start(trained_model, 1) == _draws_after_start(trained_model, 2)
 
 
 def _model_of(se, candidate):
@@ -411,60 +450,88 @@ def test_tell_selects_by_the_errors(trained_model):
     # and global random states, telling the real models or none must lead to different next generations.
     se = _evaluator(seed=0)
     with_errors, without = _stepper(trained_model), _stepper(trained_model)
-    with_errors.start(se, seed=0)
-    candidates = with_errors.ask(se)
-    without.start(se, seed=0)
-    assert _proposals(without.ask(se)) == _proposals(candidates)  # precondition: the same generation
+    state_with = with_errors.start(se, seed=0)
+    candidates = with_errors.ask(se, state_with)
+    state_without = without.start(se, seed=0)
+    assert _proposals(without.ask(se, state_without)) == _proposals(candidates)  # precondition: the same generation
     after_ask = _global_rng_states()
     models = [_model_of(se, c) for c in candidates]
     assert any(m is not None and np.isfinite(m.error) for m in models)  # precondition: something to select by
     _restore_global_rng_states(after_ask)
-    with_errors.tell(se, candidates, models)
-    next_with_errors = _proposals(with_errors.ask(se))
+    with_errors.tell(se, state_with, candidates, models)
+    next_with_errors = _proposals(with_errors.ask(se, state_with))
     _restore_global_rng_states(after_ask)
-    without.tell(se, candidates, [None] * len(candidates))
-    assert _proposals(without.ask(se)) != next_with_errors
+    without.tell(se, state_without, candidates, [None] * len(candidates))
+    assert _proposals(without.ask(se, state_without)) != next_with_errors
 
 
-def _started_state(model):
-    approach = _stepper(model)
-    approach.start(_evaluator(), seed=0)
-    return approach.get_search_state()
+def _with_nan_error(model):
+    if model is None:
+        return None
+    model = copy.copy(model)
+    model.error = float("nan")
+    return model
+
+
+@pytest.mark.parametrize(
+    "told, same_as",
+    [
+        (lambda c, m: (c[:5], m[:5]), lambda c, m: (c, m[:5] + [None] * (len(c) - 5))),
+        (lambda c, m: (c, [_with_nan_error(x) for x in m]), lambda c, m: (c, [None] * len(c))),
+    ],
+    ids=["no-result-is-none", "nan-error-is-none"],
+)
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_tell_treats_missing_and_nan_results_as_none(trained_model, told, same_as):
+    # Clause (tell): an individual gets inf if its result is None, its error is nan, or it has no result.
+    # Metamorphic: from the same state and global random states, both tells select the same next generation.
+    se, approach = _evaluator(seed=0), _stepper(trained_model)
+    state = approach.start(se, seed=0)
+    candidates = approach.ask(se, state)
+    twin = approach.start(se, seed=0)
+    assert _proposals(approach.ask(se, twin)) == _proposals(candidates)  # precondition: the same generation
+    after_ask = _global_rng_states()
+    models = [_model_of(se, c) for c in candidates]
+    assert any(m is not None and np.isfinite(m.error) for m in models[:5])  # precondition: errors to lose
+    _restore_global_rng_states(after_ask)
+    approach.tell(se, state, *told(candidates, models))
+    expected = _proposals(approach.ask(se, state))
+    _restore_global_rng_states(after_ask)
+    approach.tell(se, twin, *same_as(candidates, models))
+    assert _proposals(approach.ask(se, twin)) == expected
 
 
 def _start_without_model(model):
     _tiny().start(_evaluator(), seed=0)
 
 
-def _ask_before_start(model):
-    _stepper(model).ask(_evaluator())
+def _save_without_model(model):
+    # Regression: it warned and wrote nothing, so a later adapt_or_load found no file.
+    _tiny().save_adapted_state("never_written.pt")
 
 
-def _state_before_start(model):
-    _stepper(model).get_search_state()
+def _load_state_without_model(model):
+    _tiny().load_search_state(_started_state(model))
 
 
-def _set_state_without_model(model):
-    _tiny().set_search_state(_started_state(model))
-
-
-def _set_state_of_another_model(model):
-    other = copy.deepcopy(model)  # same architecture, one weight changed
+def _load_state_of_another_model(model):
+    other = copy.deepcopy(model)  # same architecture, one weight changed by one ulp
     with torch.no_grad():
-        next(other.parameters()).add_(1.0)
-    _stepper(other).set_search_state(_started_state(model))
+        weights = next(other.parameters()).view(-1)
+        weights[0] = torch.nextafter(weights[0], torch.tensor(float("inf")))
+    assert not torch.equal(next(other.parameters()), next(model.parameters()))
+    _stepper(other).load_search_state(_started_state(model))
 
 
 @pytest.mark.parametrize(
     "call, error, match",
     [
         (_start_without_model, RuntimeError, "HVAE"),
-        (_ask_before_start, RuntimeError, "start"),
-        (_state_before_start, RuntimeError, "start"),
-        (_set_state_without_model, RuntimeError, "HVAE"),
-        (_set_state_of_another_model, ValueError, "HVAE"),
+        (_save_without_model, RuntimeError, "HVAE"),
+        (_load_state_without_model, RuntimeError, "HVAE"),
+        (_load_state_of_another_model, ValueError, "HVAE"),
     ],
-    ids=["start-no-model", "ask-before-start", "state-before-start", "set-state-no-model", "set-state-other-model"],
+    ids=["start-no-model", "save-no-model", "load-state-no-model", "load-state-other-model"],
 )
 def test_step_interface_errors(trained_model, call, error, match):
     with pytest.raises(error, match=match):

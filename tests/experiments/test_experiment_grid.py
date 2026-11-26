@@ -19,7 +19,6 @@ from strategies import (
     EventLog,
     ScriptedApproach,
     SignalAfter,
-    StatelessSteppedApproach,
     SteppedApproach,
     result_answers,
 )
@@ -820,15 +819,6 @@ class TestJobCheckpoints:
         _job(tmp_path, ScriptedApproach(), name="straight.json").run()
         assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
         assert not (tmp_path / "r.sqlite").exists()
-
-    def test_resume_of_stateless_step_job_restarts_with_warning(self, tmp_path, monkeypatch):
-        _isolate_cache(monkeypatch, tmp_path / "cache")
-        with pytest.raises(KeyboardInterrupt):
-            _job(tmp_path, StatelessSteppedApproach(stop_after_asks=3), callbacks=SignalAfter(3)).run()
-        with pytest.warns(UserWarning, match="snapshot"):
-            _job(tmp_path, StatelessSteppedApproach(stop_after_asks=3)).run()
-        _job(tmp_path, StatelessSteppedApproach(stop_after_asks=3), name="straight.json").run()
-        assert _result(tmp_path / "r.json") == _result(tmp_path / "straight.json")
 
     def test_job_search_exception_keeps_checkpoint(self, tmp_path, monkeypatch):
         _isolate_cache(monkeypatch, tmp_path / "cache")

@@ -9,7 +9,9 @@ One approach object can run many experiments. Each part of it sets up one kind o
   grammar for its symbol library or a trained model; how often it runs is set by
   [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope]. A resumed run
   adapts again or loads the adapted state.
-- the search: everything a run learns, set up anew for each run from its seed.
+- the search: everything a run learns. The search does not change the approach object, so one
+  run cannot leak into the next: a step approach keeps what it learns in the state ``start``
+  returns, an approach with its own ``search`` in that call's local variables.
 
 ## Two ways to implement the search
 
@@ -17,18 +19,23 @@ An approach implements either [search][SRToolkit.approaches.sr_approach.SR_appro
 loop that calls ``evaluate_expr`` until ``should_stop``, or the **step interface**, in which the
 framework runs the loop:
 
-- [start][SRToolkit.approaches.sr_approach.SR_approach.start]``(se, seed)`` seeds the approach's
-  random generators and resets the search state to empty (e.g. no population yet);
-- [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]``(se)`` proposes the next expressions: the
-  first call creates them from scratch (e.g. a random population), later ones build on what
-  ``tell`` stored;
-- [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]``(se, candidates, results)`` updates the
-  search state from their [ModelResult][SRToolkit.utils.types.ModelResult]s (e.g. selects the
-  next population); an approach that learns nothing from the results (e.g. random sampling) need
-  not implement it;
-- optionally, [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state] and
-  [set_search_state][SRToolkit.approaches.sr_approach.SR_approach.set_search_state] save and restore
-  the search state between two steps.
+- [start][SRToolkit.approaches.sr_approach.SR_approach.start]``(se, seed)`` seeds the random
+  generators and returns a new search state (e.g. no population yet);
+- [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]``(se, state)`` proposes the next
+  expressions: the first call creates them from scratch (e.g. a random population), later ones
+  build on what ``tell`` stored;
+- [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]``(se, state, candidates, results)``
+  updates the state in place from their [ModelResult][SRToolkit.utils.types.ModelResult]s (e.g.
+  selects the next population); an approach that learns nothing from the results (e.g. random
+  sampling) doesn't need to implement it;
+- [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state] and
+  [load_search_state][SRToolkit.approaches.sr_approach.SR_approach.load_search_state] save and
+  restore the state between two steps; they pickle it by default.
+
+The state is any object ``ask`` and ``tell`` can change in place, or ``None`` if the search keeps
+nothing. The framework passes the same object to every ``ask``, ``tell`` and
+``dump_search_state`` call of a session (one ``run`` call, new or resumed) and never replaces it. A step approach does not also
+override ``search``: a resumed run continues the step loop without calling it.
 
 One **step** is one ``ask``, the evaluation of its candidates and one ``tell``. What it covers (one
 sample, a batch, a generation of a genetic algorithm) is the approach's choice; document it. Only
@@ -41,25 +48,29 @@ evaluation falls in a step, which an interrupt lets finish and a snapshot never 
 its own. Its runs write checkpoints like any other, so their results survive a crash, but a
 stopped run starts again from the beginning.
 
-The step interface takes more work, since the search state lives in the object between calls.
-With the state methods, a stopped or crashed run then continues from its last snapshot and finds
-the same models as a run that was never stopped (see
-[Checkpoints][SRToolkit.evaluation.sr_evaluator]).
+The step interface takes more work, since the search state is passed between calls. In return,
+a stopped or crashed run continues from its last snapshot and finds the same models as a run
+that was never stopped (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]), provided ``ask``
+and ``tell`` depend only on the state, the adapted approach object and the global random states
+(Python, NumPy, PyTorch), which the framework saves. A random generator of the approach's own
+(e.g. a ``numpy.random.Generator``) therefore belongs in the state, not on the object.
 
 ## The step loop
 
-For a step approach, the framework calls ``start`` and then runs this loop (this is what the
-inherited ``search`` does). An approach that overrides ``search`` runs its own loop instead, and
+For a step approach, the framework runs this loop (this is what the inherited ``search`` does). An approach that overrides ``search`` runs its own loop instead, and
 ``start``, ``ask`` and ``tell`` are never called. ``snapshots`` is true when the evaluator has a
-checkpoint and the approach has the state methods:
+checkpoint:
 
 ```python
+state = approach.start(se, seed)
+if snapshots:
+    approach.dump_search_state(state)  # fails early if the state cannot be saved
 stepped, complete = False, True
 while not se.should_stop:
     stepped = True
     if snapshots and se.snapshot_due:
-        se.save_snapshot(approach.get_search_state())
-    candidates = approach.ask(se)
+        se.save_snapshot(approach.dump_search_state(state))
+    candidates = approach.ask(se, state)
     if not candidates:
         break  # as if search had returned
     with se.step():
@@ -80,19 +91,20 @@ while not se.should_stop:
                 results.append(se.get_model(candidate.expr, candidate.free_constants,
                                             candidate.simplify_expr, candidate.canonicalise_constants))
                 se.count_skip(candidate.skip)
-    approach.tell(se, candidates[: len(results)], results)
+    approach.tell(se, state, candidates[: len(results)], results)
     complete = len(results) == len(candidates)
 if snapshots and stepped and complete:  # when the loop ends normally, unless its last step was cut
-    se.save_snapshot(approach.get_search_state())
+    se.save_snapshot(approach.dump_search_state(state))
 ```
 
 Snapshots fall between steps, where nothing is half done. None is taken after an exception; after
 a step that a stop cut short (its ``tell`` saw only part of its results), so that an
 [extended run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] redoes that step in full; or at
-the end of a session that ran no step (e.g. a finished run resumed), which keeps the snapshot it
-has.
+the end of a session in which ``should_stop`` was already true (e.g. a finished run resumed),
+which keeps the snapshot it has.
 [run][SRToolkit.approaches.sr_approach.SR_approach.run] continues this loop from the evaluator's
-snapshot when resuming, and calls ``search`` otherwise.
+snapshot when resuming, with ``state = approach.load_search_state(snapshot.state)`` (followed by
+restoring the global random states) in place of ``start``, and calls ``search`` otherwise.
 
 ## Skips
 
@@ -111,10 +123,11 @@ Calling ``count_skip`` from ``ask`` instead counts the skip before the step's ca
 can stop the run before any of them is evaluated. Prefer proposing the expression as a skip.
 """
 
+import pickle
 from abc import ABC
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -346,8 +359,8 @@ class SR_approach(ABC):
 
         The default runs the step interface: ``start``, then the step loop shown in the
         [module docs][SRToolkit.approaches.sr_approach]. Approaches without the step interface
-        override it and set up their search state anew from ``seed`` (see the lifecycle in the
-        module docs). Score expressions with ``evaluate_expr``; the framework collects the results.
+        override it, keeping the search state in local variables (see the lifecycle in the module
+        docs). Score expressions with ``evaluate_expr``; the framework collects the results.
         ``evaluate_expr`` returns the expression's
         [ModelResult][SRToolkit.utils.types.ModelResult], with its error, fitted ``parameters``
         and ``status``.
@@ -360,14 +373,8 @@ class SR_approach(ABC):
 
         The symbol library is available in ``sr_evaluator.symbol_library``. ``sr_evaluator.describe()``
         gives the task as text (e.g. for an LLM prompt) and ``sr_evaluator.background_knowledge`` as
-        objects. Do not read ``sr_evaluator.ground_truth``: it is the answer.
-        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model] and
-        [check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints] do not
-        use the budget: use them to skip expressions that were already evaluated or would be rejected,
-        and report each expression skipped this way with
-        [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip] (reasons such as
-        ``"evaluated"`` and ``"rejected"``). After the setting ``max_consecutive_skips`` of them
-        with no ``evaluate_expr`` call in between, the run stops.
+        objects. Do not read ``sr_evaluator.ground_truth``: it is the answer. Report expressions
+        discarded without evaluation as skips (see [Skips][SRToolkit.approaches.sr_approach]).
 
         Args:
             sr_evaluator: Evaluator used to score expressions. All results are
@@ -375,41 +382,31 @@ class SR_approach(ABC):
             seed: Optional random seed for reproducible expression generation.
 
         Raises:
-            NotImplementedError: If the approach implements neither ``search`` nor the step
-                interface.
+            NotImplementedError: If the approach implements neither ``search`` nor ``ask``, or
+                implements ``ask`` without ``start``.
         """
         if not self.supports_steps:
             raise NotImplementedError(
                 f"[{type(self).__name__}] implements neither search() nor the step interface (start/ask/tell)."
             )
-        self.start(sr_evaluator, seed)
-        self._step_loop(sr_evaluator)
+        self._step_loop(sr_evaluator, self.start(sr_evaluator, seed))
 
     @property
     def supports_steps(self) -> bool:
-        """Whether the approach implements the step interface (it overrides ``ask``)."""
-        return type(self).ask is not SR_approach.ask
+        """Whether the approach implements the step interface (it overrides ``ask``).
 
-    @property
-    def supports_snapshots(self) -> bool:
-        """Whether a run of the approach can be snapshotted and resumed: it implements the step
-        interface and overrides both ``get_search_state`` and ``set_search_state``.
+        If so, its runs can be snapshotted, resumed and extended.
         """
-        cls = type(self)
-        return (
-            self.supports_steps
-            and cls.get_search_state is not SR_approach.get_search_state
-            and cls.set_search_state is not SR_approach.set_search_state
-        )
+        return type(self).ask is not SR_approach.ask
 
     def run(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
         """Run the approach on ``sr_evaluator``: continue from its snapshot, or search anew.
 
         If ``sr_evaluator.resumed_from`` holds a
-        [Snapshot][SRToolkit.evaluation.model_store.Snapshot], the approach state is restored with
-        [set_search_state][SRToolkit.approaches.sr_approach.SR_approach.set_search_state], then the
-        global random states, and the step loop continues (``start`` is not called).
-        Otherwise it calls [search][SRToolkit.approaches.sr_approach.SR_approach.search]. If the
+        [Snapshot][SRToolkit.evaluation.model_store.Snapshot], the search state is restored with
+        [load_search_state][SRToolkit.approaches.sr_approach.SR_approach.load_search_state], then
+        the global random states, and the step loop continues; neither ``start`` nor ``search`` is
+        called, and errors of ``load_search_state`` propagate. Otherwise it calls [search][SRToolkit.approaches.sr_approach.SR_approach.search]. If the
         search returns while evaluation goes on, ``run`` stops it with the reason ``"returned"``,
         so the checkpoint records the run as finished.
         [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] and
@@ -420,34 +417,36 @@ class SR_approach(ABC):
             seed: The seed passed to ``search`` for a new run; ignored when continuing.
 
         Raises:
-            ValueError: If the evaluator holds a snapshot but the approach cannot continue from it
-                (see [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]).
+            ValueError: If the evaluator holds a snapshot but the approach lacks the step
+                interface.
         """
         snapshot = sr_evaluator.resumed_from
         if snapshot is None:
             self.search(sr_evaluator, seed)
         else:
-            if not self.supports_snapshots:
+            if not self.supports_steps:
                 raise ValueError(
                     f"[{type(self).__name__}] cannot continue from a snapshot: it lacks the step interface "
-                    "(start/ask/tell) or get_search_state/set_search_state."
+                    "(start/ask/tell)."
                 )
-            self.set_search_state(snapshot.state)
+            state = self.load_search_state(snapshot.state)
             _restore_rngs(snapshot.rngs)
-            self._step_loop(sr_evaluator)
+            self._step_loop(sr_evaluator, state)
         if not sr_evaluator.should_stop:
             sr_evaluator.stop("returned")
 
-    def _step_loop(self, se: SR_evaluator) -> None:
+    def _step_loop(self, se: SR_evaluator, state: Any) -> None:
         # The loop of the step interface (shown in the module docstring), used by search and run.
-        snapshots = se.checkpoint is not None and self.supports_snapshots
+        snapshots = se.checkpoint is not None
+        if snapshots:
+            self.dump_search_state(state)  # fails early if the state cannot be saved
         stepped = False  # whether this session ran a step
         complete = True  # whether the last step got all its results
         while not se.should_stop:
             stepped = True
             if snapshots and se.snapshot_due:
-                se.save_snapshot(self.get_search_state())
-            candidates = self.ask(se)
+                se.save_snapshot(self.dump_search_state(state))
+            candidates = self.ask(se, state)
             if not candidates:
                 break
             results: list[ModelResult | None] = []
@@ -469,43 +468,51 @@ class SR_approach(ABC):
                             se.get_model(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
                         )
                         se.count_skip(c.skip)
-            self.tell(se, candidates[: len(results)], results)
+            self.tell(se, state, candidates[: len(results)], results)
             complete = len(results) == len(candidates)
         if snapshots and stepped and complete:
-            se.save_snapshot(self.get_search_state())
+            se.save_snapshot(self.dump_search_state(state))
 
-    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
-        """Seed the approach's random generators and reset its search state to empty (step
-        interface).
+    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> Any:
+        """Seed the random generators and return a new search state (step interface).
 
         Called once per run before the first ``ask``, but not when a run resumes (see
         [run][SRToolkit.approaches.sr_approach.SR_approach.run]). Create nothing to evaluate here;
-        the first ``ask`` does that.
+        the first ``ask`` does that. Do not change the approach object: everything the run changes
+        belongs in the returned state. Seed the global random generators the search uses, and put
+        any generator of the approach's own in the state.
 
         Args:
             sr_evaluator: The evaluator of the run.
-            seed: The run's seed, or ``None``.
+            seed: The run's seed, or ``None`` for an unseeded run.
+
+        Returns:
+            The search state, passed as the same object to every ``ask``, ``tell`` and
+            ``dump_search_state`` call of the session: any object they can change in place, or ``None`` if the search keeps nothing.
 
         Raises:
             NotImplementedError: Unless overridden.
         """
         raise NotImplementedError(
-            f"[{type(self).__name__}] implements ask but not start; start must seed the approach's "
-            "random generators and set up its search state."
+            f"[{type(self).__name__}] implements ask but not start; start must seed the random "
+            "generators and return the search state."
         )
 
-    def ask(self, sr_evaluator: SR_evaluator) -> "list[Candidate | list[str] | Node | None]":
+    def ask(self, sr_evaluator: SR_evaluator, state: Any) -> "list[Candidate | list[str] | Node | None]":
         """Propose the next expressions to evaluate (step interface).
 
         The first call after ``start`` creates them from scratch (e.g. a random population); later
-        calls build on what ``tell`` stored. It may use the unbilled ``get_model`` and
-        ``check_constraints`` of ``sr_evaluator``, but not ``evaluate_expr``. An empty list ends the
-        search, as if ``search`` had returned; to record why, call ``sr_evaluator.stop(reason)``
-        first. To discard an expression without evaluating it, propose it with a ``skip`` reason (see
+        calls build on what ``tell`` stored in ``state``. It may change ``state`` (e.g. remember
+        what it proposed) but not the approach object, and may use the unbilled ``get_model`` and
+        ``check_constraints`` of ``sr_evaluator``, but not ``evaluate_expr``. An empty list ends the search, as if ``search``
+        had returned; to record why, call ``sr_evaluator.stop(reason)`` first. To discard an
+        expression without evaluating it, propose it with a ``skip`` reason (see
         [Skips][SRToolkit.approaches.sr_approach]).
 
         Args:
             sr_evaluator: The evaluator of the run.
+            state: The search state from ``start`` or ``load_search_state``, the same object for
+                the whole session, as earlier ``ask`` and ``tell`` calls left it.
 
         Returns:
             The expressions, in the order they are to be evaluated: token lists or
@@ -513,7 +520,7 @@ class SR_approach(ABC):
             [Candidate][SRToolkit.approaches.sr_approach.Candidate]s to pass their other fields.
             ``None`` marks a proposal that is not an expression (e.g. a latent vector that does not
             decode): it is neither looked up nor evaluated, is counted as the skip
-            ``"not_expression"``, and ``tell`` gets ``None`` for it.
+            ``"not_expression"``, and ``tell`` gets ``None`` for it. An empty list ends the search.
 
         Raises:
             NotImplementedError: Unless overridden.
@@ -523,11 +530,14 @@ class SR_approach(ABC):
     def tell(
         self,
         sr_evaluator: SR_evaluator,
+        state: Any,
         candidates: "list[Candidate | list[str] | Node | None]",
         results: "list[ModelResult | None]",
     ) -> None:
-        """Update the search state from the results of the evaluated candidates (step interface),
-        e.g. select the next population. Like ``ask``, it does not call ``evaluate_expr``.
+        """Update ``state`` from the results of a step's candidates (step interface).
+
+        E.g. select the next population. It changes ``state`` in place but not the approach object
+        and, like ``ask``, does not call ``evaluate_expr``.
 
         If evaluation stopped in the middle of a step, ``candidates`` holds only those evaluated
         before it stopped, the first ones that ``ask`` returned; both lists may be empty. The
@@ -535,6 +545,7 @@ class SR_approach(ABC):
 
         Args:
             sr_evaluator: The evaluator of the run.
+            state: The search state passed to the step's ``ask``.
             candidates: The evaluated candidates, in order, as ``ask`` returned them.
             results: Their models, with the error, status, fitted constants, etc. A model's
                 ``expr`` is a token list, canonicalised if its candidate asked for it. ``None`` for
@@ -542,36 +553,43 @@ class SR_approach(ABC):
         """
         pass
 
-    def get_search_state(self) -> bytes:
-        """Return the search state between two steps (step interface).
+    def dump_search_state(self, state: Any) -> bytes:
+        """Serialise the search state for a snapshot (step interface).
 
-        What ``start`` set up and ``tell`` changed, including the approach's own random generators
-        and anything the search fine-tunes (e.g. model weights). Leave out the global random states
-        (Python, NumPy, PyTorch), which the framework saves itself, and what adaptation set up,
-        which it restores before ``set_search_state``.
-
-        Returns:
-            The state, e.g. pickled.
-
-        Raises:
-            NotImplementedError: Unless overridden.
-        """
-        raise NotImplementedError
-
-    def set_search_state(self, state: bytes) -> None:
-        """Restore a state returned by
-        [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state]
-        (step interface).
-
-        Called after adaptation, so it overrides what that set up.
+        Called between steps when a snapshot is due, when the loop ends, and, with a checkpoint,
+        once before the first step of every session (new or resumed) with the result discarded, so a state that cannot be saved fails
+        before any budget is spent. It must not change ``state``: the run continues with it. The
+        default pickles it and raises whatever ``pickle`` raises if the state does not pickle;
+        override it then, or to leave out what ``load_search_state`` can rebuild. The state must
+        include the approach's own random generators and anything the search fine-tunes (e.g.
+        model weights). The global random states (Python, NumPy, PyTorch) are saved by the
+        framework; what adaptation set up lives in the approach object and is restored before
+        ``load_search_state``.
 
         Args:
-            state: The saved state.
+            state: The search state.
 
-        Raises:
-            NotImplementedError: Unless overridden.
+        Returns:
+            The serialised state.
         """
-        raise NotImplementedError
+        return pickle.dumps(state)
+
+    def load_search_state(self, data: bytes) -> Any:
+        """Rebuild a search state from the output of ``dump_search_state`` (step interface).
+
+        Called in place of ``start`` when a run resumes, after adaptation and before the global
+        random states are restored. The returned state must continue the search exactly as the
+        dumped one would have (see
+        [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state]). The
+        default unpickles it.
+
+        Args:
+            data: The serialised state.
+
+        Returns:
+            The search state.
+        """
+        return pickle.loads(data)
 
     def save_adapted_state(self, path: str) -> None:
         """Save the adapted model/approach state to ``path``.

@@ -881,8 +881,8 @@ class SR_evaluator:
         continues with that loop.
 
         Args:
-            state: The approach's state, as returned by its
-                [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state].
+            state: The approach's search state, as returned by its
+                [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].
 
         Raises:
             TypeError: If a callback's state cannot be saved.
@@ -911,9 +911,9 @@ class SR_evaluator:
         commits the checkpoint. A second signal raises ``KeyboardInterrupt`` at once.
 
         Cluster schedulers send SIGTERM some time before they kill a job (30 s by default on SLURM):
-        if the current step ends in that time and the approach
-        [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots], the
-        job resumes without losing work.
+        if the current step ends in that time and the approach implements the
+        [step interface][SRToolkit.approaches.sr_approach.SR_approach.supports_steps], the job
+        resumes without losing work.
 
         The previous handlers are restored at the end of the block. Outside the main thread, where
         Python cannot install signal handlers, the block runs without them.

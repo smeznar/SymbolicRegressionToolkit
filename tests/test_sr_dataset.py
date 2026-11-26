@@ -13,7 +13,6 @@ from strategies import (
     EventLog,
     ScriptedApproach,
     SignalAfter,
-    StatelessSteppedApproach,
     SteppedApproach,
     result_answers,
     result_dict,
@@ -1762,20 +1761,21 @@ class TestEvaluateApproachCheckpoints:
         assert recorder.counts == {11: 2, 12: 6}  # 10 is read from its checkpoint; 11 continues from its snapshot
         assert _files(tmp_path) == []
 
-    @pytest.mark.parametrize(
-        "make",
-        [ScriptedApproach, lambda: StatelessSteppedApproach(stop_after_asks=3)],
-        ids=["search-only", "stateless"],
-    )
-    def test_rerun_without_snapshots_restarts_the_interrupted_experiment(self, tmp_path, make):
-        first = _evaluate(make(), tmp_path, callbacks=SignalAfter(2, seed=11))
+    def test_rerun_without_snapshots_restarts_the_interrupted_experiment(self, tmp_path):
+        first = _evaluate(ScriptedApproach(), tmp_path, callbacks=SignalAfter(2, seed=11))
         recorder = _PerSeed()
         with pytest.warns(UserWarning, match="exp_11.sqlite"):
             results = _ckpt_dataset().evaluate_approach(
-                make(), 3, initial_seed=10, verbose=False, checkpoint_dir=tmp_path, resume=True, callbacks=recorder
+                ScriptedApproach(),
+                3,
+                initial_seed=10,
+                verbose=False,
+                checkpoint_dir=tmp_path,
+                resume=True,
+                callbacks=recorder,
             )
         assert list(recorder.counts) == [11, 12]  # 10 is read from its checkpoint, 11 starts afresh
-        assert _without_wall_time(results) == _without_wall_time(_evaluate(make()))
+        assert _without_wall_time(results) == _without_wall_time(_evaluate(ScriptedApproach()))
         assert results[0].wall_time == first[0].wall_time  # saved in the checkpoint
 
     def test_search_exception_keeps_checkpoints(self, tmp_path):
@@ -1975,9 +1975,9 @@ class _AdaptingStepped(SteppedApproach):
     def load_adapted_state(self, path):
         self.events.append("load")
 
-    def ask(self, sr_evaluator):
+    def ask(self, sr_evaluator, state):
         self.events.append("ask")
-        return super().ask(sr_evaluator)
+        return super().ask(sr_evaluator, state)
 
 
 class _FailingStepped(SteppedApproach):
@@ -1986,10 +1986,10 @@ class _FailingStepped(SteppedApproach):
         super().__init__(**kwargs)
         self.fail_at = fail_at
 
-    def ask(self, sr_evaluator):
-        if self.asks == self.fail_at:
+    def ask(self, sr_evaluator, state):
+        if state["asks"] == self.fail_at:
             raise RuntimeError("boom")
-        return super().ask(sr_evaluator)
+        return super().ask(sr_evaluator, state)
 
 
 def _plain_file(path):
@@ -2185,7 +2185,7 @@ class TestExtendRun:
     @pytest.mark.parametrize(
         "approach, dataset, target, kwargs, error, match",
         [
-            (StatelessSteppedApproach(), _limited(6), None, {}, ValueError, "snapshot"),
+            (ScriptedApproach(), _limited(6), None, {}, ValueError, "snapshot"),
             (SteppedApproach(), _limited(6), None, {"max_evaluations": 4}, ValueError, "below the 6 calls"),
             (SteppedApproach(), _limited(6), None, {"max_evaluations": 0}, ValueError, "positive"),
             (SteppedApproach(), _limited(6), None, {"max_evaluations": True}, TypeError, "int"),

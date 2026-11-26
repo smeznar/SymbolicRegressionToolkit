@@ -216,17 +216,18 @@ def test_search_stops_after_exactly_max_consecutive_skips(rejects, skip_evaluate
 
 
 # Reason: clause (ask: one sample per call; a skipped sample is a lookup with its skip reason, which
-# the step loop counts, not ask).
+# the step loop counts, not ask; canonicalise_constants is passed on to evaluate_expr and get_model, so
+# both the evaluated and the skipped candidate carry it).
 def test_ask_proposes_skipped_samples_as_lookups():
     only_x0 = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
-    approach = ProGED(only_x0)
-    approach.start(se, seed=0)
-    (first,) = approach.ask(se)
-    assert (first.expr, first.skip) == (["X_0"], None)
+    approach = ProGED(only_x0, canonicalise_constants=True)
+    state = approach.start(se, seed=0)
+    (first,) = approach.ask(se, state)
+    assert (first.expr, first.skip, first.canonicalise_constants) == (["X_0"], None, True)
     se.evaluate_expr(first.expr)
-    (second,) = approach.ask(se)
-    assert (second.expr, second.skip) == (["X_0"], "evaluated")
+    (second,) = approach.ask(se, state)
+    assert (second.expr, second.skip, second.canonicalise_constants) == (["X_0"], "evaluated", True)
     assert (se.skips, se.should_stop) == ({}, False)
 
 
@@ -247,24 +248,99 @@ def test_from_config_defaults_for_older_configs():
     assert (b.skip_evaluated, b.skip_rejected, b.canonicalise_constants) == (True, True, False)
 
 
-# Reason: clause (get_search_state: the sampling grammar is the whole search state besides NumPy's
-# global random state; set_search_state restores it in place of start).
-def test_search_state_round_trips_the_grammar():
-    grammar = _products_of("X_0")
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
-    original = ProGED(grammar)
-    original.start(se, seed=0)
-    state = original.get_search_state()
-    restored = ProGED()  # no grammar of its own: it can only sample from the state
-    restored.set_search_state(state)
-    np.random.seed(1)
-    expected = ["".join(original.ask(se)[0].expr) for _ in range(5)]
-    np.random.seed(1)
-    assert ["".join(restored.ask(se)[0].expr) for _ in range(5)] == expected
-    assert len(set(expected)) > 1  # precondition: the samples depend on the random state
-
-
 def test_start_without_grammar_or_adapt_raises():
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib())
     with pytest.raises(RuntimeError, match="adapt"):
         ProGED().start(se, seed=0)
+
+
+# Reason: regression + clause (start: "seed ... None to leave NumPy's global random state as it is";
+# "Seed NumPy's global random state"; returns None). The old start called np.random.seed(seed) for
+# every seed, so seed=None reseeded from entropy. Oracle: the draws right after np.random.seed(ref).
+@pytest.mark.parametrize(
+    "seed, reference_seed",
+    [(None, 123), (7, 7)],
+    ids=["seed-none-leaves-state", "seed-sets-state"],
+)
+def test_start_seeds_or_leaves_global_random_state(seed, reference_seed):
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib())
+    np.random.seed(reference_seed)
+    expected = np.random.random(3)
+    np.random.seed(123)
+    assert ProGED(_products_of("X_0")).start(se, seed=seed) is None
+    np.testing.assert_array_equal(np.random.random(3), expected)
+
+
+# Reason: regression + clause (ask: "Each call makes one derivation attempt ([generate_one]) ... there is
+# no redraw"). S yields X_0 or the never-ending L, each with p = 0.5. Oracle: from the same seed, 20 calls of
+# generate_one(max_retries=1), the single attempt the docstring names. Any redraw (the old code, or more
+# retries) gives fewer Nones and consumes the random state differently.
+def test_ask_failed_derivation_is_none_not_redrawn():
+    half_failing = Grammar(Rule.from_line("S -> 'X_0' [0.5] | L [0.5]") + Rule.from_line("L -> L 'X_0' [1.0]"), "S")
+    np.random.seed(0)
+    expected = [half_failing.generate_one(max_retries=1) for _ in range(20)]
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
+    approach = ProGED(half_failing)
+    state = approach.start(se, seed=0)
+    proposals = [approach.ask(se, state)[0] for _ in range(20)]
+    assert [c if c is None else c.expr for c in proposals] == expected
+    assert {c.skip for c in proposals if c is not None} == {None}
+    assert None in expected and ["X_0"] in expected  # precondition: both outcomes occur
+
+
+# Reason: regression + clause (ask: "A run that finds only skips, e.g. with a grammar that never yields an
+# expression, is stopped by the evaluator's max_consecutive_skips"; None counts as "not_expression").
+# The old code raised a bare Exception after 100 failed derivations in a row.
+def test_search_with_grammar_that_never_yields_stops_on_skip_limit():
+    never_ends = Grammar(Rule.from_line("E -> E '+' 'X_0' [1.0]"), start="E")
+    se = SR_evaluator(
+        _X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, max_consecutive_skips=3
+    )
+    ProGED(never_ends).search(se, seed=0)
+    assert se.stop_reason == "max_consecutive_skips"
+    assert se.skips == {"not_expression": 3}
+    assert se.total_evaluations == 0
+
+
+_LONG_EXPR = ["X_0", "+"] * 25 + ["X_0"]  # 51 tokens
+_LONG_GRAMMAR = Grammar(Rule.from_line("E -> " + " ".join(f"'{t}'" for t in _LONG_EXPR)), start="E")
+
+
+# Reason: regression + clause (grammar: "Sample length is not limited by ProGED: a MaxTokens among the
+# evaluator's required constraints rejects long samples"). The old code silently redrew every sample over
+# 50 tokens, so this grammar's only sample was never proposed (and the search raised after 100 redraws).
+@pytest.mark.parametrize(
+    "required_constraints, skip",
+    [(None, None), ([MaxTokens(50)], "rejected")],
+    ids=["no-constraint", "max-tokens-rejects"],
+)
+def test_ask_proposes_long_samples(required_constraints, skip):
+    se = SR_evaluator(
+        _X, _X[:, 0], symbol_library=_lib(), success_threshold=-1, required_constraints=required_constraints
+    )
+    approach = ProGED(_LONG_GRAMMAR)
+    (candidate,) = approach.ask(se, approach.start(se, seed=0))
+    assert (candidate.expr, candidate.skip) == (_LONG_EXPR, skip)
+
+
+def _branches(copies, depth):
+    """A grammar whose only derivation takes exactly ``1 + copies * depth`` rule applications: S joins
+    ``copies`` chains C0 -> C1 -> ... -> 'X_0' of ``depth`` rules with '+'. Several shallow chains instead of
+    one deep chain, because a derivation tree a few hundred levels deep can hit Python's recursion limit."""
+    rules = Rule.from_line("S -> " + " '+' ".join(["C0"] * copies))
+    rules += [r for i in range(depth - 1) for r in Rule.from_line(f"C{i} -> C{i + 1}")]
+    return Grammar(rules + Rule.from_line(f"C{depth - 1} -> 'X_0'"), start="S")
+
+
+# Reason: boundary (ask: a derivation attempt fails after "more than 1000 rule applications").
+# 1 + 9 * 111 = 1000 applications give X_0 + ... + X_0 (9 terms); 1 + 10 * 100 = 1001 fail.
+@pytest.mark.parametrize(
+    "copies, depth, expr",
+    [(9, 111, ["X_0", "+"] * 8 + ["X_0"]), (10, 100, None)],
+    ids=["1000-steps", "1001-steps"],
+)
+def test_ask_derivation_step_limit_is_1000(copies, depth, expr):
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1)
+    approach = ProGED(_branches(copies, depth))
+    (candidate,) = approach.ask(se, approach.start(se, seed=0))
+    assert (candidate if candidate is None else candidate.expr) == expr

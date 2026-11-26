@@ -550,8 +550,8 @@ class SR_dataset:
         With ``resume=True``, the call continues where an earlier one stopped: finished experiments
         are read from their checkpoints as they are (without adapting, running or calling
         callbacks), the interrupted one continues from its last snapshot (or starts anew, with a
-        ``UserWarning``, if the approach does not
-        [support snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]), and
+        ``UserWarning``, if the approach lacks the
+        [step interface][SRToolkit.approaches.sr_approach.SR_approach.supports_steps]), and
         the rest run. A finished run is not extended, and its settings are not checked against this
         call's. Without
         ``checkpoint_dir``, nothing is written to disk and no signal handlers are installed.
@@ -643,7 +643,7 @@ class SR_dataset:
                         results += SR_results.from_checkpoint(checkpoint, sr_approach.name, top_k, keep_all_models)
                         referring.append(results.results[-1])
                         continue
-                    if sr_approach.supports_snapshots:
+                    if sr_approach.supports_steps:
                         continued = True
                     else:
                         warnings.warn(
@@ -760,8 +760,8 @@ class SR_dataset:
             those of the original run, with ``n`` its ``evaluation_calls``.
 
         Args:
-            sr_approach: The approach of the run, which must support snapshots (see
-                [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]).
+            sr_approach: The approach of the run, which must implement the step interface (see
+                [supports_steps][SRToolkit.approaches.sr_approach.SR_approach.supports_steps]).
             checkpoint: The run's checkpoint.
             max_evaluations: The new total budget, at least the calls the run made; negative for
                 no limit; ``None`` (default) keeps the last segment's.
@@ -821,7 +821,7 @@ class SR_dataset:
             )
         if not keep_all_models and top_k <= 0:
             raise ValueError(f"[SR_dataset.extend_run] keep_all_models=False needs top_k >= 1, got {top_k}.")
-        if not sr_approach.supports_snapshots:
+        if not sr_approach.supports_steps:
             raise ValueError(
                 f"[SR_dataset.extend_run] {sr_approach.name} cannot continue from a snapshot, so its runs cannot "
                 "be extended."
