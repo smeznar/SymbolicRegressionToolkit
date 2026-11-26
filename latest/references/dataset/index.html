@@ -15329,13 +15329,13 @@ inside <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-sym
 <p>With <code>resume=True</code>, the call continues where an earlier one stopped: finished experiments
 are read from their checkpoints as they are (without adapting, running or calling
 callbacks), the interrupted one continues from its last snapshot (or starts anew, with a
-<code>UserWarning</code>, if the approach does not
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;supports_snapshots&lt;/span&gt;
+<code>UserWarning</code>, if the approach lacks the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;supports_steps&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots">support snapshots</a>), and
+  &lt;/span&gt;" href="../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.supports_steps">step interface</a>), and
 the rest run. A finished run is not extended, and its settings are not checked against this
 call's. Without
 <code>checkpoint_dir</code>, nothing is written to disk and no signal handlers are installed.</p>
@@ -15892,8 +15892,8 @@ settings).</p>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-550" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-550"></a><span class="sd">    With ``resume=True``, the call continues where an earlier one stopped: finished experiments</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-551" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-551"></a><span class="sd">    are read from their checkpoints as they are (without adapting, running or calling</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-552" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-552"></a><span class="sd">    callbacks), the interrupted one continues from its last snapshot (or starts anew, with a</span>
-<a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-553" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-553"></a><span class="sd">    ``UserWarning``, if the approach does not</span>
-<a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-554" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-554"></a><span class="sd">    [support snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]), and</span>
+<a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-553" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-553"></a><span class="sd">    ``UserWarning``, if the approach lacks the</span>
+<a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-554" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-554"></a><span class="sd">    [step interface][SRToolkit.approaches.sr_approach.SR_approach.supports_steps]), and</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-555" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-555"></a><span class="sd">    the rest run. A finished run is not extended, and its settings are not checked against this</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-556" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-556"></a><span class="sd">    call's. Without</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-557" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-557"></a><span class="sd">    ``checkpoint_dir``, nothing is written to disk and no signal handlers are installed.</span>
@@ -15985,7 +15985,7 @@ settings).</p>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-643" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-643"></a>                    <span class="n">results</span> <span class="o">+=</span> <span class="n">SR_results</span><span class="o">.</span><span class="n">from_checkpoint</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">sr_approach</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">top_k</span><span class="p">,</span> <span class="n">keep_all_models</span><span class="p">)</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-644" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-644"></a>                    <span class="n">referring</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">results</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-645" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-645"></a>                    <span class="k">continue</span>
-<a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-646" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-646"></a>                <span class="k">if</span> <span class="n">sr_approach</span><span class="o">.</span><span class="n">supports_snapshots</span><span class="p">:</span>
+<a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-646" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-646"></a>                <span class="k">if</span> <span class="n">sr_approach</span><span class="o">.</span><span class="n">supports_steps</span><span class="p">:</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-647" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-647"></a>                    <span class="n">continued</span> <span class="o">=</span> <span class="kc">True</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-648" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-648"></a>                <span class="k">else</span><span class="p">:</span>
 <a id="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-649" name="SRToolkit.dataset.SR_dataset.evaluate_approach--source--__codelineno-0-649"></a>                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
@@ -16126,13 +16126,13 @@ those of the original run, with <code>n</code> its <code>evaluation_calls</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The approach of the run, which must support snapshots (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;supports_snapshots&lt;/span&gt;
+                <p>The approach of the run, which must implement the step interface (see
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;supports_steps&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots">supports_snapshots</a>).</p>
+  &lt;/span&gt;" href="../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.supports_steps">supports_steps</a>).</p>
               </div>
             </td>
             <td>
@@ -16645,8 +16645,8 @@ settings than this dataset's (the message names them).</p>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-760" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-760"></a><span class="sd">        those of the original run, with ``n`` its ``evaluation_calls``.</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-761" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-761"></a>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-762" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-762"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-763" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-763"></a><span class="sd">        sr_approach: The approach of the run, which must support snapshots (see</span>
-<a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-764" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-764"></a><span class="sd">            [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots]).</span>
+<a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-763" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-763"></a><span class="sd">        sr_approach: The approach of the run, which must implement the step interface (see</span>
+<a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-764" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-764"></a><span class="sd">            [supports_steps][SRToolkit.approaches.sr_approach.SR_approach.supports_steps]).</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-765" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-765"></a><span class="sd">        checkpoint: The run's checkpoint.</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-766" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-766"></a><span class="sd">        max_evaluations: The new total budget, at least the calls the run made; negative for</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-767" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-767"></a><span class="sd">            no limit; ``None`` (default) keeps the last segment's.</span>
@@ -16706,7 +16706,7 @@ settings than this dataset's (the message names them).</p>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-821" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-821"></a>        <span class="p">)</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-822" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-822"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_all_models</span> <span class="ow">and</span> <span class="n">top_k</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-823" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-823"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[SR_dataset.extend_run] keep_all_models=False needs top_k &gt;= 1, got </span><span class="si">{</span><span class="n">top_k</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
-<a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-824" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-824"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">sr_approach</span><span class="o">.</span><span class="n">supports_snapshots</span><span class="p">:</span>
+<a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-824" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-824"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">sr_approach</span><span class="o">.</span><span class="n">supports_steps</span><span class="p">:</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-825" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-825"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-826" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-826"></a>            <span class="sa">f</span><span class="s2">"[SR_dataset.extend_run] </span><span class="si">{</span><span class="n">sr_approach</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> cannot continue from a snapshot, so its runs cannot "</span>
 <a id="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-827" name="SRToolkit.dataset.SR_dataset.extend_run--source--__codelineno-0-827"></a>            <span class="s2">"be extended."</span>

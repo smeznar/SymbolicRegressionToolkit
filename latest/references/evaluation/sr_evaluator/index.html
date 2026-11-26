@@ -5435,8 +5435,8 @@ continues with that loop.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The approach's state, as returned by its
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_search_state&lt;/span&gt;" href="../../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.get_search_state">get_search_state</a>.</p>
+                <p>The approach's search state, as returned by its
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;dump_search_state&lt;/span&gt;" href="../../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.dump_search_state">dump_search_state</a>.</p>
               </div>
             </td>
             <td>
@@ -5524,8 +5524,8 @@ continues with that loop.</p>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-881" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-881"></a><span class="sd">    continues with that loop.</span>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-882" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-882"></a>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-883" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-883"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-884" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-884"></a><span class="sd">        state: The approach's state, as returned by its</span>
-<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-885" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-885"></a><span class="sd">            [get_search_state][SRToolkit.approaches.sr_approach.SR_approach.get_search_state].</span>
+<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-884" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-884"></a><span class="sd">        state: The approach's search state, as returned by its</span>
+<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-885" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-885"></a><span class="sd">            [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].</span>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-886" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-886"></a>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-887" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-887"></a><span class="sd">    Raises:</span>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-888" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.save_snapshot--source--__codelineno-0-888"></a><span class="sd">        TypeError: If a callback's state cannot be saved.</span>
@@ -5568,14 +5568,14 @@ continues with that loop.</p>
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;step&lt;/span&gt;" href="#SRToolkit.evaluation.sr_evaluator.SR_evaluator.step">step</a>, or at the end of the block, and
 commits the checkpoint. A second signal raises <code>KeyboardInterrupt</code> at once.</p>
 <p>Cluster schedulers send SIGTERM some time before they kill a job (30 s by default on SLURM):
-if the current step ends in that time and the approach
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;supports_snapshots&lt;/span&gt;
+if the current step ends in that time and the approach implements the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;supports_steps&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots">supports_snapshots</a>, the
-job resumes without losing work.</p>
+  &lt;/span&gt;" href="../../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.supports_steps">step interface</a>, the job
+resumes without losing work.</p>
 <p>The previous handlers are restored at the end of the block. Outside the main thread, where
 Python cannot install signal handlers, the block runs without them.</p>
 
@@ -5687,9 +5687,9 @@ Python cannot install signal handlers, the block runs without them.</p>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-911" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-911"></a><span class="sd">    commits the checkpoint. A second signal raises ``KeyboardInterrupt`` at once.</span>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-912" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-912"></a>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-913" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-913"></a><span class="sd">    Cluster schedulers send SIGTERM some time before they kill a job (30 s by default on SLURM):</span>
-<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-914" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-914"></a><span class="sd">    if the current step ends in that time and the approach</span>
-<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-915" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-915"></a><span class="sd">    [supports_snapshots][SRToolkit.approaches.sr_approach.SR_approach.supports_snapshots], the</span>
-<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-916" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-916"></a><span class="sd">    job resumes without losing work.</span>
+<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-914" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-914"></a><span class="sd">    if the current step ends in that time and the approach implements the</span>
+<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-915" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-915"></a><span class="sd">    [step interface][SRToolkit.approaches.sr_approach.SR_approach.supports_steps], the job</span>
+<a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-916" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-916"></a><span class="sd">    resumes without losing work.</span>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-917" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-917"></a>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-918" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-918"></a><span class="sd">    The previous handlers are restored at the end of the block. Outside the main thread, where</span>
 <a id="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-919" name="SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals--source--__codelineno-0-919"></a><span class="sd">    Python cannot install signal handlers, the block runs without them.</span>
