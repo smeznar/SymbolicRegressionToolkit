@@ -54,7 +54,7 @@ results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
 
 An approach loops while ``should_stop`` is ``False``. If its search returns without any of these,
 the results record ``"returned"``. Once evaluation has stopped, further calls are not evaluated:
-they warn, return ``nan`` and are not counted.
+they warn, return ``None`` and are not counted.
 
 ## Free constants
 
@@ -453,7 +453,7 @@ class SR_evaluator:
         """Evaluate expressions on data with a ranking function and collect the results.
 
         Each distinct model (an expression with its free-constant specs) is scored once and
-        cached; repeating it returns the cached error but still counts toward
+        cached; repeating it returns the cached model but still counts toward
         ``max_evaluations``. Statuses, free constants, constraints and the evaluation trace
         are described in the [module docs][SRToolkit.evaluation.sr_evaluator]; results are
         collected with [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
@@ -466,7 +466,7 @@ class SR_evaluator:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error
             >>> print(rmse < 1e-6)
             True
 
@@ -799,7 +799,7 @@ class SR_evaluator:
         """Whether evaluation has stopped: ``stop_reason is not None``.
 
         Later calls to [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
-        warn and return ``nan`` without being counted. After a signal caught by
+        warn and return ``None`` without being counted. After a signal caught by
         [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals], reading
         it outside a [step][SRToolkit.evaluation.sr_evaluator.SR_evaluator.step] stops evaluation
         with the reason ``"interrupted"``.
@@ -1284,13 +1284,13 @@ class SR_evaluator:
         simplify_expr: bool = False,
         canonicalise_constants: bool = False,
         verbose: int = 0,
-    ) -> float:
-        """Evaluate an expression, or return its cached error.
+    ) -> ModelResult | None:
+        """Evaluate an expression, or return its cached model.
 
         A new expression is parsed, checked against the constraints, scored by the ranking
         function and stored in ``models`` (statuses and the order of checks are in the
         [module docs][SRToolkit.evaluation.sr_evaluator]). An expression evaluated before with the
-        same specs is not scored again; its stored error is returned. Either way the call is
+        same specs is not scored again; its stored model is returned. Either way the call is
         appended to ``trace``, counts toward ``max_evaluations`` and is reported to the callbacks:
         ``on_expr_evaluated`` for every call, plus ``on_best_expression`` when the error improves
         on the best so far. Evaluation then stops if the error is below ``success_threshold``, the
@@ -1305,33 +1305,32 @@ class SR_evaluator:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y, seed=42)
-            >>> print(se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) < 1e-6)
-            True
+            >>> model = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> print(model.error < 1e-6, model.status, round(float(model.parameters[0]), 3))
+            True ok 2.0
             >>> # A labelled constant with a spec of its own: started from U(0, 10), fitted within (0, 10)
             >>> from SRToolkit.dataset import UniformSampling
             >>> from SRToolkit.utils.free_constants import Constant
             >>> spec = Constant(label="C_0", prior=UniformSampling(0, 10), bounds=(0.0, 10.0))
             >>> se = SR_evaluator(X, y, seed=42)
-            >>> print(se.evaluate_expr(["C_0", "*", "X_1", "-", "X_0"], [spec]) < 1e-6)
-            True
-            >>> se.models[-1].free_constants == (spec,)
-            True
+            >>> model = se.evaluate_expr(["C_0", "*", "X_1", "-", "X_0"], [spec])
+            >>> print(model.error < 1e-6, model.free_constants == (spec,))
+            True True
             >>> # With simplify_expr, the simplified expression is scored and stored
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
             >>> se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1)
-            >>> _ = se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
-            >>> "".join(se.models[0].expr), bool(0.99 < se.models[0].parameters[0] < 1.01)
+            >>> model = se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
+            >>> "".join(model.expr), bool(0.99 < model.parameters[0] < 1.01)
             ('C+X_1', True)
             >>> # A malformed expression gets the error inf and the status "invalid"
-            >>> print(se.evaluate_expr(["C", "*", "X_1", "X_0"]))
-            inf
-            >>> se.models[-1].status
-            'invalid'
+            >>> model = se.evaluate_expr(["C", "*", "X_1", "X_0"])
+            >>> print(model.error, model.status)
+            inf invalid
             >>> # BED is stochastic and scaled by the ground truth's output, so an exact match may
             >>> # still have a small positive error
             >>> X = np.random.rand(10, 2) - 0.5
             >>> se = SR_evaluator(X, ground_truth=["X_0", "+", "C"], ranking_function="bed", seed=42)
-            >>> print(se.evaluate_expr(["C", "+", "X_0"]) < 0.2)
+            >>> print(se.evaluate_expr(["C", "+", "X_0"]).error < 0.2)
             True
 
         Args:
@@ -1366,9 +1365,13 @@ class SR_evaluator:
                 floating-point warnings through while scoring.
 
         Returns:
-            The error under the active ranking function, or ``+inf`` if the status is not
-            ``"ok"``. ``nan`` if evaluation has already stopped: the call then emits a warning and
-            is not counted.
+            The expression's [ModelResult][SRToolkit.utils.types.ModelResult], as ``models``
+            stores it: its ``expr`` in the stored form (simplified, folded, canonicalised), its
+            ``error`` under the active ranking function (``+inf`` if the ``status`` is not
+            ``"ok"``), the fitted ``parameters`` (if any) and the ``status_detail`` of a failure;
+            for a model that could not be saved, the stored ``"error"`` model (see the module
+            docs). A new copy each call, like ``models[i]``: changing it saves nothing. ``None``
+            if evaluation has already stopped: the call then emits a warning and is not counted.
 
         Raises:
             TypeError: If ``expr`` is neither a token list nor a ``Node``. If a spec in
@@ -1383,8 +1386,12 @@ class SR_evaluator:
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
         if self.should_stop:
-            warnings.warn(f"Evaluation has already stopped ({self.stop_reason}); the call is not evaluated or counted.")
-            return np.nan
+            warnings.warn(
+                f"[SR_evaluator] Evaluation has already stopped ({self.stop_reason}); "
+                "the call is not evaluated or counted.",
+                UserWarning,
+            )
+            return None
         else:
             if (simplify_expr or self._fold_constants != "none") and free_constants:
                 # Specs that do not fit raise here, not as a failed simplification or fold (see _evaluate_new).
@@ -1445,13 +1452,13 @@ class SR_evaluator:
                     self.stop(reason)
                 if self._store.commit_due:
                     self._commit()
-                return error
+                return self.models[index]
 
             else:
                 model = self._evaluate_new(expr, expr_list, expr_str, verbose, specs)
                 model.free_constants = specs
                 try:
-                    self._store.add(expr_list, spec_key, model)
+                    index = self._store.add(expr_list, spec_key, model)
                 except TypeError as e:
                     # The ranking's output cannot be saved: a failure of the evaluation.
                     message = f"the model cannot be saved: {e}"
@@ -1462,7 +1469,7 @@ class SR_evaluator:
                     model.error = np.inf
                     model.status = "error"
                     model.status_detail = message
-                    self._store.add(expr_list, spec_key, model)
+                    index = self._store.add(expr_list, spec_key, model)
                 if verbose > 0:
                     logger.debug(
                         "Evaluated expression %s: status %s, error %s%s",
@@ -1506,7 +1513,7 @@ class SR_evaluator:
                 if self._store.commit_due:
                     self._commit()
 
-                return error
+                return self.models[index]
 
     def _evaluate_new(
         self,
@@ -1754,7 +1761,7 @@ class SR_evaluator:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> print(results[0].num_evaluated)
             1

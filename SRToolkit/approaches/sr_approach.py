@@ -73,9 +73,8 @@ while not se.should_stop:
             if not isinstance(candidate, Candidate):  # a token list or a Node
                 candidate = Candidate(candidate)
             if candidate.evaluate:
-                se.evaluate_expr(candidate.expr, candidate.free_constants, candidate.simplify_expr,
-                                 candidate.canonicalise_constants)
-                results.append(se.models[se.trace[-1]])
+                results.append(se.evaluate_expr(candidate.expr, candidate.free_constants,
+                                                candidate.simplify_expr, candidate.canonicalise_constants))
             else:  # a lookup, without spending budget; None if never evaluated
                 results.append(se.get_model(candidate.expr, candidate.free_constants,
                                             candidate.simplify_expr, candidate.canonicalise_constants))
@@ -319,6 +318,9 @@ class SR_approach(ABC):
         [module docs][SRToolkit.approaches.sr_approach]. Approaches without the step interface
         override it and set up their search state anew from ``seed`` (see the lifecycle in the
         module docs). Score expressions with ``evaluate_expr``; the framework collects the results.
+        ``evaluate_expr`` returns the expression's
+        [ModelResult][SRToolkit.utils.types.ModelResult], with its error, fitted ``parameters``
+        and ``status``.
 
         Search while ``sr_evaluator.should_stop`` is ``False``; it turns ``True`` when the success
         threshold or the budget is reached, a callback stops the run, or the run is interrupted
@@ -424,8 +426,9 @@ class SR_approach(ABC):
                         continue
                     c = item if isinstance(item, Candidate) else Candidate(item)
                     if c.evaluate:
-                        se.evaluate_expr(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
-                        results.append(se.models[se.trace[-1]])
+                        results.append(
+                            se.evaluate_expr(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
+                        )
                     else:
                         results.append(
                             se.get_model(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)

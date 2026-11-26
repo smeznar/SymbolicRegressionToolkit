@@ -151,7 +151,7 @@ class TestSRDatasetEvaluator:
         dataset = _bed_dataset(num_points_sampled=8, seed=4)
         a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
         np.testing.assert_array_equal(a.ranking.bed_X, b.ranking.bed_X)
-        assert a.evaluate_expr(["X_0", "*", "C"]) == b.evaluate_expr(["X_0", "*", "C"])
+        assert a.evaluate_expr(["X_0", "*", "C"]).error == b.evaluate_expr(["X_0", "*", "C"]).error
 
     @pytest.mark.parametrize("dataset_seed, expected", [(None, 0), (4, 4)], ids=["no-seed-zero", "dataset-seed"])
     def test_bed_ranking_seed_is_dataset_seed(self, dataset_seed, expected):
@@ -166,7 +166,7 @@ class TestSRDatasetEvaluator:
         )
         expr = ["sin", "(", "C", "*", "X_0", ")"]
         a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
-        assert (a.evaluate_expr(expr) == b.evaluate_expr(expr)) is same
+        assert (a.evaluate_expr(expr).error == b.evaluate_expr(expr).error) is same
 
     @pytest.mark.parametrize(
         "dataset_seed, kwargs, expected",
@@ -208,7 +208,7 @@ class TestSRDatasetEvaluator:
 
     def test_create_evaluator(self, simple_dataset):
         evaluator = simple_dataset.create_evaluator()
-        error = evaluator.evaluate_expr(["X_0", "+", "X_1"])
+        error = evaluator.evaluate_expr(["X_0", "+", "X_1"]).error
         assert error < 1e-6
 
     def test_evaluator_inherits_settings(self, simple_dataset):
@@ -360,7 +360,7 @@ class TestGroundTruthConstants:
         )  # fmt: skip
         assert ds.ranking_settings()["ground_truth_constants"] == ds.ground_truth_constants
         ev = ds.create_evaluator(seed=0)
-        assert ev.evaluate_expr(["C", "*", "X_0", "+", "C"]) == pytest.approx(0.0, abs=1e-6)
+        assert ev.evaluate_expr(["C", "*", "X_0", "+", "C"]).error == pytest.approx(0.0, abs=1e-6)
         np.testing.assert_allclose(ev.models[-1].parameters, [2.0, 2.0], atol=1e-5)
 
     # Reason: clause (from_samplers / resample compute y with the fixed values; to_dict writes the specs
@@ -599,7 +599,7 @@ class TestDataSplits:
             constant_bounds=(-3, 3),
         )
         restored = SR_dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
-        assert restored.create_evaluator().evaluate_expr(["C", "*", "X_0", "+", "X_1"]) < 1e-6
+        assert restored.create_evaluator().evaluate_expr(["C", "*", "X_0", "+", "X_1"]).error < 1e-6
 
     def test_node_ground_truth_serialised_with_dataset_library(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
@@ -911,7 +911,7 @@ class TestCreateEvaluatorConstraints:
         X = np.random.default_rng(0).random((10, 2))
         ds = SR_dataset(X, SymbolLibrary.default_symbols(2), y=X.sum(axis=1), advisory_constraints=[MaxTreeDepth(1)])
         ev = ds.create_evaluator()
-        assert ev.evaluate_expr(["X_0", "+", "X_1"]) < 1e-9
+        assert ev.evaluate_expr(["X_0", "+", "X_1"]).error < 1e-9
         violations = ev.models[-1].advisory_violations
         assert [(v.constraint, v.stage) for v in violations] == [("MaxTreeDepth", "pre")]
 

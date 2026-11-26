@@ -1,7 +1,7 @@
 """Regression test of the constants rework: expressions with only bare ``C`` keep their scores.
 
-``tests/data/bare_constants_reference.json`` was generated at commit 86cff56 (before stage 1 of
-``notes/constants_plan.md``) with ``python tests/evaluation/test_bare_constants_reference.py``.
+``tests/data/bare_constants_reference.json`` was generated at commit 86cff56 (before the constants
+rework) with ``python tests/evaluation/test_bare_constants_reference.py``.
 Every value must stay bit-identical: RMSE scores and fitted parameters on all backends and both
 initializations, fits stopped after the first step (``max_iter=0``; these depend directly on the
 starting point, so they pin the per-expression seed), BED scores and behaviour matrices.
@@ -73,7 +73,7 @@ def compute() -> dict[str, Any]:
                         X, y, symbol_library=sl, seed=SEED, backend=backend, initialization=init, max_iter=max_iter
                     )
                     for tokens in exprs:
-                        error = se.evaluate_expr(tokens)
+                        error = se.evaluate_expr(tokens).error
                         model = se.models[-1]
                         out[f"rmse|{name}|{backend}|{init}|{max_iter}|{' '.join(tokens)}"] = {
                             "error": float(error).hex(),
@@ -85,7 +85,7 @@ def compute() -> dict[str, Any]:
             )  # fmt: skip
             for tokens in exprs:
                 key = f"{name}|{backend}|{' '.join(tokens)}"
-                out[f"bed|{key}"] = float(se.evaluate_expr(tokens)).hex()
+                out[f"bed|{key}"] = float(se.evaluate_expr(tokens).error).hex()
                 matrix = create_behavior_matrix(tokens, X[:64], symbol_library=sl, seed=SEED, backend=backend)
                 out[f"matrix|{key}"] = hashlib.sha256(np.ascontiguousarray(matrix).tobytes()).hexdigest()
     return out

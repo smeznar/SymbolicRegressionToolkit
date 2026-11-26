@@ -1,5 +1,6 @@
 """Shared pytest fixtures and Hypothesis configuration for the test suite."""
 
+import os
 import sys
 from unittest.mock import patch
 
@@ -65,3 +66,22 @@ def http_dir(tmp_path):
     yield served, f"http://127.0.0.1:{server.server_address[1]}"
     server.shutdown()
     server.server_close()
+
+
+def _keep_egraphs_alive() -> None:
+    # egglog frees an e-graph through its global rayon pool, whose threads a forked process does not
+    # have, so freeing one after a fork hangs (mutmut forks a worker per mutant). Forked processes
+    # keep every e-graph instead; mutmut's workers end with os._exit, which frees nothing.
+    import egglog
+
+    kept = []
+    post_init = egglog.EGraph.__post_init__
+
+    def keep(self, *args, **kwargs):
+        kept.append(self)
+        post_init(self, *args, **kwargs)
+
+    egglog.EGraph.__post_init__ = keep
+
+
+os.register_at_fork(after_in_child=_keep_egraphs_alive)

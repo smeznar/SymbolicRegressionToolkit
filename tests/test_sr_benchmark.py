@@ -387,9 +387,9 @@ def test_builtin_scores_unchanged(benchmark, name):
     assert (ev.models[-1].status, ev.models[-1].status_detail) == ("rejected", "MaxConstants: 9 constants, limit 8")
     ev.evaluate_expr(["X_0", "+"])
     assert ev.models[-1].status == "invalid"
-    assert ev.evaluate_expr(["C", "*", "X_0"]) == pytest.approx(reference.evaluate_expr(["C", "*", "X_0"]))
+    assert ev.evaluate_expr(["C", "*", "X_0"]).error == pytest.approx(reference.evaluate_expr(["C", "*", "X_0"]).error)
     # Last: reaching the success threshold stops the evaluator.
-    assert ev.evaluate_expr(ds.ground_truth) < 1e-9
+    assert ev.evaluate_expr(ds.ground_truth).error < 1e-9
     assert ev.models[-1].status == "ok"
 
 

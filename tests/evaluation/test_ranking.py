@@ -89,7 +89,7 @@ class TestCustomRankingSettings:
         path = f"{_CustomKwargRanking.__module__}.{_CustomKwargRanking.__qualname__}"
         se = SR_evaluator(X, ranking_function=path, success_threshold=-1, my_param=0.5)
         assert se.ranking.my_param == 0.5
-        assert se.evaluate_expr(["X_0"]) == 0.5
+        assert se.evaluate_expr(["X_0"]).error == 0.5
 
 
 class TestRMSERankingSetup:

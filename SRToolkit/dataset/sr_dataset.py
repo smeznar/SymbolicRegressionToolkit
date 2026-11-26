@@ -268,7 +268,7 @@ class SR_dataset:
         >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]),
         ...     ground_truth=["X_0", "+", "X_1"], success_threshold=1e-6)
         >>> evaluator = dataset.create_evaluator()
-        >>> bool(evaluator.evaluate_expr(["C", "*", "X_1", "+", "X_0"]) < dataset.success_threshold)
+        >>> bool(evaluator.evaluate_expr(["C", "*", "X_1", "+", "X_0"]).error < dataset.success_threshold)
         True
     """
 
@@ -1029,7 +1029,7 @@ class SR_dataset:
         Examples:
             >>> X = np.array([[1, 2], [3, 4], [5, 6]])
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]))
-            >>> float(dataset.create_evaluator().evaluate_expr(["X_1", "+", "X_0"]))  # doctest: +ELLIPSIS
+            >>> float(dataset.create_evaluator().evaluate_expr(["X_1", "+", "X_0"]).error)  # doctest: +ELLIPSIS
             0.0...
         """
         if metadata is None:

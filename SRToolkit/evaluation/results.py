@@ -250,7 +250,7 @@ class SR_results:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y, seed=42)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> results.print_results()  # doctest: +ELLIPSIS
             === Experiment 1/1 ===
@@ -402,7 +402,7 @@ class SR_results:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y, seed=42)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> from SRToolkit.evaluation.result_augmentation import ExpressionToLatex
             >>> from SRToolkit.utils import SymbolLibrary
@@ -470,7 +470,7 @@ class SR_results:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> result_of_first_experiment = results[0]
 
@@ -498,7 +498,7 @@ class SR_results:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> for r in results:
             ...     print(r.best_expr)
@@ -517,7 +517,7 @@ class SR_results:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
             >>> se = SR_evaluator(X, y)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> len(results)
             1

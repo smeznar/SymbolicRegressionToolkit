@@ -22,7 +22,9 @@ from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, Variable
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation import model_store
 from SRToolkit.evaluation.callbacks import (
+    BestExpressionFound,
     CallbackDispatcher,
+    ExprEvaluated,
     SR_callback,
     TimeLimitCallback,
 )
@@ -82,6 +84,15 @@ def _mock_callback():
     return cb
 
 
+def _with_stopping_callback(se, reason):
+    # Registers a callback that asks to stop with ``reason`` after every evaluation.
+    cb = _mock_callback()
+    cb.on_expr_evaluated.return_value = reason
+    cb.on_best_expression.return_value = None
+    se.register_callbacks(cb)
+    return se
+
+
 # ── SR_evaluator.__init__ — RMSE ──────────────────────────────────────────────
 
 
@@ -119,7 +130,7 @@ class TestSREvaluatorInitRmse:
 
     def test_rmse_derives_y_from_ground_truth(self):
         se = SR_evaluator(_X, ground_truth=["X_0", "+", "X_1"], ranking_function="rmse", seed=0)
-        assert se.evaluate_expr(["X_0", "+", "X_1"]) == pytest.approx(0.0)
+        assert se.evaluate_expr(["X_0", "+", "X_1"]).error == pytest.approx(0.0)
 
     def test_rmse_ground_truth_with_free_constant_rejected(self):
         # The message names the offending tokens.
@@ -314,7 +325,7 @@ class TestSREvaluatorInitBed:
         assert se.ranking.ground_truth is None
         np.testing.assert_array_equal(se.ranking.gt_behavior, gt)
         # Candidates can still be scored against the precomputed behaviour.
-        assert se.evaluate_expr(["X_0", "+", "C"]) < 1
+        assert se.evaluate_expr(["X_0", "+", "C"]).error < 1
 
     def test_bed_gt_without_ground_truth_has_no_default_threshold(self):
         points = _X_BED[:8]
@@ -360,8 +371,8 @@ class TestSREvaluatorInitBed:
         y = _X_BED[:, 0]
         se = SR_evaluator(_X_BED, y, ranking_function="bed", num_points_sampled=-1, success_threshold=-1, seed=0)
         np.testing.assert_array_equal(se.ranking.gt_behavior, np.repeat(y[:, None], 32, axis=1))
-        assert se.evaluate_expr(["X_0"]) == 0.0
-        assert se.evaluate_expr(["X_1"]) > 0.0
+        assert se.evaluate_expr(["X_0"]).error == 0.0
+        assert se.evaluate_expr(["X_1"]).error > 0.0
 
     def test_bed_y_subsampled_jointly_with_X(self):
         y = _X_BED[:, 0] * 2.0
@@ -425,7 +436,7 @@ class TestSREvaluatorInitBed:
 
         a, b = build(1), build(2)
         np.testing.assert_array_equal(a.ranking.bed_X, b.ranking.bed_X)
-        assert a.evaluate_expr(["X_0", "*", "C"]) == b.evaluate_expr(["X_0", "*", "C"])
+        assert a.evaluate_expr(["X_0", "*", "C"]).error == b.evaluate_expr(["X_0", "*", "C"]).error
 
 
 # ── SR_evaluator.set_callbacks ────────────────────────────────────────────────
@@ -502,7 +513,7 @@ class TestStopReason:
         se.stop("other")
         assert se.should_stop is True and se.stop_reason == "grammar exhausted"
         with pytest.warns(UserWarning, match="grammar exhausted"):
-            assert np.isnan(se.evaluate_expr(["X_0"]))
+            assert se.evaluate_expr(["X_0"]) is None
         assert se.total_evaluations == 0
 
     @pytest.mark.parametrize("reason", ["", None, 3])
@@ -543,7 +554,7 @@ class TestStopReason:
 
     def test_error_equal_to_threshold_does_not_stop(self):
         se = _make_se(success_threshold=np.inf)
-        assert se.evaluate_expr(["C", "*", "X_1", "X_0"]) == np.inf  # invalid: error inf
+        assert se.evaluate_expr(["C", "*", "X_1", "X_0"]).error == np.inf  # invalid: error inf
         assert se.stop_reason is None
 
     def test_get_results_records_reason_or_returned(self):
@@ -560,7 +571,7 @@ class TestStopReason:
 class TestEvaluateExprRmse:
     def test_basic_evaluation_returns_low_rmse(self):
         se = _make_se()
-        rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error
         assert rmse < 1e-6
 
     def test_increments_total_evaluations_every_call(self):
@@ -568,13 +579,6 @@ class TestEvaluateExprRmse:
         se.evaluate_expr(["X_0"])
         se.evaluate_expr(["X_0"])  # cache hit
         assert se.total_evaluations == 2
-
-    def test_cache_hit_returns_same_result(self):
-        se = _make_se()
-        r1 = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
-        r2 = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
-        assert r1 == r2
-        assert len(se.models) == 1
 
     def test_cache_hit_still_fires_on_expr_evaluated(self):
         se = _make_se()
@@ -587,7 +591,7 @@ class TestEvaluateExprRmse:
 
     def test_invalid_expression_returns_inf(self):
         se = _make_se()
-        assert se.evaluate_expr(["C", "*", "X_1", "X_0"]) == np.inf
+        assert se.evaluate_expr(["C", "*", "X_1", "X_0"]).error == np.inf
         assert se.models[0].status == "invalid"
 
     def test_invalid_expression_added_to_invalid_list(self):
@@ -595,21 +599,179 @@ class TestEvaluateExprRmse:
         se.evaluate_expr(["C", "*", "X_1", "X_0"])
         assert "C*X_1X_0" in se.invalid
 
-    def test_should_stop_returns_nan_with_warning(self):
-        se = _make_se()
-        se.stop("test")
-        with pytest.warns(UserWarning):
-            result = se.evaluate_expr(["X_0"])
-        assert np.isnan(result)
-        assert se.total_evaluations == 0
-        assert se.trace == []
+    # Reason: clause (Returns: "The expression's ModelResult, as models stores it", with its status and the
+    # status_detail of a failure), one row per status path. parameters: C*X_1-X_0 fits C = 2 (y = 2*X_1 - X_0);
+    # _fit_ranking fits 2.0; failures before scoring and the unsaveable fallback store None.
+    @pytest.mark.parametrize(
+        "make_se, expr, specs, status, detail_prefix, parameters, warning",
+        [
+            (_make_se, ["C", "*", "X_1", "-", "X_0"], None, "ok", None, [2.0], None),
+            (
+                _make_se,
+                ["C_0", "*", "X_1", "X_0"],
+                [Constant(label="C_0", bounds=(0.0, 10.0))],
+                "invalid",
+                "",
+                None,
+                None,
+            ),
+            (_make_se, ["C"] + ["+", "C"] * 8, None, "rejected", "MaxConstants: ", None, None),
+            (
+                lambda: _make_se(ranking_function=_FixedRanking(RuntimeError("boom"))),
+                ["X_0"],
+                None,
+                "error",
+                "RuntimeError",
+                None,
+                "boom",
+            ),
+            (
+                lambda: _make_se(
+                    symbol_library=_LIB2(),
+                    ranking_function=_fit_ranking(),
+                    required_constraints=[OutputBounds([[0.0, -1.0]], lower=0.0)],
+                ),
+                ["C", "*", "X_1", "-", "X_0"],
+                None,
+                "rejected",
+                "OutputBounds: ",
+                [2.0],
+                None,
+            ),
+            (
+                lambda: _make_se(
+                    ranking_function=_FixedRanking(
+                        RankingResult(score=0.0, parameters=np.array([1.5]), extra={"fit": object()})
+                    )
+                ),
+                ["X_0"],
+                None,
+                "error",
+                "the model cannot be saved: ",
+                None,
+                "cannot be saved",
+            ),
+        ],
+        ids=["ok", "invalid-with-specs", "pre-check-rejected", "ranking-raises", "post-check-rejected", "unsaveable"],
+    )
+    def test_returned_model_equals_the_stored_one(
+        self, make_se, expr, specs, status, detail_prefix, parameters, warning
+    ):
+        se = make_se()
+        with pytest.warns(UserWarning, match=warning) if warning else nullcontext():
+            returned = se.evaluate_expr(expr, specs)
+        assert returned == se.models[se.trace[-1]]
+        assert returned.status == status
+        if detail_prefix is None:
+            assert returned.status_detail is None
+        else:
+            assert returned.status_detail and returned.status_detail.startswith(detail_prefix)
+        if parameters is None:
+            assert returned.parameters is None
+        else:
+            np.testing.assert_allclose(returned.parameters, parameters, rtol=1e-6)
+        assert returned.free_constants == (tuple(specs) if specs else None)
 
-    def test_max_evaluations_triggers_stop(self):
-        se = _make_se(max_evaluations=1, success_threshold=-1)
+    # Reason: clause ("An expression evaluated before ... its stored model is returned"): the entry the
+    # call hits, not the latest model.
+    def test_cache_hit_returns_the_entry_it_hits(self):
+        se = _make_se()
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         se.evaluate_expr(["X_0"])
-        with pytest.warns(UserWarning):
-            result = se.evaluate_expr(["X_1"])
-        assert np.isnan(result)
+        returned = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        assert se.trace == [0, 1, 0]
+        assert returned == se.models[0] and returned != se.models[1]
+        np.testing.assert_allclose(returned.parameters, [2.0], rtol=1e-6)
+
+    # Reason: clause (canonicalise_constants: "the canonical form replaces it for the rest of the call"):
+    # a relabelled cache hit returns the stored canonical model (a label used once is written bare),
+    # not the input labels.
+    def test_canonicalised_cache_hit_returns_the_stored_form(self):
+        se = _make_se()
+        se.evaluate_expr(["C_4", "*", "X_1", "-", "X_0"], canonicalise_constants=True)
+        returned = se.evaluate_expr(["C_1", "*", "X_1", "-", "X_0"], canonicalise_constants=True)
+        assert se.trace == [0, 0]
+        assert returned == se.models[0]
+        assert returned.expr == ["C", "*", "X_1", "-", "X_0"]
+
+    # Reason: boundary (the call that stops evaluation is still counted, so it returns its model; only
+    # later calls return None).
+    @pytest.mark.parametrize(
+        "make_se, reason",
+        [
+            (lambda: _make_se(success_threshold=1e-6), "success_threshold"),
+            (lambda: _make_se(max_evaluations=1), "max_evaluations"),
+            (lambda: _with_stopping_callback(_make_se(), "plateau"), "plateau"),
+        ],
+        ids=["success_threshold", "max_evaluations", "callback"],
+    )
+    def test_stopping_call_returns_its_model(self, make_se, reason):
+        se = make_se()
+        returned = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        assert se.stop_reason == reason
+        assert returned is not None and returned == se.models[se.trace[-1]]
+        assert returned.error < 1e-6
+
+    # Reason: clause (Returns: "None if evaluation has already stopped: the call then emits a warning and is
+    # not counted"; spec decision: the warning names the stop reason and no callback fires). The cached
+    # column catches returning the cached model before checking the stop.
+    @pytest.mark.parametrize("expr", [["X_0"], ["C", "*", "X_1", "-", "X_0"]], ids=["new", "cached"])
+    @pytest.mark.parametrize(
+        "make_se, stop, reason",
+        [
+            (_make_se, lambda se: se.stop("exhausted"), "exhausted"),
+            (lambda: _make_se(success_threshold=1e-6), lambda se: None, "success_threshold"),
+            (lambda: _make_se(max_evaluations=1), lambda se: None, "max_evaluations"),
+            (lambda: _with_stopping_callback(_make_se(), "plateau"), lambda se: None, "plateau"),
+        ],
+        ids=["stop", "success_threshold", "max_evaluations", "callback"],
+    )
+    def test_calls_after_stop_return_none_uncounted(self, make_se, stop, reason, expr):
+        se = make_se()
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        stop(se)
+        cb = _mock_callback()
+        se.register_callbacks(cb)
+        with pytest.warns(UserWarning, match=reason):
+            assert se.evaluate_expr(expr) is None
+        assert se.trace == [0]
+        assert se.total_evaluations == 1
+        assert len(se.models) == 1
+        cb.on_expr_evaluated.assert_not_called()
+        cb.on_best_expression.assert_not_called()
+
+    # Reason: clause ("reported to the callbacks: on_expr_evaluated for every call, plus on_best_expression
+    # when the error improves on the best so far"; event fields as documented in callbacks). Calls A, B, A
+    # with A the best: expression is "".join(tokens), error the returned model's, evaluation_number counts
+    # cache hits, the cache hit is never a new best. The evaluator has no experiment id: "".
+    def test_events_carry_the_call(self):
+        se = _make_se()
+        recorder = _Recorder()
+        se.register_callbacks(recorder)
+        a = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        b = se.evaluate_expr(["X_0"])
+        se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        assert a.error < b.error
+        assert recorder.events == [
+            ExprEvaluated("C*X_1-X_0", a.error, 1, "", True, "ok"),
+            ExprEvaluated("X_0", b.error, 2, "", False, "ok"),
+            ExprEvaluated("C*X_1-X_0", a.error, 3, "", False, "ok"),
+        ]
+        assert recorder.best == [BestExpressionFound("", "C*X_1-X_0", a.error, 1)]
+
+    # Reason: implied + spec decision (the returned model is a new copy each call: changing it saves nothing).
+    def test_returned_model_is_independent_of_the_store(self):
+        se = _make_se()
+        returned = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+        returned.parameters[0] = 99.0
+        returned.status = "error"
+        returned.expr.append("+")
+        returned.ranking_data["x"] = 1
+        for model in (se.models[0], se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])):
+            np.testing.assert_allclose(model.parameters, [2.0], rtol=1e-6)
+            assert model.status == "ok"
+            assert model.expr == ["C", "*", "X_1", "-", "X_0"]
+            assert "x" not in model.ranking_data
 
     def test_first_evaluation_fires_best_expression_callback(self):
         se = _make_se()
@@ -648,7 +810,7 @@ class TestEvaluateExprRmse:
         se = _make_se()
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
-                result = se.evaluate_expr(["X_0"], simplify_expr=True)
+                result = se.evaluate_expr(["X_0"], simplify_expr=True).error
         assert not np.isnan(result)
 
     def test_simplify_failure_with_node_input_warns(self):
@@ -656,13 +818,13 @@ class TestEvaluateExprRmse:
         node = Node("*", left=Node("C"), right=Node("X_0"))
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
-                result = se.evaluate_expr(node, simplify_expr=True)
+                result = se.evaluate_expr(node, simplify_expr=True).error
         assert np.isfinite(result)
 
     def test_node_input_accepted(self):
         se = _make_se()
         node = Node("*", left=Node("C"), right=Node("X_0"))
-        result = se.evaluate_expr(node)
+        result = se.evaluate_expr(node).error
         assert np.isfinite(result)
 
     @pytest.mark.parametrize(
@@ -715,7 +877,7 @@ class TestEvaluateExprRmse:
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])  # exact fit: error below the threshold
         assert se.should_stop is True
         with pytest.warns(UserWarning, match="success_threshold"):
-            assert np.isnan(se.evaluate_expr(["X_0"]))
+            assert se.evaluate_expr(["X_0"]) is None
         assert se.total_evaluations == 1
 
     def test_ranking_function_is_read_only(self):
@@ -747,15 +909,6 @@ class TestEvaluationTrace:
         assert se.trace == [0, 0]
         assert se.models[0].error == np.inf
         assert se.models[0].status == "invalid"
-
-    def test_calls_after_stop_not_recorded(self):
-        se = _make_se(max_evaluations=2)
-        se.evaluate_expr(["X_0"])
-        se.evaluate_expr(["X_1"])
-        with pytest.warns(UserWarning):
-            se.evaluate_expr(["X_0"])
-        assert se.trace == [0, 1]
-        assert se.total_evaluations == 2
 
     def test_event_evaluation_number_matches_trace_length(self):
         se = _make_se()
@@ -871,7 +1024,7 @@ class TestEvaluationStatus:
             )
         for expr, rmse_status, bed_status in _STATUS_CASES:
             expected = rmse_status if ranking == "rmse" else bed_status
-            error = se.evaluate_expr(expr)
+            error = se.evaluate_expr(expr).error
             model = se.models[-1]
             assert model.status == expected, "".join(expr)
             if expected == "ok":
@@ -892,10 +1045,10 @@ class TestEvaluationStatus:
 
     def test_max_expr_length_rejects(self):
         se = _make_se(max_expr_length=3)
-        assert se.evaluate_expr(["X_0", "+", "X_1", "+", "X_0"]) == np.inf
+        assert se.evaluate_expr(["X_0", "+", "X_1", "+", "X_0"]).error == np.inf
         assert se.models[0].status == "rejected"
         assert se.models[0].status_detail == "MaxTokens: 5 tokens, limit 3"
-        assert np.isfinite(se.evaluate_expr(["X_0", "+", "X_1"]))
+        assert np.isfinite(se.evaluate_expr(["X_0", "+", "X_1"]).error)
 
     def test_bed_enforces_max_constants(self):
         se = SR_evaluator(
@@ -912,7 +1065,7 @@ class TestEvaluationStatus:
     def test_ranking_exception_gives_error_with_warning(self):
         se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(RuntimeError("boom")), success_threshold=-1)
         with pytest.warns(UserWarning, match="boom"):
-            assert se.evaluate_expr(["X_0"]) == np.inf
+            assert se.evaluate_expr(["X_0"]).error == np.inf
         assert se.models[0].status == "error"
         assert se.models[0].status_detail == "RuntimeError: boom"
         assert se.models[0].expr == ["X_0"]
@@ -921,7 +1074,7 @@ class TestEvaluationStatus:
     def test_ranking_status_is_respected(self):
         outcome = RankingResult(score=0.3, status="rejected", status_detail="not physical")
         se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
-        assert se.evaluate_expr(["X_0"]) == np.inf
+        assert se.evaluate_expr(["X_0"]).error == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("rejected", "not physical")
 
     def test_ranking_rejection_without_detail(self):
@@ -933,7 +1086,7 @@ class TestEvaluationStatus:
     def test_non_finite_score_is_undefined(self):
         outcome = RankingResult(score=np.nan)
         se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
-        assert se.evaluate_expr(["X_0"]) == np.inf
+        assert se.evaluate_expr(["X_0"]).error == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "fixed score is nan")
 
     @pytest.mark.parametrize("status", ["ok", "invalid", "error", "weird"])
@@ -950,7 +1103,7 @@ class TestEvaluationStatus:
     def test_ranking_undefined_with_finite_score(self):
         outcome = RankingResult(score=0.3, status="undefined", status_detail="no finite behaviour")
         se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
-        assert se.evaluate_expr(["X_0"]) == np.inf
+        assert se.evaluate_expr(["X_0"]).error == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "no finite behaviour")
 
     # Reason: clause (module docs, status 3: a model that cannot be saved is stored with status
@@ -970,7 +1123,7 @@ class TestEvaluationStatus:
             _X, _y, ranking_function=_FixedRanking(outcome), success_threshold=1.0, advisory_constraints=advisory
         )
         with pytest.warns(UserWarning, match="cannot be saved"):
-            assert se.evaluate_expr(["X_0"]) == np.inf
+            assert se.evaluate_expr(["X_0"]).error == np.inf
         model = se.models[0]
         assert (model.status, model.error, model.ranking_data, model.parameters) == ("error", np.inf, {}, None)
         assert model.advisory_violations == []
@@ -1076,16 +1229,16 @@ class TestEvaluateExprBed:
         )
 
     def test_bed_evaluation_returns_finite_float(self):
-        result = self.se.evaluate_expr(["C", "+", "X_1"])
+        result = self.se.evaluate_expr(["C", "+", "X_1"]).error
         assert np.isfinite(result)
 
     def test_bed_equivalent_expression_lower_error(self):
-        err_match = self.se.evaluate_expr(["C", "+", "X_0"])
-        err_other = self.se.evaluate_expr(["C", "+", "X_1"])
+        err_match = self.se.evaluate_expr(["C", "+", "X_0"]).error
+        err_other = self.se.evaluate_expr(["C", "+", "X_1"]).error
         assert err_match < err_other
 
     def test_bed_invalid_expression_returns_inf_and_appends_invalid(self):
-        result = self.se.evaluate_expr(["C", "*", "X_1", "X_0"])
+        result = self.se.evaluate_expr(["C", "*", "X_1", "X_0"]).error
         assert result == np.inf
         assert "C*X_1X_0" in self.se.invalid
 
@@ -1110,7 +1263,7 @@ class TestGetMetric:
 
     def test_builtin_mse_matches_squared_rmse(self):
         se = _make_se()
-        rmse = se.evaluate_expr(self._BEST)
+        rmse = se.evaluate_expr(self._BEST).error
         assert se.get_metric(self._BEST, "mse") == pytest.approx(rmse**2, abs=1e-9)
 
     def test_all_builtin_metrics_callable_by_name(self):
@@ -1382,9 +1535,13 @@ class TestCompactResults:
 class _Recorder(SR_callback):
     def __init__(self):
         self.events = []
+        self.best = []
 
     def on_expr_evaluated(self, event):
         self.events.append(event)
+
+    def on_best_expression(self, event):
+        self.best.append(event)
 
 
 def _fit_ranking():
@@ -1538,7 +1695,7 @@ class TestConstraintSetup:
     def test_estimator_limits_disabled_for_scoring(self, make_kwargs):
         # Regression: the estimator's own default limit (8) must not cut a 9-constant expression.
         se = _make_se(symbol_library=_LIB2(), **make_kwargs())
-        error = se.evaluate_expr(_NINE_CONSTANTS)
+        error = se.evaluate_expr(_NINE_CONSTANTS).error
         assert se.models[0].status == "ok"
         assert error == pytest.approx(_STD_Y, rel=1e-3)
 
@@ -1659,7 +1816,7 @@ class TestConstraintEvaluation:
         se = SR_evaluator(
             _X1, _y, symbol_library=_LIB1(), ranking_function=_CountingRanking(), required_constraints=make_required()
         )
-        assert se.evaluate_expr(["C", "*", "sin", "(", "X_0", ")"]) == _INF
+        assert se.evaluate_expr(["C", "*", "sin", "(", "X_0", ")"]).error == _INF
         model = se.models[0]
         assert (model.status, model.error, model.status_detail) == ("rejected", _INF, detail)
         assert se.ranking.calls == 0
@@ -1675,7 +1832,7 @@ class TestConstraintEvaluation:
             success_threshold=-1,
             required_constraints=[OutputBounds([[0.0, -1.0]], lower=0.0)],
         )
-        assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) == _INF
+        assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error == _INF
         model = se.models[0]
         assert (model.status, model.error) == ("rejected", _INF)
         assert model.status_detail == "OutputBounds: output outside [0.0, inf] at 1 of 1 points"
@@ -1824,7 +1981,7 @@ class TestConstraintEvaluation:
         se.register_callbacks(recorder)
         check = detail.split(" ")[0]  # "<Class>.<check>"
         with pytest.warns(UserWarning, match=check.replace(".", r".*")):
-            assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) == _INF
+            assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error == _INF
         model = se.models[0]
         assert (model.status, model.error, model.status_detail) == ("error", _INF, detail)
         assert model.expr == ["C", "*", "X_1", "-", "X_0"]
@@ -1832,7 +1989,7 @@ class TestConstraintEvaluation:
         assert (None if model.parameters is None else model.parameters.tolist()) == parameters
         assert model.ranking_data == ranking_data
         assert (se.total_evaluations, len(recorder.events)) == (1, 1)
-        assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]) == _INF
+        assert se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error == _INF
         assert (se.total_evaluations, len(se.models)) == (2, 1)
 
     @pytest.mark.parametrize("make, check", [(_Boom, "pre_check"), (_BoomPost, "post_check")], ids=["pre", "post"])
@@ -1879,7 +2036,7 @@ class TestConstraintEvaluation:
     )
     def test_default_settings_regression(self, expr, status, error, detail):
         se = _make_se()
-        assert se.evaluate_expr(expr) == pytest.approx(error, rel=1e-3, abs=1e-6)
+        assert se.evaluate_expr(expr).error == pytest.approx(error, rel=1e-3, abs=1e-6)
         model = se.models[0]
         assert (model.status, model.status_detail, model.advisory_violations) == (status, detail, [])
 
@@ -1963,7 +2120,7 @@ class TestBackgroundKnowledge:
             default_constant=template,
             seed=0,
         )
-        assert se.evaluate_expr(["C", "*", "X_0"]) < 1e-4
+        assert se.evaluate_expr(["C", "*", "X_0"]).error < 1e-4
         expected = Constant(prior=UniformSampling(-2.0, 3.0), bounds=(0, float("inf"))).to_dict()
         assert se.default_constant.to_dict() == expected
         assert se.background_knowledge.default_constant.to_dict() == expected
@@ -2166,15 +2323,18 @@ class TestFreeConstants:
         assert se.trace == []
         assert se.total_evaluations == 0
 
-    # Reason: implied (specs are checked against the evaluator's symbol library, not the default one):
-    # with the free constant renamed to K, K_0 is a labelled constant that a spec can address.
-    def test_specs_are_checked_with_the_evaluators_library(self):
+    # Reason: implied (specs are checked against the evaluator's symbol library, not the default one, also
+    # on the simplify path, which checks them before simplifying): with the free constant renamed to K,
+    # K_0 is a labelled constant that a spec can address.
+    @pytest.mark.parametrize("simplify_expr", [False, True], ids=["plain", "simplify"])
+    def test_specs_are_checked_with_the_evaluators_library(self, simplify_expr):
         se = SR_evaluator(
             _X3, _y3, symbol_library=SymbolLibrary.default_symbols(1, const_symbol="K"), seed=0, success_threshold=-1
         )
         expr = ["K_0", "*", "X_0"]
         assert se.check_constraints(expr, [_fix("K_0", 1.0)]) == ([], [])
-        assert se.evaluate_expr(expr, [_fix("K_0", 1.0)]) == pytest.approx(math.sqrt(14 / 3))
+        model = se.evaluate_expr(expr, [_fix("K_0", 1.0)], simplify_expr=simplify_expr)
+        assert model.error == pytest.approx(math.sqrt(14 / 3))
 
     # Reason: boundary (the ValueError applies to a well-formed expr only; a malformed one is
     # "invalid", stored with its specs and keyed by them).
@@ -2182,7 +2342,7 @@ class TestFreeConstants:
         se = _spec_se()
         expr = ["C_0", "*", "X_0", "X_0"]
         spec = _fix("C_0", 1.0)
-        assert se.evaluate_expr(expr, [spec]) == math.inf
+        assert se.evaluate_expr(expr, [spec]).error == math.inf
         assert se.models[0].status == "invalid"
         assert [c.to_dict() for c in se.models[0].free_constants] == [spec.to_dict()]
         se.evaluate_expr(expr)
@@ -2216,7 +2376,7 @@ class TestFreeConstants:
         )
         expr = ["X_0", "+", "C_0", "+", "(", "C_1", "-", "C_1", ")"]
         spec = _fix("C_0", 3.0)
-        assert se.evaluate_expr(expr, [spec]) == pytest.approx(3.0, abs=1e-9)
+        assert se.evaluate_expr(expr, [spec]).error == pytest.approx(3.0, abs=1e-9)
         se.get_results().save(str(tmp_path))
         result = SR_results.load(str(tmp_path))[0]
         model = result.all_models[0]
@@ -2325,7 +2485,9 @@ class TestSimplifySettings:
     def test_malformed_expression_with_specs_is_invalid_when_simplifying(self):
         se = _spec_se()
         with pytest.warns(UserWarning, match="Unable to simplify"):
-            assert se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)], simplify_expr=True) == math.inf
+            assert (
+                se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)], simplify_expr=True).error == math.inf
+            )
         assert se.models[0].status == "invalid"
         assert [c.label for c in se.models[0].free_constants] == ["C_9"]
 
@@ -2366,7 +2528,7 @@ class TestFoldConstants:
     # Reason: boundary (a malformed expression is "invalid" also with folding, stored as given).
     def test_malformed_expression_is_invalid(self):
         se = _make_se(fold_constants="keep")
-        assert se.evaluate_expr(["C", "*", "*", "X_0"]) == math.inf
+        assert se.evaluate_expr(["C", "*", "*", "X_0"]).error == math.inf
         assert (se.models[0].status, se.models[0].expr) == ("invalid", ["C", "*", "*", "X_0"])
 
     # Reason: regression (with folding a malformed tree, an unknown symbol, was folded away and scored
@@ -2469,9 +2631,9 @@ class TestCanonicalisation:
     def test_relabelled_expressions_are_one_canonical_model(self, const, lib):
         se = _canon_se(lib())
         first = f"{const}_4 * X_0 + {const}_4".split()
-        error = se.evaluate_expr(first, canonicalise_constants=True)
+        error = se.evaluate_expr(first, canonicalise_constants=True).error
         assert first == f"{const}_4 * X_0 + {const}_4".split()
-        assert se.evaluate_expr(f"{const}_1 * X_0 + {const}_1".split(), canonicalise_constants=True) == error
+        assert se.evaluate_expr(f"{const}_1 * X_0 + {const}_1".split(), canonicalise_constants=True).error == error
         assert len(se.models) == 1
         assert se.trace == [0, 0]
         assert se.models[0].expr == f"{const}_0 * X_0 + {const}_0".split()
@@ -2542,7 +2704,7 @@ class TestCanonicalisation:
     # Reason: boundary (a malformed expression is canonicalised token-wise, still "invalid").
     def test_malformed_expression_is_canonicalised_and_invalid(self):
         se = _canon_se()
-        assert se.evaluate_expr(["C_3", "*", "X_0", "X_0", "C_3"], canonicalise_constants=True) == math.inf
+        assert se.evaluate_expr(["C_3", "*", "X_0", "X_0", "C_3"], canonicalise_constants=True).error == math.inf
         assert se.models[0].status == "invalid"
         assert se.models[0].expr == ["C_0", "*", "X_0", "X_0", "C_0"]
         se.evaluate_expr(["C_5", "*", "X_0", "X_0", "C_5"], canonicalise_constants=True)
@@ -2581,7 +2743,7 @@ class TestCacheKey:
     ):
         se = SR_evaluator(X, y, symbol_library=lib(), seed=0, success_threshold=-1)
         se.evaluate_expr(first)
-        assert se.evaluate_expr(second) == pytest.approx(second_error)
+        assert se.evaluate_expr(second).error == pytest.approx(second_error)
         assert len(se.models) == 2
         assert se.models[1].status == second_status
 
@@ -3019,7 +3181,7 @@ class TestSteps:
             stop(se)
             assert se.should_stop is True
             with pytest.warns(UserWarning):
-                assert np.isnan(se.evaluate_expr(["X_0", "+", "C"]))
+                assert se.evaluate_expr(["X_0", "+", "C"]) is None
         assert se.total_evaluations == 1
 
     def test_second_signal_inside_step_raises(self, tmp_path):
@@ -3046,7 +3208,7 @@ class TestStopOnSignals:
         "sig, safe_point",
         [
             (signal.SIGINT, lambda se: se.should_stop),
-            (signal.SIGINT, lambda se: se.evaluate_expr(["C", "*", "X_0"])),  # nan, not counted
+            (signal.SIGINT, lambda se: se.evaluate_expr(["C", "*", "X_0"])),  # None, not counted
             (signal.SIGINT, lambda se: None),  # the end of the block
             (signal.SIGTERM, lambda se: se.should_stop),
         ],

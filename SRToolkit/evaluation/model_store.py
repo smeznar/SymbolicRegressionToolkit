@@ -13,13 +13,13 @@ Collecting the results copies every model into RAM, unless only a summary is col
 ``get_results(keep_all_models=False)``).
 
 A model is saved as the JSON of [ModelResult.to_dict][SRToolkit.utils.types.ModelResult.to_dict],
-with its error, status and length (number of tokens) in columns of their own, so a cache hit and
-a summary never parse the record of every model. Models
+with its error, status and length (number of tokens) in columns of their own, so a lookup and a
+summary never parse the record of every model (a cache hit parses only the record it returns). Models
 come back as new objects (numpy scalars in ``ranking_data`` as Python scalars), so changing one
 saves nothing.
 
 Only [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] writes to the
-store. Do not change the database or the file yourself: a cache hit returns the stored error and
+store. Do not change the database or the file yourself: a cache hit returns the stored model and
 the trace refers to models by position, so a changed or removed row makes later results wrong.
 
 ## Checkpoint file
