@@ -5630,7 +5630,7 @@ in <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol 
 approach adapts first, the callbacks get <code>on_experiment_start</code> and <code>on_experiment_end</code>,
 and Ctrl-C stops the run cleanly.</p>
 <p>The checkpoint must come from this dataset: the same settings apart from the limits. The
-setting <code>max_consecutive_skips</code> is not a limit and cannot change, so a run stopped by it
+setting <code>evaluator.max_consecutive_skips</code> is not a limit and cannot change, so a run stopped by it
 stops again at once. The approach is not checked, so pass the run's approach. If an extension is interrupted, call
 <code>extend_run</code> again with <code>None</code> limits to continue it. When the run ends, the checkpoint
 is compacted into one file, which the result refers to.</p>
@@ -6171,7 +6171,7 @@ settings than this dataset's (the message names them).</p>
 <a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-798" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-798"></a><span class="sd">    and Ctrl-C stops the run cleanly.</span>
 <a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-799" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-799"></a>
 <a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-800" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-800"></a><span class="sd">    The checkpoint must come from this dataset: the same settings apart from the limits. The</span>
-<a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-801" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-801"></a><span class="sd">    setting ``max_consecutive_skips`` is not a limit and cannot change, so a run stopped by it</span>
+<a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-801" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-801"></a><span class="sd">    setting ``evaluator.max_consecutive_skips`` is not a limit and cannot change, so a run stopped by it</span>
 <a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-802" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-802"></a><span class="sd">    stops again at once. The approach is not checked, so pass the run's approach. If an extension is interrupted, call</span>
 <a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-803" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-803"></a><span class="sd">    ``extend_run`` again with ``None`` limits to continue it. When the run ends, the checkpoint</span>
 <a id="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-804" name="SRToolkit.dataset.sr_dataset.SR_dataset.extend_run--source--__codelineno-0-804"></a><span class="sd">    is compacted into one file, which the result refers to.</span>

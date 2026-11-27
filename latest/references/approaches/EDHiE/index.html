@@ -3014,8 +3014,8 @@ the HVAE is loaded from it here and used for every task.</p>
             <td>
               <div class="doc-md-description">
                 <p>Limit for sampling the training expressions (see
-<code>training_expressions</code>). It does not limit the search; the evaluator's
-<code>max_consecutive_skips</code> does.</p>
+<code>training_expressions</code>). It does not limit the search; the setting
+<code>evaluator.max_consecutive_skips</code> does.</p>
               </div>
             </td>
             <td>
@@ -3262,8 +3262,8 @@ them, so they use the budget and appear in the results as <code>"rejected"</code
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-128" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-128"></a><span class="sd">            the HVAE is loaded from it here and used for every task.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-129" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-129"></a><span class="sd">        verbose: Print the training loss and reconstructions while training (the search prints nothing).</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-130" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-130"></a><span class="sd">        max_training_skips: Limit for sampling the training expressions (see</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-131" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-131"></a><span class="sd">            ``training_expressions``). It does not limit the search; the evaluator's</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-132" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-132"></a><span class="sd">            ``max_consecutive_skips`` does.</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-131" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-131"></a><span class="sd">            ``training_expressions``). It does not limit the search; the setting</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-132" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-132"></a><span class="sd">            ``evaluator.max_consecutive_skips`` does.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-133" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-133"></a><span class="sd">        skip_evaluated: Skip expressions evaluated before (see [ask][SRToolkit.approaches.EDHiE.EDHiE.ask]).</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-134" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-134"></a><span class="sd">            ``False`` evaluates them again, as cache hits that use the budget.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-135" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-135"></a><span class="sd">        skip_rejected: Skip expressions that break a required constraint. ``False`` evaluates</span>

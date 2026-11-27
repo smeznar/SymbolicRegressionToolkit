@@ -2740,9 +2740,9 @@ regenerated or resampled later.</p>
 </code></pre></div>
 <p><code>symbol_library</code> defaults to one variable per sampler and <code>original_equation</code>, when not
 given, is derived from the ground truth with the variable and target names (<code>y = X_0+X_1</code>
-without them), so the minimal call is just the expression and the samplers. Use <code>ranking_function="bed"</code> for a dataset that only needs inputs (no <code>y</code>). The
-same estimation settings as the constructor (<code>max_evaluations</code>, <code>success_threshold</code>,
-<code>constant_bounds</code>, …) are accepted as keyword arguments.</p>
+without them), so the minimal call is just the expression and the samplers. Use <code>ranking_function="bed"</code> for a dataset that only needs inputs (no <code>y</code>).
+<code>from_samplers</code> takes the constructor's other arguments (<code>max_evaluations</code>, <code>constant_bounds</code>,
+<code>settings=</code>, …) and generates the data instead of taking <code>X</code>, <code>y</code> and the test and aux arrays.</p>
 <h2 id="building-a-benchmark-with-sr_benchmark">Building a benchmark with SR_benchmark</h2>
 <p>Group multiple datasets into a reusable benchmark by subclassing <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_benchmark&lt;/span&gt;" href="../../references/dataset/srbenchmark/#SRToolkit.dataset.sr_benchmark.SR_benchmark">SR_benchmark</a>. Provide a <code>data_source</code> for each dataset so data is generated (or downloaded) automatically on first use and cached locally for subsequent runs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_benchmark</span>
