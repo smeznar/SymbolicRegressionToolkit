@@ -128,8 +128,8 @@ class EDHiE(SR_approach):
                 the HVAE is loaded from it here and used for every task.
             verbose: Print the training loss and reconstructions while training (the search prints nothing).
             max_training_skips: Limit for sampling the training expressions (see
-                ``training_expressions``). It does not limit the search; the evaluator's
-                ``max_consecutive_skips`` does.
+                ``training_expressions``). It does not limit the search; the setting
+                ``evaluator.max_consecutive_skips`` does.
             skip_evaluated: Skip expressions evaluated before (see [ask][SRToolkit.approaches.EDHiE.EDHiE.ask]).
                 ``False`` evaluates them again, as cache hits that use the budget.
             skip_rejected: Skip expressions that break a required constraint. ``False`` evaluates

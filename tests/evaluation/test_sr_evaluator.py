@@ -849,7 +849,7 @@ class TestEvaluateExprRmse:
         se.evaluate_expr(["X_0"])
         assert se.stop_reason == "callback:MagicMock"
 
-    # Reason: clause (RankingSettings simplify_expr: "inputs that simplify alike share one cache
+    # Reason: clause (EvaluatorSettings simplify_expr: "inputs that simplify alike share one cache
     # entry"): X_0*X_1/X_0 simplifies to X_1, so C+X_1 is a cache hit.
     def test_inputs_that_simplify_alike_share_one_model(self):
         se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
@@ -2600,7 +2600,7 @@ class TestFreeConstants:
 
 
 class TestSimplifySettings:
-    # Reason: clause (RankingSettings simplify_expr: simplified "with the simplify_* settings") + boundary (limits 0 and max_time None, and an int max_time, are accepted;
+    # Reason: clause (EvaluatorSettings simplify_expr: simplified "with the simplify_* settings") + boundary (limits 0 and max_time None, and an int max_time, are accepted;
     # settled: max_iterations=0 returns the input as the same tree).
     @pytest.mark.parametrize(
         "settings, expr, expected",
@@ -2672,7 +2672,7 @@ class TestSimplifySettings:
 
 
 class TestFoldConstants:
-    # Reason: clause (RankingSettings fold_constants: every expression scored "or looked up" is folded,
+    # Reason: clause (EvaluatorSettings fold_constants: every expression scored "or looked up" is folded,
     # after simplifying with simplify_expr; default "none") + get_model and stored_tokens find it from
     # the input. C*C*X_0 folds to C*X_0 without simplification; implied: with the evaluator's library
     # (constant symbol K).

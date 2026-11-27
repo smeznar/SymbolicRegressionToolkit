@@ -1,12 +1,10 @@
-"""Shared constants, settings types and result dataclasses for SRToolkit.
+"""Shared constants and result dataclasses for SRToolkit.
 
 - **Symbol types** (``VAR``, ``CONST``, ``FN``, ``OP``, ``LIT``) tag the entries of a
   [SymbolLibrary][SRToolkit.utils.symbol_library.SymbolLibrary].
 - **Precedence levels** (``OP_ADDITIVE``, ``OP_MULTIPLICATIVE``, ``OP_POWER``, ``FN_PREFIX``,
   ``FN_POSTFIX``, ``LEAF``) order symbols for parsing and printing. Custom operators can use values
   between the levels.
-- [RankingSettings][SRToolkit.utils.types.RankingSettings] lists the keyword settings understood by
-  the built-in ranking functions and the parameter estimator.
 - [ModelResult][SRToolkit.utils.types.ModelResult] (one evaluated expression) and
   [EvalResult][SRToolkit.utils.types.EvalResult] (one SR run) hold experiment outcomes. Each model
   has a [Status][SRToolkit.utils.types.Status]. Both save to JSON through
@@ -23,7 +21,7 @@ import math
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import numpy as np
 
@@ -33,7 +31,6 @@ if TYPE_CHECKING:
     # Imported for annotations only: free_constants imports symbol_library, which imports this module.
     from SRToolkit.evaluation.model_store import ModelStore
 
-    from .expression_simplifier import SimplificationRules
     from .free_constants import Constant
 
 VAR = "var"
@@ -89,165 +86,6 @@ Every status except ``"ok"`` gets the error ``+inf``.
 STATUSES: tuple[str, ...] = get_args(Status)
 """The values of [Status][SRToolkit.utils.types.Status], in the same order. This is also the key order
 of [status_counts][SRToolkit.utils.types.EvalResult.status_counts]."""
-
-
-class RankingSettings(TypedDict, total=False):
-    """Settings for the ranking functions, the parameter estimator and the evaluation protocol.
-
-    Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and ``ParameterEstimator``, then
-    handed to the active ranking's [setup][SRToolkit.evaluation.ranking.RankingFunction.setup] as a
-    plain ``dict``. All fields are optional, and ``None`` means the default. A setting passed at
-    its default (or as ``None``) is the same run as one left out, also when a checkpoint is resumed.
-
-    The evaluator reads ``simplify_expr``, ``canonicalise_constants``, the ``simplify_*`` settings,
-    ``fold_constants`` and ``max_consecutive_skips`` itself and does not hand them to the ranking.
-
-    These are the keys the built-in rankings understand. A custom
-    [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] may read *additional* keys from
-    the settings dict at runtime. Passing them through works, but a type checker will not know
-    about them, so extend this ``TypedDict`` (or silence the call site) if you want them checked.
-
-    Attributes:
-        method: Optimization algorithm for parameter fitting. Default: ``"L-BFGS-B"``.
-        tol: Termination tolerance for the optimizer. Default: ``1e-6``.
-        gtol: Gradient-norm termination tolerance. Default: ``1e-3``.
-        max_iter: Maximum optimizer iterations. Default: ``100``.
-        constant_bounds: ``(lower, upper)`` range of the default spec
-            [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default],
-            used unless ``default_constant`` is given (the evaluator also completes a partial
-            ``default_constant`` from it). Validated only when used. Default: ``(-5, 5)``.
-        default_constant: The default spec of free constants (see
-            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]): a
-            [Constant][SRToolkit.utils.free_constants.Constant] template with ``prior`` and
-            ``bounds`` set, e.g.
-            [BackgroundKnowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
-            The evaluator completes a partial template from ``constant_bounds`` before passing it
-            on; rankings, ``ParameterEstimator`` and ``HoldoutMetric`` do not, and an incomplete
-            one raises ``ValueError`` when used. ``None``: ``uniform_default(constant_bounds)``.
-            Default: ``None``.
-        initialization: Starting point of a free constant without a ``value``: ``"random"`` draws
-            it from its prior, ``"mean"`` takes the prior's ``ppf(0.5)`` (the midpoint for the
-            default spec). See
-            [parameter_estimator][SRToolkit.evaluation.parameter_estimator]. Default: ``"random"``.
-        max_constants: Maximum number of free constants in an expression (counted as by
-            [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]), an ``int`` or numpy
-            integer (``bool`` and other types raise ``ValueError``). Read only by the evaluator
-            and datasets, not by rankings or ``ParameterEstimator``: a shorthand for the required
-            constraint
-            [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants]: an expression
-            with more gets status ``"rejected"`` and error ``+inf``, for every ranking. A negative
-            value disables the limit. Adds nothing if the evaluator's ``required_constraints``
-            already contain a ``MaxConstants``; a non-negative setting given together with one
-            must have the same limit. Default: ``8``.
-        max_expr_length: Maximum expression length in infix tokens, brackets included; same type
-            rules as ``max_constants``. Read only by the evaluator and datasets: a shorthand for the
-            required constraint [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens], enforced like
-            ``max_constants``. A negative value disables the limit. Same rule for a
-            ``MaxTokens`` in ``required_constraints``. Default: ``-1``.
-        backend: Backend used to compile expressions, by both rankings (``ParameterEstimator`` and BED).
-            ``"stack"`` uses the Cython-backed postfix stack machine;
-            ``"codegen"`` generates Python/NumPy source via ``exec()``;
-            ``"stack_py"`` uses the pure-Python stack machine (faster than
-            ``"stack"`` when the symbol library contains many custom symbols).
-            Default: ``"stack"``.
-        num_points_sampled: Number of domain points used when evaluating expression
-            behavior for BED. ``-1`` uses all points in ``X``. Default: ``64``.
-        samplers: The input distribution: one [Sampler][SRToolkit.dataset.sampling.Sampler] per
-            variable. BED draws its ``num_points_sampled`` points from them when the behavior comes
-            from a ground-truth expression and ``num_points_sampled`` is not ``-1``; otherwise it
-            uses rows of ``X``. The evaluator also puts them in its background knowledge.
-            Default: ``None``.
-        bed_gt: Precomputed ground-truth behavior matrix for BED, one row per row of ``X`` and
-            ``num_consts_sampled`` columns (so ``X`` must be the points it was computed on;
-            ``samplers`` are ignored with it). If ``None``, the behavior is computed from the ground
-            truth, or taken from ``y``. Default: ``None``.
-        ranking_seed: Seed for the ranking's own randomness (BED points, behavior matrices and
-            threshold; the starting points of RMSE's fits), overriding the evaluator's seed;
-            ``None`` uses the evaluator's seed. Set by
-            [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]
-            as described under ``ranking_resample``. Default: ``None``.
-        ranking_resample: Read by [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]. ``False``
-            fixes the objective per dataset (``ranking_seed`` = dataset seed, ``0`` if unset);
-            ``True`` resamples it every run from the evaluator's seed (``create_evaluator(seed=...)``,
-            random if ``None``). An explicit ``ranking_seed`` wins in both cases. Default: ``False``.
-        num_consts_sampled: Number of constant vectors sampled per expression for
-            BED. Default: ``32``.
-        ground_truth_constants: Specs for the labelled constants of the ground truth (see
-            [Constant][SRToolkit.utils.free_constants.Constant]). Read only when the ground-truth
-            expression is evaluated: RMSE uses their fixed values to generate ``y`` when it is
-            missing; BED samples the ground truth's constants from them (the default spec for the
-            rest) for its target behavior or default threshold. Passed straight to
-            ``SR_evaluator``, they are validated by the ranking's ``setup``. Set by
-            ``SR_dataset.ranking_settings``
-            from the dataset's ``ground_truth_constants``. Default: ``None``.
-        simplify_expr: If ``True``, every expression the evaluator scores or looks up is first
-            simplified with [simplify][SRToolkit.utils.expression_simplifier.simplify], and the
-            simplified form is scored and stored, so inputs that simplify alike share one cache
-            entry. Slower; the stored expression is never longer than the input (brackets aside).
-            Specs of labels that simplification removes are dropped; an expression that cannot be
-            simplified is used as given (see
-            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]). The
-            ``simplify_*`` settings below are ``simplify``'s arguments without the prefix; they are
-            validated even when ``simplify_expr`` is ``False``, and have no other effect then. A
-            Python ``bool``; ``SR_evaluator`` raises ``TypeError`` otherwise. Default: ``False``.
-        canonicalise_constants: If ``True``, every expression the evaluator scores or looks up is
-            [canonicalised][SRToolkit.utils.free_constants.canonicalise] after simplifying and
-            folding, so ``C_1*X_0 + C_1`` after ``C_0*X_0 + C_0`` is a cache hit. For approaches
-            that write labelled constants. Not applied to an expression with specs left after
-            simplifying and folding: their labels are kept as written. A Python ``bool``;
-            ``SR_evaluator`` raises ``TypeError`` otherwise. Default: ``False``.
-        simplify_rules: Rewrite rules.
-            Default: [DefaultRules][SRToolkit.utils.expression_simplifier.DefaultRules].
-        simplify_max_iterations: A non-negative ``int`` or numpy integer (not ``bool``).
-            Default: ``30``.
-        simplify_max_nodes: A non-negative ``int`` or numpy integer (not ``bool``).
-            Default: ``10_000``.
-        simplify_max_time: Seconds, a positive number (not ``bool``), or ``None`` for no time
-            limit. With a time limit the simplified expression, and so what is scored, can depend
-            on the machine. Default: ``None``.
-        simplify_fold_aware: Used when ``fold_constants`` is not ``"none"``: ``False`` is faster
-            and folds less. Default: ``True``.
-        fold_constants: ``mode`` of [fold][SRToolkit.utils.expression_simplifier.fold] (``"none"``,
-            ``"default"`` or ``"keep"``) for every expression the evaluator scores or looks up; the
-            folded form is scored and stored, and is a different hypothesis. With
-            ``simplify_expr``, ``simplify`` folds as part of simplifying (see
-            ``simplify_fold_aware``). Default: ``"none"``.
-        max_consecutive_skips: Evaluation stops with the reason ``"max_consecutive_skips"`` after
-            this many skips in a row (see
-            [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]); negative for no
-            limit (then an approach that only skips never stops), ``0`` is rejected. Default:
-            ``10000``.
-
-    Examples:
-        >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
-    """
-
-    method: str
-    tol: float
-    gtol: float
-    max_iter: int
-    constant_bounds: tuple[float, float]
-    initialization: str
-    max_constants: int
-    max_expr_length: int
-    backend: str
-    num_points_sampled: int
-    samplers: list[Any] | None
-    bed_gt: np.ndarray | None
-    ranking_seed: int | None
-    ranking_resample: bool
-    num_consts_sampled: int
-    ground_truth_constants: Sequence["Constant"] | None
-    default_constant: "Constant | None"
-    simplify_expr: bool
-    canonicalise_constants: bool
-    simplify_rules: "SimplificationRules | None"
-    simplify_max_iterations: int
-    simplify_max_nodes: int
-    simplify_max_time: float | None
-    simplify_fold_aware: bool
-    fold_constants: Literal["none", "default", "keep"]
-    max_consecutive_skips: int
 
 
 def _add_augmentation(augmentations: dict[str, dict[str, Any]], name: str, data: dict[str, Any], aug_type: str) -> None:

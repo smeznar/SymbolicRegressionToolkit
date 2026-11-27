@@ -109,7 +109,8 @@ restoring the global random states) in place of ``start``, and calls ``search`` 
 
 A skip is an expression the approach discards without evaluating it. Skips are counted by reason
 (see [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]), and the run stops
-after ``max_consecutive_skips`` of them in a row (an ``evaluate_expr`` call resets the count).
+after the setting ``evaluator.max_consecutive_skips`` of them in a row (an ``evaluate_expr`` call
+resets the count).
 
 A step approach reports a skip through its proposals, and the loop above counts them in order:
 

@@ -1,4 +1,4 @@
-"""Spec tests for SRToolkit.utils.types (constants, RankingSettings, ModelResult, EvalResult)."""
+"""Spec tests for SRToolkit.utils.types (constants, ModelResult, EvalResult)."""
 
 import dataclasses
 import json
@@ -31,7 +31,6 @@ from SRToolkit.utils.types import (
     CheckResult,
     EvalResult,
     ModelResult,
-    RankingSettings,
     RunSummary,
     Status,
 )
@@ -65,7 +64,7 @@ def json_round_trip(obj):
 
 
 # ---------------------------------------------------------------------------------------------
-# Constants and RankingSettings
+# Constants
 # ---------------------------------------------------------------------------------------------
 
 
@@ -82,40 +81,6 @@ class TestConstants:
 
     def test_statuses_match_status_literal_in_order(self):
         assert STATUSES == typing.get_args(Status)
-
-
-class TestRankingSettings:
-    def test_ranking_settings_keys_are_the_documented_optional_keys(self):
-        documented = {
-            "default_constant",
-            "ground_truth_constants",
-            "method",
-            "tol",
-            "gtol",
-            "max_iter",
-            "constant_bounds",
-            "initialization",
-            "max_constants",
-            "max_expr_length",
-            "backend",
-            "num_points_sampled",
-            "samplers",
-            "bed_gt",
-            "ranking_seed",
-            "ranking_resample",
-            "num_consts_sampled",
-            "simplify_expr",
-            "canonicalise_constants",
-            "simplify_rules",
-            "simplify_max_iterations",
-            "simplify_max_nodes",
-            "simplify_max_time",
-            "simplify_fold_aware",
-            "fold_constants",
-            "max_consecutive_skips",
-        }
-        assert RankingSettings.__optional_keys__ == documented
-        assert RankingSettings.__required_keys__ == frozenset()
 
 
 # ---------------------------------------------------------------------------------------------

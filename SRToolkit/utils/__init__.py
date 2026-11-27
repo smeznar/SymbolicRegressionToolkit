@@ -111,7 +111,6 @@ from .types import (
     CheckResult,
     EvalResult,
     ModelResult,
-    RankingSettings,
     Status,
 )
 from .units import Unit, UnitRule
@@ -175,7 +174,6 @@ __all__ = [
     "REGRESSION_METRICS",
     "PredictFn",
     "expr_to_latex",
-    "RankingSettings",
     "Settings",
     "SettingsSection",
     "EvaluatorSettings",
