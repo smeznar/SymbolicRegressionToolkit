@@ -12,6 +12,7 @@ from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.utils.expression_constraints import MaxTokens
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 _LOGGER = "SRToolkit.dataset.background_knowledge"
@@ -108,7 +109,7 @@ def test_search_skips_repeats_and_rejected_then_stops():
         max_evaluations=10,
         success_threshold=-1,
         required_constraints=[MaxTokens(3)],
-        max_consecutive_skips=50,
+        settings=Settings(evaluator={"max_consecutive_skips": 50}),
     )
     ProGED(grammar).search(se, seed=0)
     assert se.stop_reason == "max_consecutive_skips"
@@ -132,10 +133,7 @@ def test_search_canonicalise_constants(canonicalise, exprs):
     grammar = Grammar(
         Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_1' '*' 'X_0' '+' 'C_1' [0.5]"), start="E"
     )
-    se = SR_evaluator(
-        _X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, max_consecutive_skips=20,
-        canonicalise_constants=canonicalise,
-    )  # fmt: skip
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, settings=Settings(evaluator={"max_consecutive_skips": 20, "canonicalise_constants": canonicalise}))  # fmt: skip
     ProGED(grammar).search(se, seed=0)
     assert se.stop_reason == "max_consecutive_skips"
     assert sorted(m.expr for m in se.models) == exprs
@@ -204,7 +202,7 @@ def test_search_stops_after_exactly_max_consecutive_skips(rejects, skip_evaluate
         max_evaluations=10,
         success_threshold=-1,
         required_constraints=constraints,
-        max_consecutive_skips=3,
+        settings=Settings(evaluator={"max_consecutive_skips": 3}),
     )
     if rejects:
         se.evaluate_expr(["X_0"])
@@ -296,7 +294,12 @@ def test_ask_failed_derivation_is_none_not_redrawn():
 def test_search_with_grammar_that_never_yields_stops_on_skip_limit():
     never_ends = Grammar(Rule.from_line("E -> E '+' 'X_0' [1.0]"), start="E")
     se = SR_evaluator(
-        _X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, max_consecutive_skips=3
+        _X,
+        _X[:, 0],
+        symbol_library=_lib(),
+        max_evaluations=10,
+        success_threshold=-1,
+        settings=Settings(evaluator={"max_consecutive_skips": 3}),
     )
     ProGED(never_ends).search(se, seed=0)
     assert se.stop_reason == "max_consecutive_skips"

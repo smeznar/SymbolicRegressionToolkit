@@ -3,6 +3,7 @@ import time
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.utils.settings import Settings
 
 
 def read_eq_data(filename):
@@ -34,7 +35,7 @@ if __name__ == "__main__":
     expressions = read_expressions("../data/test_exprs_100k.txt")
 
     # Create an instance of the SR_evaluator class
-    evaluator = SR_evaluator(X, y, simplify_expr=True)
+    evaluator = SR_evaluator(X, y, settings=Settings(evaluator={"simplify_expr": True}))
 
     start_time = time.time()
 

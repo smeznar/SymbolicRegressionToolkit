@@ -24,6 +24,7 @@ import scipy
 from SRToolkit.dataset import Nguyen
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.measures import create_behavior_matrix
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 REFERENCE = Path(__file__).parent.parent / "data" / "bare_constants_reference.json"
@@ -69,9 +70,10 @@ def compute() -> dict[str, Any]:
         for backend in BACKENDS:
             for init in ["random", "mean"]:
                 for max_iter in [100, 0]:
-                    se = SR_evaluator(
-                        X, y, symbol_library=sl, seed=SEED, backend=backend, initialization=init, max_iter=max_iter
+                    settings = Settings(
+                        evaluator={"backend": backend}, estimation={"initialization": init, "max_iter": max_iter}
                     )
+                    se = SR_evaluator(X, y, symbol_library=sl, seed=SEED, settings=settings)
                     for tokens in exprs:
                         error = se.evaluate_expr(tokens).error
                         model = se.models[-1]
@@ -81,7 +83,7 @@ def compute() -> dict[str, Any]:
                         }
             se = SR_evaluator(
                 X, ground_truth=dataset.ground_truth, ranking_function="bed", symbol_library=sl, seed=SEED,
-                backend=backend,
+                settings=Settings(evaluator={"backend": backend}),
             )  # fmt: skip
             for tokens in exprs:
                 key = f"{name}|{backend}|{' '.join(tokens)}"

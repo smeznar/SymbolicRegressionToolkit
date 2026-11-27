@@ -10,26 +10,27 @@ parameters of an expression (its free constants, in the order of
 [free_constants][SRToolkit.utils.free_constants]). Specs given for an expression's labelled
 constants are completed by
 [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]; every other parameter uses
-the default spec: the ``default_constant`` setting (a complete template) if given, else
-[uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default], with
-``constant_bounds`` the setting of that name. A fixed parameter keeps its
-``value`` and is not fitted; the returned vector holds it in place.
+the default spec ``default_constant`` (a complete template), by default
+[uniform_default((-5, 5))][SRToolkit.utils.free_constants.uniform_default]. A fixed parameter
+keeps its ``value`` and is not fitted; the returned vector holds it in place.
 
-**Starting points.** A free parameter starts at its spec's ``value`` if given. Otherwise:
+**Starting points.** A free parameter starts at its spec's ``value`` if given. Otherwise, by the
+setting ``estimation.initialization``:
 
-- ``initialization="random"``: a draw from its prior (the prior's ``ppf`` of a uniform draw, or a
+- ``"random"``: a draw from its prior (the prior's ``ppf`` of a uniform draw, or a
   direct draw when the prior does not implement [ppf][SRToolkit.dataset.sampling.Sampler.ppf]);
-- ``initialization="mean"``: the prior's ``ppf(0.5)`` (the midpoint for a uniform prior).
+- ``"mean"``: the prior's ``ppf(0.5)`` (the midpoint for a uniform prior).
 
 A start outside the spec's bounds is clipped to the nearest bound. Each parameter is fitted within
 its bounds; an infinite end leaves that side unbounded.
 
-**Seeding.** With ``initialization="random"``, each fit's starting point is drawn from a generator
-seeded with a hash of ``seed``, the expression's tokens (a tree is seeded as its ``to_list`` tokens,
-a token list as given) and the specs passed for it (in any order; the order does not affect the
-seed). An expression's fit therefore depends only on ``seed``, its tokens, its specs, ``X``, ``y``
-and the settings, not on earlier fits, and is the same in every process, on every platform and
-Python version. With ``seed=None`` every fit draws a fresh random starting point.
+**Seeding.** With ``"random"`` initialization, each fit's starting point is drawn from a
+generator seeded with a hash of ``seed``, the expression's tokens (a tree is seeded as its
+``to_list`` tokens, a token list as given) and the specs passed for it (in any order; the order
+does not affect the seed). An expression's fit therefore depends only on ``seed``, its tokens, its
+specs, ``default_constant``, ``X``, ``y`` and the ``estimation`` settings, not on earlier fits, and
+is the same in every process, on every platform and Python version. With ``seed=None`` every fit
+draws a fresh random starting point.
 """
 
 import hashlib
@@ -39,25 +40,12 @@ from typing import Any
 
 import numpy as np
 from scipy.optimize import minimize
-from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
 from SRToolkit.utils.expression_tree import Node, _as_tokens
 from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants, uniform_default
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import RankingSettings
-
-# The settings ParameterEstimator reads, with their defaults. Any other keys passed in are ignored.
-DEFAULT_ESTIMATION_SETTINGS: dict[str, Any] = {
-    "method": "L-BFGS-B",
-    "tol": 1e-6,
-    "gtol": 1e-3,
-    "max_iter": 100,
-    "constant_bounds": (-5, 5),
-    "default_constant": None,
-    "initialization": "random",  # random, mean
-    "backend": "stack",
-}
 
 
 class ParameterEstimator:
@@ -71,38 +59,30 @@ class ParameterEstimator:
     Args:
         X: Input data of shape ``(n_samples, n_features)`` used to evaluate expressions.
         y: Target values of shape ``(n_samples,)``.
-        symbol_library: Symbol library defining the token vocabulary.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
-        seed: Seed of the random starting points (only with ``initialization="random"``),
+        symbol_library: Symbol library defining the token vocabulary. ``None``: the active
+            library ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
+        seed: Seed of the random starting points (only with ``"random"`` initialization),
             combined with each expression's tokens and the specs passed for it. ``None`` gives a
             fresh random starting point per fit. Default ``None``.
-        **kwargs: Optional estimation settings from
-            [RankingSettings][SRToolkit.utils.types.RankingSettings].
-            Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
-            ``constant_bounds``, ``default_constant``, ``initialization``, ``backend``. ``None``
-            means the default.
+        settings: The run's [Settings][SRToolkit.utils.settings.Settings]; the estimator reads
+            the ``estimation`` section and ``evaluator.backend``. ``None``: the defaults.
+        default_constant: The default spec, a complete
+            [Constant][SRToolkit.utils.free_constants.Constant] template. ``None``:
+            [uniform_default((-5, 5))][SRToolkit.utils.free_constants.uniform_default].
 
     Raises:
-        TypeError: If ``default_constant`` is not given and ``constant_bounds`` is not a pair of real
-            numbers, or ``default_constant`` is neither ``None`` nor a
-            [Constant][SRToolkit.utils.free_constants.Constant].
-        ValueError: If ``default_constant`` is not given and ``constant_bounds`` is not finite with
-            ``lower < upper`` (``constant_bounds`` is not used otherwise); ``default_constant`` is
-            not a complete template
-            (``prior`` and ``bounds`` set, no ``label``, no ``value``, ``fixed=False``; this
-            setting is not completed from ``constant_bounds``); ``initialization`` is not
-            ``"random"`` or ``"mean"``; or ``backend`` is not one of the supported values. Errors
-            about ``default_constant`` name it in the message.
+        TypeError: If ``settings`` is not a ``Settings`` or ``default_constant`` is not a
+            ``Constant``.
+        ValueError: If ``default_constant`` is not a complete template (``prior`` and ``bounds``
+            set, no ``label``, no ``value``, ``fixed=False``); the message names it.
 
     Attributes:
         symbol_library: The symbol library used.
         X: Input data.
         y: Target values.
         seed: The ``seed`` argument.
-        estimation_settings: Active settings dict, merged from defaults and ``**kwargs``.
-        default_constant: The default spec, for parameters without a spec: the
-            ``default_constant`` setting, else
-            [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default].
+        settings: The settings used.
+        default_constant: The default spec used.
     """
 
     def __init__(
@@ -111,44 +91,31 @@ class ParameterEstimator:
         y: np.ndarray,
         symbol_library: SymbolLibrary | None = None,
         seed: int | None = None,
-        **kwargs: Unpack[RankingSettings],
+        settings: Settings | None = None,
+        default_constant: Constant | None = None,
     ) -> None:
         if symbol_library is None:
             symbol_library = SymbolLibrary.get_or_default()
+        if settings is None:
+            settings = Settings()
+        if not isinstance(settings, Settings):
+            raise TypeError(f"[ParameterEstimator] settings must be a Settings, got {type(settings).__name__}.")
+        if default_constant is None:
+            default_constant = uniform_default((-5, 5))
+        if not isinstance(default_constant, Constant):
+            raise TypeError(
+                f"[ParameterEstimator] default_constant must be a Constant, got {type(default_constant).__name__}."
+            )
+        try:
+            resolve_constants([], None, default_constant)  # raises ValueError unless it is a complete template
+        except ValueError as e:
+            raise ValueError(f"[ParameterEstimator] {e}") from None
         self.symbol_library = symbol_library
         self.X = X
         self.y = y
         self.seed = seed
-
-        self.estimation_settings = dict(DEFAULT_ESTIMATION_SETTINGS)
-
-        for k in self.estimation_settings.keys():
-            if kwargs.get(k) is not None:  # None means the default
-                self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
-
-        given = self.estimation_settings["default_constant"]
-        if given is None:
-            self.default_constant: Constant = uniform_default(self.estimation_settings["constant_bounds"])
-        else:
-            if not isinstance(given, Constant):
-                raise TypeError(
-                    f"[ParameterEstimator] default_constant must be a Constant or None, got {type(given).__name__}."
-                )
-            try:
-                resolve_constants([], None, given)  # raises ValueError unless it is a complete template
-            except ValueError as e:
-                raise ValueError(f"[ParameterEstimator] {e}") from None
-            self.default_constant = given
-
-        if self.estimation_settings["initialization"] not in ("random", "mean"):
-            raise ValueError(
-                f"[ParameterEstimator] initialization must be 'random' or 'mean', got {self.estimation_settings['initialization']!r}"
-            )
-
-        if self.estimation_settings["backend"] not in ("stack", "codegen", "stack_py"):
-            raise ValueError(
-                f"[ParameterEstimator] backend must be 'stack', 'codegen', or 'stack_py', got {self.estimation_settings['backend']!r}"
-            )
+        self.settings = settings
+        self.default_constant = default_constant
 
     def estimate_parameters(
         self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None
@@ -249,7 +216,7 @@ class ParameterEstimator:
         executable_error_fn = compile_expr_rmse(
             expr,
             self.symbol_library,
-            backend=str(self.estimation_settings["backend"]),
+            backend=self.settings.evaluator.backend,
             X=self.X if len(specs) > 0 else None,
         )
 
@@ -288,7 +255,7 @@ class ParameterEstimator:
         """
         free_specs = [specs[i] for i in free]
         rng = None
-        if self.estimation_settings["initialization"] == "random":
+        if self.settings.estimation.initialization == "random":
             # Seed from a stable hash of (seed, tokens, specs); Python's hash() is salted per process.
             # The separator is a control character no real token contains, so different token lists
             # get different seeds. Without specs the key is as before specs existed.
@@ -321,11 +288,11 @@ class ParameterEstimator:
         res = minimize(
             objective,
             x0,
-            method=self.estimation_settings["method"],
-            tol=self.estimation_settings["tol"],
+            method=self.settings.estimation.method,
+            tol=self.settings.estimation.tol,
             options={
-                "maxiter": self.estimation_settings["max_iter"],
-                "gtol": self.estimation_settings["gtol"],
+                "maxiter": self.settings.estimation.max_iter,
+                "gtol": self.settings.estimation.gtol,
             },
             # An infinite end is passed as None: no bound on that side.
             bounds=[tuple(None if math.isinf(b) else b for b in s.bounds) for s in free_specs],  # type: ignore[union-attr]

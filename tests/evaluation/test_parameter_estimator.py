@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -9,6 +10,7 @@ from SRToolkit.dataset.sampling import LogUniformSampling, Sampler, UniformSampl
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, uniform_default
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 # ── Shared data ─────────────────────────────────────────────────────────────────
@@ -39,49 +41,35 @@ class TestParameterEstimatorInit:
         pe = ParameterEstimator(_X, _y_linear, symbol_library=sl)
         assert pe.symbol_library is sl
 
-    def test_default_estimation_settings(self):
+    def test_defaults(self):
         pe = ParameterEstimator(_X, _y_linear)
-        s = pe.estimation_settings
-        assert s["method"] == "L-BFGS-B"
-        assert s["tol"] == 1e-6
-        assert s["gtol"] == 1e-3
-        assert s["max_iter"] == 100
-        assert s["constant_bounds"] == (-5, 5)
-        assert s["initialization"] == "random"
-        assert s["backend"] == "stack"
+        assert pe.settings == Settings()
+        assert pe.default_constant.to_dict() == uniform_default((-5, 5)).to_dict()
 
-    def test_kwargs_override_known_settings(self):
-        pe = ParameterEstimator(_X, _y_linear, method="Nelder-Mead", max_iter=50)
-        assert pe.estimation_settings["method"] == "Nelder-Mead"
-        assert pe.estimation_settings["max_iter"] == 50
+    # Reason: clause (the estimator "reads the estimation section"): method, tol, gtol and max_iter reach
+    # scipy's minimize (an outside boundary, wrapped and still run). Nelder-Mead knows no gtol.
+    @pytest.mark.filterwarnings("ignore:Unknown solver options")
+    def test_estimation_settings_reach_the_optimizer(self):
+        from scipy.optimize import minimize as real_minimize
 
-    def test_unknown_kwargs_are_ignored(self):
-        pe = ParameterEstimator(_X, _y_linear, not_a_real_key=99)
-        assert "not_a_real_key" not in pe.estimation_settings
+        calls = []
 
-    def test_invalid_backend_raises_value_error(self):
-        with pytest.raises(ValueError, match="backend"):
-            ParameterEstimator(_X, _y_linear, backend="numpy")
+        def recording_minimize(fn, x0, **kwargs):
+            calls.append(kwargs)
+            return real_minimize(fn, x0, **kwargs)
 
-    def test_valid_backends_accepted(self):
-        for backend in ("stack", "codegen", "stack_py"):
-            ParameterEstimator(_X, _y_linear, backend=backend)
+        settings = Settings(estimation={"method": "Nelder-Mead", "tol": 1e-3, "gtol": 1e-2, "max_iter": 7})
+        pe = ParameterEstimator(_X, _y_linear, seed=0, settings=settings)
+        with patch("SRToolkit.evaluation.parameter_estimator.minimize", side_effect=recording_minimize):
+            pe.estimate_parameters(["C", "*", "X_0"])
+        assert pe.settings is settings
+        assert len(calls) == 1
+        assert (calls[0]["method"], calls[0]["tol"]) == ("Nelder-Mead", 1e-3)
+        assert calls[0]["options"] == {"maxiter": 7, "gtol": 1e-2}
 
-    def test_invalid_initialization_raises(self):
-        with pytest.raises(ValueError, match="initialization"):
-            ParameterEstimator(_X, _y_linear, initialization="bogus")
-
-    @pytest.mark.parametrize("bounds", [5, (1, 2, 3), ("a", 1), (True, 2)], ids=["scalar", "triple", "string", "bool"])
-    def test_constant_bounds_wrong_type_raises(self, bounds):
-        with pytest.raises(TypeError, match="bounds"):
-            ParameterEstimator(_X, _y_linear, constant_bounds=bounds)
-
-    @pytest.mark.parametrize(
-        "bounds", [(5, -5), (1, 1), (-np.inf, 5), (0, np.nan)], ids=["reversed", "equal", "inf", "nan"]
-    )
-    def test_constant_bounds_invalid_values_raise(self, bounds):
-        with pytest.raises(ValueError, match="bounds"):
-            ParameterEstimator(_X, _y_linear, constant_bounds=bounds)
+    def test_settings_must_be_settings(self):
+        with pytest.raises(TypeError, match="settings"):
+            ParameterEstimator(_X, _y_linear, settings={"max_iter": 50})
 
     # Reason: clause (the default_constant setting must be a complete Constant template: TypeError for a
     # non-Constant, ValueError for a missing prior or bounds, a label, a value or fixed).
@@ -105,32 +93,6 @@ class TestParameterEstimatorInit:
     def test_default_constant_setting_errors(self, default, exc, match):
         with pytest.raises(exc, match=match):
             ParameterEstimator(_X, _y_linear, default_constant=default)
-
-    def test_default_constant_from_constant_bounds(self):
-        # A JSON round trip turns the tuple into a list of ints; it still builds the default spec.
-        pe = ParameterEstimator(_X, _y_linear, constant_bounds=[-2, 10])
-        assert pe.default_constant.to_dict() == uniform_default((-2.0, 10.0)).to_dict()
-
-    # Reason: clause (constant_bounds is not used, so not validated, when default_constant is given).
-    def test_constant_bounds_ignored_with_default_constant(self):
-        default = Constant(prior=UniformSampling(0, 1), bounds=(0, 1))
-        pe = ParameterEstimator(_X, _y_linear, constant_bounds=(5, -5), default_constant=default)
-        assert pe.default_constant is default
-
-    # Reason: regression (an explicit None replaced the default, e.g. tol=None reached scipy as None;
-    # None means the default for every setting).
-    @pytest.mark.parametrize(
-        "name", ["method", "tol", "gtol", "max_iter", "constant_bounds", "initialization", "backend"]
-    )
-    def test_none_setting_is_the_default(self, name):
-        expr = ["C", "*", "X_0", "+", "C"]
-        default = ParameterEstimator(_X, _y_linear, seed=0)
-        given_none = ParameterEstimator(_X, _y_linear, seed=0, **{name: None})
-        assert given_none.estimation_settings == default.estimation_settings
-        rmse, params = given_none.estimate_parameters(expr)
-        default_rmse, default_params = default.estimate_parameters(expr)
-        assert rmse == default_rmse
-        np.testing.assert_array_equal(params, default_params)
 
 
 # ── ParameterEstimator.estimate_parameters ─────────────────────────────────────
@@ -169,7 +131,13 @@ class TestEstimateParametersWithConstants:
 class TestLabelledConstants:
     @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
     def test_label_is_fitted_as_one_parameter(self, backend):
-        pe = ParameterEstimator(_X, 2.0 * _y_exact, SymbolLibrary.default_symbols(2), seed=0, backend=backend)
+        pe = ParameterEstimator(
+            _X,
+            2.0 * _y_exact,
+            SymbolLibrary.default_symbols(2),
+            seed=0,
+            settings=Settings(evaluator={"backend": backend}),
+        )
         error, params = pe.estimate_parameters(["C_0", "*", "X_0", "+", "C_0", "*", "X_1"])
         assert error < 1e-6
         np.testing.assert_allclose(params, [2.0], atol=1e-5)
@@ -196,7 +164,7 @@ class TestEstimateParametersWithInfo:
     def test_converged_fit(self):
         # Fixed midpoint start C = 0: from about 1 in 10 random starts L-BFGS-B reports an abnormal
         # end even at the exact optimum (see test_exact_fit_can_report_not_converged).
-        pe = ParameterEstimator(_X, _y_linear, initialization="mean")
+        pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean"}))
         rmse, params, info = pe.estimate_parameters_with_info(["C", "*", "X_0"])
         assert rmse < 1e-6
         assert info["converged"] is True and "message" not in info
@@ -205,7 +173,12 @@ class TestEstimateParametersWithInfo:
     def test_exact_fit_can_report_not_converged(self):
         # RMSE has no gradient at a perfect fit, so the line search can fail right at the optimum.
         # The midpoint start C = -2 is one where this happens; the outcome is independent of seeding.
-        pe = ParameterEstimator(_X, _y_linear, initialization="mean", constant_bounds=(-7, 3))
+        pe = ParameterEstimator(
+            _X,
+            _y_linear,
+            default_constant=uniform_default((-7, 3)),
+            settings=Settings(estimation={"initialization": "mean"}),
+        )
         rmse, params, info = pe.estimate_parameters_with_info(["C", "*", "X_0"])
         assert rmse < 1e-6
         assert params[0] == pytest.approx(2.0)
@@ -231,8 +204,8 @@ class TestEstimateParametersWithInfo:
             _X_SQRT,
             _y_SQRT,
             symbol_library=SymbolLibrary.default_symbols(1),
-            initialization="mean",
-            constant_bounds=(-2, 10),
+            default_constant=uniform_default((-2, 10)),
+            settings=Settings(estimation={"initialization": "mean"}),
         )
         rmse, params, info = pe.estimate_parameters_with_info(_SQRT_EXPR)
         assert np.isfinite(rmse) and rmse < 0.5
@@ -246,7 +219,10 @@ class TestEstimateParametersWithInfo:
     def test_never_finite_returns_non_finite(self):
         # Midpoint start C = 0 lies where the expression is undefined; nothing finite is found.
         pe = ParameterEstimator(
-            _X_SQRT, _y_SQRT, symbol_library=SymbolLibrary.default_symbols(1), initialization="mean"
+            _X_SQRT,
+            _y_SQRT,
+            symbol_library=SymbolLibrary.default_symbols(1),
+            settings=Settings(estimation={"initialization": "mean"}),
         )
         rmse, params, info = pe.estimate_parameters_with_info(_SQRT_EXPR)
         assert not np.isfinite(rmse)
@@ -257,20 +233,20 @@ class TestEstimateParametersWithInfo:
 
 class TestOptimizeParameters:
     def test_mean_initialization_converges(self):
-        pe = ParameterEstimator(_X, _y_linear, initialization="mean")
+        pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean"}))
         rmse, params = pe.estimate_parameters(["C", "*", "X_0"])
         assert rmse < 1e-4
         assert abs(params[0] - 2.0) < 0.01
 
     def test_max_iter_limits_optimizer_iterations(self):
         # Unlimited, this fit takes 5 iterations. (scipy's L-BFGS-B runs one iteration at maxiter=0.)
-        pe = ParameterEstimator(_X, _y_linear, seed=0, max_iter=2)
+        pe = ParameterEstimator(_X, _y_linear, seed=0, settings=Settings(estimation={"max_iter": 2}))
         assert pe.estimate_parameters_with_info(["C", "*", "X_0"])[2]["iterations"] <= 2
 
     def test_custom_constant_bounds_respected(self):
         X = np.array([[1.0], [2.0], [3.0], [4.0]])
         y = 10.0 * X[:, 0]
-        pe = ParameterEstimator(X, y, constant_bounds=(5, 15), seed=0)
+        pe = ParameterEstimator(X, y, default_constant=uniform_default((5, 15)), seed=0)
         rmse, params = pe.estimate_parameters(["C", "*", "X_0"])
         assert rmse < 1e-4
         assert 9.9 < params[0] < 10.1
@@ -326,14 +302,20 @@ class TestOptimizeParameters:
 
     @pytest.mark.parametrize("seed", [None, 1], ids=["no-seed", "seed"])
     def test_random_start_within_constant_bounds(self, fit_starts, seed):
-        pe = ParameterEstimator(_X, _y_linear, seed=seed, constant_bounds=(10, 11))
+        pe = ParameterEstimator(_X, _y_linear, seed=seed, default_constant=uniform_default((10, 11)))
         pe.estimate_parameters(["C", "*", "X_0", "+", "C", "*", "X_1", "+", "C"])
         assert fit_starts[0].shape == (3,)
         assert np.all((fit_starts[0] >= 10) & (fit_starts[0] <= 11))
 
     @pytest.mark.parametrize("seed", [None, 1, 2], ids=["no-seed", "seed-1", "seed-2"])
     def test_mean_start_is_midpoint_for_any_seed(self, fit_starts, seed):
-        pe = ParameterEstimator(_X, _y_linear, seed=seed, initialization="mean", constant_bounds=(-2, 10))
+        pe = ParameterEstimator(
+            _X,
+            _y_linear,
+            seed=seed,
+            default_constant=uniform_default((-2, 10)),
+            settings=Settings(estimation={"initialization": "mean"}),
+        )
         pe.estimate_parameters(["C", "*", "X_0", "+", "C"])
         np.testing.assert_array_equal(fit_starts[0], [4.0, 4.0])  # (-2 + 10) / 2
 
@@ -341,7 +323,9 @@ class TestOptimizeParameters:
     # the prior; the default_constant attribute). LogUniform(0.1, 10): ppf(0.5) = 10 ** ((-1 + 1) / 2) = 1.
     def test_mean_start_follows_default_constant_prior(self, fit_starts):
         default = Constant(prior=LogUniformSampling(0.1, 10), bounds=(0, float("inf")))
-        pe = ParameterEstimator(_X, _y_linear, initialization="mean", default_constant=default)
+        pe = ParameterEstimator(
+            _X, _y_linear, default_constant=default, settings=Settings(estimation={"initialization": "mean"})
+        )
         pe.estimate_parameters(["C", "*", "X_0"])
         np.testing.assert_allclose(fit_starts[0], [1.0])
         assert pe.default_constant.to_dict() == default.to_dict()
@@ -355,7 +339,8 @@ class TestOptimizeParameters:
             "from SRToolkit.evaluation.parameter_estimator import ParameterEstimator\n"
             "from SRToolkit.utils.free_constants import Constant\n"
             "X = np.array([[1.0, 2.0], [3.0, 4.0]])\n"
-            "pe = ParameterEstimator(X, X[:, 0], seed=1, max_iter=1)\n"
+            "from SRToolkit.utils.settings import Settings\n"
+            "pe = ParameterEstimator(X, X[:, 0], seed=1, settings=Settings(estimation={'max_iter': 1}))\n"
             "spec = Constant(label='C_0', prior=LogUniformSampling(0.1, 10.0))\n"
             "print(repr(pe.estimate_parameters(['C_0', '*', 'X_0', '+', 'C'], [spec])[1].tolist()))\n"
         )
@@ -406,7 +391,7 @@ class TestFreeConstantSpecs:
     @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
     def test_all_fixed_is_forward_pass(self, fit_starts, backend):
         # Residual C_1 = 0.5 at every sample, so RMSE = 0.5.
-        pe = ParameterEstimator(_X, _y_linear, seed=0, backend=backend)
+        pe = ParameterEstimator(_X, _y_linear, seed=0, settings=Settings(evaluator={"backend": backend}))
         specs = [Constant(label="C_0", value=2.0, fixed=True), Constant(label="C_1", value=0.5, fixed=True)]
         rmse, params, info = pe.estimate_parameters_with_info(["C_0", "*", "X_0", "+", "C_1"], specs)
         assert rmse == pytest.approx(0.5)
@@ -426,7 +411,7 @@ class TestFreeConstantSpecs:
 
     @pytest.mark.parametrize("initialization", ["random", "mean"])
     def test_value_is_first_start(self, fit_starts, initialization):
-        pe = ParameterEstimator(_X, _y_linear, seed=0, initialization=initialization)
+        pe = ParameterEstimator(_X, _y_linear, seed=0, settings=Settings(estimation={"initialization": initialization}))
         pe.estimate_parameters(["C_0", "*", "X_0", "+", "C_1"], [Constant(label="C_0", value=1.5)])
         assert fit_starts[0][0] == 1.5
 
@@ -444,7 +429,7 @@ class TestFreeConstantSpecs:
 
     @pytest.mark.parametrize("seed", [0, None], ids=["seed", "no-seed"])
     def test_random_start_outside_bounds_is_clipped(self, fit_starts, seed):
-        pe = ParameterEstimator(_X, _y_linear, seed=seed, max_iter=0)
+        pe = ParameterEstimator(_X, _y_linear, seed=seed, settings=Settings(estimation={"max_iter": 0}))
         pe.estimate_parameters(_SIX_LABELS, _six_specs(prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0)))
         assert np.all((fit_starts[0] >= 10.0) & (fit_starts[0] <= 11.0))
         # 6 draws from U(-100, 100): most fall outside [10, 11] and land on a bound.
@@ -452,7 +437,7 @@ class TestFreeConstantSpecs:
 
     def test_mean_start_outside_bounds_is_clipped_to_nearest(self, fit_starts):
         # Median of U(-100, 100) is 0, nearest bound of (10, 11) is 10.
-        pe = ParameterEstimator(_X, _y_linear, initialization="mean", max_iter=0)
+        pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean", "max_iter": 0}))
         pe.estimate_parameters(
             ["C_0", "*", "X_0"], [Constant(label="C_0", prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0))]
         )
@@ -463,19 +448,21 @@ class TestFreeConstantSpecs:
         # (sd 0.046 for 120 draws); a uniform draw on the bounds would be below 1 with p = 1e-4.
         specs = _six_specs(prior=LogUniformSampling(0.01, 100.0), bounds=(0.01, 100.0))
         for seed in range(20):
-            ParameterEstimator(_X, _y_linear, seed=seed, max_iter=0).estimate_parameters(_SIX_LABELS, specs)
+            ParameterEstimator(
+                _X, _y_linear, seed=seed, settings=Settings(estimation={"max_iter": 0})
+            ).estimate_parameters(_SIX_LABELS, specs)
         starts = np.concatenate(fit_starts)
         assert starts.size == 120
         assert 0.3 < np.mean(starts < 1.0) < 0.7
 
     def test_mean_start_is_prior_median(self, fit_starts):
         # ppf(0.5) of LogUniform(0.1, 10) = 10 ** ((-1 + 1) / 2) = 1; the midpoint would be 5.05.
-        pe = ParameterEstimator(_X, _y_linear, initialization="mean", max_iter=0)
+        pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean", "max_iter": 0}))
         pe.estimate_parameters(["C_0", "*", "X_0"], [Constant(label="C_0", prior=LogUniformSampling(0.1, 10.0))])
         np.testing.assert_allclose(fit_starts[0], [1.0], rtol=1e-12)
 
     def test_prior_without_ppf_raises_under_mean(self):
-        pe = ParameterEstimator(_X, _y_linear, initialization="mean")
+        pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean"}))
         with pytest.raises(NotImplementedError):
             pe.estimate_parameters(["C_0", "*", "X_0"], [Constant(label="C_0", prior=_FixedDraw())])
 
@@ -490,7 +477,9 @@ class TestFreeConstantSpecs:
     )
     def test_prior_without_ppf_usable_when_not_needed(self, initialization, spec):
         # Every way the prior is handled starts (or stays) at 0.7, the exact optimum.
-        pe = ParameterEstimator(_X, 0.7 * _X[:, 0], seed=0, initialization=initialization, max_iter=0)
+        pe = ParameterEstimator(
+            _X, 0.7 * _X[:, 0], seed=0, settings=Settings(estimation={"initialization": initialization, "max_iter": 0})
+        )
         rmse, params = pe.estimate_parameters(["C_0", "*", "X_0"], [spec])
         np.testing.assert_array_equal(params, [0.7])
         assert rmse == pytest.approx(0.0, abs=1e-12)
@@ -532,7 +521,10 @@ class TestFreeConstantSpecs:
         # Parameters [C_1, C_0]; the midpoint start C_1 = 0 is undefined on all of X (as in
         # test_never_finite_returns_non_finite), so nothing finite is found.
         pe = ParameterEstimator(
-            _X_SQRT, _y_SQRT, symbol_library=SymbolLibrary.default_symbols(1), initialization="mean"
+            _X_SQRT,
+            _y_SQRT,
+            symbol_library=SymbolLibrary.default_symbols(1),
+            settings=Settings(estimation={"initialization": "mean"}),
         )
         expr = ["sqrt", "(", "C_1", "-", "X_0", ")", "*", "C_0"]
         rmse, params = pe.estimate_parameters(expr, [Constant(label="C_0", value=3.0, fixed=True)])

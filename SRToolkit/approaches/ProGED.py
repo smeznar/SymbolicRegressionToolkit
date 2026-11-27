@@ -72,8 +72,8 @@ class ProGED(SR_approach):
                 task. Sample length is bounded only by the derivation limit of
                 [ask][SRToolkit.approaches.ProGED.ProGED.ask]; a ``MaxTokens`` required constraint
                 rejects long samples. For a grammar with labelled constants as terminals, the
-                evaluator setting ``canonicalise_constants`` (see
-                [RankingSettings][SRToolkit.utils.types.RankingSettings]) treats samples that differ
+                evaluator setting ``evaluator.canonicalise_constants`` (see
+                [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]) treats samples that differ
                 only in constant labels (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) as one expression,
                 so they count as repeats for ``skip_evaluated``.
             skip_evaluated: Skip samples that were already evaluated (see

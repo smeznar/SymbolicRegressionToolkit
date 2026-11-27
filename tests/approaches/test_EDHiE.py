@@ -27,6 +27,7 @@ from SRToolkit.evaluation.results import SR_results  # noqa: E402
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, RequiredVariables  # noqa: E402
 from SRToolkit.utils.expression_tree import tokens_to_tree  # noqa: E402
 from SRToolkit.utils.grammar.grammar import Grammar, Rule  # noqa: E402
+from SRToolkit.utils.settings import Settings  # noqa: E402
 from SRToolkit.utils.symbol_library import SymbolLibrary  # noqa: E402
 
 _LOGGER = "SRToolkit.dataset.background_knowledge"
@@ -185,7 +186,7 @@ def _stepper(model, **kwargs):
 
 
 def _search(model, seed=0, max_consecutive_skips=10000, **kwargs):
-    se = _evaluator(max_consecutive_skips=max_consecutive_skips)
+    se = _evaluator(settings=Settings(evaluator={"max_consecutive_skips": max_consecutive_skips}))
     _stepper(model, **kwargs).search(se, seed=seed)
     return se
 
@@ -306,7 +307,10 @@ def test_rejected_individuals_are_proposed_as_lookups(trained_model):
     # Clause: a rejected individual is a lookup (one entry per individual), so a generation of only
     # rejected individuals is a step of its own; the skip limit still ends the run, with no evaluation.
     # ask neither truncates the generation at the limit nor stops the run: only the step loop counts.
-    approach, se = _stepper(trained_model), _rejecting_evaluator(max_consecutive_skips=2)
+    approach, se = (
+        _stepper(trained_model),
+        _rejecting_evaluator(settings=Settings(evaluator={"max_consecutive_skips": 2})),
+    )
     candidates = approach.ask(se, approach.start(se, seed=0))
     proposals = _proposals(candidates)
     assert [evaluate for _, evaluate in proposals] == [False] * 10
@@ -321,7 +325,7 @@ def test_rejected_individuals_are_proposed_as_lookups(trained_model):
     assert _skips(approach.ask(se, approach.start(se, seed=0))) == [
         "evaluated" if t == evaluated_before else "rejected" for t, _ in proposals
     ]
-    se = _rejecting_evaluator(max_consecutive_skips=25)
+    se = _rejecting_evaluator(settings=Settings(evaluator={"max_consecutive_skips": 25}))
     approach.search(se, seed=0)  # 25 skips in a row: in the third generation
     assert se.stop_reason == "max_consecutive_skips"
     assert se.total_evaluations == 0
@@ -331,7 +335,7 @@ def test_rejected_individuals_are_proposed_as_lookups(trained_model):
 def test_undecodable_individuals_are_proposed_as_none(trained_model, monkeypatch):
     # Clause (ask case 1): an individual that does not decode is a None entry, counted as "not_expression".
     # Patching decode is the only way: the public API cannot produce a latent vector that does not decode.
-    approach, se = _stepper(trained_model), _evaluator(max_consecutive_skips=15)
+    approach, se = _stepper(trained_model), _evaluator(settings=Settings(evaluator={"max_consecutive_skips": 15}))
     monkeypatch.setattr(trained_model, "decode", lambda z: [None] * len(z))
     assert approach.ask(se, approach.start(se, seed=0)) == [None] * 10
     approach.search(se, seed=0)
@@ -342,7 +346,10 @@ def test_undecodable_individuals_are_proposed_as_none(trained_model, monkeypatch
 # evaluator's stored form): with canonicalise_constants, C_1*X_0+C_1 repeats C_0*X_0+C_0.
 @pytest.mark.parametrize("canonicalise, expected", [(True, [None, "evaluated"]), (False, [None, None])])
 def test_repeats_within_a_generation_use_the_stored_form(trained_model, monkeypatch, canonicalise, expected):
-    approach, se = _stepper(trained_model), _evaluator(canonicalise_constants=canonicalise)
+    approach, se = (
+        _stepper(trained_model),
+        _evaluator(settings=Settings(evaluator={"canonicalise_constants": canonicalise})),
+    )
     exprs = [["C_0", "*", "X_0", "+", "C_0"], ["C_1", "*", "X_0", "+", "C_1"]]
     monkeypatch.setattr(trained_model, "decode", lambda z: [tokens_to_tree(e, _lib()) for e in exprs])
     assert _skips(approach.ask(se, approach.start(se, seed=0))) == expected
@@ -355,7 +362,7 @@ def test_search_leaves_the_approach_unchanged(trained_model):
     approach = _stepper(trained_model)
     attributes = dict(vars(approach))
     weights = {k: v.clone() for k, v in trained_model.state_dict().items()}
-    approach.search(_evaluator(max_consecutive_skips=50), seed=0)
+    approach.search(_evaluator(settings=Settings(evaluator={"max_consecutive_skips": 50})), seed=0)
     assert vars(approach) == attributes
     assert all(torch.equal(v, weights[k]) for k, v in trained_model.state_dict().items())
 

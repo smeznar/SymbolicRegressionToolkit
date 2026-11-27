@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # Define an augmenter that computes the test RMSE by reusing each model's train-fitted
     # parameters (no refitting) on the held-out data — only on the top expressions.
     rmse_augmenter = HoldoutMetric(
-        (test_dataset.X, test_dataset.y), metric="rmse", symbol_library=dataset.symbol_library
+        (test_dataset.X, test_dataset.y), metric="rmse", background_knowledge=dataset.background_knowledge
     )
     # Augment top expressions with test RMSE
     results.augment(rmse_augmenter)

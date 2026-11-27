@@ -4,6 +4,17 @@ Contains [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator], which r
 with a [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] (RMSE by default) and
 collects them into [SR_results][SRToolkit.evaluation.results.SR_results].
 
+## Settings
+
+A run is configured by one [Settings][SRToolkit.utils.settings.Settings] object, passed as
+``settings``. The evaluator reads its ``evaluator`` section
+([EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]: stored form, limits, skip limit,
+backend, ``ranking_seed``); the ranking reads its own section and shared ones (see
+[ranking][SRToolkit.evaluation.ranking]). Facts about the task are not settings: ``constant_bounds``,
+``default_constant``, ``samplers`` and ``ground_truth_constants`` are arguments of the evaluator,
+which passes the first three to the ranking in its
+[background_knowledge][SRToolkit.evaluation.sr_evaluator.SR_evaluator.background_knowledge].
+
 ## Evaluation statuses
 
 Each evaluated expression gets a [Status][SRToolkit.utils.types.Status] and, unless it is ``"ok"``,
@@ -48,7 +59,7 @@ results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
 - ``"max_evaluations"``: the call used the last evaluation of the budget (a call that does both
   records ``"success_threshold"``);
 - ``"max_consecutive_skips"``: the approach skipped ``max_consecutive_skips`` expressions in a row
-  (a setting, default ``10000``; see
+  (the setting ``evaluator.max_consecutive_skips``, default ``10000``; see
   [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]);
 - a callback asked to stop (see [SR_callback][SRToolkit.evaluation.callbacks.SR_callback]), e.g.
   ``"time_limit"``;
@@ -72,7 +83,7 @@ or ``None`` when none (or an empty list) were given. Parameters without a spec, 
 ``prior`` or ``bounds``, use the evaluator's ``default_constant``, which is recorded in the results
 as [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]. Expressions that differ only in
 how their constants are written (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) are separate models
-unless the setting ``canonicalise_constants`` makes them one (see Stored form below).
+unless the setting ``evaluator.canonicalise_constants`` makes them one (see Stored form below).
 
 Specs are checked right after parsing, against the expression as given: a malformed expression is
 ``"invalid"`` (and stored with its specs) whatever they are. Specs that do not fit a well-formed
@@ -82,8 +93,9 @@ expression raise; nothing is then recorded or counted. The ranking's
 
 ## Stored form
 
-An expression is checked, scored and stored in its **stored form**, which three settings (see
-[RankingSettings][SRToolkit.utils.types.RankingSettings]) produce, in this order:
+An expression is checked, scored and stored in its **stored form**, which three settings of the
+``evaluator`` section (see [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings])
+produce, in this order:
 
 1. ``simplify_expr``: [simplified][SRToolkit.utils.expression_simplifier.simplify] with the
    ``simplify_*`` settings. If simplification fails, the expression is kept as given;
@@ -116,11 +128,11 @@ library on its own copies, so the instances passed in are not changed.
 - ``required_constraints``: pre-checks run in order after parsing, post-checks in order after an
   ``"ok"`` score. The first failure gives ``"rejected"`` with the ``status_detail``
   ``"<ClassName>: <message>"``, e.g. ``"MaxConstants: 9 constants, limit 8"``, and the later checks
-  of that stage are not run. The settings
-  ``max_constants`` (default 8) and ``max_expr_length`` add a ``MaxConstants`` and a ``MaxTokens``
-  in front of the list, unless a negative setting disables them or the list already has one of
-  that class (see [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator]), so ``[]``
-  still allows at most 8 constants.
+  of that stage are not run. The settings ``evaluator.max_constants`` (default 8) and
+  ``evaluator.max_expr_length`` add a ``MaxConstants`` and a ``MaxTokens`` in front of the list,
+  unless a negative setting disables them or the list already has one of that class (see
+  [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator]), so ``[]`` still allows at most
+  8 constants.
 - ``advisory_constraints``: pre-checks run on every parsed expression, post-checks on every ``"ok"``
   model. Each failed check is recorded in
   [ModelResult.advisory_violations][SRToolkit.utils.types.ModelResult] as a
@@ -207,16 +219,21 @@ loses only what was not committed). It is not thread-safe: call it from one thre
 With ``checkpoint=path`` the evaluator writes the models and trace to that file as it goes, so a
 run that crashes, is killed or is stopped keeps what it evaluated: convert it to results with
 [SR_results.from_checkpoint][SRToolkit.evaluation.results.SR_results.from_checkpoint], or continue
-it with ``resume=True``. Resuming with anything other than the run's data, ranking, constraints,
-symbols, ``default_constant``, seed, limits or settings (every
-[RankingSettings][SRToolkit.utils.types.RankingSettings] entry) raises ``ValueError`` naming what
-differs; to change the limits, [extend the run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run].
-A setting that is ``None`` or at its default counts as left out, so it does not matter whether a
-default was written out. The defaults are the evaluator's own, those of
-[simplify][SRToolkit.utils.expression_simplifier.simplify] for the ``simplify_*`` settings, and
-the ranking's [default_settings][SRToolkit.evaluation.ranking.RankingFunction.default_settings].
-Values are compared as saved (JSON), so ``(-5, 5)`` equals ``[-5, 5]`` but ``30.0`` is not
-``30``. ``snapshot_interval`` and the approach are not checked, and other callbacks only warn.
+it with ``resume=True``. A resume must match the saved run in:
+
+- the data, ranking, symbols, ground truth and seed;
+- the constraints (``evaluator.max_constants`` and ``evaluator.max_expr_length`` are compared as
+  the ``MaxConstants`` / ``MaxTokens`` they add to the required constraints);
+- ``default_constant``, ``constant_bounds``, ``samplers`` and ``ground_truth_constants`` (in any
+  order; ``[]`` is the same as ``None``);
+- ``max_evaluations`` and ``success_threshold``, which only
+  [extending the run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] changes;
+- every setting that differs from its default, in every section, whether the ranking reads it or
+  not. Settings are compared by their saved form, so a setting written at its default is the same
+  as one left out.
+
+Otherwise it raises ``ValueError`` naming what differs (a setting as ``<section>.<field>``).
+``snapshot_interval`` and the approach are not checked, and other callbacks only warn.
 
 Resuming continues from the run's last [snapshot][SRToolkit.evaluation.model_store.Snapshot], the
 approach's state saved between two steps. Approaches that support snapshots (see
@@ -246,7 +263,6 @@ To change callbacks, extend the run too: a plain resume with other callbacks onl
 
 import dataclasses
 import hashlib
-import inspect
 import json
 import logging
 import math
@@ -264,7 +280,6 @@ from typing import (
 )
 
 import numpy as np
-from typing_extensions import Unpack
 
 from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
@@ -273,7 +288,6 @@ from SRToolkit.evaluation.callbacks import (
     SR_callback,
 )
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot, _capture_rngs
-from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.utils.expression_compiler import compile_expr
@@ -284,18 +298,20 @@ from SRToolkit.utils.expression_constraints import (
     _set_up_copy,
     _validate_limit,
 )
-from SRToolkit.utils.expression_simplifier import DefaultRules, _check_fold_mode, _check_settings, fold, simplify
+from SRToolkit.utils.expression_simplifier import fold, simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens, _as_tree, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
+from SRToolkit.utils.settings import EvaluatorSettings, Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import CheckResult, ModelResult, RankingSettings, Status
+from SRToolkit.utils.types import CheckResult, ModelResult, Status
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports this module.
     from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
+    from SRToolkit.dataset.sampling import Sampler
 
 logger = logging.getLogger(__name__)
 
@@ -393,20 +409,6 @@ def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstra
     return items
 
 
-# Defaults of the limit settings, turned into MaxConstants / MaxTokens (negative = none).
-_DEFAULT_LIMITS: dict[str, int] = {"max_constants": 8, "max_expr_length": -1}
-# Default of the max_consecutive_skips setting.
-_MAX_CONSECUTIVE_SKIPS = 10000
-# Settings of the simplify_expr setting, each the simplify() argument named without the prefix.
-_SIMPLIFY_SETTINGS = (
-    "simplify_rules",
-    "simplify_max_iterations",
-    "simplify_max_nodes",
-    "simplify_max_time",
-    "simplify_fold_aware",
-)
-
-
 def _add_limit_constraints_from_kwargs(
     constraints: tuple[ExpressionConstraint, ...], kwargs: Mapping[str, Any]
 ) -> tuple[ExpressionConstraint, ...]:
@@ -415,7 +417,7 @@ def _add_limit_constraints_from_kwargs(
     # constraint of its class; a given non-negative setting with a different limit is a ValueError.
     built: list[ExpressionConstraint] = []
     for key, cls in (("max_constants", MaxConstants), ("max_expr_length", MaxTokens)):
-        value = _validate_limit(kwargs.get(key, _DEFAULT_LIMITS[key]), key, allow_negative=True)
+        value = _validate_limit(kwargs.get(key, getattr(EvaluatorSettings(), key)), key, allow_negative=True)
         # cls is MaxConstants or MaxTokens, so every listed constraint has a limit.
         listed = cast(list[MaxConstants | MaxTokens], [c for c in constraints if isinstance(c, cls)])
         if not listed:
@@ -476,10 +478,14 @@ class SR_evaluator:
         named_constants: Mapping[str, "VariableInfo"] | None = None,
         description: str = "",
         reference_grammar: Grammar | None = None,
+        constant_bounds: tuple[float, float] | None = None,
+        default_constant: Constant | None = None,
+        samplers: "Mapping[str, Sampler] | Sequence[Sampler] | None" = None,
+        ground_truth_constants: Sequence[Constant] | None = None,
+        settings: Settings | None = None,
         checkpoint: str | os.PathLike | None = None,
         resume: bool = False,
         snapshot_interval: float | None = 300.0,
-        **kwargs: Unpack[RankingSettings],
     ):
         """Evaluate expressions on data with a ranking function and collect the results.
 
@@ -489,22 +495,11 @@ class SR_evaluator:
         are described in the [module docs][SRToolkit.evaluation.sr_evaluator]; results are
         collected with [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
 
-        Note:
-            Whether two expressions are equivalent is undecidable, so ``success_threshold`` is only
-            a proxy for success. Inspect the best expressions manually.
-
-        Examples:
-            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
-            >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
-            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error
-            >>> print(rmse < 1e-6)
-            True
-
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
-            y: Target values of shape ``(n_samples,)``. RMSE needs ``y`` or a constant-free
-                ``ground_truth`` to generate it from; BED can use it in place of a ground truth.
+            y: Target values of shape ``(n_samples,)``. RMSE needs ``y`` or a ``ground_truth``
+                to generate it from, each of whose free constants has a fixed value in
+                ``ground_truth_constants``; BED can use it in place of a ground truth.
             symbol_library: Symbol library defining the tokens. ``None`` (default): the active
                 library ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
             max_evaluations: Budget of counted calls to
@@ -523,13 +518,13 @@ class SR_evaluator:
                 to generate ``y`` when ``y`` is not given.
             seed: Random seed. If given, the constructor also calls ``np.random.seed(seed)``, which
                 sets NumPy's global random state. The ranking gets it too, unless the
-                ``ranking_seed`` setting is given.
+                ``evaluator.ranking_seed`` setting is set.
             metadata: Optional information about this evaluation (e.g. dataset name). A
                 ``"dataset_name"`` key is copied to
                 [EvalResult][SRToolkit.utils.types.EvalResult] ``dataset_name``.
             required_constraints: Constraints every evaluated expression must satisfy (see the
-                [module docs][SRToolkit.evaluation.sr_evaluator]); ``None`` means ``[]``.
-                ``max_constants`` and ``max_expr_length`` add a
+                [module docs][SRToolkit.evaluation.sr_evaluator]); ``None`` means ``[]``. The
+                settings ``evaluator.max_constants`` and ``evaluator.max_expr_length`` add a
                 [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] and a
                 [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] in front, unless a
                 negative setting disables them or the list already has one of that class.
@@ -542,6 +537,25 @@ class SR_evaluator:
             description: Free text about the task.
             reference_grammar: A [Grammar][SRToolkit.utils.grammar.grammar.Grammar] an approach may
                 start from.
+            constant_bounds: ``(lower, upper)`` range used only to build or complete
+                ``default_constant`` (see
+                [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge]).
+                ``None``: ``(-5, 5)``.
+            default_constant: The default spec of free constants, a
+                [Constant][SRToolkit.utils.free_constants.Constant] template; a partial one is
+                completed from ``constant_bounds``. ``None``:
+                [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default].
+            samplers: The input distribution, one [Sampler][SRToolkit.dataset.sampling.Sampler] per
+                variable (a sequence, or a mapping by token). BED draws its points from them when
+                ``bed.num_points_sampled > 0``. ``None`` (default): no input distribution.
+            ground_truth_constants: Specs for the labelled constants of ``ground_truth`` (see
+                [Constant][SRToolkit.utils.free_constants.Constant]), in any order. RMSE uses their
+                fixed values to generate a missing ``y``; BED keeps fixed values, samples the other
+                constants from their priors, and uses ``default_constant`` for constants without a
+                spec. ``None`` (default) or empty: no specs.
+            settings: The run's [Settings][SRToolkit.utils.settings.Settings]: the ``evaluator``
+                section (see [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]) and
+                the ranking's sections. ``None``: the defaults.
             checkpoint: A file to store the models and trace in, committed as described in
                 [model_store][SRToolkit.evaluation.model_store]; created, or continued with
                 ``resume=True`` (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``
@@ -553,48 +567,32 @@ class SR_evaluator:
                 [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``: a snapshot only when
                 the step loop ends. Default ``300.0``. Not checked on resume, so a resume may change
                 it.
-            **kwargs: Settings from [RankingSettings][SRToolkit.utils.types.RankingSettings],
-                passed to the ranking function. A partial ``default_constant`` template is completed from
-                ``constant_bounds`` (as by ``BackgroundKnowledge``) before the ranking gets it.
 
         Raises:
             TypeError: If ``max_evaluations`` is not an ``int`` or numpy integer (``bool`` is
-                rejected). If an item of ``required_constraints`` or ``advisory_constraints`` is not
-                an [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]
+                rejected), or ``settings`` is not a ``Settings``. If an item of
+                ``required_constraints`` or ``advisory_constraints`` is not an
+                [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]
                 (e.g. the grammar constraint [MaxDepth][SRToolkit.utils.grammar.constraints.MaxDepth],
                 or a single constraint passed instead of a sequence). The message names the item.
                 Also raised as for
                 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
-                ``ranking_function`` of the wrong type. If the ``simplify_rules`` setting is neither a
-                [SimplificationRules][SRToolkit.utils.expression_simplifier.SimplificationRules]
-                nor ``None``, or ``simplify_fold_aware``, ``simplify_expr`` or
-                ``canonicalise_constants`` is neither a ``bool`` nor ``None``. With a
-                ``checkpoint`` (only then), also if
-                ``metadata``, a setting, the ranking or a constraint cannot be saved (see
-                [serialization][SRToolkit.utils.serialization]; settings may also hold objects with
-                a ``to_dict`` method). No file is then left behind.
+                ``ranking_function`` of the wrong type. With a ``checkpoint`` (only then), also if
+                ``metadata``, ``samplers``, the ranking or a constraint cannot be saved (see [serialization][SRToolkit.utils.serialization]). No
+                file is then left behind.
             ValueError: If ``max_evaluations`` is ``0``, ``snapshot_interval`` is not positive, or
-                ``checkpoint`` is an empty path. If
-                ``resume=True`` and ``checkpoint`` is ``None``, is not a checkpoint (or one of
-                another format version), or was saved with other data, ranking, constraints, symbols,
-                ``default_constant``, seed, limits or settings than these (a setting that is
-                ``None`` or at its default counts as left out; see
-                [Checkpoints][SRToolkit.evaluation.sr_evaluator]); the message names what differs. If
-                ``max_constants`` or ``max_expr_length`` is not an ``int`` or numpy integer
-                (``bool`` is rejected), or is given, non-negative and different from the limit of
-                a constraint of its class in ``required_constraints`` (a negative setting
-                adds nothing and never clashes); the message names the setting. Also raised as
-                for ``BackgroundKnowledge`` (e.g. a ``constant_bounds`` setting that is not finite
-                with ``lower < upper``, a ``default_constant`` setting with a ``label``, a
-                ``value`` or ``fixed=True``, or ``samplers`` without one sampler per variable), and by
-                the ranking's ``setup`` for missing or malformed data (e.g. RMSE with neither ``y``
-                nor ``ground_truth``). If ``simplify_max_iterations`` or ``simplify_max_nodes`` is
-                not a non-negative ``int`` or numpy integer (``bool`` is rejected), or
-                ``simplify_max_time`` is not ``None`` or a positive number (``bool`` and ``nan`` are
-                rejected). If ``fold_constants`` is not
-                ``"none"``, ``"default"`` or ``"keep"``. If ``max_consecutive_skips`` is ``0`` or not
-                an ``int`` or numpy integer (``bool`` is rejected).
+                ``checkpoint`` is an empty path. If ``resume=True`` and ``checkpoint`` is ``None``,
+                is not a checkpoint (or one of another format version), or was saved with another
+                run (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]); the message names what
+                differs. If ``evaluator.max_constants`` or ``evaluator.max_expr_length`` differs
+                from its default (a value written at its default counts as not given), is
+                non-negative and differs from the limit of a constraint of its class in
+                ``required_constraints``. Also raised as for ``BackgroundKnowledge`` (e.g.
+                ``constant_bounds`` not finite with ``lower < upper``, a ``default_constant`` with a
+                ``label``, a ``value`` or ``fixed=True``, or ``samplers`` without one sampler per
+                variable), and by the ranking's ``setup`` for missing or malformed data (e.g. RMSE
+                with neither ``y`` nor ``ground_truth``).
             ImportError: If an import-path ``ranking_function`` cannot be imported.
             FileExistsError: If a file exists at ``checkpoint`` and ``resume`` is ``False``.
             FileNotFoundError: If ``resume=True`` and no file exists at ``checkpoint``.
@@ -610,7 +608,8 @@ class SR_evaluator:
                 owns the ranking's state: the
                 [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
                 for RMSE, or the behaviour matrix and points ``bed_X`` for BED.
-            kwargs: The settings passed as ``**kwargs``.
+            settings: The settings used.
+            ground_truth_constants: The ``ground_truth_constants`` as passed.
             ground_truth: The target expression as passed, or ``None``.
             max_evaluations: The budget of counted calls; negative for no limit.
             success_threshold: The ``success_threshold`` passed, or the ranking's default if it
@@ -639,11 +638,27 @@ class SR_evaluator:
                 [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
             default_constant: The run's default spec, complete:
                 [background_knowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
-                built from the ``default_constant`` and ``constant_bounds`` settings. The ranking
-                gets it as its ``default_constant`` setting and the results record it; ``kwargs``
-                keeps the setting as passed.
+                built from ``default_constant`` and ``constant_bounds``. The ranking and the results
+                use it.
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y)
+            >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error
+            >>> print(rmse < 1e-6)
+            True
+
+        Note:
+            Whether two expressions are equivalent is undecidable, so ``success_threshold`` is only
+            a proxy for success. Inspect the best expressions manually.
         """
-        self.kwargs = kwargs
+        if settings is None:
+            settings = Settings()
+        if not isinstance(settings, Settings):
+            raise TypeError(f"[SR_evaluator] settings must be a Settings, got {type(settings).__name__}.")
+        self.settings = settings
+        self.ground_truth_constants = ground_truth_constants
         self.success_threshold = success_threshold
         self.metadata = metadata
         self.ground_truth = ground_truth
@@ -669,7 +684,7 @@ class SR_evaluator:
         advisory = (
             () if advisory_constraints is None else _as_constraint_tuple(advisory_constraints, "advisory_constraints")
         )
-        required = _add_limit_constraints_from_kwargs(required, kwargs)
+        required = _add_limit_constraints_from_kwargs(required, settings.evaluator.changed())
         self._required_constraints = tuple(_set_up_copy(c, symbol_library) for c in required)
 
         # Background knowledge from the same values the evaluator fits with; it holds the set-up
@@ -678,15 +693,15 @@ class SR_evaluator:
 
         self._background_knowledge = BackgroundKnowledge(
             symbol_library,
-            samplers=kwargs.get("samplers"),
-            constant_bounds=kwargs.get("constant_bounds", DEFAULT_ESTIMATION_SETTINGS["constant_bounds"]),
+            samplers=samplers,
             constraints=advisory,
             reference_grammar=reference_grammar,
             description=description,
             variables={} if variables is None else variables,
             target=target,
             named_constants={} if named_constants is None else named_constants,
-            default_constant=kwargs.get("default_constant"),
+            default_constant=default_constant,
+            **({} if constant_bounds is None else {"constant_bounds": constant_bounds}),
         )
         # BackgroundKnowledge stores its constraints as a tuple; the field is typed Iterable.
         self._advisory_constraints = cast(tuple[ExpressionConstraint, ...], self._background_knowledge.constraints)
@@ -697,46 +712,18 @@ class SR_evaluator:
 
         # The ranking function owns all of its data-derived state (parameter estimator for RMSE,
         # behaviour matrix + evaluation points bed_X for BED); the evaluator just calls score().
-        # The limits are enforced here, as required constraints; the ranking does not get them.
-        _check_settings(
-            kwargs.get("simplify_rules"),
-            kwargs.get("simplify_max_iterations"),
-            kwargs.get("simplify_max_nodes"),
-            kwargs.get("simplify_max_time"),
-            kwargs.get("simplify_fold_aware"),
-            "simplify_",
-        )
-        fold_constants = kwargs.get("fold_constants")
-        self._fold_constants = "none" if fold_constants is None else fold_constants
-        _check_fold_mode(self._fold_constants, "fold_constants")
-        for name in ("simplify_expr", "canonicalise_constants"):
-            if kwargs.get(name) is not None and not isinstance(kwargs.get(name), bool):
-                raise TypeError(f"{name} must be a bool or None, got {kwargs.get(name)!r}.")
-        self._simplify_expr = bool(kwargs.get("simplify_expr"))
-        self._canonicalise_constants = bool(kwargs.get("canonicalise_constants"))
-        max_skips = kwargs.get("max_consecutive_skips")
-        if max_skips is None:
-            max_skips = _MAX_CONSECUTIVE_SKIPS
-        if isinstance(max_skips, bool) or not isinstance(max_skips, (int, np.integer)) or max_skips == 0:
-            raise ValueError(
-                "[SR_evaluator] max_consecutive_skips must be a positive int, or negative for no limit; "
-                f"got {max_skips!r}."
-            )
-        self._max_consecutive_skips = int(max_skips)
-        ranking_settings: dict[str, Any] = {
-            k: v
-            for k, v in kwargs.items()
-            if k not in _DEFAULT_LIMITS
-            and k not in _SIMPLIFY_SETTINGS
-            and k not in ("simplify_expr", "canonicalise_constants", "fold_constants", "max_consecutive_skips")
-        }
-        ranking_settings["default_constant"] = self.default_constant  # completed by the background knowledge
-        self.ranking: RankingFunction = build_ranking(ranking_function)
         # A ranking_seed (fixed per dataset) replaces the evaluator's seed here, so every ranking,
         # custom ones included, follows it without reading the setting itself.
-        ranking_seed = kwargs.get("ranking_seed")
+        self.ranking: RankingFunction = build_ranking(ranking_function)
+        ranking_seed = settings.evaluator.ranking_seed
         self.ranking.setup(
-            X, y, ground_truth, symbol_library, seed if ranking_seed is None else ranking_seed, ranking_settings
+            X,
+            y,
+            ground_truth,
+            ground_truth_constants,
+            self._background_knowledge,
+            seed if ranking_seed is None else ranking_seed,
+            settings,
         )
 
         if self.success_threshold is None:
@@ -827,7 +814,7 @@ class SR_evaluator:
                 self.stop("success_threshold")
             elif 0 <= self.max_evaluations <= self.total_evaluations:
                 self.stop("max_evaluations")
-            elif 0 <= self._max_consecutive_skips <= self._skips_in_a_row:
+            elif 0 <= self.settings.evaluator.max_consecutive_skips <= self._skips_in_a_row:
                 self.stop("max_consecutive_skips")
         self._store.commit()
 
@@ -847,24 +834,19 @@ class SR_evaluator:
             "max_evaluations": int(self.max_evaluations),
             "success_threshold": None if self.success_threshold is None else float(self.success_threshold),
         }
-        # A setting at its default, or None (which means the default), is left out, as if not given.
-        simplify_args = inspect.signature(simplify).parameters
-        defaults: dict[str, Any] = {
-            "simplify_expr": False,
-            "canonicalise_constants": False,
-            "fold_constants": "none",
-            "max_consecutive_skips": _MAX_CONSECUTIVE_SKIPS,
-            "ranking_resample": False,
-            **{k: simplify_args[k.removeprefix("simplify_")].default for k in _SIMPLIFY_SETTINGS},
-            "simplify_rules": DefaultRules(),  # what simplify's rules=None stands for
-            **self.ranking.default_settings(),
-        }
-        for k, v in self.kwargs.items():
-            if k in _DEFAULT_LIMITS or k == "default_constant" or v is None:
-                continue
-            if k in defaults and _fingerprint_hash(v, k) == _fingerprint_hash(defaults[k], k):
-                continue
-            parts[k] = v
+        bk = self._background_knowledge
+        parts["samplers"] = bk.samplers
+        parts["constant_bounds"] = bk.constant_bounds
+        if self.ground_truth_constants:  # in any order; [] is the same as None
+            parts["ground_truth_constants"] = sorted(self.ground_truth_constants, key=lambda c: c.label or "")
+        # One entry per setting that differs from its default; the limits are in required_constraints.
+        for section, fields in self.settings.to_dict()["sections"].items():
+            for field, value in fields.items():
+                if field == "section_class":  # a custom section's class path, not a setting
+                    continue
+                if section == "evaluator" and field in ("max_constants", "max_expr_length"):
+                    continue
+                parts[f"{section}.{field}"] = value
         return {name: _fingerprint_hash(value, name) for name, value in parts.items()}
 
     def _results_header(self) -> dict[str, Any]:
@@ -1057,9 +1039,10 @@ class SR_evaluator:
         ``"evaluated"`` (evaluated before), ``"rejected"`` (breaks a required constraint) and
         ``"not_expression"`` (e.g. a latent vector that does not decode); others are allowed.
 
-        Skips in a row are counted too, and every counted call of ``evaluate_expr`` (cache hits
-        included) resets them, lookups (``get_model``, ``check_constraints``) do not; at the setting ``max_consecutive_skips`` (see
-        [RankingSettings][SRToolkit.utils.types.RankingSettings]), evaluation
+        Skips in a row are counted too. Every counted call of ``evaluate_expr`` (cache hits
+        included) resets them; lookups (``get_model``, ``check_constraints``) do not. When they
+        reach the setting ``evaluator.max_consecutive_skips`` (see
+        [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]), evaluation
         [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with the reason
         ``"max_consecutive_skips"``. Step approaches report skipped proposals through
         [Candidate][SRToolkit.approaches.sr_approach.Candidate] instead.
@@ -1087,7 +1070,7 @@ class SR_evaluator:
             raise ValueError(f"[SR_evaluator.count_skip] reason must be a non-empty str, got {reason!r}.")
         self.skips[reason] = self.skips.get(reason, 0) + 1
         self._skips_in_a_row += 1
-        if 0 <= self._max_consecutive_skips <= self._skips_in_a_row:
+        if 0 <= self.settings.evaluator.max_consecutive_skips <= self._skips_in_a_row:
             self.stop("max_consecutive_skips")
 
     def close(self) -> None:
@@ -1171,9 +1154,9 @@ class SR_evaluator:
         """What the task tells the approach besides the data (read-only).
 
         Built in the constructor from the symbol library, ``advisory_constraints``, ``variables``,
-        ``target``, ``description``, ``reference_grammar`` and the ``constant_bounds`` /
-        ``samplers`` settings, so it describes the task the evaluator scores. Its ``constraints``
-        are the advisory constraints.
+        ``target``, ``named_constants``, ``description``, ``reference_grammar``,
+        ``constant_bounds``, ``default_constant`` and ``samplers``, so it describes the task the
+        evaluator scores. Its ``constraints`` are the advisory constraints.
         """
         return self._background_knowledge
 
@@ -1233,17 +1216,22 @@ class SR_evaluator:
         # Simplified with simplify_expr (as given if that fails, with a warning if warn and the
         # expression parses), folded with fold_constants, then canonicalised with
         # canonicalise_constants if no specs are left. Shared by every lookup so they match.
-        mode = self._fold_constants
+        s = self.settings.evaluator
+        mode = s.fold_constants
         folded = False
-        if self._simplify_expr:
-            # The simplify_* settings given (not None), as simplify's arguments.
-            settings: dict[str, Any] = {
-                k.removeprefix("simplify_"): v
-                for k, v in self.kwargs.items()
-                if k in _SIMPLIFY_SETTINGS and v is not None
-            }
+        if s.simplify_expr:
             try:
-                expr, free_constants = simplify(expr, self.symbol_library, free_constants, fold=mode, **settings)
+                expr, free_constants = simplify(
+                    expr,
+                    self.symbol_library,
+                    free_constants,
+                    rules=s.simplify_rules,
+                    max_iterations=s.simplify_max_iterations,
+                    max_nodes=s.simplify_max_nodes,
+                    max_time=s.simplify_max_time,
+                    fold=mode,
+                    fold_aware=s.simplify_fold_aware,
+                )
                 folded = True
             except Exception as e:
                 # A malformed expression is scored "invalid" as given; its status says why.
@@ -1259,7 +1247,7 @@ class SR_evaluator:
                 pass
         specs = tuple(sorted(free_constants, key=lambda c: c.label or "")) if free_constants else None
         tokens = _as_tokens(expr, self.symbol_library)
-        if self._canonicalise_constants and specs is None:
+        if s.canonicalise_constants and specs is None:
             canonical = canonicalise(tokens, self.symbol_library)
             if canonical != tokens:
                 # The ranking gets the canonical tokens, so the fit's seed is that of the canonical form.
@@ -1311,9 +1299,9 @@ class SR_evaluator:
         inputs with the same stored tokens and the same remaining specs are one model. Approaches
         use it to recognise repeats among expressions not yet evaluated. Does not count toward
         ``max_evaluations``, records nothing and emits no warnings. The specs are not checked:
-        specs that do not fit ``expr`` match no model. With the ``simplify_max_time`` setting, the
-        result can differ between calls (the time limit depends on the machine's load), so a
-        lookup can miss a model that was evaluated.
+        specs that do not fit ``expr`` match no model. With the ``evaluator.simplify_max_time``
+        setting, the result can differ between calls (the time limit depends on the machine's
+        load), so a lookup can miss a model that was evaluated.
 
         Args:
             expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
@@ -1327,7 +1315,7 @@ class SR_evaluator:
 
         Examples:
             >>> X = np.array([[1.0], [2.0]])
-            >>> se = SR_evaluator(X, X[:, 0], canonicalise_constants=True)
+            >>> se = SR_evaluator(X, X[:, 0], settings=Settings(evaluator={"canonicalise_constants": True}))
             >>> "".join(se.stored_tokens(["C_3", "*", "X_0", "+", "C_3"]))
             'C_0*X_0+C_0'
         """
@@ -1445,53 +1433,20 @@ class SR_evaluator:
         A new expression is parsed, checked against the constraints, scored by the ranking
         function and stored in ``models`` (statuses and the order of checks are in the
         [module docs][SRToolkit.evaluation.sr_evaluator]). An expression whose stored form and
-        remaining specs match a stored model is not scored again; that model is returned. Either way the call is
-        appended to ``trace``, counts toward ``max_evaluations``, resets the count of skips in a row
-        (see [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]) and is
-        reported to the callbacks:
-        ``on_expr_evaluated`` for every call, plus ``on_best_expression`` when the error improves
-        on the best so far. Evaluation then stops if the error is below ``success_threshold``, the
-        budget is used up, or a callback asks to stop (see
-        [Stopping][SRToolkit.evaluation.sr_evaluator]).
+        remaining specs match a stored model is not scored again; that model is returned. Either
+        way the call is appended to ``trace``, counts toward ``max_evaluations``, resets the count
+        of skips in a row (see [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip])
+        and is reported to the callbacks: ``on_expr_evaluated`` for every call, plus
+        ``on_best_expression`` when the error improves on the best so far. Evaluation then stops
+        if the error is below ``success_threshold``, the budget is used up, or a callback asks to
+        stop (see [Stopping][SRToolkit.evaluation.sr_evaluator]).
 
         The expression is checked, scored and stored in its
-        [stored form][SRToolkit.evaluation.sr_evaluator], set by the settings ``simplify_expr``,
-        ``fold_constants`` and ``canonicalise_constants``, with the specs that remain. If a
-        well-formed expression cannot be simplified, a ``UserWarning`` is emitted and it is used
-        as given (still folded and canonicalised); a malformed one is ``"invalid"`` without a
-        warning.
-
-        Examples:
-            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
-            >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y, seed=42)
-            >>> model = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
-            >>> print(model.error < 1e-6, model.status, round(float(model.parameters[0]), 3))
-            True ok 2.0
-            >>> # A labelled constant with a spec of its own: started from U(0, 10), fitted within (0, 10)
-            >>> from SRToolkit.dataset import UniformSampling
-            >>> from SRToolkit.utils.free_constants import Constant
-            >>> spec = Constant(label="C_0", prior=UniformSampling(0, 10), bounds=(0.0, 10.0))
-            >>> se = SR_evaluator(X, y, seed=42)
-            >>> model = se.evaluate_expr(["C_0", "*", "X_1", "-", "X_0"], [spec])
-            >>> print(model.error < 1e-6, model.free_constants == (spec,))
-            True True
-            >>> # With the setting simplify_expr, the simplified expression is scored and stored
-            >>> X = np.array([[0, 1], [0, 2], [0, 3]])
-            >>> se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1, simplify_expr=True)
-            >>> model = se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"])
-            >>> "".join(model.expr), bool(0.99 < model.parameters[0] < 1.01)
-            ('C+X_1', True)
-            >>> # A malformed expression gets the error inf and the status "invalid"
-            >>> model = se.evaluate_expr(["C", "*", "X_1", "X_0"])
-            >>> print(model.error, model.status)
-            inf invalid
-            >>> # BED is stochastic and scaled by the ground truth's output, so an exact match may
-            >>> # still have a small positive error
-            >>> X = np.random.rand(10, 2) - 0.5
-            >>> se = SR_evaluator(X, ground_truth=["X_0", "+", "C"], ranking_function="bed", seed=42)
-            >>> print(se.evaluate_expr(["C", "+", "X_0"]).error < 0.2)
-            True
+        [stored form][SRToolkit.evaluation.sr_evaluator], set by the settings
+        ``evaluator.simplify_expr``, ``evaluator.fold_constants`` and
+        ``evaluator.canonicalise_constants``, with the specs that remain. If a well-formed
+        expression cannot be simplified, a ``UserWarning`` is emitted and it is used as given
+        (still folded and canonicalised); a malformed one is ``"invalid"`` without a warning.
 
         Args:
             expr: The expression, as a token list in infix notation or a
@@ -1526,6 +1481,29 @@ class SR_evaluator:
                 Nothing is then recorded or counted.
             sqlite3.Error: If a commit of the checkpoint fails (see
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
+
+        Examples:
+            >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
+            >>> y = np.array([3, 0, 3, 11])
+            >>> se = SR_evaluator(X, y, seed=42)
+            >>> model = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
+            >>> print(model.error < 1e-6, model.status, round(float(model.parameters[0]), 3))
+            True ok 2.0
+            >>> # A labelled constant with a spec of its own: started from U(0, 10), fitted within (0, 10)
+            >>> from SRToolkit.dataset import UniformSampling
+            >>> from SRToolkit.utils.free_constants import Constant
+            >>> spec = Constant(label="C_0", prior=UniformSampling(0, 10), bounds=(0.0, 10.0))
+            >>> se = SR_evaluator(X, y, seed=42)
+            >>> model = se.evaluate_expr(["C_0", "*", "X_1", "-", "X_0"], [spec])
+            >>> print(model.error < 1e-6, model.free_constants == (spec,))
+            True True
+            >>> # With the setting evaluator.simplify_expr, the simplified expression is scored and stored
+            >>> X = np.array([[0, 1], [0, 2], [0, 3]])
+            >>> settings = Settings(evaluator={"simplify_expr": True})
+            >>> se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1, settings=settings)
+            >>> model = se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"])
+            >>> "".join(model.expr), bool(0.99 < model.parameters[0] < 1.01)
+            ('C+X_1', True)
         """
         if self.should_stop:
             warnings.warn(
@@ -1535,7 +1513,9 @@ class SR_evaluator:
             )
             return None
         else:
-            if (self._simplify_expr or self._fold_constants != "none") and free_constants:
+            if (
+                self.settings.evaluator.simplify_expr or self.settings.evaluator.fold_constants != "none"
+            ) and free_constants:
                 # Specs that do not fit raise here, not as a failed simplification or fold (see _evaluate_new).
                 try:
                     tree = _as_tree(expr, self.symbol_library)
@@ -1780,31 +1760,38 @@ class SR_evaluator:
         metric: str | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float] = "r2",
         free_constants: Sequence[Constant] | None = None,
     ) -> float:
-        """Compute an alternative, read-only metric for an already-evaluated expression.
+        """Return another metric of an already-evaluated model, without using the budget.
 
-        Unlike [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
-        this does **not** count toward the evaluation budget, does not affect ranking,
-        success, caching, or callbacks, and never changes the canonical ranking function.
-        It exists so an approach can structure its search around a measure other than the
-        ranking error (e.g. R² or NRMSE) without re-running the (budgeted) evaluation and
-        without being given direct access to ``X``/``y`` as attributes.
+        Lets an approach steer its search by a measure other than the ranking error (e.g. R² or a
+        custom callable) without access to ``X`` and ``y``. It does not count toward
+        ``max_evaluations`` and changes nothing: not the ranking, the cache, ``trace`` or the
+        callbacks. The model must already have been evaluated with the same specs by
+        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr], so that
+        un-evaluated expressions cannot be scored for free; it is matched as in
+        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]. The metric is
+        computed with the model's fitted parameters on the evaluator's ``X`` and ``y``.
 
-        The expression **must already have been evaluated** with the same specs via
-        ``evaluate_expr`` so its constants are fitted and cached — otherwise a ``ValueError`` is
-        raised. It is matched as in
-        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]. This is the
-        guard that keeps the budget meaningful: a custom ``metric`` callable cannot be used to
-        score un-evaluated expressions for free.
+        Args:
+            expr: Expression as a token list in infix notation or a
+                [Node][SRToolkit.utils.expression_tree.Node] tree.
+            metric: The name of a built-in metric in
+                [REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS] (``"mse"``,
+                ``"rmse"``, ``"mae"``, ``"r2"``, ``"nrmse"``), or a callable
+                ``metric(predict, X, y) -> float``, where ``predict(X) -> y_pred`` has the fitted
+                parameters bound in (so a metric can also evaluate the model away from ``X``).
+                Default ``"r2"``.
+            free_constants: The specs ``expr`` was evaluated with, as in ``evaluate_expr``;
+                ``None`` or empty for none.
 
-        The ``metric`` is computed from a constants-bound prediction function
-        ``predict(X) -> y_pred`` built from the cached fit. Built-in string metrics and
-        custom callables share the signature ``metric(predict, X, y) -> float``; passing
-        ``predict`` (rather than a precomputed ``y_pred``) lets a metric also evaluate the
-        model away from ``X`` (e.g. for smoothness or extrapolation measures).
+        Returns:
+            The metric value. ``NaN`` if the ranking is not ``"rmse"``, if ``y`` was not given to
+            the evaluator (e.g. RMSE generated it from the ground truth), if the model's status is
+            not ``"ok"``, or if the metric raises.
 
-        Only available in ``ranking_function="rmse"`` mode. In BED mode (no ``y``,
-        no fitted constants), and for models that could not be scored (status other than
-        ``"ok"``), this returns ``NaN``.
+        Raises:
+            ValueError: If ``expr`` has not been evaluated yet with these specs, or ``metric`` is a
+                string that is not a built-in metric.
+            TypeError: If ``metric`` is neither a string nor a callable.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -1818,27 +1805,6 @@ class SR_evaluator:
             ...     return float(np.max(np.abs(predict(X) - y)))
             >>> print(se.get_metric(["C", "*", "X_1", "-", "X_0"], max_abs_residual) < 1e-6)
             True
-
-        Args:
-            expr: Expression as a token list in infix notation or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree. Must already have been
-                passed to ``evaluate_expr``.
-            metric: Either the name of a built-in metric in
-                [REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS]
-                (``"mse"``, ``"rmse"``, ``"mae"``, ``"r2"``, ``"nrmse"``), or a callable with the
-                signature ``metric(predict, X, y) -> float`` where ``predict(X) -> y_pred``
-                has the fitted constants bound in. Default ``"r2"``.
-            free_constants: The specs ``expr`` was evaluated with, as in ``evaluate_expr``;
-                ``None`` or empty for none.
-
-        Returns:
-            The metric value as a float. Returns ``NaN`` in BED mode, for models that could
-            not be scored, or if the metric raises during computation.
-
-        Raises:
-            ValueError: If ``expr`` has not been evaluated yet with these specs, or if ``metric``
-                is a string that is not a known built-in metric.
-            TypeError: If ``metric`` is neither a string nor a callable.
         """
         _, expr_list, specs = self._stored_form(expr, free_constants)
         expr_str = "".join(expr_list)
@@ -1872,9 +1838,14 @@ class SR_evaluator:
         if model.status != "ok":
             return float("nan")
 
-        backend = str(self.parameter_estimator.estimation_settings["backend"])
         return evaluate_metric(
-            expr_list, model.parameters, self.X, self.y, metric, self.symbol_library, backend=backend
+            expr_list,
+            model.parameters,
+            self.X,
+            self.y,
+            metric,
+            self.symbol_library,
+            backend=self.settings.evaluator.backend,
         )
 
     def get_results(

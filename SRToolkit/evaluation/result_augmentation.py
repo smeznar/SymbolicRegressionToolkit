@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 
-from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS, ParameterEstimator
+from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.results import ResultAugmenter
 from SRToolkit.evaluation.sr_evaluator import evaluate_metric
@@ -29,10 +29,11 @@ from SRToolkit.utils.expression_simplifier import (
 )
 from SRToolkit.utils.expression_tree import _constant_indices
 from SRToolkit.utils.free_constants import Constant, _spec_key
-from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.types import EvalResult, ModelResult
 
 if TYPE_CHECKING:
+    from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
     from SRToolkit.dataset.data_split import DataSplit
 
 
@@ -404,9 +405,10 @@ class HoldoutMetric(ResultAugmenter):
         | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]
         | RankingFunction = "rmse",
         scope: str = "top",
-        symbol_library: SymbolLibrary | None = None,
         ground_truth: list | Node | None = None,
-        ranking_settings: dict[str, Any] | None = None,
+        ground_truth_constants: Sequence[Constant] | None = None,
+        background_knowledge: "BackgroundKnowledge | None" = None,
+        settings: Settings | None = None,
         seed: int | None = 0,
         refit_constants: bool = False,
         name: str = "HoldoutMetric",
@@ -433,19 +435,53 @@ class HoldoutMetric(ResultAugmenter):
           set up on the held-out data and scores each model, with its specs, e.g. BED on the held-out
           ``X``.
 
-        In fits and ranking scores, constants without a spec, and a spec's unset ``prior`` or
-        ``bounds``, use the default spec ``ranking_settings["default_constant"]``, else
-        [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default] with
-        ``ranking_settings["constant_bounds"]`` (``(-5, 5)`` if missing), not the run's
-        [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]; pass
-        ``dataset.ranking_settings()`` to match the search. A partial ``default_constant``
-        template is not completed here: the ``ValueError`` it causes is raised by a
-        ``RankingFunction`` metric's setup, or, when raised while scoring a model, gives that model
-        ``NaN`` with a warning.
+        Scoring follows ``background_knowledge`` and ``settings``, not the run's: in fits and
+        ranking scores, constants without a spec, and a spec's unset ``prior`` or ``bounds``, use
+        the background knowledge's ``default_constant``, not
+        [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]. To score under the
+        search's task and settings, pass ``dataset.background_knowledge`` and
+        ``dataset.settings``.
 
         With every kind of metric, models the search could not score (any
         [status][SRToolkit.utils.types.Status] other than ``"ok"``, e.g. rejected by a required
         constraint) get ``NaN``; they are not scored on the held-out data.
+
+        Args:
+            data: The held-out data: a [DataSplit][SRToolkit.dataset.data_split.DataSplit]
+                (e.g. ``dataset.test``) or an ``(X[, y])`` tuple.
+            metric: A built-in metric name, a callable, or a ``RankingFunction`` (see above).
+                Built-in names and callables are computed against the held-out ``y``, so ``data``
+                must include it. Measures that need only the expression (e.g. complexity) belong in
+                a ``RankingFunction`` or a separate augmenter. Default ``"rmse"``.
+            scope: Which models to score: ``"best"``, ``"top"`` (the result's top models), or
+                ``"all"``. Default ``"top"``.
+            ground_truth: Ground-truth expression passed to a ``RankingFunction`` metric's setup
+                (e.g. for BED). Unused otherwise.
+            ground_truth_constants: Specs for the labelled constants of ``ground_truth``, passed
+                to a ``RankingFunction`` metric's setup. Unused otherwise.
+            background_knowledge: The task. Expressions are compiled with its ``symbol_library``
+                and fitted with its ``default_constant``; a ``RankingFunction`` metric's setup gets
+                all of it (e.g. BED's ``samplers``). ``None``: a
+                [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge]
+                with only the active symbol library.
+            settings: [Settings][SRToolkit.utils.settings.Settings] for fitting constants on the
+                held-out data (``estimation``, ``evaluator.backend``) and for a
+                ``RankingFunction`` metric's setup. ``None``: the defaults.
+            seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
+                The ``evaluator.ranking_seed`` setting overrides it for a ranking metric, but not
+                for the refit of a string or callable metric. Default ``0``.
+            refit_constants: Fit every model's constants on the held-out data instead of reusing
+                those from the search. Only for built-in or callable metrics. Default ``False``.
+            name: Key under which the values are stored in ``augmentations``. Default
+                ``"HoldoutMetric"``.
+
+        Raises:
+            ValueError: If ``scope`` is invalid, if a built-in or callable ``metric`` is given
+                held-out data without ``y``, or if ``refit_constants=True`` is combined with a
+                ``RankingFunction`` metric.
+            TypeError: If ``data`` is neither a ``DataSplit`` nor an ``(X[, y])`` tuple,
+                ``metric`` is not a string, callable, or ``RankingFunction``, ``settings`` is not a
+                ``Settings`` or ``background_knowledge`` is not a ``BackgroundKnowledge``.
 
         Examples:
             >>> from SRToolkit.evaluation import SR_evaluator
@@ -457,53 +493,32 @@ class HoldoutMetric(ResultAugmenter):
             >>> results.augment(HoldoutMetric((X_test, 2 * X_test[:, 1] - X_test[:, 0]), metric="rmse"))
             >>> bool(results[0].augmentations["HoldoutMetric"]["best_value"] < 1e-6)
             True
-
-        Args:
-            data: The held-out data: a [DataSplit][SRToolkit.dataset.data_split.DataSplit]
-                (e.g. ``dataset.test``) or an ``(X[, y])`` tuple.
-            metric: A built-in metric name, a callable, or a ``RankingFunction`` (see above).
-                Built-in names and callables are computed against the held-out ``y``, so ``data``
-                must include it. Measures that need only the expression (e.g. complexity) belong in
-                a ``RankingFunction`` or a separate augmenter. Default ``"rmse"``.
-            scope: Which models to score: ``"best"``, ``"top"`` (the result's top models), or
-                ``"all"``. Default ``"top"``.
-            symbol_library: Symbol library used to compile expressions. Defaults to the active
-                library.
-            ground_truth: Ground-truth expression passed to a ``RankingFunction`` metric's setup
-                (e.g. for BED). Unused otherwise.
-            ranking_settings: Settings for a ``RankingFunction`` metric's setup and for fitting
-                constants on the held-out data (e.g. ``constant_bounds``, ``default_constant``).
-                Pass ``dataset.ranking_settings()`` to fit under the same settings as the search
-                (the default spec included).
-            seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
-                A ``ranking_seed`` in ``ranking_settings`` overrides it for a ranking metric, but
-                not for the refit of a string or callable metric. Default ``0``.
-            refit_constants: Fit every model's constants on the held-out data instead of reusing
-                those from the search. Only for built-in or callable metrics. Default ``False``.
-            name: Key under which the values are stored in ``augmentations``. Default
-                ``"HoldoutMetric"``.
-
-        Raises:
-            ValueError: If ``scope`` is invalid, if a built-in or callable ``metric`` is given
-                held-out data without ``y``, or if ``refit_constants=True`` is combined with a
-                ``RankingFunction`` metric.
-            TypeError: If ``data`` is neither a ``DataSplit`` nor an ``(X[, y])`` tuple, or if
-                ``metric`` is not a string, callable, or ``RankingFunction``.
         """
         super().__init__(name)
 
         if scope not in ["best", "top", "all"]:
             raise ValueError(f"[HoldoutMetric] Invalid scope: {scope}. Must be one of 'best', 'top', 'all'.")
         self.scope = scope
-        # Resolve the library once, here, so setup() and the reuse-params path always get a concrete
-        # one (the active context-manager library, or the package default).
-        if symbol_library is None:
-            symbol_library = SymbolLibrary.get_or_default()
-        self.symbol_library = symbol_library
+        # Imported here: SRToolkit.dataset imports this module.
+        from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
+
+        if background_knowledge is None:
+            background_knowledge = BackgroundKnowledge(SymbolLibrary.get_or_default())
+        if not isinstance(background_knowledge, BackgroundKnowledge):
+            raise TypeError(
+                "[HoldoutMetric] background_knowledge must be a BackgroundKnowledge, got "
+                f"{type(background_knowledge).__name__}."
+            )
+        if settings is None:
+            settings = Settings()
+        if not isinstance(settings, Settings):
+            raise TypeError(f"[HoldoutMetric] settings must be a Settings, got {type(settings).__name__}.")
+        self.background_knowledge = background_knowledge
+        self.symbol_library = background_knowledge.symbol_library
+        self.settings = settings
         self.metric = metric
         self.seed = seed
         self.refit_constants = refit_constants
-        self.ranking_settings: dict[str, Any] = dict(ranking_settings or {})
         self._estimator: ParameterEstimator | None = None
 
         if isinstance(data, tuple):
@@ -529,14 +544,15 @@ class HoldoutMetric(ResultAugmenter):
             # with an SR_evaluator or another HoldoutMetric).
             self.metric = copy.deepcopy(metric)
             # As in SR_evaluator, a ranking_seed replaces the seed for the ranking.
-            ranking_seed = self.ranking_settings.get("ranking_seed")
+            ranking_seed = self.settings.evaluator.ranking_seed
             self.metric.setup(
                 self._X,
                 self._y,
                 ground_truth,
-                symbol_library,
+                ground_truth_constants,
+                background_knowledge,
                 seed if ranking_seed is None else ranking_seed,
-                self.ranking_settings,
+                self.settings,
             )
         elif isinstance(metric, str):
             self._ranking_mode = False
@@ -589,7 +605,9 @@ class HoldoutMetric(ResultAugmenter):
                 # No evaluation of the fit was finite: the expression is undefined on the held-out data.
                 if not np.isfinite(fit_error):
                     return float("nan")
-            return evaluate_metric(expr, parameters, self._X, self._y, self.metric, self.symbol_library)
+            return evaluate_metric(
+                expr, parameters, self._X, self._y, self.metric, self.symbol_library, self.settings.evaluator.backend
+            )
         except Exception as e:
             warnings.warn(f"[HoldoutMetric] Error scoring expression '{''.join(expr)}': {e}")
             return float("nan")
@@ -603,7 +621,12 @@ class HoldoutMetric(ResultAugmenter):
         assert self._y is not None
         if self._estimator is None:
             self._estimator = ParameterEstimator(
-                self._X, self._y, self.symbol_library, seed=self.seed, **self.ranking_settings
+                self._X,
+                self._y,
+                self.symbol_library,
+                self.seed,
+                self.settings,
+                self.background_knowledge.default_constant,
             )
         return self._estimator.estimate_parameters(expr, free_constants)
 
@@ -687,8 +710,9 @@ class HoldoutMetric(ResultAugmenter):
         return f"holdout {data.get('metric', '')}{refit}={val}"
 
     def to_dict(self, base_path: str, name: str) -> dict:
-        """Serialize this augmenter. Supported only in reuse-params mode with a built-in (string)
-        metric; the held-out arrays are written to ``base_path``.
+        """Serialize this augmenter and write its held-out arrays to ``base_path``.
+
+        Supported only with a built-in (string) metric.
 
         Args:
             base_path: Directory to write the held-out ``.npz`` into.
@@ -696,14 +720,15 @@ class HoldoutMetric(ResultAugmenter):
 
         Returns:
             A dictionary sufficient to recreate the augmenter via
-            [from_dict][SRToolkit.evaluation.result_augmentation.HoldoutMetric.from_dict]. Of
-            ``ranking_settings`` it keeps only the constant-fitting settings, with
-            ``default_constant`` as its
-            [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict].
+            [from_dict][SRToolkit.evaluation.result_augmentation.HoldoutMetric.from_dict]. The
+            settings are saved with [Settings.to_dict][SRToolkit.utils.settings.Settings.to_dict];
+            of the background knowledge only ``symbol_library`` and ``default_constant`` are kept,
+            the parts a built-in metric uses.
 
         Raises:
             NotImplementedError: If ``metric`` is a callable or a ``RankingFunction`` (not
                 serialisable — reconstruct such augmenters manually).
+            TypeError: If a field of a custom settings section cannot be saved.
         """
         if not isinstance(self.metric, str):
             raise NotImplementedError(
@@ -716,10 +741,7 @@ class HoldoutMetric(ResultAugmenter):
             os.makedirs(base_path)
         # Absolute, so loading does not depend on the working directory at save time.
         data_path = os.path.abspath(os.path.join(base_path, f"{name}_holdout.npz"))
-        if self._y is not None:
-            np.savez(data_path, X=self._X, y=self._y)
-        else:
-            np.savez(data_path, X=self._X)
+        np.savez(data_path, X=self._X, y=cast(np.ndarray, self._y))  # a string metric always has held-out y
 
         return {
             "format_version": 1,
@@ -728,49 +750,45 @@ class HoldoutMetric(ResultAugmenter):
             "scope": self.scope,
             "metric": self.metric,
             "data": data_path,
-            "symbol_library": self.symbol_library.to_dict() if self.symbol_library is not None else None,
+            "symbol_library": self.symbol_library.to_dict(),
             "seed": self.seed,
             "refit_constants": self.refit_constants,
-            # Only the constant-fitting settings are used in this (string-metric) mode; ranking-only
-            # settings such as samplers are not saved. The default spec is saved as its to_dict.
-            "ranking_settings": _to_json_safe(
-                {
-                    k: v.to_dict() if isinstance(v, Constant) else v
-                    for k, v in self.ranking_settings.items()
-                    if k in DEFAULT_ESTIMATION_SETTINGS
-                }
-            ),
+            "settings": self.settings.to_dict(),
+            "default_constant": cast(Constant, self.background_knowledge.default_constant).to_dict(),
         }
 
     @staticmethod
     def from_dict(data: dict) -> "HoldoutMetric":
-        """Recreate a [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] from a
-        dictionary produced by
-        [to_dict][SRToolkit.evaluation.result_augmentation.HoldoutMetric.to_dict].
+        """Recreate a ``HoldoutMetric`` from its saved form.
 
         Args:
-            data: The serialized dictionary.
+            data: A dictionary produced by
+                [to_dict][SRToolkit.evaluation.result_augmentation.HoldoutMetric.to_dict].
 
         Returns:
             The reconstructed augmenter.
+
+        Raises:
+            ValueError: If ``data["format_version"]`` is not ``1``.
         """
         if data.get("format_version", 1) != 1:
             raise ValueError(
                 f"[HoldoutMetric.from_dict] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
             )
         arrays = np.load(data["data"])
-        X = arrays["X"]
-        y = arrays["y"] if "y" in arrays else None
-        symbol_library = SymbolLibrary.from_dict(data["symbol_library"]) if data.get("symbol_library") else None
-        ranking_settings = _from_json_safe(data.get("ranking_settings") or {})
-        if ranking_settings.get("default_constant") is not None:
-            ranking_settings["default_constant"] = Constant.from_dict(ranking_settings["default_constant"])
+        # Imported here: SRToolkit.dataset imports this module.
+        from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
+
+        background_knowledge = BackgroundKnowledge(
+            SymbolLibrary.from_dict(data["symbol_library"]),
+            default_constant=Constant.from_dict(data["default_constant"]),
+        )
         return HoldoutMetric(
-            (X,) if y is None else (X, y),
+            (arrays["X"], arrays["y"]),
             metric=data["metric"],
             scope=data["scope"],
-            symbol_library=symbol_library,
-            ranking_settings=ranking_settings,
+            background_knowledge=background_knowledge,
+            settings=Settings.from_dict(data["settings"]),
             seed=data.get("seed", 0),
             refit_constants=data.get("refit_constants", False),
             name=data["name"],

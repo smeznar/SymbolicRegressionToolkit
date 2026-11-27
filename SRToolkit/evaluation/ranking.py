@@ -4,23 +4,33 @@ A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] turns an expre
 single lower-is-better scalar. Built-ins are [RMSERanking][SRToolkit.evaluation.ranking.RMSERanking]
 (alias ``"rmse"``) and [BEDRanking][SRToolkit.evaluation.ranking.BEDRanking] (alias ``"bed"``);
 custom rankings are referenced by their fully-qualified import path.
+
+A ranking is configured through the run's [Settings][SRToolkit.utils.settings.Settings]: it reads
+its own section (``rmse``, ``bed``, or a custom
+[SettingsSection][SRToolkit.utils.settings.SettingsSection]) and shared ones such as
+``evaluator.backend``. Facts about the task (the default spec of constants, the input samplers)
+reach it through the evaluator's
+[BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
 """
 
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
-from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS, ParameterEstimator
+from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.measures import bed, create_behavior_matrix
-from SRToolkit.utils.symbol_library import SymbolLibrary
+from SRToolkit.utils.settings import Settings
+
+if TYPE_CHECKING:
+    from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 
 
 @dataclass
@@ -99,9 +109,10 @@ class RankingFunction(ABC):
         X: np.ndarray,
         y: np.ndarray | None,
         ground_truth: list[str] | Node | None,
-        symbol_library: SymbolLibrary,
+        ground_truth_constants: Sequence[Constant] | None,
+        background_knowledge: "BackgroundKnowledge",
         seed: int | None,
-        settings: dict[str, Any],
+        settings: Settings,
     ) -> None:
         """Validate required inputs and precompute all ranking-specific state.
 
@@ -109,12 +120,16 @@ class RankingFunction(ABC):
             X: Input data of shape ``(n_samples, n_features)``.
             y: Target values; required when ``needs_targets``.
             ground_truth: Target expression; required when ``needs_ground_truth``.
-            symbol_library: Token vocabulary.
-            seed: Seed for the ranking's randomness. The evaluator passes the ``ranking_seed``
-                setting when given, otherwise its own seed, so implementations need not read
-                ``ranking_seed``.
-            settings: Extra settings (the evaluator's ``kwargs``); each subclass reads only the
-                keys it needs.
+            ground_truth_constants: Specs for the labelled constants of ``ground_truth`` (see
+                [Constant][SRToolkit.utils.free_constants.Constant]), or ``None``.
+            background_knowledge: The task, e.g. its ``symbol_library``, ``default_constant``
+                (the default spec of free constants, already complete) and ``samplers`` (the input distribution, or ``None``).
+            seed: Seed for the ranking's randomness. The evaluator passes the
+                ``evaluator.ranking_seed`` setting when set, otherwise its own seed.
+            settings: The run's [Settings][SRToolkit.utils.settings.Settings]. A ranking reads its
+                own section (a custom one with ``settings.get(MySection)``, which gives the
+                section's defaults when the run did not set it) and shared ones such as
+                ``settings.evaluator.backend``.
         """
 
     @abstractmethod
@@ -128,9 +143,7 @@ class RankingFunction(ABC):
                 [Constant][SRToolkit.utils.free_constants.Constant]). The evaluator passes a
                 non-empty tuple sorted by label, checked against ``expr`` beforehand, or ``None``.
                 Parameters without a spec, and a spec's unset ``prior`` or ``bounds``, use the
-                ranking's default spec: the ``default_constant`` setting, else
-                [uniform_default(constant_bounds)][SRToolkit.utils.free_constants.uniform_default]
-                with the ``constant_bounds`` setting.
+                background knowledge's ``default_constant``.
 
         Returns:
             A [RankingResult][SRToolkit.evaluation.ranking.RankingResult] whose ``score`` drives
@@ -138,18 +151,6 @@ class RankingFunction(ABC):
             required constraints. May raise; the evaluator then records the status ``"error"``
             with the error ``+inf``.
         """
-
-    def default_settings(self) -> dict[str, Any]:
-        """The defaults of the settings this ranking reads, as ``{name: value}``.
-
-        A setting passed at its default (or as ``None``) is the same run as one left out: the
-        evaluator leaves both out of its checkpoint fingerprint, so a resume does not depend on
-        how the default was written. Override it to list your ranking's defaults.
-
-        Returns:
-            A new dict; empty in the base class.
-        """
-        return {}
 
     def default_success_threshold(self) -> float | None:
         """The success threshold to use when the evaluator was not given an explicit one.
@@ -214,15 +215,16 @@ class RMSERanking(RankingFunction):
     did not converge. ``extra`` is empty when no constants were fitted. See
     [estimate_parameters_with_info][SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters_with_info].
 
-    When ``y`` is not provided, targets are generated by evaluating ``ground_truth`` over ``X``,
-    with the fixed values of the ``ground_truth_constants`` setting for its free constants.
+    Constants are fitted with the ``estimation`` settings. When ``y`` is not provided, targets are
+    generated by evaluating ``ground_truth`` over ``X``, with the fixed values of
+    ``ground_truth_constants`` for its free constants.
 
-    The random starting points of the fits are seeded by the ``ranking_seed`` setting when given,
-    otherwise by the evaluator's seed, combined with each expression's tokens and specs; with neither seed
-    they are random.
+    The random starting points of the fits are seeded by the ``evaluator.ranking_seed`` setting
+    when set, otherwise by the evaluator's seed, combined with each expression's tokens and specs;
+    with neither seed they are random.
     [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] sets
     ``ranking_seed`` to the dataset's seed, so every run on a dataset is scored by the same
-    objective, unless ``ranking_resample=True``.
+    objective, unless the dataset resamples it each run.
     """
 
     name = "rmse"
@@ -234,48 +236,41 @@ class RMSERanking(RankingFunction):
         X: np.ndarray,
         y: np.ndarray | None,
         ground_truth: list[str] | Node | None,
-        symbol_library: SymbolLibrary,
+        ground_truth_constants: Sequence[Constant] | None,
+        background_knowledge: "BackgroundKnowledge",
         seed: int | None,
-        settings: dict[str, Any],
+        settings: Settings,
     ) -> None:
         """Build the parameter estimator that fits each expression's constants to ``y``.
 
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
             y: Target values. If ``None``, they are generated by evaluating ``ground_truth`` on
-                ``X``; each of its free constants then needs a fixed value in the
-                ``ground_truth_constants`` setting.
+                ``X``; each of its free constants then needs a fixed value in
+                ``ground_truth_constants``.
             ground_truth: Target expression; used only to generate ``y`` when it is missing.
-            symbol_library: Token vocabulary.
+            ground_truth_constants: Specs for the labelled constants of ``ground_truth``; used
+                only to generate ``y``.
+            background_knowledge: Its ``symbol_library`` and ``default_constant`` are used.
             seed: Seed for the random initial values of the constants.
-            settings: Estimation settings (``method``, ``tol``, ``constant_bounds``,
-                ``default_constant``, …) and ``ground_truth_constants``; other keys are ignored.
+            settings: The ``estimation`` section and ``evaluator.backend`` are used.
 
         Raises:
             ValueError: If neither ``y`` nor ``ground_truth`` is given, or ``y`` must be generated
                 from ``ground_truth`` and a ``ground_truth_constants`` label is not a labelled
                 constant of it or one of its free constants has no fixed value.
         """
+        symbol_library = background_knowledge.symbol_library
         if y is None:
             if ground_truth is None:
                 raise ValueError(
                     "RMSE ranking requires either target values y or a ground truth expression to generate them from."
                 )
-            parameters = _ground_truth_parameters(
-                ground_truth, settings.get("ground_truth_constants"), symbol_library, "[RMSERanking]"
-            )
+            parameters = _ground_truth_parameters(ground_truth, ground_truth_constants, symbol_library, "[RMSERanking]")
             y = compile_expr(ground_truth, symbol_library)(X, parameters)
-        self.parameter_estimator = ParameterEstimator(X, y, symbol_library=symbol_library, seed=seed, **settings)
-
-    def default_settings(self) -> dict[str, Any]:
-        """The defaults of the [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator] settings.
-
-        ``default_constant`` is left out: the evaluator checks it on its own.
-
-        Returns:
-            A new dict.
-        """
-        return {k: v for k, v in DEFAULT_ESTIMATION_SETTINGS.items() if k != "default_constant"}
+        self.parameter_estimator = ParameterEstimator(
+            X, y, symbol_library, seed, settings, background_knowledge.default_constant
+        )
 
     def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
         """Return the RMSE of the best fit of ``expr`` under its specs, with the fitted parameters."""
@@ -304,7 +299,9 @@ class BEDRanking(RankingFunction):
     free parameters, each drawn from its spec's prior, or the default spec's (see
     [score][SRToolkit.evaluation.ranking.RankingFunction.score]); fixed values are kept. The output
     distributions at each point are compared with the target behavior there. No parameters are
-    fitted, so ``score`` returns only the distance and ``parameters`` is ``None``. See [bed][SRToolkit.utils.measures.bed].
+    fitted, so ``score`` returns only the distance and ``parameters`` is ``None``. See
+    [bed][SRToolkit.utils.measures.bed]. The settings read are the ``bed`` section
+    (``num_points_sampled``, ``num_consts_sampled``, ``bed_gt``) and ``evaluator.backend``.
 
     [setup][SRToolkit.evaluation.ranking.RankingFunction.setup] fixes the points ``bed_X`` and the
     target behavior once. The target behavior comes from the first available of:
@@ -312,11 +309,11 @@ class BEDRanking(RankingFunction):
     1. **A precomputed ``bed_gt`` matrix**, one row per row of ``X`` and ``num_consts_sampled``
        columns. If a ``ground_truth`` is also given, it is used only for the default threshold.
     2. **The ``ground_truth`` expression**, possibly with free parameters, evaluated over
-       ``bed_X``; its parameters follow the specs in the ``ground_truth_constants`` setting
-       (fixed values, priors), and the default spec otherwise. With ``samplers`` (the input
-       distribution, one [Sampler][SRToolkit.dataset.sampling.Sampler] per variable) and ``num_points_sampled > 0``,
-       the points are ``num_points_sampled`` fresh draws from them; otherwise they are rows of
-       ``X``.
+       ``bed_X``; its parameters follow the specs in ``ground_truth_constants`` (fixed values,
+       priors), and the default spec otherwise. With the background knowledge's ``samplers`` (the
+       input distribution, one [Sampler][SRToolkit.dataset.sampling.Sampler] per variable) and
+       ``num_points_sampled > 0``, the points are ``num_points_sampled`` fresh draws from them;
+       otherwise they are rows of ``X``.
     3. **The observed targets ``y``**, treated as a deterministic behavior. This lets BED rank
        expressions on measured data with no known expression.
 
@@ -325,11 +322,11 @@ class BEDRanking(RankingFunction):
     ``X`` are subsampled without replacement to ``num_points_sampled``; ``-1`` uses all of them,
     which is how to score on exactly a given set of points.
 
-    All randomness (points, behavior matrices, threshold) follows one seed: the ``ranking_seed``
-    setting when given, otherwise the evaluator's seed.
+    All randomness (points, behavior matrices, threshold) follows one seed: the
+    ``evaluator.ranking_seed`` setting when set, otherwise the evaluator's seed.
     [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] sets
     ``ranking_seed`` to the dataset's seed, so every run on a dataset is scored by the same
-    objective, unless ``ranking_resample=True``.
+    objective, unless the dataset resamples it each run.
 
     The default success threshold is the ground truth's own noise floor: its largest BED to
     itself over 100 resamplings of its unfixed parameters, times 1.1, and at least ``1e-7`` (so a
@@ -341,22 +338,15 @@ class BEDRanking(RankingFunction):
     needs_targets = False
     needs_ground_truth = False
 
-    def default_settings(self) -> dict[str, Any]:
-        """The defaults of the BED settings.
-
-        Returns:
-            A new dict.
-        """
-        return {"num_consts_sampled": 32, "num_points_sampled": 64, "constant_bounds": (-5, 5), "backend": "stack"}
-
     def setup(
         self,
         X: np.ndarray,
         y: np.ndarray | None,
         ground_truth: list[str] | Node | None,
-        symbol_library: SymbolLibrary,
+        ground_truth_constants: Sequence[Constant] | None,
+        background_knowledge: "BackgroundKnowledge",
         seed: int | None,
-        settings: dict[str, Any],
+        settings: Settings,
     ) -> None:
         """Fix the evaluation points and the target behavior that expressions are compared against.
 
@@ -369,15 +359,17 @@ class BEDRanking(RankingFunction):
             y: Observed targets, used as the target behavior when neither ``bed_gt`` nor
                 ``ground_truth`` is given.
             ground_truth: Target expression, possibly with free parameters.
-            symbol_library: Token vocabulary.
+            ground_truth_constants: Specs for the labelled constants of ``ground_truth``.
+            background_knowledge: Its ``symbol_library``, ``samplers`` and ``default_constant``
+                are used.
             seed: Seed for all of BED's randomness.
-            settings: BED settings (``num_points_sampled``, ``num_consts_sampled``,
-                ``constant_bounds``, ``default_constant``, ``samplers``, ``bed_gt``, ``backend``,
-                ``ground_truth_constants``); other keys are ignored.
+            settings: The ``bed`` section and ``evaluator.backend`` are used.
 
         Raises:
-            ValueError: If no target behavior can be built; ``ground_truth``, ``bed_gt``, ``y`` or
-                ``samplers`` do not fit ``X`` (wrong type, shape or count); or the target behavior
+            ValueError: If no target behavior can be built; ``ground_truth`` is not a token list
+                or ``Node``; ``bed_gt`` does not have one row per row of ``X``; ``y`` is not 1-D
+                with one value per row of ``X``; the number of ``samplers`` is not the number of
+                columns of ``X`` (when they are used); or the target behavior
                 comes from ``ground_truth`` and the ``ground_truth_constants`` specs do not fit it
                 (see [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
         """
@@ -386,25 +378,27 @@ class BEDRanking(RankingFunction):
             raise ValueError("Ground truth must be provided as a list of tokens or a Node object.")  # pyright: ignore[reportUnreachable]
 
         self.ground_truth = ground_truth
-        self.symbol_library = symbol_library
+        self.symbol_library = background_knowledge.symbol_library
         # All of BED's randomness (points, behaviour matrices, threshold) follows this one seed.
         self.seed = seed
-        settings = {**self.default_settings(), **{k: v for k, v in settings.items() if v is not None}}
-        self.num_consts_sampled = settings["num_consts_sampled"]
-        self.num_points_sampled = settings["num_points_sampled"]
-        self.constant_bounds = settings["constant_bounds"]
-        self.ground_truth_constants = settings.get("ground_truth_constants")
-        self.default_constant = settings.get("default_constant")
-        self.backend = settings["backend"]
-        samplers = settings.get("samplers", None)
+        self.num_consts_sampled = settings.bed.num_consts_sampled
+        self.num_points_sampled = settings.bed.num_points_sampled
+        self.ground_truth_constants = ground_truth_constants
+        self.default_constant = background_knowledge.default_constant
+        self.backend = settings.evaluator.backend
+        samplers = background_knowledge.samplers
 
         # The behaviour to compare against, in order: a precomputed bed_gt matrix, the ground-truth
         # expression, or the observed targets y (a deterministic behaviour).
-        bed_gt = settings.get("bed_gt", None)
+        bed_gt = settings.bed.bed_gt
         row_behavior: np.ndarray | None = None
         if bed_gt is not None:
-            row_behavior = np.asarray(bed_gt)
-            self._validate_bed_gt(row_behavior, X)
+            if bed_gt.shape[0] != X.shape[0]:
+                raise ValueError(
+                    f"bed_gt has {bed_gt.shape[0]} rows but X has {X.shape[0]} points; a precomputed "
+                    "behaviour matrix must be passed with the X it was computed on."
+                )
+            row_behavior = bed_gt
         elif ground_truth is not None:
             pass  # behaviour is computed from the expression below
         elif y is not None:
@@ -451,29 +445,12 @@ class BEDRanking(RankingFunction):
             ground_truth,
             self.bed_X,
             num_consts_sampled=self.num_consts_sampled,
-            consts_bounds=self.constant_bounds,
             symbol_library=self.symbol_library,
             seed=self.seed,
             backend=self.backend,
             free_constants=self.ground_truth_constants,
             default_constant=self.default_constant,
         )
-
-    def _validate_bed_gt(self, bed_gt: np.ndarray, X: np.ndarray) -> None:
-        if bed_gt.ndim != 2:
-            raise ValueError(f"bed_gt must be a 2-D behaviour matrix, got {bed_gt.ndim} dimension(s).")
-        if bed_gt.shape[0] != X.shape[0]:
-            raise ValueError(
-                f"bed_gt has {bed_gt.shape[0]} rows but X has {X.shape[0]} points; a precomputed "
-                "behaviour matrix must be passed with the X it was computed on."
-            )
-        # Candidates are sampled with num_consts_sampled columns, and the distance assumes both
-        # matrices have the same number, so a mismatch would silently give wrong values.
-        if bed_gt.shape[1] != self.num_consts_sampled:
-            raise ValueError(
-                f"bed_gt has {bed_gt.shape[1]} columns but num_consts_sampled is {self.num_consts_sampled}; "
-                "they must match."
-            )
 
     def _subsample_rows(self, n_rows: int) -> np.ndarray:
         # Subsample rows without replacement: each point contributes its own output distribution,
@@ -491,7 +468,6 @@ class BEDRanking(RankingFunction):
             self.gt_behavior,
             self.bed_X,
             num_consts_sampled=self.num_consts_sampled,
-            consts_bounds=self.constant_bounds,
             symbol_library=self.symbol_library,
             seed=self.seed,
             backend=self.backend,
@@ -518,7 +494,6 @@ class BEDRanking(RankingFunction):
                 self.gt_behavior,
                 self.bed_X,
                 num_consts_sampled=self.num_consts_sampled,
-                consts_bounds=self.constant_bounds,
                 symbol_library=self.symbol_library,
                 seed=None if s is None else int(s),
                 backend=self.backend,

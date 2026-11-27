@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 import math
@@ -45,6 +46,7 @@ from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_t
 from SRToolkit.utils.free_constants import Constant, canonicalise, resolve_constants, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
 from SRToolkit.utils.measures import bed, create_behavior_matrix
+from SRToolkit.utils.settings import Settings, SettingsSection
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import CheckResult, EvalResult
 
@@ -102,17 +104,42 @@ class TestSREvaluatorInitRmse:
         assert se.X is _X
         assert se.y is _y
         assert se.seed == 7
+        assert se.settings == Settings()  # settings=None: the defaults
+
+    # Reason: clause (Raises TypeError if "settings is not a Settings"): a dict of sections and a bare
+    # section are the likely mistakes.
+    @pytest.mark.parametrize(
+        "given",
+        [{"evaluator": {"simplify_expr": True}}, Settings().evaluator],
+        ids=["dict", "section"],
+    )
+    def test_settings_must_be_a_settings_object(self, given):
+        with pytest.raises(TypeError, match="settings must be a Settings"):
+            SR_evaluator(_X, _y, settings=given)
+
+    # Reason: clause (setup gets ground_truth_constants, the background knowledge with the complete
+    # default_constant, and the run's whole Settings; se.ground_truth_constants keeps what was passed).
+    def test_ranking_setup_gets_task_facts_and_settings(self):
+        specs = [Constant("C_0", value=1.0, fixed=True)]
+        settings = Settings(estimation={"max_iter": 3})
+        ranking = _SetupRecordingRanking()
+        se = SR_evaluator(_X, _y, ranking_function=ranking, ground_truth_constants=specs, settings=settings, seed=0)
+        assert ranking.ground_truth_constants is specs
+        assert ranking.background_knowledge is se.background_knowledge
+        assert ranking.settings is settings
+        assert se.settings is settings
+        assert se.ground_truth_constants is specs
 
     def test_stores_arguments_and_seeds_global_rng(self):
         # "If given, the constructor also calls np.random.seed(seed)": the next global draw is the
         # first draw after np.random.seed(3).
         ground_truth = ["C", "*", "X_1", "-", "X_0"]
-        se = SR_evaluator(_X, _y, seed=3, ground_truth=ground_truth, max_constants=3)
+        se = SR_evaluator(_X, _y, seed=3, ground_truth=ground_truth, settings=Settings(evaluator={"max_constants": 3}))
         drawn = np.random.random()
         np.random.seed(3)
         assert drawn == np.random.random()
         assert se.ground_truth is ground_truth
-        assert se.kwargs == {"max_constants": 3}
+        assert se.settings == Settings(evaluator={"max_constants": 3})
 
     def test_default_symbol_library(self):
         se = _make_se()
@@ -151,7 +178,13 @@ class TestSREvaluatorInitRmse:
         assert se.ranking_function == "rmse"
 
     def test_num_points_sampled_minus_one_uses_x_row_count(self):
-        se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0, num_points_sampled=-1)
+        se = SR_evaluator(
+            _X_BED,
+            ground_truth=["C", "+", "X_0"],
+            ranking_function="bed",
+            seed=0,
+            settings=Settings(bed={"num_points_sampled": -1}),
+        )
         assert se.ranking.bed_X.shape[0] == _X_BED.shape[0]
 
     def test_no_callbacks_by_default(self):
@@ -181,28 +214,29 @@ class TestSREvaluatorInitBed:
                 ground_truth=gt,
                 ranking_function="bed",
                 seed=0,
-                num_points_sampled=_X_BED.shape[0],
-                num_consts_sampled=4,
+                settings=Settings(bed={"num_points_sampled": _X_BED.shape[0], "num_consts_sampled": 4}),
             )
 
     def test_bed_invalid_ground_truth_type_raises(self):
         with pytest.raises(ValueError):
             SR_evaluator(_X_BED, ground_truth="not_valid", ranking_function="bed", seed=0)
 
+    # Reason: clause (BED draws its points from the samplers). U(2, 3) lies outside the rows of X (all in
+    # [-0.5, 0.5)), so the points cannot be a subsample of X.
     def test_bed_samplers_generate_bed_X(self):
-        samplers = [UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)]
+        samplers = [UniformSampling(2.0, 3.0), UniformSampling(2.0, 3.0)]
         se = SR_evaluator(
             _X_BED,
             symbol_library=_LIB_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
             samplers=samplers,
-            num_points_sampled=15,
             seed=0,
+            settings=Settings(bed={"num_points_sampled": 15}),
         )
         bed_X = se.ranking.bed_X
         assert bed_X.shape == (15, _X_BED.shape[1])
-        assert np.all(np.abs(bed_X) <= 1.0)
+        assert np.all((bed_X >= 2.0) & (bed_X < 3.0))
 
     def test_bed_samplers_seeded_reproducible(self):
         def build():
@@ -212,8 +246,8 @@ class TestSREvaluatorInitBed:
                 ground_truth=["C", "+", "X_0"],
                 ranking_function="bed",
                 samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
-                num_points_sampled=15,
                 seed=7,
+                settings=Settings(bed={"num_points_sampled": 15}),
             )
 
         assert np.array_equal(build().ranking.bed_X, build().ranking.bed_X)
@@ -225,8 +259,8 @@ class TestSREvaluatorInitBed:
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
             samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
-            num_points_sampled=-1,
             seed=0,
+            settings=Settings(bed={"num_points_sampled": -1}),
         )
         np.testing.assert_array_equal(se.ranking.bed_X, _X_BED)
 
@@ -236,7 +270,7 @@ class TestSREvaluatorInitBed:
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
             seed=0,
-            num_points_sampled=10,
+            settings=Settings(bed={"num_points_sampled": 10}),
         )
         bed_X = se.ranking.bed_X
         assert bed_X.shape == (10, _X_BED.shape[1])
@@ -251,7 +285,7 @@ class TestSREvaluatorInitBed:
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
             seed=0,
-            num_points_sampled=-1,
+            settings=Settings(bed={"num_points_sampled": -1}),
         )
         assert se.ranking.bed_X.shape == _X_BED.shape
 
@@ -262,28 +296,23 @@ class TestSREvaluatorInitBed:
             points,
             ground_truth=["X_0", "+", "C"],
             ranking_function="bed",
-            bed_gt=gt,
-            num_consts_sampled=4,
             seed=0,
+            settings=Settings(bed={"bed_gt": gt, "num_consts_sampled": 4}),
         )
         np.testing.assert_array_equal(se.ranking.gt_behavior, gt)
 
     def test_bed_gt_subsampled_jointly_with_X(self):
         # The matrix is tied to the rows of X, so subsampling keeps the same rows of both.
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(_X_BED, ranking_function="bed", bed_gt=gt, num_consts_sampled=4, num_points_sampled=5, seed=0)
+        se = SR_evaluator(
+            _X_BED,
+            ranking_function="bed",
+            seed=0,
+            settings=Settings(bed={"bed_gt": gt, "num_consts_sampled": 4, "num_points_sampled": 5}),
+        )
         assert se.ranking.bed_X.shape == (5, _X_BED.shape[1])
         rows = [int(np.flatnonzero((_X_BED == row).all(axis=1))[0]) for row in se.ranking.bed_X]
         np.testing.assert_array_equal(se.ranking.gt_behavior, gt[rows])
-
-    def test_bed_gt_column_mismatch_rejected(self):
-        gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        with pytest.raises(ValueError, match="4 columns but num_consts_sampled is 32"):
-            SR_evaluator(_X_BED, ranking_function="bed", bed_gt=gt, seed=0)
-
-    def test_bed_gt_one_dimensional_rejected(self):
-        with pytest.raises(ValueError, match="2-D behaviour matrix"):
-            SR_evaluator(_X_BED, ranking_function="bed", bed_gt=np.zeros(_X_BED.shape[0]), seed=0)
 
     def test_bed_gt_with_samplers_ignored(self):
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
@@ -293,10 +322,9 @@ class TestSREvaluatorInitBed:
                 _X_BED,
                 symbol_library=_LIB_BED,
                 ranking_function="bed",
-                bed_gt=gt,
-                num_consts_sampled=4,
                 samplers=[UniformSampling(0.0, 1.0), UniformSampling(0.0, 1.0)],
                 seed=0,
+                settings=Settings(bed={"bed_gt": gt, "num_consts_sampled": 4}),
             )
         np.testing.assert_array_equal(se.ranking.bed_X, _X_BED)
 
@@ -307,8 +335,8 @@ class TestSREvaluatorInitBed:
                 _X_BED[:8],
                 ground_truth=["X_0", "+", "C"],
                 ranking_function="bed",
-                bed_gt=gt,
                 seed=0,
+                settings=Settings(bed={"bed_gt": gt, "num_consts_sampled": 4}),
             )
 
     def test_bed_gt_without_ground_truth_works(self):
@@ -317,10 +345,9 @@ class TestSREvaluatorInitBed:
         se = SR_evaluator(
             points,
             ranking_function="bed",
-            bed_gt=gt,
-            num_consts_sampled=4,
             success_threshold=-1,
             seed=0,
+            settings=Settings(bed={"bed_gt": gt, "num_consts_sampled": 4}),
         )
         assert se.ranking.ground_truth is None
         np.testing.assert_array_equal(se.ranking.gt_behavior, gt)
@@ -333,10 +360,9 @@ class TestSREvaluatorInitBed:
         se = SR_evaluator(
             points,
             ranking_function="bed",
-            bed_gt=gt,
-            num_consts_sampled=4,
             success_threshold=None,
             seed=0,
+            settings=Settings(bed={"bed_gt": gt, "num_consts_sampled": 4}),
         )
         assert se.success_threshold is None
 
@@ -369,19 +395,40 @@ class TestSREvaluatorInitBed:
 
     def test_bed_y_used_as_deterministic_behavior(self):
         y = _X_BED[:, 0]
-        se = SR_evaluator(_X_BED, y, ranking_function="bed", num_points_sampled=-1, success_threshold=-1, seed=0)
+        se = SR_evaluator(
+            _X_BED,
+            y,
+            ranking_function="bed",
+            success_threshold=-1,
+            seed=0,
+            settings=Settings(bed={"num_points_sampled": -1}),
+        )
         np.testing.assert_array_equal(se.ranking.gt_behavior, np.repeat(y[:, None], 32, axis=1))
         assert se.evaluate_expr(["X_0"]).error == 0.0
         assert se.evaluate_expr(["X_1"]).error > 0.0
 
     def test_bed_y_subsampled_jointly_with_X(self):
         y = _X_BED[:, 0] * 2.0
-        se = SR_evaluator(_X_BED, y, ranking_function="bed", num_points_sampled=6, success_threshold=-1, seed=0)
+        se = SR_evaluator(
+            _X_BED,
+            y,
+            ranking_function="bed",
+            success_threshold=-1,
+            seed=0,
+            settings=Settings(bed={"num_points_sampled": 6}),
+        )
         np.testing.assert_allclose(se.ranking.gt_behavior[:, 0], se.ranking.bed_X[:, 0] * 2.0)
 
     def test_bed_ground_truth_takes_precedence_over_y(self):
         y = np.zeros(_X_BED.shape[0])
-        se = SR_evaluator(_X_BED, y, ground_truth=["X_0"], ranking_function="bed", num_points_sampled=-1, seed=0)
+        se = SR_evaluator(
+            _X_BED,
+            y,
+            ground_truth=["X_0"],
+            ranking_function="bed",
+            seed=0,
+            settings=Settings(bed={"num_points_sampled": -1}),
+        )
         np.testing.assert_array_equal(se.ranking.gt_behavior[:, 0], _X_BED[:, 0])
 
     def test_bed_y_with_samplers_ignored(self):
@@ -414,12 +461,15 @@ class TestSREvaluatorInitBed:
 
     @pytest.mark.parametrize(
         "settings, expected",
-        [({"ranking_seed": 5}, 5), ({"ranking_seed": None}, 1), ({}, 1)],
-        ids=["ranking-seed", "ranking-seed-none", "no-ranking-seed"],
+        [
+            (Settings(evaluator={"ranking_seed": 5}), 5),
+            (Settings(), 1),
+        ],
+        ids=["ranking-seed", "no-ranking-seed"],
     )
     def test_ranking_setup_gets_ranking_seed_else_evaluator_seed(self, settings, expected):
         # Custom rankings get the per-dataset seed without reading ranking_seed themselves.
-        se = SR_evaluator(_X, _y, ranking_function=_SeedRecordingRanking(), seed=1, **settings)
+        se = SR_evaluator(_X, _y, ranking_function=_SeedRecordingRanking(), seed=1, settings=settings)
         assert se.ranking.seed == expected
 
     def test_bed_ranking_seed_overrides_evaluator_seed(self):
@@ -428,10 +478,9 @@ class TestSREvaluatorInitBed:
                 _X_BED,
                 ground_truth=["C", "+", "X_0"],
                 ranking_function="bed",
-                num_points_sampled=10,
                 success_threshold=-1,
                 seed=seed,
-                ranking_seed=5,
+                settings=Settings(bed={"num_points_sampled": 10}, evaluator={"ranking_seed": 5}),
             )
 
         a, b = build(1), build(2)
@@ -687,7 +736,7 @@ class TestEvaluateExprRmse:
     # canonicalise_constants a relabelled cache hit returns the stored canonical model (a label used
     # once is written bare), not the input labels.
     def test_canonicalised_cache_hit_returns_the_stored_form(self):
-        se = _make_se(canonicalise_constants=True)
+        se = _make_se(settings=Settings(evaluator={"canonicalise_constants": True}))
         se.evaluate_expr(["C_4", "*", "X_1", "-", "X_0"])
         returned = se.evaluate_expr(["C_1", "*", "X_1", "-", "X_0"])
         assert se.trace == [0, 0]
@@ -803,7 +852,7 @@ class TestEvaluateExprRmse:
     # Reason: clause (RankingSettings simplify_expr: "inputs that simplify alike share one cache
     # entry"): X_0*X_1/X_0 simplifies to X_1, so C+X_1 is a cache hit.
     def test_inputs_that_simplify_alike_share_one_model(self):
-        se = _make_se(simplify_expr=True)
+        se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
         se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"])
         se.evaluate_expr(["C", "+", "X_1"])
         assert (len(se.models), se.trace) == (1, [0, 0])
@@ -816,12 +865,23 @@ class TestEvaluateExprRmse:
         ids=["tokens", "node"],
     )
     def test_simplify_failure_warns_and_uses_the_input(self, make_expr):
-        se, plain = _make_se(simplify_expr=True), _make_se()
+        se, plain = _make_se(settings=Settings(evaluator={"simplify_expr": True})), _make_se()
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
                 model = se.evaluate_expr(make_expr(se.symbol_library))
         expected = plain.evaluate_expr(["C", "*", "X_0"])
         assert (model.expr, model.error) == (["C", "*", "X_0"], expected.error)
+
+    # Reason: clause (evaluate_expr: with evaluator.simplify_expr "a malformed one is 'invalid' without a
+    # warning"; former doctest).
+    def test_malformed_expression_with_simplify_is_invalid_without_warning(self):
+        X = np.array([[0, 1], [0, 2], [0, 3]])
+        settings = Settings(evaluator={"simplify_expr": True})
+        se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1, settings=settings)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            model = se.evaluate_expr(["C", "*", "X_1", "X_0"])
+        assert (model.error, model.status) == (np.inf, "invalid")
 
     def test_node_input_accepted(self):
         se = _make_se()
@@ -968,8 +1028,22 @@ class _SeedRecordingRanking(RankingFunction):
 
     name = "seed_recording"
 
-    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.seed = seed
+
+    def score(self, expr, free_constants=None):
+        return RankingResult(score=0.0)
+
+
+class _SetupRecordingRanking(RankingFunction):
+    """Records the task facts and settings its setup receives; scores every expression 0."""
+
+    name = "setup_recording"
+
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+        self.ground_truth_constants = ground_truth_constants
+        self.background_knowledge = background_knowledge
+        self.settings = settings
 
     def score(self, expr, free_constants=None):
         return RankingResult(score=0.0)
@@ -990,7 +1064,7 @@ class _FixedRanking(RankingFunction):
     def __init__(self, outcome):
         self.outcome = outcome
 
-    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         pass
 
     def score(self, expr, free_constants=None):
@@ -1019,7 +1093,7 @@ class TestEvaluationStatus:
     @pytest.mark.parametrize("ranking", ["rmse", "bed"])
     def test_classification(self, backend, ranking):
         if ranking == "rmse":
-            se = _make_se(backend=backend)
+            se = _make_se(settings=Settings(evaluator={"backend": backend}))
         else:
             se = SR_evaluator(
                 _X_BED, ground_truth=["C", "*", "X_0"], ranking_function="bed", seed=0, success_threshold=-1
@@ -1046,7 +1120,7 @@ class TestEvaluationStatus:
         assert details[2] == "rmse score is inf"
 
     def test_max_expr_length_rejects(self):
-        se = _make_se(max_expr_length=3)
+        se = _make_se(settings=Settings(evaluator={"max_expr_length": 3}))
         assert se.evaluate_expr(["X_0", "+", "X_1", "+", "X_0"]).error == np.inf
         assert se.models[0].status == "rejected"
         assert se.models[0].status_detail == "MaxTokens: 5 tokens, limit 3"
@@ -1059,7 +1133,7 @@ class TestEvaluationStatus:
             ranking_function="bed",
             seed=0,
             success_threshold=-1,
-            max_constants=1,
+            settings=Settings(evaluator={"max_constants": 1}),
         )
         se.evaluate_expr(["C", "*", "X_0", "+", "C"])
         assert se.models[0].status == "rejected"
@@ -1239,6 +1313,13 @@ class TestEvaluateExprBed:
         err_other = self.se.evaluate_expr(["C", "+", "X_1"]).error
         assert err_match < err_other
 
+    # Reason: clause (former doctest: "BED is stochastic and scaled by the ground truth's output, so an
+    # exact match may still have a small positive error"; the bound 0.2 is the documented one).
+    def test_bed_exact_match_has_small_error(self):
+        X = np.random.default_rng(1).random((10, 2)) - 0.5
+        se = SR_evaluator(X, ground_truth=["X_0", "+", "C"], ranking_function="bed", seed=42)
+        assert 0 <= se.evaluate_expr(["C", "+", "X_0"]).error < 0.2
+
     def test_bed_invalid_expression_returns_inf_and_appends_invalid(self):
         result = self.se.evaluate_expr(["C", "*", "X_1", "X_0"]).error
         assert result == np.inf
@@ -1337,6 +1418,20 @@ class TestGetMetric:
         se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0)
         se.evaluate_expr(["C", "+", "X_0"])
         assert np.isnan(se.get_metric(["C", "+", "X_0"], "r2"))
+
+    # Reason: clause (Returns: NaN "if the ranking is not rmse"), also when y is given and the model has
+    # no constants to fit, so the metric itself could be computed.
+    def test_bed_with_y_returns_nan(self):
+        se = SR_evaluator(_X, _y, ranking_function="bed", seed=0, settings=Settings(bed={"num_points_sampled": -1}))
+        se.evaluate_expr(["X_1", "-", "X_0"])
+        assert np.isnan(se.get_metric(["X_1", "-", "X_0"], "r2"))
+
+    # Reason: clause (Returns: NaN "if y was not given to the evaluator (e.g. RMSE generated it from the
+    # ground truth)"). The model fits the generated y exactly, so only the missing y gives NaN.
+    def test_generated_y_returns_nan(self):
+        se = SR_evaluator(_X, ground_truth=["X_1", "-", "X_0"], seed=0)
+        assert se.evaluate_expr(["X_1", "-", "X_0"]).error < 1e-12
+        assert np.isnan(se.get_metric(["X_1", "-", "X_0"], "r2"))
 
     def test_constant_free_expression(self):
         se = _make_se()
@@ -1483,7 +1578,7 @@ class _CountingRanking(RankingFunction):
     def __init__(self):
         self.calls = 0
 
-    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         pass
 
     def score(self, expr, free_constants=None):
@@ -1556,21 +1651,36 @@ class TestConstraintSetup:
         "make_kwargs, expected",
         [
             (lambda: {}, [("MaxConstants", 8)]),
-            (lambda: {"max_constants": 3, "max_expr_length": 20}, [("MaxConstants", 3), ("MaxTokens", 20)]),
-            (lambda: {"max_constants": -1}, []),
-            (lambda: {"max_constants": -1, "max_expr_length": 0}, [("MaxTokens", 0)]),
-            (lambda: {"max_constants": np.int64(2)}, [("MaxConstants", 2)]),
+            (
+                lambda: {"settings": Settings(evaluator={"max_constants": 3, "max_expr_length": 20})},
+                [("MaxConstants", 3), ("MaxTokens", 20)],
+            ),
+            (lambda: {"settings": Settings(evaluator={"max_constants": -1})}, []),
+            (lambda: {"settings": Settings(evaluator={"max_constants": -1, "max_expr_length": 0})}, [("MaxTokens", 0)]),
+            (lambda: {"settings": Settings(evaluator={"max_constants": np.int64(2)})}, [("MaxConstants", 2)]),
             (lambda: {"required_constraints": []}, [("MaxConstants", 8)]),
             (
-                lambda: {"required_constraints": [MaxTreeDepth(4)], "max_expr_length": 5},
+                lambda: {
+                    "required_constraints": [MaxTreeDepth(4)],
+                    "settings": Settings(evaluator={"max_expr_length": 5}),
+                },
                 [("MaxConstants", 8), ("MaxTokens", 5), ("MaxTreeDepth", 4)],
             ),
             (lambda: {"required_constraints": [MaxConstants(2)]}, [("MaxConstants", 2)]),
-            (lambda: {"required_constraints": [MaxConstants(2)], "max_constants": 2}, [("MaxConstants", 2)]),
+            (
+                lambda: {
+                    "required_constraints": [MaxConstants(2)],
+                    "settings": Settings(evaluator={"max_constants": 2}),
+                },
+                [("MaxConstants", 2)],
+            ),
             (lambda: {"required_constraints": None}, [("MaxConstants", 8)]),
             (lambda: {"required_constraints": [MaxTokens(4)]}, [("MaxConstants", 8), ("MaxTokens", 4)]),
             (
-                lambda: {"required_constraints": [MaxTokens(0)], "max_expr_length": 0},
+                lambda: {
+                    "required_constraints": [MaxTokens(0)],
+                    "settings": Settings(evaluator={"max_expr_length": 0}),
+                },
                 [("MaxConstants", 8), ("MaxTokens", 0)],
             ),
         ],
@@ -1628,14 +1738,27 @@ class TestConstraintSetup:
             (lambda: {"advisory_constraints": [MaxNodes(3)]}, TypeError, "MaxNodes"),
             (lambda: {"required_constraints": MaxTokens(3)}, TypeError, "MaxTokens"),
             (lambda: {"required_constraints": "MaxTokens"}, TypeError, "M"),
-            (lambda: {"required_constraints": [MaxDepth(3)], "max_constants": 3}, TypeError, "MaxDepth"),
-            (lambda: {"required_constraints": [MaxConstants(2)], "max_constants": 3}, ValueError, "max_constants"),
-            (lambda: {"required_constraints": [MaxTokens(4)], "max_expr_length": 5}, ValueError, "max_expr_length"),
-            (lambda: {"required_constraints": [MaxConstants(3)], "max_constants": 8}, ValueError, "max_constants"),
-            (lambda: {"max_constants": True}, ValueError, "max_constants"),
-            (lambda: {"max_constants": 2.0}, ValueError, "max_constants"),
-            (lambda: {"max_constants": None}, ValueError, "max_constants"),
-            (lambda: {"max_expr_length": "5"}, ValueError, "max_expr_length"),
+            (
+                lambda: {"required_constraints": [MaxDepth(3)], "settings": Settings(evaluator={"max_constants": 3})},
+                TypeError,
+                "MaxDepth",
+            ),
+            (
+                lambda: {
+                    "required_constraints": [MaxConstants(2)],
+                    "settings": Settings(evaluator={"max_constants": 3}),
+                },
+                ValueError,
+                "max_constants",
+            ),
+            (
+                lambda: {
+                    "required_constraints": [MaxTokens(4)],
+                    "settings": Settings(evaluator={"max_expr_length": 5}),
+                },
+                ValueError,
+                "max_expr_length",
+            ),
             (lambda: {"required_constraints": [OutputBounds(np.zeros((1, 3)), lower=0.0)]}, ValueError, "3"),
             (lambda: {"advisory_constraints": [RequiredVariables(["X0"])]}, ValueError, "X0"),
         ],
@@ -1647,11 +1770,6 @@ class TestConstraintSetup:
             "type-checked-before-values",
             "max_constants-disagrees-with-list",
             "max_expr_length-disagrees-with-list",
-            "explicit-default-max_constants-disagrees",
-            "bool-limit",
-            "float-limit",
-            "none-limit",
-            "str-limit",
             "setup-error-propagates",
             "advisory-setup-error-propagates",
         ],
@@ -1666,18 +1784,25 @@ class TestConstraintSetup:
         [
             ({}, lambda: None, [("MaxConstants", 8)]),
             (
-                {"max_constants": 3, "max_expr_length": 20},
+                {"settings": Settings(evaluator={"max_constants": 3, "max_expr_length": 20})},
                 lambda: [MaxTreeDepth(4)],
                 [("MaxConstants", 3), ("MaxTokens", 20), ("MaxTreeDepth", 4)],
             ),
             (
                 # A negative setting adds no limit and does not clash with a listed one.
-                {"max_constants": -1, "max_expr_length": -1},
+                {"settings": Settings(evaluator={"max_constants": -1, "max_expr_length": -1})},
                 lambda: [MaxConstants(3), MaxTokens(4)],
                 [("MaxConstants", 3), ("MaxTokens", 4)],
             ),
+            (
+                # Regression/clause: a limit written at its default (8) counts as not given, so it does
+                # not clash with a listed MaxConstants of another limit (it used to raise).
+                {"settings": Settings(evaluator={"max_constants": 8})},
+                lambda: [MaxConstants(3)],
+                [("MaxConstants", 3)],
+            ),
         ],
-        ids=["default-settings", "given-settings", "negative-settings-keep-listed"],
+        ids=["default-settings", "given-settings", "negative-settings-keep-listed", "default-written-keeps-listed"],
     )
     def test_required_constraints_round_trip_with_same_settings(self, settings, make_list, expected):
         first = _make_se(symbol_library=_LIB2(), required_constraints=make_list(), **settings)
@@ -1688,8 +1813,8 @@ class TestConstraintSetup:
     @pytest.mark.parametrize(
         "make_kwargs",
         [
-            lambda: {"max_constants": 12},
-            lambda: {"max_constants": -1},
+            lambda: {"settings": Settings(evaluator={"max_constants": 12})},
+            lambda: {"settings": Settings(evaluator={"max_constants": -1})},
             lambda: {"required_constraints": [MaxConstants(12)]},
         ],
         ids=["max_constants-12", "max_constants-disabled", "explicit-MaxConstants-12"],
@@ -1757,7 +1882,12 @@ class TestCheckConstraints:
     @pytest.mark.parametrize(
         "make_kwargs, expr, error, match",
         [
-            (lambda: {"max_constants": -1}, ["X_0", "X_0"], ExpressionParseError, None),
+            (
+                lambda: {"settings": Settings(evaluator={"max_constants": -1})},
+                ["X_0", "X_0"],
+                ExpressionParseError,
+                None,
+            ),
             (lambda: {"required_constraints": [MaxTokens(10)]}, ["X_0", "X_0"], ExpressionParseError, None),
             (lambda: {}, "X_0", TypeError, "str"),
         ],
@@ -1776,7 +1906,7 @@ class TestCheckConstraints:
             symbol_library=_LIB1(),
             required_constraints=[_Boom(), MaxTokens(0)],
             advisory_constraints=[_Boom()],
-            max_constants=-1,
+            settings=Settings(evaluator={"max_constants": -1}),
         )
         with pytest.warns(UserWarning, match=r"_Boom\.pre_check raised RuntimeError: boom") as record:
             required, advisory = se.check_constraints(["X_0"])
@@ -1816,7 +1946,7 @@ class TestCheckConstraints:
             ranking_function=_FixedRanking(RankingResult(score=0.0)),
             success_threshold=-1,
             required_constraints=[MaxConstants(1)],
-            fold_constants=fold,
+            settings=Settings(evaluator={"fold_constants": fold}),
         )
         expr = ["C", "*", "C", "*", "X_0"]
         required, _ = se.check_constraints(expr)
@@ -1839,7 +1969,7 @@ class TestCheckConstraints:
             ranking_function=_FixedRanking(RankingResult(score=0.0)),
             success_threshold=-1,
             required_constraints=[MaxConstants(1)],
-            fold_constants="keep",
+            settings=Settings(evaluator={"fold_constants": "keep"}),
         )
         expr = ["C_0", "*", "C", "*", "X_0"]
         required, _ = se.check_constraints(expr, specs)
@@ -1989,7 +2119,7 @@ class TestConstraintEvaluation:
             symbol_library=_LIB2(),
             required_constraints=[required],
             advisory_constraints=[advisory],
-            simplify_expr=simplify,
+            settings=Settings(evaluator={"simplify_expr": simplify}),
         )
         se.evaluate_expr(make_expr(se.symbol_library))
         model = se.models[0]
@@ -2154,9 +2284,8 @@ class TestBackgroundKnowledge:
         with pytest.raises(ValueError, match=match):
             SR_evaluator(_X, _y, symbol_library=_lib_pmc(), **kwargs)
 
-    # Reason: clause (default_constant setting -> background knowledge -> evaluator.default_constant,
-    # completed from constant_bounds -> the ranking's default_constant setting -> EvalResult.default_constant;
-    # kwargs keep what was passed). y = 50 x: C reaches 50 only under the default's bounds (0, inf);
+    # Reason: clause (default_constant -> background knowledge -> evaluator.default_constant, completed
+    # from constant_bounds -> the ranking -> EvalResult.default_constant). y = 50 x: C reaches 50 only under the default's bounds (0, inf);
     # under the uniform default on (-2, 3) the RMSE would be at least 47 * rms(x).
     def test_default_constant_setting_reaches_fit_and_results(self):
         X = np.array([[1.0], [2.0], [3.0], [4.0]])
@@ -2174,12 +2303,16 @@ class TestBackgroundKnowledge:
         assert se.default_constant.to_dict() == expected
         assert se.background_knowledge.default_constant.to_dict() == expected
         assert se.get_results()[0].default_constant.to_dict() == expected
-        assert se.kwargs["default_constant"] is template
 
     def test_describe_lists_settings_limits_as_enforced(self):
         lib = _lib_pmc()
         se = SR_evaluator(
-            _X, _y, symbol_library=lib, required_constraints=[MaxTreeDepth(3)], max_expr_length=10, **_task_parts()
+            _X,
+            _y,
+            symbol_library=lib,
+            required_constraints=[MaxTreeDepth(3)],
+            **_task_parts(),
+            settings=Settings(evaluator={"max_expr_length": 10}),
         )
         expected = _bk_from_parts(lib, **_task_parts())
         assert se.describe() == expected.describe([MaxConstants(8), MaxTokens(10), MaxTreeDepth(3)])
@@ -2228,10 +2361,17 @@ class TestGetModel:
     # Reason: clause (get_model, get_metric and stored_tokens use the stored form of evaluate_expr:
     # with simplify_expr, the input and its simplified form both find the model, with the
     # evaluator's simplify_* settings).
-    @pytest.mark.parametrize("settings, stored", [({}, ["X_1"]), ({"simplify_max_iterations": 0}, None)])
+    @pytest.mark.parametrize(
+        "settings, stored", [({}, ["X_1"]), ({"settings": Settings(evaluator={"simplify_max_iterations": 0})}, None)]
+    )
     def test_lookups_with_simplify_expr_match_evaluate_expr(self, settings, stored):
         expr = ["X_0", "*", "X_1", "/", "X_0"]
-        se = SR_evaluator(_X, _y, symbol_library=_LIB2(), simplify_expr=True, **settings)
+        se = SR_evaluator(
+            _X,
+            _y,
+            symbol_library=_LIB2(),
+            settings=settings.get("settings", Settings()).replace(evaluator={"simplify_expr": True}),
+        )
         se.evaluate_expr(expr)
         stored_expr = se.models[0].expr
         if stored is not None:
@@ -2272,7 +2412,7 @@ class _RecordingRanking(RankingFunction):
 
     name = "recording"
 
-    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.received = []
 
     def score(self, expr, free_constants=None):
@@ -2360,7 +2500,11 @@ class TestFreeConstants:
             ({}, lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
             ({}, lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0), _fix("C_0", 2.0)]), "C_0"),
             ({}, lambda se: se.evaluate_expr(_E, [Constant(value=1.0, fixed=True)]), "label"),
-            ({"simplify_expr": True}, lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
+            (
+                {"settings": Settings(evaluator={"simplify_expr": True})},
+                lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]),
+                "C_9",
+            ),
             ({}, lambda se: se.check_constraints(_E, [_fix("C_9", 1.0)]), "C_9"),
         ],
         ids=["unknown-label", "duplicate-label", "no-label", "simplify", "check_constraints"],
@@ -2386,7 +2530,7 @@ class TestFreeConstants:
             symbol_library=SymbolLibrary.default_symbols(1, const_symbol="K"),
             seed=0,
             success_threshold=-1,
-            simplify_expr=simplify_expr,
+            settings=Settings(evaluator={"simplify_expr": simplify_expr}),
         )
         expr = ["K_0", "*", "X_0"]
         assert se.check_constraints(expr, [_fix("K_0", 1.0)]) == ([], [])
@@ -2429,7 +2573,7 @@ class TestFreeConstants:
             seed=0,
             success_threshold=-1,
             constant_bounds=(-2.0, 4.0),
-            num_points_sampled=-1,
+            settings=Settings(bed={"num_points_sampled": -1}),
         )
         expr = ["X_0", "+", "C_0", "+", "(", "C_1", "-", "C_1", ")"]
         spec = _fix("C_0", 3.0)
@@ -2456,66 +2600,38 @@ class TestFreeConstants:
 
 
 class TestSimplifySettings:
-    # Reason: clause (RankingSettings simplify_*: rules a SimplificationRules or None; limits
-    # non-negative ints; max_time a positive number or None; settled: wrong rules -> TypeError, bad
-    # limits -> ValueError; "validated even when simplify_expr is False", its default here) + clause
-    # (simplify_expr and canonicalise_constants: "A Python bool; SR_evaluator raises TypeError
-    # otherwise", so np.bool_ too). The message names the setting.
-    @pytest.mark.parametrize(
-        "settings, error",
-        [
-            ({"simplify_rules": ["powers"]}, TypeError),
-            ({"simplify_rules": DefaultRules}, TypeError),
-            ({"simplify_max_iterations": -1}, ValueError),
-            ({"simplify_max_iterations": 2.5}, ValueError),
-            ({"simplify_max_iterations": True}, ValueError),
-            ({"simplify_max_nodes": -1}, ValueError),
-            ({"simplify_max_nodes": 10.0}, ValueError),
-            ({"simplify_max_nodes": False}, ValueError),
-            ({"simplify_max_time": 0}, ValueError),
-            ({"simplify_max_time": -1.0}, ValueError),
-            ({"simplify_max_time": True}, ValueError),
-            ({"simplify_max_time": "1"}, ValueError),
-            ({"simplify_max_time": float("nan")}, ValueError),
-            ({"simplify_fold_aware": 1}, TypeError),
-            ({"fold_constants": "all"}, ValueError),
-            ({"fold_constants": ""}, ValueError),
-            ({"simplify_expr": 1}, TypeError),
-            ({"canonicalise_constants": "yes"}, TypeError),
-            ({"simplify_expr": np.bool_(True)}, TypeError),
-            ({"canonicalise_constants": np.bool_(False)}, TypeError),
-        ],
-        ids=[
-            "rules-list", "rules-class", "iter-negative", "iter-float", "iter-bool", "nodes-negative",
-            "nodes-float", "nodes-bool", "time-zero", "time-negative", "time-bool", "time-string", "time-nan",
-            "fold-aware-int", "fold-unknown", "fold-empty", "simplify-int", "canonicalise-string",
-            "simplify-np-bool", "canonicalise-np-bool",
-        ],
-    )  # fmt: skip
-    def test_invalid_simplify_settings_raise(self, settings, error):
-        with pytest.raises(error, match=f"^{next(iter(settings))}"):
-            _make_se(**settings)
-
     # Reason: clause (RankingSettings simplify_expr: simplified "with the simplify_* settings") + boundary (limits 0 and max_time None, and an int max_time, are accepted;
     # settled: max_iterations=0 returns the input as the same tree).
     @pytest.mark.parametrize(
         "settings, expr, expected",
         [
-            ({"simplify_rules": DefaultRules(exclude=["powers"])}, ["X_0", "*", "X_0"], ["X_0", "*", "X_0"]),
-            ({"simplify_max_iterations": 0}, ["X_0", "*", "X_0", "/", "X_0"], ["X_0", "*", "X_0", "/", "X_0"]),
             (
-                {"simplify_max_iterations": 0, "simplify_max_nodes": 0, "simplify_max_time": None},
+                {"settings": Settings(evaluator={"simplify_rules": DefaultRules(exclude=["powers"])})},
+                ["X_0", "*", "X_0"],
+                ["X_0", "*", "X_0"],
+            ),
+            (
+                {"settings": Settings(evaluator={"simplify_max_iterations": 0})},
                 ["X_0", "*", "X_0", "/", "X_0"],
                 ["X_0", "*", "X_0", "/", "X_0"],
             ),
-            ({"simplify_max_time": 10}, ["X_0", "*", "X_0", "/", "X_0"], ["X_0"]),
+            (
+                {
+                    "settings": Settings(
+                        evaluator={"simplify_max_iterations": 0, "simplify_max_nodes": 0, "simplify_max_time": None}
+                    )
+                },
+                ["X_0", "*", "X_0", "/", "X_0"],
+                ["X_0", "*", "X_0", "/", "X_0"],
+            ),
+            ({"settings": Settings(evaluator={"simplify_max_time": 10})}, ["X_0", "*", "X_0", "/", "X_0"], ["X_0"]),
         ],
         ids=["exclude-powers", "no-steps", "zero-limits", "int-time"],
     )
     def test_simplify_settings_are_used(self, settings, expr, expected):
         # Compared as trees: with no steps the input comes back as the same tree, written out with
         # Node.to_list, which may add redundant brackets.
-        se = _make_se(simplify_expr=True, **settings)
+        se = _make_se(settings=settings.get("settings", Settings()).replace(evaluator={"simplify_expr": True}))
         se.evaluate_expr(expr)
         lib = se.symbol_library
         assert tokens_to_tree(se.models[0].expr, lib).to_list(lib) == tokens_to_tree(expected, lib).to_list(lib)
@@ -2536,7 +2652,7 @@ class TestSimplifySettings:
         ids=["label-cancelled", "fixed-combined"],
     )
     def test_simplify_with_specs(self, expr, specs, expected_expr, kept):
-        se = _spec_se(simplify_expr=True)
+        se = _spec_se(settings=Settings(evaluator={"simplify_expr": True}))
         se.evaluate_expr(expr, specs)
         model = se.models[0]
         assert model.expr == expected_expr
@@ -2547,7 +2663,7 @@ class TestSimplifySettings:
     # whatever they are", also with simplify_expr) + regression (it emitted "Unable to simplify" before
     # being scored "invalid"; the status alone reports it).
     def test_malformed_expression_with_specs_is_invalid_without_warning_when_simplifying(self):
-        se = _spec_se(simplify_expr=True)
+        se = _spec_se(settings=Settings(evaluator={"simplify_expr": True}))
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             assert se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)]).error == math.inf
@@ -2565,7 +2681,9 @@ class TestFoldConstants:
     )
     def test_expressions_are_folded(self, simplify_expr, const):
         lib = SymbolLibrary.default_symbols(2, const_symbol=const)
-        se = _make_se(fold_constants="keep", simplify_expr=simplify_expr, symbol_library=lib)
+        se = _make_se(
+            symbol_library=lib, settings=Settings(evaluator={"fold_constants": "keep", "simplify_expr": simplify_expr})
+        )
         expr = [const, "*", const, "*", "X_0"]
         se.evaluate_expr(expr)
         assert se.models[0].expr == [const, "*", "X_0"]
@@ -2577,7 +2695,9 @@ class TestFoldConstants:
     # evaluator's library and without a warning; fold alone would leave the first input as it is).
     def test_simplified_then_folded_with_library(self):
         lib = SymbolLibrary.default_symbols(2, const_symbol="K")
-        se = _make_se(fold_constants="keep", symbol_library=lib, simplify_expr=True)
+        se = _make_se(
+            symbol_library=lib, settings=Settings(evaluator={"fold_constants": "keep", "simplify_expr": True})
+        )
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             se.evaluate_expr(["K", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "K"])
@@ -2589,14 +2709,14 @@ class TestFoldConstants:
     # then recorded or counted"), also when only fold_constants would fold the label away. 10 is
     # outside the default bounds (-5, 5).
     def test_bad_specs_raise_before_folding(self):
-        se = _make_se(fold_constants="default")
+        se = _make_se(settings=Settings(evaluator={"fold_constants": "default"}))
         with pytest.raises(ValueError):
             se.evaluate_expr(["C_1", "*", "C", "*", "X_0"], [Constant("C_1", value=10.0)])
         assert len(se.models) == 0
 
     # Reason: boundary (a malformed expression is "invalid" also with folding, stored as given).
     def test_malformed_expression_is_invalid(self):
-        se = _make_se(fold_constants="keep")
+        se = _make_se(settings=Settings(evaluator={"fold_constants": "keep"}))
         assert se.evaluate_expr(["C", "*", "*", "X_0"]).error == math.inf
         assert (se.models[0].status, se.models[0].expr) == ("invalid", ["C", "*", "*", "X_0"])
 
@@ -2605,32 +2725,20 @@ class TestFoldConstants:
     def test_unknown_symbol_not_folded_away(self):
         tree = Node("*", left=Node("C"), right=Node("X_7"))
         for setting in ("none", "default"):
-            se = _spec_se(fold_constants=setting)
+            se = _spec_se(settings=Settings(evaluator={"fold_constants": setting}))
             with pytest.raises(Exception, match="X_7"):
                 se.evaluate_expr(tree)
-
-    # Reason: clause (RankingSettings: "The evaluator reads simplify_expr, canonicalise_constants, the
-    # simplify_* settings, fold_constants and max_consecutive_skips itself and does not hand them to the
-    # ranking").
-    def test_settings_do_not_reach_ranking(self):
-        class _Recording(_SeedRecordingRanking):
-            def setup(self, X, y, ground_truth, symbol_library, seed, settings):
-                self.settings = settings
-
-        ranking = _Recording()
-        SR_evaluator(
-            _X, _y, ranking_function=ranking, fold_constants="keep", simplify_fold_aware=False,
-            simplify_max_nodes=100, max_consecutive_skips=5, max_iter=5, simplify_expr=True,
-            canonicalise_constants=True,
-        )  # fmt: skip
-        assert set(ranking.settings) == {"max_iter", "default_constant"}
 
     # Reason: clause (stored_tokens: "The specs are not checked: specs that do not fit expr match no
     # model"; it records nothing and emits no warnings) + regression (with fold_constants such a lookup
     # raised). Which tokens stored_tokens returns then is unspecified.
     @pytest.mark.parametrize(
         "settings",
-        [{}, {"fold_constants": "keep"}, {"simplify_expr": True}],
+        [
+            {},
+            {"settings": Settings(evaluator={"fold_constants": "keep"})},
+            {"settings": Settings(evaluator={"simplify_expr": True})},
+        ],
         ids=["plain", "fold", "simplify"],
     )
     def test_lookup_with_unfit_specs_misses(self, settings):
@@ -2645,7 +2753,7 @@ class TestFoldConstants:
     # Reason: clause (stored_tokens: "A failed simplification is not warned about"; get_model
     # shares it).
     def test_lookup_does_not_warn_when_simplification_fails(self):
-        se = _make_se(simplify_expr=True)
+        se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with warnings.catch_warnings():
                 warnings.simplefilter("error")
@@ -2653,7 +2761,13 @@ class TestFoldConstants:
                 assert se.stored_tokens(["X_0"]) == ["X_0"]
 
     # Reason: clause (default "none", and None is "none": the expression is stored and scored as given).
-    @pytest.mark.parametrize("setting", [{"fold_constants": "none"}, {"fold_constants": None}], ids=["none", "None"])
+    @pytest.mark.parametrize(
+        "setting",
+        [
+            {"settings": Settings(evaluator={"fold_constants": "none"})},
+        ],
+        ids=["none"],
+    )
     def test_default_does_not_fold(self, setting):
         se, plain = _make_se(), _make_se(**setting)
         se.evaluate_expr(["C", "*", "C", "*", "X_0"])
@@ -2667,7 +2781,7 @@ class TestFoldConstants:
         "mode, expr, kept", [("default", ["C", "*", "X_0"], None), ("keep", ["C_0", "*", "C", "*", "X_0"], ["C_0"])]
     )
     def test_specs_of_folded_labels_are_dropped(self, mode, expr, kept):
-        se = _spec_se(fold_constants=mode)
+        se = _spec_se(settings=Settings(evaluator={"fold_constants": mode}))
         se.evaluate_expr(["C_0", "*", "C", "*", "X_0"], [Constant("C_0", bounds=(0.0, 3.0))])
         model = se.models[0]
         lib = se.symbol_library
@@ -2679,13 +2793,21 @@ class TestFoldConstants:
     @pytest.mark.parametrize(
         "settings, expr, stored",
         [
-            ({"fold_constants": "keep"}, ["C", "*", "C", "*", "X_0"], ["C", "*", "X_0"]),
-            ({"canonicalise_constants": True}, ["C_3", "*", "X_0", "+", "C_3"], ["C_0", "*", "X_0", "+", "C_0"]),
+            (
+                {"settings": Settings(evaluator={"fold_constants": "keep"})},
+                ["C", "*", "C", "*", "X_0"],
+                ["C", "*", "X_0"],
+            ),
+            (
+                {"settings": Settings(evaluator={"canonicalise_constants": True})},
+                ["C_3", "*", "X_0", "+", "C_3"],
+                ["C_0", "*", "X_0", "+", "C_0"],
+            ),
         ],
         ids=["folded", "canonicalised"],
     )
     def test_folded_and_canonicalised_after_failed_simplification(self, settings, expr, stored):
-        se = _make_se(simplify_expr=True, **settings)
+        se = _make_se(settings=settings.get("settings", Settings()).replace(evaluator={"simplify_expr": True}))
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
                 se.evaluate_expr(expr)
@@ -2693,7 +2815,9 @@ class TestFoldConstants:
 
     # Reason: clause (simplify_fold_aware reaches simplify as fold_aware; fold_constants as fold).
     def test_settings_reach_simplify(self):
-        se = _make_se(fold_constants="keep", simplify_fold_aware=False, simplify_expr=True)
+        se = _make_se(
+            settings=Settings(evaluator={"fold_constants": "keep", "simplify_fold_aware": False, "simplify_expr": True})
+        )
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
             se.evaluate_expr(["X_0"])
         assert (spy.call_args.kwargs["fold"], spy.call_args.kwargs["fold_aware"]) == ("keep", False)
@@ -2719,7 +2843,7 @@ class TestCanonicalisation:
         ids=["C", "K"],
     )
     def test_relabelled_expressions_are_one_canonical_model(self, const, lib):
-        se = _canon_se(lib(), canonicalise_constants=True)
+        se = _canon_se(lib(), settings=Settings(evaluator={"canonicalise_constants": True}))
         first = f"{const}_4 * X_0 + {const}_4".split()
         error = se.evaluate_expr(first).error
         assert first == f"{const}_4 * X_0 + {const}_4".split()
@@ -2734,7 +2858,9 @@ class TestCanonicalisation:
     # models stored as written; lookups match as given) + boundary (None means the default, for
     # canonicalise_constants and simplify_expr).
     @pytest.mark.parametrize(
-        "settings", [{}, {"canonicalise_constants": None, "simplify_expr": None}], ids=["omitted", "None"]
+        "settings",
+        [{}, {"settings": Settings(evaluator={"canonicalise_constants": False, "simplify_expr": False})}],
+        ids=["omitted", "False"],
     )
     def test_default_keeps_labels_and_lookups_match_as_given(self, settings):
         se = _canon_se(**settings)
@@ -2754,7 +2880,7 @@ class TestCanonicalisation:
         ids=["C", "K"],
     )
     def test_lookups_canonicalise_with_the_setting(self, const, lib):
-        se = _canon_se(lib(), canonicalise_constants=True)
+        se = _canon_se(lib(), settings=Settings(evaluator={"canonicalise_constants": True}))
         se.evaluate_expr(f"{const}_0 * X_0 + {const}_0".split())
         relabelled = f"{const}_3 * X_0 + {const}_3".split()
         assert se.stored_tokens(relabelled) == se.models[0].expr
@@ -2764,7 +2890,7 @@ class TestCanonicalisation:
 
     # Reason: clause (canonicalise_constants is ignored with free_constants: labels with specs are kept).
     def test_canonicalise_is_ignored_with_specs(self):
-        se = _canon_se(canonicalise_constants=True)
+        se = _canon_se(settings=Settings(evaluator={"canonicalise_constants": True}))
         expr = ["C_4", "*", "X_0", "+", "C_4"]
         spec = _fix("C_4", 1.0)
         se.evaluate_expr(expr, [spec])
@@ -2776,9 +2902,11 @@ class TestCanonicalisation:
     # Reason: clause (the canonical form is scored, and a fit is seeded by its tokens): with max_iter=0
     # the parameters are the seeded starting point, so they match those of the canonical form.
     def test_fit_starts_from_the_canonical_forms_seed(self):
-        relabelled = _canon_se(max_iter=0, canonicalise_constants=True)
+        relabelled = _canon_se(
+            settings=Settings(estimation={"max_iter": 0}, evaluator={"canonicalise_constants": True})
+        )
         relabelled.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"])
-        canonical = _canon_se(max_iter=0)
+        canonical = _canon_se(settings=Settings(estimation={"max_iter": 0}))
         canonical.evaluate_expr(["C_0", "*", "X_0", "+", "C_0"])
         np.testing.assert_array_equal(relabelled.models[0].parameters, canonical.models[0].parameters)
 
@@ -2787,7 +2915,12 @@ class TestCanonicalisation:
     def test_simplified_expression_is_canonicalised(self):
         lib = SymbolLibrary.default_symbols(2)
         se = SR_evaluator(
-            _X, _y, symbol_library=lib, seed=0, success_threshold=-1, simplify_expr=True, canonicalise_constants=True
+            _X,
+            _y,
+            symbol_library=lib,
+            seed=0,
+            success_threshold=-1,
+            settings=Settings(evaluator={"simplify_expr": True, "canonicalise_constants": True}),
         )
         se.evaluate_expr("C_5 * X_0 + C_5 + C_2 * X_1 + C_2".split())
         stored = se.models[0].expr
@@ -2798,7 +2931,7 @@ class TestCanonicalisation:
     # canonicalised): C_2 - C_2 cancels, so the spec of C_2 goes and C_5 is relabelled C_0.
     def test_canonicalised_when_no_specs_remain(self):
         lib = SymbolLibrary.default_symbols(1)
-        se = _canon_se(lib, simplify_expr=True, canonicalise_constants=True)
+        se = _canon_se(lib, settings=Settings(evaluator={"simplify_expr": True, "canonicalise_constants": True}))
         se.evaluate_expr("C_5 * X_0 + C_5 + C_2 - C_2".split(), [_fix("C_2", 1.0)])
         model = se.models[0]
         assert model.free_constants is None
@@ -2807,7 +2940,7 @@ class TestCanonicalisation:
 
     # Reason: boundary (a malformed expression is canonicalised token-wise, still "invalid").
     def test_malformed_expression_is_canonicalised_and_invalid(self):
-        se = _canon_se(canonicalise_constants=True)
+        se = _canon_se(settings=Settings(evaluator={"canonicalise_constants": True}))
         assert se.evaluate_expr(["C_3", "*", "X_0", "X_0", "C_3"]).error == math.inf
         assert se.models[0].status == "invalid"
         assert se.models[0].expr == ["C_0", "*", "X_0", "X_0", "C_0"]
@@ -2874,10 +3007,23 @@ class _CountingRMSE(RMSERanking):
         return super().score(expr, free_constants)
 
 
+@dataclasses.dataclass(frozen=True, eq=False)
+class _FingerprintSection(SettingsSection):
+    """A custom section, to check that the fingerprint covers every section."""
+
+    name = "custom"
+    a: float = 1.0
+
+
+_GT_A = Constant("C_0", value=1.0, fixed=True)
+_GT_B = Constant("C_1", value=2.0, fixed=True)
+
+
 def _ckpt_se(checkpoint=None, **kwargs):
     # "mean" initialisation keeps fitted constants independent of the random state.
-    args = dict(seed=0, success_threshold=-1, ranking_function=_CountingRMSE(), initialization="mean")
+    args = dict(seed=0, success_threshold=-1, ranking_function=_CountingRMSE())
     args.update(kwargs)
+    args["settings"] = args.get("settings", Settings()).replace(estimation={"initialization": "mean"})
     return SR_evaluator(_CX, _CY, checkpoint=checkpoint, **args)
 
 
@@ -3145,11 +3291,18 @@ class TestCheckpoints:
             ({"y": _CY + 1}, r"\by\b"),
             ({"ground_truth": ["C", "*", "X_0"]}, "ground_truth"),
             ({"ranking_function": _CountingRMSE()}, "ranking_function"),
-            ({"max_iter": 50}, "max_iter"),
-            ({"simplify_expr": True}, "simplify_expr"),
-            ({"canonicalise_constants": True}, "canonicalise_constants"),
-            ({"simplify_rules": DefaultRules(exclude=["powers"])}, "simplify_rules"),
-            ({"fold_constants": None, "simplify_expr": False, "max_iter": 50}, "max_iter"),
+            ({"settings": Settings(estimation={"max_iter": 50})}, r"estimation\.max_iter"),
+            ({"settings": Settings(evaluator={"simplify_expr": True})}, r"evaluator\.simplify_expr"),
+            ({"settings": Settings(evaluator={"canonicalise_constants": True})}, "canonicalise_constants"),
+            ({"settings": Settings(evaluator={"simplify_rules": DefaultRules(exclude=["powers"])})}, "simplify_rules"),
+            (
+                {
+                    "settings": Settings(
+                        evaluator={"fold_constants": "none", "simplify_expr": False}, estimation={"max_iter": 50}
+                    )
+                },
+                "max_iter",
+            ),
             ({"required_constraints": [MaxTreeDepth(10)]}, "required_constraints"),
             ({"advisory_constraints": [MaxTreeDepth(10)]}, "advisory_constraints"),
             ({"symbol_library": SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=1)}, "symbol_library"),
@@ -3157,6 +3310,18 @@ class TestCheckpoints:
             ({"seed": 1}, "seed"),
             ({"max_evaluations": 7}, "max_evaluations"),  # S6: no unmarked extended runs
             ({"success_threshold": 0.5}, "success_threshold"),
+            # One sampler per variable of the default library the run uses.
+            ({"samplers": [UniformSampling(0.0, 1.0)] * SymbolLibrary.get_or_default().num_variables}, "samplers"),
+            # The same default spec, so only the bounds differ.
+            ({"default_constant": uniform_default((-5, 5)), "constant_bounds": (-1.0, 1.0)}, "constant_bounds"),
+            ({"ground_truth_constants": [Constant("C_0", value=1.0, fixed=True)]}, "ground_truth_constants"),
+            ({"settings": Settings(custom=_FingerprintSection(a=2.0))}, r"custom\.a"),
+            # The limits are compared as the MaxConstants / MaxTokens they add, not as settings; the
+            # settings after them are still compared.
+            (
+                {"settings": Settings(evaluator={"max_constants": 3, "max_expr_length": 20, "ranking_seed": 1})},
+                r"(?s)\A(?!.*evaluator\.max_)(?=.*evaluator\.ranking_seed).*required_constraints",
+            ),
         ],
         ids=[
             "X",
@@ -3175,6 +3340,11 @@ class TestCheckpoints:
             "seed",
             "max_evaluations",
             "success_threshold",
+            "samplers",
+            "constant_bounds",
+            "ground_truth_constants",
+            "custom-section",
+            "limits-as-constraints",
         ],
     )
     def test_changed_fingerprint_part_raises(self, tmp_path, changed, name):
@@ -3187,6 +3357,33 @@ class TestCheckpoints:
             SR_evaluator(**{**base, **changed}, checkpoint=path, resume=True)
         SR_evaluator(**base, checkpoint=path, resume=True).close()  # the file is kept
 
+    # Reason: clause (a resume must match the saved run in ground_truth_constants and in every changed
+    # setting): a part given at the start and given again with another value is a change.
+    @pytest.mark.parametrize(
+        "started, resumed, name",
+        [
+            (
+                {"ground_truth_constants": [_GT_A]},
+                {"ground_truth_constants": [Constant("C_0", value=3.0, fixed=True)]},
+                "ground_truth_constants",
+            ),
+            (
+                {"settings": Settings(estimation={"max_iter": 50})},
+                {"settings": Settings(estimation={"max_iter": 60})},
+                r"estimation\.max_iter",
+            ),
+        ],
+        ids=["ground_truth_constants", "setting"],
+    )
+    def test_changed_value_of_a_given_part_raises(self, tmp_path, started, resumed, name):
+        path = tmp_path / "run.sqlite"
+        base = {"X": _CX, "y": _CY, "seed": 0}
+        se = SR_evaluator(**base, **started, checkpoint=path)
+        se.evaluate_expr(["X_0"])
+        se.close()
+        with pytest.raises(ValueError, match=name):
+            SR_evaluator(**base, **resumed, checkpoint=path, resume=True)
+
     # Reason: regression (the fingerprint hashed settings as passed, so a setting left out, passed at its
     # default, or passed as None (the default) counted as a change and the resume was refused) + clause
     # (Checkpoints: the defaults are the evaluator's own, simplify's for simplify_*, and the ranking's
@@ -3196,28 +3393,34 @@ class TestCheckpoints:
     @pytest.mark.parametrize(
         "started, resumed",
         [
-            ({}, {"simplify_expr": False}),
-            ({}, {"method": "L-BFGS-B"}),
-            ({"fold_constants": None}, {}),
-            ({"simplify_expr": None, "canonicalise_constants": None}, {}),
-            ({}, {"simplify_max_iterations": 30, "simplify_fold_aware": True}),
-            ({}, {"max_consecutive_skips": 10000, "ranking_resample": False}),
+            ({}, {"settings": Settings(evaluator={"simplify_expr": False})}),
+            ({}, {"settings": Settings(estimation={"method": "L-BFGS-B"})}),
+            ({}, {"settings": Settings(evaluator={"simplify_max_iterations": 30, "simplify_fold_aware": True})}),
+            ({}, {"settings": Settings(evaluator={"max_consecutive_skips": 10000})}),
             ({}, {"constant_bounds": [-5, 5]}),
             (
                 {"ranking_function": "bed", "ground_truth": ["C", "*", "X_0"]},
-                {"ranking_function": "bed", "ground_truth": ["C", "*", "X_0"], "num_consts_sampled": 32,
-                 "backend": "stack"},
+                {"ranking_function": "bed", "ground_truth": ["C", "*", "X_0"], "settings": Settings(bed={"num_consts_sampled": 32}, evaluator={"backend": "stack"})},
             ),
             ({}, {"snapshot_interval": 10}),
-            ({}, {"canonicalise_constants": False, "fold_constants": "none"}),
-            ({}, {"max_constants": 8}),
+            ({}, {"settings": Settings(evaluator={"canonicalise_constants": False, "fold_constants": "none"})}),
+            ({}, {"settings": Settings(evaluator={"max_constants": 8})}),
             ({}, {"default_constant": uniform_default((-5, 5))}),
-            ({}, {"simplify_rules": DefaultRules()}),
+            ({}, {"settings": Settings(evaluator={"simplify_rules": DefaultRules()})}),
+            ({}, {"settings": Settings(custom=_FingerprintSection())}),
+            ({"ground_truth_constants": [_GT_A, _GT_B]}, {"ground_truth_constants": [_GT_B, _GT_A]}),
+            ({}, {"ground_truth_constants": []}),
+            (
+                {"symbol_library": SymbolLibrary.default_symbols(1), "samplers": [UniformSampling(0.0, 1.0)]},
+                {"symbol_library": SymbolLibrary.default_symbols(1), "samplers": {"X_0": UniformSampling(0.0, 1.0)}},
+            ),
         ],
         ids=[
-            "default-bool", "default-str", "none-then-omitted", "none-protocol", "simplify-defaults",
+            "default-bool", "default-str", "simplify-defaults",
             "evaluator-defaults", "tuple-as-list", "bed-defaults", "snapshot-interval",
             "protocol-defaults", "limit-default", "default-constant", "default-rules",
+            "custom-section-default", "gt-constants-any-order", "gt-constants-empty-is-none",
+            "samplers-sequence-as-mapping",
         ],
     )  # fmt: skip
     def test_resume_accepts_defaults_and_unchecked_settings(self, tmp_path, started, resumed):
@@ -3246,8 +3449,8 @@ class TestCheckpoints:
 
     @pytest.mark.parametrize(
         "kwargs, name",
-        [({"metadata": {"f": object()}}, "metadata"), ({"extra_setting": object()}, "extra_setting")],
-        ids=["metadata", "setting"],
+        [({"metadata": {"f": object()}}, "metadata")],
+        ids=["metadata"],
     )
     def test_unsaveable_metadata_or_setting_with_checkpoint_raises(self, tmp_path, kwargs, name):
         path = tmp_path / "run.sqlite"
@@ -3545,7 +3748,10 @@ class TestLimits:
             ({"max_evaluations": 10}, "max_evaluations. Change limits with SR_dataset.extend_run"),
             ({"max_evaluations": 10, "success_threshold": 0.5}, "max_evaluations, success_threshold. Change"),
             ({"seed": 1}, r"seed\.$"),
-            ({"max_consecutive_skips": 5}, r"max_consecutive_skips\.$"),  # a setting, not a limit
+            (
+                {"settings": Settings(evaluator={"max_consecutive_skips": 5})},
+                r"max_consecutive_skips\.$",
+            ),  # a setting, not a limit
         ],
         ids=["budget", "both-limits", "seed", "skip-limit"],
     )
@@ -3632,7 +3838,7 @@ class TestSkips:
     # Reason: clause (count_skip: max_consecutive_skips skips in a row stop the run; every counted
     # evaluate_expr call, a cache hit too, resets the count; lookups do not).
     def test_skip_limit_stops_after_that_many_in_a_row(self):
-        se = _ckpt_se(max_consecutive_skips=3)
+        se = _ckpt_se(settings=Settings(evaluator={"max_consecutive_skips": 3}))
         for _ in range(2):
             se.count_skip("a")
         se.evaluate_expr(["X_0"])  # new model
@@ -3651,8 +3857,11 @@ class TestSkips:
     # raised ValueError; None means the default).
     @pytest.mark.parametrize(
         "kwargs, stops",
-        [({}, True), ({"max_consecutive_skips": None}, True), ({"max_consecutive_skips": -1}, False)],
-        ids=["default", "none-is-default", "negative-no-limit"],
+        [
+            ({}, True),
+            ({"settings": Settings(evaluator={"max_consecutive_skips": -1})}, False),
+        ],
+        ids=["default", "negative-no-limit"],
     )
     def test_skip_limit_default_and_no_limit(self, kwargs, stops):
         se = _ckpt_se(**kwargs)
@@ -3662,15 +3871,10 @@ class TestSkips:
         se.count_skip("a")
         assert se.should_stop is stops
 
-    @pytest.mark.parametrize("value", [0, True, 2.5], ids=["zero", "bool", "float"])
-    def test_skip_limit_setting_is_checked(self, value):
-        with pytest.raises(ValueError, match="max_consecutive_skips"):
-            _ckpt_se(max_consecutive_skips=value)
-
     # Reason: boundary (1 is the smallest allowed limit; numpy integers are accepted).
     @pytest.mark.parametrize("value", [1, np.int64(1)], ids=["int", "numpy"])
     def test_skip_limit_of_one_stops_at_the_first_skip(self, value):
-        se = _ckpt_se(max_consecutive_skips=value)
+        se = _ckpt_se(settings=Settings(evaluator={"max_consecutive_skips": value}))
         se.count_skip("a")
         assert se.stop_reason == "max_consecutive_skips"
 
@@ -3683,7 +3887,7 @@ class TestSkips:
     )
     def test_resume_restores_the_skips_in_a_row(self, tmp_path, in_a_row, at_resume, after_one_more):
         path = tmp_path / "run.sqlite"
-        se = _ckpt_se(path, max_consecutive_skips=3)
+        se = _ckpt_se(path, settings=Settings(evaluator={"max_consecutive_skips": 3}))
         se.evaluate_expr(["X_0"])
         for _ in range(in_a_row):
             se.count_skip("a")
@@ -3692,7 +3896,7 @@ class TestSkips:
         store = ModelStore(path, "resume")
         store.set_header("stop_reason", None)  # as extend_run does for a finished run
         store.close()
-        resumed = _ckpt_se(path, resume=True, max_consecutive_skips=3)
+        resumed = _ckpt_se(path, resume=True, settings=Settings(evaluator={"max_consecutive_skips": 3}))
         assert resumed.stop_reason == at_resume
         resumed.count_skip("a")  # below: the 3rd in a row, so the count was restored, not reset
         assert resumed.stop_reason == after_one_more

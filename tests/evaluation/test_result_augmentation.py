@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 from SRToolkit.dataset.sampling import UniformSampling
-from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import BEDRanking, RankingFunction, RankingResult, RMSERanking
 from SRToolkit.evaluation.result_augmentation import (
@@ -18,7 +18,8 @@ from SRToolkit.evaluation.result_augmentation import (
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.expression_simplifier import DefaultRules, simplify
-from SRToolkit.utils.free_constants import Constant
+from SRToolkit.utils.free_constants import Constant, uniform_default
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
 
@@ -595,39 +596,78 @@ _y_TEST = 2.0 * _X_TEST[:, 1] - _X_TEST[:, 0]
 
 class TestHoldoutMetricInit:
     def test_stores_scope_and_name(self):
-        aug = HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", scope="best", symbol_library=_sl, name="myH")
+        aug = HoldoutMetric(
+            (_X_TEST, _y_TEST), metric="rmse", scope="best", background_knowledge=BackgroundKnowledge(_sl), name="myH"
+        )
         assert aug.scope == "best"
         assert aug.name == "myH"
 
     def test_defaults(self):
-        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl)
+        aug = HoldoutMetric((_X_TEST, _y_TEST), background_knowledge=BackgroundKnowledge(_sl))
         assert aug.scope == "top"
         assert aug.name == "HoldoutMetric"
 
     def test_invalid_scope_raises(self):
         with pytest.raises(ValueError, match="scope"):
-            HoldoutMetric((_X_TEST, _y_TEST), scope="invalid", symbol_library=_sl)
+            HoldoutMetric((_X_TEST, _y_TEST), scope="invalid", background_knowledge=BackgroundKnowledge(_sl))
 
     def test_invalid_data_type_raises(self):
         with pytest.raises(TypeError, match="DataSplit"):
-            HoldoutMetric("not_data", symbol_library=_sl)
+            HoldoutMetric("not_data", background_knowledge=BackgroundKnowledge(_sl))
 
     def test_invalid_metric_type_raises(self):
         with pytest.raises(TypeError, match="metric must be"):
-            HoldoutMetric((_X_TEST, _y_TEST), metric=123, symbol_library=_sl)
+            HoldoutMetric((_X_TEST, _y_TEST), metric=123, background_knowledge=BackgroundKnowledge(_sl))
 
     def test_accepts_data_split(self):
         from SRToolkit.dataset.data_split import DataSplit
 
-        aug = HoldoutMetric(DataSplit({"X": _X_TEST, "y": _y_TEST}), symbol_library=_sl)
+        aug = HoldoutMetric(DataSplit({"X": _X_TEST, "y": _y_TEST}), background_knowledge=BackgroundKnowledge(_sl))
         np.testing.assert_array_equal(aug._X, _X_TEST)
         np.testing.assert_array_equal(aug._y, _y_TEST)
+
+    # Reason: clause (Raises TypeError if "settings is not a Settings or background_knowledge is not a
+    # BackgroundKnowledge"): a dict of sections, and a SymbolLibrary where the removed symbol_library
+    # argument used to go.
+    @pytest.mark.parametrize(
+        "kwargs, match",
+        [
+            ({"settings": {"estimation": {"max_iter": 5}}}, "settings"),
+            ({"background_knowledge": _sl}, "background_knowledge"),
+        ],
+        ids=["settings-dict", "library-as-background-knowledge"],
+    )
+    def test_settings_and_background_knowledge_types_are_checked(self, kwargs, match):
+        with pytest.raises(TypeError, match=match):
+            HoldoutMetric((_X_TEST, _y_TEST), **kwargs)
+
+    # Reason: clause (Raises ValueError "if a built-in or callable metric is given held-out data without
+    # y").
+    @pytest.mark.parametrize("metric", ["rmse", lambda predict, X, y: 0.0], ids=["builtin", "callable"])
+    def test_metric_without_held_out_y_raises(self, metric):
+        with pytest.raises(ValueError, match="requires held-out targets y"):
+            HoldoutMetric((_X_TEST,), metric=metric)
+
+    # Reason: clause ("Expressions are compiled with its symbol_library"). C_1 is the named constant 50
+    # only in the background knowledge's library, so y = X_0 + 50 is matched exactly (RMSE 0); compiled
+    # with the default library C_1 would be a free constant fitted within (-5, 5) (RMSE 45).
+    def test_compiles_with_background_knowledge_library(self):
+        lib = SymbolLibrary.default_symbols(2)
+        lib.add_symbol("C_1", "lit", 5, "50.0")
+        bk = BackgroundKnowledge(lib)
+        result = _result_of(ModelResult(["X_0", "+", "C_1"], 0.0))
+        aug = HoldoutMetric((_X_TEST, _X_TEST[:, 0] + 50.0), scope="all", background_knowledge=bk)
+        aug.write_results(result)
+        assert aug.symbol_library is lib
+        assert _values(result)[0] == pytest.approx(0.0, abs=1e-9)
 
 
 class TestHoldoutMetricReuseParams:
     def test_best_scope_writes_best_value_to_eval_result(self):
         se, result = _one_model_result()
-        HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", scope="best", symbol_library=_sl).write_results(result)
+        HoldoutMetric(
+            (_X_TEST, _y_TEST), metric="rmse", scope="best", background_knowledge=BackgroundKnowledge(_sl)
+        ).write_results(result)
         aug = result.augmentations["HoldoutMetric"]
         assert "best_value" in aug
         assert aug["metric"] == "rmse"
@@ -635,17 +675,23 @@ class TestHoldoutMetricReuseParams:
 
     def test_best_scope_does_not_write_to_models(self):
         se, result = _one_model_result()
-        HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl).write_results(result)
+        HoldoutMetric((_X_TEST, _y_TEST), scope="best", background_knowledge=BackgroundKnowledge(_sl)).write_results(
+            result
+        )
         assert "HoldoutMetric" not in result.top_models()[0].augmentations
 
     def test_top_scope_writes_value_to_top_models(self):
         se, result = _one_model_result()
-        HoldoutMetric((_X_TEST, _y_TEST), scope="top", symbol_library=_sl).write_results(result)
+        HoldoutMetric((_X_TEST, _y_TEST), scope="top", background_knowledge=BackgroundKnowledge(_sl)).write_results(
+            result
+        )
         assert result.top_models()[0].augmentations["HoldoutMetric"]["value"] < 1e-6
 
     def test_all_scope_writes_to_all_models(self):
         se, result = _two_model_result()
-        HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl).write_results(result)
+        HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl)).write_results(
+            result
+        )
         assert "HoldoutMetric" in result.all_models[1].augmentations
 
     def test_reuses_train_params_no_refit(self):
@@ -654,14 +700,18 @@ class TestHoldoutMetricReuseParams:
         from SRToolkit.evaluation.sr_evaluator import evaluate_metric
 
         se, result = _one_model_result()
-        HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", scope="top", symbol_library=_sl).write_results(result)
+        HoldoutMetric(
+            (_X_TEST, _y_TEST), metric="rmse", scope="top", background_knowledge=BackgroundKnowledge(_sl)
+        ).write_results(result)
         model = result.top_models()[0]
         expected = evaluate_metric(model.expr, model.parameters, _X_TEST, _y_TEST, "rmse", _sl)
         assert model.augmentations["HoldoutMetric"]["value"] == pytest.approx(expected)
 
     def test_r2_metric_on_holdout(self):
         se, result = _one_model_result()
-        HoldoutMetric((_X_TEST, _y_TEST), metric="r2", scope="best", symbol_library=_sl).write_results(result)
+        HoldoutMetric(
+            (_X_TEST, _y_TEST), metric="r2", scope="best", background_knowledge=BackgroundKnowledge(_sl)
+        ).write_results(result)
         assert result.augmentations["HoldoutMetric"]["best_value"] == pytest.approx(1.0, abs=1e-4)
 
     def test_invalid_expression_scores_nan_without_aborting(self):
@@ -671,7 +721,9 @@ class TestHoldoutMetricReuseParams:
         se.evaluate_expr(["C", "*", "X_1", "X_0"])
         se.evaluate_expr(_BEST_EXPR)
         result = se.get_results(top_k=1)[0]
-        HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl).write_results(result)
+        HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl)).write_results(
+            result
+        )
         values = {"".join(m.expr): m.augmentations["HoldoutMetric"]["value"] for m in result.all_models}
         assert np.isnan(values["C*X_1X_0"])
         assert values["C*X_1-X_0"] < 1e-6
@@ -683,11 +735,13 @@ class TestHoldoutMetricReuseParams:
     def test_model_rejected_by_search_scores_nan(self):
         # Over max_constants in the search: status "rejected", no parameters. It must not be refit
         # and scored on the holdout as if it were a candidate answer.
-        se = _rmse_se(max_constants=1)
+        se = _rmse_se(settings=Settings(evaluator={"max_constants": 1}))
         se.evaluate_expr(["C", "*", "X_1", "+", "C", "*", "X_0"])
         se.evaluate_expr(_BEST_EXPR)
         result = se.get_results(top_k=2)[0]
-        HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl).write_results(result)
+        HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl)).write_results(
+            result
+        )
         values = {"".join(m.expr): m.augmentations["HoldoutMetric"]["value"] for m in result.all_models}
         assert np.isnan(values["C*X_1+C*X_0"])
         assert values["C*X_1-X_0"] < 1e-6
@@ -696,7 +750,7 @@ class TestHoldoutMetricReuseParams:
         se, result = _one_model_result()
         se.evaluate_expr(_OTHER_EXPR)
         result = se.get_results(top_k=2)[0]
-        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl)
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl))
         with patch.object(aug, "_fit_parameters") as fit:
             aug.write_results(result)
         fit.assert_not_called()
@@ -706,7 +760,7 @@ class TestHoldoutMetricReuseParams:
         se = _bed_se()
         se.evaluate_expr(_OTHER_EXPR)
         result = se.get_results(top_k=1)[0]
-        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl)
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="best", background_knowledge=BackgroundKnowledge(_sl))
         with patch.object(aug, "_fit_parameters") as fit:
             aug.write_results(result)
         fit.assert_not_called()
@@ -715,13 +769,12 @@ class TestHoldoutMetricReuseParams:
     def test_each_model_scored_once(self):
         # top_models() returns the ModelResult objects in all_models.
         se, result = _two_model_result()
-        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl)
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl))
         with patch.object(aug, "_value", wraps=aug._value) as value:
             aug.write_results(result)
         assert value.call_count == len(result.all_models)
 
-    # Reason: clause (fits use ranking_settings["default_constant"], else the default built from
-    # constant_bounds). BED results carry no parameters, so X_0 + C is fitted on y = X_0 + 50: under the
+    # Reason: clause (fits use the background knowledge's default_constant). BED results carry no parameters, so X_0 + C is fitted on y = X_0 + 50: under the
     # uniform default C stops at 5 and the residual is 45 everywhere (RMSE 45); under (0, inf) it fits.
     @pytest.mark.parametrize(
         "settings, expected",
@@ -731,13 +784,12 @@ class TestHoldoutMetricReuseParams:
         ],
         ids=["uniform-default", "default-constant"],
     )
-    def test_holdout_fit_uses_default_constant_setting(self, settings, expected):
+    def test_holdout_fit_uses_default_constant(self, settings, expected):
         se = _bed_se()
         se.evaluate_expr(["X_0", "+", "C"])
         result = se.get_results(top_k=1)[0]
-        HoldoutMetric(
-            (_X_TEST, _X_TEST[:, 0] + 50.0), scope="best", symbol_library=_sl, ranking_settings=settings
-        ).write_results(result)
+        bk = BackgroundKnowledge(_sl, **settings)
+        HoldoutMetric((_X_TEST, _X_TEST[:, 0] + 50.0), scope="best", background_knowledge=bk).write_results(result)
         assert result.augmentations["HoldoutMetric"]["best_value"] == pytest.approx(expected, abs=1e-5)
 
 
@@ -753,7 +805,9 @@ class TestHoldoutMetricLimits:
         se.evaluate_expr(_NINE_CONSTANTS)
         result = se.get_results(top_k=1)[0]
         assert result.all_models[0].status == "rejected"
-        HoldoutMetric((_X_TEST, _y_TEST), metric=RMSERanking(), scope="all", symbol_library=_sl).write_results(result)
+        HoldoutMetric(
+            (_X_TEST, _y_TEST), metric=RMSERanking(), scope="all", background_knowledge=BackgroundKnowledge(_sl)
+        ).write_results(result)
         assert np.isnan(result.all_models[0].augmentations["HoldoutMetric"]["value"])
 
 
@@ -762,22 +816,28 @@ class TestHoldoutMetricRefitConstants:
         se, result = _one_model_result()
         model = result.top_models()[0]
         model.parameters = np.array([5.0])  # deliberately wrong (the true constant is 2)
-        reuse = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl)
-        refit = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl, refit_constants=True)
+        reuse = HoldoutMetric((_X_TEST, _y_TEST), scope="best", background_knowledge=BackgroundKnowledge(_sl))
+        refit = HoldoutMetric(
+            (_X_TEST, _y_TEST), scope="best", background_knowledge=BackgroundKnowledge(_sl), refit_constants=True
+        )
         assert reuse._value(model) > 1.0
         assert refit._value(model) < 1e-6
 
     def test_refit_constants_keeps_rejected_models_nan(self):
-        se = _rmse_se(max_constants=1)
+        se = _rmse_se(settings=Settings(evaluator={"max_constants": 1}))
         se.evaluate_expr(["C", "*", "X_1", "+", "C", "*", "X_0"])
         result = se.get_results(top_k=1)[0]
-        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="best", symbol_library=_sl, refit_constants=True)
+        aug = HoldoutMetric(
+            (_X_TEST, _y_TEST), scope="best", background_knowledge=BackgroundKnowledge(_sl), refit_constants=True
+        )
         aug.write_results(result)
         assert np.isnan(result.augmentations["HoldoutMetric"]["best_value"])
 
     def test_refit_constants_recorded_in_augmentation(self):
         se, result = _one_model_result()
-        HoldoutMetric((_X_TEST, _y_TEST), scope="top", symbol_library=_sl, refit_constants=True).write_results(result)
+        HoldoutMetric(
+            (_X_TEST, _y_TEST), scope="top", background_knowledge=BackgroundKnowledge(_sl), refit_constants=True
+        ).write_results(result)
         assert result.augmentations["HoldoutMetric"]["refit_constants"] is True
         assert result.top_models()[0].augmentations["HoldoutMetric"]["refit_constants"] is True
 
@@ -787,8 +847,8 @@ class TestHoldoutMetricRefitConstants:
         aug = HoldoutMetric(
             (_X_TEST, _y_TEST),
             scope="best",
-            symbol_library=_sl,
-            ranking_settings={"ranking_seed": 5},
+            background_knowledge=BackgroundKnowledge(_sl),
+            settings=Settings(evaluator={"ranking_seed": 5}),
             seed=7,
             refit_constants=True,
         )
@@ -804,17 +864,40 @@ class TestHoldoutMetricRefitConstants:
             (_X_TEST, _y_TEST),
             metric=RMSERanking(),
             scope="best",
-            symbol_library=_sl,
-            ranking_settings={"ranking_seed": 5},
+            background_knowledge=BackgroundKnowledge(_sl),
+            settings=Settings(evaluator={"ranking_seed": 5}),
             seed=7,
         ).write_results(result)
         assert len(fit_starts) == fits_before + 1
         ParameterEstimator(_X_TEST, _y_TEST, _sl, seed=5).estimate_parameters(_BEST_EXPR)
         np.testing.assert_array_equal(fit_starts[-2], fit_starts[-1])
 
+    # Reason: clause (settings are used "for fitting constants on the held-out data (estimation, ...)").
+    # Differential: the refit equals a ParameterEstimator with the same settings, seed and default spec;
+    # with max_iter=0 the constant stays at its start, far from the exact fit of the default settings.
+    def test_refit_uses_estimation_settings(self):
+        settings = Settings(estimation={"max_iter": 0})
+        model = ModelResult(_BEST_EXPR, 0.0, parameters=np.array([2.0]))
+        aug = HoldoutMetric(
+            (_X_TEST, _y_TEST),
+            background_knowledge=BackgroundKnowledge(_sl),
+            settings=settings,
+            refit_constants=True,
+        )
+        expected, _ = ParameterEstimator(
+            _X_TEST, _y_TEST, _sl, 0, settings, uniform_default((-5, 5))
+        ).estimate_parameters(_BEST_EXPR)
+        assert expected > 1e-3
+        assert aug._value(model) == pytest.approx(expected, rel=1e-9)
+
     def test_refit_constants_with_ranking_function_raises(self):
         with pytest.raises(ValueError, match="refit_constants applies to string/callable metrics only"):
-            HoldoutMetric((_X_TEST, _y_TEST), metric=RMSERanking(), symbol_library=_sl, refit_constants=True)
+            HoldoutMetric(
+                (_X_TEST, _y_TEST),
+                metric=RMSERanking(),
+                background_knowledge=BackgroundKnowledge(_sl),
+                refit_constants=True,
+            )
 
 
 class TestHoldoutMetricRefit:
@@ -826,9 +909,9 @@ class TestHoldoutMetricRefit:
             (_X_BED,),
             metric=BEDRanking(),
             scope="best",
-            symbol_library=_sl,
+            background_knowledge=BackgroundKnowledge(_sl),
             ground_truth=["C", "+", "X_0"],
-            ranking_settings={"num_consts_sampled": 8, "num_points_sampled": _X_BED.shape[0]},
+            settings=Settings(bed={"num_consts_sampled": 8, "num_points_sampled": _X_BED.shape[0]}),
         )
         aug.write_results(result)
         assert np.isfinite(result.augmentations["HoldoutMetric"]["best_value"])
@@ -864,7 +947,9 @@ class TestHoldoutMetricFormat:
 
 class TestHoldoutMetricSerialization:
     def test_to_dict_from_dict_round_trip(self, tmp_path):
-        aug = HoldoutMetric((_X_TEST, _y_TEST), metric="r2", scope="all", symbol_library=_sl, name="myH")
+        aug = HoldoutMetric(
+            (_X_TEST, _y_TEST), metric="r2", scope="all", background_knowledge=BackgroundKnowledge(_sl), name="myH"
+        )
         d = aug.to_dict(str(tmp_path), "t")
         assert d["type"] == "HoldoutMetric"
         assert d["metric"] == "r2"
@@ -872,41 +957,31 @@ class TestHoldoutMetricSerialization:
         restored = HoldoutMetric.from_dict(d)
         assert restored.scope == "all"
         assert restored.name == "myH"
+        assert restored.symbol_library.to_dict() == _sl.to_dict()  # the background knowledge's library
         np.testing.assert_array_equal(restored._X, _X_TEST)
         np.testing.assert_array_equal(restored._y, _y_TEST)
 
     def test_refit_constants_round_trip(self, tmp_path):
-        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, refit_constants=True)
+        aug = HoldoutMetric((_X_TEST, _y_TEST), background_knowledge=BackgroundKnowledge(_sl), refit_constants=True)
         assert HoldoutMetric.from_dict(aug.to_dict(str(tmp_path), "t")).refit_constants is True
 
-    def test_seed_and_ranking_settings_round_trip(self, tmp_path):
-        settings = {"constant_bounds": (-2, 2), "max_iter": 50}
-        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, ranking_settings=settings, seed=7)
-        restored = HoldoutMetric.from_dict(json.loads(json.dumps(aug.to_dict(str(tmp_path), "t"))))
-        assert restored.seed == 7
-        assert restored.ranking_settings["max_iter"] == 50
-        assert list(restored.ranking_settings["constant_bounds"]) == [-2, 2]
-        assert restored._fit_parameters(_BEST_EXPR)[0] < 1e-6  # the list bounds still fit
-
-    def test_to_dict_is_json_safe_with_ranking_only_settings(self, tmp_path):
-        from SRToolkit.dataset.sampling import UniformSampling
-
-        settings = {"samplers": [UniformSampling(0, 1)], "max_iter": 3}
-        aug = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl, ranking_settings=settings)
-        d = json.loads(json.dumps(aug.to_dict(str(tmp_path), "t")))
-        assert d["ranking_settings"] == {"max_iter": 3}
-
-    # Reason: regression (G3: to_dict failed on dataset.ranking_settings(), which holds a Constant) +
-    # clause (from_dict recreates the augmenter): the restored augmenter refits under the same default.
-    def test_dataset_ranking_settings_round_trip(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
-        default = Constant(prior=UniformSampling(1, 100), bounds=(0, float("inf")))
-        ds = SR_dataset(_X_TEST, _sl, y=_X_TEST[:, 0] + 50.0, default_constant=default, seed=3)
+    def test_seed_and_settings_round_trip(self, tmp_path):
+        settings = Settings(estimation={"max_iter": 50})
         aug = HoldoutMetric(
-            (_X_TEST, _X_TEST[:, 0] + 50.0), scope="best", symbol_library=_sl, ranking_settings=ds.ranking_settings()
+            (_X_TEST, _y_TEST), background_knowledge=BackgroundKnowledge(_sl), settings=settings, seed=7
         )
         restored = HoldoutMetric.from_dict(json.loads(json.dumps(aug.to_dict(str(tmp_path), "t"))))
-        assert restored.ranking_settings["default_constant"].to_dict() == default.to_dict()
+        assert restored.seed == 7
+        assert restored.settings == settings
+
+    # Reason: clause (to_dict keeps only default_constant of the background knowledge) + clause
+    # (from_dict recreates the augmenter): the restored augmenter refits under the same default.
+    def test_default_constant_round_trip(self, tmp_path):
+        default = Constant(prior=UniformSampling(1, 100), bounds=(0, float("inf")))
+        bk = BackgroundKnowledge(_sl, samplers=[UniformSampling(0, 1)] * 2, default_constant=default)
+        aug = HoldoutMetric((_X_TEST, _X_TEST[:, 0] + 50.0), scope="best", background_knowledge=bk)
+        restored = HoldoutMetric.from_dict(json.loads(json.dumps(aug.to_dict(str(tmp_path), "t"))))
+        assert restored.background_knowledge.default_constant.to_dict() == default.to_dict()
         se = _bed_se()
         se.evaluate_expr(["X_0", "+", "C"])
         result = se.get_results(top_k=1)[0]
@@ -918,7 +993,9 @@ class TestHoldoutMetricSerialization:
 
     def test_to_dict_stores_absolute_data_path(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        d = HoldoutMetric((_X_TEST, _y_TEST), symbol_library=_sl).to_dict("relative_dir", "t")
+        d = HoldoutMetric((_X_TEST, _y_TEST), background_knowledge=BackgroundKnowledge(_sl)).to_dict(
+            "relative_dir", "t"
+        )
         assert os.path.isabs(d["data"])
 
     def test_loaded_results_scored_once_per_expression(self, tmp_path):
@@ -928,18 +1005,22 @@ class TestHoldoutMetricSerialization:
         se.evaluate_expr(_OTHER_EXPR)
         se.get_results(top_k=1).save(str(tmp_path / "r.json"))
         result = SR_results.load(str(tmp_path / "r.json"))[0]
-        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl)
+        aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl))
         with patch.object(aug, "_value", wraps=aug._value) as value:
             aug.write_results(result)
         assert value.call_count == 2
 
     def test_callable_metric_not_serialisable(self, tmp_path):
-        aug = HoldoutMetric((_X_TEST, _y_TEST), metric=lambda predict, X, y: 0.0, symbol_library=_sl)
+        aug = HoldoutMetric(
+            (_X_TEST, _y_TEST), metric=lambda predict, X, y: 0.0, background_knowledge=BackgroundKnowledge(_sl)
+        )
         with pytest.raises(NotImplementedError):
             aug.to_dict(str(tmp_path), "t")
 
     def test_from_dict_invalid_format_version_raises(self, tmp_path):
-        d = HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", symbol_library=_sl).to_dict(str(tmp_path), "t")
+        d = HoldoutMetric((_X_TEST, _y_TEST), metric="rmse", background_knowledge=BackgroundKnowledge(_sl)).to_dict(
+            str(tmp_path), "t"
+        )
         d["format_version"] = 99
         with pytest.raises(ValueError, match="format_version"):
             HoldoutMetric.from_dict(d)
@@ -967,12 +1048,43 @@ def _values(result, name="HoldoutMetric"):
 class _RecordingRanking(RankingFunction):
     name = "recording"
 
-    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.received = []
 
     def score(self, expr, free_constants=None):
         self.received.append(free_constants)
         return RankingResult(score=7.0)
+
+
+class _TaskRecordingRanking(RankingFunction):
+    name = "task_recording"
+
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+        self.args = (ground_truth, ground_truth_constants, background_knowledge, seed, settings)
+
+    def score(self, expr, free_constants=None):
+        return RankingResult(score=0.0)
+
+
+class TestHoldoutMetricRankingSetup:
+    # Reason: clause (a RankingFunction metric's setup gets ground_truth, ground_truth_constants, all of
+    # the background knowledge and the settings; the seed when no ranking_seed is set).
+    def test_ranking_metric_setup_gets_task_facts_and_settings(self):
+        gt, specs = ["X_0", "+", "C_0"], [_fix("C_0", 1.0)]
+        bk = BackgroundKnowledge(_sl, samplers=[UniformSampling(0, 1)] * 2)
+        settings = Settings(bed={"num_points_sampled": 3})
+        aug = HoldoutMetric(
+            (_X_TEST,),
+            metric=_TaskRecordingRanking(),
+            ground_truth=gt,
+            ground_truth_constants=specs,
+            background_knowledge=bk,
+            settings=settings,
+            seed=4,
+        )
+        received = aug.metric.args
+        assert received[0] is gt and received[1] is specs and received[2] is bk and received[4] is settings
+        assert received[3] == 4
 
 
 class TestHoldoutMetricSpecs:
@@ -988,7 +1100,13 @@ class TestHoldoutMetricSpecs:
             ModelResult(_E, 0.0, parameters=parameters, free_constants=(_fix("C_0", 1.0),)),
             ModelResult(_E, 0.0, parameters=parameters, free_constants=(_fix("C_0", 4.0),)),
         )
-        aug = HoldoutMetric((_X3, 2 * _X3[:, 0]), metric="mae", scope="all", symbol_library=_sl1, refit_constants=refit)
+        aug = HoldoutMetric(
+            (_X3, 2 * _X3[:, 0]),
+            metric="mae",
+            scope="all",
+            background_knowledge=BackgroundKnowledge(_sl1),
+            refit_constants=refit,
+        )
         aug.write_results(result)
         np.testing.assert_allclose(_values(result), [2.0, 4.0])
 
@@ -1001,9 +1119,9 @@ class TestHoldoutMetricSpecs:
             (X,),
             metric=BEDRanking(),
             scope="all",
-            symbol_library=_sl1,
+            background_knowledge=BackgroundKnowledge(_sl1),
             ground_truth=["X_0"],
-            ranking_settings={"num_points_sampled": -1},
+            settings=Settings(bed={"num_points_sampled": -1}),
         )
         aug.write_results(result)
         assert _values(result)[0] == pytest.approx(3.0, abs=1e-9)
@@ -1018,7 +1136,12 @@ class TestHoldoutMetricSpecs:
             ModelResult(_E, 0.0, free_constants=(spec,)),
             ModelResult(_E, 0.0, free_constants=()),
         )
-        aug = HoldoutMetric((_X3, 2 * _X3[:, 0]), metric=_RecordingRanking(), scope="all", symbol_library=_sl1)
+        aug = HoldoutMetric(
+            (_X3, 2 * _X3[:, 0]),
+            metric=_RecordingRanking(),
+            scope="all",
+            background_knowledge=BackgroundKnowledge(_sl1),
+        )
         aug.write_results(result)
         assert _values(result) == [7.0, 7.0, 7.0]
         received = aug.metric.received
@@ -1032,7 +1155,12 @@ class TestHoldoutMetricSpecs:
         lib = SymbolLibrary.from_symbol_list(["-", "u-"], 1)
         lib.add_symbol("u", "lit", 5, "10.0")
         result = _result_of(ModelResult(["u", "-", "X_0"], 0.0), ModelResult(["u-", "X_0"], 0.0))
-        aug = HoldoutMetric((np.array([[1.0], [2.0]]), np.zeros(2)), metric="mae", scope="all", symbol_library=lib)
+        aug = HoldoutMetric(
+            (np.array([[1.0], [2.0]]), np.zeros(2)),
+            metric="mae",
+            scope="all",
+            background_knowledge=BackgroundKnowledge(lib),
+        )
         aug.write_results(result)
         np.testing.assert_allclose(_values(result), [8.5, 1.5])
 
@@ -1061,7 +1189,7 @@ def _compact_result():
     [
         lambda: ExpressionToLatex(_sl, scope="all"),
         lambda: ExpressionSimplifier(_sl, scope="all"),
-        lambda: HoldoutMetric((_X_TEST, _y_TEST), scope="all", symbol_library=_sl),
+        lambda: HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl)),
     ],
     ids=["latex", "simplifier", "holdout"],
 )

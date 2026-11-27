@@ -15,6 +15,7 @@ from SRToolkit.evaluation import results as results_module
 from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.results import ResultAugmenter, SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
 
@@ -373,7 +374,7 @@ class TestSRResultsPrintResults:
         se = _make_se()
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         results = se.get_results(top_k=1)
-        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", symbol_library=se.symbol_library)])
+        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", background_knowledge=se.background_knowledge)])
         results.print_results(detailed=True)
         capsys.readouterr()  # discard
 
@@ -384,7 +385,7 @@ class TestSRResultsPrintResults:
         se = _make_se()
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         results = se.get_results(top_k=1)
-        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", symbol_library=se.symbol_library)])
+        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", background_knowledge=se.background_knowledge)])
         results.print_results(detailed=True, augmentations=["HoldoutMetric"])
         out = capsys.readouterr().out
         assert "HoldoutMetric" in out
@@ -642,7 +643,7 @@ class TestSRResultsSaveLoad:
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         se.evaluate_expr(["X_0", "+", "X_1"])
         results = se.get_results(top_k=2)
-        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", symbol_library=se.symbol_library)])
+        results.augment([HoldoutMetric((se.X, se.y), metric="rmse", background_knowledge=se.background_knowledge)])
         results.save(str(tmp_path))
         loaded = SR_results.load(str(tmp_path))
         orig_aug = results[0].augmentations["HoldoutMetric"]
@@ -669,7 +670,7 @@ def _run(checkpoint, budget, calls):
         max_evaluations=budget,
         checkpoint=checkpoint,
         metadata={"dataset_name": "d", "k": 1},
-        initialization="mean",
+        settings=Settings(estimation={"initialization": "mean"}),
     )
     se.count_skip("evaluated")  # saved with each commit, like the models
     with warnings.catch_warnings():

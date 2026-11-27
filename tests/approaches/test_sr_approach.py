@@ -30,6 +30,7 @@ from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.free_constants import Constant
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 _X = np.array([[1.0], [2.0], [3.0]])
@@ -37,8 +38,9 @@ _Y = 2 * _X[:, 0]
 
 
 def _se(checkpoint=None, **kwargs):
-    args = dict(seed=0, success_threshold=-1, initialization="mean")
+    args = dict(seed=0, success_threshold=-1)
     args.update(kwargs)
+    args["settings"] = args.get("settings", Settings()).replace(estimation={"initialization": "mean"})
     return SR_evaluator(_X, _Y, checkpoint=checkpoint, **args)
 
 
@@ -352,7 +354,13 @@ _SKIP_STEPS = [
     ids=["reset-by-evaluation", "limit-reached"],
 )
 def test_step_loop_counts_skips_in_order(steps, limit, told, skips, calls, stop_reason):
-    se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1, max_consecutive_skips=limit)
+    se = SR_evaluator(
+        np.ones((3, 2)),
+        np.ones(3),
+        seed=0,
+        success_threshold=-1,
+        settings=Settings(evaluator={"max_consecutive_skips": limit}),
+    )
     approach = _Steps(steps)
     approach.run(se, seed=0)
     assert (len(approach.told[0][1]), se.skips, len(se.trace), se.stop_reason) == (told, skips, calls, stop_reason)
@@ -361,7 +369,13 @@ def test_step_loop_counts_skips_in_order(steps, limit, told, skips, calls, stop_
 # Reason: clause (Skips: a count_skip from ask is counted before the step's candidates, so it can stop
 # the run before any of them is evaluated; tell then gets empty lists).
 def test_count_skip_in_ask_can_stop_before_the_step():
-    se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1, max_consecutive_skips=1)
+    se = SR_evaluator(
+        np.ones((3, 2)),
+        np.ones(3),
+        seed=0,
+        success_threshold=-1,
+        settings=Settings(evaluator={"max_consecutive_skips": 1}),
+    )
     approach = _Steps([[["X_0"]]], ask_skip="x")
     approach.run(se, seed=0)
     assert (approach.told, len(se.trace), se.skips, se.stop_reason) == (
@@ -405,7 +419,11 @@ class _FieldLookup(SteppedApproach):
 # specs") + the evaluator's simplify_expr and canonicalise_constants apply to both.
 def test_candidate_fields_and_settings_are_used_for_evaluation_and_lookup():
     se = SR_evaluator(
-        np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1, simplify_expr=True, canonicalise_constants=True
+        np.ones((3, 2)),
+        np.ones(3),
+        seed=0,
+        success_threshold=-1,
+        settings=Settings(evaluator={"simplify_expr": True, "canonicalise_constants": True}),
     )
     approach = _FieldLookup()
     approach.search(se, seed=0)
@@ -588,7 +606,8 @@ def _proged_session(path=None, resume=False, signal_on_skip=False):
         success_threshold=-1,
         checkpoint=path,
         resume=resume,
-        max_consecutive_skips=3,  # small, so the skip limit decides where the run ends
+        # A small skip limit, so it decides where the run ends.
+        settings=Settings(evaluator={"max_consecutive_skips": 3}),
     )
     if signal_on_skip:  # interrupt in the step of the second skip in a row, one before the limit
         get_model = se.get_model

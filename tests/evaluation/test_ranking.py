@@ -1,6 +1,9 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pytest
 
+from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import (
@@ -13,7 +16,19 @@ from SRToolkit.evaluation.ranking import (
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.measures import create_behavior_matrix
+from SRToolkit.utils.settings import Settings, SettingsSection
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+
+def _setup(ranking, X, y, ground_truth, lib=None, seed=0, gt_specs=None, settings=None, **task):
+    # setup with the background knowledge built from lib and the task facts in **task.
+    bk = BackgroundKnowledge(SymbolLibrary.default_symbols(X.shape[1]) if lib is None else lib, **task)
+    ranking.setup(X, y, ground_truth, gt_specs, bk, seed, Settings() if settings is None else settings)
+    return ranking
+
+
+_GT_C0 = ["X_0", "+", "C_0"]
+_X10 = np.linspace(0.0, 1.0, 10).reshape(-1, 1)
 
 
 class _CustomRanking(RMSERanking):
@@ -70,25 +85,32 @@ class TestRankingSerialization:
         assert isinstance(restored, RMSERanking)
 
 
+@dataclass(frozen=True, eq=False)
+class _CustomSection(SettingsSection):
+    name = "custom_kwarg"
+    my_param: float = 1.0
+
+
 class _CustomKwargRanking(RankingFunction):
-    """A custom ranking that reads an arbitrary key from the settings dict."""
+    """A custom ranking that reads its own settings section."""
 
     name = "custom_kwarg"
 
-    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
-        self.my_param = settings.get("my_param")
+    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+        self.my_param = settings.get(_CustomSection).my_param
 
     def score(self, expr, free_constants=None):
         return RankingResult(score=float(self.my_param))
 
 
 class TestCustomRankingSettings:
-    def test_custom_kwarg_flows_through_to_setup(self):
-        # An unknown-to-RankingSettings kwarg still reaches a custom ranking's setup at runtime.
+    # Reason: clause (setup: a ranking reads its own section with settings.get(MySection)).
+    def test_custom_section_reaches_setup(self):
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
         path = f"{_CustomKwargRanking.__module__}.{_CustomKwargRanking.__qualname__}"
-        se = SR_evaluator(X, ranking_function=path, success_threshold=-1, my_param=0.5)
-        assert se.ranking.my_param == 0.5
+        se = SR_evaluator(
+            X, ranking_function=path, success_threshold=-1, settings=Settings(custom_kwarg=_CustomSection(0.5))
+        )
         assert se.evaluate_expr(["X_0"]).error == 0.5
 
 
@@ -98,87 +120,29 @@ class TestRMSERankingSetup:
         y = 2.0 * X[:, 0]
         expr = ["C", "*", "X_0", "+", "C"]
         lib = SymbolLibrary.default_symbols(2)
-        ranking = RMSERanking()
-        ranking.setup(X, y, None, lib, 1, {})
-        ranking.score(expr)
+        _setup(RMSERanking(), X, y, None, lib, seed=1).score(expr)
         ParameterEstimator(X, y, lib, seed=1).estimate_parameters(expr)
         np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
 
-
-class TestBEDRankingBackend:
-    # Reason: clause (RankingSettings.backend applies to both rankings). An unknown backend only fails
-    # when an expression is compiled, so the error shows the setting was passed on.
-    X = np.random.default_rng(0).random((4, 1))
-
-    def test_backend_is_used_for_the_ground_truth(self):
-        ranking = BEDRanking()
-        with pytest.raises(ValueError, match="backend"):
-            ranking.setup(self.X, None, ["X_0", "+", "C"], SymbolLibrary.default_symbols(1), 0, {"backend": "fortran"})
-
-    def test_backend_is_used_for_scored_expressions(self):
-        ranking = BEDRanking()
-        settings = {"backend": "fortran", "bed_gt": np.zeros((4, 32))}
-        ranking.setup(self.X, None, None, SymbolLibrary.default_symbols(1), 0, settings)
-        with pytest.raises(ValueError, match="backend"):
-            ranking.score(["X_0"])
+    # Reason: clause (RMSE: constants are fitted with the estimation settings and evaluator.backend).
+    def test_estimator_gets_the_settings(self):
+        settings = Settings(estimation={"max_iter": 3}, evaluator={"backend": "codegen"})
+        ranking = _setup(RMSERanking(), _X10, _X10[:, 0], None, settings=settings)
+        assert ranking.parameter_estimator.settings is settings
 
 
 class TestBEDRankingSettings:
-    # Reason: regression (setup let an explicit None override the BED defaults; None means the default
-    # for every setting). 100 rows, so the default 64 sampled points is a real subsample.
-    @pytest.mark.parametrize("name", ["num_consts_sampled", "num_points_sampled", "constant_bounds", "backend"])
-    def test_none_setting_is_the_default(self, name):
-        X = np.random.default_rng(0).random((100, 1))
-        lib = SymbolLibrary.default_symbols(1)
-        default, given_none = BEDRanking(), BEDRanking()
-        default.setup(X, None, ["C", "*", "X_0"], lib, 0, {})
-        given_none.setup(X, None, ["C", "*", "X_0"], lib, 0, {name: None})
-        assert given_none.score(["C", "+", "X_0"]).score == default.score(["C", "+", "X_0"]).score
+    # Reason: clause (BED reads the bed section and evaluator.backend).
+    def test_bed_reads_its_section_and_backend(self):
+        settings = Settings(bed={"num_points_sampled": 5, "num_consts_sampled": 4}, evaluator={"backend": "codegen"})
+        ranking = _setup(BEDRanking(), _X10, None, ["X_0", "+", "C"], settings=settings)
+        assert (ranking.backend, ranking.gt_behavior.shape) == ("codegen", (5, 4))
 
-
-class _NoDefaults(RankingFunction):
-    name = "no_defaults"
-
-    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
-        pass
-
-    def score(self, expr, free_constants=None):
-        return RankingResult(score=0.0)
-
-
-class TestDefaultSettings:
-    # Reason: clause (default_settings: "the defaults of the settings this ranking reads"; "A new dict;
-    # empty in the base class"; RMSE leaves out default_constant). Values from the RankingSettings docs.
-    @pytest.mark.parametrize(
-        "ranking, expected",
-        [
-            (_NoDefaults(), {}),
-            (
-                RMSERanking(),
-                {
-                    "method": "L-BFGS-B", "tol": 1e-6, "gtol": 1e-3, "max_iter": 100, "constant_bounds": (-5, 5),
-                    "initialization": "random", "backend": "stack",
-                },
-            ),
-            (
-                BEDRanking(),
-                {"num_consts_sampled": 32, "num_points_sampled": 64, "constant_bounds": (-5, 5), "backend": "stack"},
-            ),
-        ],
-        ids=["base", "rmse", "bed"],
-    )  # fmt: skip
-    def test_default_settings(self, ranking, expected):
-        first = ranking.default_settings()
-        assert first == expected
-        first["extra"] = 1
-        assert ranking.default_settings() == expected
-
-    # Reason: implied (the checkpoint fingerprint treats these defaults as "left out", so they must be
-    # the ones the RMSE ranking's estimator actually uses).
-    def test_rmse_default_settings_match_the_estimator(self):
-        used = dict(ParameterEstimator(np.ones((3, 1)), np.ones(3)).estimation_settings)
-        del used["default_constant"]
-        assert RMSERanking().default_settings() == used
+    # Reason: clause (bed_gt: "Rows are checked against X when the ranking is set up").
+    def test_bed_gt_rows_must_match_X(self):
+        settings = Settings(bed={"bed_gt": np.zeros((3, 32))})
+        with pytest.raises(ValueError, match="rows"):
+            _setup(BEDRanking(), _X10, None, None, settings=settings)
 
 
 class TestRMSERankingSpecs:
@@ -186,18 +150,14 @@ class TestRMSERankingSpecs:
     # and C_0 bounded to (0, 1), the best fit is at the bound: residual x, RMSE = sqrt((1 + 4 + 9) / 3).
     def test_rmse_score_fits_within_spec_bounds(self):
         X = np.array([[1.0], [2.0], [3.0]])
-        ranking = RMSERanking()
-        ranking.setup(X, 2 * X[:, 0], None, SymbolLibrary.default_symbols(1), 0, {})
+        ranking = _setup(RMSERanking(), X, 2 * X[:, 0], None)
         result = ranking.score(["C_0", "*", "X_0"], [Constant("C_0", bounds=(0.0, 1.0))])
         np.testing.assert_allclose(result.parameters, [1.0], atol=1e-6)
         assert result.score == pytest.approx(np.sqrt(14 / 3), rel=1e-6)
 
 
-_GT_C0 = ["X_0", "+", "C_0"]
-_X10 = np.linspace(0.0, 1.0, 10).reshape(-1, 1)
-
-
 _DEFAULT_100 = {"default_constant": Constant(prior=UniformSampling(100, 101), bounds=(100, 101))}
+_ALL_POINTS = Settings(bed={"num_points_sampled": -1})
 
 
 def _fixed(value):
@@ -208,9 +168,7 @@ class TestGroundTruthConstants:
     # Reason: clause (RMSERanking: y is generated from ground_truth "with the fixed values of the
     # ground_truth_constants setting"). y = 2x, so the best fit of C*X_0 is C = 2 with RMSE 0.
     def test_rmse_setup_generates_y_with_fixed_values(self):
-        ranking = RMSERanking()
-        settings = {"ground_truth_constants": [_fixed(2.0)]}
-        ranking.setup(_X10, None, ["C_0", "*", "X_0"], SymbolLibrary.default_symbols(1), 0, settings)
+        ranking = _setup(RMSERanking(), _X10, None, ["C_0", "*", "X_0"], gt_specs=[_fixed(2.0)])
         result = ranking.score(["C", "*", "X_0"])
         np.testing.assert_allclose(result.parameters, [2.0], atol=1e-6)
         assert result.score == pytest.approx(0.0, abs=1e-6)
@@ -234,17 +192,13 @@ class TestGroundTruthConstants:
     )
     def test_setup_rejects_unusable_specs(self, ranking, ground_truth, specs, match):
         with pytest.raises(ValueError, match=match):
-            ranking().setup(
-                _X10, None, ground_truth, SymbolLibrary.default_symbols(1), 0, {"ground_truth_constants": specs}
-            )
+            _setup(ranking(), _X10, None, ground_truth, gt_specs=specs)
 
     # Reason: clause (BED: fixed ground-truth values are kept; the default threshold is the noise floor,
     # at least 1e-7). A fixed constant makes the behaviour deterministic: noise floor 0, threshold 1e-7.
     # The W1 distance between point masses is their difference, so a candidate fixed at 0 scores 9.81.
     def test_bed_fixed_ground_truth_constant(self):
-        ranking = BEDRanking()
-        settings = {"ground_truth_constants": [_fixed(9.81)], "num_points_sampled": -1}
-        ranking.setup(_X10, None, _GT_C0, SymbolLibrary.default_symbols(1), 0, settings)
+        ranking = _setup(BEDRanking(), _X10, None, _GT_C0, gt_specs=[_fixed(9.81)], settings=_ALL_POINTS)
         assert ranking.default_success_threshold() == 1e-7
         assert ranking.score(_GT_C0, [_fixed(9.81)]).score < 1e-7
         assert ranking.score(_GT_C0, [_fixed(0.0)]).score == pytest.approx(9.81)
@@ -253,19 +207,15 @@ class TestGroundTruthConstants:
     # C_0 ~ U(100, 101) and the candidate fixed at 100.5, BED is E|U - 0.5| = 1/4 for U ~ U(0, 1); 32
     # Latin Hypercube samples keep the sample mean within 0.02. Under the default prior it would be ~100.
     def test_bed_ground_truth_prior_shapes_behaviour(self):
-        ranking = BEDRanking()
-        settings = {
-            "ground_truth_constants": [Constant("C_0", prior=UniformSampling(100, 101))],
-            "num_points_sampled": -1,
-            "num_consts_sampled": 32,
-        }
-        ranking.setup(_X10, None, _GT_C0, SymbolLibrary.default_symbols(1), 0, settings)
+        gt_specs = [Constant("C_0", prior=UniformSampling(100, 101))]
+        ranking = _setup(BEDRanking(), _X10, None, _GT_C0, gt_specs=gt_specs, settings=_ALL_POINTS)
         assert ranking.score(_GT_C0, [_fixed(100.5)]).score == pytest.approx(0.25, abs=0.02)
 
-    # Reason: clause (BED: parameters without a spec are drawn from the default_constant setting, on both
-    # the ground-truth and the candidate side). The default C ~ U(100, 101) against a constant fixed at
-    # 100.5 gives E|U - 0.5| = 1/4 as above; under the uniform default (-5, 5) it would be about 100.
-    # Without the setting, the default is uniform on the constant_bounds setting: (100, 101) gives the same.
+    # Reason: clause (BED: parameters without a spec are drawn from the background knowledge's
+    # default_constant, on both the ground-truth and the candidate side). The default C ~ U(100, 101)
+    # against a constant fixed at 100.5 gives E|U - 0.5| = 1/4 as above; under the uniform default
+    # (-5, 5) it would be about 100. Without one, the default is uniform on constant_bounds:
+    # (100, 101) gives the same.
     @pytest.mark.parametrize(
         "default, ground_truth, gt_specs, candidate, candidate_specs",
         [
@@ -276,43 +226,40 @@ class TestGroundTruthConstants:
         ids=["ground-truth-side", "candidate-side", "constant-bounds-fallback"],
     )
     def test_bed_default_constant_shapes_columns(self, default, ground_truth, gt_specs, candidate, candidate_specs):
-        ranking = BEDRanking()
-        settings = {
-            **default,
-            "ground_truth_constants": gt_specs,
-            "num_points_sampled": -1,
-            "num_consts_sampled": 32,
-        }
-        ranking.setup(_X10, None, ground_truth, SymbolLibrary.default_symbols(1), 0, settings)
+        ranking = _setup(BEDRanking(), _X10, None, ground_truth, gt_specs=gt_specs, settings=_ALL_POINTS, **default)
         assert ranking.score(candidate, candidate_specs).score == pytest.approx(0.25, abs=0.02)
 
     # Reason: clause (default threshold: the noise floor of the ground truth's unfixed parameters, drawn
     # from the default spec, times 1.1, at least 1e-7). With C ~ U(0, 1e-9) every self-BED is at most
     # 1e-9, so 1.1e-9 < 1e-7 and the floor applies; under the uniform default it would be about 1.
     def test_bed_threshold_follows_default_constant(self):
-        ranking = BEDRanking()
-        settings = {
-            "default_constant": Constant(prior=UniformSampling(0, 1e-9), bounds=(0, 1)),
-            "num_points_sampled": -1,
-        }
-        ranking.setup(_X10, None, ["X_0", "+", "C"], SymbolLibrary.default_symbols(1), 0, settings)
+        default = Constant(prior=UniformSampling(0, 1e-9), bounds=(0, 1))
+        ranking = _setup(BEDRanking(), _X10, None, ["X_0", "+", "C"], settings=_ALL_POINTS, default_constant=default)
         assert ranking.default_success_threshold() == 1e-7
 
-    # Reason: default (neither default_constant nor constant_bounds is set: the ground truth's constants
+    # Reason: default (neither default_constant nor constant_bounds is given: the ground truth's constants
     # are sampled from uniform_default((-5, 5)), exactly as create_behavior_matrix does with that range).
     def test_bed_without_settings_samples_constants_in_default_range(self):
-        ranking = BEDRanking()
         sl = SymbolLibrary.default_symbols(1)
-        ranking.setup(_X10, None, ["X_0", "+", "C"], sl, 0, {"num_points_sampled": -1})
+        ranking = _setup(BEDRanking(), _X10, None, ["X_0", "+", "C"], sl, settings=_ALL_POINTS)
         expected = create_behavior_matrix(["X_0", "+", "C"], ranking.bed_X, 32, (-5, 5), sl, 0)
         np.testing.assert_array_equal(ranking.gt_behavior, expected)
+
+    # Reason: clause (BED uses the background knowledge's symbol_library). C_1 is the named constant 50
+    # there, so the ground truth X_0 + C_1 is x + 50 in every column and the candidate X_0 is x: every
+    # point is a shift by 50, BED 50. With another library C_1 would be a free constant drawn from
+    # U(-5, 5), giving a BED of about 2.5.
+    def test_bed_uses_the_background_knowledge_library(self):
+        lib = SymbolLibrary.default_symbols(1)
+        lib.add_symbol("C_1", "lit", 5, "50.0")
+        ranking = _setup(BEDRanking(), _X10, None, ["X_0", "+", "C_1"], lib, settings=_ALL_POINTS)
+        assert ranking.score(["X_0"]).score == pytest.approx(50.0, abs=1e-9)
 
     # Reason: clause (setup: y is generated by evaluating ground_truth with the given symbol library). With
     # C_1 a named constant of value 3, y = x + 3 needs no spec and the best fit of X_0 + C is C = 3.
     def test_rmse_setup_generates_y_with_the_given_library(self):
         lib = SymbolLibrary.default_symbols(1)
         lib.add_symbol("C_1", "lit", 5, "3.0")
-        ranking = RMSERanking()
-        ranking.setup(_X10, None, ["X_0", "+", "C_1"], lib, 0, {})
+        ranking = _setup(RMSERanking(), _X10, None, ["X_0", "+", "C_1"], lib)
         result = ranking.score(["X_0", "+", "C"])
         np.testing.assert_allclose(result.parameters, [3.0], atol=1e-6)
