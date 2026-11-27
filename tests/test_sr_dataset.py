@@ -5,6 +5,7 @@ import shutil
 import signal
 import sqlite3
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -45,12 +46,21 @@ from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
 from SRToolkit.utils.measures import create_behavior_matrix
+from SRToolkit.utils.settings import Settings, SettingsSection
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.units import Unit
 
 _FIX2 = Constant("C_0", value=2.0, fixed=True)
 _SPEC_C0 = Constant("C_0", prior=UniformSampling(0, 1))
 _SPEC_C1 = Constant("C_1", value=1.0)
+
+
+@dataclass(frozen=True, eq=False)
+class _DatasetSection(SettingsSection):
+    """A custom settings section; module level so its import path resolves on load."""
+
+    name = "my_ranking"
+    alpha: float = 0.5
 
 
 @pytest.fixture
@@ -118,9 +128,12 @@ class TestSRDatasetInit:
         assert simple_dataset.benchmark is None
         assert simple_dataset.version is None
         assert simple_dataset.data_source is None
+        # Reason: clause (settings "Settings() for None"; ranking_resample "Default False").
+        assert simple_dataset.settings == Settings()
+        assert simple_dataset.ranking_resample is False
 
 
-def _bed_dataset(**kwargs):
+def _bed_dataset(bed=None, **kwargs):
     """BED dataset whose samplers draw from |x| in [10, 11], far from X in [0, 1)."""
     return SR_dataset(
         np.random.default_rng(0).random((20, 2)),
@@ -129,25 +142,25 @@ def _bed_dataset(**kwargs):
         ground_truth=["X_0", "+", "C"],
         success_threshold=1.0,
         samplers=[UniformSampling(10, 11), UniformSampling(10, 11)],
-        num_consts_sampled=4,
+        settings=Settings(bed={"num_consts_sampled": 4, **(bed or {})}),
         **kwargs,
     )
 
 
 class TestSRDatasetEvaluator:
     def test_bed_draws_points_from_dataset_samplers(self):
-        bed_X = _bed_dataset(num_points_sampled=8).create_evaluator(seed=0).ranking.bed_X
+        bed_X = _bed_dataset({"num_points_sampled": 8}).create_evaluator(seed=0).ranking.bed_X
         assert bed_X.shape == (8, 2)
         assert np.all(np.abs(bed_X) >= 10)
 
     def test_bed_precomputed_bed_gt_scores_on_X_not_samplers(self):
         X = np.random.default_rng(0).random((20, 2))
         gt = create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=4, seed=0)
-        dataset = _bed_dataset(bed_gt=gt)
+        dataset = _bed_dataset({"bed_gt": gt})
         np.testing.assert_array_equal(dataset.create_evaluator(seed=0).ranking.bed_X, dataset.X)
 
     def test_bed_fixed_per_dataset_across_run_seeds(self):
-        dataset = _bed_dataset(num_points_sampled=8, seed=4)
+        dataset = _bed_dataset({"num_points_sampled": 8}, seed=4)
         a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
         np.testing.assert_array_equal(a.ranking.bed_X, b.ranking.bed_X)
         assert a.evaluate_expr(["X_0", "*", "C"]).error == b.evaluate_expr(["X_0", "*", "C"]).error
@@ -161,7 +174,12 @@ class TestSRDatasetEvaluator:
         # One optimizer iteration on a multimodal fit leaves the score dependent on the start.
         X = np.random.default_rng(0).random((10, 1))
         dataset = SR_dataset(
-            X, SymbolLibrary.default_symbols(1), y=np.sin(7 * X[:, 0]), seed=4, ranking_resample=resample, max_iter=1
+            X,
+            SymbolLibrary.default_symbols(1),
+            y=np.sin(7 * X[:, 0]),
+            seed=4,
+            ranking_resample=resample,
+            settings=Settings(estimation={"max_iter": 1}),
         )
         expr = ["sin", "(", "C", "*", "X_0", ")"]
         a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
@@ -173,18 +191,26 @@ class TestSRDatasetEvaluator:
             (4, {}, 4),
             (None, {}, 0),
             (4, {"ranking_resample": True}, None),
-            (4, {"ranking_seed": 7}, 7),
-            (None, {"ranking_seed": 7}, 7),
+            (4, {"settings": Settings(evaluator={"ranking_seed": 7})}, 7),
+            (None, {"settings": Settings(evaluator={"ranking_seed": 7})}, 7),
+            (4, {"ranking_resample": True, "settings": Settings(evaluator={"ranking_seed": 7})}, 7),
         ],
-        ids=["dataset-seed", "no-seed-zero", "resample-none", "explicit-wins", "explicit-wins-no-seed"],
+        ids=[
+            "dataset-seed",
+            "no-seed-zero",
+            "resample-none",
+            "explicit-wins",
+            "explicit-wins-no-seed",
+            "explicit-wins-resample",
+        ],
     )
-    def test_ranking_settings_ranking_seed(self, dataset_seed, kwargs, expected):
+    def test_evaluator_ranking_seed(self, dataset_seed, kwargs, expected):
         X = np.random.default_rng(0).random((5, 1))
         dataset = SR_dataset(X, SymbolLibrary.default_symbols(1), y=X[:, 0], seed=dataset_seed, **kwargs)
-        assert dataset.ranking_settings().get("ranking_seed") == expected
+        assert dataset.create_evaluator().settings.evaluator.ranking_seed == expected
 
     def test_ranking_resample_uses_run_seed(self):
-        dataset = _bed_dataset(num_points_sampled=8, ranking_resample=True)
+        dataset = _bed_dataset({"num_points_sampled": 8}, ranking_resample=True)
         a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
         assert not np.array_equal(a.ranking.bed_X, b.ranking.bed_X)
 
@@ -197,12 +223,12 @@ class TestSRDatasetEvaluator:
             y=X[:, 0],
             success_threshold=1.0,
             samplers=[UniformSampling(10, 11), UniformSampling(10, 11)],
-            num_points_sampled=-1,
+            settings=Settings(bed={"num_points_sampled": -1}),
         )
         np.testing.assert_array_equal(dataset.create_evaluator(seed=0).ranking.bed_X, X)
 
     def test_bed_num_points_minus_one_uses_all_of_X(self):
-        dataset = _bed_dataset(num_points_sampled=-1)
+        dataset = _bed_dataset({"num_points_sampled": -1})
         np.testing.assert_array_equal(dataset.create_evaluator(seed=0).ranking.bed_X, dataset.X)
 
     def test_create_evaluator(self, simple_dataset):
@@ -349,16 +375,16 @@ class TestGroundTruthConstants:
         ds = SR_dataset.from_samplers(["X_0", "+", "C_1"], [UniformSampling(0, 1)], symbol_library=lib, n_samples=5)
         np.testing.assert_allclose(ds.y, ds.X[:, 0] + 3.0)
 
-    # Reason: clause (ranking_settings "plus ground_truth_constants if it has them"; RMSE generates y
+    # Reason: clause (create_evaluator passes ground_truth_constants; RMSE generates y
     # with the fixed values). y = 2x + 2, so C*X_0 + C fits exactly with parameters (2, 2).
-    def test_ranking_settings_carry_them_to_the_evaluator(self):
+    def test_create_evaluator_passes_them(self):
         X = np.array([[1.0], [2.0], [3.0], [4.0]])
         ds = SR_dataset(
             X, SymbolLibrary.default_symbols(1), ground_truth=["C_0", "*", "X_0", "+", "C_0"],
             ground_truth_constants=[_FIX2],
         )  # fmt: skip
-        assert ds.ranking_settings()["ground_truth_constants"] == ds.ground_truth_constants
         ev = ds.create_evaluator(seed=0)
+        assert ev.ground_truth_constants == ds.ground_truth_constants
         assert ev.evaluate_expr(["C", "*", "X_0", "+", "C"]).error == pytest.approx(0.0, abs=1e-6)
         np.testing.assert_allclose(ev.models[-1].parameters, [2.0, 2.0], atol=1e-5)
 
@@ -638,6 +664,12 @@ def _v3_config():
     return json.loads((_GOLDEN / "config_v3.json").read_text())
 
 
+def _as_v4(v5, kwargs):
+    """The format-4 form of a format-5 dict: flat ``kwargs`` instead of settings."""
+    v4 = {k: v for k, v in v5.items() if k not in ("settings", "ranking_resample")}
+    return {**v4, "format_version": 4, "kwargs": kwargs}
+
+
 _X2 = np.zeros((3, 2))
 _Y = np.zeros(3)
 
@@ -658,7 +690,7 @@ class TestBackgroundKnowledgeArguments:
             constant_bounds=(-3, 3),
             advisory_constraints=[MaxTreeDepth(4)],
             reference_grammar=_grammar(),
-            method="L-BFGS-B",
+            settings=Settings(estimation={"method": "Nelder-Mead"}),
         )
         expected = BackgroundKnowledge(
             lib,
@@ -674,7 +706,7 @@ class TestBackgroundKnowledgeArguments:
         assert ds.symbol_library is lib
         assert ds.samplers[0] is s0 and ds.samplers[1] is s1
         assert ds.constant_bounds == (-3.0, 3.0)
-        assert ds.kwargs == {"method": "L-BFGS-B"}
+        assert ds.settings == Settings(estimation={"method": "Nelder-Mead"})
 
     @pytest.mark.parametrize(
         "name",
@@ -693,42 +725,66 @@ class TestBackgroundKnowledgeArguments:
             setattr(simple_dataset, name, None)
 
     @pytest.mark.parametrize(
-        "make",
+        "make, match",
         [
-            lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=True),
-            lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=2.0),
-            lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=3, required_constraints=[MaxConstants(2)]),
-            lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_expr_length=5, required_constraints=[MaxTokens(4)]),
-            lambda: SR_dataset(_X2, _lib2c(), y=_Y, samplers=[UniformSampling(0, 1)] * 3),
-            lambda: SR_dataset(np.zeros((3, 3)), _lib2c(), y=_Y),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=True), "max_constants"),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=2.0), "max_constants"),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=3, required_constraints=[MaxConstants(2)]), "disagrees"),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=0, required_constraints=[MaxConstants(2)]), "disagrees"),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_expr_length=5, required_constraints=[MaxTokens(4)]), "disagrees"),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, samplers=[UniformSampling(0, 1)] * 3), "samplers"),
+            (lambda: SR_dataset(np.zeros((3, 3)), _lib2c(), y=_Y), "columns"),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, settings=Settings(evaluator={"max_constants": 4})), "evaluator.max_constants"),
+            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, settings=Settings(evaluator={"max_expr_length": 10})), "evaluator.max_expr_length"),
+            (
+                lambda: SR_dataset.from_samplers(
+                    ["X_0"], [UniformSampling(0, 1)] * 2, n_samples=3, settings=Settings(evaluator={"max_constants": 4})
+                ),
+                "evaluator.max_constants",
+            ),
         ],
         ids=[
             "max-constants-bool",
             "max-constants-float",
             "max-constants-disagrees",
+            "max-constants-zero-disagrees",
             "max-expr-length-disagrees",
             "sampler-count",
             "columns-differ-from-variables",
+            "settings-max-constants",
+            "settings-max-expr-length",
+            "from-samplers-settings-max-constants",
         ],
-    )
-    def test_init_value_errors(self, make):
-        with pytest.raises(ValueError):
+    )  # fmt: skip
+    def test_init_value_errors(self, make, match):
+        with pytest.raises(ValueError, match=match):
             make()
 
     @pytest.mark.parametrize(
-        "kwargs",
+        "kwargs, match",
         [
-            {"required_constraints": MaxConstants(3)},
-            {"required_constraints": [MaxDepth(3)]},
-            {"required_constraints": ["MaxConstants"]},
-            {"variables": {"X_0": "x"}},
-            {"advisory_constraints": MaxTreeDepth(4)},
-            {"reference_grammar": "g"},
+            ({"required_constraints": MaxConstants(3)}, "iterable"),
+            ({"required_constraints": [MaxDepth(3)]}, "ExpressionConstraint"),
+            ({"required_constraints": ["MaxConstants"]}, "ExpressionConstraint"),
+            ({"variables": {"X_0": "x"}}, "VariableInfo"),
+            ({"advisory_constraints": MaxTreeDepth(4)}, "iterable"),
+            ({"reference_grammar": "g"}, "reference_grammar"),
+            ({"settings": {"estimation": {"tol": 1e-3}}}, "Settings"),
+            ({"ranking_resample": 1}, "ranking_resample"),
         ],
-        ids=["lone-constraint", "grammar-constraint", "string-item", "variable-not-info", "lone-hint", "grammar-str"],
+        ids=[
+            "lone-constraint",
+            "grammar-constraint",
+            "string-item",
+            "variable-not-info",
+            "lone-hint",
+            "grammar-str",
+            "settings-dict",
+            "ranking-resample-int",
+        ],
     )
-    def test_init_type_errors(self, kwargs):
-        with pytest.raises(TypeError):
+    def test_init_type_errors(self, kwargs, match):
+        with pytest.raises(TypeError, match=match):
             SR_dataset(_X2, _lib2c(), y=_Y, **kwargs)
 
 
@@ -739,6 +795,7 @@ class TestRequiredConstraints:
             ({}, [MaxConstants(8)]),
             ({"max_expr_length": 20}, [MaxConstants(8), MaxTokens(20)]),
             ({"max_constants": -1}, []),
+            ({"max_constants": 0}, [MaxConstants(0)]),
             ({"max_constants": np.int64(3)}, [MaxConstants(3)]),
             (
                 {"required_constraints": [MaxTreeDepth(4)], "max_expr_length": 5},
@@ -748,17 +805,20 @@ class TestRequiredConstraints:
             ({"required_constraints": [MaxConstants(2)], "max_constants": 2}, [MaxConstants(2)]),
             ({"max_expr_length": -1}, [MaxConstants(8)]),
             ({"required_constraints": [MaxConstants(2)], "max_constants": -1}, [MaxConstants(2)]),
+            ({"settings": Settings(evaluator={"max_constants": 8, "max_expr_length": -1})}, [MaxConstants(8)]),
         ],
         ids=[
             "default",
             "max-expr-length",
             "no-limit",
+            "zero-limit",
             "numpy-int",
             "limits-first",
             "listed-replaces-default",
             "agreeing-setting",
             "negative-length",
             "negative-keeps-listed",
+            "settings-default-limits-accepted",
         ],
     )
     def test_required_constraints_assembly(self, kwargs, expected):
@@ -827,18 +887,41 @@ class TestDescribe:
             original_equation="z = x + y",
             success_threshold=1e-6,
             description="Toy",
-            method="L-BFGS-B",
+            settings=Settings(estimation={"method": "Nelder-Mead"}),
         )
         s = str(ds)
         lines = s.split("\n")
         assert "z = x + y" in lines[0]
-        assert s.index("z = x + y") < s.index("RMSE") < s.index("L-BFGS-B") < s.index(ds.describe())
+        assert (
+            s.index("z = x + y") < s.index("RMSE") < s.index("estimation.method=Nelder-Mead") < s.index(ds.describe())
+        )
         assert s.index(ds.describe()) + len(ds.describe()) < len(s) - len(lines[-1])
         assert "dataset_metadata" in lines[-1]
 
+    # Reason: clause (__str__ "the non-default settings as section.field=value": sections as
+    # stored, fields in declaration order, values with str(), no section_class, no line when all
+    # settings are default).
+    @pytest.mark.parametrize(
+        "settings, expected",
+        [
+            (Settings(), None),
+            (
+                Settings(bed={"num_points_sampled": 8}, estimation={"max_iter": 5, "method": "Nelder-Mead"}),
+                "Non-default settings: estimation.method=Nelder-Mead, estimation.max_iter=5, bed.num_points_sampled=8.",
+            ),
+            (Settings(my_ranking=_DatasetSection(alpha=0.3)), "Non-default settings: my_ranking.alpha=0.3."),
+        ],
+        ids=["default", "two-sections", "custom-section"],
+    )
+    def test_str_non_default_settings_line(self, settings, expected):
+        s = str(SR_dataset(_X2, _lib2c(), y=_Y, settings=settings))
+        lines = [line for line in s.split("\n") if line.startswith("Non-default settings")]
+        assert lines == ([] if expected is None else [expected])
+        assert "section_class" not in s
+
 
 class TestCreateEvaluatorConstraints:
-    def test_ranking_settings_are_what_the_evaluator_gets(self):
+    def test_evaluator_gets_settings_and_task_facts(self):
         X = np.random.default_rng(0).random((5, 2))
         samplers = [UniformSampling(0, 1), UniformSampling(0, 1)]
         ds = SR_dataset(
@@ -849,16 +932,15 @@ class TestCreateEvaluatorConstraints:
             samplers=samplers,
             constant_bounds=(-2, 2),
             seed=3,
-            method="L-BFGS-B",
+            settings=Settings(estimation={"method": "Nelder-Mead"}),
         )
-        settings = ds.ranking_settings()
-        assert settings["constant_bounds"] == (-2.0, 2.0)
-        assert settings["ranking_seed"] == 3
-        assert settings["method"] == "L-BFGS-B"
-        assert _dicts(settings["samplers"]) == _dicts(samplers)
-        assert "max_constants" not in settings and "max_expr_length" not in settings
-        ev_settings = ds.create_evaluator().kwargs
-        assert all(ev_settings[k] == v for k, v in settings.items() if k != "samplers")
+        ev = ds.create_evaluator()
+        assert ev.settings == ds.settings.replace(
+            evaluator={"ranking_seed": 3, "max_constants": -1, "max_expr_length": -1}
+        )
+        assert ev.background_knowledge.constant_bounds == (-2.0, 2.0)
+        assert _dicts(ev.background_knowledge.samplers) == _dicts(samplers)
+        assert ds.settings.evaluator.ranking_seed is None  # the dataset's settings are unchanged
 
     def test_create_evaluator_passes_constraint_lists(self):
         hints = [MaxTreeDepth(3)]
@@ -919,12 +1001,14 @@ class TestCreateEvaluatorConstraints:
         [
             (lambda: _bed_dataset(), True, (-5.0, 5.0)),
             (lambda: _bed_dataset(constant_bounds=(-1, 1)), True, (-1.0, 1.0)),
-            (lambda: _bed_dataset(num_points_sampled=-1), True, (-5.0, 5.0)),
+            (lambda: _bed_dataset({"num_points_sampled": -1}), True, (-5.0, 5.0)),
             (
                 lambda: _bed_dataset(
-                    bed_gt=create_behavior_matrix(
-                        ["X_0", "+", "C"], np.random.default_rng(0).random((20, 2)), num_consts_sampled=4, seed=0
-                    )
+                    {
+                        "bed_gt": create_behavior_matrix(
+                            ["X_0", "+", "C"], np.random.default_rng(0).random((20, 2)), num_consts_sampled=4, seed=0
+                        )
+                    }
                 ),
                 True,
                 (-5.0, 5.0),
@@ -955,15 +1039,15 @@ class TestCreateEvaluatorConstraints:
     def test_create_evaluator_ranking_settings(self, make, has_samplers, bounds):
         ds = make()
         ev = ds.create_evaluator(seed=0)
-        assert tuple(ev.kwargs["constant_bounds"]) == bounds
-        assert ("samplers" in ev.kwargs) is has_samplers
-        assert "ground_truth_constants" not in ev.kwargs
+        assert tuple(ev.background_knowledge.constant_bounds) == bounds
+        assert (ev.background_knowledge.samplers is not None) is has_samplers
+        assert ev.ground_truth_constants is None
         if has_samplers:
-            assert _dicts(ev.kwargs["samplers"]) == _dicts(ds.samplers)
+            assert _dicts(ev.background_knowledge.samplers) == _dicts(ds.samplers)
 
 
-class TestFormat4:
-    def test_to_dict_v4_layout(self, tmp_path, monkeypatch):
+class TestFormat5:
+    def test_to_dict_v5_layout(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         ds = SR_dataset(
             _X2, _lib2c(), y=_Y, benchmark="b", version="1", constant_bounds=(-3, 3), max_constants=8, seed=3,
@@ -972,19 +1056,26 @@ class TestFormat4:
         d = ds.to_dict()
         assert set(d) == {
             "format_version", "dataset_name", "benchmark", "version", "ranking_function", "max_evaluations",
-            "success_threshold", "original_equation", "seed", "dataset_metadata", "kwargs", "ground_truth",
+            "success_threshold", "original_equation", "seed", "dataset_metadata", "settings", "ranking_resample", "ground_truth",
             "ground_truth_constants", "data_source", "test", "aux", "background_knowledge", "required_constraints",
         }  # fmt: skip
-        assert d["format_version"] == 4
+        assert d["format_version"] == 5
         assert d["required_constraints"] == [MaxConstants(8).to_dict()]
         assert d["background_knowledge"] == ds.background_knowledge.to_dict()
-        assert d["kwargs"] == {}
+        assert (d["settings"], d["ranking_resample"]) == (Settings().to_dict(), False)
         assert (d["seed"], d["dataset_metadata"]) == (3, {"citation": "x"})
         assert d["ground_truth"] is None
         assert d["ground_truth_constants"] is None
 
-    def test_v4_round_trip(self, tmp_path, monkeypatch):
+    # Reason: clause (to_dict "settings" = Settings.to_dict and "ranking_resample"; from_dict round
+    # trip), with a custom section and an array field (bed_gt) that must survive JSON.
+    def test_v5_round_trip(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        settings = Settings(
+            estimation={"method": "Nelder-Mead"},
+            bed={"num_consts_sampled": 4, "bed_gt": np.arange(12.0).reshape(3, 4)},
+            my_ranking=_DatasetSection(alpha=0.3),
+        )
         ds = SR_dataset(
             _X2,
             _lib2c(),
@@ -998,7 +1089,6 @@ class TestFormat4:
             target=VariableInfo("F"),
             required_constraints=[RequiredVariables(["X_0"])],
             max_expr_length=12,
-            method="L-BFGS-B",
             benchmark="b",
             version="1",
             ranking_function="bed",
@@ -1010,32 +1100,49 @@ class TestFormat4:
             success_threshold=0.5,
             seed=3,
             dataset_metadata={"citation": "x"},
+            settings=settings,
+            ranking_resample=True,
         )
         d = json.loads(json.dumps(ds.to_dict()))
-        assert d["kwargs"] == {"method": "L-BFGS-B"}
+        assert (d["settings"], d["ranking_resample"]) == (settings.to_dict(), True)
         assert d["ground_truth_constants"] == [ds.ground_truth_constants[0].to_dict()]
         restored = SR_dataset.from_dict(d)
+        assert (restored.settings, restored.ranking_resample) == (settings, True)
+        np.testing.assert_array_equal(restored.settings.bed.bed_gt, np.arange(12.0).reshape(3, 4))
         assert restored.to_dict() == d
         assert restored.background_knowledge.to_dict() == ds.background_knowledge.to_dict()
         path = tmp_path / "ds.json"
         path.write_text(json.dumps(d))
         assert SR_dataset.from_dict(path).to_dict() == d
+        # max_constants=-1 saves no limit, and loading adds no default MaxConstants(8) back.
+        unlimited = SR_dataset(_X2, _lib2c(), y=_Y, benchmark="b", version="1", dataset_name="u", max_constants=-1)
+        assert SR_dataset.from_dict(json.loads(json.dumps(unlimited.to_dict()))).required_constraints == ()
 
-    # Reason: clause (RankingSettings simplify_*: stored as dataset kwargs, the rules saved with their
+    # Reason: clause (evaluator.simplify_*: stored in the dataset settings, the rules saved with their
     # to_dict, and read by the evaluator): rules without "powers" keep X_0*X_0 after a JSON round trip.
     def test_simplify_rules_round_trip_and_reach_evaluator(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         rules = DefaultRules(exclude=["powers"])
         ds = SR_dataset(
-            _X2, SymbolLibrary.default_symbols(2), y=_Y, benchmark="b", version="1",
-            simplify_rules=rules, simplify_max_iterations=5, simplify_fold_aware=False, fold_constants="keep",
-            simplify_expr=True, canonicalise_constants=True,
-        )  # fmt: skip
+            _X2,
+            SymbolLibrary.default_symbols(2),
+            y=_Y,
+            benchmark="b",
+            version="1",
+            settings=Settings(
+                evaluator={
+                    "simplify_rules": rules,
+                    "simplify_max_iterations": 5,
+                    "simplify_fold_aware": False,
+                    "fold_constants": "keep",
+                    "simplify_expr": True,
+                    "canonicalise_constants": True,
+                }
+            ),
+        )
         d = json.loads(json.dumps(ds.to_dict()))
-        assert d["kwargs"] == {
-            "simplify_rules": rules.to_dict(), "simplify_max_iterations": 5, "simplify_fold_aware": False,
-            "fold_constants": "keep", "simplify_expr": True, "canonicalise_constants": True,
-        }  # fmt: skip
+        assert d["settings"] == ds.settings.to_dict()
+        assert d["settings"]["sections"]["evaluator"]["simplify_rules"] == rules.to_dict()
         restored = SR_dataset.from_dict(d)
         assert restored.to_dict() == d
         se = restored.create_evaluator()
@@ -1063,23 +1170,50 @@ class TestFormat4:
         assert ds.samplers is None
         np.testing.assert_array_equal(ds.X, X)
 
+    # Reason: clause (formats 2-3: "kwargs" sorted into settings sections, codec fields included;
+    # constant_bounds and the limits become the named arguments, ranking_resample the parameter;
+    # None is the default, and ranking_seed None means resampling each run).
     @pytest.mark.parametrize(
-        "format_version, kwargs, bounds, required, kept_kwargs",
+        "format_version, kwargs, bounds, required, settings, resample",
         [
             (
                 3,
-                {"constant_bounds": [-3, 3], "max_constants": 4, "max_expr_length": 20, "method": "L-BFGS-B"},
+                {
+                    "constant_bounds": [-3, 3],
+                    "max_constants": 4,
+                    "max_expr_length": 20,
+                    "method": "Nelder-Mead",
+                    "simplify_rules": DefaultRules(exclude=["powers"]).to_dict(),
+                    "ranking_seed": 7,
+                    "num_consts_sampled": 4,
+                    "bed_gt": [[1.0] * 4] * 5,
+                    "ranking_resample": True,
+                },
                 (-3.0, 3.0),
                 [MaxConstants(4), MaxTokens(20)],
-                {"method": "L-BFGS-B"},
+                Settings(
+                    evaluator={"simplify_rules": DefaultRules(exclude=["powers"]), "ranking_seed": 7},
+                    estimation={"method": "Nelder-Mead"},
+                    bed={"num_consts_sampled": 4, "bed_gt": np.ones((5, 4))},
+                ),
+                True,
             ),
-            (3, {}, (-5.0, 5.0), [MaxConstants(8)], {}),
-            (3, {"max_constants": -1}, (-5.0, 5.0), [], {}),
-            (2, {}, (-5.0, 5.0), [MaxConstants(8)], {}),
+            (3, {}, (-5.0, 5.0), [MaxConstants(8)], Settings(), False),
+            (3, {"max_constants": -1}, (-5.0, 5.0), [], Settings(), False),
+            (2, {}, (-5.0, 5.0), [MaxConstants(8)], Settings(), False),
+            (
+                3,
+                {"simplify_rules": None, "max_constants": None, "ranking_resample": None},
+                (-5.0, 5.0),
+                [MaxConstants(8)],
+                Settings(),
+                False,
+            ),
+            (3, {"ranking_seed": None, "ranking_resample": False}, (-5.0, 5.0), [MaxConstants(8)], Settings(), True),
         ],
-        ids=["v3-all-settings", "v3-defaults", "v3-no-limit", "v2"],
+        ids=["v3-all-settings", "v3-defaults", "v3-no-limit", "v2", "v3-none-is-default", "v3-seed-none-resamples"],
     )
-    def test_migrates_v2_v3(self, tmp_path, monkeypatch, format_version, kwargs, bounds, required, kept_kwargs):
+    def test_migrates_v2_v3(self, tmp_path, monkeypatch, format_version, kwargs, bounds, required, settings, resample):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         d = {**_v3_config(), "format_version": format_version, "kwargs": kwargs}
         if format_version == 2:
@@ -1087,27 +1221,68 @@ class TestFormat4:
         ds = SR_dataset.from_dict(d)
         assert ds.constant_bounds == bounds
         assert _dicts(ds.required_constraints) == _dicts(required)
-        assert ds.kwargs == kept_kwargs
+        assert (ds.settings, ds.ranking_resample) == (settings, resample)
         assert _dicts(ds.samplers) == d["samplers"]
         # The golden file predates unit rules; loading fills in the predefined ones.
         assert ds.symbol_library.to_dict() == _lib2c().to_dict()
         out = ds.to_dict()
-        assert out["format_version"] == 4
+        assert out["format_version"] == 5
         assert "samplers" not in out and "symbol_library" not in out
 
+    # Reason: clause (format 4 migrated: its "kwargs" go to the settings sections and
+    # ranking_resample; the saved background knowledge and required constraints are kept).
+    def test_migrates_v4_kwargs(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        ds = SR_dataset(_X2, _lib2c(), y=_Y, benchmark="b", version="1", constant_bounds=(-2, 2), max_expr_length=12)
+        v4 = _as_v4(
+            ds.to_dict(),
+            {
+                "simplify_expr": True,
+                "backend": "codegen",
+                "tol": 1e-3,
+                "num_points_sampled": 8,
+                "ranking_resample": True,
+            },
+        )
+        migrated = SR_dataset.from_dict(v4)
+        assert migrated.settings == Settings(
+            evaluator={"simplify_expr": True, "backend": "codegen"},
+            estimation={"tol": 1e-3},
+            bed={"num_points_sampled": 8},
+        )
+        assert migrated.ranking_resample is True
+        assert migrated.background_knowledge.to_dict() == ds.background_knowledge.to_dict()
+        assert _dicts(migrated.required_constraints) == _dicts([MaxConstants(8), MaxTokens(12)])
+        assert migrated.to_dict()["format_version"] == 5
+
+    # Reason: clause ("a key that is not a built-in setting is a ValueError", naming it); the task
+    # facts other than constant_bounds are not accepted as old kwargs either.
     @pytest.mark.parametrize(
-        "make",
+        "make, key",
         [
-            lambda v4: {**v4, "format_version": 1},
-            lambda v4: {**v4, "format_version": 5},
-            lambda v4: {**v4, "format_version": 99},
-            lambda v4: "dataset.zip",
-            lambda v4: {**_v3_config(), "samplers": _v3_config()["samplers"][:1]},
+            (lambda v5: {**_v3_config(), "kwargs": {"not_a_setting": 1}}, "not_a_setting"),
+            (lambda v5: _as_v4(v5, {"not_a_setting": 1}), "not_a_setting"),
+            (lambda v5: _as_v4(v5, {"default_constant": Constant(value=1.0).to_dict()}), "default_constant"),
         ],
-        ids=["v1", "v5", "v99", "zip-path", "v3-sampler-count"],
+        ids=["v3", "v4", "v4-default-constant"],
     )
-    def test_from_dict_errors(self, serialisable_dataset, make):
-        with pytest.raises(ValueError):
+    def test_old_kwargs_unknown_key_rejected(self, serialisable_dataset, make, key):
+        with pytest.raises(ValueError, match=key):
+            SR_dataset.from_dict(make(serialisable_dataset.to_dict()))
+
+    @pytest.mark.parametrize(
+        "make, match",
+        [
+            (lambda v4: {**v4, "format_version": 1}, "format_version"),
+            (lambda v4: {**v4, "format_version": 6}, "format_version"),
+            (lambda v4: {**v4, "format_version": 99}, "format_version"),
+            (lambda v4: "dataset.zip", "share.load"),
+            (lambda v4: {**_v3_config(), "samplers": _v3_config()["samplers"][:1]}, "column"),
+        ],
+        ids=["v1", "v6", "v99", "zip-path", "v3-sampler-count"],
+    )
+    def test_from_dict_errors(self, serialisable_dataset, make, match):
+        with pytest.raises(ValueError, match=match):
             SR_dataset.from_dict(make(serialisable_dataset.to_dict()))
 
     @pytest.mark.filterwarnings("error::UserWarning")
@@ -1178,7 +1353,9 @@ class TestFromSamplersStageC:
             variables={"X_0": VariableInfo("x")},
             target=VariableInfo("z"),
             description="Toy",
-            method="L-BFGS-B",
+            reference_grammar=_grammar(),
+            settings=Settings(estimation={"method": "Nelder-Mead"}),
+            ranking_resample=True,
         )
         assert ds.original_equation == expected
         assert (ds.ranking_function, ds.success_threshold, ds.max_evaluations) == ("bed", 0.1, 50)
@@ -1186,7 +1363,8 @@ class TestFromSamplersStageC:
         assert (ds.dataset_name, ds.dataset_metadata) == ("fwd", {"citation": "x"})
         assert ds.background_knowledge.variables == {"X_0": VariableInfo("x")}
         assert (ds.background_knowledge.target, ds.background_knowledge.description) == (VariableInfo("z"), "Toy")
-        assert ds.kwargs == {"method": "L-BFGS-B"}
+        assert ds.background_knowledge.reference_grammar.to_dict() == _grammar().to_dict()
+        assert (ds.settings, ds.ranking_resample) == (Settings(estimation={"method": "Nelder-Mead"}), True)
 
     def test_from_samplers_uses_flat_arguments_and_limits(self):
         lib = SymbolLibrary.default_symbols(2)
@@ -1207,18 +1385,19 @@ class TestFromSamplersStageC:
         assert ds.background_knowledge.to_dict() == expected.to_dict()
         assert ds.X.shape == (15, 2)
         assert _dicts(ds.required_constraints) == _dicts([MaxConstants(2), MaxTokens(9), MaxTreeDepth(5)])
+        assert (ds.settings, ds.ranking_resample) == (Settings(), False)
 
     @pytest.mark.parametrize(
-        "kwargs",
+        "kwargs, match",
         [
-            {},
-            {"samplers": []},
-            {"samplers": [UniformSampling(0, 1)] * 2, "symbol_library": SymbolLibrary.default_symbols(3)},
+            ({}, "non-empty"),
+            ({"samplers": []}, "non-empty"),
+            ({"samplers": [UniformSampling(0, 1)] * 2, "symbol_library": SymbolLibrary.default_symbols(3)}, "samplers"),
         ],
         ids=["no-samplers", "empty-samplers", "count-mismatch"],
     )
-    def test_from_samplers_errors(self, kwargs):
-        with pytest.raises(ValueError):
+    def test_from_samplers_errors(self, kwargs, match):
+        with pytest.raises(ValueError, match=match):
             SR_dataset.from_samplers(["X_0"], n_samples=5, seed=0, **kwargs)
 
 
@@ -1610,7 +1789,7 @@ def test_constants_and_units_survive(make, tmp_path, monkeypatch):
 
 class TestDefaultConstant:
     # Reason: clause (default_constant "as for BackgroundKnowledge"; the default_constant property,
-    # complete; ranking_settings() includes it; create_evaluator uses it; ground_truth_constants are
+    # complete; create_evaluator uses it; ground_truth_constants are
     # checked against it: value 9 is outside the uniform default's (-2, 3) but inside (0, inf)).
     @pytest.mark.parametrize(
         "make",
@@ -1644,9 +1823,8 @@ class TestDefaultConstant:
         expected = Constant(prior=UniformSampling(-2.0, 3.0), bounds=(0, float("inf"))).to_dict()
         assert ds.default_constant.to_dict() == expected
         assert ds.background_knowledge.default_constant.to_dict() == expected
-        assert ds.ranking_settings()["default_constant"].to_dict() == expected
         assert ds.create_evaluator().default_constant.to_dict() == expected
-        assert "default_constant" not in ds.to_dict()["kwargs"]
+        assert "default_constant" not in ds.to_dict()["settings"]["sections"]
 
 
 # ── Checkpoints in evaluate_approach (stage 2b) ───────────────────────────────
@@ -1883,7 +2061,7 @@ class TestEvaluateApproachCheckpoints:
 # --------------------------------------------------------------------------- #
 # extend_run (checkpoint stage 6)
 # --------------------------------------------------------------------------- #
-def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, **settings):
+def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, estimation=None):
     X = np.array([[1.0], [2.0], [3.0]])
     return SR_dataset(
         X,
@@ -1892,8 +2070,8 @@ def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, **settings):
         dataset_name="ds",
         max_evaluations=max_evaluations,
         success_threshold=success_threshold,
-        initialization="mean",  # fitted constants do not depend on the random state
-        **settings,
+        # Fitted constants do not depend on the random state.
+        settings=Settings(estimation={"initialization": "mean", **(estimation or {})}),
     )
 
 
@@ -2193,7 +2371,14 @@ class TestExtendRun:
             (SteppedApproach(), _limited(6), None, {"success_threshold": "0.1"}, TypeError, "success_threshold"),
             (SteppedApproach(), _limited(6), None, {"success_threshold": True}, TypeError, "success_threshold"),
             (SteppedApproach(), _limited(6, scale=3.0), None, {}, ValueError, "other settings than this dataset's: y"),
-            (SteppedApproach(), _limited(6, tol=1e-3), None, {}, ValueError, "other settings than this dataset's: tol"),
+            (
+                SteppedApproach(),
+                _limited(6, estimation={"tol": 1e-3}),
+                None,
+                {},
+                ValueError,
+                "other settings than this dataset's: estimation.tol",
+            ),
             (SteppedApproach(), _limited(6), None, {"keep_all_models": False, "top_k": 0}, ValueError, "top_k"),
             (SteppedApproach(), _limited(6), None, {"callbacks": _Unsaveable()}, TypeError, "set"),
             (SteppedApproach(), _limited(6), _plain_file, {}, ValueError, "checkpoint"),

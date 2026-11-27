@@ -51,7 +51,7 @@ _URL_TIMEOUT = 60  # seconds without data before a download fails
 
 
 def _config_samplers(config: dict) -> list | None:
-    """The saved samplers of a dataset config, from ``background_knowledge`` (format 4) or the top level (2/3)."""
+    """The saved samplers of a dataset config, from ``background_knowledge`` (formats 4, 5) or the top level (2, 3)."""
     bk = config.get("background_knowledge")
     if isinstance(bk, dict):
         return bk.get("samplers")

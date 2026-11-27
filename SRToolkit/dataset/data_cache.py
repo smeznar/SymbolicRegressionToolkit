@@ -58,7 +58,7 @@ def _drift_hash(config: dict) -> str:
     """
     payload = {
         "data_source": config.get("data_source"),
-        # Read in either layout, so a v3 config and its v4 migration hash the same.
+        # Read in either layout, so a v3 config and its migration hash the same.
         "samplers": _config_samplers(config),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()[:16]
@@ -112,7 +112,7 @@ def resolve(
     ``.meta.json`` hash is compared against the current ``data_source`` + ``samplers``
     config. A mismatch emits a warning telling the user to call ``refresh()``. The samplers are
     read from either config layout (see ``config``), and the hash does not depend on the layout,
-    so a format 2/3 config and its format 4 migration hash the same.
+    so a format 2/3 config and its migration hash the same.
 
     On a cache miss (or ``force=True``): the data is materialised by calling the source's
     [materialize][SRToolkit.dataset.data_source.DataSource.materialize].

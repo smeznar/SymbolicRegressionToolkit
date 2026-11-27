@@ -409,15 +409,15 @@ def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstra
     return items
 
 
-def _add_limit_constraints_from_kwargs(
-    constraints: tuple[ExpressionConstraint, ...], kwargs: Mapping[str, Any]
+def _add_limit_constraints(
+    constraints: tuple[ExpressionConstraint, ...], limits: Mapping[str, Any]
 ) -> tuple[ExpressionConstraint, ...]:
     # MaxConstants then MaxTokens from the max_constants / max_expr_length settings (negative = none),
     # followed by the given constraints. A setting adds nothing when the list already has a
     # constraint of its class; a given non-negative setting with a different limit is a ValueError.
     built: list[ExpressionConstraint] = []
     for key, cls in (("max_constants", MaxConstants), ("max_expr_length", MaxTokens)):
-        value = _validate_limit(kwargs.get(key, getattr(EvaluatorSettings(), key)), key, allow_negative=True)
+        value = _validate_limit(limits.get(key, getattr(EvaluatorSettings(), key)), key, allow_negative=True)
         # cls is MaxConstants or MaxTokens, so every listed constraint has a limit.
         listed = cast(list[MaxConstants | MaxTokens], [c for c in constraints if isinstance(c, cls)])
         if not listed:
@@ -425,7 +425,7 @@ def _add_limit_constraints_from_kwargs(
                 built.append(cls(value))
         else:
             clash = next((c for c in listed if c.limit != value), None)
-            if key in kwargs and value >= 0 and clash is not None:
+            if key in limits and value >= 0 and clash is not None:
                 raise ValueError(
                     f"[SR_evaluator] {key}={value} disagrees with {cls.__name__}({clash.limit}) in "
                     f"required_constraints; remove the setting or the constraint."
@@ -684,7 +684,7 @@ class SR_evaluator:
         advisory = (
             () if advisory_constraints is None else _as_constraint_tuple(advisory_constraints, "advisory_constraints")
         )
-        required = _add_limit_constraints_from_kwargs(required, settings.evaluator.changed())
+        required = _add_limit_constraints(required, settings.evaluator.changed())
         self._required_constraints = tuple(_set_up_copy(c, symbol_library) for c in required)
 
         # Background knowledge from the same values the evaluator fits with; it holds the set-up

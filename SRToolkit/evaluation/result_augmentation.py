@@ -439,8 +439,10 @@ class HoldoutMetric(ResultAugmenter):
         ranking scores, constants without a spec, and a spec's unset ``prior`` or ``bounds``, use
         the background knowledge's ``default_constant``, not
         [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]. To score under the
-        search's task and settings, pass ``dataset.background_knowledge`` and
-        ``dataset.settings``.
+        search's task and settings, pass the ``background_knowledge`` and ``settings`` of the
+        search's evaluator (e.g. from
+        [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator], which adds
+        the dataset's ``ranking_seed``).
 
         With every kind of metric, models the search could not score (any
         [status][SRToolkit.utils.types.Status] other than ``"ok"``, e.g. rejected by a required

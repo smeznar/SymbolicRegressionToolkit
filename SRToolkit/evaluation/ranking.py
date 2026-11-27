@@ -223,8 +223,9 @@ class RMSERanking(RankingFunction):
     when set, otherwise by the evaluator's seed, combined with each expression's tokens and specs;
     with neither seed they are random.
     [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] sets
-    ``ranking_seed`` to the dataset's seed, so every run on a dataset is scored by the same
-    objective, unless the dataset resamples it each run.
+    ``ranking_seed`` (when the settings do not) to the dataset's seed, so every run on a dataset
+    is scored by the same objective, unless the dataset sets
+    [ranking_resample][SRToolkit.dataset.sr_dataset.SR_dataset].
     """
 
     name = "rmse"
@@ -325,8 +326,9 @@ class BEDRanking(RankingFunction):
     All randomness (points, behavior matrices, threshold) follows one seed: the
     ``evaluator.ranking_seed`` setting when set, otherwise the evaluator's seed.
     [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] sets
-    ``ranking_seed`` to the dataset's seed, so every run on a dataset is scored by the same
-    objective, unless the dataset resamples it each run.
+    ``ranking_seed`` (when the settings do not) to the dataset's seed, so every run on a dataset
+    is scored by the same objective, unless the dataset sets
+    [ranking_resample][SRToolkit.dataset.sr_dataset.SR_dataset].
 
     The default success threshold is the ground truth's own noise floor: its largest BED to
     itself over 100 resamplings of its unfixed parameters, times 1.1, and at least ``1e-7`` (so a

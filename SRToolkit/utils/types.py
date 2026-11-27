@@ -178,7 +178,7 @@ class RankingSettings(TypedDict, total=False):
             missing; BED samples the ground truth's constants from them (the default spec for the
             rest) for its target behavior or default threshold. Passed straight to
             ``SR_evaluator``, they are validated by the ranking's ``setup``. Set by
-            [SR_dataset.ranking_settings][SRToolkit.dataset.sr_dataset.SR_dataset.ranking_settings]
+            ``SR_dataset.ranking_settings``
             from the dataset's ``ground_truth_constants``. Default: ``None``.
         simplify_expr: If ``True``, every expression the evaluator scores or looks up is first
             simplified with [simplify][SRToolkit.utils.expression_simplifier.simplify], and the

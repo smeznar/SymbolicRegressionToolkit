@@ -25,7 +25,8 @@ into [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] (8 by d
 [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] at the front of
 ``required_constraints``. A ``MaxConstants`` / ``MaxTokens`` already in the list takes the place
 of its limit (a different non-negative limit is a ``ValueError``), and a negative limit adds
-nothing.
+nothing. The other settings of the evaluator, the ranking and parameter estimation are one
+[Settings][SRToolkit.utils.settings.Settings]; the dataset's limits stay arguments.
 
 The advisory constraints of the background knowledge only record violations. The evaluator from
 [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] gets the background
@@ -45,12 +46,18 @@ from ``ground_truth`` with the variable and target names.
 
 ## File format
 
-[to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict] writes format 4: the background
+[to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict] writes format 5: the background
 knowledge under ``"background_knowledge"``, the required constraints under
-``"required_constraints"``, and the answer (``ground_truth``, ``ground_truth_constants``) at the
-top level, outside the background knowledge.
-[from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also reads formats 2 and 3 of
-earlier releases, with the same objective; saving the result writes format 4.
+``"required_constraints"``, the settings under ``"settings"``
+([Settings.to_dict][SRToolkit.utils.settings.Settings.to_dict]), and the answer
+(``ground_truth``, ``ground_truth_constants``) and ``ranking_resample`` at the top level.
+[from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also reads formats 2–4 of
+earlier releases, with the same objective; saving the result writes format 5. Their flat
+``"kwargs"`` are sorted: ``constant_bounds``, ``max_constants``, ``max_expr_length`` and
+``ranking_resample`` become the arguments of the same name, each built-in setting goes to its
+section (e.g. ``method`` becomes ``estimation.method``), and any other key is a ``ValueError``.
+A ``None`` value is the default, except ``ranking_seed: None``, which becomes
+``ranking_resample=True`` (the run's seed, as before).
 """
 
 import copy
@@ -64,7 +71,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
-from typing_extensions import Unpack
 
 from SRToolkit.approaches.sr_approach import SR_approach
 from SRToolkit.bundle._relocate import _auto_bind
@@ -80,17 +86,17 @@ from SRToolkit.evaluation.ranking import build_ranking
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import (
     SR_evaluator,
-    _add_limit_constraints_from_kwargs,
+    _add_limit_constraints,
     _as_constraint_tuple,
 )
 from SRToolkit.utils import Node, SymbolLibrary
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
-from SRToolkit.utils.expression_simplifier import SimplificationRules
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters, resolve_constants
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
-from SRToolkit.utils.types import EvalResult, RankingSettings
+from SRToolkit.utils.settings import Settings
+from SRToolkit.utils.types import EvalResult
 
 from . import data_cache
 from .background_knowledge import BackgroundKnowledge, VariableInfo
@@ -98,16 +104,53 @@ from .data_source import DataSource, SampleSource
 from .data_split import DataSplit
 from .sampling import Sampler, _sample_inputs
 
+# Format 2-4 "kwargs": the keys that are constructor arguments, and the section of each built-in setting.
+_OLD_ARGUMENTS = {"constant_bounds", "max_constants", "max_expr_length", "ranking_resample"}
+_OLD_SETTING_SECTIONS = {
+    **dict.fromkeys(
+        (
+            "simplify_expr",
+            "canonicalise_constants",
+            "fold_constants",
+            "simplify_rules",
+            "simplify_max_iterations",
+            "simplify_max_nodes",
+            "simplify_max_time",
+            "simplify_fold_aware",
+            "max_consecutive_skips",
+            "backend",
+            "ranking_seed",
+        ),
+        "evaluator",
+    ),
+    **dict.fromkeys(("method", "tol", "gtol", "max_iter", "initialization"), "estimation"),
+    **dict.fromkeys(("num_points_sampled", "num_consts_sampled", "bed_gt"), "bed"),
+}
+
 
 def _resolve_task(
     flat: dict[str, Any],
     max_constants: int | None,
     max_expr_length: int | None,
     required_constraints: Iterable[ExpressionConstraint] | None,
-    kwargs: Mapping[str, Any],
+    settings: Settings | None,
+    ranking_resample: bool,
     X: np.ndarray | None = None,
-) -> tuple[BackgroundKnowledge, tuple[ExpressionConstraint, ...], dict[str, Any]]:
-    """Return the background knowledge, required constraints and remaining ranking settings of a task."""
+) -> tuple[BackgroundKnowledge, tuple[ExpressionConstraint, ...], Settings]:
+    """Return the background knowledge, required constraints and settings of a task."""
+    if not isinstance(ranking_resample, bool):
+        raise TypeError(f"ranking_resample must be a bool, got {type(ranking_resample).__name__}.")
+    if settings is None:
+        settings = Settings()
+    elif not isinstance(settings, Settings):
+        raise TypeError(f"settings must be a Settings, got {type(settings).__name__}.")
+    # A dataset's limits are its max_constants / max_expr_length arguments (saved as required constraints).
+    in_settings = sorted({"max_constants", "max_expr_length"} & set(settings.evaluator.changed()))
+    if in_settings:
+        raise ValueError(
+            f"Set the limits with the {', '.join(k + '=' for k in in_settings)} argument(s), not with "
+            f"{', '.join('evaluator.' + k for k in in_settings)} in settings."
+        )
     # Background knowledge from its parts; None means not given (the field's default).
     bk = BackgroundKnowledge(**{k: v for k, v in flat.items() if v is not None})
     n_variables = len(bk.symbol_library.get_symbols_of_type("var"))
@@ -118,11 +161,11 @@ def _resolve_task(
         for key, value in (("max_constants", max_constants), ("max_expr_length", max_expr_length))
         if value is not None
     }
-    required = _add_limit_constraints_from_kwargs(
+    required = _add_limit_constraints(
         _as_constraint_tuple(() if required_constraints is None else required_constraints, "required_constraints"),
         limits,
     )
-    return bk, tuple(_set_up_copy(c, bk.symbol_library) for c in required), dict(kwargs)
+    return bk, tuple(_set_up_copy(c, bk.symbol_library) for c in required), settings
 
 
 def _ground_truth_specs(
@@ -215,13 +258,21 @@ class SR_dataset:
             [Constant][SRToolkit.utils.free_constants.Constant]); others use ``default_constant``.
             ``y`` can be computed from the ground truth only if all its constants are fixed; BED
             samples them from these specs. Part of the answer. ``None`` for none.
-        **kwargs: Ranking settings (see [RankingSettings][SRToolkit.utils.types.RankingSettings]),
-            passed on to the evaluator.
+        settings: The [Settings][SRToolkit.utils.settings.Settings] of the evaluator, the ranking
+            and parameter estimation; ``None``: ``Settings()``. It may not change
+            ``evaluator.max_constants`` / ``evaluator.max_expr_length``; use the ``max_constants`` /
+            ``max_expr_length`` arguments.
+        ranking_resample: If ``True``, the ranking's randomness (BED points and behaviours, the
+            starting point of each fit) follows the evaluator's seed (the run seed) instead of the
+            dataset seed; a ``ranking_seed`` in ``settings`` still wins (see
+            [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]).
 
     Raises:
         ValueError: If ``X`` has a different number of columns than the symbol library has
             variables; ``max_evaluations`` is ``0``; ``max_constants`` / ``max_expr_length`` is not an integer
-            or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``ground_truth`` is an ndarray
+            or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``settings`` sets
+            ``evaluator.max_constants`` or ``evaluator.max_expr_length`` to a non-default value;
+            ``ground_truth`` is an ndarray
             (pass a BED behaviour matrix to the BED ranking); ``ground_truth_constants`` is given
             without ``ground_truth`` or does not fit it (see
             [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]); an
@@ -229,7 +280,8 @@ class SR_dataset:
             library (raised by its ``setup``); or as for
             [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
         TypeError: If ``required_constraints`` holds something that is not an
-            ``ExpressionConstraint``, or as for ``BackgroundKnowledge``.
+            ``ExpressionConstraint``, ``settings`` is not a ``Settings``, ``ranking_resample`` is
+            not a ``bool``, or as for ``BackgroundKnowledge``.
 
     Attributes:
         X: Inputs the search runs on.
@@ -242,7 +294,8 @@ class SR_dataset:
             [SampleSource][SRToolkit.dataset.data_source.SampleSource]), used to regenerate them;
             ``None`` if they were given directly.
         contains_constants: Whether the symbol library has a free-constant symbol.
-        kwargs: The ranking settings.
+        settings: As given (``Settings()`` for ``None``).
+        ranking_resample: As given.
         background_knowledge: The background knowledge (read-only).
         symbol_library: ``background_knowledge.symbol_library`` (read-only).
         samplers: ``background_knowledge.samplers``: a tuple in variable order, or ``None`` (read-only).
@@ -272,7 +325,7 @@ class SR_dataset:
         True
     """
 
-    def __init__(  # type: ignore[misc]
+    def __init__(
         self,
         X: np.ndarray,
         symbol_library: SymbolLibrary,
@@ -303,9 +356,10 @@ class SR_dataset:
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
         ground_truth_constants: Iterable[Constant] | None = None,
-        **kwargs: Unpack[RankingSettings],
+        settings: Settings | None = None,
+        ranking_resample: bool = False,
     ) -> None:
-        self._background_knowledge, self._required_constraints, kwargs = _resolve_task(  # type: ignore[assignment]
+        self._background_knowledge, self._required_constraints, self.settings = _resolve_task(
             {
                 "symbol_library": symbol_library,
                 "samplers": samplers,
@@ -321,9 +375,11 @@ class SR_dataset:
             max_constants,
             max_expr_length,
             required_constraints,
-            kwargs,
+            settings,
+            ranking_resample,
             X,
         )
+        self.ranking_resample = ranking_resample
 
         if max_evaluations == 0:
             raise ValueError("[SR_dataset] max_evaluations must be positive, or negative for no limit; got 0.")
@@ -341,7 +397,6 @@ class SR_dataset:
             ground_truth, ground_truth_constants, self._background_knowledge
         )
         self._original_equation = original_equation
-        self.kwargs = kwargs
         self.dataset_name = dataset_name
 
         # The data lives in DataSplits: the train split (X / y, the data the search runs on), an
@@ -931,34 +986,6 @@ class SR_dataset:
             )
         return results
 
-    def ranking_settings(self) -> dict[str, Any]:
-        """Return the settings the ranking function gets, as in an evaluator from ``create_evaluator``.
-
-        They are ``kwargs`` plus ``constant_bounds`` and ``default_constant`` (the complete default
-        spec), plus ``samplers`` if the dataset has them (BED draws its points from them when it
-        can; other rankings ignore them), plus ``ground_truth_constants`` if it has them. Unless
-        ``ranking_resample=True``, ``ranking_seed`` defaults to the dataset seed (``0`` if
-        ``None``), so every run is scored by the same objective: the same BED points and
-        behaviours, and the same starting point for each expression's fit. Pass them to
-        [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] to score held-out
-        data under the search's settings.
-
-        Returns:
-            A new dict of settings; the limits ``max_constants`` / ``max_expr_length`` are not in it
-            (they are in ``required_constraints``).
-        """
-        settings: dict[str, Any] = dict(self.kwargs)
-        settings["constant_bounds"] = self.constant_bounds
-        settings["default_constant"] = self.default_constant
-        if self.samplers is not None:
-            settings["samplers"] = list(self.samplers)
-        if self.ground_truth_constants is not None:
-            settings["ground_truth_constants"] = self.ground_truth_constants
-        # Fix the ranking's randomness per dataset, unless the user asked for it to be resampled each run.
-        if not settings.get("ranking_resample", False):
-            settings.setdefault("ranking_seed", self.seed if self.seed is not None else 0)
-        return settings
-
     def adapt_or_load(self, sr_approach: SR_approach, path: str | None, force: bool = False) -> None:
         """Adapt ``sr_approach`` to this dataset, or load its saved adapted state.
 
@@ -1001,10 +1028,22 @@ class SR_dataset:
         """Create an [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] for this dataset.
 
         The evaluator gets the parts of the background knowledge (its ``constraints`` as advisory
-        constraints) and ``required_constraints`` as required, adds no limits of its own, and passes
-        [ranking_settings][SRToolkit.dataset.sr_dataset.SR_dataset.ranking_settings] to the ranking.
-        Its ``background_knowledge`` is rebuilt from these parts, so its ``to_dict()``,
-        ``describe()`` and ``priors()`` equal this dataset's.
+        constraints), ``required_constraints`` as required (and adds no limits of its own), and
+        ``ground_truth_constants``. Its ``background_knowledge`` is rebuilt from these parts, so its
+        ``to_dict()``, ``describe()`` and ``priors()`` equal this dataset's.
+
+        It gets ``settings`` with ``evaluator.max_constants`` and ``evaluator.max_expr_length`` set
+        to ``-1`` (the limits are in ``required_constraints``) and ``evaluator.ranking_seed``:
+
+        - the one in ``settings``, if set;
+        - otherwise unset if ``ranking_resample``, so the ranking uses the evaluator's seed;
+        - otherwise the dataset seed (``0`` if ``None``), so every run is scored by the same
+          objective: the same BED points and behaviours, and the same starting point for each
+          expression's fit.
+
+        To score held-out data as the search did, pass the returned evaluator's ``settings`` and
+        ``background_knowledge`` to
+        [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric].
 
         Args:
             metadata: Metadata to attach to the evaluator; ``dataset_name`` and ``dataset_metadata`` are
@@ -1039,6 +1078,12 @@ class SR_dataset:
             metadata["dataset_metadata"] = self.dataset_metadata
         metadata["dataset_name"] = self.dataset_name
 
+        # The limits are already in required_constraints; -1 adds none of the evaluator's own.
+        evaluator = {"max_constants": -1, "max_expr_length": -1}
+        # Fix the ranking's randomness per dataset, unless it is resampled each run.
+        if not self.ranking_resample and self.settings.evaluator.ranking_seed is None:
+            evaluator["ranking_seed"] = self.seed if self.seed is not None else 0
+        bk = self.background_knowledge
         return SR_evaluator(
             X=self.X,
             y=self.y,
@@ -1056,13 +1101,14 @@ class SR_dataset:
             named_constants=self.background_knowledge.named_constants,
             description=self.background_knowledge.description,
             reference_grammar=self.background_knowledge.reference_grammar,
+            constant_bounds=bk.constant_bounds,
+            default_constant=bk.default_constant,
+            samplers=None if self.samplers is None else list(self.samplers),
+            ground_truth_constants=self.ground_truth_constants,
+            settings=self.settings.replace(evaluator=evaluator),
             checkpoint=checkpoint,
             resume=resume,
             snapshot_interval=snapshot_interval,
-            # The limits are already in required_constraints; -1 adds none of the evaluator's own.
-            max_constants=-1,
-            max_expr_length=-1,
-            **self.ranking_settings(),
         )
 
     def describe(self) -> str:
@@ -1100,7 +1146,11 @@ class SR_dataset:
         """Return a description of the dataset, including the answer.
 
         It gives [original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation] (omitted
-        when ``None``), the ranking with its success rule and non-default settings, then
+        when ``None``), the ranking with its success rule, a line
+        ``Non-default settings: section.field=value, ...`` (values in their saved form, as in
+        [Settings.to_dict][SRToolkit.utils.settings.Settings.to_dict]; sections in stored order,
+        fields in declaration order, without a custom section's ``section_class``; omitted when all
+        settings are default), then
         [describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe] and a pointer to
         ``dataset_metadata``. Use ``describe`` for prompts.
 
@@ -1113,9 +1163,14 @@ class SR_dataset:
         text += build_ranking(self.ranking_function).describe(self.success_threshold)
         if not text.endswith("\n"):
             text += "\n"
-        if self.kwargs:
-            settings = ", ".join(f"{key}={value}" for key, value in self.kwargs.items())
-            text += f"Non-default ranking settings: {settings}.\n"
+        changed = [
+            f"{section}.{key}={value}"
+            for section, fields in self.settings.to_dict()["sections"].items()
+            for key, value in fields.items()
+            if key != "section_class"
+        ]
+        if changed:
+            text += f"Non-default settings: {', '.join(changed)}.\n"
         text += self.describe() + "\n"
         text += "For other metadata, please refer to the attribute self.dataset_metadata."
         return text
@@ -1197,16 +1252,18 @@ class SR_dataset:
             np.savez(str(cache_path), **split.arrays)  # type: ignore[arg-type]  #
 
     def to_dict(self) -> dict:
-        """Return a JSON-safe dictionary of this dataset's configuration (format 4).
+        """Return a JSON-safe dictionary of this dataset's configuration (format 5).
 
         Arrays are not embedded but live in the [data cache][SRToolkit.dataset.data_cache]: this call
         writes every split without a ``data_source`` there, so the result reloads with
         [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict].
 
         Returns:
-            A dict with ``format_version`` (``4``), ``dataset_name``, ``benchmark``, ``version``,
+            A dict with ``format_version`` (``5``), ``dataset_name``, ``benchmark``, ``version``,
             ``ranking_function``, ``max_evaluations``, ``success_threshold``, ``original_equation``
-            (the given string, or ``None`` when derived), ``seed``, ``dataset_metadata``, ``kwargs``,
+            (the given string, or ``None`` when derived), ``seed``, ``dataset_metadata``,
+            ``settings`` ([Settings.to_dict][SRToolkit.utils.settings.Settings.to_dict]),
+            ``ranking_resample``,
             ``ground_truth`` (token list or ``None``), ``ground_truth_constants`` (a list of
             [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict], or ``None``),
             ``data_source``, ``test``, ``aux``, ``background_knowledge``
@@ -1221,7 +1278,7 @@ class SR_dataset:
             >>> dataset = SR_dataset(X, SymbolLibrary.default_symbols(2), y=np.array([3, 7, 11]),
             ...     benchmark="test", version="1.0.0")
             >>> dataset.to_dict()["format_version"]
-            4
+            5
         """
         if self.benchmark is None:
             raise ValueError("[SR_dataset.to_dict] 'benchmark' is None. Set self.benchmark before serialising.")
@@ -1232,16 +1289,6 @@ class SR_dataset:
         # cache so the returned config is reloadable by from_dict. Source-backed splits are
         # regenerated on load, so _persist_to_cache skips them and this stays side-effect-free.
         self._persist_to_cache()
-
-        # Serialise kwargs, converting ndarray values and simplification rules
-        kwargs_out = {}
-        for k, v in self.kwargs.items():
-            if isinstance(v, np.ndarray):
-                kwargs_out[k] = v.tolist()
-            elif isinstance(v, SimplificationRules):
-                kwargs_out[k] = v.to_dict()
-            else:
-                kwargs_out[k] = v
 
         ground_truth_out: list[str] | None
         if isinstance(self.ground_truth, Node):
@@ -1258,7 +1305,7 @@ class SR_dataset:
             }
 
         return {
-            "format_version": 4,
+            "format_version": 5,
             "dataset_name": self.dataset_name,
             "benchmark": self.benchmark,
             "version": self.version,
@@ -1268,7 +1315,8 @@ class SR_dataset:
             "original_equation": self._original_equation,
             "seed": self.seed,
             "dataset_metadata": self.dataset_metadata,
-            "kwargs": kwargs_out,
+            "settings": self.settings.to_dict(),
+            "ranking_resample": self.ranking_resample,
             "ground_truth": ground_truth_out,
             "ground_truth_constants": (
                 None if self.ground_truth_constants is None else [c.to_dict() for c in self.ground_truth_constants]
@@ -1284,8 +1332,11 @@ class SR_dataset:
     def from_dict(cls, d: dict | str | Path) -> "SR_dataset":
         """Load a dataset from its dictionary representation or a JSON file.
 
-        Arrays come from the data cache, or are generated from their ``data_source``. Formats 2 and 3
-        are migrated (see the [module docstring][SRToolkit.dataset.sr_dataset]). For
+        Arrays come from the data cache, or are generated from their ``data_source``. Formats 2–4
+        are migrated (see the [module docstring][SRToolkit.dataset.sr_dataset]): their flat
+        ``"kwargs"`` are sorted into settings sections, except ``constant_bounds``,
+        ``max_constants``, ``max_expr_length`` and ``ranking_resample``, which become the arguments
+        of the same name. For
         ``d = ds.to_dict()``, ``from_dict(d).to_dict() == d``. Load ``.zip`` archives with
         [share.load][SRToolkit.share.load].
 
@@ -1297,10 +1348,13 @@ class SR_dataset:
             The dataset.
 
         Raises:
-            ValueError: If ``d`` is a ``.zip`` path, ``format_version`` is not 2, 3 or 4, or the
-                constructor rejects the configuration.
+            ValueError: If ``d`` is a ``.zip`` path, ``format_version`` is not 2–5, a format 2–4
+                ``"kwargs"`` key is neither one of those arguments nor a built-in setting, or the
+                constructor rejects the
+                configuration.
             TypeError: As for the constructor.
-            ImportError: If a saved sampler, constraint or ranking class cannot be imported.
+            ImportError: If a saved sampler, constraint, ranking or settings section class cannot be
+                imported.
             FileNotFoundError: If a split's data is not in the cache and it has no ``data_source``.
 
         Examples:
@@ -1323,19 +1377,39 @@ class SR_dataset:
         # Apply bundle relocation if needed
         dd = _auto_bind(dd)
 
-        # Accept the current v4 layout and the v2 / v3 configs of earlier releases. A v2 dict has no
+        # Accept the current v5 layout and the v2-v4 configs of earlier releases. A v2 dict has no
         # "test" / "aux" entries, so only the train split loads; its cache key is the dataset name in
         # every version, and symbolic ground truth still loads from dd["ground_truth"]. (v2 datasets
         # that stored an ndarray ground truth in a separate _gt.npy are not migrated — ndarray ground
         # truth is no longer supported; provide a symbolic ground truth or rebuild such datasets.)
         fmt = dd.get("format_version")
-        if fmt not in (2, 3, 4):
-            raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2, 3 or 4.")
+        if fmt not in (2, 3, 4, 5):
+            raise ValueError(f"[SR_dataset.from_dict] Unsupported format_version: {fmt!r}. Expected 2, 3, 4 or 5.")
         # Read the task part in either layout, validating it before any data is loaded or generated.
-        task_args: dict[str, Any] = dict(dd.get("kwargs") or {})
-        if task_args.get("simplify_rules") is not None:
-            task_args["simplify_rules"] = SimplificationRules.from_dict(task_args["simplify_rules"])
-        if "background_knowledge" in dd:  # format 4
+        task_args: dict[str, Any] = {}
+        if fmt == 5:
+            task_args["settings"] = Settings.from_dict(dd["settings"])
+            task_args["ranking_resample"] = dd["ranking_resample"]
+        else:  # flat kwargs: sort them into settings sections and task arguments
+            sections: dict[str, dict[str, Any]] = {}
+            old = dd.get("kwargs") or {}
+            for key, value in old.items():
+                if key not in _OLD_ARGUMENTS and key not in _OLD_SETTING_SECTIONS:
+                    raise ValueError(
+                        f"[SR_dataset.from_dict] {key!r} in 'kwargs' is not a built-in setting; move it to "
+                        "a settings section named after its ranking (see Settings)."
+                    )
+                if value is None:  # None meant the default
+                    continue
+                if key in _OLD_ARGUMENTS:
+                    task_args[key] = value
+                else:
+                    sections.setdefault(_OLD_SETTING_SECTIONS[key], {})[key] = value
+            # An explicit ranking_seed None kept the ranking on the run's seed.
+            if "ranking_seed" in old and old["ranking_seed"] is None:
+                task_args["ranking_resample"] = True
+            task_args["settings"] = Settings.from_dict({"format_version": 1, "sections": sections})
+        if "background_knowledge" in dd:  # formats 4 and 5
             required = tuple(ExpressionConstraint.from_dict(c) for c in dd.get("required_constraints") or ())
             bk = BackgroundKnowledge.from_dict(dd["background_knowledge"])
             task_args.update(
@@ -1403,7 +1477,7 @@ class SR_dataset:
         return dataset
 
     @classmethod
-    def from_samplers(  # type: ignore[misc]
+    def from_samplers(
         cls,
         ground_truth: list[str] | Node,
         samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
@@ -1431,7 +1505,8 @@ class SR_dataset:
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
         ground_truth_constants: Iterable[Constant] | None = None,
-        **kwargs: Unpack[RankingSettings],
+        settings: Settings | None = None,
+        ranking_resample: bool = False,
     ) -> "SR_dataset":
         """Build a dataset by sampling inputs and evaluating a ground truth on them.
 
@@ -1473,7 +1548,8 @@ class SR_dataset:
             required_constraints: As for ``SR_dataset``.
             advisory_constraints: As for ``SR_dataset``.
             ground_truth_constants: As for ``SR_dataset``.
-            **kwargs: As for ``SR_dataset``.
+            settings: As for ``SR_dataset``.
+            ranking_resample: As for ``SR_dataset``.
 
         Returns:
             The dataset with freshly generated data.
@@ -1525,7 +1601,8 @@ class SR_dataset:
             required_constraints=required_constraints,
             advisory_constraints=advisory_constraints,
             ground_truth_constants=ground_truth_constants,
-            **kwargs,
+            settings=settings,
+            ranking_resample=ranking_resample,
         )
         dataset.data_source = SampleSource(n_samples=n_samples, seed=seed)
 

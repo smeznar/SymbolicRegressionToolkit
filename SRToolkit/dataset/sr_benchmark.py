@@ -8,15 +8,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from typing_extensions import Unpack
 
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.grammar.grammar import Grammar
+from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
-from SRToolkit.utils.types import RankingSettings
 
 from . import data_cache
 from .background_knowledge import VariableInfo
@@ -115,7 +114,7 @@ class SR_benchmark:
         self.datasets[dataset_name]["sr_dataset"] = dataset
         self.datasets[dataset_name]["num_variables"] = dataset.X.shape[1]
 
-    def add_dataset(  # type: ignore[misc]
+    def add_dataset(
         self,
         symbol_library: SymbolLibrary,
         dataset: np.ndarray | tuple[np.ndarray, np.ndarray] | None = None,
@@ -141,11 +140,12 @@ class SR_benchmark:
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
         ground_truth_constants: Iterable[Constant] | None = None,
-        **kwargs: Unpack[RankingSettings],
+        settings: Settings | None = None,
+        ranking_resample: bool = False,
     ):
         """Add a dataset to the benchmark without building it.
 
-        The entry is stored in format 4 (see
+        The entry is stored in format 5 (see
         [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]) and built by
         [create_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.create_dataset]. The
         arguments are validated as by ``SR_dataset`` before any cache file is written. Array data
@@ -198,7 +198,9 @@ class SR_benchmark:
             advisory_constraints: Hints about the search space, as for ``SR_dataset``.
             ground_truth_constants: Specs for the ground truth's labelled constants, as for
                 ``SR_dataset``.
-            **kwargs: Ranking settings, as for ``SR_dataset``.
+            settings: Settings of the evaluator, ranking and parameter estimation, as for
+                ``SR_dataset``.
+            ranking_resample: Resample the ranking's randomness each run, as for ``SR_dataset``.
 
         Raises:
             ValueError: If the dataset name already exists; ``max_evaluations`` is ``0``; the
@@ -245,7 +247,7 @@ class SR_benchmark:
                 X = dataset
             elif isinstance(dataset, tuple) and len(dataset) == 2 and isinstance(dataset[0], np.ndarray):
                 X = dataset[0]
-        bk, required, kwargs = _resolve_task(  # type: ignore[assignment]
+        bk, required, settings = _resolve_task(
             {
                 "symbol_library": symbol_library,
                 "samplers": samplers,
@@ -261,7 +263,8 @@ class SR_benchmark:
             max_constants,
             max_expr_length,
             required_constraints,
-            kwargs,
+            settings,
+            ranking_resample,
             X,
         )
         # Ground truth is symbolic only (token list / Node). A precomputed ndarray behaviour
@@ -301,7 +304,7 @@ class SR_benchmark:
             merged_metadata.update(dataset_metadata)
 
         entry: dict[str, Any] = {
-            "format_version": 4,
+            "format_version": 5,
             "dataset_name": dataset_name,
             "benchmark": self.benchmark_name,
             "version": self.version,
@@ -311,7 +314,8 @@ class SR_benchmark:
             "seed": seed,
             "dataset_metadata": merged_metadata,
             "original_equation": original_equation,
-            "kwargs": kwargs,
+            "settings": settings.to_dict(),
+            "ranking_resample": ranking_resample,
             "ground_truth": ground_truth_out,
             "ground_truth_constants": None if gt_specs is None else [c.to_dict() for c in gt_specs],
             "background_knowledge": bk.to_dict(),
@@ -370,7 +374,7 @@ class SR_benchmark:
 
         self.datasets[dataset_name] = entry
 
-    def add_from_samplers(  # type: ignore[misc]
+    def add_from_samplers(
         self,
         ground_truth: list[str] | Node,
         samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
@@ -395,7 +399,8 @@ class SR_benchmark:
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
         ground_truth_constants: Iterable[Constant] | None = None,
-        **kwargs: Unpack[RankingSettings],
+        settings: Settings | None = None,
+        ranking_resample: bool = False,
     ) -> None:
         """Add a dataset described by a ground-truth expression and per-variable samplers.
 
@@ -441,7 +446,9 @@ class SR_benchmark:
             advisory_constraints: Hints about the search space, as for ``SR_dataset``.
             ground_truth_constants: Specs for the ground truth's labelled constants, as for
                 ``SR_dataset``.
-            **kwargs: Ranking settings, as for ``SR_dataset``.
+            settings: Settings of the evaluator, ranking and parameter estimation, as for
+                ``SR_dataset``.
+            ranking_resample: Resample the ranking's randomness each run, as for ``SR_dataset``.
 
         Raises:
             ValueError: If ``samplers`` is ``None`` or empty, or as for
@@ -490,7 +497,8 @@ class SR_benchmark:
             required_constraints=required_constraints,
             advisory_constraints=advisory_constraints,
             ground_truth_constants=ground_truth_constants,
-            **kwargs,
+            settings=settings,
+            ranking_resample=ranking_resample,
         )
 
     def create_dataset(
@@ -499,24 +507,14 @@ class SR_benchmark:
         n_samples: int | None = None,
         seed: int | None = None,
     ) -> SR_dataset:
-        """Creates an instance of a dataset from the given dataset name.
+        """Create the dataset stored under ``dataset_name``.
 
         When ``n_samples`` is provided the returned dataset contains freshly sampled data
         instead of the pre-generated data on disk. The dataset must have samplers defined
         (see ``samplers`` argument of
-        [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset]). Entries of format
-        2 or 3 from older saved benchmarks are migrated as by
+        [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset]). Entries of formats
+        2–4 from older saved benchmarks are migrated as by
         [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict].
-
-        Examples:
-            >>> from SRToolkit.dataset import Feynman
-            >>> benchmark = Feynman() # Feynman is a specific instance of SR_benchmark with additional functionality
-            >>> dataset = benchmark.create_dataset('I.16.6')
-            >>> dataset.X.shape
-            (10000, 3)
-            >>> dataset_small = benchmark.create_dataset('I.16.6', n_samples=500, seed=0)
-            >>> dataset_small.X.shape
-            (500, 3)
 
         Args:
             dataset_name: The name of the dataset to create.
@@ -535,6 +533,16 @@ class SR_benchmark:
             TypeError: As for ``SR_dataset.from_dict``, unchanged.
             ImportError: As for ``SR_dataset.from_dict``, unchanged.
             FileNotFoundError: As for ``SR_dataset.from_dict``, unchanged.
+
+        Examples:
+            >>> from SRToolkit.dataset import Feynman
+            >>> benchmark = Feynman() # Feynman is a specific instance of SR_benchmark with additional functionality
+            >>> dataset = benchmark.create_dataset('I.16.6')
+            >>> dataset.X.shape
+            (10000, 3)
+            >>> dataset_small = benchmark.create_dataset('I.16.6', n_samples=500, seed=0)
+            >>> dataset_small.X.shape
+            (500, 3)
         """
         if dataset_name not in self.datasets:
             raise ValueError(f"Dataset {dataset_name} not found")
@@ -679,7 +687,7 @@ class SR_benchmark:
         """Reconstruct an SR_benchmark from a config dict or a saved JSON file.
 
         Load ``.zip`` archives with [share.load][SRToolkit.share.load].
-        Dataset entries of format 2 or 3 in older files are accepted and migrated as by
+        Dataset entries of formats 2–4 in older files are accepted and migrated as by
         [SR_dataset.from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict]. The entries are
         copied, so ``d`` is not changed.
 
