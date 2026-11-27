@@ -13,6 +13,7 @@ from SRToolkit.evaluation.callbacks import (
     EarlyStoppingCallback,
     ExperimentEvent,
     ExprEvaluated,
+    ExprSkipped,
     LoggingCallback,
     ProgressBarCallback,
     SR_callback,
@@ -33,6 +34,12 @@ def _make_expr_evaluated(**kwargs):
     defaults = dict(expression="X_0", error=0.5, evaluation_number=1, experiment_id="exp", is_new_best=False)
     defaults.update(kwargs)
     return ExprEvaluated(**defaults)
+
+
+def _make_expr_skipped(**kwargs):
+    defaults = dict(reason="rejected", skips_in_a_row=1, evaluation_number=0, experiment_id="exp")
+    defaults.update(kwargs)
+    return ExprSkipped(**defaults)
 
 
 def _make_best_found(**kwargs):
@@ -112,6 +119,11 @@ class TestSRCallbackDefaults:
         cb = _ConcreteCallback()
         assert cb.on_best_expression(_make_best_found()) is None
 
+    # Reason: clause ("Implement only the methods you need": the default on_skip continues).
+    def test_on_skip_returns_none(self):
+        cb = _ConcreteCallback()
+        assert cb.on_skip(_make_expr_skipped()) is None
+
     def test_on_experiment_start_returns_none(self):
         cb = _ConcreteCallback()
         assert cb.on_experiment_start(_make_experiment_event()) is None
@@ -184,7 +196,11 @@ class TestCallbackDispatcherRemove:
 
 # ── CallbackDispatcher – on_expr_evaluated / on_best_expression ──────────────
 
-_HOOKS = [("on_expr_evaluated", _make_expr_evaluated), ("on_best_expression", _make_best_found)]
+_HOOKS = [
+    ("on_expr_evaluated", _make_expr_evaluated),
+    ("on_best_expression", _make_best_found),
+    ("on_skip", _make_expr_skipped),
+]
 
 
 class _NamedStop(SR_callback):
@@ -192,6 +208,9 @@ class _NamedStop(SR_callback):
         return False
 
     def on_best_expression(self, event):
+        return False
+
+    def on_skip(self, event):
         return False
 
 
@@ -355,12 +374,18 @@ class TestProgressBarCallbackSerialization:
 # ── TimeLimitCallback ─────────────────────────────────────────────────────────
 
 
-def test_time_limit_callback_returns_time_limit_once_elapsed():
+# Reason: clause (the stop request comes from the next evaluation or skip once time_limit has elapsed).
+@pytest.mark.parametrize(
+    "hook, make_event",
+    [("on_expr_evaluated", _make_expr_evaluated), ("on_skip", _make_expr_skipped)],
+    ids=["evaluation", "skip"],
+)
+def test_time_limit_callback_stops_once_elapsed(hook, make_event):
     cb = TimeLimitCallback(time_limit=10)
     with patch("SRToolkit.evaluation.callbacks.time.monotonic", side_effect=[100.0, 109.0, 110.0]):
         cb.on_experiment_start(_make_experiment_event())
-        assert cb.on_expr_evaluated(_make_expr_evaluated()) is True
-        assert cb.on_expr_evaluated(_make_expr_evaluated()) == "time_limit"
+        assert getattr(cb, hook)(make_event()) in (True, None)  # 9 s elapsed
+        assert getattr(cb, hook)(make_event()) == "time_limit"  # 10 s elapsed
 
 
 # ── EarlyStoppingCallback ──────────────────────────────────────────────────────

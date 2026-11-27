@@ -440,8 +440,9 @@ class EvalResult:
             Each is a dict with ``calls`` (the calls kept when the segment starts),
             ``max_evaluations`` (negative: no limit), ``success_threshold`` (``None``: none),
             ``callbacks`` (the ``to_dict()`` of each callback; ``[]`` if calls were made without
-            callbacks, ``None`` if the segment made no call) and ``previous_stop_reason`` (why the segment before ended; ``None`` for
-            the first, or after a crash). Check [extended][SRToolkit.utils.types.EvalResult.extended]
+            callbacks, ``None`` if the segment made no call of ``evaluate_expr`` or ``count_skip``)
+            and ``previous_stop_reason`` (why the segment before ended; ``None`` for the first, or
+            after a crash). Check [extended][SRToolkit.utils.types.EvalResult.extended]
             beside ``stop_reason`` before comparing runs. ``[]`` if not recorded (results saved
             before it was, or built by hand).
         skips: How many expressions the approach skipped without evaluating them, by reason (see

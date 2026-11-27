@@ -44,6 +44,28 @@ class ExprEvaluated:
 
 
 @dataclass
+class ExprSkipped:
+    """Event fired after each skip counted by ``count_skip``.
+
+    See [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip].
+
+    Attributes:
+        reason: The reason passed to ``count_skip``, e.g. ``"rejected"``.
+        skips_in_a_row: Skips in a row, this one included (see
+            [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
+        evaluation_number: Total number of
+            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+            calls made so far, including cache hits.
+        experiment_id: Identifier of the current experiment.
+    """
+
+    reason: str
+    skips_in_a_row: int
+    evaluation_number: int
+    experiment_id: str
+
+
+@dataclass
 class BestExpressionFound:
     """Fired when a new best expression is found during evaluation.
 
@@ -85,9 +107,11 @@ class SR_callback(ABC):
     """Abstract base class for SR evaluation callbacks.
 
     Implement only the methods you need. To stop the search, return a reason (a ``str``) from
-    [on_expr_evaluated][SRToolkit.evaluation.callbacks.SR_callback.on_expr_evaluated] or
-    [on_best_expression][SRToolkit.evaluation.callbacks.SR_callback.on_best_expression]; it is
-    recorded as the run's ``stop_reason``. ``False`` also stops, with the reason
+    [on_expr_evaluated][SRToolkit.evaluation.callbacks.SR_callback.on_expr_evaluated],
+    [on_best_expression][SRToolkit.evaluation.callbacks.SR_callback.on_best_expression] or
+    [on_skip][SRToolkit.evaluation.callbacks.SR_callback.on_skip]; it is
+    recorded as the run's ``stop_reason`` unless evaluation has already stopped (the first reason
+    is kept). ``False`` also stops, with the reason
     ``"callback:<ClassName>"``. Return ``True`` or ``None`` to continue.
 
     Examples:
@@ -115,6 +139,19 @@ class SR_callback(ABC):
 
         Args:
             event: Data about the new best expression.
+
+        Returns:
+            A reason, or ``False``, to stop the search; ``True`` or ``None`` to continue.
+        """
+        return None
+
+    def on_skip(self, event: ExprSkipped) -> bool | str | None:
+        """Called after each skip counted by ``count_skip``, also after evaluation has stopped.
+
+        See [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip].
+
+        Args:
+            event: Data about the skip.
 
         Returns:
             A reason, or ``False``, to stop the search; ``True`` or ``None`` to continue.
@@ -159,7 +196,8 @@ class SR_callback(ABC):
 
         In a resumed run the evaluator calls it once, with what
         [get_state][SRToolkit.evaluation.callbacks.SR_callback.get_state] returned, just before the
-        first evaluation event after the resume, so after ``on_experiment_start`` (see
+        first ``evaluate_expr`` or ``count_skip`` call after the resume, so after
+        ``on_experiment_start`` (see
         [Checkpoints][SRToolkit.evaluation.sr_evaluator]). A callback without saved state is not
         called. The default does nothing.
 
@@ -303,6 +341,18 @@ class CallbackDispatcher:
             As for [on_expr_evaluated][SRToolkit.evaluation.callbacks.CallbackDispatcher.on_expr_evaluated].
         """
         reasons = [_stop_reason(cb, cb.on_best_expression(event)) for cb in self._callbacks]
+        return next((r for r in reasons if r is not None), None)
+
+    def on_skip(self, event: ExprSkipped) -> str | None:
+        """Dispatch to all callbacks and return the first stop reason.
+
+        Args:
+            event: Data about the skip.
+
+        Returns:
+            As for [on_expr_evaluated][SRToolkit.evaluation.callbacks.CallbackDispatcher.on_expr_evaluated].
+        """
+        reasons = [_stop_reason(cb, cb.on_skip(event)) for cb in self._callbacks]
         return next((r for r in reasons if r is not None), None)
 
     def get_state(self) -> list[dict]:
@@ -462,9 +512,9 @@ class TimeLimitCallback(SR_callback):
     The timer starts when the experiment begins
     ([on_experiment_start][SRToolkit.evaluation.callbacks.SR_callback.on_experiment_start])
     and uses `time.monotonic` so it is unaffected by system clock adjustments. The stop
-    request (reason ``"time_limit"``) is issued from the next expression evaluation after the
-    limit is exceeded, so the search may run slightly past ``time_limit`` depending on how long a
-    single evaluation takes.
+    request (reason ``"time_limit"``) is issued from the next expression evaluation or skip once
+    ``time_limit`` seconds have elapsed, so the search may run slightly past ``time_limit``
+    depending on the time between consecutive evaluations and skips.
 
     In a resumed run the limit spans all sessions: the time used up to the last snapshot is
     restored from the checkpoint. Time after that snapshot in a session that crashed is not counted.
@@ -481,7 +531,7 @@ class TimeLimitCallback(SR_callback):
     def __init__(self, time_limit: float | timedelta):
         """Args:
             time_limit: Maximum wall-clock duration before the search is stopped at the next
-                expression evaluation. Either a number of seconds or a
+                expression evaluation or skip. Either a number of seconds or a
                 `datetime.timedelta`, which is converted to seconds and stored as a float.
                 Must be strictly positive.
 
@@ -499,9 +549,13 @@ class TimeLimitCallback(SR_callback):
         self._start_time = time.monotonic()
 
     def on_expr_evaluated(self, event: ExprEvaluated) -> bool | str | None:
-        if self._start_time is not None:
-            if time.monotonic() - self._start_time >= self.time_limit:
-                return "time_limit"
+        if self._start_time is not None and time.monotonic() - self._start_time >= self.time_limit:
+            return "time_limit"
+        return True
+
+    def on_skip(self, event: ExprSkipped) -> bool | str | None:
+        if self._start_time is not None and time.monotonic() - self._start_time >= self.time_limit:
+            return "time_limit"
         return True
 
     def get_state(self) -> dict:

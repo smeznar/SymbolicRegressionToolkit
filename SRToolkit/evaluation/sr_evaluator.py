@@ -67,8 +67,8 @@ results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
   reason, e.g. because its search space is exhausted.
 
 An approach loops while ``should_stop`` is ``False``. If its search returns without any of these,
-the results record ``"returned"``. Once evaluation has stopped, further calls are not evaluated:
-they warn, return ``None`` and are not counted.
+the results record ``"returned"``. Once evaluation has stopped, further ``evaluate_expr``
+calls are not evaluated: they warn, return ``None`` and are not counted.
 
 ## Free constants
 
@@ -285,6 +285,7 @@ from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
     CallbackDispatcher,
     ExprEvaluated,
+    ExprSkipped,
     SR_callback,
 )
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot, _capture_rngs
@@ -1029,6 +1030,33 @@ class SR_evaluator:
                 self._store.set_header("stop_reason", reason)
             self._commit()
 
+    def _setup_callbacks(self) -> None:
+        if self._callbacks_ready:
+            return
+        # Callbacks are registered after construction, so they are set up at the first counted
+        # call of evaluate_expr or count_skip: restore their saved states, then record them in the
+        # current limit segment, or warn if a plain resume has other ones. A config that cannot be
+        # saved raises here, at the start, also without a checkpoint (results are saved with their
+        # limits).
+        configs = [cb.to_dict() for cb in self._callbacks.get_callbacks()]
+        saved = _to_json_safe(configs, "callbacks")
+        if self._callback_states is not None:
+            self._callbacks.set_state(self._callback_states)
+            self._callback_states = None
+        segment = self.limits[-1]
+        if segment["callbacks"] is None:
+            if self.checkpoint is not None:
+                recorded = [*self.limits[:-1], {**segment, "callbacks": configs}]
+                self._store.set_header("limits", _to_json_safe(recorded, "limits"))
+            segment["callbacks"] = configs
+        elif saved != _to_json_safe(segment["callbacks"], "callbacks"):
+            warnings.warn(
+                "[SR_evaluator] The callbacks differ from those this part of the run started with; "
+                "change limits with SR_dataset.extend_run.",
+                UserWarning,
+            )
+        self._callbacks_ready = True
+
     def count_skip(self, reason: str) -> None:
         """Count one expression the approach skipped without evaluating it, by reason.
 
@@ -1044,8 +1072,14 @@ class SR_evaluator:
         reach the setting ``evaluator.max_consecutive_skips`` (see
         [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]), evaluation
         [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with the reason
-        ``"max_consecutive_skips"``. Step approaches report skipped proposals through
-        [Candidate][SRToolkit.approaches.sr_approach.Candidate] instead.
+        ``"max_consecutive_skips"``.
+
+        Each skip, like each evaluation, is then reported to the callbacks'
+        [on_skip][SRToolkit.evaluation.callbacks.SR_callback.on_skip], which may also stop
+        evaluation; on the same skip ``"max_consecutive_skips"`` is checked first, so its reason is
+        kept. Skips are still counted and reported after evaluation has stopped. Step approaches
+        report skipped proposals through [Candidate][SRToolkit.approaches.sr_approach.Candidate]
+        instead; the step loop counts them here.
 
         The counts are saved with each commit and snapshot. A resumed run continues from the counts
         of its snapshot, or from zero without one, so they match its models; a finished run resumed
@@ -1055,8 +1089,11 @@ class SR_evaluator:
             reason: Why the expression was skipped.
 
         Raises:
+            TypeError: At the first counted call of ``count_skip`` or ``evaluate_expr``, if a
+                callback's ``to_dict`` cannot be saved; nothing is then counted.
             ValueError: If ``reason`` is not a non-empty ``str``.
-            sqlite3.Error: If the commit of a stop fails (see
+            sqlite3.Error: If the commit of a stop fails, whether the stop comes from
+                ``max_consecutive_skips`` or a callback (see
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
 
         Examples:
@@ -1068,10 +1105,20 @@ class SR_evaluator:
         """
         if not isinstance(reason, str) or not reason:
             raise ValueError(f"[SR_evaluator.count_skip] reason must be a non-empty str, got {reason!r}.")
+        self._setup_callbacks()
         self.skips[reason] = self.skips.get(reason, 0) + 1
         self._skips_in_a_row += 1
         if 0 <= self.settings.evaluator.max_consecutive_skips <= self._skips_in_a_row:
             self.stop("max_consecutive_skips")
+        event = ExprSkipped(
+            reason=reason,
+            skips_in_a_row=self._skips_in_a_row,
+            evaluation_number=self.total_evaluations,
+            experiment_id=self._experiment_id,
+        )
+        callback_reason = self._callbacks.on_skip(event)
+        if callback_reason is not None:
+            self.stop(callback_reason)
 
     def close(self) -> None:
         """Commit, with the wall time and skips so far, and close the database of ``models`` and ``trace``.
@@ -1396,6 +1443,11 @@ class SR_evaluator:
         The evaluator enforces ``success_threshold`` and ``max_evaluations`` itself; callbacks add
         further stop conditions (e.g. a time limit).
 
+        Register callbacks before the first counted call of ``evaluate_expr`` or ``count_skip``:
+        that call restores their saved states (in a resumed run) and records their configs in
+        [limits][SRToolkit.utils.types.EvalResult]. A callback registered later receives events,
+        but it is not recorded and its saved state is not restored.
+
         Examples:
             >>> from SRToolkit.evaluation.callbacks import TimeLimitCallback
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -1474,8 +1526,9 @@ class SR_evaluator:
             TypeError: If ``expr`` is neither a token list nor a ``Node``. If a spec in
                 ``free_constants`` cannot be saved (see
                 [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]); nothing is
-                then recorded or counted. At the first call, if a callback's ``to_dict`` cannot be
-                saved; nothing is then counted.
+                then recorded or counted. At the first counted call of ``evaluate_expr`` or
+                ``count_skip``, if a callback's ``to_dict`` cannot be saved; nothing is then
+                counted.
             ValueError: If ``free_constants`` does not fit a well-formed ``expr`` (see
                 [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
                 Nothing is then recorded or counted.
@@ -1527,29 +1580,7 @@ class SR_evaluator:
 
             expr_str = "".join(expr_list)
             spec_key = _spec_key(specs)
-            if not self._callbacks_ready:
-                # Callbacks are registered after construction, so they are set up at the first call:
-                # restore their saved states, then record them in the current limit segment, or warn
-                # if a plain resume has other ones. A config that cannot be saved raises here, at the
-                # start, also without a checkpoint (results are saved with their limits).
-                configs = [cb.to_dict() for cb in self._callbacks.get_callbacks()]
-                saved = _to_json_safe(configs, "callbacks")
-                if self._callback_states is not None:
-                    self._callbacks.set_state(self._callback_states)
-                    self._callback_states = None
-                segment = self.limits[-1]
-                if segment["callbacks"] is None:
-                    if self.checkpoint is not None:
-                        recorded = [*self.limits[:-1], {**segment, "callbacks": configs}]
-                        self._store.set_header("limits", _to_json_safe(recorded, "limits"))
-                    segment["callbacks"] = configs
-                elif saved != _to_json_safe(segment["callbacks"], "callbacks"):
-                    warnings.warn(
-                        "[SR_evaluator] The callbacks differ from those this part of the run started with; "
-                        "change limits with SR_dataset.extend_run.",
-                        UserWarning,
-                    )
-                self._callbacks_ready = True
+            self._setup_callbacks()
 
             found = self._store.lookup(expr_list, spec_key)
             self._skips_in_a_row = 0  # either way a counted call follows

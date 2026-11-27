@@ -25,6 +25,7 @@ from .callbacks import (
     EarlyStoppingCallback,
     ExperimentEvent,
     ExprEvaluated,
+    ExprSkipped,
     LoggingCallback,
     ProgressBarCallback,
     SR_callback,
@@ -59,4 +60,5 @@ __all__ = [
     "ExperimentEvent",
     "BestExpressionFound",
     "ExprEvaluated",
+    "ExprSkipped",
 ]

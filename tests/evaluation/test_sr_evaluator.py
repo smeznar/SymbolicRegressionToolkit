@@ -592,6 +592,43 @@ class TestStopReason:
         se.evaluate_expr(["X_0"])
         assert se.stop_reason == "plateau"
 
+    # Reason: clause (count_skip reports each skip to on_skip, which may stop; ExprSkipped fields).
+    def test_callback_reason_on_skip_is_recorded(self):
+        se = _make_se()
+        cb = _mock_callback()
+        cb.on_expr_evaluated.return_value = None
+        cb.on_best_expression.return_value = None
+        cb.on_skip.side_effect = [None, "time_limit"]
+        se.register_callbacks(cb)
+        se.evaluate_expr(["X_0"])  # one call; resets the skips in a row
+        se.count_skip("rejected")
+        assert se.stop_reason is None
+        se.count_skip("evaluated")
+        assert se.stop_reason == "time_limit"
+        event = cb.on_skip.call_args.args[0]
+        assert (event.reason, event.skips_in_a_row, event.evaluation_number) == ("evaluated", 2, 1)
+
+    # Reason: clause (skips after a stop are still counted and reported, without a warning; the first
+    # stop reason is kept).
+    def test_skip_after_stop_is_counted_and_reported_but_keeps_first_reason(self):
+        se = _make_se()
+        cb = _mock_callback()
+        cb.on_skip.return_value = "time_limit"
+        se.register_callbacks(cb)
+        se.stop("done")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            se.count_skip("rejected")
+        assert (se.skips, cb.on_skip.call_count, se.stop_reason) == ({"rejected": 1}, 1, "done")
+
+    def test_skip_limit_is_recorded_before_callback_reason(self):
+        se = _make_se(settings=Settings(evaluator={"max_consecutive_skips": 1}))
+        cb = _mock_callback()
+        cb.on_skip.return_value = "time_limit"
+        se.register_callbacks(cb)
+        se.count_skip("rejected")
+        assert se.stop_reason == "max_consecutive_skips"
+
     def test_callback_reason_on_cache_hit_is_recorded(self):
         se = _make_se(success_threshold=-1)
         se.evaluate_expr(["X_0"])
@@ -3284,6 +3321,22 @@ class TestCheckpoints:
         se.evaluate_expr(["X_0"])
         assert (saved.log, extra.log) == ([("set_state", {"seen": 2}), "eval"], ["eval"])
 
+    # Reason: clause (TimeLimitCallback: in a resumed run the limit spans all sessions; the saved state
+    # is restored at the first counted call, a skip too, before on_skip).
+    def test_resumed_time_limit_counts_earlier_sessions_at_the_first_skip(self, tmp_path):
+        path = tmp_path / "run.sqlite"
+        se = _ckpt_se(path)
+        cb = TimeLimitCallback(10)
+        se.register_callbacks(cb)
+        se.count_skip("rejected")  # the timer has not started: no stop
+        cb.set_state({"elapsed": 20.0})  # as if 20 s had been used
+        se.save_snapshot(b"state")
+        se.close()
+        se = _ckpt_se(path, resume=True)
+        se.register_callbacks(TimeLimitCallback(10))
+        se.count_skip("rejected")
+        assert (se.stop_reason, se.skips) == ("time_limit", {"rejected": 2})
+
     @pytest.mark.parametrize(
         "changed, name",
         [
@@ -3685,16 +3738,26 @@ class _SetConfig(SR_callback):
         return {**super().to_dict(), "limit": {1}}
 
 
+# The first counted call of a run: an evaluation or a skip.
+_FIRST_CALLS = [lambda se: se.evaluate_expr(["X_0"]), lambda se: se.count_skip("rejected")]
+_FIRST_CALL_IDS = ["evaluate_expr", "count_skip"]
+
+
 class TestLimits:
     # Regression (code review): without a checkpoint an unsaveable callback config was recorded unchecked,
     # so the run went on and only saving its results raised.
+    # Also clause: the first counted call may be count_skip; nothing is counted, and the next call
+    # raises again.
+    @pytest.mark.parametrize("first_call", _FIRST_CALLS, ids=_FIRST_CALL_IDS)
     @pytest.mark.parametrize("with_checkpoint", [False, True], ids=["in-memory", "checkpoint"])
-    def test_unsaveable_callback_config_raises_at_the_first_call(self, tmp_path, with_checkpoint):
+    def test_unsaveable_callback_config_raises_at_the_first_call(self, tmp_path, with_checkpoint, first_call):
         se = _ckpt_se(tmp_path / "run.sqlite" if with_checkpoint else None)
         se.register_callbacks(_SetConfig())
         with pytest.raises(TypeError, match="callbacks"):
-            se.evaluate_expr(["X_0"])
-        assert (se.total_evaluations, se.limits[0]["callbacks"]) == (0, None)
+            first_call(se)
+        with pytest.raises(TypeError, match="callbacks"):
+            first_call(se)
+        assert (se.total_evaluations, se.skips, se.limits[0]["callbacks"]) == (0, {}, None)
 
     # Regression (dev-check): recording callbacks in a checkpoint used plain JSON, so a config holding an
     # array raised TypeError at the first evaluation, and tuples came back from the checkpoint as lists.
@@ -3717,14 +3780,15 @@ class TestLimits:
             se.evaluate_expr(["X_0"])
 
     # Reason: clause (the first segment holds the run's limits; its callbacks are recorded at the
-    # first evaluation, in the checkpoint too).
+    # first counted call, an evaluation or a skip, in the checkpoint too).
+    @pytest.mark.parametrize("first_call", _FIRST_CALLS, ids=_FIRST_CALL_IDS)
     @pytest.mark.parametrize("with_checkpoint", [False, True], ids=["in-memory", "checkpoint"])
-    def test_first_segment_records_limits_and_callbacks(self, tmp_path, with_checkpoint):
+    def test_first_segment_records_limits_and_callbacks(self, tmp_path, with_checkpoint, first_call):
         path = tmp_path / "run.sqlite" if with_checkpoint else None
         se = _ckpt_se(path, max_evaluations=np.int64(5), success_threshold=0.25)
-        assert se.limits[0]["callbacks"] is None  # before the first evaluation
+        assert se.limits[0]["callbacks"] is None  # before the first call
         se.register_callbacks(TimeLimitCallback(60))
-        se.evaluate_expr(["X_0"])
+        first_call(se)
         expected = [
             {
                 "calls": 0,
