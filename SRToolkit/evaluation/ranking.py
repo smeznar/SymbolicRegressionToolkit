@@ -15,7 +15,7 @@ from typing import Any, Literal
 import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
-from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.evaluation.parameter_estimator import DEFAULT_ESTIMATION_SETTINGS, ParameterEstimator
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
@@ -139,6 +139,18 @@ class RankingFunction(ABC):
             with the error ``+inf``.
         """
 
+    def default_settings(self) -> dict[str, Any]:
+        """The defaults of the settings this ranking reads, as ``{name: value}``.
+
+        A setting passed at its default (or as ``None``) is the same run as one left out: the
+        evaluator leaves both out of its checkpoint fingerprint, so a resume does not depend on
+        how the default was written. Override it to list your ranking's defaults.
+
+        Returns:
+            A new dict; empty in the base class.
+        """
+        return {}
+
     def default_success_threshold(self) -> float | None:
         """The success threshold to use when the evaluator was not given an explicit one.
 
@@ -255,6 +267,16 @@ class RMSERanking(RankingFunction):
             y = compile_expr(ground_truth, symbol_library)(X, parameters)
         self.parameter_estimator = ParameterEstimator(X, y, symbol_library=symbol_library, seed=seed, **settings)
 
+    def default_settings(self) -> dict[str, Any]:
+        """The defaults of the [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator] settings.
+
+        ``default_constant`` is left out: the evaluator checks it on its own.
+
+        Returns:
+            A new dict.
+        """
+        return {k: v for k, v in DEFAULT_ESTIMATION_SETTINGS.items() if k != "default_constant"}
+
     def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
         """Return the RMSE of the best fit of ``expr`` under its specs, with the fitted parameters."""
         error, parameters, info = self.parameter_estimator.estimate_parameters_with_info(expr, free_constants)
@@ -319,6 +341,14 @@ class BEDRanking(RankingFunction):
     needs_targets = False
     needs_ground_truth = False
 
+    def default_settings(self) -> dict[str, Any]:
+        """The defaults of the BED settings.
+
+        Returns:
+            A new dict.
+        """
+        return {"num_consts_sampled": 32, "num_points_sampled": 64, "constant_bounds": (-5, 5), "backend": "stack"}
+
     def setup(
         self,
         X: np.ndarray,
@@ -359,12 +389,13 @@ class BEDRanking(RankingFunction):
         self.symbol_library = symbol_library
         # All of BED's randomness (points, behaviour matrices, threshold) follows this one seed.
         self.seed = seed
-        self.num_consts_sampled = settings.get("num_consts_sampled", 32)
-        self.num_points_sampled = settings.get("num_points_sampled", 64)
-        self.constant_bounds = settings.get("constant_bounds", (-5, 5))
+        settings = {**self.default_settings(), **{k: v for k, v in settings.items() if v is not None}}
+        self.num_consts_sampled = settings["num_consts_sampled"]
+        self.num_points_sampled = settings["num_points_sampled"]
+        self.constant_bounds = settings["constant_bounds"]
         self.ground_truth_constants = settings.get("ground_truth_constants")
         self.default_constant = settings.get("default_constant")
-        self.backend = settings.get("backend", "stack")
+        self.backend = settings["backend"]
         samplers = settings.get("samplers", None)
 
         # The behaviour to compare against, in order: a precomputed bed_gt matrix, the ground-truth

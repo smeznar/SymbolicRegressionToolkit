@@ -92,11 +92,15 @@ of [status_counts][SRToolkit.utils.types.EvalResult.status_counts]."""
 
 
 class RankingSettings(TypedDict, total=False):
-    """Settings for the ranking functions, the parameter estimator and the evaluator's limits.
+    """Settings for the ranking functions, the parameter estimator and the evaluation protocol.
 
     Passed as ``**kwargs`` to ``SR_dataset``, ``SR_evaluator``, and ``ParameterEstimator``, then
     handed to the active ranking's [setup][SRToolkit.evaluation.ranking.RankingFunction.setup] as a
-    plain ``dict``. All fields are optional.
+    plain ``dict``. All fields are optional, and ``None`` means the default. A setting passed at
+    its default (or as ``None``) is the same run as one left out, also when a checkpoint is resumed.
+
+    The evaluator reads ``simplify_expr``, ``canonicalise_constants``, the ``simplify_*`` settings,
+    ``fold_constants`` and ``max_consecutive_skips`` itself and does not hand them to the ranking.
 
     These are the keys the built-in rankings understand. A custom
     [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] may read *additional* keys from
@@ -176,36 +180,43 @@ class RankingSettings(TypedDict, total=False):
             ``SR_evaluator``, they are validated by the ranking's ``setup``. Set by
             [SR_dataset.ranking_settings][SRToolkit.dataset.sr_dataset.SR_dataset.ranking_settings]
             from the dataset's ``ground_truth_constants``. Default: ``None``.
-        simplify_rules: Rewrite rules of
-            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
-            ``evaluate_expr(simplify_expr=True)``. Read only by the evaluator. ``None``:
-            [DefaultRules][SRToolkit.utils.expression_simplifier.DefaultRules]. Default: ``None``.
-        simplify_max_iterations: ``max_iterations`` of
-            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
-            ``evaluate_expr(simplify_expr=True)``, a non-negative ``int`` or numpy integer
-            (not ``bool``). Read only by the evaluator. Default: ``simplify``'s (``30``).
-        simplify_max_nodes: ``max_nodes`` of
-            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
-            ``evaluate_expr(simplify_expr=True)``, a non-negative ``int`` or numpy integer
-            (not ``bool``). Read only by the evaluator. Default: ``simplify``'s (``10_000``).
-        simplify_max_time: ``max_time`` of
-            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
-            ``evaluate_expr(simplify_expr=True)``: seconds, a positive number (not ``bool``), or
-            ``None`` for no time limit. With a time limit the simplified expression, and so what is scored, can
-            depend on the machine. Read only by the evaluator. Default: ``None``.
-        simplify_fold_aware: ``fold_aware`` of
-            [simplify][SRToolkit.utils.expression_simplifier.simplify] for
-            ``evaluate_expr(simplify_expr=True)`` with folding: ``False`` is faster and folds less.
-            Read only by the evaluator. Default: ``simplify``'s (``True``).
+        simplify_expr: If ``True``, every expression the evaluator scores or looks up is first
+            simplified with [simplify][SRToolkit.utils.expression_simplifier.simplify], and the
+            simplified form is scored and stored, so inputs that simplify alike share one cache
+            entry. Slower; the stored expression is never longer than the input (brackets aside).
+            Specs of labels that simplification removes are dropped; an expression that cannot be
+            simplified is used as given (see
+            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]). The
+            ``simplify_*`` settings below are ``simplify``'s arguments without the prefix; they are
+            validated even when ``simplify_expr`` is ``False``, and have no other effect then. A
+            Python ``bool``; ``SR_evaluator`` raises ``TypeError`` otherwise. Default: ``False``.
+        canonicalise_constants: If ``True``, every expression the evaluator scores or looks up is
+            [canonicalised][SRToolkit.utils.free_constants.canonicalise] after simplifying and
+            folding, so ``C_1*X_0 + C_1`` after ``C_0*X_0 + C_0`` is a cache hit. For approaches
+            that write labelled constants. Not applied to an expression with specs left after
+            simplifying and folding: their labels are kept as written. A Python ``bool``;
+            ``SR_evaluator`` raises ``TypeError`` otherwise. Default: ``False``.
+        simplify_rules: Rewrite rules.
+            Default: [DefaultRules][SRToolkit.utils.expression_simplifier.DefaultRules].
+        simplify_max_iterations: A non-negative ``int`` or numpy integer (not ``bool``).
+            Default: ``30``.
+        simplify_max_nodes: A non-negative ``int`` or numpy integer (not ``bool``).
+            Default: ``10_000``.
+        simplify_max_time: Seconds, a positive number (not ``bool``), or ``None`` for no time
+            limit. With a time limit the simplified expression, and so what is scored, can depend
+            on the machine. Default: ``None``.
+        simplify_fold_aware: Used when ``fold_constants`` is not ``"none"``: ``False`` is faster
+            and folds less. Default: ``True``.
         fold_constants: ``mode`` of [fold][SRToolkit.utils.expression_simplifier.fold] (``"none"``,
-            ``"default"`` or ``"keep"``) for every expression the evaluator scores, after simplifying if
-            ``simplify_expr=True``; the folded form is scored and stored, and is a different hypothesis.
-            ``None`` is ``"none"``. Read only by the evaluator. Default: ``"none"``.
+            ``"default"`` or ``"keep"``) for every expression the evaluator scores or looks up; the
+            folded form is scored and stored, and is a different hypothesis. With
+            ``simplify_expr``, ``simplify`` folds as part of simplifying (see
+            ``simplify_fold_aware``). Default: ``"none"``.
         max_consecutive_skips: Evaluation stops with the reason ``"max_consecutive_skips"`` after
             this many skips in a row (see
             [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]); negative for no
-            limit (then an approach that only skips never stops), ``0`` is rejected. Read only by the
-            evaluator. Default: ``10000``.
+            limit (then an approach that only skips never stops), ``0`` is rejected. Default:
+            ``10000``.
 
     Examples:
         >>> settings: RankingSettings = {"method": "L-BFGS-B", "max_iter": 200}
@@ -228,6 +239,8 @@ class RankingSettings(TypedDict, total=False):
     num_consts_sampled: int
     ground_truth_constants: Sequence["Constant"] | None
     default_constant: "Constant | None"
+    simplify_expr: bool
+    canonicalise_constants: bool
     simplify_rules: "SimplificationRules | None"
     simplify_max_iterations: int
     simplify_max_nodes: int

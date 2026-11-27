@@ -117,6 +117,21 @@ class TestParameterEstimatorInit:
         pe = ParameterEstimator(_X, _y_linear, constant_bounds=(5, -5), default_constant=default)
         assert pe.default_constant is default
 
+    # Reason: regression (an explicit None replaced the default, e.g. tol=None reached scipy as None;
+    # None means the default for every setting).
+    @pytest.mark.parametrize(
+        "name", ["method", "tol", "gtol", "max_iter", "constant_bounds", "initialization", "backend"]
+    )
+    def test_none_setting_is_the_default(self, name):
+        expr = ["C", "*", "X_0", "+", "C"]
+        default = ParameterEstimator(_X, _y_linear, seed=0)
+        given_none = ParameterEstimator(_X, _y_linear, seed=0, **{name: None})
+        assert given_none.estimation_settings == default.estimation_settings
+        rmse, params = given_none.estimate_parameters(expr)
+        default_rmse, default_params = default.estimate_parameters(expr)
+        assert rmse == default_rmse
+        np.testing.assert_array_equal(params, default_params)
+
 
 # ── ParameterEstimator.estimate_parameters ─────────────────────────────────────
 

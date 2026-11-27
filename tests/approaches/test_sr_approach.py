@@ -267,15 +267,14 @@ def test_default_state_methods_round_trip_with_own_generator():
 
 
 class _Mixed(SteppedApproach):
-    # Proposes Candidates (one with a free-constant spec, one canonicalised), a Node and a token
-    # list, then stops.
+    # Proposes Candidates (one with a free-constant spec), a Node and a token list, then stops.
     def ask(self, sr_evaluator, state):
         if state["asks"]:
             return []
         state["asks"] += 1
         self.proposed = [
             Candidate(["C_0", "*", "X_0"], [_SPEC]),
-            Candidate(["C_0", "+", "X_0"], canonicalise_constants=True),
+            Candidate(["C", "+", "X_0"]),
             tokens_to_tree(["X_0", "*", "X_0"], sr_evaluator.symbol_library),
             ["X_0"],
         ]
@@ -380,22 +379,20 @@ def test_candidate_skip_must_be_a_non_empty_str(skip):
 
 
 class _FieldLookup(SteppedApproach):
-    # Step 1 evaluates X_0*X_1/X_0 simplified, C_0*X_0 with a spec and C_0+X_0 canonicalised; step 2
-    # skips (looks up) each with the same fields and without them.
+    # Step 1 evaluates X_0*X_1/X_0, C_0*X_0 with a spec and C_0+X_0; step 2 skips (looks up) the
+    # first as given, the second with and without its spec, and the third relabelled.
     _EXPR = ["X_0", "*", "X_1", "/", "X_0"]
     _STEPS = [
         [
-            Candidate(_EXPR, simplify_expr=True),
+            Candidate(_EXPR),
             Candidate(["C_0", "*", "X_0"], [_SPEC]),
-            Candidate(["C_0", "+", "X_0"], canonicalise_constants=True),
+            Candidate(["C_0", "+", "X_0"]),
         ],
         [
-            Candidate(_EXPR, simplify_expr=True, skip="s"),
             Candidate(_EXPR, skip="s"),
             Candidate(["C_0", "*", "X_0"], [_SPEC], skip="s"),
             Candidate(["C_0", "*", "X_0"], skip="s"),
-            Candidate(["C_0", "+", "X_0"], canonicalise_constants=True, skip="s"),
-            Candidate(["C_0", "+", "X_0"], skip="s"),
+            Candidate(["C_3", "+", "X_0"], skip="s"),
         ],
     ]
 
@@ -404,15 +401,18 @@ class _FieldLookup(SteppedApproach):
         return self._STEPS[state["asks"] - 1] if state["asks"] <= len(self._STEPS) else []
 
 
-# Reason: clause (Candidate: simplify_expr, free_constants and canonicalise_constants are used for
-# evaluating; a skip is looked up "with its specs, simplified and canonicalised as above").
-def test_candidate_fields_are_used_for_evaluation_and_lookup():
-    se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
+# Reason: clause (Candidate: free_constants is used for evaluating; a skip is looked up "with its
+# specs") + the evaluator's simplify_expr and canonicalise_constants apply to both.
+def test_candidate_fields_and_settings_are_used_for_evaluation_and_lookup():
+    se = SR_evaluator(
+        np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1, simplify_expr=True, canonicalise_constants=True
+    )
     approach = _FieldLookup()
     approach.search(se, seed=0)
     [(_, [simplified, with_spec, canonical]), (_, looked_up)] = approach.told
-    assert [simplified.expr, with_spec.free_constants, canonical.expr] == [["X_1"], (_SPEC,), ["C", "+", "X_0"]]
-    assert looked_up == [simplified, None, with_spec, None, canonical, None]
+    assert [simplified.expr, with_spec.free_constants] == [["X_1"], (_SPEC,)]
+    assert "".join(canonical.expr) in {"C+X_0", "X_0+C"}
+    assert looked_up == [simplified, with_spec, None, canonical]
 
 
 class _FailingSecondTell(SteppedApproach):

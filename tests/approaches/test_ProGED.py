@@ -117,8 +117,9 @@ def test_search_skips_repeats_and_rejected_then_stops():
     assert all(m.status != "rejected" for m in se.models)
 
 
-# Reason: clause (canonicalise_constants: samples differing only in their labels are one expression;
-# off by default): the grammar yields C_0*X_0+C_0 and C_1*X_0+C_1.
+# Reason: clause (grammar: with the evaluator setting canonicalise_constants, samples differing only
+# in their labels are one expression, also for the repeat check; off by default): the grammar yields
+# C_0*X_0+C_0 and C_1*X_0+C_1.
 @pytest.mark.parametrize(
     "canonicalise, exprs",
     [
@@ -132,9 +133,10 @@ def test_search_canonicalise_constants(canonicalise, exprs):
         Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_1' '*' 'X_0' '+' 'C_1' [0.5]"), start="E"
     )
     se = SR_evaluator(
-        _X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, max_consecutive_skips=20
-    )
-    ProGED(grammar, canonicalise_constants=canonicalise).search(se, seed=0)
+        _X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, max_consecutive_skips=20,
+        canonicalise_constants=canonicalise,
+    )  # fmt: skip
+    ProGED(grammar).search(se, seed=0)
     assert se.stop_reason == "max_consecutive_skips"
     assert sorted(m.expr for m in se.models) == exprs
 
@@ -173,12 +175,11 @@ def test_search_skip_flags_are_independent(skip_evaluated, skip_rejected):
 
 
 def test_config_round_trip_keeps_skip_settings():
-    approach = ProGED(skip_evaluated=False, skip_rejected=False, canonicalise_constants=True)
+    approach = ProGED(skip_evaluated=False, skip_rejected=False)
     rebuilt = ProGED.from_config(approach.config.to_dict())
     c = rebuilt.config
-    assert (c.skip_evaluated, c.skip_rejected, c.canonicalise_constants) == (False, False, True)
-    r = rebuilt
-    assert (r.skip_evaluated, r.skip_rejected, r.canonicalise_constants) == (False, False, True)
+    assert (c.skip_evaluated, c.skip_rejected) == (False, False)
+    assert (rebuilt.skip_evaluated, rebuilt.skip_rejected) == (False, False)
 
 
 # Reason: clause (stops after exactly max_consecutive_skips skips, each counted once: as "evaluated" if both
@@ -216,18 +217,17 @@ def test_search_stops_after_exactly_max_consecutive_skips(rejects, skip_evaluate
 
 
 # Reason: clause (ask: one sample per call; a skipped sample is a lookup with its skip reason, which
-# the step loop counts, not ask; canonicalise_constants is passed on to evaluate_expr and get_model, so
-# both the evaluated and the skipped candidate carry it).
+# the step loop counts, not ask).
 def test_ask_proposes_skipped_samples_as_lookups():
     only_x0 = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
-    approach = ProGED(only_x0, canonicalise_constants=True)
+    approach = ProGED(only_x0)
     state = approach.start(se, seed=0)
     (first,) = approach.ask(se, state)
-    assert (first.expr, first.skip, first.canonicalise_constants) == (["X_0"], None, True)
+    assert (first.expr, first.skip) == (["X_0"], None)
     se.evaluate_expr(first.expr)
     (second,) = approach.ask(se, state)
-    assert (second.expr, second.skip, second.canonicalise_constants) == (["X_0"], "evaluated", True)
+    assert (second.expr, second.skip) == (["X_0"], "evaluated")
     assert (se.skips, se.should_stop) == ({}, False)
 
 
@@ -242,10 +242,12 @@ def test_search_is_reproducible_with_a_seed():
 
 def test_from_config_defaults_for_older_configs():
     a = ProGED.from_config({"grammar": None})
-    assert (a.skip_evaluated, a.skip_rejected, a.canonicalise_constants) == (True, True, False)
-    # Unknown keys, such as the removed max_consecutive_skips, are ignored.
-    b = ProGED.from_config({"grammar": None, "max_consecutive_skips": 7, "no_such_key": 1})
-    assert (b.skip_evaluated, b.skip_rejected, b.canonicalise_constants) == (True, True, False)
+    assert (a.skip_evaluated, a.skip_rejected) == (True, True)
+    # Unknown keys, such as the removed max_consecutive_skips and canonicalise_constants, are ignored.
+    b = ProGED.from_config(
+        {"grammar": None, "max_consecutive_skips": 7, "canonicalise_constants": True, "no_such_key": 1}
+    )
+    assert (b.skip_evaluated, b.skip_rejected) == (True, True)
 
 
 def test_start_without_grammar_or_adapt_raises():

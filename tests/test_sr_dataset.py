@@ -1029,20 +1029,21 @@ class TestFormat4:
         ds = SR_dataset(
             _X2, SymbolLibrary.default_symbols(2), y=_Y, benchmark="b", version="1",
             simplify_rules=rules, simplify_max_iterations=5, simplify_fold_aware=False, fold_constants="keep",
+            simplify_expr=True, canonicalise_constants=True,
         )  # fmt: skip
         d = json.loads(json.dumps(ds.to_dict()))
         assert d["kwargs"] == {
             "simplify_rules": rules.to_dict(), "simplify_max_iterations": 5, "simplify_fold_aware": False,
-            "fold_constants": "keep",
+            "fold_constants": "keep", "simplify_expr": True, "canonicalise_constants": True,
         }  # fmt: skip
         restored = SR_dataset.from_dict(d)
         assert restored.to_dict() == d
         se = restored.create_evaluator()
-        se.evaluate_expr(["X_0", "*", "X_0"], simplify_expr=True)
+        se.evaluate_expr(["X_0", "*", "X_0"])  # simplified with simplify_expr and the rules
         assert se.models[0].expr == ["X_0", "*", "X_0"]
         se = restored.create_evaluator()
-        se.evaluate_expr(["C", "*", "C", "*", "X_1"])  # folded with fold_constants
-        assert se.models[0].expr == ["C", "*", "X_1"]
+        se.evaluate_expr(["C_4", "*", "C", "*", "X_1"])  # folded with fold_constants, then canonicalised
+        assert "".join(se.models[0].expr) in {"C*X_1", "X_1*C"}
 
     def test_migrates_v3_without_samplers(self, tmp_path, monkeypatch):
         # Array data saved in an older version: no samplers, no data_source, arrays in the cache.

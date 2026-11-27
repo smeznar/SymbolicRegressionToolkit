@@ -26,14 +26,12 @@ class ProGEDConfig(ApproachConfig):
             [Grammar.to_dict][SRToolkit.utils.grammar.grammar.Grammar.to_dict] dict, or ``None``.
         skip_evaluated: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
         skip_rejected: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
-        canonicalise_constants: See [ProGED][SRToolkit.approaches.ProGED.ProGED].
     """
 
     name: str = "ProGED"
     grammar: dict | None = None
     skip_evaluated: bool = True
     skip_rejected: bool = True
-    canonicalise_constants: bool = False
 
 
 class ProGED(SR_approach):
@@ -42,7 +40,6 @@ class ProGED(SR_approach):
         grammar: str | Grammar | SymbolLibrary | None = None,
         skip_evaluated: bool = True,
         skip_rejected: bool = True,
-        canonicalise_constants: bool = False,
     ) -> None:
         r"""Random sampling from a probabilistic context-free grammar (a slimmed-down ProGED).
 
@@ -74,14 +71,16 @@ class ProGED(SR_approach):
                 or ``None`` to let [adapt][SRToolkit.approaches.ProGED.ProGED.adapt] choose one per
                 task. Sample length is bounded only by the derivation limit of
                 [ask][SRToolkit.approaches.ProGED.ProGED.ask]; a ``MaxTokens`` required constraint
-                rejects long samples.
-            skip_evaluated: Skip samples that were already evaluated. ``False`` evaluates repeats
-                too, as cache hits that use the budget.
+                rejects long samples. For a grammar with labelled constants as terminals, the
+                evaluator setting ``canonicalise_constants`` (see
+                [RankingSettings][SRToolkit.utils.types.RankingSettings]) treats samples that differ
+                only in constant labels (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) as one expression,
+                so they count as repeats for ``skip_evaluated``.
+            skip_evaluated: Skip samples that were already evaluated (see
+                [ask][SRToolkit.approaches.ProGED.ProGED.ask]). ``False`` evaluates repeats too, as
+                cache hits that use the budget.
             skip_rejected: Skip samples that break a required constraint. ``False`` evaluates them,
                 so they use the budget and appear in the results as ``"rejected"``.
-            canonicalise_constants: Treat samples that differ only in constant labels
-                (``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``) as one expression. Useful only for
-                grammars with labelled constants as terminals.
         """
         if isinstance(grammar, Grammar):
             grammar_dict = grammar.to_dict()
@@ -99,13 +98,11 @@ class ProGED(SR_approach):
                 grammar=grammar_dict,
                 skip_evaluated=skip_evaluated,
                 skip_rejected=skip_rejected,
-                canonicalise_constants=canonicalise_constants,
             )
         )
         self.grammar: Grammar | None = grammar
         self.skip_evaluated = skip_evaluated
         self.skip_rejected = skip_rejected
-        self.canonicalise_constants = canonicalise_constants
         # The grammar search samples from: the constructor's, or the one adapt chose for this task.
         self._sampling_grammar: Grammar | None = grammar
 
@@ -148,9 +145,10 @@ class ProGED(SR_approach):
 
         A derivation that needs more than 1000 rule applications, or in which no rule fits, fails
         and is proposed as ``None`` (the skip ``"not_expression"``), not redrawn. A sample is
-        proposed with the skip reason ``"evaluated"`` if ``skip_evaluated`` is set and it was
-        evaluated before, else ``"rejected"`` if ``skip_rejected`` is set and it breaks a required
-        constraint.
+        proposed with the skip reason ``"evaluated"`` if ``skip_evaluated`` is set and its stored
+        form was evaluated before (see
+        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), else
+        ``"rejected"`` if ``skip_rejected`` is set and it breaks a required constraint.
 
         Returns:
             A one-element list: a [Candidate][SRToolkit.approaches.sr_approach.Candidate], or
@@ -160,22 +158,22 @@ class ProGED(SR_approach):
         expr = self._sampling_grammar.generate_one(max_retries=1)
         if expr is None:
             return [None]
-        if (
-            self.skip_evaluated
-            and sr_evaluator.get_model(expr, canonicalise_constants=self.canonicalise_constants) is not None
-        ):
-            reason = "evaluated"
-        elif self.skip_rejected and sr_evaluator.check_constraints(expr)[0]:
-            reason = "rejected"
-        else:
-            return [Candidate(expr, canonicalise_constants=self.canonicalise_constants)]
-        return [Candidate(expr, canonicalise_constants=self.canonicalise_constants, skip=reason)]
+        if self.skip_evaluated and sr_evaluator.get_model(expr) is not None:
+            return [Candidate(expr, skip="evaluated")]
+        if self.skip_rejected and sr_evaluator.check_constraints(expr)[0]:
+            return [Candidate(expr, skip="rejected")]
+        return [Candidate(expr)]
 
     @classmethod
     def from_config(cls, config: dict) -> "ProGED":
         """Rebuild the approach from a config dict; missing keys take the constructor defaults.
 
-        Unknown keys (e.g. the removed ``max_consecutive_skips``) are ignored.
+        Unknown keys (e.g. the removed ``max_consecutive_skips`` and ``canonicalise_constants``, now
+        an evaluator setting) are ignored.
+
+        Args:
+            config: A [ProGEDConfig][SRToolkit.approaches.ProGED.ProGEDConfig] as a dict (see
+                [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]).
 
         Returns:
             The approach.
@@ -185,5 +183,4 @@ class ProGED(SR_approach):
             grammar=None if grammar is None else Grammar.from_dict(grammar),
             skip_evaluated=config.get("skip_evaluated", True),
             skip_rejected=config.get("skip_rejected", True),
-            canonicalise_constants=config.get("canonicalise_constants", False),
         )

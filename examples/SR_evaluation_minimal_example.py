@@ -34,14 +34,14 @@ if __name__ == "__main__":
     expressions = read_expressions("../data/test_exprs_100k.txt")
 
     # Create an instance of the SR_evaluator class
-    evaluator = SR_evaluator(X, y)
+    evaluator = SR_evaluator(X, y, simplify_expr=True)
 
     start_time = time.time()
 
     # Evaluate expressions one by one
     for i, expr in enumerate(expressions):
         # print(f"{i}: Expr: {''.join(expr)}")
-        evaluator.evaluate_expr(expr, simplify_expr=True)
+        evaluator.evaluate_expr(expr)
 
     print(f"Total time: {time.time() - start_time}")
 

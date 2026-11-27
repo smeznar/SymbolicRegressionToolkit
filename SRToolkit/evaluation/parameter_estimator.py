@@ -79,7 +79,8 @@ class ParameterEstimator:
         **kwargs: Optional estimation settings from
             [RankingSettings][SRToolkit.utils.types.RankingSettings].
             Supported keys: ``method``, ``tol``, ``gtol``, ``max_iter``,
-            ``constant_bounds``, ``default_constant``, ``initialization``, ``backend``.
+            ``constant_bounds``, ``default_constant``, ``initialization``, ``backend``. ``None``
+            means the default.
 
     Raises:
         TypeError: If ``default_constant`` is not given and ``constant_bounds`` is not a pair of real
@@ -121,10 +122,9 @@ class ParameterEstimator:
 
         self.estimation_settings = dict(DEFAULT_ESTIMATION_SETTINGS)
 
-        if kwargs:
-            for k in self.estimation_settings.keys():
-                if k in kwargs:
-                    self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
+        for k in self.estimation_settings.keys():
+            if kwargs.get(k) is not None:  # None means the default
+                self.estimation_settings[k] = kwargs[k]  # type: ignore[literal-required]
 
         given = self.estimation_settings["default_constant"]
         if given is None:

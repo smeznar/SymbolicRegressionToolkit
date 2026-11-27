@@ -683,13 +683,13 @@ class TestEvaluateExprRmse:
         assert returned == se.models[0] and returned != se.models[1]
         np.testing.assert_allclose(returned.parameters, [2.0], rtol=1e-6)
 
-    # Reason: clause (canonicalise_constants: "the canonical form replaces it for the rest of the call"):
-    # a relabelled cache hit returns the stored canonical model (a label used once is written bare),
-    # not the input labels.
+    # Reason: clause (evaluate_expr: the stored form "is checked, scored, cached and stored"): with
+    # canonicalise_constants a relabelled cache hit returns the stored canonical model (a label used
+    # once is written bare), not the input labels.
     def test_canonicalised_cache_hit_returns_the_stored_form(self):
-        se = _make_se()
-        se.evaluate_expr(["C_4", "*", "X_1", "-", "X_0"], canonicalise_constants=True)
-        returned = se.evaluate_expr(["C_1", "*", "X_1", "-", "X_0"], canonicalise_constants=True)
+        se = _make_se(canonicalise_constants=True)
+        se.evaluate_expr(["C_4", "*", "X_1", "-", "X_0"])
+        returned = se.evaluate_expr(["C_1", "*", "X_1", "-", "X_0"])
         assert se.trace == [0, 0]
         assert returned == se.models[0]
         assert returned.expr == ["C", "*", "X_1", "-", "X_0"]
@@ -800,26 +800,28 @@ class TestEvaluateExprRmse:
         se.evaluate_expr(["X_0"])
         assert se.stop_reason == "callback:MagicMock"
 
-    def test_simplify_expr_stores_simplified_key(self):
-        se = _make_se()
-        se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
-        assert len(se.models) == 1
-        assert "".join(se.models[0].expr) in {"C+X_1", "X_1+C"}
+    # Reason: clause (RankingSettings simplify_expr: "inputs that simplify alike share one cache
+    # entry"): X_0*X_1/X_0 simplifies to X_1, so C+X_1 is a cache hit.
+    def test_inputs_that_simplify_alike_share_one_model(self):
+        se = _make_se(simplify_expr=True)
+        se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"])
+        se.evaluate_expr(["C", "+", "X_1"])
+        assert (len(se.models), se.trace) == (1, [0, 0])
 
-    def test_simplify_expr_failure_warns_and_continues(self):
-        se = _make_se()
+    # Reason: clause (evaluate_expr: "If a well-formed expression cannot be simplified, a UserWarning is
+    # emitted and it is used as given"), for a token list and a Node: scored like the plain evaluator.
+    @pytest.mark.parametrize(
+        "make_expr",
+        [lambda lib: ["C", "*", "X_0"], lambda lib: tokens_to_tree(["C", "*", "X_0"], lib)],
+        ids=["tokens", "node"],
+    )
+    def test_simplify_failure_warns_and_uses_the_input(self, make_expr):
+        se, plain = _make_se(simplify_expr=True), _make_se()
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
-                result = se.evaluate_expr(["X_0"], simplify_expr=True).error
-        assert not np.isnan(result)
-
-    def test_simplify_failure_with_node_input_warns(self):
-        se = _make_se()
-        node = Node("*", left=Node("C"), right=Node("X_0"))
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
-            with pytest.warns(UserWarning, match="Unable to simplify"):
-                result = se.evaluate_expr(node, simplify_expr=True).error
-        assert np.isfinite(result)
+                model = se.evaluate_expr(make_expr(se.symbol_library))
+        expected = plain.evaluate_expr(["C", "*", "X_0"])
+        assert (model.expr, model.error) == (["C", "*", "X_0"], expected.error)
 
     def test_node_input_accepted(self):
         se = _make_se()
@@ -1802,6 +1804,48 @@ class TestCheckConstraints:
         expected = ("rejected", f"{failed[0].constraint}: {failed[0].message}") if failed else ("ok", None)
         assert (se.models[0].status, se.models[0].status_detail) == expected
 
+    # Reason: regression (check_constraints ran the pre-checks on the expression as given, evaluate_expr on
+    # its stored form: with fold_constants, C*C*X_0 was reported by MaxConstants(1) but stored and
+    # accepted as C*X_0, breaking "an empty required list means evaluate_expr(expr) will not reject").
+    @pytest.mark.parametrize("fold", ["keep", "default"])
+    def test_check_constraints_checks_the_stored_form(self, fold):
+        se = SR_evaluator(
+            _X1,
+            _y,
+            symbol_library=_LIB1(),
+            ranking_function=_FixedRanking(RankingResult(score=0.0)),
+            success_threshold=-1,
+            required_constraints=[MaxConstants(1)],
+            fold_constants=fold,
+        )
+        expr = ["C", "*", "C", "*", "X_0"]
+        required, _ = se.check_constraints(expr)
+        se.evaluate_expr(expr)
+        assert (required, se.models[0].status) == ([], "ok")
+
+    # Reason: clause (check_constraints free_constants: "They shape the stored form"): with fold "keep" a
+    # spec'd C_0 is kept, so C_0*C*X_0 keeps 2 constants and breaks MaxConstants(1); without the spec it
+    # folds to C*X_0, which passes. evaluate_expr agrees either way.
+    @pytest.mark.parametrize(
+        "specs, failed, status",
+        [([Constant("C_0", bounds=(0.0, 3.0))], ["MaxConstants"], "rejected"), (None, [], "ok")],
+        ids=["spec-keeps-label", "no-spec"],
+    )
+    def test_specs_shape_the_checked_stored_form(self, specs, failed, status):
+        se = SR_evaluator(
+            _X1,
+            _y,
+            symbol_library=_LIB1(),
+            ranking_function=_FixedRanking(RankingResult(score=0.0)),
+            success_threshold=-1,
+            required_constraints=[MaxConstants(1)],
+            fold_constants="keep",
+        )
+        expr = ["C_0", "*", "C", "*", "X_0"]
+        required, _ = se.check_constraints(expr, specs)
+        se.evaluate_expr(expr, specs)
+        assert ([r.constraint for r in required], se.models[0].status) == (failed, status)
+
 
 class TestConstraintEvaluation:
     @pytest.mark.parametrize(
@@ -1941,8 +1985,13 @@ class TestConstraintEvaluation:
     )
     def test_checks_receive_stored_expression(self, make_expr, simplify, allowed):
         required, advisory = _Spy(), _Spy()
-        se = _make_se(symbol_library=_LIB2(), required_constraints=[required], advisory_constraints=[advisory])
-        se.evaluate_expr(make_expr(se.symbol_library), simplify_expr=simplify)
+        se = _make_se(
+            symbol_library=_LIB2(),
+            required_constraints=[required],
+            advisory_constraints=[advisory],
+            simplify_expr=simplify,
+        )
+        se.evaluate_expr(make_expr(se.symbol_library))
         model = se.models[0]
         expected = model.expr
         assert "".join(expected) in allowed
@@ -2176,26 +2225,29 @@ class TestGetModel:
         se.evaluate_expr(["X_0", "+", "X_1"])
         assert se.get_model(tokens_to_tree(["X_0", "+", "X_1"], lib)).to_dict() == se.models[0].to_dict()
 
-    def test_get_model_does_not_simplify(self):
-        se = SR_evaluator(_X, _y, symbol_library=_LIB2())
-        se.evaluate_expr(["X_0", "*", "X_1", "/", "X_0"], simplify_expr=True)
-        assert se.get_model(["X_0", "*", "X_1", "/", "X_0"]) is None
-
-    # Reason: clause (get_model / get_metric simplify_expr: "pass the value expr was evaluated
-    # with"; the lookup simplifies as evaluate_expr did, with the evaluator's simplify_* settings).
+    # Reason: clause (get_model, get_metric and stored_tokens use the stored form of evaluate_expr:
+    # with simplify_expr, the input and its simplified form both find the model, with the
+    # evaluator's simplify_* settings).
     @pytest.mark.parametrize("settings, stored", [({}, ["X_1"]), ({"simplify_max_iterations": 0}, None)])
     def test_lookups_with_simplify_expr_match_evaluate_expr(self, settings, stored):
         expr = ["X_0", "*", "X_1", "/", "X_0"]
-        se = SR_evaluator(_X, _y, symbol_library=_LIB2(), **settings)
-        se.evaluate_expr(expr, simplify_expr=True)
+        se = SR_evaluator(_X, _y, symbol_library=_LIB2(), simplify_expr=True, **settings)
+        se.evaluate_expr(expr)
         stored_expr = se.models[0].expr
         if stored is not None:
             assert stored_expr == stored
-        assert se.get_model(expr, simplify_expr=True).to_dict() == se.models[0].to_dict()
-        assert se.get_metric(expr, "mse", simplify_expr=True) == se.get_metric(stored_expr, "mse")
-        if stored is not None:
-            with pytest.raises(ValueError, match="not been evaluated"):
-                se.get_metric(expr, "mse")
+        assert se.stored_tokens(expr) == stored_expr
+        assert se.get_model(expr).to_dict() == se.models[0].to_dict()
+        assert se.get_model(stored_expr).to_dict() == se.models[0].to_dict()
+        assert se.get_metric(expr, "mse") == se.get_metric(stored_expr, "mse")
+        assert se.total_evaluations == 1
+
+    # Reason: clause (stored_tokens Raises: "TypeError: If expr is neither a token list nor a Node").
+    @pytest.mark.parametrize("expr", ["X_0", ("X_0",), None, 42], ids=["str", "tuple", "None", "int"])
+    def test_stored_tokens_rejects_non_expressions(self, expr):
+        se = SR_evaluator(_X, _y, symbol_library=_LIB2())
+        with pytest.raises(TypeError, match="Node"):
+            se.stored_tokens(expr)
 
 
 # ── Free-constant specs (constants rework, stage 1 step 5) ────────────────────
@@ -2298,23 +2350,23 @@ class TestFreeConstants:
         assert (None if first_specs is None else [c.label for c in first_specs]) == given_order
         assert se.get_model(expr, second()).to_dict() == se.models[0].to_dict()
 
-    # Reason: clause (error contract: specs that do not fit raise ValueError, also with
-    # simplify_expr=True (checked against the input before simplifying, so no warning), and nothing
+    # Reason: clause (error contract: specs that do not fit raise ValueError, also with the setting
+    # simplify_expr (checked against the input before simplifying, so no warning), and nothing
     # is recorded or counted;
     # check_constraints checks them the same way).
     @pytest.mark.parametrize(
-        "call, match",
+        "settings, call, match",
         [
-            (lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
-            (lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0), _fix("C_0", 2.0)]), "C_0"),
-            (lambda se: se.evaluate_expr(_E, [Constant(value=1.0, fixed=True)]), "label"),
-            (lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)], simplify_expr=True), "C_9"),
-            (lambda se: se.check_constraints(_E, [_fix("C_9", 1.0)]), "C_9"),
+            ({}, lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
+            ({}, lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0), _fix("C_0", 2.0)]), "C_0"),
+            ({}, lambda se: se.evaluate_expr(_E, [Constant(value=1.0, fixed=True)]), "label"),
+            ({"simplify_expr": True}, lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
+            ({}, lambda se: se.check_constraints(_E, [_fix("C_9", 1.0)]), "C_9"),
         ],
         ids=["unknown-label", "duplicate-label", "no-label", "simplify", "check_constraints"],
     )
-    def test_invalid_specs_raise_and_record_nothing(self, call, match):
-        se = _spec_se()
+    def test_invalid_specs_raise_and_record_nothing(self, settings, call, match):
+        se = _spec_se(**settings)
         with warnings.catch_warnings():
             warnings.simplefilter("error")  # checked before simplifying: no "Unable to simplify" warning
             with pytest.raises(ValueError, match=match):
@@ -2329,11 +2381,16 @@ class TestFreeConstants:
     @pytest.mark.parametrize("simplify_expr", [False, True], ids=["plain", "simplify"])
     def test_specs_are_checked_with_the_evaluators_library(self, simplify_expr):
         se = SR_evaluator(
-            _X3, _y3, symbol_library=SymbolLibrary.default_symbols(1, const_symbol="K"), seed=0, success_threshold=-1
+            _X3,
+            _y3,
+            symbol_library=SymbolLibrary.default_symbols(1, const_symbol="K"),
+            seed=0,
+            success_threshold=-1,
+            simplify_expr=simplify_expr,
         )
         expr = ["K_0", "*", "X_0"]
         assert se.check_constraints(expr, [_fix("K_0", 1.0)]) == ([], [])
-        model = se.evaluate_expr(expr, [_fix("K_0", 1.0)], simplify_expr=simplify_expr)
+        model = se.evaluate_expr(expr, [_fix("K_0", 1.0)])
         assert model.error == pytest.approx(math.sqrt(14 / 3))
 
     # Reason: boundary (the ValueError applies to a well-formed expr only; a malformed one is
@@ -2401,7 +2458,9 @@ class TestFreeConstants:
 class TestSimplifySettings:
     # Reason: clause (RankingSettings simplify_*: rules a SimplificationRules or None; limits
     # non-negative ints; max_time a positive number or None; settled: wrong rules -> TypeError, bad
-    # limits -> ValueError). The message names the setting.
+    # limits -> ValueError; "validated even when simplify_expr is False", its default here) + clause
+    # (simplify_expr and canonicalise_constants: "A Python bool; SR_evaluator raises TypeError
+    # otherwise", so np.bool_ too). The message names the setting.
     @pytest.mark.parametrize(
         "settings, error",
         [
@@ -2421,19 +2480,23 @@ class TestSimplifySettings:
             ({"simplify_fold_aware": 1}, TypeError),
             ({"fold_constants": "all"}, ValueError),
             ({"fold_constants": ""}, ValueError),
+            ({"simplify_expr": 1}, TypeError),
+            ({"canonicalise_constants": "yes"}, TypeError),
+            ({"simplify_expr": np.bool_(True)}, TypeError),
+            ({"canonicalise_constants": np.bool_(False)}, TypeError),
         ],
         ids=[
             "rules-list", "rules-class", "iter-negative", "iter-float", "iter-bool", "nodes-negative",
             "nodes-float", "nodes-bool", "time-zero", "time-negative", "time-bool", "time-string", "time-nan",
-            "fold-aware-int", "fold-unknown", "fold-empty",
+            "fold-aware-int", "fold-unknown", "fold-empty", "simplify-int", "canonicalise-string",
+            "simplify-np-bool", "canonicalise-np-bool",
         ],
     )  # fmt: skip
     def test_invalid_simplify_settings_raise(self, settings, error):
         with pytest.raises(error, match=f"^{next(iter(settings))}"):
             _make_se(**settings)
 
-    # Reason: clause (evaluate_expr simplify_expr: simplified "with the rules and limits of the
-    # settings simplify_*") + boundary (limits 0 and max_time None, and an int max_time, are accepted;
+    # Reason: clause (RankingSettings simplify_expr: simplified "with the simplify_* settings") + boundary (limits 0 and max_time None, and an int max_time, are accepted;
     # settled: max_iterations=0 returns the input as the same tree).
     @pytest.mark.parametrize(
         "settings, expr, expected",
@@ -2452,12 +2515,12 @@ class TestSimplifySettings:
     def test_simplify_settings_are_used(self, settings, expr, expected):
         # Compared as trees: with no steps the input comes back as the same tree, written out with
         # Node.to_list, which may add redundant brackets.
-        se = _make_se(**settings)
-        se.evaluate_expr(expr, simplify_expr=True)
+        se = _make_se(simplify_expr=True, **settings)
+        se.evaluate_expr(expr)
         lib = se.symbol_library
         assert tokens_to_tree(se.models[0].expr, lib).to_list(lib) == tokens_to_tree(expected, lib).to_list(lib)
 
-    # Reason: clause ("With simplify_expr=True, the specs of labels that simplification removes are
+    # Reason: clause ("With the setting simplify_expr, the specs of labels that simplification removes are
     # dropped"; a fixed spec is used as its value; settled: free_constants None when no spec remains).
     @pytest.mark.parametrize(
         "expr, specs, expected_expr, kept",
@@ -2473,45 +2536,51 @@ class TestSimplifySettings:
         ids=["label-cancelled", "fixed-combined"],
     )
     def test_simplify_with_specs(self, expr, specs, expected_expr, kept):
-        se = _spec_se()
-        se.evaluate_expr(expr, specs, simplify_expr=True)
+        se = _spec_se(simplify_expr=True)
+        se.evaluate_expr(expr, specs)
         model = se.models[0]
         assert model.expr == expected_expr
         labels = None if model.free_constants is None else [c.label for c in model.free_constants]
         assert labels == kept
 
     # Reason: regression (module docs: "a malformed expression is invalid (and stored with its specs)
-    # whatever they are", also with simplify_expr=True; simplification fails, so it warns).
-    def test_malformed_expression_with_specs_is_invalid_when_simplifying(self):
-        se = _spec_se()
-        with pytest.warns(UserWarning, match="Unable to simplify"):
-            assert (
-                se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)], simplify_expr=True).error == math.inf
-            )
+    # whatever they are", also with simplify_expr) + regression (it emitted "Unable to simplify" before
+    # being scored "invalid"; the status alone reports it).
+    def test_malformed_expression_with_specs_is_invalid_without_warning_when_simplifying(self):
+        se = _spec_se(simplify_expr=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)]).error == math.inf
         assert se.models[0].status == "invalid"
         assert [c.label for c in se.models[0].free_constants] == ["C_9"]
 
 
 class TestFoldConstants:
-    # Reason: clause (RankingSettings fold_constants: every scored expression is folded, after
-    # simplifying with simplify_expr=True; default "none") + get_model finds it with the same
-    # arguments. C*C*X_0 folds to C*X_0 without simplification.
-    @pytest.mark.parametrize("simplify_expr", [False, True])
-    def test_expressions_are_folded(self, simplify_expr):
-        se = _make_se(fold_constants="keep")
-        se.evaluate_expr(["C", "*", "C", "*", "X_0"], simplify_expr=simplify_expr)
-        assert se.models[0].expr == ["C", "*", "X_0"]
-        found = se.get_model(["C", "*", "C", "*", "X_0"], simplify_expr=simplify_expr)
+    # Reason: clause (RankingSettings fold_constants: every expression scored "or looked up" is folded,
+    # after simplifying with simplify_expr; default "none") + get_model and stored_tokens find it from
+    # the input. C*C*X_0 folds to C*X_0 without simplification; implied: with the evaluator's library
+    # (constant symbol K).
+    @pytest.mark.parametrize(
+        "simplify_expr, const", [(False, "C"), (True, "C"), (False, "K")], ids=["fold", "simplify", "fold-K"]
+    )
+    def test_expressions_are_folded(self, simplify_expr, const):
+        lib = SymbolLibrary.default_symbols(2, const_symbol=const)
+        se = _make_se(fold_constants="keep", simplify_expr=simplify_expr, symbol_library=lib)
+        expr = [const, "*", const, "*", "X_0"]
+        se.evaluate_expr(expr)
+        assert se.models[0].expr == [const, "*", "X_0"]
+        assert se.stored_tokens(expr) == [const, "*", "X_0"]
+        found = se.get_model(expr)
         assert (found.expr, found.error) == (se.models[0].expr, se.models[0].error)
 
-    # Reason: clause (with simplify_expr=True the expression is simplified, then folded, with the
+    # Reason: clause (with simplify_expr the expression is simplified, then folded, with the
     # evaluator's library and without a warning; fold alone would leave the first input as it is).
     def test_simplified_then_folded_with_library(self):
         lib = SymbolLibrary.default_symbols(2, const_symbol="K")
-        se = _make_se(fold_constants="keep", symbol_library=lib)
+        se = _make_se(fold_constants="keep", symbol_library=lib, simplify_expr=True)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            se.evaluate_expr(["K", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "K"], simplify_expr=True)
+            se.evaluate_expr(["K", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "K"])
             se.evaluate_expr(["K", "*", "K", "*", "X_1"])
         assert "".join(se.models[0].expr) in {"K*X_0", "X_0*K"}
         assert se.models[1].expr == ["K", "*", "X_1"]
@@ -2540,8 +2609,9 @@ class TestFoldConstants:
             with pytest.raises(Exception, match="X_7"):
                 se.evaluate_expr(tree)
 
-    # Reason: clause (RankingSettings: fold_constants, simplify_* and max_consecutive_skips are "Read
-    # only by the evaluator", so the ranking does not get them).
+    # Reason: clause (RankingSettings: "The evaluator reads simplify_expr, canonicalise_constants, the
+    # simplify_* settings, fold_constants and max_consecutive_skips itself and does not hand them to the
+    # ranking").
     def test_settings_do_not_reach_ranking(self):
         class _Recording(_SeedRecordingRanking):
             def setup(self, X, y, ground_truth, symbol_library, seed, settings):
@@ -2550,23 +2620,37 @@ class TestFoldConstants:
         ranking = _Recording()
         SR_evaluator(
             _X, _y, ranking_function=ranking, fold_constants="keep", simplify_fold_aware=False,
-            simplify_max_nodes=100, max_consecutive_skips=5, max_iter=5,
+            simplify_max_nodes=100, max_consecutive_skips=5, max_iter=5, simplify_expr=True,
+            canonicalise_constants=True,
         )  # fmt: skip
         assert set(ranking.settings) == {"max_iter", "default_constant"}
 
-    # Reason: regression (with fold_constants a lookup with specs that do not fit raised; like the
-    # simplify path, it misses).
-    def test_lookup_with_unfit_specs_misses(self):
-        se = _spec_se(fold_constants="keep")
-        assert se.get_model(["C", "*", "X_0"], [Constant("C_9", value=1.0)]) is None
+    # Reason: clause (stored_tokens: "The specs are not checked: specs that do not fit expr match no
+    # model"; it records nothing and emits no warnings) + regression (with fold_constants such a lookup
+    # raised). Which tokens stored_tokens returns then is unspecified.
+    @pytest.mark.parametrize(
+        "settings",
+        [{}, {"fold_constants": "keep"}, {"simplify_expr": True}],
+        ids=["plain", "fold", "simplify"],
+    )
+    def test_lookup_with_unfit_specs_misses(self, settings):
+        se = _spec_se(**settings)
+        specs = [Constant("C_9", value=1.0)]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            se.stored_tokens(["C", "*", "X_0"], specs)
+            assert se.get_model(["C", "*", "X_0"], specs) is None
+        assert (len(se.models), se.total_evaluations) == (0, 0)
 
-    # Reason: clause (get_model simplify_expr: "A failed simplification is not warned about").
+    # Reason: clause (stored_tokens: "A failed simplification is not warned about"; get_model
+    # shares it).
     def test_lookup_does_not_warn_when_simplification_fails(self):
-        se = _make_se()
+        se = _make_se(simplify_expr=True)
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with warnings.catch_warnings():
                 warnings.simplefilter("error")
-                assert se.get_model(["X_0"], simplify_expr=True) is None
+                assert se.get_model(["X_0"]) is None
+                assert se.stored_tokens(["X_0"]) == ["X_0"]
 
     # Reason: clause (default "none", and None is "none": the expression is stored and scored as given).
     @pytest.mark.parametrize("setting", [{"fold_constants": "none"}, {"fold_constants": None}], ids=["none", "None"])
@@ -2590,23 +2674,29 @@ class TestFoldConstants:
         assert tokens_to_tree(model.expr, lib).to_list(lib) == tokens_to_tree(expr, lib).to_list(lib)
         assert (None if model.free_constants is None else [c.label for c in model.free_constants]) == kept
 
-    # Reason: clause (evaluate_expr: if simplification fails the expression is "evaluated as given
-    # (still folded)").
-    def test_folded_after_failed_simplification(self):
-        se = _make_se(fold_constants="keep")
+    # Reason: clause (evaluate_expr: if a well-formed expression cannot be simplified it is used "as
+    # given (still folded and canonicalised)"): C*C folds to one C; the shared C_3 becomes C_0.
+    @pytest.mark.parametrize(
+        "settings, expr, stored",
+        [
+            ({"fold_constants": "keep"}, ["C", "*", "C", "*", "X_0"], ["C", "*", "X_0"]),
+            ({"canonicalise_constants": True}, ["C_3", "*", "X_0", "+", "C_3"], ["C_0", "*", "X_0", "+", "C_0"]),
+        ],
+        ids=["folded", "canonicalised"],
+    )
+    def test_folded_and_canonicalised_after_failed_simplification(self, settings, expr, stored):
+        se = _make_se(simplify_expr=True, **settings)
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
-                se.evaluate_expr(["C", "*", "C", "*", "X_0"], simplify_expr=True)
-        assert se.models[0].expr == ["C", "*", "X_0"]
+                se.evaluate_expr(expr)
+        assert se.models[0].expr == stored
 
-    # Reason: clause (simplify_fold_aware reaches simplify as fold_aware; fold_constants as fold) +
-    # both settings are part of the fingerprint (through the evaluator's settings).
-    def test_settings_reach_simplify_and_fingerprint(self):
-        se = _make_se(fold_constants="keep", simplify_fold_aware=False)
+    # Reason: clause (simplify_fold_aware reaches simplify as fold_aware; fold_constants as fold).
+    def test_settings_reach_simplify(self):
+        se = _make_se(fold_constants="keep", simplify_fold_aware=False, simplify_expr=True)
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
-            se.evaluate_expr(["X_0"], simplify_expr=True)
+            se.evaluate_expr(["X_0"])
         assert (spy.call_args.kwargs["fold"], spy.call_args.kwargs["fold_aware"]) == ("keep", False)
-        assert {"fold_constants", "simplify_fold_aware"} <= set(se._fingerprint())
 
 
 _y3_affine = 2 * _X3[:, 0] + 2  # fitted by C_0*X_0 + C_0 with C_0 = 2
@@ -2618,7 +2708,7 @@ def _canon_se(lib=None, **kwargs):
 
 
 class TestCanonicalisation:
-    # Reason: clause (with canonicalise_constants=True the canonical form is cached and stored: C_1*X_0+C_1
+    # Reason: clause (with canonicalise_constants the canonical form is cached and stored: C_1*X_0+C_1
     # after C_4*X_0+C_4 is a cache hit) + implied (canonicalised with the evaluator's library; input not mutated).
     @pytest.mark.parametrize(
         "const, lib",
@@ -2629,11 +2719,11 @@ class TestCanonicalisation:
         ids=["C", "K"],
     )
     def test_relabelled_expressions_are_one_canonical_model(self, const, lib):
-        se = _canon_se(lib())
+        se = _canon_se(lib(), canonicalise_constants=True)
         first = f"{const}_4 * X_0 + {const}_4".split()
-        error = se.evaluate_expr(first, canonicalise_constants=True).error
+        error = se.evaluate_expr(first).error
         assert first == f"{const}_4 * X_0 + {const}_4".split()
-        assert se.evaluate_expr(f"{const}_1 * X_0 + {const}_1".split(), canonicalise_constants=True).error == error
+        assert se.evaluate_expr(f"{const}_1 * X_0 + {const}_1".split()).error == error
         assert len(se.models) == 1
         assert se.trace == [0, 0]
         assert se.models[0].expr == f"{const}_0 * X_0 + {const}_0".split()
@@ -2641,21 +2731,20 @@ class TestCanonicalisation:
         np.testing.assert_allclose(se.models[0].parameters, [2.0], rtol=1e-6)
 
     # Reason: clause (canonicalise_constants defaults to False: relabelled expressions are separate
-    # models stored as written) + clause (get_model / get_metric match as given, without canonicalising).
-    def test_default_keeps_labels_and_lookups_match_as_given(self):
-        se = _canon_se()
+    # models stored as written; lookups match as given) + boundary (None means the default, for
+    # canonicalise_constants and simplify_expr).
+    @pytest.mark.parametrize(
+        "settings", [{}, {"canonicalise_constants": None, "simplify_expr": None}], ids=["omitted", "None"]
+    )
+    def test_default_keeps_labels_and_lookups_match_as_given(self, settings):
+        se = _canon_se(**settings)
         se.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"])
         se.evaluate_expr(["C_1", "*", "X_0", "+", "C_1"])
         assert [m.expr for m in se.models] == [["C_4", "*", "X_0", "+", "C_4"], ["C_1", "*", "X_0", "+", "C_1"]]
         assert se.get_model(["C_0", "*", "X_0", "+", "C_0"]) is None
-        canonical = _canon_se()
-        canonical.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"], canonicalise_constants=True)
-        assert canonical.get_model(["C_4", "*", "X_0", "+", "C_4"]) is None
-        assert canonical.get_model(["C_0", "*", "X_0", "+", "C_0"]).to_dict() == canonical.models[0].to_dict()
-        assert canonical.get_metric(["C_0", "*", "X_0", "+", "C_0"], "mae") < 1e-6
 
-    # Reason: clause (get_model / get_metric with canonicalise_constants=True find a model under another
-    # labelling, without billing) + implied (with the evaluator's library).
+    # Reason: clause (get_model / get_metric / stored_tokens with canonicalise_constants find a model
+    # under another labelling, without billing) + implied (with the evaluator's library).
     @pytest.mark.parametrize(
         "const, lib",
         [
@@ -2664,29 +2753,31 @@ class TestCanonicalisation:
         ],
         ids=["C", "K"],
     )
-    def test_lookups_canonicalise_with_the_flag(self, const, lib):
-        se = _canon_se(lib())
-        se.evaluate_expr(f"{const}_0 * X_0 + {const}_0".split(), canonicalise_constants=True)
+    def test_lookups_canonicalise_with_the_setting(self, const, lib):
+        se = _canon_se(lib(), canonicalise_constants=True)
+        se.evaluate_expr(f"{const}_0 * X_0 + {const}_0".split())
         relabelled = f"{const}_3 * X_0 + {const}_3".split()
-        assert se.get_model(relabelled, canonicalise_constants=True).to_dict() == se.models[0].to_dict()
-        assert se.get_metric(relabelled, "mae", canonicalise_constants=True) < 1e-6
+        assert se.stored_tokens(relabelled) == se.models[0].expr
+        assert se.get_model(relabelled).to_dict() == se.models[0].to_dict()
+        assert se.get_metric(relabelled, "mae") < 1e-6
         assert se.total_evaluations == 1
 
     # Reason: clause (canonicalise_constants is ignored with free_constants: labels with specs are kept).
     def test_canonicalise_is_ignored_with_specs(self):
-        se = _canon_se()
+        se = _canon_se(canonicalise_constants=True)
         expr = ["C_4", "*", "X_0", "+", "C_4"]
         spec = _fix("C_4", 1.0)
-        se.evaluate_expr(expr, [spec], canonicalise_constants=True)
+        se.evaluate_expr(expr, [spec])
         assert se.models[0].expr == expr
-        assert se.get_model(expr, [spec], canonicalise_constants=True).to_dict() == se.models[0].to_dict()
-        assert se.get_metric(expr, "mae", [spec], canonicalise_constants=True) > 0
+        assert se.stored_tokens(expr, [spec]) == expr
+        assert se.get_model(expr, [spec]).to_dict() == se.models[0].to_dict()
+        assert se.get_metric(expr, "mae", [spec]) > 0
 
     # Reason: clause (the canonical form is scored, and a fit is seeded by its tokens): with max_iter=0
     # the parameters are the seeded starting point, so they match those of the canonical form.
     def test_fit_starts_from_the_canonical_forms_seed(self):
-        relabelled = _canon_se(max_iter=0)
-        relabelled.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"], canonicalise_constants=True)
+        relabelled = _canon_se(max_iter=0, canonicalise_constants=True)
+        relabelled.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"])
         canonical = _canon_se(max_iter=0)
         canonical.evaluate_expr(["C_0", "*", "X_0", "+", "C_0"])
         np.testing.assert_array_equal(relabelled.models[0].parameters, canonical.models[0].parameters)
@@ -2695,19 +2786,32 @@ class TestCanonicalisation:
     # the shared labels C_5 and C_2, the stored form must be canonical (a fixed point of canonicalise).
     def test_simplified_expression_is_canonicalised(self):
         lib = SymbolLibrary.default_symbols(2)
-        se = SR_evaluator(_X, _y, symbol_library=lib, seed=0, success_threshold=-1)
-        se.evaluate_expr("C_5 * X_0 + C_5 + C_2 * X_1 + C_2".split(), simplify_expr=True, canonicalise_constants=True)
+        se = SR_evaluator(
+            _X, _y, symbol_library=lib, seed=0, success_threshold=-1, simplify_expr=True, canonicalise_constants=True
+        )
+        se.evaluate_expr("C_5 * X_0 + C_5 + C_2 * X_1 + C_2".split())
         stored = se.models[0].expr
         assert canonicalise(stored, lib) == stored
         assert sorted(t for t in stored if t.startswith("C")) == ["C_0", "C_0", "C_1", "C_1"]
 
+    # Reason: clause (Stored form: when simplification drops every spec, the model has none and is
+    # canonicalised): C_2 - C_2 cancels, so the spec of C_2 goes and C_5 is relabelled C_0.
+    def test_canonicalised_when_no_specs_remain(self):
+        lib = SymbolLibrary.default_symbols(1)
+        se = _canon_se(lib, simplify_expr=True, canonicalise_constants=True)
+        se.evaluate_expr("C_5 * X_0 + C_5 + C_2 - C_2".split(), [_fix("C_2", 1.0)])
+        model = se.models[0]
+        assert model.free_constants is None
+        assert canonicalise(model.expr, lib) == model.expr
+        assert sorted(t for t in model.expr if t.startswith("C")) == ["C_0", "C_0"]
+
     # Reason: boundary (a malformed expression is canonicalised token-wise, still "invalid").
     def test_malformed_expression_is_canonicalised_and_invalid(self):
-        se = _canon_se()
-        assert se.evaluate_expr(["C_3", "*", "X_0", "X_0", "C_3"], canonicalise_constants=True).error == math.inf
+        se = _canon_se(canonicalise_constants=True)
+        assert se.evaluate_expr(["C_3", "*", "X_0", "X_0", "C_3"]).error == math.inf
         assert se.models[0].status == "invalid"
         assert se.models[0].expr == ["C_0", "*", "X_0", "X_0", "C_0"]
-        se.evaluate_expr(["C_5", "*", "X_0", "X_0", "C_5"], canonicalise_constants=True)
+        se.evaluate_expr(["C_5", "*", "X_0", "X_0", "C_5"])
         assert len(se.models) == 1
 
 
@@ -3042,6 +3146,10 @@ class TestCheckpoints:
             ({"ground_truth": ["C", "*", "X_0"]}, "ground_truth"),
             ({"ranking_function": _CountingRMSE()}, "ranking_function"),
             ({"max_iter": 50}, "max_iter"),
+            ({"simplify_expr": True}, "simplify_expr"),
+            ({"canonicalise_constants": True}, "canonicalise_constants"),
+            ({"simplify_rules": DefaultRules(exclude=["powers"])}, "simplify_rules"),
+            ({"fold_constants": None, "simplify_expr": False, "max_iter": 50}, "max_iter"),
             ({"required_constraints": [MaxTreeDepth(10)]}, "required_constraints"),
             ({"advisory_constraints": [MaxTreeDepth(10)]}, "advisory_constraints"),
             ({"symbol_library": SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=1)}, "symbol_library"),
@@ -3056,6 +3164,10 @@ class TestCheckpoints:
             "ground_truth",
             "ranking",
             "setting",
+            "evaluator-setting",
+            "canonicalise",
+            "rules",
+            "changed-after-defaults",
             "required",
             "advisory",
             "symbols",
@@ -3074,6 +3186,47 @@ class TestCheckpoints:
         with pytest.raises(ValueError, match=name):
             SR_evaluator(**{**base, **changed}, checkpoint=path, resume=True)
         SR_evaluator(**base, checkpoint=path, resume=True).close()  # the file is kept
+
+    # Reason: regression (the fingerprint hashed settings as passed, so a setting left out, passed at its
+    # default, or passed as None (the default) counted as a change and the resume was refused) + clause
+    # (Checkpoints: the defaults are the evaluator's own, simplify's for simplify_*, and the ranking's
+    # default_settings, with DefaultRules() for simplify_rules; values compare as saved, so a tuple
+    # equals a list; snapshot_interval is not checked, and limits and default_constant are checked on
+    # their own).
+    @pytest.mark.parametrize(
+        "started, resumed",
+        [
+            ({}, {"simplify_expr": False}),
+            ({}, {"method": "L-BFGS-B"}),
+            ({"fold_constants": None}, {}),
+            ({"simplify_expr": None, "canonicalise_constants": None}, {}),
+            ({}, {"simplify_max_iterations": 30, "simplify_fold_aware": True}),
+            ({}, {"max_consecutive_skips": 10000, "ranking_resample": False}),
+            ({}, {"constant_bounds": [-5, 5]}),
+            (
+                {"ranking_function": "bed", "ground_truth": ["C", "*", "X_0"]},
+                {"ranking_function": "bed", "ground_truth": ["C", "*", "X_0"], "num_consts_sampled": 32,
+                 "backend": "stack"},
+            ),
+            ({}, {"snapshot_interval": 10}),
+            ({}, {"canonicalise_constants": False, "fold_constants": "none"}),
+            ({}, {"max_constants": 8}),
+            ({}, {"default_constant": uniform_default((-5, 5))}),
+            ({}, {"simplify_rules": DefaultRules()}),
+        ],
+        ids=[
+            "default-bool", "default-str", "none-then-omitted", "none-protocol", "simplify-defaults",
+            "evaluator-defaults", "tuple-as-list", "bed-defaults", "snapshot-interval",
+            "protocol-defaults", "limit-default", "default-constant", "default-rules",
+        ],
+    )  # fmt: skip
+    def test_resume_accepts_defaults_and_unchecked_settings(self, tmp_path, started, resumed):
+        path = tmp_path / "run.sqlite"
+        base = {"X": _CX, "y": _CY, "seed": 0}
+        se = SR_evaluator(**base, **started, checkpoint=path)
+        se.evaluate_expr(["X_0"])
+        se.close()
+        SR_evaluator(**base, **resumed, checkpoint=path, resume=True).close()  # accepted: no ValueError
 
     @pytest.mark.parametrize(
         "make_file, kwargs, error, match",
@@ -3494,9 +3647,12 @@ class TestSkips:
         se.count_skip("a")
         assert se.stop_reason == "max_consecutive_skips"
 
-    # Reason: boundary (default 10000; negative means no limit).
+    # Reason: boundary (default 10000; negative means no limit) + regression (max_consecutive_skips=None
+    # raised ValueError; None means the default).
     @pytest.mark.parametrize(
-        "kwargs, stops", [({}, True), ({"max_consecutive_skips": -1}, False)], ids=["default", "none"]
+        "kwargs, stops",
+        [({}, True), ({"max_consecutive_skips": None}, True), ({"max_consecutive_skips": -1}, False)],
+        ids=["default", "none-is-default", "negative-no-limit"],
     )
     def test_skip_limit_default_and_no_limit(self, kwargs, stops):
         se = _ckpt_se(**kwargs)

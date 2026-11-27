@@ -385,8 +385,9 @@ class EDHiE(SR_approach):
         these that applies:
 
         1. ``None`` if it does not decode;
-        2. a skip ``"evaluated"`` if ``skip_evaluated`` is set and its expression was evaluated
-           before or is proposed for evaluation earlier in this generation;
+        2. a skip ``"evaluated"`` if ``skip_evaluated`` is set and its stored form (see
+           [stored_tokens][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens]) is that of
+           an expression evaluated before or proposed for evaluation earlier in this generation;
         3. a skip ``"rejected"`` if ``skip_rejected`` is set and it breaks a required constraint;
         4. its expression, to be evaluated.
 
@@ -403,12 +404,12 @@ class EDHiE(SR_approach):
         device = next(self.model.parameters()).device
         trees = self.model.decode(torch.tensor(X, device=device, dtype=torch.float32))
         candidates: list[Candidate | list[str] | Node | None] = []
-        evaluated: set[tuple[str, ...]] = set()  # expressions proposed for evaluation
+        evaluated: set[tuple[str, ...]] = set()  # stored forms of the expressions proposed for evaluation
         for tree in trees:
             if tree is None:  # Shouldn't happen but just to be safe
                 candidates.append(None)
                 continue
-            key = tuple(tree.to_list(sr_evaluator.symbol_library))
+            key = tuple(sr_evaluator.stored_tokens(tree))
             if self.skip_evaluated and (key in evaluated or sr_evaluator.get_model(tree) is not None):
                 candidates.append(Candidate(tree, skip="evaluated"))
             elif self.skip_rejected and sr_evaluator.check_constraints(tree)[0]:

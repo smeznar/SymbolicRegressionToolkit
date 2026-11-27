@@ -34,8 +34,9 @@ framework runs the loop:
 
 The state is any object ``ask`` and ``tell`` can change in place, or ``None`` if the search keeps
 nothing. The framework passes the same object to every ``ask``, ``tell`` and
-``dump_search_state`` call of a session (one ``run`` call, new or resumed) and never replaces it. A step approach does not also
-override ``search``: a resumed run continues the step loop without calling it.
+``dump_search_state`` call of a session (one ``run`` call, new or resumed) and never replaces it.
+A step approach does not also override ``search``: a resumed run continues the step loop without
+calling it.
 
 One **step** is one ``ask``, the evaluation of its candidates and one ``tell``. What it covers (one
 sample, a batch, a generation of a genetic algorithm) is the approach's choice; document it. Only
@@ -57,9 +58,9 @@ and ``tell`` depend only on the state, the adapted approach object and the globa
 
 ## The step loop
 
-For a step approach, the framework runs this loop (this is what the inherited ``search`` does). An approach that overrides ``search`` runs its own loop instead, and
-``start``, ``ask`` and ``tell`` are never called. ``snapshots`` is true when the evaluator has a
-checkpoint:
+For a step approach, the framework runs this loop (this is what the inherited ``search`` does).
+An approach that overrides ``search`` runs its own loop instead, and ``start``, ``ask`` and
+``tell`` are never called. ``snapshots`` is true when the evaluator has a checkpoint:
 
 ```python
 state = approach.start(se, seed)
@@ -85,11 +86,9 @@ while not se.should_stop:
             if not isinstance(candidate, Candidate):  # a token list or a Node
                 candidate = Candidate(candidate)
             if candidate.skip is None:
-                results.append(se.evaluate_expr(candidate.expr, candidate.free_constants,
-                                                candidate.simplify_expr, candidate.canonicalise_constants))
+                results.append(se.evaluate_expr(candidate.expr, candidate.free_constants))
             else:  # a skip: looked up without spending budget (None if never evaluated) and counted
-                results.append(se.get_model(candidate.expr, candidate.free_constants,
-                                            candidate.simplify_expr, candidate.canonicalise_constants))
+                results.append(se.get_model(candidate.expr, candidate.free_constants))
                 se.count_skip(candidate.skip)
     approach.tell(se, state, candidates[: len(results)], results)
     complete = len(results) == len(candidates)
@@ -233,14 +232,10 @@ class Candidate:
     Attributes:
         expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
         free_constants: Specs for its labelled constants, or ``None``.
-        simplify_expr: Simplify it before evaluating (see
-            [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]). Default
-            ``False``.
-        canonicalise_constants: Canonicalise its constants before evaluating. Default ``False``.
         skip: ``None`` (default) to evaluate it. A reason (e.g. ``"evaluated"`` or ``"rejected"``)
-            marks it as a skip: it is not evaluated but looked up (see
-            [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), with its specs,
-            simplified and canonicalised as above and spending no budget, and counted with
+            marks it as a skip: it is not evaluated but looked up in its stored form with its specs
+            (see [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), spending
+            no budget, and counted with
             [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]; ``tell`` gets
             its stored model, or ``None`` if it was never evaluated.
 
@@ -250,8 +245,6 @@ class Candidate:
 
     expr: "list[str] | Node"
     free_constants: "Sequence[Constant] | None" = None
-    simplify_expr: bool = False
-    canonicalise_constants: bool = False
     skip: str | None = None
 
     def __post_init__(self) -> None:
@@ -460,13 +453,9 @@ class SR_approach(ABC):
                         continue
                     c = item if isinstance(item, Candidate) else Candidate(item)
                     if c.skip is None:
-                        results.append(
-                            se.evaluate_expr(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
-                        )
+                        results.append(se.evaluate_expr(c.expr, c.free_constants))
                     else:
-                        results.append(
-                            se.get_model(c.expr, c.free_constants, c.simplify_expr, c.canonicalise_constants)
-                        )
+                        results.append(se.get_model(c.expr, c.free_constants))
                         se.count_skip(c.skip)
             self.tell(se, state, candidates[: len(results)], results)
             complete = len(results) == len(candidates)
@@ -503,9 +492,10 @@ class SR_approach(ABC):
 
         The first call after ``start`` creates them from scratch (e.g. a random population); later
         calls build on what ``tell`` stored in ``state``. It may change ``state`` (e.g. remember
-        what it proposed) but not the approach object, and may use the unbilled ``get_model`` and
-        ``check_constraints`` of ``sr_evaluator``, but not ``evaluate_expr``. An empty list ends the search, as if ``search``
-        had returned; to record why, call ``sr_evaluator.stop(reason)`` first. To discard an
+        what it proposed) but not the approach object, and may use the unbilled ``get_model``,
+        ``stored_tokens`` and ``check_constraints`` of ``sr_evaluator``, but not ``evaluate_expr``.
+        An empty list ends the search, as if ``search`` had returned; to record why, call
+        ``sr_evaluator.stop(reason)`` first. To discard an
         expression without evaluating it, propose it with a ``skip`` reason (see
         [Skips][SRToolkit.approaches.sr_approach]).
 

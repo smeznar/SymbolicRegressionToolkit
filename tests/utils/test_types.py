@@ -104,6 +104,8 @@ class TestRankingSettings:
             "ranking_seed",
             "ranking_resample",
             "num_consts_sampled",
+            "simplify_expr",
+            "canonicalise_constants",
             "simplify_rules",
             "simplify_max_iterations",
             "simplify_max_nodes",

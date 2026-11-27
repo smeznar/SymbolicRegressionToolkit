@@ -27,7 +27,7 @@ an expression with the default spec into one complete spec per parameter.
 Without specs, how constants are written does not matter: ``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``
 are the same model. [canonicalise][SRToolkit.utils.free_constants.canonicalise] writes them one way
 (a constant occurring once bare, a shared one labelled), e.g. to deduplicate candidates of an
-approach that writes labelled constants (``evaluate_expr(canonicalise_constants=True)``).
+approach that writes labelled constants (the evaluator setting ``canonicalise_constants``).
 """
 
 import json

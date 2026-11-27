@@ -25,6 +25,7 @@ from SRToolkit.evaluation import SR_evaluator  # noqa: E402
 from SRToolkit.evaluation.model_store import ModelStore  # noqa: E402
 from SRToolkit.evaluation.results import SR_results  # noqa: E402
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, RequiredVariables  # noqa: E402
+from SRToolkit.utils.expression_tree import tokens_to_tree  # noqa: E402
 from SRToolkit.utils.grammar.grammar import Grammar, Rule  # noqa: E402
 from SRToolkit.utils.symbol_library import SymbolLibrary  # noqa: E402
 
@@ -335,6 +336,16 @@ def test_undecodable_individuals_are_proposed_as_none(trained_model, monkeypatch
     assert approach.ask(se, approach.start(se, seed=0)) == [None] * 10
     approach.search(se, seed=0)
     assert (se.stop_reason, se.total_evaluations, se.skips) == ("max_consecutive_skips", 0, {"not_expression": 15})
+
+
+# Reason: clause (ask case 2: "proposed for evaluation earlier in this generation" means in the
+# evaluator's stored form): with canonicalise_constants, C_1*X_0+C_1 repeats C_0*X_0+C_0.
+@pytest.mark.parametrize("canonicalise, expected", [(True, [None, "evaluated"]), (False, [None, None])])
+def test_repeats_within_a_generation_use_the_stored_form(trained_model, monkeypatch, canonicalise, expected):
+    approach, se = _stepper(trained_model), _evaluator(canonicalise_constants=canonicalise)
+    exprs = [["C_0", "*", "X_0", "+", "C_0"], ["C_1", "*", "X_0", "+", "C_1"]]
+    monkeypatch.setattr(trained_model, "decode", lambda z: [tokens_to_tree(e, _lib()) for e in exprs])
+    assert _skips(approach.ask(se, approach.start(se, seed=0))) == expected
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")

@@ -123,6 +123,64 @@ class TestBEDRankingBackend:
             ranking.score(["X_0"])
 
 
+class TestBEDRankingSettings:
+    # Reason: regression (setup let an explicit None override the BED defaults; None means the default
+    # for every setting). 100 rows, so the default 64 sampled points is a real subsample.
+    @pytest.mark.parametrize("name", ["num_consts_sampled", "num_points_sampled", "constant_bounds", "backend"])
+    def test_none_setting_is_the_default(self, name):
+        X = np.random.default_rng(0).random((100, 1))
+        lib = SymbolLibrary.default_symbols(1)
+        default, given_none = BEDRanking(), BEDRanking()
+        default.setup(X, None, ["C", "*", "X_0"], lib, 0, {})
+        given_none.setup(X, None, ["C", "*", "X_0"], lib, 0, {name: None})
+        assert given_none.score(["C", "+", "X_0"]).score == default.score(["C", "+", "X_0"]).score
+
+
+class _NoDefaults(RankingFunction):
+    name = "no_defaults"
+
+    def setup(self, X, y, ground_truth, symbol_library, seed, settings):
+        pass
+
+    def score(self, expr, free_constants=None):
+        return RankingResult(score=0.0)
+
+
+class TestDefaultSettings:
+    # Reason: clause (default_settings: "the defaults of the settings this ranking reads"; "A new dict;
+    # empty in the base class"; RMSE leaves out default_constant). Values from the RankingSettings docs.
+    @pytest.mark.parametrize(
+        "ranking, expected",
+        [
+            (_NoDefaults(), {}),
+            (
+                RMSERanking(),
+                {
+                    "method": "L-BFGS-B", "tol": 1e-6, "gtol": 1e-3, "max_iter": 100, "constant_bounds": (-5, 5),
+                    "initialization": "random", "backend": "stack",
+                },
+            ),
+            (
+                BEDRanking(),
+                {"num_consts_sampled": 32, "num_points_sampled": 64, "constant_bounds": (-5, 5), "backend": "stack"},
+            ),
+        ],
+        ids=["base", "rmse", "bed"],
+    )  # fmt: skip
+    def test_default_settings(self, ranking, expected):
+        first = ranking.default_settings()
+        assert first == expected
+        first["extra"] = 1
+        assert ranking.default_settings() == expected
+
+    # Reason: implied (the checkpoint fingerprint treats these defaults as "left out", so they must be
+    # the ones the RMSE ranking's estimator actually uses).
+    def test_rmse_default_settings_match_the_estimator(self):
+        used = dict(ParameterEstimator(np.ones((3, 1)), np.ones(3)).estimation_settings)
+        del used["default_constant"]
+        assert RMSERanking().default_settings() == used
+
+
 class TestRMSERankingSpecs:
     # Reason: clause (RankingFunction.score: the fit uses the given specs, bounds included). With y = 2x
     # and C_0 bounded to (0, 1), the best fit is at the bound: residual x, RMSE = sqrt((1 + 4 + 9) / 3).
