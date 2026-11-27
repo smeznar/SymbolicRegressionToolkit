@@ -27,6 +27,8 @@ Modules:
         and Behavior-aware Expression Distance (BED).
     serialization: Which values can be saved in results and configs, and how they are stored as
         JSON.
+    settings: The settings of a run, as named sections —
+        [Settings][SRToolkit.utils.settings.Settings] and the built-in sections.
     units: Physical units ([Unit][SRToolkit.utils.units.Unit]) and how symbols combine them
         ([UnitRule][SRToolkit.utils.units.UnitRule]).
 """
@@ -82,6 +84,14 @@ from .measures import (
     r2,
     rmse,
     tree_edit_distance,
+)
+from .settings import (
+    BEDSettings,
+    EstimationSettings,
+    EvaluatorSettings,
+    RMSESettings,
+    Settings,
+    SettingsSection,
 )
 from .symbol_library import Symbol, SymbolLibrary
 from .types import (
@@ -166,6 +176,12 @@ __all__ = [
     "PredictFn",
     "expr_to_latex",
     "RankingSettings",
+    "Settings",
+    "SettingsSection",
+    "EvaluatorSettings",
+    "EstimationSettings",
+    "RMSESettings",
+    "BEDSettings",
     "VAR",
     "CONST",
     "FN",
