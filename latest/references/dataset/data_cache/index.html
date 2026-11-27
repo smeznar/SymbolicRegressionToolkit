@@ -2854,7 +2854,7 @@ materialisation.</p>
 <code>.meta.json</code> hash is compared against the current <code>data_source</code> + <code>samplers</code>
 config. A mismatch emits a warning telling the user to call <code>refresh()</code>. The samplers are
 read from either config layout (see <code>config</code>), and the hash does not depend on the layout,
-so a format 2/3 config and its format 4 migration hash the same.</p>
+so a format 2/3 config and its migration hash the same.</p>
 <p>On a cache miss (or <code>force=True</code>): the data is materialised by calling the source's
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;materialize&lt;/span&gt;
 
@@ -3108,7 +3108,7 @@ the cache entry already exists.</p>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-112" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-112"></a><span class="sd">    ``.meta.json`` hash is compared against the current ``data_source`` + ``samplers``</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-113" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-113"></a><span class="sd">    config. A mismatch emits a warning telling the user to call ``refresh()``. The samplers are</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-114" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-114"></a><span class="sd">    read from either config layout (see ``config``), and the hash does not depend on the layout,</span>
-<a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-115" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-115"></a><span class="sd">    so a format 2/3 config and its format 4 migration hash the same.</span>
+<a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-115" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-115"></a><span class="sd">    so a format 2/3 config and its migration hash the same.</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-116" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-116"></a>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-117" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-117"></a><span class="sd">    On a cache miss (or ``force=True``): the data is materialised by calling the source's</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-118" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-118"></a><span class="sd">    [materialize][SRToolkit.dataset.data_source.DataSource.materialize].</span>
