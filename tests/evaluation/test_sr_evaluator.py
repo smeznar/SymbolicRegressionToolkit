@@ -35,7 +35,7 @@ from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils import expression as expression_module
 from SRToolkit.utils import expression_tree
-from SRToolkit.utils.expression import Expression
+from SRToolkit.utils.expression import Expression, canonicalise
 from SRToolkit.utils.expression_constraints import (
     ExpressionConstraint,
     MaxConstants,
@@ -48,7 +48,7 @@ from SRToolkit.utils.expression_constraints import (
 )
 from SRToolkit.utils.expression_simplifier import DefaultRules, fold, simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
-from SRToolkit.utils.free_constants import Constant, canonicalise, resolve_constants, uniform_default
+from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
 from SRToolkit.utils.measures import bed, create_behavior_matrix
 from SRToolkit.utils.settings import Settings, SettingsSection
@@ -122,18 +122,21 @@ class TestSREvaluatorInitRmse:
         with pytest.raises(TypeError, match="settings must be a Settings"):
             SR_evaluator(_X, _y, settings=given)
 
-    # Reason: clause (setup gets ground_truth_constants, the background knowledge with the complete
-    # default_constant, and the run's whole Settings; se.ground_truth_constants keeps what was passed).
+    # Reason: clause (setup gets the ground truth as an Expression in the evaluator's library with its
+    # specs, the background knowledge with the complete default_constant, and the run's whole
+    # Settings; se.ground_truth is that Expression).
     def test_ranking_setup_gets_task_facts_and_settings(self):
         specs = [Constant("C_0", value=1.0, fixed=True)]
         settings = Settings(minimize={"max_iter": 3})
         ranking = _SetupRecordingRanking()
-        se = SR_evaluator(_X, _y, ranking_function=ranking, ground_truth_constants=specs, settings=settings, seed=0)
-        assert ranking.ground_truth_constants is specs
+        gt = Expression(["C_0", "*", "X_0"], free_constants=specs)
+        se = SR_evaluator(_X, _y, ranking_function=ranking, ground_truth=gt, settings=settings, seed=0)
+        assert ranking.ground_truth is se.ground_truth
+        assert se.ground_truth == gt
+        assert se.ground_truth.symbol_library is se.symbol_library
         assert ranking.background_knowledge is se.background_knowledge
         assert ranking.settings is settings
         assert se.settings is settings
-        assert se.ground_truth_constants is specs
 
     def test_stores_arguments_and_seeds_global_rng(self):
         # "If given, the constructor also calls np.random.seed(seed)": the next global draw is the
@@ -143,7 +146,8 @@ class TestSREvaluatorInitRmse:
         drawn = np.random.random()
         np.random.seed(3)
         assert drawn == np.random.random()
-        assert se.ground_truth is ground_truth
+        assert se.ground_truth == Expression(ground_truth)
+        assert se.ground_truth.symbol_library is se.symbol_library
         assert se.settings == Settings(evaluator={"max_constants": 3})
 
     def test_default_symbol_library(self):
@@ -213,7 +217,7 @@ class TestSREvaluatorInitBed:
 
     def test_bed_ndarray_ground_truth_rejected(self):
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        with pytest.raises(ValueError, match="list of tokens or a Node object"):
+        with pytest.raises(ValueError, match="ndarray ground_truth"):
             SR_evaluator(
                 _X_BED,
                 ground_truth=gt,
@@ -223,8 +227,22 @@ class TestSREvaluatorInitBed:
             )
 
     def test_bed_invalid_ground_truth_type_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError, match=r"^\[SR_evaluator\] ground_truth must"):
             SR_evaluator(_X_BED, ground_truth="not_valid", ranking_function="bed", seed=0)
+
+    # Reason: regression (a malformed ground truth was accepted when y was given, and specs outside the
+    # default bounds were not checked) + clause (Raises ExpressionParseError / ValueError).
+    @pytest.mark.parametrize(
+        "ground_truth, exc, match",
+        [
+            (["X_0", "+"], ExpressionParseError, "'ground_truth' does not parse"),
+            (Expression(["C_0", "*", "X_0"], free_constants=[Constant("C_0", value=9.0)]), ValueError, "outside"),
+        ],
+        ids=["malformed", "spec-outside-default-bounds"],
+    )
+    def test_unusable_ground_truth_raises(self, ground_truth, exc, match):
+        with pytest.raises(exc, match=rf"^\[SR_evaluator\] .*{match}"):
+            SR_evaluator(_X, _y, ground_truth=ground_truth, seed=0)
 
     # Reason: clause (BED draws its points from the samplers). U(2, 3) lies outside the rows of X (all in
     # [-0.5, 0.5)), so the points cannot be a subsample of X.
@@ -1070,7 +1088,7 @@ class _SeedRecordingRanking(RankingFunction):
 
     name = "seed_recording"
 
-    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+    def setup(self, X, y, ground_truth, background_knowledge, seed, settings):
         self.seed = seed
 
     def score(self, expr):
@@ -1082,8 +1100,8 @@ class _SetupRecordingRanking(RankingFunction):
 
     name = "setup_recording"
 
-    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
-        self.ground_truth_constants = ground_truth_constants
+    def setup(self, X, y, ground_truth, background_knowledge, seed, settings):
+        self.ground_truth = ground_truth
         self.background_knowledge = background_knowledge
         self.settings = settings
 
@@ -1106,7 +1124,7 @@ class _FixedRanking(RankingFunction):
     def __init__(self, outcome):
         self.outcome = outcome
 
-    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+    def setup(self, X, y, ground_truth, background_knowledge, seed, settings):
         pass
 
     def score(self, expr):
@@ -1620,7 +1638,7 @@ class _CountingRanking(RankingFunction):
     def __init__(self):
         self.calls = 0
 
-    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+    def setup(self, X, y, ground_truth, background_knowledge, seed, settings):
         pass
 
     def score(self, expr):
@@ -2458,7 +2476,7 @@ class _RecordingRanking(RankingFunction):
 
     name = "recording"
 
-    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+    def setup(self, X, y, ground_truth, background_knowledge, seed, settings):
         self.received = []
 
     def score(self, expr):
@@ -2642,16 +2660,15 @@ class TestFreeConstants:
         default = uniform_default((-2.0, 4.0))
         assert result.default_constant.to_dict() == default.to_dict()
         assert se.default_constant.to_dict() == default.to_dict()
-        resolved = resolve_constants(model.expr, model.free_constants, result.default_constant, lib)
+        resolved = Expression(model.expr, lib, model.free_constants).resolve(result.default_constant)
         expected_c0 = Constant("C_0", prior=default.prior, bounds=(-2.0, 4.0), value=3.0, fixed=True)
         assert [c.to_dict() for c in resolved] == [expected_c0.to_dict(), default.to_dict()]
         rebed = bed(
-            model.expr,
+            Expression(model.expr, lib, model.free_constants),
             ["X_0"],
             X,
             symbol_library=lib,
             seed=1,
-            free_constants1=model.free_constants,
             default_constant=result.default_constant,
         )
         assert rebed == pytest.approx(model.error, abs=1e-9)
@@ -2739,7 +2756,7 @@ class TestStoredFormCache:
     def test_repeated_input_is_simplified_once(self):
         se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
         expr = ["X_0", "*", "X_1", "/", "X_0"]
-        answers = [(["X_1"], None), (["X_0", "*", "X_1", "/", "X_0"], None)]
+        answers = [Expression(["X_1"], se.symbol_library), Expression(expr, se.symbol_library)]
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=answers) as spy:
             se.evaluate_expr(expr)
             stored = [se.stored_tokens(expr), se.check_constraints(expr), se.get_model(expr) is not None]
@@ -2756,6 +2773,15 @@ class TestStoredFormCache:
             with_specs = se.evaluate_expr(Expression(expr, free_constants=[_fix("C_0", 2.0)]))
         assert spy.call_count == 2
         assert plain.free_constants is None and [c.label for c in with_specs.free_constants] == ["C_0"]
+
+    # Reason: clause (Stored form: a repeated input gets the same stored form, specs included): the
+    # repeat is a cache hit with its specs, so it finds the first model instead of a new one.
+    def test_repeat_with_specs_keeps_its_specs(self):
+        se = _spec_se(settings=Settings(evaluator={"simplify_expr": True}))
+        expr = Expression(["C_0", "*", "X_0"], free_constants=[_fix("C_0", 2.0)])
+        first = se.evaluate_expr(expr)
+        assert se.evaluate_expr(expr).to_dict() == first.to_dict()
+        assert (len(se.models), se.trace) == (1, [0, 0])
 
     # Reason: clause (evaluate_expr: "If a well-formed expression cannot be simplified, a UserWarning is
     # emitted") + regression risk: a silent lookup that filled the memory first must not swallow it.
@@ -2778,7 +2804,7 @@ class TestStoredFormCache:
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
             for expr in (a, b, a, c, a, b):
                 se.stored_tokens(expr)
-        assert [call.args[0] for call in spy.call_args_list] == [a, b, c, b]
+        assert [list(call.args[0].tokens) for call in spy.call_args_list] == [a, b, c, b]
 
     # Reason: clause (Stored form: the memory is only "with simplify_expr"; folding alone is redone
     # on every call).
@@ -3149,7 +3175,7 @@ class TestCanonicalisation:
         )
         se.evaluate_expr("C_5 * X_0 + C_5 + C_2 * X_1 + C_2".split())
         stored = se.models[0].expr
-        assert canonicalise(stored, lib) == stored
+        assert list(canonicalise(stored, lib).tokens) == stored
         assert sorted(t for t in stored if t.startswith("C")) == ["C_0", "C_0", "C_1", "C_1"]
 
     # Reason: clause (Stored form: when simplification drops every spec, the model has none and is
@@ -3160,7 +3186,7 @@ class TestCanonicalisation:
         se.evaluate_expr(Expression("C_5 * X_0 + C_5 + C_2 - C_2".split(), free_constants=[_fix("C_2", 1.0)]))
         model = se.models[0]
         assert model.free_constants is None
-        assert canonicalise(model.expr, lib) == model.expr
+        assert list(canonicalise(model.expr, lib).tokens) == model.expr
         assert sorted(t for t in model.expr if t.startswith("C")) == ["C_0", "C_0"]
 
     # Reason: boundary (a malformed expression is canonicalised token-wise, still "invalid").
@@ -3242,6 +3268,7 @@ class _FingerprintSection(SettingsSection):
 
 _GT_A = Constant("C_0", value=1.0, fixed=True)
 _GT_B = Constant("C_1", value=2.0, fixed=True)
+_GT_TOKENS = ["C_0", "*", "X_0", "+", "C_1"]
 
 
 def _ckpt_se(checkpoint=None, **kwargs):
@@ -3555,7 +3582,14 @@ class TestCheckpoints:
             ({"samplers": [UniformSampling(0.0, 1.0)] * SymbolLibrary.get_or_default().num_variables}, "samplers"),
             # The same default spec, so only the bounds differ.
             ({"default_constant": uniform_default((-5, 5)), "constant_bounds": (-1.0, 1.0)}, "constant_bounds"),
-            ({"ground_truth_constants": [Constant("C_0", value=1.0, fixed=True)]}, "ground_truth_constants"),
+            (
+                {
+                    "ground_truth": Expression(
+                        ["C_0", "*", "X_0"], free_constants=[Constant("C_0", value=1.0, fixed=True)]
+                    )
+                },
+                "ground_truth_constants",
+            ),
             ({"settings": Settings(custom=_FingerprintSection(a=2.0))}, r"custom\.a"),
             # The limits are compared as the MaxConstants / MaxTokens they add, not as settings; the
             # settings after them are still compared.
@@ -3598,14 +3632,14 @@ class TestCheckpoints:
             SR_evaluator(**{**base, **changed}, checkpoint=path, resume=True)
         SR_evaluator(**base, checkpoint=path, resume=True).close()  # the file is kept
 
-    # Reason: clause (a resume must match the saved run in ground_truth_constants and in every changed
+    # Reason: clause (a resume must match the saved run in the ground truth's specs and in every changed
     # setting): a part given at the start and given again with another value is a change.
     @pytest.mark.parametrize(
         "started, resumed, name",
         [
             (
-                {"ground_truth_constants": [_GT_A]},
-                {"ground_truth_constants": [Constant("C_0", value=3.0, fixed=True)]},
+                {"ground_truth": Expression(_GT_TOKENS, free_constants=[_GT_A])},
+                {"ground_truth": Expression(_GT_TOKENS, free_constants=[Constant("C_0", value=3.0, fixed=True)])},
                 "ground_truth_constants",
             ),
             (
@@ -3649,8 +3683,11 @@ class TestCheckpoints:
             ({}, {"default_constant": uniform_default((-5, 5))}),
             ({}, {"settings": Settings(evaluator={"simplify_rules": DefaultRules()})}),
             ({}, {"settings": Settings(custom=_FingerprintSection())}),
-            ({"ground_truth_constants": [_GT_A, _GT_B]}, {"ground_truth_constants": [_GT_B, _GT_A]}),
-            ({}, {"ground_truth_constants": []}),
+            (
+                {"ground_truth": Expression(_GT_TOKENS, free_constants=[_GT_A, _GT_B])},
+                {"ground_truth": Expression(_GT_TOKENS, free_constants=[_GT_B, _GT_A])},
+            ),
+            ({"ground_truth": _GT_TOKENS}, {"ground_truth": Expression(_GT_TOKENS)}),
             (
                 {"symbol_library": SymbolLibrary.default_symbols(1), "samplers": [UniformSampling(0.0, 1.0)]},
                 {"symbol_library": SymbolLibrary.default_symbols(1), "samplers": {"X_0": UniformSampling(0.0, 1.0)}},
@@ -3660,7 +3697,7 @@ class TestCheckpoints:
             "default-bool", "default-str", "simplify-defaults",
             "evaluator-defaults", "tuple-as-list", "bed-defaults", "snapshot-interval",
             "protocol-defaults", "limit-default", "default-constant", "default-rules",
-            "custom-section-default", "gt-constants-any-order", "gt-constants-empty-is-none",
+            "custom-section-default", "gt-constants-any-order", "gt-list-as-expression",
             "samplers-sequence-as-mapping",
         ],
     )  # fmt: skip

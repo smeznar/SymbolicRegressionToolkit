@@ -8,9 +8,7 @@ from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import (
     ExpressionParseError,
     Node,
-    expr_to_latex,
     is_float,
-    parameter_labels,
     tokens_to_tree,
 )
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -373,36 +371,6 @@ class TestFreeParameters:
         assert str(tokens_to_tree(tree.to_list(sl, notation), sl, notation)) == str(tree)
 
     @pytest.mark.parametrize(
-        "tokens, labels",
-        [
-            (["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C"], [None, "C_5", None]),
-            (["C_5", "+", "C_1", "*", "C_5", "+", "C_01"], ["C_5", "C_1", "C_01"]),
-            (["C", "+", "C"], [None, None]),
-            (["X_0", "+", "pi"], []),
-        ],
-        ids=["mixed", "labels-by-first-appearance", "bare-each-own", "none"],
-    )
-    def test_parameter_labels(self, tokens, labels):
-        sl = SymbolLibrary.default_symbols(2)
-        assert parameter_labels(tokens, sl) == labels
-        assert parameter_labels(tokens_to_tree(tokens, sl), sl) == labels
-
-    def test_parameter_labels_uses_active_library(self):
-        # The default library has no K, so ["K_1"] has a parameter only through the active one.
-        with SymbolLibrary.default_symbols(1, const_symbol="K"):
-            assert parameter_labels(["K_1"]) == ["K_1"]
-
-    @pytest.mark.parametrize("expr", ["C+X_0", ["C", 1.5]], ids=["string", "non-string-token"])
-    def test_parameter_labels_rejects_non_expression(self, expr):
-        with pytest.raises(TypeError, match="token strings"):
-            parameter_labels(expr, SymbolLibrary.default_symbols(1))
-
-    def test_registered_symbol_named_like_a_label_is_not_a_parameter(self):
-        sl = SymbolLibrary.default_symbols(1)
-        sl.add_symbol("C_1", "lit", 1000, "1.5")
-        assert parameter_labels(["C_1", "+", "C", "+", "C_2"], sl) == [None, "C_2"]
-
-    @pytest.mark.parametrize(
         "const, tokens, latex",
         [
             ("C", ["C_0", "*", "X_0", "+", "C"], r"$C_{0} \cdot X_{0} + C_{1}$"),
@@ -420,16 +388,16 @@ class TestFreeParameters:
         ],
     )
     def test_latex_shows_labels_and_numbers_bare_constants_around_them(self, const, tokens, latex):
-        assert expr_to_latex(tokens, SymbolLibrary.default_symbols(2, const_symbol=const)) == latex
+        sl = SymbolLibrary.default_symbols(2, const_symbol=const)
+        assert tokens_to_tree(tokens, sl).to_latex(sl) == latex
 
     def test_renamed_constant_end_to_end(self):
         # Parameters: K (0), K_1 (1); LaTeX numbers the bare K around the label's 1.
         sl = SymbolLibrary.default_symbols(2, const_symbol="K")
         tree = tokens_to_tree(["K", "*", "X_0", "+", "K_1", "*", "X_1", "+", "K_1"], sl)
         X = np.array([[1.0, 2.0], [3.0, -4.0]])
-        assert parameter_labels(tree, sl) == [None, "K_1"]
         np.testing.assert_allclose(compile_expr(tree, sl)(X, np.array([2.0, 10.0])), [32.0, -24.0])
-        assert expr_to_latex(tree, sl) == r"$K_{0} \cdot X_{0} + K_{1} \cdot X_{1} + K_{1}$"
+        assert tree.to_latex(sl) == r"$K_{0} \cdot X_{0} + K_{1} \cdot X_{1} + K_{1}$"
 
 
 class TestNodeHeight:
@@ -499,23 +467,6 @@ class TestNodeCopy:
         assert copy(original) is not original
 
 
-class TestExprToLatex:
-    def setup_method(self):
-        self.sl = SymbolLibrary.default_symbols(num_variables=2)
-
-    def test_node_input(self):
-        node = Node("+", right=Node("X_0"), left=Node("1"))
-        assert expr_to_latex(node, self.sl) == "$1 + X_{0}$"
-
-    def test_list_input(self):
-        assert expr_to_latex(["(", "X_0", "+", "X_1", ")"], self.sl) == "$X_{0} + X_{1}$"
-
-    def test_invalid_type_returns_empty_string(self, capsys):
-        result = expr_to_latex("X_0 + X_1", self.sl)
-        assert result == ""
-        assert "Error" in capsys.readouterr().out
-
-
 class TestNodeToListContextFallback:
     def setup_method(self):
         SymbolLibrary.set_default(None)
@@ -574,16 +525,6 @@ class TestContextManagerFallback:
         node = Node("+", right=Node("X_0"), left=Node("1"))
         with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
             node.to_latex()
-
-    def test_expr_to_latex_uses_active_context(self):
-        sl = SymbolLibrary.default_symbols(num_variables=1)
-        with sl:
-            result = expr_to_latex(["X_0", "+", "1"])
-        assert result == "$X_{0} + 1$"
-
-    def test_expr_to_latex_no_active_context_raises(self):
-        with pytest.raises(RuntimeError, match="No active SymbolLibrary"):
-            expr_to_latex(["X_0", "+", "1"])
 
 
 class TestIsFloat:

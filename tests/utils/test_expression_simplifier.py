@@ -9,6 +9,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from strategies import labelled_infix_expressions
 
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_simplifier import (
     RELATIONS,
@@ -20,12 +21,25 @@ from SRToolkit.utils.expression_simplifier import (
     no_const,
     simplify,
 )
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node, parameter_labels, tokens_to_tree
+from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 _SL = SymbolLibrary.default_symbols(2)
 _X = np.random.default_rng(0).uniform(-3.0, 3.0, size=(20, 2))
+
+
+def _pair(expr):
+    """The (tokens, specs) of a returned Expression, so results compare with plain lists."""
+    return list(expr.tokens), expr.free_constants
+
+
+def _simplify(*args, **kwargs):
+    return _pair(simplify(*args, **kwargs))
+
+
+def _fold(*args, **kwargs):
+    return _pair(fold(*args, **kwargs))
 
 
 def _t(s):
@@ -35,7 +49,7 @@ def _t(s):
 
 def _s(expr, **kwargs):
     """Simplified expression (default library) joined into one string."""
-    return "".join(simplify(_t(expr), _SL, **kwargs)[0])
+    return "".join(_simplify(_t(expr), _SL, **kwargs)[0])
 
 
 def _tree(tokens, sl=_SL):
@@ -49,7 +63,7 @@ def _cost(tokens):
 
 def _values(tokens, label_values):
     """Evaluate ``tokens`` on ``_X``, each label read from ``label_values``."""
-    params = np.array([label_values[label] for label in parameter_labels(tokens, _SL)], dtype=float)
+    params = np.array([label_values[label] for label in Expression(tokens, _SL).parameter_labels], dtype=float)
     with np.errstate(all="ignore"):
         return np.broadcast_to(compile_expr(tokens, _SL)(_X, params), (_X.shape[0],))
 
@@ -147,7 +161,7 @@ class TestSimplifyRules:
         ids=["c-c", "sum-minus-sum", "c*c*x", "c+c", "cx-cx"],
     )
     def test_bare_constants_are_separate_values(self, expr, n_bare, allowed):
-        out = simplify(_t(expr), _SL)[0]
+        out = _simplify(_t(expr), _SL)[0]
         assert out.count("C") == n_bare
         assert "0" not in out
         assert allowed is None or "".join(out) in allowed
@@ -200,7 +214,7 @@ class TestSimplifyRules:
     # Reason: clause ("every lit symbol of the library, with the value of its python_str"): k = 2.5.
     def test_custom_lit_is_fixed_value(self):
         sl = _lib(lambda sl: sl.add_symbol("k", "lit", sl["pi"].precedence, "2.5"))
-        assert simplify(_t("2 * k"), sl)[0] == ["5"]
+        assert _simplify(_t("2 * k"), sl)[0] == ["5"]
 
     # Reason: clause (fixed values, pi and e combined by *, /, sqrt, exp, ^2, ^3; settled: whole
     # numbers as integer tokens, else repr at full precision). Values: 2*pi, sqrt(4)=2, exp(0)=1,
@@ -218,7 +232,7 @@ class TestSimplifyRules:
         ids=["2pi", "sqrt4", "exp0", "e^2", "2/4", "3^3"],
     )
     def test_fixed_values_combine_into_numbers(self, expr, value):
-        out = simplify(_t(expr), _SL)[0]
+        out = _simplify(_t(expr), _SL)[0]
         assert len(out) == 1
         assert float(out[0]) == pytest.approx(value, rel=1e-12)
 
@@ -237,80 +251,87 @@ class TestSimplifySpecs:
     # contained). C_1 = 2 fixed: 2*3 = 6; free: nothing to combine.
     def test_fixed_spec_is_used_as_value(self):
         fixed = Constant("C_1", value=2.0, fixed=True)
-        assert simplify(_t("C_1 * 3"), _SL, [fixed]) == (["6"], ())
+        assert _simplify(Expression(_t("C_1 * 3"), _SL, [fixed])) == (["6"], ())
         free = Constant("C_1", value=2.0)
-        out, specs = simplify(_t("C_1 * 3"), _SL, [free])
+        out, specs = _simplify(Expression(_t("C_1 * 3"), _SL, [free]))
         assert "".join(out) in {"C_1*3", "3*C_1"}
         assert specs == (free,)
 
     # Reason: clause (Returns: "the specs of free_constants whose label it still contains").
     def test_returns_specs_of_remaining_labels(self):
         s1, s2 = Constant("C_1", value=1.0), Constant("C_2", value=2.0)
-        out, specs = simplify(_t("C_1 + C_2 - C_1"), _SL, [s1, s2])
+        out, specs = _simplify(Expression(_t("C_1 + C_2 - C_1"), _SL, [s1, s2]))
         assert out == ["C_2"]
         assert specs == (s2,)
         # labels are those of the given library: with the constant renamed to K, K_2 keeps its spec
         k1, k2 = Constant("K_1", value=1.0), Constant("K_2", value=2.0)
         renamed = SymbolLibrary.default_symbols(1, const_symbol="K")
-        assert simplify(_t("K_1 + K_2 - K_1"), renamed, [k1, k2]) == (["K_2"], (k2,))
+        assert _simplify(Expression(_t("K_1 + K_2 - K_1"), renamed, [k1, k2])) == (["K_2"], (k2,))
 
-    # Reason: boundary (free_constants None -> None; empty -> empty tuple).
-    def test_specs_none_or_empty(self):
-        assert simplify(["X_0"], _SL, None)[1] is None
-        assert simplify(["X_0"], _SL, [])[1] == ()
-
-    # Reason: clause (Raises ValueError: spec without label, two share one, label not a labelled
-    # constant of expr).
-    @pytest.mark.parametrize(
-        "specs, match",
-        [
-            ([Constant(value=1.0)], "label"),
-            ([Constant("C_1", value=1.0), Constant("C_1", value=2.0)], "C_1"),
-            ([Constant("C_9", value=1.0)], "C_9"),
-            ([Constant("X_0", value=1.0)], "X_0"),
-        ],
-        ids=["no-label", "duplicate", "not-in-expr", "variable-label"],
-    )
-    def test_invalid_specs_raise(self, specs, match):
-        with pytest.raises(ValueError, match=match):
-            simplify(_t("C_1 * X_0"), _SL, specs)
+    # Reason: boundary (no specs -> empty tuple, for a token list and an Expression).
+    def test_no_specs_give_empty_tuple(self):
+        assert _simplify(["X_0"], _SL)[1] == ()
+        assert _simplify(Expression(["X_0"], _SL))[1] == ()
 
 
 class TestSimplifyInterface:
-    # Reason: clause (Raises TypeError: expr neither a token list nor a Node).
+    # Reason: clause (Raises TypeError: expr neither a token list nor an Expression).
     @pytest.mark.parametrize("expr", ["X_0+X_1", 42, None], ids=["string", "int", "none"])
     def test_wrong_expr_type_raises(self, expr):
         with pytest.raises(TypeError):
-            simplify(expr, _SL)
+            _simplify(expr, _SL)
 
     # Reason: clause (Raises ExpressionParseError: a token list cannot be parsed).
     @pytest.mark.parametrize("expr", [["X_0", "+"], ["(", "X_0"]], ids=["missing-operand", "open-bracket"])
     def test_unparseable_tokens_raise(self, expr):
         with pytest.raises(ExpressionParseError):
-            simplify(expr, _SL)
+            _simplify(expr, _SL)
 
-    # Reason: clause (Returns: "in the form of expr (token list or Node)").
-    def test_output_has_form_of_input(self):
-        assert simplify(_t("X_0 * X_1 / X_0"), _SL)[0] == ["X_1"]
-        out = simplify(tokens_to_tree(_t("X_0 * X_1 / X_0"), _SL), _SL)[0]
-        assert isinstance(out, Node)
-        assert out.to_list(_SL) == ["X_1"]
+    # Reason: clause (Returns: a token list, also for an Expression; symbol_library None uses the
+    # expression's own library).
+    def test_output_is_a_token_list(self):
+        assert _simplify(_t("X_0 * X_1 / X_0"), _SL)[0] == ["X_1"]
+        renamed = SymbolLibrary.default_symbols(2, const_symbol="K")
+        assert _simplify(Expression(_t("K_1 + K_2 - K_1"), renamed)) == (["K_2"], ())
 
-    # Reason: implied (the input is not mutated).
+    # Reason: clause (Returns: an Expression in the library of expr; one that does not change is
+    # returned itself, as from fold).
+    @pytest.mark.parametrize(
+        "call", [simplify, fold, lambda e: fold(e, mode="none")], ids=["simplify", "fold", "fold-none"]
+    )
+    def test_returns_an_expression_and_an_unchanged_one_itself(self, call):
+        renamed = SymbolLibrary.default_symbols(2, const_symbol="K")
+        unchanged = Expression(["X_0"], renamed)
+        assert call(unchanged) is unchanged
+        result = call(["X_0"])
+        assert isinstance(result, Expression) and result.tokens == ("X_0",)
+
+    def test_changed_result_is_a_new_expression_in_the_input_library(self):
+        renamed = SymbolLibrary.default_symbols(2, const_symbol="K")
+        spec = Constant("K_1", bounds=(0.0, 1.0))
+        for result in (
+            simplify(Expression(_t("K_1 * X_0 + K * K * X_1"), renamed, [spec]), fold="keep"),
+            fold(Expression(_t("K_1 * X_0 + K * K * X_1"), renamed, [spec])),
+        ):
+            assert result.symbol_library is renamed
+            assert result.free_constants == (spec,)
+            assert result.num_parameters == 2
+
+    # Reason: implied (the input, and an Expression's shared tree, are not mutated).
     def test_input_not_mutated(self):
         tokens = _t("X_0 * X_1 / X_0")
-        simplify(tokens, _SL)
+        _simplify(tokens, _SL)
         assert tokens == _t("X_0 * X_1 / X_0")
-        tree = tokens_to_tree(tokens, _SL)
-        written = tree.to_list(_SL)
-        simplify(tree, _SL)
-        assert tree.to_list(_SL) == written
+        expr = Expression(_t("C * C * X_0 + C * C"), _SL)
+        written = expr.tree.to_list(_SL)
+        _simplify(expr, fold="default")
+        assert expr.tree.to_list(_SL) == written
 
     # Reason: clause (symbol_library None "uses the active or default library"): the active library
     # has no ^2, so X_0*X_0 is not written as X_0^2 as with the default library.
     def test_none_library_uses_active(self):
         with SymbolLibrary.from_symbol_list(["+", "-", "*", "/"], num_variables=1):
-            assert "".join(simplify(_t("X_0 * X_0"))[0]) == "X_0*X_0"
+            assert "".join(_simplify(_t("X_0 * X_0"))[0]) == "X_0*X_0"
 
 
 class TestSimplifyProperties:
@@ -320,7 +341,7 @@ class TestSimplifyProperties:
     @settings(max_examples=25, deadline=None)
     @given(labelled_infix_expressions())
     def test_output_valid_and_not_longer(self, expr):
-        out = simplify(expr, _SL)[0]
+        out = _simplify(expr, _SL)[0]
         tokens_to_tree(out, _SL)
         assert _cost(out) <= _cost(expr)
         assert not {"inf", "-inf", "nan"} & set(out)
@@ -331,8 +352,10 @@ class TestSimplifyProperties:
     @given(labelled_infix_expressions().filter(lambda e: "C" not in e), st.booleans())
     def test_output_numerically_equal(self, expr, fix):
         values = {"C_0": 0.7, "C_1": 1.3, "C_7": -2.1}
-        specs = [Constant(label, value=values[label], fixed=True) for label in set(parameter_labels(expr, _SL))]
-        out = simplify(expr, _SL, specs if fix else None)[0]
+        specs = [
+            Constant(label, value=values[label], fixed=True) for label in set(Expression(expr, _SL).parameter_labels)
+        ]
+        out = _simplify(Expression(expr, _SL, specs if fix else None))[0]
         before, after = _values(expr, values), _values(out, values)
         defined = np.isfinite(before)
         np.testing.assert_allclose(after[defined], before[defined], rtol=1e-7, atol=1e-9)
@@ -342,7 +365,7 @@ class TestSimplifyProperties:
     def test_sqrt_of_a_square_keeps_negative_values(self):
         expr = _t("sqrt ( X_0 * X_0 )")
         assert (_X[:, 0] < 0).any()  # precondition: negative X_0
-        np.testing.assert_allclose(_values(simplify(expr, _SL)[0], {}), _values(expr, {}), rtol=1e-7, atol=1e-9)
+        np.testing.assert_allclose(_values(_simplify(expr, _SL)[0], {}), _values(expr, {}), rtol=1e-7, atol=1e-9)
 
 
 class TestRuleAvailability:
@@ -362,7 +385,7 @@ class TestRuleAvailability:
     )  # fmt: skip
     def test_rules_off_for_missing_or_redefined_tokens(self, change, expr, expected):
         sl = _lib(change)
-        assert _tree(simplify(_t(expr), sl)[0], sl) in {_tree(_t(e), sl) for e in expected}
+        assert _tree(_simplify(_t(expr), sl)[0], sl) in {_tree(_t(e), sl) for e in expected}
 
     # Reason: clause (DefaultRules(exclude=...) leaves the named groups out).
     @pytest.mark.parametrize(
@@ -422,7 +445,7 @@ class TestRuleAvailability:
     # Reason: clause (rules: "The rewrite rules"): only the given rules are used.
     def test_custom_rules_are_used(self):
         assert _s("X_0 - X_0", rules=_OnlyCancel()) == "0"
-        out = simplify(_t("X_0 * X_0 / X_0"), _SL, rules=_OnlyCancel())[0]
+        out = _simplify(_t("X_0 * X_0 / X_0"), _SL, rules=_OnlyCancel())[0]
         assert _tree(out) == _tree(_t("X_0 * X_0 / X_0"))
 
     # Reason: clause (custom rules "may use the relations ... after saturating RELATIONS"): the rule
@@ -436,9 +459,11 @@ class TestRuleAvailability:
     def test_custom_rules_see_spec_bounds(self):
         expr = _t("C_1 * X_0")
         unit = Constant("C_1", bounds=(0.0, 1.0))
-        assert simplify(expr, _SL, [unit], rules=_DropUnitBounded()) == (["X_0"], ())
-        assert simplify(expr, _SL, [Constant("C_1", bounds=(0.0, 2.0))], rules=_DropUnitBounded())[0] == expr
-        assert simplify(expr, _SL, None, rules=_DropUnitBounded())[0] == expr
+        assert _simplify(Expression(expr, _SL, [unit]), rules=_DropUnitBounded()) == (["X_0"], ())
+        assert (
+            _simplify(Expression(expr, _SL, [Constant("C_1", bounds=(0.0, 2.0))]), rules=_DropUnitBounded())[0] == expr
+        )
+        assert _simplify(Expression(expr, _SL, None), rules=_DropUnitBounded())[0] == expr
 
 
 class TestLimits:
@@ -446,29 +471,29 @@ class TestLimits:
     # stops at max_nodes / max_time; "the cheapest expression found is returned").
     def test_limits_stop_search(self):
         expr = _t("X_0 * X_0 / X_0")
-        assert _tree(simplify(expr, _SL, max_iterations=0)[0]) == _tree(expr)
+        assert _tree(_simplify(expr, _SL, max_iterations=0)[0]) == _tree(expr)
         big = _t("X_0 * X_1 / X_0 + sin ( X_0 ) / sin ( X_0 ) + X_1 * X_1")
-        by_nodes = simplify(big, _SL, max_nodes=0)[0]
-        by_time = simplify(big, _SL, max_time=1e-9)[0]
+        by_nodes = _simplify(big, _SL, max_nodes=0)[0]
+        by_time = _simplify(big, _SL, max_time=1e-9)[0]
         assert _cost(by_nodes) <= _cost(big) and _cost(by_time) <= _cost(big)
         np.testing.assert_allclose(_values(by_nodes, {}), _values(big, {}), rtol=1e-12)
         np.testing.assert_allclose(_values(by_time, {}), _values(big, {}), rtol=1e-12)
         # An expression that needs several steps: max_nodes=0 stops before the full result (which is
         # X_1^2), a generous max_time does not.
         steps = _t("( ( X_0 * X_1 ) / X_1 ) * ( ( X_1 * X_0 ) / X_0 ) - X_0 * X_1 + X_1 * X_1 * X_1 / X_1")
-        full = simplify(steps, _SL)[0]
+        full = _simplify(steps, _SL)[0]
         assert full == ["X_1", "^2"]
-        assert _cost(simplify(steps, _SL, max_nodes=0)[0]) > _cost(full)
-        assert simplify(steps, _SL, max_time=1000.0)[0] == full
+        assert _cost(_simplify(steps, _SL, max_nodes=0)[0]) > _cost(full)
+        assert _simplify(steps, _SL, max_time=1000.0)[0] == full
 
     # Reason: clause ("max_iterations and max_nodes count work, so the result does not depend on the
     # machine"): repeated calls with work limits give the same result.
     @pytest.mark.parametrize("kwargs", [{"max_nodes": 300}, {"max_iterations": 2}], ids=["nodes", "iterations"])
     def test_deterministic_with_work_limits(self, kwargs):
         expr = _t("( X_0 + X_1 ) * ( X_0 - X_1 ) / ( X_0 + X_1 ) + C * X_0 * X_0 + sin ( X_1 ) ^2")
-        first = simplify(expr, _SL, **kwargs)[0]
-        assert simplify(expr, _SL, **kwargs)[0] == first
-        assert simplify(expr, _SL, **kwargs)[0] == first
+        first = _simplify(expr, _SL, **kwargs)[0]
+        assert _simplify(expr, _SL, **kwargs)[0] == first
+        assert _simplify(expr, _SL, **kwargs)[0] == first
 
 
 class TestCopiedConstants:
@@ -495,14 +520,14 @@ class TestCopiedConstants:
         ids=["c0-free", "c0-taken", "c0-c1-taken", "two-copies"],
     )
     def test_copied_bare_constant_gets_shared_label(self, expr, labels, n_params):
-        out = simplify(_t(expr), _SL)[0]
+        out = _simplify(_t(expr), _SL)[0]
         assert sorted(t for t in out if t.startswith("C_")) == labels
-        assert len(parameter_labels(out, _SL)) == n_params
+        assert len(Expression(out, _SL).parameter_labels) == n_params
 
 
 def _f(expr, **kwargs):
     """Folded expression (default library) joined into one string."""
-    return "".join(fold(_t(expr), _SL, **kwargs)[0])
+    return "".join(_fold(_t(expr), _SL, **kwargs)[0])
 
 
 class TestFold:
@@ -530,7 +555,7 @@ class TestFold:
         ids=["with-variable", "variable-in-function", "single-label", "no-free-constant", "brackets-kept"],
     )
     def test_leaves_other_parts(self, expr):
-        assert fold(_t(expr), _SL)[0] == _t(expr)
+        assert _fold(_t(expr), _SL)[0] == _t(expr)
 
     # Reason: clause ("no label that also occurs outside it"): a label shared with another part
     # blocks folding; a label only inside the part folds with it.
@@ -550,83 +575,70 @@ class TestFold:
     )
     def test_modes_with_specs(self, spec):
         expr = _t("C_1 * C * X_0 + C_2 * C * X_1")
-        out, specs = fold(expr, _SL, [spec], mode="keep")
+        out, specs = _fold(Expression(expr, _SL, [spec]), mode="keep")
         assert _tree(out) == "(C_1*C)*X_0+C*X_1"
         assert specs == (spec,)
-        out, specs = fold(expr, _SL, [spec], mode="default")
+        out, specs = _fold(Expression(expr, _SL, [spec]), mode="default")
         assert "".join(out) == "C*X_0+C*X_1"
         assert specs == ()
 
     # Reason: clause ("none": nothing is folded; Returns: specs None for None).
     def test_none_folds_nothing(self):
         spec = Constant("C_1", value=1.0)
-        assert fold(_t("C_1 * C * X_0"), _SL, [spec], mode="none") == (_t("C_1 * C * X_0"), (spec,))
-        assert fold(_t("C * C"), _SL, mode="none") == (_t("C * C"), None)
+        assert _fold(Expression(_t("C_1 * C * X_0"), _SL, [spec]), mode="none") == (_t("C_1 * C * X_0"), (spec,))
+        assert _fold(_t("C * C"), _SL, mode="none") == (_t("C * C"), ())
 
-    # Reason: clause (Raises ValueError: unknown mode; spec without label, duplicate or not in expr).
-    @pytest.mark.parametrize(
-        "kwargs",
-        [
-            {"mode": "all"},
-            {"mode": None},
-            {"free_constants": [Constant(value=1.0)]},
-            {"free_constants": [Constant("C_1", value=1.0), Constant("C_1", value=2.0)]},
-            {"free_constants": [Constant("C_9", value=1.0)]},
-        ],
-        ids=["mode", "mode-none-value", "no-label", "duplicate", "not-in-expr"],
-    )
-    def test_invalid_arguments_raise(self, kwargs):
-        match = r"^mode must be one of \['none', 'default', 'keep'\]" if "mode" in kwargs else "label"
-        with pytest.raises(ValueError, match=match):
-            fold(_t("C_1 * C"), _SL, **kwargs)
+    # Reason: clause (Raises ValueError: unknown mode).
+    @pytest.mark.parametrize("mode", ["all", None], ids=["mode", "mode-none-value"])
+    def test_invalid_mode_raises(self, mode):
+        with pytest.raises(ValueError, match=r"^mode must be one of \['none', 'default', 'keep'\]"):
+            _fold(_t("C_1 * C"), _SL, mode=mode)
 
     # Reason: clause (symbol_library: the constants of the given library; None uses the active or
     # default library). With the constant K, K*K folds and the spec'd K_1 is kept.
     def test_symbol_library(self):
         lib = SymbolLibrary.default_symbols(2, const_symbol="K")
         spec = Constant("K_1", bounds=(0.0, 1.0))
-        assert fold(_t("K_1 * X_0 + K * K"), lib, [spec]) == (_t("K_1 * X_0 + K"), (spec,))
-        assert fold(["C", "*", "C"]) == (["C"], None)
+        assert _fold(Expression(_t("K_1 * X_0 + K * K"), lib, [spec])) == (_t("K_1 * X_0 + K"), (spec,))
+        assert _fold(["C", "*", "C"]) == (["C"], ())
 
     # Reason: regression (a fixed label used elsewhere blocked folding, but it is not a parameter, so
     # folding splits nothing); its spec stays while the label occurs.
     def test_shared_fixed_label_folds(self):
         g = Constant("C_1", value=2.0, fixed=True)
-        out = fold(_t("C_1 * C * X_0 + C_1 * X_1"), _SL, [g], mode="default")
+        out = _fold(Expression(_t("C_1 * C * X_0 + C_1 * X_1"), _SL, [g]), mode="default")
         assert out == (_t("C * X_0 + C_1 * X_1"), (g,))
 
     # Reason: clause (fold mode "default": a fixed spec folds like a number, so a part needs a free
     # constant to fold).
     def test_fixed_constant_alone_does_not_fold(self):
         g = Constant("C_1", value=9.81, fixed=True)
-        assert fold(_t("C_1 * 2 + X_0"), _SL, [g], mode="default") == (_t("C_1 * 2 + X_0"), (g,))
+        assert _fold(Expression(_t("C_1 * 2 + X_0"), _SL, [g]), mode="default") == (_t("C_1 * 2 + X_0"), (g,))
 
-    # Reason: clause (Raises ExpressionParseError: a symbol neither in the library nor a number);
-    # regression: an unknown symbol in a tree was folded away like a number.
+    # Reason: clause (Raises ExpressionParseError: the tokens cannot be parsed); regression: an
+    # unknown symbol was folded away like a number.
     @pytest.mark.parametrize(
-        "tree",
-        [Node("*", left=Node("C"), right=Node("X_7")), Node("foo", left=Node("C"))],
-        ids=["unknown-variable", "unknown-function"],
+        "tokens",
+        [_t("C * X_7"), _t("foo ( C )"), _t("C * ( X_0")],
+        ids=["unknown-variable", "unknown-function", "bracket"],
     )
-    def test_unknown_symbol_raises(self, tree):
-        with pytest.raises(ExpressionParseError, match="Unknown symbol"):
-            fold(tree, SymbolLibrary.default_symbols(1))
+    def test_unparseable_raises(self, tokens):
+        with pytest.raises(ExpressionParseError):
+            _fold(tokens, SymbolLibrary.default_symbols(1))
 
-    # Reason: clause (Returns: "in the form of expr"); implied (the input is not mutated).
-    def test_form_of_input(self):
-        tree = tokens_to_tree(_t("C * C * X_0"), _SL)
-        before = tree.to_list(_SL)
-        out = fold(tree, _SL)[0]
-        assert isinstance(out, Node)
-        assert out.to_list(_SL) == ["C", "*", "X_0"]
-        assert tree.to_list(_SL) == before
+    # Reason: clause (Returns: a token list); implied (an Expression's shared tree is not mutated).
+    def test_returns_tokens_and_keeps_the_tree(self):
+        expr = Expression(_t("C * C * X_0"), _SL)
+        before = expr.tree.to_list(_SL)
+        assert _fold(expr)[0] == ["C", "*", "X_0"]
+        assert expr.tree.to_list(_SL) == before
 
     # Reason: implied (folding never adds parameters, and the result is a valid expression).
     @settings(max_examples=50, deadline=None)
     @given(labelled_infix_expressions())
     def test_parameter_count_never_grows(self, expr):
-        out = fold(expr, _SL)[0]
-        assert len(parameter_labels(out, _SL)) <= len(parameter_labels(expr, _SL))
+        out = _fold(expr, _SL)[0]
+        assert len(Expression(out, _SL).parameter_labels) <= len(Expression(expr, _SL).parameter_labels)
         tokens_to_tree(out, _SL)
 
 
@@ -646,7 +658,7 @@ class TestSimplifyFold:
     # token count and then folds). From notes/egraphs-main/data/40k.pkl: only reordering folds C.
     def test_fold_aware_finds_shorter(self):
         assert _s("( C / sin ( X_0 ) ) * C", fold="keep") == "C/sin(X_0)"
-        assert _tree(simplify(_t("( C / sin ( X_0 ) ) * C"), _SL, fold="keep", fold_aware=False)[0]) == (
+        assert _tree(_simplify(_t("( C / sin ( X_0 ) ) * C"), _SL, fold="keep", fold_aware=False)[0]) == (
             "(C/sin(X_0))*C"
         )
 
@@ -654,16 +666,18 @@ class TestSimplifyFold:
     # differ, so a fold-aware extraction without folding would show.
     def test_fold_aware_ignored_without_fold(self):
         expr = _t("( C / sin ( X_0 ) ) * C")
-        assert simplify(expr, _SL) == simplify(expr, _SL, fold_aware=False)
+        assert _simplify(expr, _SL) == _simplify(expr, _SL, fold_aware=False)
 
     # Reason: clause (simplify folds with the given library).
     def test_folds_with_library(self):
         lib = SymbolLibrary.default_symbols(2, const_symbol="K")
-        assert "".join(simplify(_t("K * K * X_0"), lib, fold="keep")[0]) in {"K*X_0", "X_0*K"}
+        assert "".join(_simplify(_t("K * K * X_0"), lib, fold="keep")[0]) in {"K*X_0", "X_0*K"}
 
     # Reason: clause (simplify fold="default": specs of folded labels are dropped).
     def test_default_mode_drops_specs(self):
-        out, specs = simplify(_t("C_1 * C * X_0"), _SL, [Constant("C_1", bounds=(0.0, 1.0))], fold="default")
+        out, specs = _simplify(
+            Expression(_t("C_1 * C * X_0"), _SL, [Constant("C_1", bounds=(0.0, 1.0))]), fold="default"
+        )
         assert "".join(out) in {"C*X_0", "X_0*C"}
         assert specs == ()
 
@@ -685,8 +699,8 @@ class TestSimplifyFold:
     )
     def test_fold_aware_length(self, expr, mode, spec, length):
         specs = [Constant("C_1", bounds=(0.0, 1.0))] if spec else None
-        aware = simplify(_t(expr), _SL, specs, fold=mode)[0]
-        plain = simplify(_t(expr), _SL, specs, fold=mode, fold_aware=False)[0]
+        aware = _simplify(Expression(_t(expr), _SL, specs), fold=mode)[0]
+        plain = _simplify(Expression(_t(expr), _SL, specs), fold=mode, fold_aware=False)[0]
         assert _cost(aware) == length
         assert _cost(aware) <= min(_cost(plain), _cost(_t(expr)))
 
@@ -694,14 +708,14 @@ class TestSimplifyFold:
     # step holds only that form, so one more step could give a longer result).
     def test_more_steps_never_longer(self):
         expr = _t("C / ( C * X_0 ) + X_1 * X_0 / X_1")
-        lengths = [_cost(simplify(expr, _SL, fold="keep", max_iterations=i)[0]) for i in range(1, 8)]
+        lengths = [_cost(_simplify(expr, _SL, fold="keep", max_iterations=i)[0]) for i in range(1, 8)]
         assert lengths == sorted(lengths, reverse=True)
         assert lengths[-1] == 5  # C/X_0+X_0
 
     # Reason: regression (on a tie the fold-aware form was kept, adding a label C_0 for nothing).
     def test_tie_keeps_token_count_form(self):
         expr = _t("C * ( X_0 + X_1 ) + C * X_0")
-        assert simplify(expr, _SL, fold="keep") == simplify(expr, _SL, fold="keep", fold_aware=False)
+        assert _simplify(expr, _SL, fold="keep") == _simplify(expr, _SL, fold="keep", fold_aware=False)
 
     # Reason: clause (fold_aware "Ignored with fold='none'"; fold="none" keeps the hypothesis).
     def test_no_fold_by_default(self):
@@ -711,11 +725,11 @@ class TestSimplifyFold:
     # Reason: clause ("keep": a spec'd label does not fold and keeps its spec, through simplify).
     def test_simplify_keeps_spec(self):
         spec = Constant("C_1", bounds=(0.0, 1.0))
-        out, specs = simplify(_t("C_1 * C * C * X_0"), _SL, [spec], fold="keep")
-        assert "C_1" in out and len(parameter_labels(out, _SL)) == 2
+        out, specs = _simplify(Expression(_t("C_1 * C * C * X_0"), _SL, [spec]), fold="keep")
+        assert "C_1" in out and len(Expression(out, _SL).parameter_labels) == 2
         assert specs == (spec,)
 
     # Reason: clause (Raises ValueError: fold unknown).
     def test_unknown_fold_raises(self):
         with pytest.raises(ValueError, match="^fold must"):
-            simplify(["X_0"], _SL, fold="yes")
+            _simplify(["X_0"], _SL, fold="yes")

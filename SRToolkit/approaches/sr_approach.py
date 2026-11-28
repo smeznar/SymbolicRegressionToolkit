@@ -83,12 +83,12 @@ while not se.should_stop:
                 results.append(None)
                 se.count_skip("not_expression")
                 continue
-            if not isinstance(candidate, Candidate):  # a token list or a Node
+            if not isinstance(candidate, Candidate):  # a token list or an Expression
                 candidate = Candidate(candidate)
             if candidate.skip is None:
-                results.append(se.evaluate_expr(_candidate_input(candidate, se.symbol_library)))
+                results.append(se.evaluate_expr(candidate.expr))
             else:  # a skip: looked up without spending budget (None if never evaluated) and counted
-                results.append(se.get_model(_candidate_input(candidate, se.symbol_library)))
+                results.append(se.get_model(candidate.expr))
                 se.count_skip(candidate.skip)
     approach.tell(se, state, candidates[: len(results)], results)
     complete = len(results) == len(candidates)
@@ -136,14 +136,11 @@ from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.evaluation.model_store import _restore_rngs
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
-from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports this module.
     from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
-    from SRToolkit.utils.free_constants import Constant
-    from SRToolkit.utils.symbol_library import SymbolLibrary
     from SRToolkit.utils.types import ModelResult
 
 
@@ -233,8 +230,9 @@ class Candidate:
     [step loop][SRToolkit.approaches.sr_approach].
 
     Attributes:
-        expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
-        free_constants: Specs for its labelled constants, or ``None``.
+        expr: The expression, as a token list or an
+            [Expression][SRToolkit.utils.expression.Expression] carrying the specs of its labelled
+            constants.
         skip: ``None`` (default) to evaluate it. A reason (e.g. ``"evaluated"`` or ``"rejected"``)
             marks it as a skip: it is not evaluated but looked up in its stored form with its specs
             (see [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), spending
@@ -246,24 +244,13 @@ class Candidate:
         ValueError: If ``skip`` is neither ``None`` nor a non-empty ``str``.
     """
 
-    expr: "list[str] | Node"
-    free_constants: "Sequence[Constant] | None" = None
+    expr: "list[str] | Expression"
     skip: str | None = None
 
     def __post_init__(self) -> None:
         """Validate ``skip``."""
         if self.skip is not None and (not isinstance(self.skip, str) or not self.skip):
             raise ValueError(f"[Candidate] skip must be None or a non-empty str, got {self.skip!r}.")
-
-
-def _candidate_input(c: Candidate, symbol_library: "SymbolLibrary") -> "list[str] | Node | Expression":
-    # The candidate's expression as evaluate_expr takes it: an Expression carrying its specs.
-    # Temporary until Candidate holds an Expression.
-    if not c.free_constants:
-        return c.expr
-    if isinstance(c.expr, Node):
-        return Expression.from_tree(c.expr, symbol_library, c.free_constants)
-    return Expression(c.expr, symbol_library, c.free_constants)
 
 
 class SR_approach(ABC):
@@ -466,9 +453,9 @@ class SR_approach(ABC):
                         continue
                     c = item if isinstance(item, Candidate) else Candidate(item)
                     if c.skip is None:
-                        results.append(se.evaluate_expr(_candidate_input(c, se.symbol_library)))
+                        results.append(se.evaluate_expr(c.expr))
                     else:
-                        results.append(se.get_model(_candidate_input(c, se.symbol_library)))
+                        results.append(se.get_model(c.expr))
                         se.count_skip(c.skip)
             self.tell(se, state, candidates[: len(results)], results)
             complete = len(results) == len(candidates)
@@ -500,7 +487,7 @@ class SR_approach(ABC):
             "generators and return the search state."
         )
 
-    def ask(self, sr_evaluator: SR_evaluator, state: Any) -> "list[Candidate | list[str] | Node | None]":
+    def ask(self, sr_evaluator: SR_evaluator, state: Any) -> "list[Candidate | list[str] | Expression | None]":
         """Propose the next expressions to evaluate (step interface).
 
         The first call after ``start`` creates them from scratch (e.g. a random population); later
@@ -519,8 +506,10 @@ class SR_approach(ABC):
 
         Returns:
             The expressions, in the order they are to be evaluated: token lists or
-            [Node][SRToolkit.utils.expression_tree.Node]s, or
-            [Candidate][SRToolkit.approaches.sr_approach.Candidate]s to pass their other fields.
+            [Expression][SRToolkit.utils.expression.Expression]s (with specs), or
+            [Candidate][SRToolkit.approaches.sr_approach.Candidate]s to mark a skip. If the approach
+            also passes an expression to ``get_model``, ``stored_tokens`` or
+            ``check_constraints``, pass the same ``Expression`` object here, so it is parsed once.
             ``None`` marks a proposal that is not an expression (e.g. a latent vector that does not
             decode): it is neither looked up nor evaluated, is counted as the skip
             ``"not_expression"``, and ``tell`` gets ``None`` for it. An empty list ends the search.
@@ -534,7 +523,7 @@ class SR_approach(ABC):
         self,
         sr_evaluator: SR_evaluator,
         state: Any,
-        candidates: "list[Candidate | list[str] | Node | None]",
+        candidates: "list[Candidate | list[str] | Expression | None]",
         results: "list[ModelResult | None]",
     ) -> None:
         """Update ``state`` from the results of a step's candidates (step interface).
@@ -551,8 +540,8 @@ class SR_approach(ABC):
             state: The search state passed to the step's ``ask``.
             candidates: The evaluated candidates, in order, as ``ask`` returned them.
             results: Their models, with the error, status, fitted constants, etc. A model's
-                ``expr`` is a token list, canonicalised if its candidate asked for it. ``None`` for
-                a ``None`` entry and for a skip that was never evaluated.
+                ``expr`` is a token list, in its [stored form][SRToolkit.evaluation.sr_evaluator].
+                ``None`` for a ``None`` entry and for a skip that was never evaluated.
         """
         pass
 

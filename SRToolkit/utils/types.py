@@ -157,7 +157,7 @@ class ModelResult:
         error: Numeric error under the ranking function (RMSE or BED). By convention ``+inf``
             unless ``status`` is ``"ok"``; this is not validated.
         parameters: Fitted values, one per parameter in the order of
-            [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels], shape
+            [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels], shape
             ``(n_parameters,)``, fixed values included; ``free_constants`` holds the specs they were
             fitted under. Set by the RMSE ranking only. ``None`` for other rankings and when nothing
             was fitted.
@@ -415,9 +415,9 @@ class EvalResult:
             [Constant][SRToolkit.utils.free_constants.Constant] template): the spec of every
             parameter without one of its own (see
             [ModelResult.free_constants][SRToolkit.utils.types.ModelResult]). With it,
-            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]
-            ``(model.expr, model.free_constants, result.default_constant, symbol_library)`` gives
-            the complete specs of a saved model. ``None`` for results saved in format 2.
+            ``Expression(model.expr, symbol_library, model.free_constants).resolve(result.default_constant)``
+            (see [Expression.resolve][SRToolkit.utils.expression.Expression.resolve]) gives the
+            complete specs of a saved model. ``None`` for results saved in format 2.
         stop_reason: Why the run ended: ``"success_threshold"``, ``"max_evaluations"``, the reason
             of a callback (e.g. ``"time_limit"``) or of the approach (see
             [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]), or ``"returned"`` if the

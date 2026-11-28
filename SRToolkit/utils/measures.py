@@ -1,8 +1,7 @@
 """Measures that compare expressions with each other, and metrics that score predictions against data.
 
 **Expression-to-expression measures** take two expressions, each given as a list of token strings in
-infix notation (as parsed by [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree]) or as a
-[Node][SRToolkit.utils.expression_tree.Node] tree:
+infix notation or as an [Expression][SRToolkit.utils.expression.Expression]:
 
 - [edit_distance][SRToolkit.utils.measures.edit_distance] and
   [tree_edit_distance][SRToolkit.utils.measures.tree_edit_distance] are syntactic: they count
@@ -14,8 +13,8 @@ An expression with free constants defines a family of functions, not a single on
 each expression at points ``X`` for many constant vectors drawn by Latin Hypercube Sampling from the
 constants' priors, giving a *behavior matrix* of shape ``(n_points, n_constant_samples)``
 ([create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]). The priors come from
-the expression's specs ([Constant][SRToolkit.utils.free_constants.Constant]); constants without a
-spec use the default spec (``default_constant``), by default a uniform prior on ``consts_bounds``.
+the specs ([Constant][SRToolkit.utils.free_constants.Constant]) an ``Expression`` carries; constants
+without a spec use the default spec (``default_constant``), by default a uniform prior on ``consts_bounds``.
 A fixed constant keeps its value. The specs' fitting bounds play no role in BED. Row ``i`` is read as
 the distribution of the expression's output at ``X[i]``, and BED is the mean over points of the
 1-D Wasserstein distance between corresponding rows. No constants are fitted, so BED can rank
@@ -39,17 +38,19 @@ All metrics return a Python float and never emit NumPy warnings: an undefined or
 returned as ``nan`` or ``inf`` (each metric lists when). ``predict(X)`` and ``y`` must both have
 shape ``(n_samples,)``; anything else raises ``ValueError``.
 
-Functions that take ``symbol_library=None`` use
-[SymbolLibrary.get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]: the
+Functions that take ``symbol_library=None`` use an ``Expression``'s own library, and for a token
+list [SymbolLibrary.get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]: the
 library of the active context, else the one set with
 [set_default][SRToolkit.utils.symbol_library.SymbolLibrary.set_default], else
-[default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+[default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]. A given
+``symbol_library`` also applies to an ``Expression``, whose tokens are read in it (see
+[expression][SRToolkit.utils.expression]).
 
 Parameters are validated only when they are used. Invalid arguments raise ``TypeError`` or
 ``ValueError`` with a message that names the offending parameter.
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import cast
 
@@ -57,9 +58,10 @@ import numpy as np
 import zss
 from scipy.stats.qmc import LatinHypercube
 
+from .expression import Expression, _to_expression
 from .expression_compiler import _variable_column, compile_expr
-from .expression_tree import Node, _as_tree
-from .free_constants import Constant, resolve_constants, uniform_default
+from .expression_tree import Node
+from .free_constants import Constant, uniform_default
 from .symbol_library import SymbolLibrary
 
 _NOTATIONS = ("infix", "prefix", "postfix")
@@ -89,38 +91,37 @@ def _levenshtein(a: list[str], b: list[str]) -> int:
 
 
 def edit_distance(
-    expr1: list[str] | Node,
-    expr2: list[str] | Node,
+    expr1: list[str] | Expression,
+    expr2: list[str] | Expression,
     notation: str = "postfix",
     symbol_library: SymbolLibrary | None = None,
 ) -> int:
     """Return the Levenshtein distance between the token sequences of two expressions.
 
-    Both expressions are parsed and re-serialised in ``notation`` before comparison, so the result
-    does not depend on whether a token list or a tree is passed, and redundant parentheses in a
-    token list have no effect. Each token insertion, deletion or substitution costs 1, so the
-    distance is symmetric.
+    Both expressions are parsed and re-serialised in ``notation`` before comparison, so redundant
+    parentheses in a token list have no effect. Each token insertion, deletion or substitution
+    costs 1, so the distance is symmetric.
 
     Args:
-        expr1: First expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr1: First expression, as an infix token list or an
+            [Expression][SRToolkit.utils.expression.Expression].
         expr2: Second expression, in either form.
         notation: Notation in which the two expressions are compared: ``"infix"``, ``"prefix"`` or
             ``"postfix"``. It does not affect how token lists are read (always infix). In ``"infix"``,
             the parentheses needed to serialise an expression count as tokens; prefix and postfix
             contain none, hence the default ``"postfix"``.
         symbol_library: Symbol library used to parse and serialise the expressions. ``None`` uses
-            the active or default library (see the module docstring).
+            an ``Expression``'s own library, or the active or default one (see the module docstring).
 
     Returns:
         Number of token edits, ``>= 0``; ``0`` if and only if the serialised sequences are equal.
 
     Raises:
-        TypeError: If an expression is neither a list of token strings nor a
-            [Node][SRToolkit.utils.expression_tree.Node] (e.g. a string, a tuple, or a list with a
-            non-string element).
+        TypeError: If an expression is neither a list of token strings nor an ``Expression`` (e.g.
+            a string, or a list with a non-string element).
         ValueError: If ``notation`` is not ``"infix"``, ``"prefix"`` or ``"postfix"``.
-        ExpressionParseError: If a token list cannot be parsed: it is empty, malformed, or contains a
-            symbol missing from ``symbol_library``.
+        ExpressionParseError: If an expression cannot be parsed: it is empty, malformed, or contains
+            a symbol missing from its library.
 
     Examples:
         >>> edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
@@ -131,10 +132,10 @@ def edit_distance(
     """
     if notation not in _NOTATIONS:
         raise ValueError(f"notation must be one of {_NOTATIONS}, got {notation!r}.")
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    tokens1 = _as_tree(expr1, symbol_library, "expr1").to_list(symbol_library=symbol_library, notation=notation)
-    tokens2 = _as_tree(expr2, symbol_library, "expr2").to_list(symbol_library=symbol_library, notation=notation)
+    e1 = _to_expression(expr1, symbol_library, "expr1")
+    e2 = _to_expression(expr2, symbol_library, "expr2")
+    tokens1 = e1.tree.to_list(symbol_library=e1.symbol_library, notation=notation)
+    tokens2 = e2.tree.to_list(symbol_library=e2.symbol_library, notation=notation)
     return _levenshtein(tokens1, tokens2)
 
 
@@ -154,8 +155,8 @@ def _expr_to_zss(expr: Node) -> zss.Node:
 
 
 def tree_edit_distance(
-    expr1: Node | list[str],
-    expr2: Node | list[str],
+    expr1: list[str] | Expression,
+    expr2: list[str] | Expression,
     symbol_library: SymbolLibrary | None = None,
 ) -> int:
     """Return the Zhang-Shasha tree edit distance between two expressions.
@@ -166,21 +167,21 @@ def tree_edit_distance(
     distance is symmetric.
 
     Args:
-        expr1: First expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr1: First expression, as an infix token list or an
+            [Expression][SRToolkit.utils.expression.Expression].
         expr2: Second expression, in either form.
-        symbol_library: Symbol library used to parse token lists. ``None`` uses the active or
-            default library (see the module docstring).
+        symbol_library: Symbol library used to parse the expressions. ``None`` uses an
+            ``Expression``'s own library, or the active or default one (see the module docstring).
 
     Returns:
         Minimum number of node edits, ``>= 0``; ``0`` if and only if the trees have the same symbols in
         the same ordered structure.
 
     Raises:
-        TypeError: If an expression is neither a list of token strings nor a
-            [Node][SRToolkit.utils.expression_tree.Node] (e.g. a string, a tuple, or a list with a
-            non-string element).
-        ExpressionParseError: If a token list cannot be parsed: it is empty, malformed, or contains a
-            symbol missing from ``symbol_library``.
+        TypeError: If an expression is neither a list of token strings nor an ``Expression`` (e.g.
+            a string, or a list with a non-string element).
+        ExpressionParseError: If an expression cannot be parsed: it is empty, malformed, or contains
+            a symbol missing from its library.
 
     Examples:
         >>> tree_edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
@@ -188,10 +189,8 @@ def tree_edit_distance(
         >>> tree_edit_distance(["X_0", "+", "1"], ["X_0"])
         2
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    zss1 = _expr_to_zss(_as_tree(expr1, symbol_library, "expr1"))
-    zss2 = _expr_to_zss(_as_tree(expr2, symbol_library, "expr2"))
+    zss1 = _expr_to_zss(_to_expression(expr1, symbol_library, "expr1").tree)
+    zss2 = _expr_to_zss(_to_expression(expr2, symbol_library, "expr2").tree)
 
     # Unit costs: zss otherwise uses the `editdistance` package (when installed) to price relabelling
     # by the character edit distance between symbols. zss is untyped; without return_operations=True
@@ -206,20 +205,20 @@ def _unit_label_cost(a: str, b: str) -> int:
 
 
 def create_behavior_matrix(
-    expr: Node | list[str],
+    expr: list[str] | Expression,
     X: np.ndarray,
     num_consts_sampled: int = 32,
     consts_bounds: tuple[float, float] = (-5, 5),
     symbol_library: SymbolLibrary | None = None,
     seed: int | None = None,
     backend: str = "stack",
-    free_constants: Sequence[Constant] | None = None,
     default_constant: Constant | None = None,
 ) -> np.ndarray:
     """Evaluate an expression at the points ``X`` for many sampled constant vectors.
 
     Column ``j`` holds the expression's values at ``X`` with the ``j``-th constant vector. Each
-    parameter's values come from its spec (a [Constant][SRToolkit.utils.free_constants.Constant]):
+    parameter's values come from its spec (a [Constant][SRToolkit.utils.free_constants.Constant]
+    the expression carries, or the default spec):
 
     - The ``n_free`` parameters that are not fixed share one Latin Hypercube sample of
       ``num_consts_sampled`` points in the unit cube ``[0, 1)^n_free``, one dimension per parameter.
@@ -235,7 +234,9 @@ def create_behavior_matrix(
     warnings. Sampling is random unless ``seed`` is set.
 
     Args:
-        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr: The expression, as an infix token list or an
+            [Expression][SRToolkit.utils.expression.Expression] carrying the specs of its labelled
+            constants.
         X: Evaluation points of shape ``(n_samples, n_features)``, with a column for every variable
             ``expr`` uses. ``n_samples`` may be 0, giving a result of shape ``(0, num_consts_sampled)``.
         num_consts_sampled: Number of constant vectors, i.e. output columns; at least 1.
@@ -243,14 +244,12 @@ def create_behavior_matrix(
             ``default_constant=uniform_default(consts_bounds)``, valid as for
             [uniform_default][SRToolkit.utils.free_constants.uniform_default]. Not used when
             ``default_constant`` is given.
-        symbol_library: Symbol library used to compile ``expr``. ``None`` uses the active or default
-            library (see the module docstring).
+        symbol_library: Symbol library used to compile ``expr``. ``None`` uses an ``Expression``'s
+            own library, or the active or default one (see the module docstring).
         seed: Seed for constant sampling. ``None`` gives a different sample on each call.
         backend: Backend used to compile expressions: ``"stack"`` (default), ``"stack_py"`` or
             ``"codegen"`` (see [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]). All give
             the same values; ``"stack_py"`` can be faster for libraries with many custom symbols.
-        free_constants: Specs for labelled constants of ``expr``, in any order; parameters without
-            one use the default spec. ``None`` or empty: all use it.
         default_constant: The default spec: a template with ``prior`` and ``bounds`` set and no
             ``label``, ``value`` or ``fixed`` (``bounds`` are required although BED ignores them, as
             the same template serves fitting). ``None``: built from ``consts_bounds``.
@@ -261,24 +260,23 @@ def create_behavior_matrix(
         gives ``num_consts_sampled`` identical columns.
 
     Raises:
-        TypeError: If ``expr`` is neither a list of token strings nor a
-            [Node][SRToolkit.utils.expression_tree.Node], or ``consts_bounds`` (when used) is not a
-            pair of real numbers.
+        TypeError: If ``expr`` is neither a list of token strings nor an ``Expression``, or
+            ``consts_bounds`` (when used) is not a pair of real numbers.
         ValueError: If ``X`` is not 2-D or has no column for a variable that ``expr`` uses, if
             ``num_consts_sampled < 1``, if ``consts_bounds`` (when used) is not finite with
             ``lower < upper``, if ``backend`` is not one of the backends above, if
-            ``default_constant`` is not a valid template (see above), or if a spec in
-            ``free_constants`` has no label, shares its label with another spec, names no labelled
-            constant of ``expr``, or is free with a ``value`` outside the bounds it takes from
-            ``default_constant``. The message names the offending argument.
-        ExpressionParseError: If ``expr`` cannot be parsed or compiled with ``symbol_library``.
+            ``default_constant`` is not a valid template (see above), or if a spec of ``expr`` is free
+            with a ``value`` outside the bounds it takes from ``default_constant``. The message names
+            the offending argument.
+        ExpressionParseError: If ``expr`` cannot be parsed or compiled with its library.
 
     Examples:
         >>> X = np.array([[0.0], [1.0], [2.0]])
         >>> create_behavior_matrix(["X_0", "+", "C"], X, num_consts_sampled=8, seed=0).shape
         (3, 8)
+        >>> from SRToolkit.utils import Expression
         >>> fixed = Constant(label="C_1", value=2.0, fixed=True)
-        >>> create_behavior_matrix(["C_1", "*", "X_0"], X, num_consts_sampled=2, free_constants=[fixed])
+        >>> create_behavior_matrix(Expression(["C_1", "*", "X_0"], free_constants=[fixed]), X, num_consts_sampled=2)
         array([[0., 0.],
                [2., 2.],
                [4., 4.]])
@@ -294,12 +292,9 @@ def create_behavior_matrix(
     X = np.asarray(X, dtype=np.float64)
     if X.ndim != 2:
         raise ValueError(f"X must be 2-D with shape (n_samples, n_features), got shape {X.shape}.")
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-
-    tree = _as_tree(expr, symbol_library, "expr")
-    specs = resolve_constants(tree, free_constants, default, symbol_library)
-    callable_expr = compile_expr(tree, symbol_library, backend=backend)
+    expr = _to_expression(expr, symbol_library, "expr")
+    specs = expr.resolve(default)
+    callable_expr = compile_expr(expr, backend=backend)
 
     # One row per constant vector: fixed values in place, free columns sampled below.
     constants = np.tile([s.value if s.fixed else np.nan for s in specs], (num_consts_sampled, 1))
@@ -312,7 +307,7 @@ def create_behavior_matrix(
         unit = LatinHypercube(len(free), rng=rng).random(num_consts_sampled)
         for k, i in enumerate(free):
             prior = specs[i].prior
-            assert prior is not None  # set by resolve_constants
+            assert prior is not None  # set by resolve
             try:
                 constants[:, i] = prior.ppf(unit[:, k])
             except NotImplementedError:
@@ -383,8 +378,8 @@ def _vectorized_wasserstein_batch(expr1: np.ndarray, expr2: np.ndarray) -> np.nd
 
 
 def bed(
-    expr1: Node | list[str] | np.ndarray,
-    expr2: Node | list[str] | np.ndarray,
+    expr1: list[str] | Expression | np.ndarray,
+    expr2: list[str] | Expression | np.ndarray,
     X: np.ndarray | None = None,
     num_consts_sampled: int = 32,
     num_points_sampled: int = 64,
@@ -393,8 +388,6 @@ def bed(
     symbol_library: SymbolLibrary | None = None,
     seed: int | None = None,
     backend: str = "stack",
-    free_constants1: Sequence[Constant] | None = None,
-    free_constants2: Sequence[Constant] | None = None,
     default_constant: Constant | None = None,
 ) -> float:
     """Return the Behavior-aware Expression Dissimilarity (BED) between two expressions.
@@ -414,8 +407,10 @@ def bed(
     - **An expression and a matrix, without ``X``** is an error: the matrix's points are unknown.
 
     Args:
-        expr1: First expression as an infix token list, a [Node][SRToolkit.utils.expression_tree.Node] tree,
-            or a behavior matrix of shape ``(n_samples, k1)`` with ``k1 >= 1``.
+        expr1: First expression, as an infix token list, an
+            [Expression][SRToolkit.utils.expression.Expression] (with the specs of its labelled
+            constants, as in ``create_behavior_matrix``), or a behavior matrix of shape
+            ``(n_samples, k1)`` with ``k1 >= 1``.
         expr2: Second expression, in any of the same forms. A matrix may have a different number of
             columns than ``expr1``.
         X: Points of shape ``(n_samples, n_features)`` at which expression arguments are evaluated,
@@ -431,17 +426,14 @@ def bed(
             [create_behavior_matrix][SRToolkit.utils.measures.create_behavior_matrix]. Not used for
             matrix arguments or when ``default_constant`` is given; otherwise validated whenever an
             argument is an expression.
-        symbol_library: Symbol library used to compile expressions. ``None`` uses the active or
-            default library (see the module docstring).
+        symbol_library: Symbol library used to compile expressions. ``None`` uses an
+            ``Expression``'s own library, or the active or default one (see the module docstring).
         seed: Seed for all sampling: the points and the constants of both expressions. ``None``
             makes the result random whenever points are sampled or an expression has free (not fixed)
             parameters.
         backend: Backend used to compile expression arguments: ``"stack"`` (default), ``"stack_py"`` or
             ``"codegen"`` (see [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]). All give
             the same values; ``"stack_py"`` can be faster for libraries with many custom symbols.
-        free_constants1: Specs ([Constant][SRToolkit.utils.free_constants.Constant]) for labelled
-            constants of ``expr1``, as in ``create_behavior_matrix``. Not used if ``expr1`` is a matrix.
-        free_constants2: Specs for labelled constants of ``expr2``, likewise.
         default_constant: The default spec for both expressions, as in ``create_behavior_matrix``.
 
     Returns:
@@ -456,9 +448,9 @@ def bed(
         If any point's distance is ``inf``, BED is ``inf``.
 
     Raises:
-        TypeError: If an argument is neither a list of token strings, a
-            [Node][SRToolkit.utils.expression_tree.Node] nor a ``numpy.ndarray``, or an argument is
-            an expression and ``consts_bounds`` (when used) is not a pair of real numbers.
+        TypeError: If an argument is neither a list of token strings, an ``Expression`` nor a
+            ``numpy.ndarray``, or an argument is an expression and ``consts_bounds`` (when used)
+            is not a pair of real numbers.
         ValueError: If any of the following holds (the message names the offending argument):
 
             - ``X`` is ``None`` and either exactly one argument is a matrix, or neither
@@ -472,9 +464,10 @@ def bed(
             - ``X`` or ``domain_bounds`` lacks a column for a variable used;
             - an argument is an expression (even one without constants) and ``num_consts_sampled < 1``,
               ``consts_bounds`` (when used) is not finite with ``lower < upper``, ``backend`` is
-              unknown, or ``default_constant`` or its specs are invalid (see
+              unknown, ``default_constant`` is invalid, or a free spec of the expression has a
+              ``value`` outside the bounds it takes from ``default_constant`` (see
               ``create_behavior_matrix``).
-        ExpressionParseError: If an expression cannot be parsed or compiled with ``symbol_library``.
+        ExpressionParseError: If an expression cannot be parsed or compiled with its library.
 
     Examples:
         >>> X = np.linspace(-1, 1, 20).reshape(-1, 1)
@@ -493,20 +486,16 @@ def bed(
         ``W1(u_i, v_i)`` after the non-finite steps in Returns. Every point counts in ``n_samples``,
         including those given distance 0 by those steps.
 
-        As a consequence of seeding, with ``seed`` set ``bed`` is deterministic; it is symmetric
-        when the specs are swapped with the expressions (``bed(e1, e2, free_constants1=s1,
-        free_constants2=s2) == bed(e2, e1, free_constants1=s2, free_constants2=s1)``), and
-        ``bed(e, e) == 0`` when both sides get the same specs. With ``seed=None``, ``bed(e, e)`` can
+        As a consequence of seeding, with ``seed`` set ``bed`` is deterministic and symmetric
+        (``bed(e1, e2) == bed(e2, e1)``), and ``bed(e, e) == 0``. With ``seed=None``, ``bed(e, e)`` can
         be greater than 0 for an expression with free (not fixed) parameters.
 
     References:
         S. Mežnar, S. Džeroski, L. Todorovski. Quantifying Behavioral Dissimilarity Between
         Mathematical Expressions. [arXiv:2408.11515](https://arxiv.org/abs/2408.11515).
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    # Expressions become Node trees (parsed once); matrices are checked for shape.
-    trees: dict[str, Node] = {}
+    # Expressions are parsed here, so a malformed one raises first; matrices are checked for shape.
+    exprs: dict[str, Expression] = {}
     matrices: dict[str, np.ndarray] = {}
     for name, arg in (("expr1", expr1), ("expr2", expr2)):
         if isinstance(arg, np.ndarray):
@@ -515,11 +504,12 @@ def bed(
                     f"{name} must be a behavior matrix of shape (n_samples, k) with k >= 1, got {arg.shape}."
                 )
             matrices[name] = arg
-        elif isinstance(arg, (list, Node)):
-            trees[name] = _as_tree(arg, symbol_library, name)
+        elif isinstance(arg, (list, tuple, Expression, Node)):
+            exprs[name] = _to_expression(arg, symbol_library, name)
+            exprs[name].tree
         else:
             raise TypeError(
-                f"{name} must be a list of token strings, a Node or a numpy.ndarray, got {type(arg).__name__}."
+                f"{name} must be a list of token strings, an Expression or a numpy.ndarray, got {type(arg).__name__}."
             )
 
     if X is not None:
@@ -534,7 +524,7 @@ def bed(
     elif len(matrices) == 1:
         raise ValueError("X must be given when exactly one of expr1 and expr2 is a behavior matrix.")
     elif not matrices:
-        X = _sample_points(trees["expr1"], trees["expr2"], num_points_sampled, domain_bounds, symbol_library, seed)
+        X = _sample_points(exprs["expr1"], exprs["expr2"], num_points_sampled, domain_bounds, seed)
     else:
         rows1, rows2 = matrices["expr1"].shape[0], matrices["expr2"].shape[0]
         if rows1 != rows2:
@@ -547,20 +537,18 @@ def bed(
             return matrices[name]
         # An expression argument always has points: X was given, or it was sampled above.
         assert X is not None
-        specs = free_constants1 if name == "expr1" else free_constants2
         return create_behavior_matrix(
-            trees[name], X, num_consts_sampled, consts_bounds, symbol_library, seed, backend, specs, default_constant
+            exprs[name], X, num_consts_sampled, consts_bounds, None, seed, backend, default_constant
         )
 
     return _mean_row_distance(behavior("expr1"), behavior("expr2"))
 
 
 def _sample_points(
-    expr1: Node,
-    expr2: Node,
+    expr1: Expression,
+    expr2: Expression,
     num_points_sampled: int,
     domain_bounds: list[tuple[float, float]] | None,
-    symbol_library: SymbolLibrary,
     seed: int | None,
 ) -> np.ndarray:
     """Return ``num_points_sampled`` Latin Hypercube points in ``domain_bounds``, for ``bed``.
@@ -578,12 +566,8 @@ def _sample_points(
         raise ValueError(f"num_points_sampled must be at least 1, got {num_points_sampled}.")
     for i, bounds in enumerate(domain_bounds):
         _check_interval(bounds, f"domain_bounds[{i}]")
-    for tree in (expr1, expr2):
-        columns = [
-            _variable_column(token, symbol_library)
-            for token in tree.to_list(symbol_library=symbol_library, notation="postfix")
-            if (s := symbol_library.get(token)) is not None and s.type == "var"
-        ]
+    for expr in (expr1, expr2):
+        columns = [_variable_column(token, expr.symbol_library) for token in expr.variables]
         if columns and max(columns) >= len(domain_bounds):
             raise ValueError(
                 f"domain_bounds has {len(domain_bounds)} interval(s), but an expression uses variable column "

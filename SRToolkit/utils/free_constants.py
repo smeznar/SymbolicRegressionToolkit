@@ -8,24 +8,26 @@ the library.
 A bare ``C`` is a new parameter at every occurrence; a **labelled** constant ``C_<int>`` (e.g.
 ``C_5``) is one parameter however often it occurs. Labels are local to an expression: ``C_0`` in two
 expressions are unrelated parameters. The parameters of an expression form a vector ordered by first
-appearance, as listed by [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels].
+appearance, as listed by
+[Expression.parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels].
 
 A [Constant][SRToolkit.utils.free_constants.Constant] describes how one labelled constant is
-treated: the prior its starting points (and BED samples) are drawn from, the hard bounds of the fit,
-an optional value, and whether that value is fixed instead of fitted. Specs address constants by
-label, so to specify a constant write it labelled (``C_0`` instead of ``C``). A bare ``C``, and a
-labelled constant without a spec, use the **default spec**: a ``Constant`` template (no label)
-that applies to every parameter without a spec of its own. A spec's unset ``prior`` or ``bounds``
+treated; an [Expression][SRToolkit.utils.expression.Expression] carries the specs of its labelled
+constants. A spec gives the prior its starting points (and BED samples) are drawn from, the hard
+bounds of the fit, an optional value, and whether that value is fixed instead of fitted. Specs
+address constants by label, so to specify a constant write it labelled (``C_0`` instead of ``C``).
+A bare ``C``, and a labelled constant without a spec, use the **default spec**: a ``Constant``
+template (no label) that applies to every parameter without a spec of its own. A spec's unset ``prior`` or ``bounds``
 are also taken from it, so a fit is unbounded only when infinite bounds are given explicitly. A
 dataset's default spec is
 [BackgroundKnowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge];
 [uniform_default][SRToolkit.utils.free_constants.uniform_default] builds the usual one, a uniform
 prior on a constant range with that range as bounds.
-[resolve_constants][SRToolkit.utils.free_constants.resolve_constants] combines the specs given for
-an expression with the default spec into one complete spec per parameter.
+[Expression.resolve][SRToolkit.utils.expression.Expression.resolve] combines an expression's specs
+with the default spec into one complete spec per parameter.
 
 Without specs, how constants are written does not matter: ``C_0*X_0 + C_0`` and ``C_1*X_0 + C_1``
-are the same model. [canonicalise][SRToolkit.utils.free_constants.canonicalise] writes them one way
+are the same model. [canonicalise][SRToolkit.utils.expression.canonicalise] writes them one way
 (a constant occurring once bare, a shared one labelled), e.g. to deduplicate candidates of an
 approach that writes labelled constants (the evaluator setting ``canonicalise_constants``).
 """
@@ -33,19 +35,18 @@ approach that writes labelled constants (the evaluator setting ``canonicalise_co
 import json
 import math
 import numbers
-from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from .expression_tree import Node, _as_tokens, _constant_indices, parameter_labels
-from .symbol_library import SymbolLibrary
-
 if TYPE_CHECKING:
-    # Imported for annotations only: SRToolkit.dataset imports this package.
+    # Imported for annotations only: SRToolkit.dataset imports this package, and expression
+    # imports this module.
     from SRToolkit.dataset.sampling import Sampler
+
+    from .expression import Expression
 
 
 @dataclass(frozen=True)
@@ -61,20 +62,19 @@ class Constant:
     Args:
         label: The labelled-constant token the spec applies to, e.g. ``"C_5"``. ``None`` makes the
             spec a template. Whether the label occurs in an expression is checked when an
-            [Expression][SRToolkit.utils.expression.Expression] is built and by
-            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]; a token the
+            [Expression][SRToolkit.utils.expression.Expression] is built; a token the
             symbol library registers as a symbol (e.g. a named constant ``C_1``) is never a
             labelled constant.
         prior: Distribution that starting points and BED samples are drawn from. ``None``: the
             default spec's prior, filled in by
-            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants].
+            [Expression.resolve][SRToolkit.utils.expression.Expression.resolve].
         bounds: Hard ``(lower, upper)`` bounds of the fit: a pair of real numbers (length-2 sequence
             or array) with ``lower < upper``. Either end may be infinite; ``(-inf, inf)`` fits
             without bounds. ``None``: the default spec's bounds, filled in by
-            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants].
+            [Expression.resolve][SRToolkit.utils.expression.Expression.resolve].
         value: The constant's value: used as is when ``fixed``, otherwise the first starting point
             of the fit, which must lie in the closed interval ``bounds`` (checked against inherited
-            bounds by [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]).
+            bounds by [Expression.resolve][SRToolkit.utils.expression.Expression.resolve]).
             ``None`` draws the starting point from the prior.
         fixed: If ``True``, the constant is not fitted and ``value`` is used as is, whatever the
             bounds (it must still be finite).
@@ -240,75 +240,13 @@ def uniform_default(constant_bounds: tuple[float, float]) -> Constant:
     return replace(template, prior=UniformSampling(lower, upper))
 
 
-def resolve_constants(
-    expr: list[str] | Node,
-    free_constants: Sequence[Constant] | None,
-    default_constant: Constant,
-    symbol_library: SymbolLibrary | None = None,
-) -> tuple[Constant, ...]:
-    """Return one complete spec per parameter of an expression.
-
-    Each labelled constant with a spec gets that spec, with a ``prior`` or ``bounds`` of ``None``
-    taken from ``default_constant``. Every other parameter (each bare ``C``, and labelled constants
-    without a spec) gets ``default_constant`` itself. Use it to see what an expression is fitted under, e.g. to
-    resample the constants of a saved result.
-
-    Args:
-        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].
-        free_constants: Specs for labelled constants of ``expr``, in any order. ``None`` or empty
-            gives every parameter the default spec.
-        default_constant: The default spec, for parameters without a spec: a template with
-            ``prior`` and ``bounds`` set and no ``label``, ``value`` or ``fixed``, e.g. from
-            [uniform_default][SRToolkit.utils.free_constants.uniform_default].
-        symbol_library: Symbol library used to recognise constants. ``None`` uses the active or
-            default library.
-
-    Returns:
-        One spec per parameter, in the order of
-        [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]; ``label`` is ``None``
-        for every parameter that uses the default spec, labelled or not. Empty if ``expr`` has no free
-        constants.
-
-    Raises:
-        TypeError: If ``expr`` is neither a list of token strings nor a
-            [Node][SRToolkit.utils.expression_tree.Node].
-        ValueError: If ``default_constant`` has a ``label``, ``value`` or ``fixed=True`` or lacks a
-            ``prior`` or ``bounds``, a spec has no label, two specs share a label, a spec's label is
-            not a labelled constant of ``expr``, or a spec that is not fixed has a ``value`` outside
-            the bounds it takes from ``default_constant``. The message names the argument.
-
-    Examples:
-        >>> default = uniform_default((-5.0, 5.0))
-        >>> specs = resolve_constants(
-        ...     ["C", "*", "X_0", "+", "C_1"], [Constant(label="C_1", value=2.0, fixed=True)], default
-        ... )
-        >>> [(s.label, s.value, s.bounds) for s in specs]
-        [(None, None, (-5.0, 5.0)), ('C_1', 2.0, (-5.0, 5.0))]
-    """
+def _check_default_constant(default_constant: Constant) -> None:
+    """Raise ``ValueError`` unless ``default_constant`` is a template with a prior and bounds and no label, value or fixed."""
     d = default_constant
     if d.label is not None or d.value is not None or d.fixed or d.prior is None or d.bounds is None:
         raise ValueError(
             f"'default_constant' must be a template with a prior and bounds and no label, value or fixed, got {d!r}."
         )
-    labels = parameter_labels(expr, symbol_library)
-    specs = _specs_by_label(free_constants, labels)
-    resolved = []
-    for label in labels:
-        given = specs.get(label) if label is not None else None
-        if given is None:
-            resolved.append(d)
-            continue
-        try:
-            resolved.append(
-                replace(
-                    given,
-                    prior=d.prior if given.prior is None else given.prior,
-                    bounds=d.bounds if given.bounds is None else given.bounds,
-                )
-            )
-        except ValueError as e:  # a free value outside the inherited bounds
-            raise ValueError(f"'free_constants': {e}") from None
-    return tuple(resolved)
 
 
 def _specs_by_label(free_constants: Sequence[Constant] | None, labels: Sequence[str | None]) -> dict[str, Constant]:
@@ -331,89 +269,24 @@ def _specs_by_label(free_constants: Sequence[Constant] | None, labels: Sequence[
     return specs
 
 
-def canonicalise(expr: list[str] | Node, symbol_library: SymbolLibrary | None = None) -> list[str]:
-    """Rewrite the free constants of an expression in a canonical way.
+def _ground_truth_parameters(ground_truth: "Expression", context: str) -> np.ndarray:
+    """Return the parameter vector of a ground truth whose parameters are all fixed by its specs.
 
-    A parameter that occurs once is written bare (``C``, the library's constant symbol); one that
-    occurs more than once is labelled. Labels ``C_0``, ``C_1``, ... are given out one per parameter
-    (bare ones included) in the order of the parameter vector (see
-    [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]), skipping names the library
-    registers as symbols, so a shared constant at position ``k`` is ``C_k`` unless an earlier name was
-    skipped. Expressions that differ only in how their constants are written then have one form. The
-    parameter vector keeps its length and order, and applying the rewrite again changes nothing. Only
-    looks at tokens; does not parse. The rewrite drops the labels specs refer to, so apply it only to
-    expressions without specs.
-
-    Args:
-        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].
-        symbol_library: Symbol library used to recognise constants. ``None`` uses the active or
-            default library.
-
-    Returns:
-        The canonical token list, as a new list. Equal to ``expr`` if it has only bare constants
-        or the library has no constant symbol.
+    One value per parameter, in the order of ``parameter_labels``. Used to evaluate a ground truth,
+    e.g. to compute ``y``.
 
     Raises:
-        TypeError: If ``expr`` is neither a list of token strings nor a
-            [Node][SRToolkit.utils.expression_tree.Node].
-
-    Examples:
-        >>> "".join(canonicalise(["C_0", "*", "X_0", "+", "C_1", "*", "X_1"]))
-        'C*X_0+C*X_1'
-        >>> "".join(canonicalise(["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C_5"]))
-        'C*X_0+C_1*X_1+C_1'
+        ValueError: Starting with ``context``, naming the free constants without a fixed value.
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    tokens = _as_tokens(expr, symbol_library)
-    symbol = symbol_library.constant_symbol
-    indices = _constant_indices(tokens, symbol_library)
-    names = []
-    k = 0
-    for _ in range(len(set(indices))):
-        while f"{symbol}_{k}" in symbol_library.symbols:
-            k += 1
-        names.append(f"{symbol}_{k}")
-        k += 1
-    counts = Counter(indices)
-    occurrences = iter(indices)
-    result = []
-    for token in tokens:
-        if (s := symbol_library.get(token)) is not None and s.type == "const":
-            index = next(occurrences)
-            result.append(names[index] if counts[index] > 1 else str(symbol))
-        else:
-            result.append(token)
-    return result
-
-
-def _ground_truth_parameters(
-    expr: list[str] | Node,
-    free_constants: Sequence[Constant] | None,
-    symbol_library: SymbolLibrary,
-    context: str,
-) -> np.ndarray:
-    """Return the parameter vector of an expression whose parameters are all fixed by specs.
-
-    Used to evaluate a ground truth, e.g. to compute ``y``.
-
-    Raises:
-        ValueError: Starting with ``context``, if a spec's label is not a labelled constant of
-            ``expr``, or naming the free constants without a fixed value.
-    """
-    fixed = {c.label: c.value for c in free_constants or () if c.fixed}
-    labels = parameter_labels(expr, symbol_library)
-    unknown = sorted({str(c.label) for c in free_constants or ()} - set(labels))
-    if unknown:
-        raise ValueError(
-            f"{context} 'ground_truth_constants' labels {unknown} are not labelled constants of the ground truth."
-        )
-    unfixed = sorted({label or str(symbol_library.constant_symbol) for label in labels if label not in fixed})
+    fixed = {c.label: c.value for c in ground_truth.free_constants if c.fixed}
+    labels = ground_truth.parameter_labels
+    constant = str(ground_truth.symbol_library.constant_symbol)
+    unfixed = sorted({label or constant for label in labels if label not in fixed})
     if unfixed:
         raise ValueError(
             f"{context} ground truth contains a free constant ({', '.join(unfixed)}) without a fixed value, so it "
-            "cannot be evaluated. Fix its value with a spec in ground_truth_constants (label it, e.g. C_0, and "
-            "use Constant(label=..., value=..., fixed=True))."
+            "cannot be evaluated. Fix its value with a spec (label it, e.g. C_0, and give the ground truth as an "
+            "Expression with Constant(label=..., value=..., fixed=True))."
         )
     return np.array([fixed[label] for label in labels], dtype=np.float64)
 

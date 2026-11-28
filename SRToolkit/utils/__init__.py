@@ -6,7 +6,7 @@ Modules:
     expression_tree: The [Node][SRToolkit.utils.expression_tree.Node] binary-tree representation and conversion utilities
         for expressions.
     expression: The [Expression][SRToolkit.utils.expression.Expression] class, an expression with its
-        free-constant specs, accepted besides token lists.
+        free-constant specs, accepted besides token lists, and the canonical form of constants.
     expression_compiler: Compiles token-list or tree expressions into executable Python
         callables.
     expression_simplifier: Algebraic simplification and constant folding with e-graphs, and the rewrite rules.
@@ -23,8 +23,8 @@ Modules:
         [GrammarConstraint][SRToolkit.utils.grammar.constraints.GrammarConstraint],
         [Derivation][SRToolkit.utils.grammar.derivation.Derivation], and more.
     free_constants: Specifications of free constants:
-        [Constant][SRToolkit.utils.free_constants.Constant] (prior, bounds, fixed value), the
-        default applied to constants without one, and the canonical form of constants.
+        [Constant][SRToolkit.utils.free_constants.Constant] (prior, bounds, fixed value) and the
+        default applied to constants without one.
     measures: Distance and similarity measures: edit distance, tree edit distance,
         and Behavior-aware Expression Distance (BED).
     serialization: Which values can be saved in results and configs, and how they are stored as
@@ -35,7 +35,7 @@ Modules:
         ([UnitRule][SRToolkit.utils.units.UnitRule]).
 """
 
-from .expression import Expression
+from .expression import Expression, canonicalise
 from .expression_compiler import compile_expr, compile_expr_rmse
 from .expression_constraints import (
     ConsistentUnits,
@@ -61,12 +61,10 @@ from .expression_simplifier import (
 from .expression_tree import (
     ExpressionParseError,
     Node,
-    expr_to_latex,
     is_float,
-    parameter_labels,
     tokens_to_tree,
 )
-from .free_constants import Constant, canonicalise, resolve_constants, uniform_default
+from .free_constants import Constant, uniform_default
 from .grammar import (
     AncestorInfo,
     Derivation,
@@ -160,10 +158,8 @@ __all__ = [
     "tokens_to_tree",
     "ExpressionParseError",
     "is_float",
-    "parameter_labels",
     "Constant",
     "uniform_default",
-    "resolve_constants",
     "canonicalise",
     "compile_expr",
     "compile_expr_rmse",
@@ -185,7 +181,6 @@ __all__ = [
     "nrmse",
     "REGRESSION_METRICS",
     "PredictFn",
-    "expr_to_latex",
     "Settings",
     "SettingsSection",
     "EvaluatorSettings",

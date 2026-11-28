@@ -31,6 +31,7 @@ from SRToolkit.evaluation.callbacks import SR_callback, TimeLimitCallback
 from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.utils import units as u
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import (
     ConsistentUnits,
     MaxConstants,
@@ -41,7 +42,7 @@ from SRToolkit.utils.expression_constraints import (
     RequiredVariables,
 )
 from SRToolkit.utils.expression_simplifier import DefaultRules
-from SRToolkit.utils.expression_tree import tokens_to_tree
+from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
@@ -53,6 +54,7 @@ from SRToolkit.utils.units import Unit
 _FIX2 = Constant("C_0", value=2.0, fixed=True)
 _SPEC_C0 = Constant("C_0", prior=UniformSampling(0, 1))
 _SPEC_C1 = Constant("C_1", value=1.0)
+_LIB1 = SymbolLibrary.default_symbols(1)
 
 
 @dataclass(frozen=True, eq=False)
@@ -296,8 +298,8 @@ class TestSRDatasetResample:
         with pytest.raises(ValueError, match="samplers"):
             simple_dataset.resample(10)
 
-    # Reason: clause (resample/from_samplers Raises: "a free constant without a fixed value in
-    # ground_truth_constants"). The message names the constants that have no fixed value.
+    # Reason: clause (resample/from_samplers Raises: "a free constant without a fixed value in its
+    # specs"). The message names the constants that have no fixed value.
     @pytest.mark.parametrize(
         "ground_truth, specs, named",
         [
@@ -311,55 +313,65 @@ class TestSRDatasetResample:
     def test_resample_free_constant_raises(self, ground_truth, specs, named):
         # A free constant has no value to evaluate against during generation (issue #4: the compiled
         # backend used to read past an empty constant array and produce garbage).
-        with pytest.raises(ValueError, match=rf"free constant \({named}\) without a fixed value"):
+        with pytest.raises(
+            ValueError, match=rf"^\[SR_dataset\.resample\] .*free constant \({named}\) without a fixed value"
+        ):
             SR_dataset.from_samplers(
-                ground_truth=ground_truth,
+                ground_truth=ground_truth if specs is None else Expression(ground_truth, _LIB1, specs),
                 samplers=[UniformSampling(0.5, 5.0)],
                 n_samples=16,
                 seed=1,
-                ground_truth_constants=specs,
             )
 
 
 class TestGroundTruthConstants:
-    # Reason: clause (attribute: "the specs as a tuple sorted by label, or None"; stored as given,
-    # an empty iterable gives None). The specs are compared by to_dict.
+    # Reason: clause (ground_truth: "the answer as an Expression in symbol_library";
+    # ground_truth_constants: "the specs of ground_truth, sorted by label; None if it has none").
     @pytest.mark.parametrize(
-        "make_specs, expected",
-        [
-            (lambda: [_SPEC_C1, _SPEC_C0], (_SPEC_C0, _SPEC_C1)),
-            (lambda: (c for c in [_SPEC_C1, _SPEC_C0]), (_SPEC_C0, _SPEC_C1)),
-            (lambda: [], None),
-            (lambda: None, None),
-        ],
-        ids=["unsorted-list", "generator", "empty", "none"],
+        "specs, expected",
+        [([_SPEC_C1, _SPEC_C0], (_SPEC_C0, _SPEC_C1)), ([], None), (None, None)],
+        ids=["unsorted", "empty", "none"],
     )
-    def test_stored_sorted_or_none(self, make_specs, expected):
-        ds = SR_dataset(
-            _X2, _lib2c(), y=_Y, ground_truth=["C_0", "*", "X_0", "+", "C_1"], ground_truth_constants=make_specs()
-        )
-        # Same objects as given (stored as given, not resolved against the default).
+    def test_specs_view_sorted_or_none(self, specs, expected):
+        lib = _lib2c()
+        ds = SR_dataset(_X2, lib, y=_Y, ground_truth=Expression(["C_0", "*", "X_0", "+", "C_1"], lib, specs))
         assert ds.ground_truth_constants == expected
+        assert ds.ground_truth.symbol_library is lib
 
-    # Reason: clause (Raises: "given without ground_truth or does not fit it", see resolve_constants).
-    # The message names the user's argument, ground_truth_constants, never resolve_constants'
-    # free_constants, and says what is wrong.
-    @pytest.mark.parametrize(
-        "ground_truth, specs, reason",
-        [
-            (None, [_FIX2], "needs a 'ground_truth'"),
-            (["C_0", "*", "X_0"], [Constant("C_9", value=1.0)], r"\['C_9'\]"),
-            (["C_0", "*", "X_0"], [_FIX2, Constant("C_0", value=1.0)], "share the label 'C_0'"),
-            (["C_0", "*", "X_0"], [Constant(prior=UniformSampling(0, 1))], "needs a label"),
-            (["C_0", "*", "X_0"], [Constant("C_0", value=9.0)], "outside 'bounds'"),
-        ],
-        ids=["no-ground-truth", "unknown-label", "duplicate-label", "unlabelled", "value-outside-default-bounds"],
-    )
-    def test_errors(self, ground_truth, specs, reason):
-        with pytest.raises(ValueError, match=reason) as info:
-            SR_dataset(_X2, _lib2c(), y=_Y, ground_truth=ground_truth, ground_truth_constants=specs)
-        assert "'ground_truth_constants'" in str(info.value)
-        assert "free_constants" not in str(info.value)
+    # Reason: clause (a token list ground truth becomes an Expression in the dataset's library; an
+    # Expression built in another library is rebuilt in it).
+    def test_ground_truth_is_an_expression_in_the_dataset_library(self):
+        lib = _lib2c()
+        ds = SR_dataset(_X2, lib, y=_Y, ground_truth=["X_0", "+", "X_1"])
+        assert ds.ground_truth == Expression(["X_0", "+", "X_1"])
+        assert ds.ground_truth.symbol_library is lib
+        rebuilt = SR_dataset(_X2, lib, y=_Y, ground_truth=Expression(["X_0", "+", "C_0"], free_constants=[_FIX2]))
+        assert rebuilt.ground_truth.symbol_library is lib
+        assert rebuilt.ground_truth_constants == (_FIX2,)
+
+    # Reason: regression (a malformed ground truth was accepted and failed only when y or BED needed
+    # it) + clause (Raises ExpressionParseError if ground_truth does not parse).
+    def test_malformed_ground_truth_raises(self):
+        with pytest.raises(ExpressionParseError, match=r"^\[SR_dataset\] 'ground_truth' does not parse"):
+            SR_dataset(_X2, _lib2c(), y=_Y, ground_truth=["X_0", "+"])
+
+    # Reason: regression (from_samplers with symbol_library None ignored an Expression's library) +
+    # clause (None uses the Expression's own library).
+    def test_from_samplers_uses_the_expression_library(self):
+        lib = SymbolLibrary.default_symbols(1, const_symbol="K")
+        gt = Expression(["K_0", "*", "X_0"], lib, [Constant("K_0", value=2.0, fixed=True)])
+        ds = SR_dataset.from_samplers(gt, [UniformSampling(1, 2)], n_samples=5, seed=0)
+        assert ds.symbol_library is lib
+        np.testing.assert_allclose(ds.y, 2 * ds.X[:, 0])
+
+    # Reason: clause (Raises: a free spec of ground_truth has a value outside the bounds it takes from
+    # default_constant). The message names ground_truth.
+    def test_spec_outside_default_bounds_raises(self):
+        lib = _lib2c()
+        gt = Expression(["C_0", "*", "X_0"], lib, [Constant("C_0", value=9.0)])
+        with pytest.raises(ValueError, match=r"(?s)^\[SR_dataset\].*'ground_truth'.*outside 'bounds'") as info:
+            SR_dataset(_X2, lib, y=_Y, ground_truth=gt)
+        assert "free_constants" not in str(info.value)  # an argument the caller did not pass
 
     # Reason: clause (Constant: "a token the symbol library registers as a symbol (e.g. a named
     # constant C_1) is never a labelled constant"). With C_1 a named constant of value 3, a spec for it
@@ -368,23 +380,20 @@ class TestGroundTruthConstants:
         lib = SymbolLibrary.default_symbols(1)
         lib.add_symbol("C_1", "lit", 5, "3.0")
         with pytest.raises(ValueError, match=r"\['C_1'\]"):
-            SR_dataset(
-                np.zeros((3, 1)), lib, y=np.zeros(3), ground_truth=["X_0", "+", "C_1"],
-                ground_truth_constants=[Constant("C_1", value=1.0, fixed=True)],
-            )  # fmt: skip
+            Expression(["X_0", "+", "C_1"], lib, [Constant("C_1", value=1.0, fixed=True)])
         ds = SR_dataset.from_samplers(["X_0", "+", "C_1"], [UniformSampling(0, 1)], symbol_library=lib, n_samples=5)
         np.testing.assert_allclose(ds.y, ds.X[:, 0] + 3.0)
 
-    # Reason: clause (create_evaluator passes ground_truth_constants; RMSE generates y
+    # Reason: clause (create_evaluator passes the ground truth with its specs; RMSE generates y
     # with the fixed values). y = 2x + 2, so C*X_0 + C fits exactly with parameters (2, 2).
     def test_create_evaluator_passes_them(self):
         X = np.array([[1.0], [2.0], [3.0], [4.0]])
         ds = SR_dataset(
-            X, SymbolLibrary.default_symbols(1), ground_truth=["C_0", "*", "X_0", "+", "C_0"],
-            ground_truth_constants=[_FIX2],
+            X, SymbolLibrary.default_symbols(1),
+            ground_truth=Expression(["C_0", "*", "X_0", "+", "C_0"], free_constants=[_FIX2]),
         )  # fmt: skip
         ev = ds.create_evaluator(seed=0)
-        assert ev.ground_truth_constants == ds.ground_truth_constants
+        assert ev.ground_truth == ds.ground_truth
         assert ev.evaluate_expr(["C", "*", "X_0", "+", "C"]).error == pytest.approx(0.0, abs=1e-6)
         np.testing.assert_allclose(ev.models[-1].parameters, [2.0, 2.0], atol=1e-5)
 
@@ -393,11 +402,10 @@ class TestGroundTruthConstants:
     def test_y_uses_fixed_values(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "a")
         ds = SR_dataset.from_samplers(
-            ["C_0", "*", "X_0", "+", "C_0"],
+            Expression(["C_0", "*", "X_0", "+", "C_0"], _LIB1, [Constant("C_0", value=2.5, fixed=True)]),
             [UniformSampling(1, 2)],
             n_samples=10,
             seed=0,
-            ground_truth_constants=[Constant("C_0", value=2.5, fixed=True)],
             benchmark="b",
             version="1",
         )
@@ -411,6 +419,19 @@ class TestGroundTruthConstants:
         np.testing.assert_array_equal(restored.X, ds.X)
 
     # Reason: boundary (D14: format-4 files saved before the key existed still load).
+    # Reason: regression (specs without a ground truth were dropped without an error) + clause
+    # (from_dict Raises: ground_truth_constants without a ground_truth, or that do not fit it).
+    @pytest.mark.parametrize(
+        "ground_truth, match",
+        [(None, "given without a 'ground_truth'"), (["X_0"], "do not fit 'ground_truth'")],
+        ids=["no-ground-truth", "label-not-in-ground-truth"],
+    )
+    def test_from_dict_rejects_specs_that_do_not_fit(self, serialisable_dataset, ground_truth, match):
+        d = {**serialisable_dataset.to_dict(), "ground_truth": ground_truth}
+        d["ground_truth_constants"] = [_FIX2.to_dict()]
+        with pytest.raises(ValueError, match=rf"^\[SR_dataset\.from_dict\] 'ground_truth_constants' .*{match}"):
+            SR_dataset.from_dict(d)
+
     def test_format4_without_key_loads_as_none(self, serialisable_dataset):
         d = serialisable_dataset.to_dict()
         del d["ground_truth_constants"]
@@ -1039,7 +1060,7 @@ class TestCreateEvaluatorConstraints:
         ev = ds.create_evaluator(seed=0)
         assert tuple(ev.background_knowledge.constant_bounds) == bounds
         assert (ev.background_knowledge.samplers is not None) is has_samplers
-        assert ev.ground_truth_constants is None
+        assert ev.ground_truth is None or ev.ground_truth.free_constants == ()
         if has_samplers:
             assert _dicts(ev.background_knowledge.samplers) == _dicts(ds.samplers)
 
@@ -1090,8 +1111,10 @@ class TestFormat5:
             benchmark="b",
             version="1",
             ranking_function="bed",
-            ground_truth=["X_0", "+", "C_0", "+", "C"],
-            ground_truth_constants=[Constant("C_0", prior=UniformSampling(1, 2), bounds=(0, float("inf")))],
+            ground_truth=Expression(
+                ["X_0", "+", "C_0", "+", "C"],
+                free_constants=[Constant("C_0", prior=UniformSampling(1, 2), bounds=(0, float("inf")))],
+            ),
             default_constant=Constant(prior=LogUniformSampling(0.1, 10), bounds=(0, float("inf"))),
             max_evaluations=500,
             original_equation="F = x + c",
@@ -1798,8 +1821,7 @@ class TestDefaultConstant:
                 _X2,
                 _lib2c(),
                 y=_Y,
-                ground_truth=["C_0", "*", "X_0"],
-                ground_truth_constants=[Constant("C_0", value=9.0)],
+                ground_truth=Expression(["C_0", "*", "X_0"], free_constants=[Constant("C_0", value=9.0)]),
                 constant_bounds=(-2, 3),
                 default_constant=Constant(bounds=(0, float("inf"))),
                 benchmark="b",

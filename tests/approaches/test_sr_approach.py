@@ -28,6 +28,7 @@ from SRToolkit.evaluation import model_store
 from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.settings import Settings
@@ -269,18 +270,24 @@ def test_default_state_methods_round_trip_with_own_generator():
 
 
 class _Mixed(SteppedApproach):
-    # Proposes Candidates (with a free-constant spec: one as tokens, one as a tree), a Node and a token
-    # list, then stops.
+    # Proposes Candidates (Expressions with a free-constant spec: one from tokens, one from a tree), a
+    # Node and a token list, then stops.
     def ask(self, sr_evaluator, state):
         if state["asks"]:
             return []
         state["asks"] += 1
         self.proposed = [
-            Candidate(["C_0", "*", "X_0"], [_SPEC]),
+            Candidate(Expression(["C_0", "*", "X_0"], free_constants=[_SPEC])),
             Candidate(["C", "+", "X_0"]),
             tokens_to_tree(["X_0", "*", "X_0"], sr_evaluator.symbol_library),
             ["X_0"],
-            Candidate(tokens_to_tree(["C_0", "-", "X_0"], sr_evaluator.symbol_library), [_SPEC]),
+            Candidate(
+                Expression.from_tree(
+                    tokens_to_tree(["C_0", "-", "X_0"], sr_evaluator.symbol_library),
+                    sr_evaluator.symbol_library,
+                    [_SPEC],
+                )
+            ),
         ]
         return self.proposed
 
@@ -407,12 +414,12 @@ class _FieldLookup(SteppedApproach):
     _STEPS = [
         [
             Candidate(_EXPR),
-            Candidate(["C_0", "*", "X_0"], [_SPEC]),
+            Candidate(Expression(["C_0", "*", "X_0"], free_constants=[_SPEC])),
             Candidate(["C_0", "+", "X_0"]),
         ],
         [
             Candidate(_EXPR, skip="s"),
-            Candidate(["C_0", "*", "X_0"], [_SPEC], skip="s"),
+            Candidate(Expression(["C_0", "*", "X_0"], free_constants=[_SPEC]), skip="s"),
             Candidate(["C_0", "*", "X_0"], skip="s"),
             Candidate(["C_3", "+", "X_0"], skip="s"),
         ],
@@ -423,8 +430,8 @@ class _FieldLookup(SteppedApproach):
         return self._STEPS[state["asks"] - 1] if state["asks"] <= len(self._STEPS) else []
 
 
-# Reason: clause (Candidate: free_constants is used for evaluating; a skip is looked up "with its
-# specs") + the evaluator's simplify_expr and canonicalise_constants apply to both.
+# Reason: clause (Candidate: the expression's specs are used for evaluating; a skip is looked up
+# "with its specs") + the evaluator's simplify_expr and canonicalise_constants apply to both.
 def test_candidate_fields_and_settings_are_used_for_evaluation_and_lookup():
     se = SR_evaluator(
         np.ones((3, 2)),

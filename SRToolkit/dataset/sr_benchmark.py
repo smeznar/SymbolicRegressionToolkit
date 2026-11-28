@@ -5,13 +5,14 @@ import json
 import warnings
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
+from SRToolkit.evaluation.sr_evaluator import _as_ground_truth
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
-from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.settings import Settings
@@ -21,7 +22,7 @@ from . import data_cache
 from .background_knowledge import VariableInfo
 from .data_source import DataSource, SampleSource, _config_samplers
 from .sampling import Sampler
-from .sr_dataset import SR_dataset, _derive_equation, _ground_truth_specs, _resolve_task
+from .sr_dataset import SR_dataset, _derive_equation, _resolve_task
 
 
 def _save_arrays_to_cache(benchmark: str, version: str, name: str, X: np.ndarray, y: np.ndarray | None = None) -> None:
@@ -121,7 +122,7 @@ class SR_benchmark:
         dataset_name: str | None = None,
         ranking_function: str = "rmse",
         max_evaluations: int = -1,
-        ground_truth: list[str] | Node | None = None,
+        ground_truth: list[str] | Expression | None = None,
         original_equation: str | None = None,
         success_threshold: float | None = None,
         seed: int | None = None,
@@ -139,7 +140,6 @@ class SR_benchmark:
         max_expr_length: int | None = None,
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
-        ground_truth_constants: Iterable[Constant] | None = None,
         settings: Settings | None = None,
         ranking_resample: bool = False,
     ):
@@ -163,7 +163,10 @@ class SR_benchmark:
             ranking_function: ``"rmse"`` or ``"bed"``.
             max_evaluations: Maximum expressions to evaluate. Negative (default ``-1``) means no limit;
                 ``0`` is rejected.
-            ground_truth: Ground truth expression.
+            ground_truth: Ground truth expression, as a token list or an
+                [Expression][SRToolkit.utils.expression.Expression] carrying the specs of its
+                labelled constants, as for ``SR_dataset``; read in ``symbol_library``. Saved as
+                tokens, its specs as ``ground_truth_constants``.
             original_equation: Human-readable answer, as for
                 [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]; ``None`` is stored as ``None``
                 and derived when the dataset is built (see
@@ -196,8 +199,6 @@ class SR_benchmark:
             max_expr_length: Token limit, as for ``SR_dataset`` (``None``: no limit).
             required_constraints: Further required constraints, as for ``SR_dataset``.
             advisory_constraints: Hints about the search space, as for ``SR_dataset``.
-            ground_truth_constants: Specs for the ground truth's labelled constants, as for
-                ``SR_dataset``.
             settings: Settings of the evaluator, ranking and parameter estimation, as for
                 ``SR_dataset``.
             ranking_resample: Resample the ranking's randomness each run, as for ``SR_dataset``.
@@ -210,13 +211,13 @@ class SR_benchmark:
                 bare ndarray ``dataset``, not an ``(X, y)`` tuple); ``dataset`` is a tuple that is
                 not two numpy arrays; the data has a different number of columns than the symbol library
                 has variables; both ``dataset`` and ``data_source`` are ``None`` (the
-                dataset could never be loaded); ``ground_truth_constants`` is given without
-                ``ground_truth`` or does not fit it; ``"rmse"`` has to generate ``y`` (a bare
-                ndarray ``dataset``, or a ``SampleSource``, also inside a ``FallbackSource``) and a
-                free constant of ``ground_truth``
-                has no fixed value in ``ground_truth_constants``; or ``ground_truth`` cannot be
+                dataset could never be loaded); a free spec of ``ground_truth`` has a ``value``
+                outside the bounds it takes from ``default_constant``; ``"rmse"`` has to generate ``y`` (a bare ndarray ``dataset``, or a
+                ``SampleSource``, also inside a ``FallbackSource``) and a free constant of
+                ``ground_truth`` has no fixed value in its specs; or ``ground_truth`` cannot be
                 evaluated on a bare ndarray ``dataset`` (raised from the original error).
             TypeError: As for ``SR_dataset``.
+            ExpressionParseError: If ``ground_truth`` does not parse.
 
         Examples:
             >>> import numpy as np
@@ -267,14 +268,10 @@ class SR_benchmark:
             ranking_resample,
             X,
         )
-        # Ground truth is symbolic only (token list / Node). A precomputed ndarray behaviour
-        # matrix is ranking-owned state, not a dataset ground truth — reject it here.
-        if isinstance(ground_truth, np.ndarray):
-            raise ValueError(
-                "[SR_benchmark.add_dataset] An ndarray ground_truth (a precomputed BED behaviour matrix) is "
-                "not supported; provide a symbolic ground truth (a token list or a Node)."
-            )
-        gt_specs = _ground_truth_specs(ground_truth, ground_truth_constants, bk)
+        try:
+            gt = _as_ground_truth(ground_truth, bk.symbol_library, cast(Constant, bk.default_constant))
+        except (TypeError, ValueError) as e:
+            raise type(e)(f"[SR_benchmark.add_dataset] {e}") from None
         # RMSE generates y from the ground truth for a bare X or a SampleSource: its free constants
         # need fixed values, checked here before anything is written.
         parameters = None
@@ -283,21 +280,14 @@ class SR_benchmark:
         generates_y = any(isinstance(s, SampleSource) for s in sources) or (
             data_source is None and isinstance(dataset, np.ndarray)
         )
-        if ranking_function == "rmse" and ground_truth is not None and generates_y:
-            parameters = _ground_truth_parameters(
-                ground_truth, gt_specs, bk.symbol_library, f"[SR_benchmark.add_dataset] Dataset '{dataset_name}'"
-            )
+        if ranking_function == "rmse" and gt is not None and generates_y:
+            parameters = _ground_truth_parameters(gt, f"[SR_benchmark.add_dataset] Dataset '{dataset_name}'")
         symbol_library = bk.symbol_library
         if dataset is None and data_source is None:
             raise ValueError(
                 "[SR_benchmark.add_dataset] Give the data ('dataset') or a 'data_source' to generate it from; "
                 "without either the dataset could never be loaded."
             )
-
-        if isinstance(ground_truth, Node):
-            ground_truth_out: list[str] | str | None = ground_truth.to_list(symbol_library=symbol_library)
-        else:
-            ground_truth_out = ground_truth
 
         merged_metadata = copy.deepcopy(self.metadata)
         if dataset_metadata:
@@ -316,8 +306,12 @@ class SR_benchmark:
             "original_equation": original_equation,
             "settings": settings.to_dict(),
             "ranking_resample": ranking_resample,
-            "ground_truth": ground_truth_out,
-            "ground_truth_constants": None if gt_specs is None else [c.to_dict() for c in gt_specs],
+            "ground_truth": None if gt is None else list(gt.tokens),
+            "ground_truth_constants": (
+                [c.to_dict() for c in sorted(gt.free_constants, key=lambda c: c.label or "")]
+                if gt is not None and gt.free_constants
+                else None
+            ),
             "background_knowledge": bk.to_dict(),
             "required_constraints": [c.to_dict() for c in required],
             # Samplers and array data are validated to match the library's variables.
@@ -340,13 +334,13 @@ class SR_benchmark:
             entry["data_source"] = None
             if isinstance(dataset, np.ndarray):
                 if ranking_function == "rmse":
-                    if ground_truth is None:
+                    if gt is None:
                         raise ValueError(
                             "[SR_benchmark.add_dataset] For 'rmse' ranking, if the dataset argument is a numpy "
                             "array, the ground truth must be provided."
                         )
                     try:
-                        y = compile_expr(ground_truth, symbol_library)(dataset, parameters)
+                        y = compile_expr(gt)(dataset, parameters)
                     except Exception as e:
                         raise ValueError(
                             f"[SR_benchmark.add_dataset] Could not evaluate the ground truth. Original error: {e}"
@@ -376,7 +370,7 @@ class SR_benchmark:
 
     def add_from_samplers(
         self,
-        ground_truth: list[str] | Node,
+        ground_truth: list[str] | Expression,
         samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
         symbol_library: SymbolLibrary | None = None,
         n_samples: int = 10000,
@@ -398,7 +392,6 @@ class SR_benchmark:
         max_expr_length: int | None = None,
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
-        ground_truth_constants: Iterable[Constant] | None = None,
         settings: Settings | None = None,
         ranking_resample: bool = False,
     ) -> None:
@@ -413,12 +406,14 @@ class SR_benchmark:
         written to the data cache here.
 
         Args:
-            ground_truth: Ground-truth expression as a token list or
-                [Node][SRToolkit.utils.expression_tree.Node]; with ``ranking_function="rmse"``, every
-                free constant in it needs a fixed value in ``ground_truth_constants``.
+            ground_truth: Ground-truth expression as a token list or an
+                [Expression][SRToolkit.utils.expression.Expression] with its specs; with
+                ``ranking_function="rmse"``, every free constant in it needs a fixed value in its
+                specs.
             samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per variable, as a list
                 in the library's variable order or a mapping ``{token: sampler}``.
-            symbol_library: Token vocabulary. ``None`` uses
+            symbol_library: Token vocabulary. ``None`` uses the library of an ``Expression`` ground
+                truth, and for a token list
                 [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols]
                 with one variable per sampler.
             n_samples: Number of input rows to generate on materialisation. Defaults to ``10000``.
@@ -444,8 +439,6 @@ class SR_benchmark:
             max_expr_length: Token limit, as for ``SR_dataset`` (``None``: no limit).
             required_constraints: Further required constraints, as for ``SR_dataset``.
             advisory_constraints: Hints about the search space, as for ``SR_dataset``.
-            ground_truth_constants: Specs for the ground truth's labelled constants, as for
-                ``SR_dataset``.
             settings: Settings of the evaluator, ranking and parameter estimation, as for
                 ``SR_dataset``.
             ranking_resample: Resample the ranking's randomness each run, as for ``SR_dataset``.
@@ -454,6 +447,7 @@ class SR_benchmark:
             ValueError: If ``samplers`` is ``None`` or empty, or as for
                 [add_dataset][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_dataset].
             TypeError: As for ``add_dataset``.
+            ExpressionParseError: As for ``add_dataset``.
 
         Examples:
             >>> from SRToolkit.dataset.sampling import UniformSampling
@@ -470,7 +464,11 @@ class SR_benchmark:
                 "[SR_benchmark.add_from_samplers] 'samplers' must be non-empty (one sampler per input variable)."
             )
         if symbol_library is None:
-            symbol_library = SymbolLibrary.default_symbols(len(samplers))
+            symbol_library = (
+                ground_truth.symbol_library
+                if isinstance(ground_truth, Expression)
+                else SymbolLibrary.default_symbols(len(samplers))
+            )
 
         self.add_dataset(
             symbol_library=symbol_library,
@@ -496,7 +494,6 @@ class SR_benchmark:
             max_expr_length=max_expr_length,
             required_constraints=required_constraints,
             advisory_constraints=advisory_constraints,
-            ground_truth_constants=ground_truth_constants,
             settings=settings,
             ranking_resample=ranking_resample,
         )

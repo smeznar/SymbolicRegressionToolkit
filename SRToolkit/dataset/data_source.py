@@ -43,6 +43,7 @@ import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.dataset.sampling import Sampler, _sample_inputs
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -306,8 +307,9 @@ class SampleSource(DataSource):
         Raises:
             ValueError: If the config has no samplers, or ``ranking_function`` is ``"rmse"`` and
                 ``ground_truth`` is missing, an ndarray, or has a free constant without a fixed value
-                in ``ground_truth_constants``, or a ``ground_truth_constants`` label is not a
-                labelled constant of it.
+                in ``ground_truth_constants``, or its ``ground_truth_constants`` do not fit it (a
+                spec without a label, two specs with one label, or a label that is not a labelled
+                constant of it).
         """
         samplers_raw = _config_samplers(config)
         if not samplers_raw:
@@ -340,7 +342,7 @@ class SampleSource(DataSource):
                     "[SampleSource.materialize] ranking_function is 'rmse' but 'ground_truth' "
                     "is a numpy array (a behaviour matrix). Behaviour matrices are a 'bed' "
                     "concept and cannot be evaluated to produce targets 'y'. Provide the "
-                    "ground truth as a token list or Node expression for RMSE datasets."
+                    "ground truth as a token list for RMSE datasets."
                 )
             # Format 4 keeps the symbol library in "background_knowledge"; formats 2 and 3 at the top level.
             bk = config.get("background_knowledge")
@@ -349,11 +351,13 @@ class SampleSource(DataSource):
                 sl = SymbolLibrary.from_dict(sl_dict)
             else:
                 sl = SymbolLibrary.default_symbols(X.shape[1])
+            context = f"[SampleSource.materialize] Dataset '{config.get('dataset_name', 'unnamed')}'"
             specs = [Constant.from_dict(c) for c in config.get("ground_truth_constants") or ()]
-            parameters = _ground_truth_parameters(
-                ground_truth, specs, sl, f"[SampleSource.materialize] Dataset '{config.get('dataset_name', 'unnamed')}'"
-            )
-            y = compile_expr(ground_truth, sl)(X, parameters)
+            try:
+                expr = Expression(ground_truth, sl, specs)
+            except ValueError as e:
+                raise ValueError(f"{context} 'ground_truth_constants': {e}") from None
+            y = compile_expr(expr)(X, _ground_truth_parameters(expr, context))
 
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         if y is not None:

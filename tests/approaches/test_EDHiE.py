@@ -24,6 +24,7 @@ from SRToolkit.dataset.sr_dataset import SR_dataset  # noqa: E402
 from SRToolkit.evaluation import SR_evaluator  # noqa: E402
 from SRToolkit.evaluation.model_store import ModelStore  # noqa: E402
 from SRToolkit.evaluation.results import SR_results  # noqa: E402
+from SRToolkit.utils.expression import Expression  # noqa: E402
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, RequiredVariables  # noqa: E402
 from SRToolkit.utils.expression_tree import tokens_to_tree  # noqa: E402
 from SRToolkit.utils.grammar.grammar import Grammar, Rule  # noqa: E402
@@ -230,12 +231,10 @@ def test_from_config_defaults_for_older_configs():
 # Step interface (checkpoint stage 4)
 # --------------------------------------------------------------------------- #
 def _proposals(candidates):
-    """(tokens, evaluate) per proposed candidate, None for a None entry; bare token lists and Nodes are evaluated."""
+    """(tokens, evaluate) per proposed candidate, None for a None entry; bare expressions are evaluated."""
     wrapped = [c if c is None or isinstance(c, Candidate) else Candidate(c) for c in candidates]
     return [
-        None
-        if c is None
-        else (tuple(c.expr if isinstance(c.expr, list) else c.expr.to_list(symbol_library=_lib())), c.skip is None)
+        None if c is None else (tuple(c.expr if isinstance(c.expr, list) else c.expr.tokens), c.skip is None)
         for c in wrapped
     ]
 
@@ -261,6 +260,21 @@ def test_ask_proposes_evaluated_and_repeated_expressions_as_lookups(trained_mode
     assert _proposals(second.ask(se_with_model, second.start(se_with_model, seed=0))) == [
         (t, e and t != looked_up) for t, e in proposals
     ]
+
+
+# Reason: implied (ask builds one Expression per decoded individual and passes that object to
+# stored_tokens, get_model, check_constraints and the proposal, so each individual is parsed once).
+@pytest.mark.filterwarnings("ignore::UserWarning")
+def test_ask_passes_one_expression_per_individual(trained_model, monkeypatch):
+    approach, se = _stepper(trained_model), _evaluator()
+    received = []
+    for name in ("stored_tokens", "get_model", "check_constraints"):
+        method = getattr(se, name)
+        monkeypatch.setattr(se, name, lambda expr, method=method: received.append(expr) or method(expr))
+    candidates = approach.ask(se, approach.start(se, seed=0))
+    proposed = [c.expr if isinstance(c, Candidate) else c for c in candidates if c is not None]
+    assert proposed and all(isinstance(e, Expression) for e in proposed)
+    assert {id(e) for e in received} == {id(e) for e in proposed}
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")

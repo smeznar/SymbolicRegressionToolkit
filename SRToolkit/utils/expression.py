@@ -3,14 +3,33 @@
 An ``Expression`` is the form that functions accept besides token lists. It holds the tokens, the
 symbol library they are written in and the specs of its labelled constants (see
 [free_constants][SRToolkit.utils.free_constants]), and computes its tree and other facts once, so an
-expression used several times is parsed once.
+expression used several times is parsed once. [canonicalise][SRToolkit.utils.expression.canonicalise]
+rewrites how an expression's constants are written.
+
+A function given an ``Expression`` and ``symbol_library=None`` uses the expression's own library; a
+function given another library reads the expression's tokens in that library (it is rebuilt from its
+tokens and specs). Functions that rewrite an expression
+([simplify][SRToolkit.utils.expression_simplifier.simplify],
+[fold][SRToolkit.utils.expression_simplifier.fold], ``canonicalise``) return an ``Expression`` in
+its library, the given one itself if nothing changes. Stored results are tokens:
+[ModelResult.expr][SRToolkit.utils.types.ModelResult] and saved files hold tokens, with the specs
+alongside.
 """
 
+from collections import Counter
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any
 
-from .expression_tree import ExpressionParseError, Node, _check_tokens, parameter_labels, tokens_to_tree
-from .free_constants import Constant, _spec_key, _specs_by_label, resolve_constants
+from .expression_tree import (
+    ExpressionParseError,
+    Node,
+    _check_tokens,
+    _constant_indices,
+    _parameter_labels,
+    tokens_to_tree,
+)
+from .free_constants import Constant, _check_default_constant, _spec_key, _specs_by_label
 from .symbol_library import SymbolLibrary
 
 
@@ -205,13 +224,22 @@ class Expression:
 
     @property
     def parameter_labels(self) -> tuple[str | None, ...]:
-        """The label of each free parameter, or ``None`` for a bare constant.
+        """The label of each parameter (fixed constants included), or ``None`` for a bare constant.
 
-        As [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] returns them, read
-        from the tokens without parsing.
+        The fitted values of an expression
+        ([ModelResult.parameters][SRToolkit.utils.types.ModelResult], the ``C`` argument of
+        [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]) are a flat array; this
+        says which constant each entry belongs to, in the order of that array. A label is one entry
+        however often it occurs; each bare ``C`` is its own entry. Read from the tokens without
+        parsing.
+
+        Examples:
+            >>> expr = Expression(["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C", "*", "C_5"])
+            >>> expr.parameter_labels
+            (None, 'C_5', None)
         """
         if self._parameter_labels is None:
-            self._parameter_labels = tuple(parameter_labels(list(self._tokens), self._symbol_library))
+            self._parameter_labels = tuple(_parameter_labels(list(self._tokens), self._symbol_library))
         return self._parameter_labels
 
     @property
@@ -238,19 +266,25 @@ class Expression:
     def resolve(self, default_constant: Constant) -> tuple[Constant, ...]:
         """Return one complete spec per parameter.
 
-        As [resolve_constants][SRToolkit.utils.free_constants.resolve_constants] does for the
-        expression's specs.
+        Each labelled constant with a spec gets that spec, with a ``prior`` or ``bounds`` of
+        ``None`` taken from ``default_constant``. Every other parameter (each bare ``C``, and
+        labelled constants without a spec) gets ``default_constant`` itself. Use it to see what an
+        expression is fitted under, e.g. to resample the constants of a saved result.
 
         Args:
-            default_constant: The default spec, for parameters without a spec.
+            default_constant: The default spec, for parameters without a spec: a template with
+                ``prior`` and ``bounds`` set and no ``label``, ``value`` or ``fixed``, e.g. from
+                [uniform_default][SRToolkit.utils.free_constants.uniform_default].
 
         Returns:
             One spec per parameter, in the order of
-            [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels].
+            [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels]; ``label``
+            is ``None`` for every parameter that uses the default spec. Empty if the expression has
+            no free constants.
 
         Raises:
-            ValueError: If ``default_constant`` is not a valid default spec, or a spec that is not
-                fixed has a ``value`` outside the bounds it inherits from ``default_constant``.
+            ValueError: If ``default_constant`` is not such a template, or a spec that is not fixed
+                has a ``value`` outside the bounds it takes from ``default_constant``.
 
         Examples:
             >>> from SRToolkit.utils.free_constants import uniform_default
@@ -259,7 +293,26 @@ class Expression:
             >>> [(s.label, s.value, s.bounds) for s in expr.resolve(uniform_default((-5.0, 5.0)))]
             [(None, None, (-5.0, 5.0)), ('C_1', 2.0, (-5.0, 5.0))]
         """
-        return resolve_constants(list(self._tokens), self._free_constants, default_constant, self._symbol_library)
+        _check_default_constant(default_constant)
+        d = default_constant
+        specs = {spec.label: spec for spec in self._free_constants}
+        resolved = []
+        for label in self.parameter_labels:
+            given = specs.get(label) if label is not None else None
+            if given is None:
+                resolved.append(d)
+                continue
+            try:
+                resolved.append(
+                    replace(
+                        given,
+                        prior=d.prior if given.prior is None else given.prior,
+                        bounds=d.bounds if given.bounds is None else given.bounds,
+                    )
+                )
+            except ValueError as e:  # a free value outside the inherited bounds
+                raise ValueError(f"'free_constants': {e}") from None
+        return tuple(resolved)
 
     def to_latex(self) -> str:
         """Return the expression as a LaTeX string.
@@ -299,6 +352,65 @@ class Expression:
 
     def __reduce__(self) -> tuple[Any, ...]:
         return type(self), (list(self._tokens), self._symbol_library, self._free_constants or None)
+
+
+def canonicalise(expr: list[str] | Expression, symbol_library: SymbolLibrary | None = None) -> Expression:
+    """Rewrite the free constants of an expression in a canonical way.
+
+    A parameter that occurs once is written bare (``C``, the library's constant symbol); one that
+    occurs more than once is labelled. Labels ``C_0``, ``C_1``, ... are given out one per parameter
+    (bare ones included) in the order of the parameter vector (see
+    [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels]), skipping names
+    the library registers as symbols, so a shared constant at position ``k`` is ``C_k`` unless an
+    earlier name was skipped. Expressions that differ only in how their constants are written then
+    have one form. The parameter vector keeps its length and order, and applying the rewrite again
+    changes nothing. Only looks at tokens; does not parse.
+
+    Args:
+        expr: The expression, as a token list or an
+            [Expression][SRToolkit.utils.expression.Expression] without specs.
+        symbol_library: Symbol library used to recognise constants. ``None`` uses the expression's
+            own library, or the active or default one for a token list.
+
+    Returns:
+        The canonical expression, in the library of ``expr``. An ``Expression`` that does not
+        change (only bare constants, or a library without a constant symbol) is returned itself.
+
+    Raises:
+        TypeError: If ``expr`` is neither a list or tuple of token strings nor an ``Expression``
+            (a [Node][SRToolkit.utils.expression_tree.Node] is rejected).
+        ValueError: If ``expr`` has specs: the rewrite drops the labels they refer to.
+
+    Examples:
+        >>> str(canonicalise(["C_0", "*", "X_0", "+", "C_1", "*", "X_1"]))
+        'C*X_0+C*X_1'
+        >>> str(canonicalise(["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C_5"]))
+        'C*X_0+C_1*X_1+C_1'
+    """
+    expr = _as_expression(expr, symbol_library)
+    if expr.free_constants:
+        raise ValueError("canonicalise drops the labels that the specs of expr refer to; give it one without specs.")
+    sl = expr.symbol_library
+    tokens = list(expr.tokens)
+    symbol = sl.constant_symbol
+    indices = _constant_indices(tokens, sl)
+    names = []
+    k = 0
+    for _ in range(len(set(indices))):
+        while f"{symbol}_{k}" in sl.symbols:
+            k += 1
+        names.append(f"{symbol}_{k}")
+        k += 1
+    counts = Counter(indices)
+    occurrences = iter(indices)
+    result = []
+    for token in tokens:
+        if (s := sl.get(token)) is not None and s.type == "const":
+            index = next(occurrences)
+            result.append(names[index] if counts[index] > 1 else str(symbol))
+        else:
+            result.append(token)
+    return expr if tuple(result) == expr.tokens else Expression(result, sl)
 
 
 def _as_expression(expr: Any, symbol_library: SymbolLibrary | None = None, name: str = "expr") -> Expression:

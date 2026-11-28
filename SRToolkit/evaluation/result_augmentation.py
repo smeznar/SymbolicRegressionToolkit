@@ -11,7 +11,7 @@ required methods.
 
 import copy
 import warnings
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
@@ -20,8 +20,8 @@ from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.results import ResultAugmenter
 from SRToolkit.evaluation.sr_evaluator import evaluate_metric
-from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
-from SRToolkit.utils.expression import Expression
+from SRToolkit.utils import SymbolLibrary, simplify
+from SRToolkit.utils.expression import Expression, _to_expression
 from SRToolkit.utils.expression_simplifier import (
     DefaultRules,
     SimplificationRules,
@@ -92,9 +92,7 @@ class ExpressionToLatex(ResultAugmenter):
             )
         eval_data: dict[str, Any] = {}
         try:
-            eval_data["best_expr_latex"] = tokens_to_tree(results.top_models(1)[0].expr, self.symbol_library).to_latex(
-                self.symbol_library
-            )
+            eval_data["best_expr_latex"] = Expression(results.top_models(1)[0].expr, self.symbol_library).to_latex()
         except Exception as e:
             if self.verbose:
                 warnings.warn(f"Unable to convert best expression to LaTeX: {e}")
@@ -105,7 +103,7 @@ class ExpressionToLatex(ResultAugmenter):
             try:
                 model.add_augmentation(
                     self.name,
-                    {"expr_latex": tokens_to_tree(model.expr, self.symbol_library).to_latex(self.symbol_library)},
+                    {"expr_latex": Expression(model.expr, self.symbol_library).to_latex()},
                     self._type,
                 )
             except Exception as e:
@@ -289,15 +287,13 @@ class ExpressionSimplifier(ResultAugmenter):
                     "fold": self.fold,
                     "fold_aware": self.fold_aware,
                 }
-                simplified, _ = simplify(
-                    model.expr,
-                    self.symbol_library,
-                    model.free_constants,
-                    self.rules,
+                simplified = simplify(
+                    Expression(model.expr, self.symbol_library, model.free_constants),
+                    rules=self.rules,
                     max_time=self.max_time,
                     **{k: v for k, v in options.items() if v is not None},
                 )
-                data[key] = "".join(cast(list[str], simplified))  # model.expr is a token list
+                data[key] = str(simplified)
                 if self.fold not in (None, "none"):
                     data["folded"] = True
             except Exception as e:
@@ -405,8 +401,7 @@ class HoldoutMetric(ResultAugmenter):
         | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float]
         | RankingFunction = "rmse",
         scope: str = "top",
-        ground_truth: list | Node | None = None,
-        ground_truth_constants: Sequence[Constant] | None = None,
+        ground_truth: list[str] | Expression | None = None,
         background_knowledge: "BackgroundKnowledge | None" = None,
         settings: Settings | None = None,
         seed: int | None = 0,
@@ -457,10 +452,10 @@ class HoldoutMetric(ResultAugmenter):
                 a ``RankingFunction`` or a separate augmenter. Default ``"rmse"``.
             scope: Which models to score: ``"best"``, ``"top"`` (the result's top models), or
                 ``"all"``. Default ``"top"``.
-            ground_truth: Ground-truth expression passed to a ``RankingFunction`` metric's setup
-                (e.g. for BED). Unused otherwise.
-            ground_truth_constants: Specs for the labelled constants of ``ground_truth``, passed
-                to a ``RankingFunction`` metric's setup. Unused otherwise.
+            ground_truth: Ground-truth expression, as a token list or an
+                [Expression][SRToolkit.utils.expression.Expression] with its specs, read in the
+                symbol library of ``background_knowledge`` and passed to a ``RankingFunction``
+                metric's setup (e.g. for BED). Unused otherwise.
             background_knowledge: The task. Expressions are compiled with its ``symbol_library``
                 and fitted with its ``default_constant``; a ``RankingFunction`` metric's setup gets
                 all of it (e.g. BED's ``samplers``). ``None``: a
@@ -483,7 +478,9 @@ class HoldoutMetric(ResultAugmenter):
                 ``RankingFunction`` metric.
             TypeError: If ``data`` is neither a ``DataSplit`` nor an ``(X[, y])`` tuple,
                 ``metric`` is not a string, callable, or ``RankingFunction``, ``settings`` is not a
-                ``Settings`` or ``background_knowledge`` is not a ``BackgroundKnowledge``.
+                ``Settings`` or ``background_knowledge`` is not a ``BackgroundKnowledge``, or a
+                ``RankingFunction`` metric gets a ``ground_truth`` that is neither a list of token
+                strings nor an ``Expression``.
 
         Examples:
             >>> from SRToolkit.evaluation import SR_evaluator
@@ -550,8 +547,7 @@ class HoldoutMetric(ResultAugmenter):
             self.metric.setup(
                 self._X,
                 self._y,
-                ground_truth,
-                ground_truth_constants,
+                None if ground_truth is None else _to_expression(ground_truth, self.symbol_library, "ground_truth"),
                 background_knowledge,
                 seed if ranking_seed is None else ranking_seed,
                 self.settings,

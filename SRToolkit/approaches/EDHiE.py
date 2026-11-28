@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from tqdm import tqdm
 
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
+from SRToolkit.utils import Expression, Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
 from .sr_approach import ApproachConfig, Candidate, SR_approach, check_dependencies
@@ -378,7 +378,7 @@ class EDHiE(SR_approach):
             random.seed(seed)
         return _GASearch(self._new_ga(seed))
 
-    def ask(self, sr_evaluator: SR_evaluator, state: _GASearch) -> list[Candidate | list[str] | Node | None]:
+    def ask(self, sr_evaluator: SR_evaluator, state: _GASearch) -> list[Candidate | list[str] | Expression | None]:
         """Decode the next generation and propose one entry per individual, in order.
 
         See [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]. Each individual is proposed as the first of
@@ -403,19 +403,21 @@ class EDHiE(SR_approach):
         X = state.pending.get("X")
         device = next(self.model.parameters()).device
         trees = self.model.decode(torch.tensor(X, device=device, dtype=torch.float32))
-        candidates: list[Candidate | list[str] | Node | None] = []
+        candidates: list[Candidate | list[str] | Expression | None] = []
         evaluated: set[tuple[str, ...]] = set()  # stored forms of the expressions proposed for evaluation
         for tree in trees:
             if tree is None:  # Shouldn't happen but just to be safe
                 candidates.append(None)
                 continue
-            key = tuple(sr_evaluator.stored_tokens(tree))
-            if self.skip_evaluated and (key in evaluated or sr_evaluator.get_model(tree) is not None):
-                candidates.append(Candidate(tree, skip="evaluated"))
-            elif self.skip_rejected and sr_evaluator.check_constraints(tree)[0]:
-                candidates.append(Candidate(tree, skip="rejected"))
+            # One Expression per individual, so the lookups below and the evaluation parse it once.
+            expr = Expression.from_tree(tree, sr_evaluator.symbol_library)
+            key = tuple(sr_evaluator.stored_tokens(expr))
+            if self.skip_evaluated and (key in evaluated or sr_evaluator.get_model(expr) is not None):
+                candidates.append(Candidate(expr, skip="evaluated"))
+            elif self.skip_rejected and sr_evaluator.check_constraints(expr)[0]:
+                candidates.append(Candidate(expr, skip="rejected"))
             else:
-                candidates.append(tree)
+                candidates.append(expr)
                 evaluated.add(key)
         return candidates
 
@@ -423,7 +425,7 @@ class EDHiE(SR_approach):
         self,
         sr_evaluator: SR_evaluator,
         state: _GASearch,
-        candidates: list[Candidate | list[str] | Node | None],
+        candidates: list[Candidate | list[str] | Expression | None],
         results: "list[ModelResult | None]",
     ) -> None:
         """Score the generation from ``ask`` and select the next population.

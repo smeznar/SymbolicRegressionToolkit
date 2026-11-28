@@ -181,7 +181,7 @@ class EvaluatorSettings(SettingsSection):
             store the simplified form, so inputs that simplify alike share one cache entry.
             Slower; the stored expression is never longer than the input (brackets aside).
             Default ``False``.
-        canonicalise_constants: [Canonicalise][SRToolkit.utils.free_constants.canonicalise] every
+        canonicalise_constants: [Canonicalise][SRToolkit.utils.expression.canonicalise] every
             expression after simplifying and folding, so ``C_1*X_0 + C_1`` after
             ``C_0*X_0 + C_0`` is a cache hit. Not applied to an expression that still has
             free-constant specs after simplifying and folding. Default ``False``.

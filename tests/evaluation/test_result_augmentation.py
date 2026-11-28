@@ -133,17 +133,28 @@ class TestExpressionToLatexWriteResults:
         ExpressionToLatex(_sl, scope="all").write_results(result)
         assert "ExpressionToLatex" in result.all_models[1].augmentations
 
+    # Reason: clause (the expressions are read in the augmenter's symbol_library): K is a constant only
+    # in that library, for the best expression and for each scoped model.
+    def test_uses_its_symbol_library(self):
+        lib = SymbolLibrary.default_symbols(2, const_symbol="K")
+        se = _rmse_se(symbol_library=lib)
+        se.evaluate_expr(["K", "*", "X_1"])
+        result = se.get_results(top_k=1)[0]
+        ExpressionToLatex(lib, scope="top").write_results(result)
+        assert result.augmentations["ExpressionToLatex"]["best_expr_latex"] == r"$K_{0} \cdot X_{1}$"
+        assert result.top_models()[0].augmentations["ExpressionToLatex"]["expr_latex"] == r"$K_{0} \cdot X_{1}$"
+
     def test_best_expr_failure_verbose_warns(self):
         _, result = _one_model_result()
         aug = ExpressionToLatex(_sl, scope="best", verbose=True)
-        with patch("SRToolkit.evaluation.result_augmentation.tokens_to_tree", side_effect=ValueError("bad")):
+        with patch.object(Expression, "to_latex", side_effect=ValueError("bad")):
             with pytest.warns(UserWarning, match="best expression"):
                 aug.write_results(result)
 
     def test_best_expr_failure_silent(self):
         _, result = _one_model_result()
         aug = ExpressionToLatex(_sl, scope="best", verbose=False)
-        with patch("SRToolkit.evaluation.result_augmentation.tokens_to_tree", side_effect=ValueError("bad")):
+        with patch.object(Expression, "to_latex", side_effect=ValueError("bad")):
             with patch("SRToolkit.evaluation.result_augmentation.warnings.warn") as mock_warn:
                 aug.write_results(result)
         mock_warn.assert_not_called()
@@ -153,8 +164,9 @@ class TestExpressionToLatexWriteResults:
         aug = ExpressionToLatex(_sl, scope="top", verbose=True)
         mock_tree = MagicMock()
         mock_tree.to_latex.return_value = "$X_0$"
-        with patch(
-            "SRToolkit.evaluation.result_augmentation.tokens_to_tree",
+        with patch.object(
+            Expression,
+            "to_latex",
             side_effect=[mock_tree, ValueError("model fail")],
         ):
             with pytest.warns(UserWarning):
@@ -165,8 +177,9 @@ class TestExpressionToLatexWriteResults:
         aug = ExpressionToLatex(_sl, scope="top", verbose=False)
         mock_tree = MagicMock()
         mock_tree.to_latex.return_value = "$X_0$"
-        with patch(
-            "SRToolkit.evaluation.result_augmentation.tokens_to_tree",
+        with patch.object(
+            Expression,
+            "to_latex",
             side_effect=[mock_tree, ValueError("model fail")],
         ):
             with patch("SRToolkit.evaluation.result_augmentation.warnings.warn") as mock_warn:
@@ -180,8 +193,9 @@ class TestExpressionToLatexWriteResults:
         mock_tree = MagicMock()
         mock_tree.to_latex.return_value = "$X_0$"
         # calls: best_expr, all_models[0], all_models[1] (fails)
-        with patch(
-            "SRToolkit.evaluation.result_augmentation.tokens_to_tree",
+        with patch.object(
+            Expression,
+            "to_latex",
             side_effect=[mock_tree, mock_tree, ValueError("all fail")],
         ):
             with pytest.warns(UserWarning):
@@ -313,6 +327,16 @@ class TestExpressionSimplifierInit:
 
 
 class TestExpressionSimplifierWriteResults:
+    # Reason: clause (the expressions are read in the augmenter's symbol_library): K is a constant only
+    # in that library, so K + X_1 - X_1 simplifies to K there.
+    def test_uses_its_symbol_library(self):
+        lib = SymbolLibrary.default_symbols(2, const_symbol="K")
+        se = _rmse_se(symbol_library=lib)
+        se.evaluate_expr(["K", "+", "X_1", "-", "X_1"])
+        result = se.get_results(top_k=1)[0]
+        ExpressionSimplifier(lib, scope="best").write_results(result)
+        assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "K"
+
     def test_best_scope_writes_simplified_best_expr(self):
         _, result = _one_model_result()
         ExpressionSimplifier(_sl, scope="best").write_results(result)
@@ -356,7 +380,7 @@ class TestExpressionSimplifierWriteResults:
         aug = ExpressionSimplifier(_sl, scope="top", verbose=True)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[(["X_0"], None), ValueError("model fail")],
+            side_effect=[Expression(["X_0"], _sl), ValueError("model fail")],
         ):
             with pytest.warns(UserWarning, match="model fail"):
                 aug.write_results(result)
@@ -367,47 +391,12 @@ class TestExpressionSimplifierWriteResults:
         aug = ExpressionSimplifier(_sl, scope="top", verbose=False)
         with patch(
             "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[(["X_0"], None), ValueError("model fail")],
+            side_effect=[Expression(["X_0"], _sl), ValueError("model fail")],
         ):
             with patch("SRToolkit.evaluation.result_augmentation.warnings.warn") as mock_warn:
                 aug.write_results(result)
         mock_warn.assert_not_called()
         assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "X_0"
-
-    def test_best_expr_invalid_return_warns_verbose(self):
-        # simplify returns a pair whose expression is not a token list: nothing is stored, a warning
-        _, result = _one_model_result()
-        aug = ExpressionSimplifier(_sl, scope="best", verbose=True)
-        with patch("SRToolkit.evaluation.result_augmentation.simplify", return_value=(42, None)):
-            with pytest.warns(UserWarning, match="Unable to simplify"):
-                aug.write_results(result)
-        assert "simplified_best_expr" not in result.augmentations["ExpressionSimplifier"]
-
-    def test_top_model_invalid_return_warns_verbose(self):
-        # The top model's simplified expression is not a token list: warning, nothing stored for it
-        _, result = _one_model_result()
-        aug = ExpressionSimplifier(_sl, scope="top", verbose=True)
-        with patch(
-            "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[(["X_0"], None), (42, None)],
-        ):
-            with pytest.warns(UserWarning, match="Unable to simplify"):
-                aug.write_results(result)
-        assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == "X_0"
-        assert "simplified_expr" not in result.top_models()[0].augmentations["ExpressionSimplifier"]
-
-    def test_all_model_invalid_return_warns_verbose(self):
-        # The second model's simplified expression is not a token list: warning, nothing stored for it
-        _, result = _two_model_result()
-        aug = ExpressionSimplifier(_sl, scope="all", verbose=True)
-        with patch(
-            "SRToolkit.evaluation.result_augmentation.simplify",
-            side_effect=[(["X_0"], None), (["X_0"], None), (42, None)],
-        ):
-            with pytest.warns(UserWarning, match="Unable to simplify"):
-                aug.write_results(result)
-        assert result.all_models[0].augmentations["ExpressionSimplifier"]["simplified_expr"] == "X_0"
-        assert "simplified_expr" not in result.all_models[1].augmentations["ExpressionSimplifier"]
 
     # Reason: boundary ("A result without models gets an entry without simplified_best_expr").
     def test_result_without_models_gets_entry_without_expression(self):
@@ -1049,7 +1038,7 @@ def _values(result, name="HoldoutMetric"):
 class _RecordingRanking(RankingFunction):
     name = "recording"
 
-    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
+    def setup(self, X, y, ground_truth, background_knowledge, seed, settings):
         self.received = []
 
     def score(self, expr):
@@ -1060,32 +1049,33 @@ class _RecordingRanking(RankingFunction):
 class _TaskRecordingRanking(RankingFunction):
     name = "task_recording"
 
-    def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
-        self.args = (ground_truth, ground_truth_constants, background_knowledge, seed, settings)
+    def setup(self, X, y, ground_truth, background_knowledge, seed, settings):
+        self.args = (ground_truth, background_knowledge, seed, settings)
 
     def score(self, expr):
         return RankingResult(score=0.0)
 
 
 class TestHoldoutMetricRankingSetup:
-    # Reason: clause (a RankingFunction metric's setup gets ground_truth, ground_truth_constants, all of
-    # the background knowledge and the settings; the seed when no ranking_seed is set).
+    # Reason: clause (a RankingFunction metric's setup gets ground_truth with its specs, in the background
+    # knowledge's library, all of the background knowledge and the settings; the seed when no
+    # ranking_seed is set).
     def test_ranking_metric_setup_gets_task_facts_and_settings(self):
-        gt, specs = ["X_0", "+", "C_0"], [_fix("C_0", 1.0)]
+        gt = Expression(["X_0", "+", "C_0"], free_constants=[_fix("C_0", 1.0)])
         bk = BackgroundKnowledge(_sl, samplers=[UniformSampling(0, 1)] * 2)
         settings = Settings(bed={"num_points_sampled": 3})
         aug = HoldoutMetric(
             (_X_TEST,),
             metric=_TaskRecordingRanking(),
             ground_truth=gt,
-            ground_truth_constants=specs,
             background_knowledge=bk,
             settings=settings,
             seed=4,
         )
         received = aug.metric.args
-        assert received[0] is gt and received[1] is specs and received[2] is bk and received[4] is settings
-        assert received[3] == 4
+        assert received[0] == gt and received[0].symbol_library is _sl
+        assert received[1] is bk and received[3] is settings
+        assert received[2] == 4
 
 
 class TestHoldoutMetricSpecs:

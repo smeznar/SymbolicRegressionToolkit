@@ -11,8 +11,8 @@ A run is configured by one [Settings][SRToolkit.utils.settings.Settings] object,
 ([EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]: stored form, limits, skip limit,
 backend, ``ranking_seed``); the ranking reads its own section and shared ones (see
 [ranking][SRToolkit.evaluation.ranking]). Facts about the task are not settings: ``constant_bounds``,
-``default_constant``, ``samplers`` and ``ground_truth_constants`` are arguments of the evaluator,
-which passes the first three to the ranking in its
+``default_constant`` and ``samplers`` are arguments of the evaluator, which passes them to the
+ranking in its
 [background_knowledge][SRToolkit.evaluation.sr_evaluator.SR_evaluator.background_knowledge].
 
 ## Evaluation statuses
@@ -105,7 +105,7 @@ produce, in this order:
    expression is still canonicalised token by token in step 3.
 2. ``fold_constants``: [folded][SRToolkit.utils.expression_simplifier.fold] (during simplification
    with ``simplify_expr``, otherwise on the expression as given).
-3. ``canonicalise_constants``: [canonicalised][SRToolkit.utils.free_constants.canonicalise], only
+3. ``canonicalise_constants``: [canonicalised][SRToolkit.utils.expression.canonicalise], only
    if no specs are left.
 
 Simplifying and folding drop the specs of the labels they remove; if none remain, the model is one
@@ -230,8 +230,8 @@ it with ``resume=True``. A resume must match the saved run in:
 - the data, ranking, symbols, ground truth and seed;
 - the constraints (``evaluator.max_constants`` and ``evaluator.max_expr_length`` are compared as
   the ``MaxConstants`` / ``MaxTokens`` they add to the required constraints);
-- ``default_constant``, ``constant_bounds``, ``samplers`` and ``ground_truth_constants`` (in any
-  order; ``[]`` is the same as ``None``);
+- ``default_constant``, ``constant_bounds``, ``samplers`` and the ground truth's specs (compared
+  in any order);
 - ``max_evaluations`` and ``success_threshold``, which only
   [extending the run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] changes;
 - every setting that differs from its default, in every section, whether the ranking reads it or
@@ -298,7 +298,7 @@ from SRToolkit.evaluation.callbacks import (
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot, _capture_rngs
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.evaluation.results import SR_results
-from SRToolkit.utils.expression import Expression, _to_expression
+from SRToolkit.utils.expression import Expression, _to_expression, canonicalise
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import (
     ExpressionConstraint,
@@ -308,8 +308,8 @@ from SRToolkit.utils.expression_constraints import (
     _validate_limit,
 )
 from SRToolkit.utils.expression_simplifier import fold, simplify
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tokens
-from SRToolkit.utils.free_constants import Constant, _spec_key, canonicalise
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node
+from SRToolkit.utils.free_constants import Constant, _spec_key
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
@@ -479,6 +479,38 @@ def _failed_checks(
     return failed
 
 
+def _as_ground_truth(ground_truth: Any, symbol_library: SymbolLibrary, default_constant: Constant) -> Expression | None:
+    """Return a ground truth as an ``Expression`` in ``symbol_library``, checked to parse and to fit the default spec.
+
+    Shared by SR_evaluator, SR_dataset and SR_benchmark.add_dataset, which prefix the message.
+
+    Raises:
+        TypeError: If ``ground_truth`` is neither a token list nor an ``Expression``.
+        ExpressionParseError: If it does not parse.
+        ValueError: If it is an ndarray, or a free spec's ``value`` is outside the bounds it takes
+            from ``default_constant``.
+    """
+    if ground_truth is None:
+        return None
+    if isinstance(ground_truth, np.ndarray):
+        raise ValueError(
+            "An ndarray ground_truth (a precomputed BED behaviour matrix) is not supported; provide a symbolic "
+            "ground truth (a token list or an Expression). Pass a precomputed behaviour matrix to the BED ranking."
+        )
+    expr = _to_expression(ground_truth, symbol_library, "ground_truth")
+    try:
+        expr.tree
+    except ExpressionParseError as e:
+        raise ExpressionParseError(f"'ground_truth' does not parse: {e}") from None
+    try:
+        expr.resolve(default_constant)
+    except ValueError as e:
+        # resolve names its own argument, free_constants; the caller passed ground_truth.
+        message = str(e).removeprefix("'free_constants': ")
+        raise ValueError(f"The specs of 'ground_truth' do not fit the default spec: {message}") from None
+    return expr
+
+
 class SR_evaluator:
     def __init__(
         self,
@@ -488,7 +520,7 @@ class SR_evaluator:
         max_evaluations: int = -1,
         success_threshold: float | None = None,
         ranking_function: str | RankingFunction = "rmse",
-        ground_truth: list[str] | Node | None = None,
+        ground_truth: list[str] | Expression | None = None,
         seed: int | None = None,
         metadata: dict | None = None,
         required_constraints: Sequence[ExpressionConstraint] | None = None,
@@ -501,7 +533,6 @@ class SR_evaluator:
         constant_bounds: tuple[float, float] | None = None,
         default_constant: Constant | None = None,
         samplers: "Mapping[str, Sampler] | Sequence[Sampler] | None" = None,
-        ground_truth_constants: Sequence[Constant] | None = None,
         settings: Settings | None = None,
         checkpoint: str | os.PathLike | None = None,
         resume: bool = False,
@@ -518,8 +549,8 @@ class SR_evaluator:
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
             y: Target values of shape ``(n_samples,)``. RMSE needs ``y`` or a ``ground_truth``
-                to generate it from, each of whose free constants has a fixed value in
-                ``ground_truth_constants``; BED can use it in place of a ground truth.
+                to generate it from, each of whose free constants has a fixed value in its specs;
+                BED can use it in place of a ground truth.
             symbol_library: Symbol library defining the tokens. ``None`` (default): the active
                 library ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
             max_evaluations: Budget of counted calls to
@@ -533,9 +564,14 @@ class SR_evaluator:
                 [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] instance, or a
                 ``"module.ClassName"`` import path (see
                 [build_ranking][SRToolkit.evaluation.ranking.build_ranking]).
-            ground_truth: The target expression, as a token list or a
-                [Node][SRToolkit.utils.expression_tree.Node]. BED compares against it; RMSE uses it
-                to generate ``y`` when ``y`` is not given.
+            ground_truth: The target expression, as a token list or an
+                [Expression][SRToolkit.utils.expression.Expression] carrying the specs of its
+                labelled constants, read in ``symbol_library`` (an ``Expression`` with another
+                library is rebuilt from its tokens). It must parse, and its specs must fit
+                ``default_constant``. BED compares against it, keeping fixed values, sampling the
+                other constants from their priors and using ``default_constant`` for constants
+                without a spec; RMSE uses it, with the fixed values of its specs, to generate ``y``
+                when ``y`` is not given.
             seed: Random seed. If given, the constructor also calls ``np.random.seed(seed)``, which
                 sets NumPy's global random state. The ranking gets it too, unless the
                 ``evaluator.ranking_seed`` setting is set.
@@ -568,11 +604,6 @@ class SR_evaluator:
             samplers: The input distribution, one [Sampler][SRToolkit.dataset.sampling.Sampler] per
                 variable (a sequence, or a mapping by token). BED draws its points from them when
                 ``bed.num_points_sampled > 0``. ``None`` (default): no input distribution.
-            ground_truth_constants: Specs for the labelled constants of ``ground_truth`` (see
-                [Constant][SRToolkit.utils.free_constants.Constant]), in any order. RMSE uses their
-                fixed values to generate a missing ``y``; BED keeps fixed values, samples the other
-                constants from their priors, and uses ``default_constant`` for constants without a
-                spec. ``None`` (default) or empty: no specs.
             settings: The run's [Settings][SRToolkit.utils.settings.Settings]: the ``evaluator``
                 section (see [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]) and
                 the ranking's sections. ``None``: the defaults.
@@ -598,9 +629,10 @@ class SR_evaluator:
                 Also raised as for
                 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 and by [build_ranking][SRToolkit.evaluation.ranking.build_ranking] for a
-                ``ranking_function`` of the wrong type. With a ``checkpoint`` (only then), also if
-                ``metadata``, ``samplers``, the ranking or a constraint cannot be saved (see [serialization][SRToolkit.utils.serialization]). No
-                file is then left behind.
+                ``ranking_function`` of the wrong type. If ``ground_truth`` is neither a list of
+                token strings nor an ``Expression``. With a ``checkpoint`` (only then), also if
+                ``metadata``, ``samplers``, the ranking or a constraint cannot be saved (see
+                [serialization][SRToolkit.utils.serialization]). No file is then left behind.
             ValueError: If ``max_evaluations`` is ``0``, ``snapshot_interval`` is not positive, or
                 ``checkpoint`` is an empty path. If ``resume=True`` and ``checkpoint`` is ``None``,
                 is not a checkpoint (or one of another format version), or was saved with another
@@ -608,11 +640,15 @@ class SR_evaluator:
                 differs. If ``evaluator.max_constants`` or ``evaluator.max_expr_length`` differs
                 from its default (a value written at its default counts as not given), is
                 non-negative and differs from the limit of a constraint of its class in
-                ``required_constraints``. Also raised as for ``BackgroundKnowledge`` (e.g.
+                ``required_constraints``. If ``ground_truth`` is an ndarray, or a spec of it that is
+                not fixed has a ``value`` outside the bounds it takes from ``default_constant``
+                (see [Expression.resolve][SRToolkit.utils.expression.Expression.resolve]). Also
+                raised as for ``BackgroundKnowledge`` (e.g.
                 ``constant_bounds`` not finite with ``lower < upper``, a ``default_constant`` with a
                 ``label``, a ``value`` or ``fixed=True``, or ``samplers`` without one sampler per
                 variable), and by the ranking's ``setup`` for missing or malformed data (e.g. RMSE
                 with neither ``y`` nor ``ground_truth``).
+            ExpressionParseError: If ``ground_truth`` does not parse.
             ImportError: If an import-path ``ranking_function`` cannot be imported.
             FileExistsError: If a file exists at ``checkpoint`` and ``resume`` is ``False``.
             FileNotFoundError: If ``resume=True`` and no file exists at ``checkpoint``.
@@ -629,8 +665,7 @@ class SR_evaluator:
                 [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator]
                 for RMSE, or the behaviour matrix and points ``bed_X`` for BED.
             settings: The settings used.
-            ground_truth_constants: The ``ground_truth_constants`` as passed.
-            ground_truth: The target expression as passed, or ``None``.
+            ground_truth: The target expression as an ``Expression`` in ``symbol_library``, or ``None``.
             max_evaluations: The budget of counted calls; negative for no limit.
             success_threshold: The ``success_threshold`` passed, or the ranking's default if it
                 was ``None`` (still ``None`` if the ranking has no default).
@@ -678,10 +713,8 @@ class SR_evaluator:
         if not isinstance(settings, Settings):
             raise TypeError(f"[SR_evaluator] settings must be a Settings, got {type(settings).__name__}.")
         self.settings = settings
-        self.ground_truth_constants = ground_truth_constants
         self.success_threshold = success_threshold
         self.metadata = metadata
-        self.ground_truth = ground_truth
         self._experiment_id: str = ""
         self.stop_reason: str | None = None
         self._interrupted = False  # set by a signal caught by stop_on_signals
@@ -726,6 +759,10 @@ class SR_evaluator:
         # BackgroundKnowledge stores its constraints as a tuple; the field is typed Iterable.
         self._advisory_constraints = cast(tuple[ExpressionConstraint, ...], self._background_knowledge.constraints)
         self.default_constant = cast(Constant, self._background_knowledge.default_constant)
+        try:
+            self.ground_truth = _as_ground_truth(ground_truth, symbol_library, self.default_constant)
+        except (TypeError, ValueError) as e:
+            raise type(e)(f"[SR_evaluator] {e}") from None
 
         if seed is not None:
             np.random.seed(seed)
@@ -739,8 +776,7 @@ class SR_evaluator:
         self.ranking.setup(
             X,
             y,
-            ground_truth,
-            ground_truth_constants,
+            self.ground_truth,
             self._background_knowledge,
             seed if ranking_seed is None else ranking_seed,
             settings,
@@ -848,7 +884,7 @@ class SR_evaluator:
         parts: dict[str, Any] = {
             "X": self.X,
             "y": self.y,
-            "ground_truth": None if self.ground_truth is None else _as_tokens(self.ground_truth, self.symbol_library),
+            "ground_truth": None if self.ground_truth is None else list(self.ground_truth.tokens),
             "ranking_function": self.ranking,
             "required_constraints": list(self._required_constraints),
             "advisory_constraints": list(self._advisory_constraints),
@@ -862,8 +898,8 @@ class SR_evaluator:
         bk = self._background_knowledge
         parts["samplers"] = bk.samplers
         parts["constant_bounds"] = bk.constant_bounds
-        if self.ground_truth_constants:  # in any order; [] is the same as None
-            parts["ground_truth_constants"] = sorted(self.ground_truth_constants, key=lambda c: c.label or "")
+        if self.ground_truth is not None and self.ground_truth.free_constants:  # in any order
+            parts["ground_truth_constants"] = sorted(self.ground_truth.free_constants, key=lambda c: c.label or "")
         # One entry per setting that differs from its default; the limits are in required_constraints.
         for section, fields in self.settings.to_dict()["sections"].items():
             for field, value in fields.items():
@@ -1286,10 +1322,7 @@ class SR_evaluator:
         # simplified again and get the same stored form even with simplify_max_time; the cache keeps
         # tokens, not Expressions, so it holds no trees.
         s = self.settings.evaluator
-        sl = self.symbol_library
         mode = s.fold_constants
-        tokens = list(expr.tokens)
-        specs: Sequence[Constant] | None = expr.free_constants or None
         if s.simplify_expr:
             key = expr._key()
             cached = self._stored_forms.pop(key, None)
@@ -1300,13 +1333,12 @@ class SR_evaluator:
                     warnings.warn(message)
                 return self._as_stored(expr, stored, stored_specs)
             message = None
+        stored_form = expr
         folded = False
         if s.simplify_expr:
             try:
-                tokens, specs = simplify(  # type: ignore[assignment]
-                    tokens,
-                    sl,
-                    specs,
+                stored_form = simplify(
+                    expr,
                     rules=s.simplify_rules,
                     max_iterations=s.simplify_max_iterations,
                     max_nodes=s.simplify_max_nodes,
@@ -1323,27 +1355,27 @@ class SR_evaluator:
                         warnings.warn(message)
         if mode != "none" and not folded:
             try:
-                tokens, specs = fold(tokens, sl, specs, mode)  # type: ignore[assignment]
-            except ValueError:
-                # Malformed (ExpressionParseError): scored as given, as "invalid". Specs that do not
-                # fit: evaluate_expr has raised already, so this is a lookup, which then misses.
-                pass
+                stored_form = fold(expr, mode=mode)
+            except ExpressionParseError:
+                pass  # scored as given, as "invalid"
+        specs = stored_form.free_constants
         sorted_specs = tuple(sorted(specs, key=lambda c: c.label or "")) if specs else None
         if s.canonicalise_constants and sorted_specs is None:
             # The ranking gets the canonical tokens, so the fit's seed is that of the canonical form.
-            tokens = canonicalise(tokens, sl)
+            stored_form = canonicalise(stored_form)
+        tokens = stored_form.tokens
         if s.simplify_expr:
             if len(self._stored_forms) >= _STORED_FORM_CACHE_SIZE:
                 del self._stored_forms[next(iter(self._stored_forms))]
             # Interned, so entries share token strings; an unchanged input shares the key's tuple.
             key = (tuple(map(sys.intern, key[0])), key[1])
-            stored = key[0] if tuple(tokens) == key[0] else tuple(map(sys.intern, tokens))
+            stored = key[0] if tokens == key[0] else tuple(map(sys.intern, tokens))
             self._stored_forms[key] = (stored, sorted_specs, message)
-            return self._as_stored(expr, stored, sorted_specs)
-        return self._as_stored(expr, tokens, sorted_specs)
+        return self._as_stored(stored_form, tokens, sorted_specs)
 
     def _as_stored(self, expr: Expression, tokens: Sequence[str], specs: tuple[Constant, ...] | None) -> Expression:
-        # The stored form of expr from its tokens and sorted specs: expr itself if they are its own.
+        # The Expression with these tokens and sorted specs: expr itself if they are its own, so an
+        # unchanged input (or the simplified form) keeps its parsed tree.
         if tuple(tokens) == expr.tokens and (specs or ()) == expr.free_constants:
             return expr
         return Expression(list(tokens), self.symbol_library, specs)

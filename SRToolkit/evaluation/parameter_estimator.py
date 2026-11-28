@@ -2,7 +2,7 @@
 
 [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator] fits the
 parameters of an expression (its free constants, in the order of
-[parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]) to data ``(X, y)`` with
+[parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels]) to data ``(X, y)`` with
 ``scipy.optimize.minimize``, configured by the ``minimize`` settings section.
 [RMSERanking][SRToolkit.evaluation.ranking.RMSERanking] scores expressions with it.
 
@@ -44,7 +44,7 @@ from scipy.optimize import minimize
 from SRToolkit.utils.expression import Expression, _to_expression
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
 from SRToolkit.utils.expression_tree import Node
-from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants, uniform_default
+from SRToolkit.utils.free_constants import Constant, _check_default_constant, _spec_key, uniform_default
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -109,7 +109,7 @@ class ParameterEstimator:
                 f"[ParameterEstimator] default_constant must be a Constant, got {type(default_constant).__name__}."
             )
         try:
-            resolve_constants([], None, default_constant)  # raises ValueError unless it is a complete template
+            _check_default_constant(default_constant)
         except ValueError as e:
             raise ValueError(f"[ParameterEstimator] {e}") from None
         self.symbol_library = symbol_library
@@ -136,7 +136,7 @@ class ParameterEstimator:
         Returns:
             A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the parameters
             that gave it, one per parameter in the order of
-            [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels], fixed values
+            [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels], fixed values
             included. If no evaluation was finite, ``rmse`` is ``nan`` or ``inf`` and the free
             entries of ``parameters`` are the optimizer's final point.
 
@@ -321,7 +321,7 @@ class ParameterEstimator:
         x0 = np.empty(len(specs))
         for j, spec in enumerate(specs):
             prior = spec.prior
-            assert prior is not None and spec.bounds is not None  # set by resolve_constants
+            assert prior is not None and spec.bounds is not None  # set by resolve
             if spec.value is not None:
                 x0[j] = spec.value
             elif isinstance(prior, UniformSampling) and not prior.mirror:

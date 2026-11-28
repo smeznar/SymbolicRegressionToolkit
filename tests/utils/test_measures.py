@@ -16,6 +16,7 @@ from scipy.stats import wasserstein_distance
 from strategies import infix_expressions, matrix_pairs, regression_data
 
 from SRToolkit.dataset.sampling import LogUniformSampling, Sampler
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.measures import (
@@ -64,6 +65,10 @@ def tree(tokens):
     return tokens_to_tree(tokens, LIB)
 
 
+def ex(tokens, *specs, sl=LIB):
+    return Expression(tokens, sl, specs)
+
+
 def naive_levenshtein(a, b):
     """Reference Levenshtein distance (textbook dynamic programme)."""
     prev = list(range(len(b) + 1))
@@ -108,11 +113,11 @@ class TestEditDistance:
             (["(", "X_0", "+", "X_1", ")", "*", "X_2"], ["X_0", "*", "X_2"], "infix", 4),
             # only the parentheses needed to serialise count: X_0 + X_1 * X_2 has none (delete * and X_2)
             (["X_0", "+", "X_1", "*", "X_2"], ["X_0", "+", "X_1"], "infix", 2),
-            # both Nodes are serialised in the comparison notation
-            (tree(["X_0", "+", "1"]), tree(["X_0", "-", "1"]), "postfix", 1),
-            # a Node is serialised with the symbol library (infix without it adds parentheses)
-            (tree(["X_0", "+", "X_1", "*", "X_2"]), ["X_0", "+", "X_1", "*", "X_2"], "infix", 0),
-            (["X_0", "+", "X_1", "*", "X_2"], tree(["X_0", "+", "X_1", "*", "X_2"]), "infix", 0),
+            # both Expressions are serialised in the comparison notation
+            (ex(["X_0", "+", "1"]), ex(["X_0", "-", "1"]), "postfix", 1),
+            # an Expression is serialised with its library
+            (ex(["(", "X_0", "+", "X_1", "*", "X_2", ")"]), ["X_0", "+", "X_1", "*", "X_2"], "infix", 0),
+            (["X_0", "+", "X_1", "*", "X_2"], ex(["X_0", "+", "X_1", "*", "X_2"]), "infix", 0),
         ],
         ids=[
             "substitution",
@@ -125,9 +130,9 @@ class TestEditDistance:
             "notation-prefix",
             "notation-infix-counts-parentheses",
             "infix-counts-only-needed-parentheses",
-            "node-vs-node",
-            "node-first-infix",
-            "node-second-infix",
+            "expression-vs-expression",
+            "expression-first-infix",
+            "expression-second-infix",
         ],
     )
     def test_hand_computed_distances(self, a, b, notation, expected):
@@ -162,8 +167,8 @@ class TestTreeEditDistance:
             (["X_0", "-", "X_1"], ["X_1", "-", "X_0"], 2),
             (["X_0", "+", "X_1"], ["X_1", "+", "X_0"], 2),
             (["(", "(", "X_0", ")", ")"], ["X_0"], 0),
-            (tree(["X_0", "+", "1"]), ["X_0", "-", "1"], 1),
-            (["X_0", "+", "1"], tree(["X_0", "-", "1"]), 1),
+            (ex(["X_0", "+", "1"]), ["X_0", "-", "1"], 1),
+            (["X_0", "+", "1"], ex(["X_0", "-", "1"]), 1),
         ],
         ids=[
             "relabel",
@@ -240,12 +245,11 @@ def call_with_module_default(call):
 
 class TestSharedExpressionContracts:
     @pytest.mark.parametrize("call, name", list(CALLS_BY_POSITION.values()), ids=list(CALLS_BY_POSITION))
-    @pytest.mark.parametrize(
-        "bad", ["X_0+1", ("X_0", "+", "1"), ["X_0", "+", 1]], ids=["string", "tuple", "list-with-int"]
-    )
+    @pytest.mark.parametrize("bad", ["X_0+1", {"X_0"}, ["X_0", "+", 1]], ids=["string", "set", "list-with-int"])
     def test_unsupported_expression_type_raises_type_error(self, call, name, bad):
-        # Reason: clause (TypeError for anything but a list of token strings or a Node).
-        with pytest.raises(TypeError, match=name):
+        # Reason: clause (TypeError for anything but a list of token strings or an Expression; the
+        # message starts with the argument's name).
+        with pytest.raises(TypeError, match=rf"^{name} must"):
             call(bad)
 
     @pytest.mark.parametrize("call, name", list(CALLS_BY_POSITION.values()), ids=list(CALLS_BY_POSITION))
@@ -280,10 +284,25 @@ class TestSharedExpressionContracts:
         ],
         ids=["create_behavior_matrix", "bed", "bed-sampled-points"],
     )
-    def test_node_input_equals_list_input(self, call):
-        # Reason: clause (an expression is a token list or a Node tree).
+    def test_expression_input_equals_list_input(self, call):
+        # Reason: clause (an expression is a token list or an Expression) + implied (a tuple of tokens
+        # is read as the list, as everywhere an Expression is accepted).
         tokens = ["X_0", "*", "C", "+", "C"]
-        np.testing.assert_array_equal(call(tree(tokens)), call(tokens))
+        np.testing.assert_array_equal(call(ex(tokens)), call(tokens))
+        np.testing.assert_array_equal(call(tuple(tokens)), call(tokens))
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda e: edit_distance(e, ["X_0", "+", "1"]),
+            lambda e: tree_edit_distance(e, ["X_0", "+", "1"]),
+        ],
+        ids=["edit_distance", "tree_edit_distance"],
+    )
+    def test_distances_take_an_expression_or_tuple(self, call):
+        # Reason: clause (an expression is a token list or an Expression) + implied (tuples as lists).
+        tokens = ["X_0", "*", "C", "+", "C"]
+        assert call(ex(tokens)) == call(tuple(tokens)) == call(tokens)
 
     @pytest.mark.parametrize(
         "call, match",
@@ -393,7 +412,7 @@ class TestCreateBehaviorMatrix:
         # 9.81 lies outside the default (-5, 5): used as is.
         specs = [Constant(label="C_0", value=2.0, fixed=True), Constant(label="C_1", value=9.81, fixed=True)]
         B = create_behavior_matrix(
-            ["C_0", "*", "X_0", "+", "C_1"], np.array([[0.0], [1.0]]), num_consts_sampled=k, free_constants=specs
+            ex(["C_0", "*", "X_0", "+", "C_1"], *specs), np.array([[0.0], [1.0]]), num_consts_sampled=k
         )
         np.testing.assert_allclose(B, expected, rtol=1e-15)
 
@@ -404,12 +423,11 @@ class TestCreateBehaviorMatrix:
         X = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
         specs = [Constant(label="C_0", value=5.0, fixed=True), Constant(label="C_1")]
         B = create_behavior_matrix(
-            ["C", "+", "C_1", "*", "X_0", "+", "C_0", "*", "X_1"],
+            ex(["C", "+", "C_1", "*", "X_0", "+", "C_0", "*", "X_1"], *specs),
             X,
             num_consts_sampled=8,
             consts_bounds=(0, 1),
             seed=0,
-            free_constants=specs,
         )
         np.testing.assert_allclose(B[2] - B[0], np.full(8, 5.0))
         np.testing.assert_array_equal(np.sort(np.floor(8 * B[0])), np.arange(8))
@@ -418,8 +436,8 @@ class TestCreateBehaviorMatrix:
     @pytest.mark.parametrize(
         "expr, kwargs",
         [
-            (["C_0"], {"free_constants": [Constant(label="C_0", prior=LOG_PRIOR)]}),
-            (["C_0"], {"free_constants": [Constant(label="C_0", prior=LOG_PRIOR, bounds=(1, 2), value=1.5)]}),
+            (ex(["C_0"], Constant(label="C_0", prior=LOG_PRIOR)), {}),
+            (ex(["C_0"], Constant(label="C_0", prior=LOG_PRIOR, bounds=(1, 2), value=1.5)), {}),
             (["C"], {"default_constant": Constant(prior=LOG_PRIOR, bounds=(1, 100)), "consts_bounds": (1, 1)}),
         ],
         ids=["spec-outside-default-bounds", "spec-bounds-and-value-ignored", "default-replaces-consts-bounds"],
@@ -439,7 +457,7 @@ class TestCreateBehaviorMatrix:
         specs = [Constant(label="C_0", prior=TwoPointSampler())]
 
         def draw(seed):
-            return create_behavior_matrix(["C_0"], X, num_consts_sampled=32, seed=seed, free_constants=specs)
+            return create_behavior_matrix(ex(["C_0"], *specs), X, num_consts_sampled=32, seed=seed)
 
         assert set(draw(3)[0]) <= {7.0, 11.0}
         np.testing.assert_array_equal(draw(3), draw(3))
@@ -474,7 +492,7 @@ class TestCreateBehaviorMatrix:
             (["X_0"], np.zeros((2, 1)), {"consts_bounds": (1, 1)}, "consts_bounds"),
             (["X_0"], np.array([0.0, 1.0]), {}, "X"),
             (["X_0"], np.zeros((2, 1)), {"backend": "fortran"}, "backend"),
-            (["C_0"], np.zeros((2, 1)), {"free_constants": [Constant(label="C_9")]}, "free_constants"),
+            (ex(["C_0"], Constant(label="C_0", value=9.0)), np.zeros((2, 1)), {}, "free_constants"),
         ],
         ids=[
             "zero-samples",
@@ -487,7 +505,7 @@ class TestCreateBehaviorMatrix:
             "empty-bounds-constant-free",
             "one-dimensional-X",
             "unknown-backend",
-            "spec-label-not-in-expr",
+            "free-spec-value-outside-default-bounds",
         ],
     )
     def test_invalid_arguments_raise_value_error(self, expr, X, kwargs, match):
@@ -569,10 +587,6 @@ class TestBedModes:
             ((np.array([[0.0]]), np.array([[1.0]])), {"num_consts_sampled": 0}),
             ((np.array([[0.0]]), np.array([[1.0]])), {"consts_bounds": (1, 1)}),
             (
-                (np.array([[0.0]]), np.array([[1.0]])),
-                {"free_constants1": [Constant(label="C_0", value=1.0, fixed=True)]},
-            ),
-            (
                 (["X_0"], ["X_0", "+", "1"]),
                 {"X": X3, "default_constant": uniform_default((0, 1)), "consts_bounds": (1, 1)},
             ),
@@ -583,7 +597,6 @@ class TestBedModes:
             "zero-points-with-X",
             "zero-constant-samples-two-matrices",
             "empty-consts-interval-two-matrices",
-            "specs-for-a-matrix",
             "consts-bounds-replaced-by-default-constant",
         ],
     )
@@ -636,33 +649,23 @@ class TestBedModes:
         "expr1, expr2, kwargs, low, high",
         [
             (
-                ["C_0"],
-                ["2", "*", "C_0"],
-                {
-                    "free_constants1": [Constant(label="C_0", value=1.0, fixed=True)],
-                    "free_constants2": [Constant(label="C_0", value=3.0, fixed=True)],
-                },
+                ex(["C_0"], Constant(label="C_0", value=1.0, fixed=True)),
+                ex(["2", "*", "C_0"], Constant(label="C_0", value=3.0, fixed=True)),
+                {},
                 5.0,
                 5.0,
             ),
             (
+                ex(["C_0"], Constant(label="C_0", value=2.0, fixed=True)),
                 ["C_0"],
-                ["C_0"],
-                {
-                    "free_constants1": [Constant(label="C_0", value=2.0, fixed=True)],
-                    "consts_bounds": (0, 1),
-                    "num_consts_sampled": 4,
-                },
+                {"consts_bounds": (0, 1), "num_consts_sampled": 4},
                 1.375,
                 1.625,
             ),
             (
-                ["C_0", "*", "X_0"],
-                ["C_0", "*", "X_0"],
-                {
-                    "free_constants1": [Constant(label="C_0", prior=LOG_PRIOR)],
-                    "free_constants2": [Constant(label="C_0", prior=LOG_PRIOR)],
-                },
+                ex(["C_0", "*", "X_0"], Constant(label="C_0", prior=LOG_PRIOR)),
+                ex(["C_0", "*", "X_0"], Constant(label="C_0", prior=LOG_PRIOR)),
+                {},
                 0.0,
                 0.0,
             ),
@@ -670,19 +673,19 @@ class TestBedModes:
         ids=["each-side-its-own-spec", "spec-on-one-side-only", "same-specs-both-sides"],
     )
     def test_specs_apply_to_their_own_expression(self, expr1, expr2, kwargs, low, high):
-        # Reason: clause (free_constants1 for expr1, free_constants2 for expr2; with seed bed(e, e) == 0).
+        # Reason: clause (each expression's specs apply to it; with seed bed(e, e) == 0).
         # Row 1: |1 - 2 * 3| = 5 (swapped specs would give |3 - 2 * 1| = 1). Row 2: W1 from the point
         # mass 2 to 4 LHS samples in [0, 1) is 2 - their mean, which lies in [3/8, 5/8).
         value = bed(expr1, expr2, X3, seed=0, **kwargs)
         assert low <= value <= high
 
     def test_swapping_expressions_with_their_specs_is_symmetric(self):
-        # Reason: clause (Notes: with seed, bed(e1, e2, s1, s2) == bed(e2, e1, s2, s1)).
-        a, b = ["C_0", "*", "X_0"], ["C_0", "+", "X_0"]
-        s = [Constant(label="C_0", prior=LOG_PRIOR)]
-        value = bed(a, b, X3, seed=5, free_constants1=s)
+        # Reason: clause (Notes: with seed, bed(e1, e2) == bed(e2, e1), specs included).
+        a = ex(["C_0", "*", "X_0"], Constant(label="C_0", prior=LOG_PRIOR))
+        b = ["C_0", "+", "X_0"]
+        value = bed(a, b, X3, seed=5)
         assert value > 0
-        assert bed(b, a, X3, seed=5, free_constants2=s) == pytest.approx(value)
+        assert bed(b, a, X3, seed=5) == pytest.approx(value)
 
 
 class TestBedNonFiniteAndErrors:

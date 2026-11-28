@@ -4,7 +4,7 @@ The primary interface are two functions:
 
 - [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]:
   returns a callable ``f(X, C) → np.ndarray``; ``C`` holds one value per free parameter (see
-  [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]).
+  [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels]).
 - [compile_expr_rmse][SRToolkit.utils.expression_compiler.compile_expr_rmse]:
   returns an RMSE callable ``f(X, C, y) → float``.
 
@@ -874,7 +874,7 @@ def compile_expr(
     Returns:
         A callable ``f(X, C)`` where ``X`` has shape ``(n_samples, n_features)`` and ``C`` holds at
         least one value per parameter, in the order of
-        [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] (every occurrence of a
+        [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels] (every occurrence of a
         labelled constant reads the same entry). Pass ``None`` or an empty array for a
         constant-free expression; too few values raise ``ValueError`` when ``f`` is called.
         ``f`` returns an array of shape ``(n_samples,)``.

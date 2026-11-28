@@ -50,7 +50,8 @@ from ``ground_truth`` with the variable and target names.
 knowledge under ``"background_knowledge"``, the required constraints under
 ``"required_constraints"``, the settings under ``"settings"``
 ([Settings.to_dict][SRToolkit.utils.settings.Settings.to_dict]), and the answer
-(``ground_truth``, ``ground_truth_constants``) and ``ranking_resample`` at the top level.
+(``ground_truth`` as tokens, its specs as ``ground_truth_constants``) and ``ranking_resample`` at
+the top level.
 [from_dict][SRToolkit.dataset.sr_dataset.SR_dataset.from_dict] also reads formats 2–4 of
 earlier releases, with the same objective; saving the result writes format 5. Their flat
 ``"kwargs"`` are sorted: ``constant_bounds``, ``max_constants``, ``max_expr_length`` and
@@ -88,11 +89,13 @@ from SRToolkit.evaluation.sr_evaluator import (
     SR_evaluator,
     _add_limit_constraints,
     _as_constraint_tuple,
+    _as_ground_truth,
 )
-from SRToolkit.utils import Node, SymbolLibrary
+from SRToolkit.utils import SymbolLibrary
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
-from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters, resolve_constants
+from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 from SRToolkit.utils.settings import Settings
@@ -169,25 +172,6 @@ def _resolve_task(
     return bk, tuple(_set_up_copy(c, bk.symbol_library) for c in required), settings
 
 
-def _ground_truth_specs(
-    ground_truth: list[str] | Node | None,
-    ground_truth_constants: Iterable[Constant] | None,
-    bk: BackgroundKnowledge,
-) -> tuple[Constant, ...] | None:
-    """Check the ground truth's specs against it; return them sorted by label, or ``None`` if none."""
-    specs = tuple(sorted(ground_truth_constants or (), key=lambda c: c.label or ""))
-    if not specs:
-        return None
-    if ground_truth is None:
-        raise ValueError("'ground_truth_constants' needs a 'ground_truth'.")
-    try:
-        resolve_constants(ground_truth, specs, cast(Constant, bk.default_constant), bk.symbol_library)
-    except ValueError as e:
-        message = str(e).replace("'free_constants'", "'ground_truth_constants'").replace("the expression", "it")
-        raise ValueError(f"'ground_truth_constants' do not fit 'ground_truth': {message}") from None
-    return specs
-
-
 def _derive_equation(tokens: list[str], variables: Mapping[str, VariableInfo], target: VariableInfo | None) -> str:
     """Return ``"<target name> = "`` plus ``tokens`` joined, variable tokens replaced by their names.
 
@@ -217,8 +201,13 @@ class SR_dataset:
             or the import path of a custom [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction].
         y: Targets of shape ``(n_samples,)``, or ``None``.
         max_evaluations: Evaluation budget; negative means no limit. ``0`` is rejected.
-        ground_truth: The answer as infix tokens or a [Node][SRToolkit.utils.expression_tree.Node], or
-            ``None``.
+        ground_truth: The answer, as infix tokens or an
+            [Expression][SRToolkit.utils.expression.Expression] carrying the specs of its labelled
+            constants (see [Constant][SRToolkit.utils.free_constants.Constant]); constants without
+            a spec use ``default_constant``. Read in ``symbol_library`` (an ``Expression`` with
+            another library is rebuilt from its tokens); it must parse. ``y`` can be computed from
+            it only if all its constants are fixed; BED samples the others from their priors.
+            ``None`` for none.
         original_equation: Human-readable answer, e.g. ``"F = m*a"``; ``None`` derives it (see
             [original_equation][SRToolkit.dataset.sr_dataset.SR_dataset.original_equation]).
         success_threshold: Error below which an expression counts as a success; ``None`` for none.
@@ -255,10 +244,6 @@ class SR_dataset:
         required_constraints: Further constraints every expression must satisfy; ``None`` for none.
         advisory_constraints: Hints about the search space: violations are recorded, the score is
             not changed; ``None`` for none.
-        ground_truth_constants: Specs for the labelled constants of ``ground_truth`` (see
-            [Constant][SRToolkit.utils.free_constants.Constant]); others use ``default_constant``.
-            ``y`` can be computed from the ground truth only if all its constants are fixed; BED
-            samples them from these specs. Part of the answer. ``None`` for none.
         settings: The [Settings][SRToolkit.utils.settings.Settings] of the evaluator, the ranking
             and parameter estimation; ``None``: ``Settings()``. It may not change
             ``evaluator.max_constants`` / ``evaluator.max_expr_length``; use the ``max_constants`` /
@@ -273,16 +258,17 @@ class SR_dataset:
             variables; ``max_evaluations`` is ``0``; ``max_constants`` / ``max_expr_length`` is not an integer
             or disagrees with a listed ``MaxConstants`` / ``MaxTokens``; ``settings`` sets
             ``evaluator.max_constants`` or ``evaluator.max_expr_length`` to a non-default value;
-            ``ground_truth`` is an ndarray
-            (pass a BED behaviour matrix to the BED ranking); ``ground_truth_constants`` is given
-            without ``ground_truth`` or does not fit it (see
-            [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]); an
+            ``ground_truth`` is an ndarray (pass a BED behaviour matrix to the BED ranking) or a
+            free spec of it has a ``value`` outside the bounds it takes from ``default_constant`` (see
+            [Expression.resolve][SRToolkit.utils.expression.Expression.resolve]); an
             ``aux_data`` key is not a valid file name; a required constraint does not fit the symbol
             library (raised by its ``setup``); or as for
             [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge].
         TypeError: If ``required_constraints`` holds something that is not an
             ``ExpressionConstraint``, ``settings`` is not a ``Settings``, ``ranking_resample`` is
-            not a ``bool``, or as for ``BackgroundKnowledge``.
+            not a ``bool``, ``ground_truth`` is neither a list of token strings nor an
+            ``Expression``, or as for ``BackgroundKnowledge``.
+        ExpressionParseError: If ``ground_truth`` does not parse.
 
     Attributes:
         X: Inputs the search runs on.
@@ -306,9 +292,9 @@ class SR_dataset:
         ranking_function: As given.
         max_evaluations: As given.
         success_threshold: As given.
-        ground_truth: As given.
-        ground_truth_constants: The specs as given, in a tuple sorted by label (as strings);
-            ``None`` if none were given or the iterable was empty.
+        ground_truth: The answer as an ``Expression`` in ``symbol_library``, or ``None``.
+        ground_truth_constants: The specs of ``ground_truth`` sorted by label, or ``None`` if it
+            has none (read-only).
         original_equation: The given answer, or one derived from ``ground_truth``; ``None`` if
             neither (read-only).
         seed: As given.
@@ -333,7 +319,7 @@ class SR_dataset:
         ranking_function: str = "rmse",
         y: np.ndarray | None = None,
         max_evaluations: int = -1,
-        ground_truth: list[str] | Node | None = None,
+        ground_truth: list[str] | Expression | None = None,
         original_equation: str | None = None,
         success_threshold: float | None = None,
         seed: int | None = None,
@@ -356,7 +342,6 @@ class SR_dataset:
         max_expr_length: int | None = None,
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
-        ground_truth_constants: Iterable[Constant] | None = None,
         settings: Settings | None = None,
         ranking_resample: bool = False,
     ) -> None:
@@ -387,17 +372,14 @@ class SR_dataset:
         self.max_evaluations = max_evaluations
         self.success_threshold = success_threshold
         self.ranking_function = ranking_function
-        if isinstance(ground_truth, np.ndarray):
-            raise ValueError(
-                "[SR_dataset] An ndarray ground_truth (a precomputed BED behaviour matrix) is no longer "
-                "supported on SR_dataset; provide a symbolic ground truth (a token list or a Node). A "
-                "precomputed behaviour matrix is ranking-owned state — pass it to the BED ranking instead."
+        try:
+            self.ground_truth = _as_ground_truth(
+                ground_truth, self.symbol_library, cast(Constant, self._background_knowledge.default_constant)
             )
-        self.ground_truth = ground_truth
-        self.ground_truth_constants = _ground_truth_specs(
-            ground_truth, ground_truth_constants, self._background_knowledge
-        )
+        except (TypeError, ValueError) as e:
+            raise type(e)(f"[SR_dataset] {e}") from None
         self._original_equation = original_equation
+
         self.dataset_name = dataset_name
 
         # The data lives in DataSplits: the train split (X / y, the data the search runs on), an
@@ -464,14 +446,20 @@ class SR_dataset:
         return self._required_constraints
 
     @property
+    def ground_truth_constants(self) -> tuple[Constant, ...] | None:
+        """The specs of ``ground_truth``, sorted by label; ``None`` if it has none (read-only)."""
+        if self.ground_truth is None or not self.ground_truth.free_constants:
+            return None
+        return tuple(sorted(self.ground_truth.free_constants, key=lambda c: c.label or ""))
+
+    @property
     def original_equation(self) -> str | None:
         """Human-readable answer, e.g. ``"F = m*a"`` (read-only).
 
         The given ``original_equation`` if it is not ``None``. Otherwise ``"<target name> = "``
-        followed by the infix tokens of ``ground_truth`` (a ``Node`` is converted with the dataset's
-        symbol library) joined without spaces, each variable token replaced by its name in
-        ``background_knowledge.variables`` and the unary minus ``u-`` written ``-``. A variable with
-        no entry or an empty name keeps its token. With no target or an empty target name the left
+        followed by the infix tokens of ``ground_truth`` joined without spaces, each variable token
+        replaced by its name in ``background_knowledge.variables`` and the unary minus ``u-``
+        written ``-``. A variable with no entry or an empty name keeps its token. With no target or an empty target name the left
         side is the first of ``y``, ``y_1``, ``y_2``, … that is not a variable's name. ``None`` if no
         ``original_equation`` was given and ``ground_truth`` is ``None``.
 
@@ -484,13 +472,8 @@ class SR_dataset:
         """
         if self._original_equation is not None or self.ground_truth is None:
             return self._original_equation
-        tokens = (
-            self.ground_truth
-            if isinstance(self.ground_truth, list)
-            else self.ground_truth.to_list(symbol_library=self.symbol_library)
-        )
         bk = self._background_knowledge
-        return _derive_equation(tokens, bk.variables, bk.target)
+        return _derive_equation(list(self.ground_truth.tokens), bk.variables, bk.target)
 
     # ── Data accessors ───────────────────────────────────────────────────────
     # X / y / test_X / test_y are shortcuts to the splits' arrays, and data_source is the train
@@ -1030,7 +1013,7 @@ class SR_dataset:
 
         The evaluator gets the parts of the background knowledge (its ``constraints`` as advisory
         constraints), ``required_constraints`` as required (and adds no limits of its own), and
-        ``ground_truth_constants``. Its ``background_knowledge`` is rebuilt from these parts, so its
+        ``ground_truth`` with its specs. Its ``background_knowledge`` is rebuilt from these parts, so its
         ``to_dict()``, ``describe()`` and ``priors()`` equal this dataset's.
 
         It gets ``settings`` with ``evaluator.max_constants`` and ``evaluator.max_expr_length`` set
@@ -1105,7 +1088,6 @@ class SR_dataset:
             constant_bounds=bk.constant_bounds,
             default_constant=bk.default_constant,
             samplers=None if self.samplers is None else list(self.samplers),
-            ground_truth_constants=self.ground_truth_constants,
             settings=self.settings.replace(evaluator=evaluator),
             checkpoint=checkpoint,
             resume=resume,
@@ -1191,7 +1173,7 @@ class SR_dataset:
 
         Raises:
             ValueError: If the dataset has no samplers, or ``y`` is needed and ``ground_truth`` is
-                ``None`` or has a free constant without a fixed value in ``ground_truth_constants``.
+                ``None`` or has a free constant without a fixed value in its specs.
         """
         if self.samplers is None:
             raise ValueError(
@@ -1208,13 +1190,8 @@ class SR_dataset:
                 f"[SR_dataset.resample] Dataset '{self.dataset_name}' has no ground truth to compute y from."
             )
 
-        parameters = _ground_truth_parameters(
-            self.ground_truth,
-            self.ground_truth_constants,
-            self.symbol_library,
-            f"[SR_dataset.resample] Dataset '{self.dataset_name}'",
-        )
-        y = compile_expr(self.ground_truth, self.symbol_library)(X, parameters)
+        parameters = _ground_truth_parameters(self.ground_truth, f"[SR_dataset.resample] Dataset '{self.dataset_name}'")
+        y = compile_expr(self.ground_truth)(X, parameters)
         return X, y
 
     def resample_inplace(self, n: int, seed: int | None = None) -> "SR_dataset":
@@ -1291,12 +1268,6 @@ class SR_dataset:
         # regenerated on load, so _persist_to_cache skips them and this stays side-effect-free.
         self._persist_to_cache()
 
-        ground_truth_out: list[str] | None
-        if isinstance(self.ground_truth, Node):
-            ground_truth_out = self.ground_truth.to_list(symbol_library=self.symbol_library)
-        else:
-            ground_truth_out = self.ground_truth
-
         # The test and aux splits: which arrays each holds and where it comes from (the train
         # split's source is carried top-level as `data_source`).
         def split_entry(split: DataSplit) -> dict:
@@ -1318,7 +1289,7 @@ class SR_dataset:
             "dataset_metadata": self.dataset_metadata,
             "settings": self.settings.to_dict(),
             "ranking_resample": self.ranking_resample,
-            "ground_truth": ground_truth_out,
+            "ground_truth": None if self.ground_truth is None else list(self.ground_truth.tokens),
             "ground_truth_constants": (
                 None if self.ground_truth_constants is None else [c.to_dict() for c in self.ground_truth_constants]
             ),
@@ -1350,9 +1321,9 @@ class SR_dataset:
 
         Raises:
             ValueError: If ``d`` is a ``.zip`` path, ``format_version`` is not 2–5, a format 2–4
-                ``"kwargs"`` key is neither one of those arguments nor a built-in setting, or the
-                constructor rejects the
-                configuration.
+                ``"kwargs"`` key is neither one of those arguments nor a built-in setting,
+                ``"ground_truth_constants"`` are given without a ``"ground_truth"`` or do not fit
+                it, or the constructor rejects the configuration.
             TypeError: As for the constructor.
             ImportError: If a saved sampler, constraint, ranking or settings section class cannot be
                 imported.
@@ -1447,6 +1418,19 @@ class SR_dataset:
             data = np.load(str(path))
             return DataSplit({k: data[k] for k in data.files}, data_source=DataSource.from_dict(source_dict))
 
+        # The ground truth with its specs, which are saved next to its tokens.
+        specs = [Constant.from_dict(c) for c in dd.get("ground_truth_constants") or ()]
+        ground_truth = None
+        if dd.get("ground_truth") is not None:
+            try:
+                ground_truth = Expression(dd["ground_truth"], task_args["symbol_library"], specs)
+            except (TypeError, ValueError) as e:
+                raise type(e)(
+                    f"[SR_dataset.from_dict] 'ground_truth_constants' do not fit 'ground_truth': {e}"
+                ) from None
+        elif specs:
+            raise ValueError("[SR_dataset.from_dict] 'ground_truth_constants' are given without a 'ground_truth'.")
+
         train = load_split(dataset_name, dd.get("data_source"))
         test_entry = dd.get("test")
         test = load_split(f"{dataset_name}/test", test_entry.get("data_source")) if test_entry else None
@@ -1460,8 +1444,7 @@ class SR_dataset:
             ranking_function=dd["ranking_function"],
             y=train.y,
             max_evaluations=dd["max_evaluations"],
-            ground_truth=dd.get("ground_truth"),
-            ground_truth_constants=[Constant.from_dict(c) for c in dd.get("ground_truth_constants") or ()],
+            ground_truth=ground_truth,
             original_equation=dd["original_equation"],
             success_threshold=dd["success_threshold"],
             seed=dd["seed"],
@@ -1480,7 +1463,7 @@ class SR_dataset:
     @classmethod
     def from_samplers(
         cls,
-        ground_truth: list[str] | Node,
+        ground_truth: list[str] | Expression,
         samplers: list[Sampler] | Mapping[str, Sampler] | None = None,
         symbol_library: SymbolLibrary | None = None,
         n_samples: int = 10000,
@@ -1505,7 +1488,6 @@ class SR_dataset:
         max_expr_length: int | None = None,
         required_constraints: Iterable[ExpressionConstraint] | None = None,
         advisory_constraints: Iterable[ExpressionConstraint] | None = None,
-        ground_truth_constants: Iterable[Constant] | None = None,
         settings: Settings | None = None,
         ranking_resample: bool = False,
     ) -> "SR_dataset":
@@ -1517,14 +1499,16 @@ class SR_dataset:
         stores no arrays and [refresh][SRToolkit.dataset.sr_dataset.SR_dataset.refresh] regenerates it.
 
         Args:
-            ground_truth: The answer as infix tokens or a [Node][SRToolkit.utils.expression_tree.Node];
-                unless ``ranking_function`` is ``"bed"``, every free constant in it needs a fixed
-                value in ``ground_truth_constants``.
+            ground_truth: The answer as infix tokens or an
+                [Expression][SRToolkit.utils.expression.Expression] with its specs; unless
+                ``ranking_function`` is ``"bed"``, every free constant in it needs a fixed value in
+                its specs.
             samplers: One [Sampler][SRToolkit.dataset.sampling.Sampler] per variable, as a list in
                 variable order or ``{token: sampler}``.
-            symbol_library: ``None`` uses
-                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] with one
-                variable per sampler.
+            symbol_library: ``None`` uses the library of an ``Expression`` ground truth, and for a
+                token list
+                [default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols] with
+                one variable per sampler.
             n_samples: Number of rows of ``X``.
             seed: Seed of the draw, stored on the ``SampleSource``; ``None`` for none.
             n_test: Rows of a held-out test split drawn the same way with seed ``seed + 1``, with its own
@@ -1548,7 +1532,6 @@ class SR_dataset:
             max_expr_length: As for ``SR_dataset``.
             required_constraints: As for ``SR_dataset``.
             advisory_constraints: As for ``SR_dataset``.
-            ground_truth_constants: As for ``SR_dataset``.
             settings: As for ``SR_dataset``.
             ranking_resample: As for ``SR_dataset``.
 
@@ -1556,9 +1539,10 @@ class SR_dataset:
             The dataset with freshly generated data.
 
         Raises:
-            ValueError: If ``samplers`` is ``None`` or empty, ``y`` cannot be computed (see ``resample``),
-                or the constructor rejects the arguments.
+            ValueError: If ``samplers`` is ``None`` or empty, ``y`` cannot be computed (see
+                ``resample``), or the constructor rejects the arguments.
             TypeError: As for the constructor.
+            ExpressionParseError: As for the constructor.
 
         Examples:
             >>> from SRToolkit.dataset.sampling import UniformSampling
@@ -1575,7 +1559,11 @@ class SR_dataset:
             )
         n_vars = len(samplers)
         if symbol_library is None:
-            symbol_library = SymbolLibrary.default_symbols(n_vars)
+            symbol_library = (
+                ground_truth.symbol_library
+                if isinstance(ground_truth, Expression)
+                else SymbolLibrary.default_symbols(n_vars)
+            )
 
         dataset = cls(
             np.empty((0, n_vars)),
@@ -1601,7 +1589,6 @@ class SR_dataset:
             max_expr_length=max_expr_length,
             required_constraints=required_constraints,
             advisory_constraints=advisory_constraints,
-            ground_truth_constants=ground_truth_constants,
             settings=settings,
             ranking_resample=ranking_resample,
         )

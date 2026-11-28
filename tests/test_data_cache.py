@@ -177,6 +177,17 @@ class TestResolveSample:
         with pytest.raises(ValueError, match=rf"free constant \({named}\) without a fixed value"):
             data_cache.resolve("test_bench", "1.0.0", "test_ds", config)
 
+    # Reason: clause (SampleSource.materialize Raises: ground_truth_constants that do not fit the ground
+    # truth); the message names the call and the argument.
+    def test_specs_that_do_not_fit_raise(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        specs = [Constant("C_9", value=1.0, fixed=True).to_dict()]
+        config = {**_simple_dataset_config(), "ground_truth": ["X_0", "*", "C_1"], "ground_truth_constants": specs}
+        with pytest.raises(
+            ValueError, match=r"^\[SampleSource\.materialize\] Dataset '.+' 'ground_truth_constants': .*'C_9'"
+        ):
+            data_cache.resolve("test_bench", "1.0.0", "test_ds", config)
+
     def test_free_constant_allowed_for_bed(self, tmp_path, monkeypatch):
         # BED samples the constants itself and needs no y, so a free constant is fine.
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)

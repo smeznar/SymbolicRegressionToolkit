@@ -1,9 +1,9 @@
 import numpy as np
 
 from SRToolkit.utils import (
+    Expression,
     SymbolLibrary,
     compile_expr,
-    expr_to_latex,
     simplify,
     tokens_to_tree,
 )
@@ -62,12 +62,12 @@ if __name__ == "__main__":
     print("\nf(X, C) =", f(X, C))  # [ 4. 10. 16.]
 
     # ------------------------------------------- LaTeX rendering -----------------------------------------------
-    # expr_to_latex renders an expression as a LaTeX string, handy for figures and papers.
-    latex = expr_to_latex(["sin", "(", "X_0", ")", "+", "X_1", "^2"], sl)
+    # Expression.to_latex renders an expression as a LaTeX string, handy for figures and papers.
+    latex = Expression(["sin", "(", "X_0", ")", "+", "X_1", "^2"], sl).to_latex()
     print("\nLaTeX:", latex)
 
     # ------------------------------------------- Simplification ------------------------------------------------
     # simplify rewrites an expression into a shorter equivalent one with e-graphs. It keeps every free constant, so
-    # the result is the same hypothesis, and returns it with the specs of the labelled constants that remain.
-    simplified, specs = simplify(["X_0", "*", "X_1", "/", "X_0", "+", "C", "*", "X_1"], sl)
-    print("Simplified:", simplified)  # e.g. ['X_1', '+', 'C', '*', 'X_1']
+    # the result is the same hypothesis. It returns an Expression with the tokens and the specs that remain.
+    simplified = simplify(["X_0", "*", "X_1", "/", "X_0", "+", "C", "*", "X_1"], sl)
+    print("Simplified:", simplified.tokens)  # e.g. ('X_1', '+', 'C', '*', 'X_1')

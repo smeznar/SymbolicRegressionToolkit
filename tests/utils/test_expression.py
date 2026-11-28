@@ -1,11 +1,16 @@
 import pickle
 
+import numpy as np
 import pytest
+from hypothesis import given, settings
+from strategies import infix_expressions, labelled_infix_expressions
 
 import SRToolkit.utils.expression as expression
-from SRToolkit.utils.expression import Expression, _as_expression
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node, parameter_labels
-from SRToolkit.utils.free_constants import Constant, resolve_constants, uniform_default
+from SRToolkit.dataset import UniformSampling
+from SRToolkit.utils.expression import Expression, _as_expression, canonicalise
+from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.expression_tree import ExpressionParseError, Node
+from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
@@ -120,19 +125,28 @@ class TestExpression:
         assert len(calls) == 1
 
     @pytest.mark.parametrize(
-        "tokens",
+        "tokens, labels",
         [
-            ["X_0", "+", "X_1"],
-            ["C", "*", "X_0", "+", "C"],
-            ["C_1", "*", "X_0", "+", "C", "*", "C_1", "+", "C_0"],
+            (["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C"], (None, "C_5", None)),
+            (["C_5", "+", "C_1", "*", "C_5", "+", "C_01"], ("C_5", "C_1", "C_01")),
+            (["C", "+", "C"], (None, None)),
+            (["X_0", "+", "pi"], ()),
         ],
-        ids=["none", "bare", "labelled"],
+        ids=["mixed", "labels-by-first-appearance", "bare-each-own", "none"],
     )
-    def test_parameters_match_parameter_labels(self, tokens):
+    def test_parameter_labels(self, tokens, labels):
         expr = Expression(tokens, self.sl)
-        expected = parameter_labels(tokens, self.sl)
-        assert expr.parameter_labels == tuple(expected)
-        assert expr.num_parameters == len(expected)
+        assert expr.parameter_labels == labels
+        assert expr.num_parameters == len(labels)
+
+    def test_registered_symbol_named_like_a_label_is_not_a_parameter(self):
+        sl = SymbolLibrary.default_symbols(1)
+        sl.add_symbol("C_1", "lit", 1000, "1.5")
+        assert Expression(["C_1", "+", "C", "+", "C_2"], sl).parameter_labels == (None, "C_2")
+
+    def test_parameter_labels_in_a_renamed_constant_library(self):
+        sl = SymbolLibrary.default_symbols(2, const_symbol="K")
+        assert Expression(["K", "*", "X_0", "+", "K_1", "*", "X_1", "+", "K_1"], sl).parameter_labels == (None, "K_1")
 
     def test_variables_once_in_order_of_first_appearance(self):
         expr = Expression(["X_1", "*", "sin", "(", "X_0", ")", "+", "X_1", "*", "C", "+", "2", "+", "pi"], self.sl)
@@ -257,12 +271,6 @@ class TestExpressionSpecs:
             self.tokens, self.sl, [Constant(label="C_0", value=9.8, fixed=True)]
         )
 
-    def test_resolve_matches_resolve_constants(self):
-        default = uniform_default((-5.0, 5.0))
-        expr = Expression(self.tokens, self.sl, [self.g, self.h])
-        assert expr.resolve(default) == resolve_constants(self.tokens, [self.g, self.h], default, self.sl)
-        assert Expression(self.tokens, self.sl).resolve(default) == (default, default, default)
-
     def test_resolve_uses_the_expression_library(self):
         sl = SymbolLibrary.default_symbols(1, const_symbol="K")
         spec = Constant(label="K_0", value=1.0, fixed=True)
@@ -334,3 +342,249 @@ class TestAsExpression:
 
     def test_list_has_no_specs(self):
         assert _as_expression(["C_0", "*", "X_0"], self.sl).free_constants == ()
+
+
+INF = float("inf")
+
+
+# ---------------------------------------------------------------------------------------------------
+# Expression.resolve
+# ---------------------------------------------------------------------------------------------------
+
+
+def _lit_c1_library():
+    """Default library where ``C_1`` is a registered named constant, not a labelled constant (D17)."""
+    sl = SymbolLibrary.default_symbols(1)
+    sl.add_symbol("C_1", "lit", 5, "1.0")
+    return sl
+
+
+class TestExpressionResolve:
+    @pytest.mark.parametrize("specs", [None, ()], ids=["none", "empty"])
+    def test_without_specs_gives_default_itself(self, specs):
+        default = uniform_default((-5.0, 5.0))
+        res = Expression(["C", "*", "X_0", "+", "C_1"], free_constants=specs).resolve(default)
+        assert len(res) == 2
+        assert [s is default for s in res] == [True, True]
+
+    def test_expression_without_constants_is_empty(self):
+        assert Expression(["X_0", "+", "pi"]).resolve(uniform_default((-5.0, 5.0))) == ()
+
+    def test_maps_specs_to_parameter_slots(self):
+        default = uniform_default((-5.0, 5.0))
+        expr = ["C_2", "*", "X_0", "+", "C", "*", "C_0", "+", "C_2", "+", "C_7"]
+        specs = [Constant(label="C_0", value=1.0), Constant(label="C_2", value=3.0, fixed=True)]
+        res = Expression(expr, free_constants=specs).resolve(default)
+        # parameters by first appearance: C_2, bare C, C_0, C_7 (C_7 has no spec)
+        assert [s.label for s in res] == ["C_2", None, "C_0", None]
+        assert [s.value for s in res] == [3.0, None, 1.0, None]
+        assert [s.fixed for s in res] == [True, False, False, False]
+        assert res[1] is default
+        assert res[3] is default
+
+    def test_fills_missing_prior_and_bounds_from_default(self):
+        default = uniform_default((-5.0, 5.0))
+        own_prior = UniformSampling(0.0, 1.0)
+        specs = [
+            Constant(label="C_0"),
+            Constant(label="C_1", prior=own_prior),
+            Constant(label="C_2", bounds=(0.0, INF)),
+        ]
+        c0, c1, c2 = Expression(["C_0", "+", "C_1", "+", "C_2"], free_constants=specs).resolve(default)
+        assert c0.prior is default.prior
+        assert c0.bounds == (-5.0, 5.0)
+        assert c1.prior is own_prior
+        assert c1.bounds == (-5.0, 5.0)
+        assert c2.prior is default.prior
+        assert c2.bounds == (0.0, INF)
+
+    @pytest.mark.parametrize(
+        "value, fixed",
+        [(9.81, True), (5.0, False), (-5.0, False)],
+        ids=["fixed_outside", "free_on_upper", "free_on_lower"],
+    )
+    def test_accepts_values_against_inherited_bounds(self, value, fixed):
+        spec = Constant(label="C_0", value=value, fixed=fixed)
+        (res,) = Expression(["C_0", "*", "X_0"], free_constants=[spec]).resolve(uniform_default((-5.0, 5.0)))
+        assert res.value == value
+        assert res.bounds == (-5.0, 5.0)
+
+    @pytest.mark.parametrize(
+        "expr, specs, default, symbol_library, exc, match",
+        [
+            (
+                ["C_0"],
+                None,
+                dict(label="C_0", prior=UniformSampling(-1.0, 1.0), bounds=(-1.0, 1.0)),
+                None,
+                ValueError,
+                "default",
+            ),
+            (["C_0"], None, dict(bounds=(-1.0, 1.0)), None, ValueError, "default"),
+            (["C_0"], None, dict(prior=UniformSampling(-1.0, 1.0)), None, ValueError, "default"),
+            (
+                ["C_0"],
+                None,
+                dict(prior=UniformSampling(-1.0, 1.0), bounds=(-1.0, 1.0), value=0.5),
+                None,
+                ValueError,
+                "default_constant",
+            ),
+            (
+                ["C_0"],
+                None,
+                dict(prior=UniformSampling(-1.0, 1.0), bounds=(-1.0, 1.0), value=0.5, fixed=True),
+                None,
+                ValueError,
+                "default_constant",
+            ),
+            (["C_0"], [dict(value=1.0)], None, None, ValueError, "label"),
+            (["C_0"], [dict(label="C_0"), dict(label="C_0", value=1.0)], None, None, ValueError, "C_0"),
+            (["C_0"], [dict(label="C_9")], None, None, ValueError, "C_9"),
+            (["C", "+", "X_0"], [dict(label="C")], None, None, ValueError, "label"),
+            (["C", "+", "X_0"], [dict(label="X_0")], None, None, ValueError, "X_0"),
+            (["C_0"], [dict(label="C_0", value=6.0)], None, None, ValueError, "value|bounds"),
+            (["C_1", "+", "C_0"], [dict(label="C_1")], None, _lit_c1_library(), ValueError, "C_1"),
+        ],
+        ids=[
+            "default_has_label",
+            "default_without_prior",
+            "default_without_bounds",
+            "default_with_value",
+            "default_fixed",
+            "spec_without_label",
+            "duplicate_label",
+            "label_not_in_expr",
+            "bare_C_label",
+            "variable_label",
+            "free_value_outside_inherited_bounds",
+            "lit_symbol_is_not_labelled_constant",
+        ],
+    )
+    def test_rejects_invalid_input(self, expr, specs, default, symbol_library, exc, match):
+        # specs and default are given as Constant kwargs; default None means uniform_default((-5, 5))
+        specs = None if specs is None else [Constant(**kw) for kw in specs]
+        default = uniform_default((-5.0, 5.0)) if default is None else Constant(**default)
+        with pytest.raises(exc, match=match):
+            Expression(expr, symbol_library, specs).resolve(default)
+
+
+# ---------------------------------------------------------------------------------------------------
+# canonicalise
+# ---------------------------------------------------------------------------------------------------
+
+_X_CANON = np.random.default_rng(0).uniform(0.5, 2.0, size=(5, 2))
+
+
+def _relabel(tokens):
+    """Rename the labels of ``labelled_infix_expressions`` by a fixed bijection."""
+    renaming = {"C_0": "C_7", "C_1": "C_0", "C_7": "C_1"}
+    return [renaming.get(t, t) for t in tokens]
+
+
+def _canonicalise(*args):
+    """The canonical tokens as a list, so results compare with plain lists."""
+    return list(canonicalise(*args).tokens)
+
+
+class TestCanonicalise:
+    # Reason: clause (once -> bare, shared -> C_<k> with k from the parameter order, skipping
+    # registered names, const symbol of the library) + boundary (empty, no constants, no const symbol,
+    # malformed tokens) + implied (input not mutated).
+    @pytest.mark.parametrize(
+        "lib, expr, expected",
+        [
+            (None, "C_3 + X_0", "C + X_0"),
+            (None, "C_2 * X_0 + C_9 + C_9 + C_2", "C_0 * X_0 + C_1 + C_1 + C_0"),
+            # positions count bare and once-occurring constants: C_8 is parameter 2
+            (None, "C_4 + C + C_8 * C_8", "C + C + C_2 * C_2"),
+            # renaming is simultaneous: C_1 -> C_0 and C_0 -> C_1 do not collide
+            (None, "C_1 * C_1 + C_0 * C_0", "C_0 * C_0 + C_1 * C_1"),
+            (None, "X_0 + pi", "X_0 + pi"),
+            (None, "", ""),
+            (
+                lambda: SymbolLibrary.default_symbols(1, const_symbol="K"),
+                "K_3 * X_0 + K_3 + K_5",
+                "K_0 * X_0 + K_0 + K",
+            ),
+            # D17: the named constant C_1 is not a parameter; C_5 is parameter 0
+            (_lit_c1_library, "C_1 + C_5 * X_0 + C_5", "C_1 + C_0 * X_0 + C_0"),
+            # D17: C_5 is parameter 1, but C_1 is registered, so it gets C_2
+            (_lit_c1_library, "C_7 * C_7 + C_5 * X_0 + C_5", "C_0 * C_0 + C_2 * X_0 + C_2"),
+            # labels are handed out per parameter, bare ones included: the bare C takes C_2
+            (_lit_c1_library, "C_7 * C_7 + C + C_5 * C_5", "C_0 * C_0 + C + C_3 * C_3"),
+            (lambda: SymbolLibrary.from_symbol_list(["+"], 1), "C_0 + C_0", "C_0 + C_0"),
+            # tokens only: malformed input is rewritten without parsing
+            (None, "C_3 * ( C_3", "C_0 * ( C_0"),
+        ],
+        ids=[
+            "once",
+            "renumber",
+            "positions-count-bare",
+            "swap",
+            "no-constants",
+            "empty",
+            "const-symbol-K",
+            "D17-registered-untouched",
+            "D17-skip",
+            "D17-skip-counts-bare",
+            "no-const-symbol",
+            "malformed",
+        ],
+    )
+    def test_canonical_form(self, lib, expr, expected):
+        tokens = expr.split()
+        given_tokens = list(tokens)
+        assert _canonicalise(tokens, None if lib is None else lib()) == expected.split()
+        assert tokens == given_tokens
+
+    # Reason: clause (an Expression is read in its own library).
+    def test_expression_input_uses_its_library(self):
+        sl = SymbolLibrary.default_symbols(1, const_symbol="K")
+        assert _canonicalise(Expression(["K_5", "+", "K_5", "+", "K_1"], sl)) == ["K_0", "+", "K_0", "+", "K"]
+
+    # Reason: clause (Returns: an Expression in the library of expr; one that does not change is
+    # returned itself).
+    def test_returns_an_expression_and_an_unchanged_one_itself(self):
+        sl = SymbolLibrary.default_symbols(1, const_symbol="K")
+        unchanged = Expression(["K", "+", "X_0"], sl)
+        assert canonicalise(unchanged) is unchanged
+        changed = canonicalise(Expression(["K_3", "+", "X_0"], sl))
+        assert (changed.tokens, changed.symbol_library) == (("K", "+", "X_0"), sl)
+
+    # Reason: clause (Raises ValueError for an expression with specs).
+    def test_rejects_expression_with_specs(self):
+        expr = Expression(["C_0", "+", "C_0"], free_constants=[Constant(label="C_0", value=1.0, fixed=True)])
+        with pytest.raises(ValueError, match="specs"):
+            _canonicalise(expr)
+
+    # Reason: clause (Raises TypeError).
+    @pytest.mark.parametrize("expr", ["C_0+C_0", None, [1, "+"]], ids=["str", "none", "non-str-token"])
+    def test_rejects_non_expression(self, expr):
+        with pytest.raises(TypeError, match="token strings"):
+            _canonicalise(expr)
+
+    # Reason: implied (only names change): idempotent, same parameter count, same function of the
+    # same parameter vector.
+    @settings(max_examples=60)
+    @given(expr=labelled_infix_expressions())
+    def test_canonical_form_is_idempotent_and_computes_the_same_function(self, expr):
+        canon = _canonicalise(expr)
+        assert _canonicalise(canon) == canon
+        n = Expression(expr).num_parameters
+        assert Expression(canon).num_parameters == n
+        params = np.random.default_rng(1).uniform(0.5, 2.0, size=n)
+        with np.errstate(all="ignore"):
+            np.testing.assert_array_equal(compile_expr(canon)(_X_CANON, params), compile_expr(expr)(_X_CANON, params))
+
+    # Reason: clause ("expressions that differ only in how their constants are written then have one form").
+    @settings(max_examples=60)
+    @given(expr=labelled_infix_expressions())
+    def test_invariant_under_relabelling(self, expr):
+        assert _canonicalise(_relabel(expr)) == _canonicalise(expr)
+
+    # Reason: clause ("an expression with only bare constants is unchanged").
+    @settings(max_examples=60)
+    @given(expr=infix_expressions())
+    def test_bare_only_expression_unchanged(self, expr):
+        assert _canonicalise(expr) == expr

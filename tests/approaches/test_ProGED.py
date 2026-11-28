@@ -10,7 +10,9 @@ from SRToolkit.approaches import ProGED
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils.expression_constraints import MaxTokens
+from SRToolkit.utils import expression
+from SRToolkit.utils.expression_constraints import MaxTokens, MaxTreeDepth
+from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -222,11 +224,25 @@ def test_ask_proposes_skipped_samples_as_lookups():
     approach = ProGED(only_x0)
     state = approach.start(se, seed=0)
     (first,) = approach.ask(se, state)
-    assert (first.expr, first.skip) == (["X_0"], None)
+    assert (list(first.expr.tokens), first.skip) == (["X_0"], None)
     se.evaluate_expr(first.expr)
     (second,) = approach.ask(se, state)
-    assert (second.expr, second.skip) == (["X_0"], "evaluated")
+    assert (list(second.expr.tokens), second.skip) == (["X_0"], "evaluated")
     assert (se.skips, se.should_stop) == ({}, False)
+
+
+# Reason: implied (ask builds one Expression per sample and passes it to get_model, check_constraints
+# and the Candidate, so a sample proposed and then evaluated is parsed once).
+def test_a_proposed_and_evaluated_sample_is_parsed_once(monkeypatch):
+    product = Grammar(Rule.from_line("E -> 'X_0' '*' 'X_1' [1.0]"), start="E")
+    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1, required_constraints=[MaxTreeDepth(5)])
+    approach = ProGED(product)
+    state = approach.start(se, seed=0)
+    parses = []
+    monkeypatch.setattr(expression, "tokens_to_tree", lambda *args: parses.append(args) or tokens_to_tree(*args))
+    (candidate,) = approach.ask(se, state)
+    se.evaluate_expr(candidate.expr)
+    assert (candidate.skip, len(parses)) == (None, 1)
 
 
 def test_search_is_reproducible_with_a_seed():
@@ -283,7 +299,7 @@ def test_ask_failed_derivation_is_none_not_redrawn():
     approach = ProGED(half_failing)
     state = approach.start(se, seed=0)
     proposals = [approach.ask(se, state)[0] for _ in range(20)]
-    assert [c if c is None else c.expr for c in proposals] == expected
+    assert [c if c is None else list(c.expr.tokens) for c in proposals] == expected
     assert {c.skip for c in proposals if c is not None} == {None}
     assert None in expected and ["X_0"] in expected  # precondition: both outcomes occur
 
@@ -325,7 +341,7 @@ def test_ask_proposes_long_samples(required_constraints, skip):
     )
     approach = ProGED(_LONG_GRAMMAR)
     (candidate,) = approach.ask(se, approach.start(se, seed=0))
-    assert (candidate.expr, candidate.skip) == (_LONG_EXPR, skip)
+    assert (list(candidate.expr.tokens), candidate.skip) == (_LONG_EXPR, skip)
 
 
 def _branches(copies, depth):
@@ -348,4 +364,4 @@ def test_ask_derivation_step_limit_is_1000(copies, depth, expr):
     se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1)
     approach = ProGED(_branches(copies, depth))
     (candidate,) = approach.ask(se, approach.start(se, seed=0))
-    assert (candidate if candidate is None else candidate.expr) == expr
+    assert (candidate if candidate is None else list(candidate.expr.tokens)) == expr

@@ -82,7 +82,7 @@ SRToolkit offers fundamental utilities for working with mathematical expressions
 
 ```python
 import numpy as np
-from SRToolkit.utils import compile_expr, tokens_to_tree, SymbolLibrary, expr_to_latex
+from SRToolkit.utils import Expression, compile_expr, tokens_to_tree, SymbolLibrary
 
 # Create an executable function from the expression
 expr = compile_expr(["X_0", "+", "X_1", "*", "C"])
@@ -102,7 +102,7 @@ with SymbolLibrary.default_symbols(num_variables=2) as sl:
     postfix_expr = expr_tree.to_list(notation="postfix")
 
     # Create a LaTeX string of the expression for clear presentation
-    expr_latex = expr_to_latex(expr_tree)
+    expr_latex = Expression(["X_0", "+", "X_1", "*", "C"]).to_latex()
 ```
 
 ### 2. Benchmarking and Evaluation (The Main Use Case)

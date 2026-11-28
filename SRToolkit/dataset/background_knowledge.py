@@ -56,7 +56,7 @@ from typing import Any, cast
 
 from SRToolkit.dataset.sampling import Sampler
 from SRToolkit.utils.expression_constraints import ExpressionConstraint, _set_up_copy
-from SRToolkit.utils.free_constants import Constant, resolve_constants, uniform_default
+from SRToolkit.utils.free_constants import Constant, _check_default_constant, uniform_default
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.units import Unit
@@ -294,7 +294,7 @@ class BackgroundKnowledge:
                     prior=uniform.prior if template.prior is None else template.prior,
                     bounds=uniform.bounds if template.bounds is None else template.bounds,
                 )
-                resolve_constants([], None, template)
+                _check_default_constant(template)
             except ValueError as e:
                 raise ValueError(f"[BackgroundKnowledge] {e}") from None
         object.__setattr__(self, "default_constant", template)

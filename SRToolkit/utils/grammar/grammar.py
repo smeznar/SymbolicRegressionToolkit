@@ -302,10 +302,10 @@ class Grammar:
         >>> len(g.rules_for("E"))
         2
         >>> # A shared constant: C_0*X_0 + C_0 has one parameter
-        >>> from SRToolkit.utils import parameter_labels
+        >>> from SRToolkit.utils import Expression
         >>> g = Grammar([Rule("E", ["C_0", "*", "X_0", "+", "C_0"])], start="E")
-        >>> parameter_labels(g.start_derivation().generate())
-        ['C_0']
+        >>> Expression(g.start_derivation().generate()).parameter_labels
+        ('C_0',)
     """
 
     def __init__(self, rules: list[Rule] | None = None, start: str | None = None) -> None:

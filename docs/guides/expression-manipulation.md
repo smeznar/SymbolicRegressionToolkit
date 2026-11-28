@@ -66,7 +66,7 @@ sl = SymbolLibrary.default_symbols(num_variables=2)
 with sl:
     tree = tokens_to_tree(["X_0", "+", "X_1", "*", "C"])
     f = compile_expr(["X_0", "*", "C"])
-    latex = expr_to_latex(["sin", "(", "X_0", ")", "+", "X_1"])
+    latex = Expression(["sin", "(", "X_0", ")", "+", "X_1"]).to_latex()
     d = edit_distance(["X_0", "+", "1"], ["X_0", "-", "1"])
 ```
 
@@ -82,7 +82,7 @@ f = compile_expr(["X_0", "*", "C"])
 SymbolLibrary.set_default(None)   # clear when done
 ```
 
-The resolution order is: **explicit argument → context manager → module default → `default_symbols()`**. Functions that parse token vocabularies (`tokens_to_tree`, `expr_to_latex`) raise `RuntimeError` if no library is available; all other functions fall back to `default_symbols()`.
+The resolution order is: **explicit argument → context manager → module default → `default_symbols()`**. Functions that parse token vocabularies (`tokens_to_tree`) raise `RuntimeError` if no library is available; all other functions fall back to `default_symbols()`.
 
 ## Expression trees
 
@@ -144,19 +144,19 @@ print(f(X, C))            # [4.  10.  16.]
 
 ## LaTeX rendering
 
-Expressions can be compiled into a LaTeX string using the [expr_to_latex][SRToolkit.utils.compile_expr] function.
+[Expression.to_latex][SRToolkit.utils.expression.Expression.to_latex] writes an expression as a LaTeX string.
 
 ```python
-from SRToolkit.utils import SymbolLibrary, expr_to_latex
+from SRToolkit.utils import Expression, SymbolLibrary
 
 sl = SymbolLibrary.default_symbols(num_variables=2)
-latex = expr_to_latex(["sin", "(", "X_0", ")", "+", "X_1", "^2"], sl)
+latex = Expression(["sin", "(", "X_0", ")", "+", "X_1", "^2"], sl).to_latex()
 print(latex)  # $\sin X_{0} + X_{1}^2$
 ```
 
 ## Simplification
 
-[simplify][SRToolkit.utils.expression_simplifier.simplify] simplifies an expression algebraically with e-graphs. It keeps every free constant, so the result is the same hypothesis, and returns it with the specs of the labelled constants that remain:
+[simplify][SRToolkit.utils.expression_simplifier.simplify] simplifies an expression algebraically with e-graphs. It keeps every free constant, so the result is the same hypothesis. It returns an [Expression][SRToolkit.utils.expression.Expression] holding the simplified tokens and the specs of the labelled constants that remain:
 
 ```python
 from SRToolkit.utils import SymbolLibrary
@@ -164,6 +164,7 @@ from SRToolkit.utils.expression_simplifier import simplify
 
 sl = SymbolLibrary.default_symbols(num_variables=2)
 
-simplified, specs = simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"], sl)
-print(simplified)  # ['(', 'C', '+', 'C', ')', '*', 'X_0']
+simplified = simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"], sl)
+print(simplified)         # (C+C)*X_0
+print(simplified.tokens)  # ('(', 'C', '+', 'C', ')', '*', 'X_0')
 ```

@@ -14,8 +14,9 @@ from SRToolkit.dataset.sr_benchmark import SR_benchmark
 from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils import units as u
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth, RequiredVariables
-from SRToolkit.utils.expression_tree import tokens_to_tree
+from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
@@ -133,8 +134,7 @@ def test_add_dataset_writes_arrays_to_cache(dataset, ranking_function, library, 
         dataset,
         "a",
         ranking_function=ranking_function,
-        ground_truth=ground_truth,
-        ground_truth_constants=gt_constants,
+        ground_truth=ground_truth if gt_constants is None else Expression(ground_truth, free_constants=gt_constants),
     )
     entry = bm.datasets["a"]
     assert entry["data_source"] is None
@@ -149,7 +149,22 @@ def test_add_dataset_writes_arrays_to_cache(dataset, ranking_function, library, 
 def test_add_dataset_node_ground_truth_saved_as_tokens():
     bm = SR_benchmark("b")
     bm.add_dataset(_lib2c(), _XY, "a", ground_truth=tokens_to_tree(_GT, _lib2c()))
-    assert bm.create_dataset("a").ground_truth == _GT
+    assert list(bm.create_dataset("a").ground_truth.tokens) == _GT
+
+
+# Reason: regression (add_from_samplers with symbol_library None ignored an Expression's library) +
+# clause (None uses the Expression's own library).
+def test_add_from_samplers_uses_the_expression_library():
+    lib = SymbolLibrary.default_symbols(1, const_symbol="K")
+    bm = SR_benchmark("b")
+    bm.add_from_samplers(
+        Expression(["K", "*", "X_0"], lib),
+        [UniformSampling(0, 1)],
+        dataset_name="a",
+        n_samples=4,
+        ranking_function="bed",
+    )
+    assert bm.create_dataset("a").symbol_library.constant_symbol == "K"
 
 
 def test_add_from_samplers_forwards_arguments():
@@ -201,23 +216,23 @@ def test_create_dataset_resamples_v4():
 _FIX2 = Constant("C_0", value=2.0, fixed=True)
 
 
-# Reason: clause (add_dataset / add_from_samplers store ground_truth_constants in the entry; y of a bare
+# Reason: clause (add_dataset / add_from_samplers store the ground truth's specs in the entry; y of a bare
 # ndarray and of a SampleSource is computed with the fixed values). y = 2x + 2.
 @pytest.mark.parametrize(
     "add, n_samples",
     [
-        (lambda bm: bm.add_dataset(_lib2c(), _X, "a", ground_truth=_GT_C0, ground_truth_constants=[_FIX2]), None),
+        (lambda bm: bm.add_dataset(_lib2c(), _X, "a", ground_truth=Expression(_GT_C0, free_constants=[_FIX2])), None),
         (
             lambda bm: bm.add_from_samplers(
-                _GT_C0, [UniformSampling(0, 1)] * 2, dataset_name="a", n_samples=6, seed=0,
-                ground_truth_constants=[_FIX2],
+                Expression(_GT_C0, _lib2c(), [_FIX2]), [UniformSampling(0, 1)] * 2, dataset_name="a",
+                n_samples=6, seed=0,
             ),
             None,
         ),
         (
             lambda bm: bm.add_from_samplers(
-                _GT_C0, [UniformSampling(0, 1)] * 2, dataset_name="a", n_samples=6, seed=0,
-                ground_truth_constants=[_FIX2],
+                Expression(_GT_C0, _lib2c(), [_FIX2]), [UniformSampling(0, 1)] * 2, dataset_name="a",
+                n_samples=6, seed=0,
             ),
             7,
         ),
@@ -310,17 +325,7 @@ def _add_existing(bm):
         ),
         (lambda bm: bm.add_dataset(_lib2c(), np.zeros((5, 3)), "x", ground_truth=_GT), ValueError, "columns"),
         (
-            lambda bm: bm.add_dataset(_lib2c(), _XY, "x", ground_truth_constants=[_FIX2]),
-            ValueError,
-            "needs a 'ground_truth'",
-        ),
-        (
-            lambda bm: bm.add_dataset(_lib2c(), _XY, "x", ground_truth=_GT, ground_truth_constants=[_FIX2]),
-            ValueError,
-            "labelled constants",
-        ),
-        (
-            lambda bm: bm.add_dataset(_lib2c(), _X, "x", ground_truth=_GT_C0, ground_truth_constants=[_FREE]),
+            lambda bm: bm.add_dataset(_lib2c(), _X, "x", ground_truth=Expression(_GT_C0, free_constants=[_FREE])),
             ValueError,
             "free constant",
         ),
@@ -329,10 +334,9 @@ def _add_existing(bm):
                 _lib2c(),
                 None,
                 "x",
-                ground_truth=_GT_C0,
+                ground_truth=Expression(_GT_C0, free_constants=[_FREE]),
                 samplers=[UniformSampling(0, 1)] * 2,
                 data_source=SampleSource(n_samples=5, seed=0),
-                ground_truth_constants=[_FREE],
             ),
             ValueError,
             "free constant",
@@ -342,22 +346,20 @@ def _add_existing(bm):
                 _lib2c(),
                 None,
                 "x",
-                ground_truth=_GT_C0,
+                ground_truth=Expression(_GT_C0, free_constants=[_FREE]),
                 samplers=[UniformSampling(0, 1)] * 2,
                 data_source=FallbackSource([UrlSource("http://example.invalid/x.zip"), SampleSource(n_samples=5)]),
-                ground_truth_constants=[_FREE],
             ),
             ValueError,
             "free constant",
         ),  # fmt: skip
         (
             lambda bm: bm.add_from_samplers(
-                _GT_C0,
+                Expression(_GT_C0, _lib2c(), [_FREE]),
                 [UniformSampling(0, 1)] * 2,
                 dataset_name="x",
                 n_samples=5,
                 seed=0,
-                ground_truth_constants=[_FREE],
             ),
             ValueError,
             "free constant",
@@ -381,8 +383,6 @@ def _add_existing(bm):
         "zero-budget",
         "columns-differ-from-variables",
         "ndarray-columns-differ-from-variables",
-        "gt-constants-without-gt",
-        "gt-constants-unknown-label",
         "gt-constant-not-fixed-ndarray",
         "gt-constant-not-fixed-sample-source",
         "gt-constant-not-fixed-fallback-source",
@@ -409,10 +409,21 @@ def test_create_dataset_errors(name, n_samples, match):
 
 
 def test_add_dataset_gt_eval_error_chained():
+    # The ground truth parses but cannot be evaluated: its function's body names nothing that exists.
+    lib = SymbolLibrary.default_symbols(1)
+    lib.add_symbol("bad", "fn", 5, "no_such_function({})")
     bm = SR_benchmark("b")
-    with pytest.raises(ValueError) as info:
-        bm.add_dataset(SymbolLibrary.default_symbols(1), np.ones((5, 1)), "x", ground_truth=["X_0", "*"])
+    with pytest.raises(ValueError, match="Could not evaluate the ground truth") as info:
+        bm.add_dataset(lib, np.ones((5, 1)), "x", ground_truth=["bad", "(", "X_0", ")"])
     assert info.value.__cause__ is not None
+
+
+# Reason: clause (Raises: a ground truth that does not parse is rejected before anything is written).
+def test_add_dataset_rejects_unparsable_ground_truth():
+    bm = SR_benchmark("b")
+    with pytest.raises(ExpressionParseError, match=r"^\[SR_benchmark.add_dataset\] 'ground_truth' does not parse"):
+        bm.add_dataset(SymbolLibrary.default_symbols(1), np.ones((5, 1)), "x", ground_truth=["X_0", "*"])
+    assert not data_cache.dataset_path("b", bm.version, "x").exists()
 
 
 def test_add_from_samplers_forwards_background_knowledge():

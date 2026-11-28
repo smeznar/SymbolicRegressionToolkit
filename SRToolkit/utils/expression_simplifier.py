@@ -76,8 +76,9 @@ from typing import Any, Literal, cast
 import egglog as egg
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
+from SRToolkit.utils.expression import Expression, _to_expression
 from SRToolkit.utils.expression_constraints import _validate_limit
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node, _as_tree, is_float, parameter_labels
+from SRToolkit.utils.expression_tree import Node, _parameter_labels
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.symbol_library import _DEFAULT_SYMBOLS, SymbolLibrary
 
@@ -590,23 +591,11 @@ def _check_settings(
         raise TypeError(f"{prefix}fold_aware must be a bool or None, got {fold_aware!r}.")
 
 
-def _check_specs(free_constants: Sequence[Constant] | None, labels: set[str | None]) -> dict[str | None, Constant]:
-    # The specs by label; raises unless each has a distinct label from labels (the expression's).
-    specs = {spec.label: spec for spec in free_constants or ()}
-    if None in specs or len(specs) != len(free_constants or ()) or not labels.issuperset(specs):
-        raise ValueError(
-            f"Every spec in 'free_constants' needs a distinct label of a labelled constant of the expression, "
-            f"got {[spec.label for spec in free_constants or ()]}."
-        )
-    return specs
-
-
 def fold(
-    expr: list[str] | Node,
+    expr: list[str] | Expression,
     symbol_library: SymbolLibrary | None = None,
-    free_constants: Sequence[Constant] | None = None,
     mode: Literal["none", "default", "keep"] = "keep",
-) -> tuple[list[str] | Node, tuple[Constant, ...] | None]:
+) -> Expression:
     """Replace the constant parts of an expression with single constants.
 
     A constant part is a subexpression without variables that contains a free constant (one without a
@@ -621,48 +610,56 @@ def fold(
     the module docs).
 
     Args:
-        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library of the expression. ``None`` uses the active or default library.
-        free_constants: Specs of labelled constants of ``expr``, in any order.
+        expr: The expression, as a token list or an
+            [Expression][SRToolkit.utils.expression.Expression] carrying the specs of its labelled
+            constants.
+        symbol_library: Symbol library of the expression. ``None`` uses the expression's own
+            library, or the active or default one for a token list.
         mode: Which constants may fold.
 
-            - ``"none"``: nothing is folded or checked; ``expr`` and ``free_constants`` come
-              back as given.
+            - ``"none"``: nothing is folded; the expression comes back as given, unparsed.
             - ``"default"``: every constant may fold; the specs of folded labels are dropped.
             - ``"keep"``: labelled constants with a spec (fixed or not) never fold and keep their
               specs. Without specs the same as ``"default"``.
 
     Returns:
-        The folded expression, in the form of ``expr`` (a token list as given if nothing folds), and
-        the specs of ``free_constants`` whose label it still contains, in the given order (``()`` if
-        none, ``None`` if ``free_constants`` is ``None``).
+        The folded expression in the library of ``expr``, with the specs of ``expr`` whose label
+        it still contains, in the given order. An ``Expression`` that does not change is returned
+        itself.
 
     Raises:
-        TypeError: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
-        ExpressionParseError: If a token list cannot be parsed, or a symbol is neither in the library
-            nor a number.
-        ValueError: If ``mode`` is unknown, or a spec in ``free_constants`` has no label, two share
-            one, or its label is not a labelled constant of ``expr``.
+        TypeError: If ``expr`` is neither a list or tuple of token strings nor an ``Expression``.
+        ExpressionParseError: If the tokens cannot be parsed (not with ``mode="none"``, which
+            returns the expression unparsed).
+        ValueError: If ``mode`` is unknown.
 
     Examples:
-        >>> "".join(fold(["C", "*", "C", "*", "X_0", "+", "sin", "(", "C", "+", "2", ")"])[0])
+        >>> str(fold(["C", "*", "C", "*", "X_0", "+", "sin", "(", "C", "+", "2", ")"]))
         'C*X_0+C'
-        >>> from SRToolkit.utils import Constant
+        >>> from SRToolkit.utils import Constant, Expression
         >>> g = Constant(label="C_1", value=9.81, fixed=True)
-        >>> "".join(fold(["C_1", "*", "C", "*", "X_0"], free_constants=[g])[0])
-        'C_1*C*X_0'
-        >>> expr, specs = fold(["C_1", "*", "C", "*", "X_0"], free_constants=[g], mode="default")
-        >>> "".join(expr), specs
+        >>> expr = Expression(["C_1", "*", "C", "*", "X_0"], free_constants=[g])
+        >>> fold(expr) is expr
+        True
+        >>> folded = fold(expr, mode="default")
+        >>> str(folded), folded.free_constants
         ('C*X_0', ())
     """
     _check_fold_mode(mode, "mode")
+    expr = _to_expression(expr, symbol_library)
     if mode == "none":
-        return (expr if isinstance(expr, Node) else list(expr)), (
-            None if free_constants is None else tuple(free_constants)
-        )
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    tree = _as_tree(expr, symbol_library)
+        return expr
+    tree, kept, changed = _fold_tree(expr.tree, expr.symbol_library, expr.free_constants, mode)
+    if not changed:  # not written out: to_list may add brackets
+        return expr
+    return Expression.from_tree(tree, expr.symbol_library, kept)
+
+
+def _fold_tree(
+    tree: Node, symbol_library: SymbolLibrary, free_constants: tuple[Constant, ...], mode: str
+) -> tuple[Node, tuple[Constant, ...], bool]:
+    # fold on a tree, for a mode other than "none": the folded tree (new nodes; tree is not
+    # changed), the specs whose label it still contains, and whether anything folded.
     constant = symbol_library.constant_symbol
     kinds: dict[str, str | None] = {}  # symbol -> its type in the library (None for a number)
 
@@ -673,8 +670,6 @@ def fold(
     def scan(node: Node) -> tuple[bool, bool, dict[str, int] | None]:
         if node.symbol not in kinds:
             symbol = symbol_library.get(node.symbol)
-            if symbol is None and not is_float(node.symbol):  # a tree is not checked by _as_tree
-                raise ExpressionParseError(f"Unknown symbol {node.symbol!r}: not in the symbol library or a number.")
             kinds[node.symbol] = symbol.type if symbol is not None else None
         kind = kinds[node.symbol]
         has_var = kind == "var"
@@ -694,7 +689,7 @@ def fold(
         return info[id(node)]
 
     total = scan(tree)[2] or {}
-    specs = _check_specs(free_constants, set(total))
+    specs = {spec.label: spec for spec in free_constants}
     pinned = set(specs) if mode == "keep" else set()
     free = {label for label in total if not (label in specs and specs[label].fixed)}
     folded: set[str] = set()  # the labels folded away (all their occurrences)
@@ -721,27 +716,19 @@ def fold(
         )
 
     result = rebuild(tree)
-    kept = None if free_constants is None else tuple(spec for spec in free_constants if spec.label not in folded)
-    if isinstance(expr, Node):
-        return result, kept
-    # Written out only if something folded: to_list may add brackets.
-    return (result.to_list(symbol_library=symbol_library) if changed else list(expr)), kept
-
-
-_fold = fold  # simplify's argument "fold" hides the function
+    return result, tuple(spec for spec in free_constants if spec.label not in folded), changed
 
 
 def simplify(
-    expr: list[str] | Node,
+    expr: list[str] | Expression,
     symbol_library: SymbolLibrary | None = None,
-    free_constants: Sequence[Constant] | None = None,
     rules: SimplificationRules | None = None,
     max_iterations: int = 30,
     max_nodes: int = 10_000,
     max_time: float | None = None,
     fold: Literal["none", "default", "keep"] = "none",
     fold_aware: bool = True,
-) -> tuple[list[str] | Node, tuple[Constant, ...] | None]:
+) -> Expression:
     """Simplify an expression algebraically, and fold its constants if asked.
 
     The rules are applied in steps (see the module docs for the cost, constants and fixed values).
@@ -755,10 +742,12 @@ def simplify(
     Simplifying the result again may simplify it further.
 
     Args:
-        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library of the expression. ``None`` uses the active or default library.
-        free_constants: Specs of labelled constants of ``expr``, in any order. A fixed one is used
-            as its value; the bounds of the others are recorded but not used by the default rules.
+        expr: The expression, as a token list or an
+            [Expression][SRToolkit.utils.expression.Expression] carrying the specs of its labelled
+            constants. A fixed spec is used as its value; the bounds of the others are recorded but
+            not used by the default rules.
+        symbol_library: Symbol library of the expression. ``None`` uses the expression's own
+            library, or the active or default one for a token list.
         rules: The rewrite rules; ``None`` uses [DefaultRules][SRToolkit.utils.expression_simplifier.DefaultRules].
         max_iterations: Maximum number of steps; ``0`` applies no rules (the result is still
             folded; a token list may gain redundant brackets).
@@ -774,36 +763,35 @@ def simplify(
             Ignored with ``fold="none"``.
 
     Returns:
-        The simplified expression, in the form of ``expr`` (token list or
-        [Node][SRToolkit.utils.expression_tree.Node]), and the specs of ``free_constants`` whose
-        label it still contains, in the given order (``()`` if none, ``None`` if
-        ``free_constants`` is ``None``).
+        The simplified expression in the library of ``expr``, with the specs of ``expr`` whose
+        label it still contains, in the given order. An ``Expression`` that does not change is
+        returned itself.
 
     Raises:
-        TypeError: If ``expr`` is neither a token list nor a [Node][SRToolkit.utils.expression_tree.Node].
-        ExpressionParseError: If a token list cannot be parsed.
-        ValueError: If ``fold`` is unknown, or a spec in ``free_constants`` has no label, two share
-            one, or its label is not a labelled constant of ``expr``.
+        TypeError: If ``expr`` is neither a list or tuple of token strings nor an ``Expression``.
+        ExpressionParseError: If the tokens cannot be parsed.
+        ValueError: If ``fold`` is unknown.
 
     Examples:
-        >>> print("".join(simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"])[0]))
+        >>> print(simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"]))
         (C+C)*X_0
-        >>> print("".join(simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"], fold="keep")[0]))
+        >>> print(simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"], fold="keep"))
         C*X_0
-        >>> from SRToolkit.utils import Constant
+        >>> from SRToolkit.utils import Constant, Expression
         >>> fixed = Constant(label="C_1", value=2.0, fixed=True)
-        >>> expr, specs = simplify(["C_1", "*", "X_0", "+", "C_1", "*", "3"], free_constants=[fixed])
-        >>> "".join(expr), specs == (fixed,)
+        >>> simplified = simplify(Expression(["C_1", "*", "X_0", "+", "C_1", "*", "3"], free_constants=[fixed]))
+        >>> str(simplified), simplified.free_constants == (fixed,)
         ('C_1*X_0+6', True)
     """
     _check_fold_mode(fold, "fold")
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
     if rules is None:
         rules = DefaultRules()
-    tree = _as_tree(expr, symbol_library)
-    labels = set(parameter_labels(tree, symbol_library))
-    specs = _check_specs(free_constants, labels)
+    expr = _to_expression(expr, symbol_library)
+    symbol_library = expr.symbol_library
+    tree = expr.tree
+    free_constants = expr.free_constants
+    labels = set(expr.parameter_labels)
+    specs = {spec.label: spec for spec in free_constants}
 
     tokens: list[str] = []  # leaf id -> token
     labelled: dict[str, EggExpr] = {}  # label -> its constant
@@ -883,7 +871,7 @@ def simplify(
         value = args[1].value
         return Node(str(int(value)) if value.is_integer() else repr(value))
 
-    def write_out(term: Any) -> tuple[Node, tuple[Constant, ...] | None]:
+    def write_out(term: Any) -> tuple[Node, tuple[Constant, ...]]:
         # The term as a tree with the specs of the labels it contains, folded if asked.
         copies: dict[int, list[Node]] = {}
         result = to_node(term, copies)
@@ -897,14 +885,12 @@ def simplify(
                 k += 1
                 for node in nodes:
                     node.symbol = label
-        kept = None
-        if free_constants is not None:
-            remaining = set(parameter_labels(result, symbol_library))
-            kept = tuple(spec for spec in free_constants if spec.label in remaining)
+        remaining = set(_parameter_labels(result, symbol_library)) if free_constants else set()
+        kept = tuple(spec for spec in free_constants if spec.label in remaining)
         if fold == "none":
             return result, kept
-        folded, kept = _fold(result, symbol_library, kept, fold)
-        return cast(Node, folded), kept
+        folded, kept, _ = _fold_tree(result, symbol_library, kept, fold)
+        return folded, kept
 
     result, kept = write_out(best)
     if fold != "none" and fold_aware:
@@ -938,6 +924,7 @@ def simplify(
             aware, aware_kept = write_out(graph.extract(graph_handle, cost_model=fold_cost))
             if len(aware) < len(result):
                 result, kept = aware, aware_kept
-    if isinstance(expr, Node):
-        return result, kept
-    return result.to_list(symbol_library=symbol_library), kept
+    tokens = result.to_list(symbol_library=symbol_library)
+    if tokens == list(expr.tokens) and kept == free_constants:
+        return expr
+    return Expression(tokens, symbol_library, kept)

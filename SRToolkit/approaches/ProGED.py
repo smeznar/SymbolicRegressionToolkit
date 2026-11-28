@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from SRToolkit.evaluation import SR_evaluator
-from SRToolkit.utils import Grammar, Node, SymbolLibrary
+from SRToolkit.utils import Expression, Grammar, SymbolLibrary
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
 from .sr_approach import ApproachConfig, Candidate, SR_approach
@@ -140,7 +140,7 @@ class ProGED(SR_approach):
         if seed is not None:
             np.random.seed(seed)
 
-    def ask(self, sr_evaluator: SR_evaluator, state: None) -> list[Candidate | list[str] | Node | None]:
+    def ask(self, sr_evaluator: SR_evaluator, state: None) -> list[Candidate | list[str] | Expression | None]:
         """Propose one sample from the grammar.
 
         A derivation that needs more than 1000 rule applications, or in which no rule fits, fails
@@ -155,9 +155,11 @@ class ProGED(SR_approach):
             ``None`` if the derivation failed.
         """
         assert self._sampling_grammar is not None  # set by the constructor or adapt; checked in start
-        expr = self._sampling_grammar.generate_one(max_retries=1)
-        if expr is None:
+        tokens = self._sampling_grammar.generate_one(max_retries=1)
+        if tokens is None:
             return [None]
+        # One Expression, so the lookups below and the evaluation parse it once.
+        expr = Expression(tokens, sr_evaluator.symbol_library)
         if self.skip_evaluated and sr_evaluator.get_model(expr) is not None:
             return [Candidate(expr, skip="evaluated")]
         if self.skip_rejected and sr_evaluator.check_constraints(expr)[0]:

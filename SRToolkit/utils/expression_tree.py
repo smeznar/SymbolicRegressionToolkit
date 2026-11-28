@@ -1,9 +1,9 @@
 """Expression trees and conversions between token lists, trees and LaTeX.
 
-[Node][SRToolkit.utils.expression_tree.Node] is a binary expression tree, and
-[parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] gives the order of an
-expression's free parameters. Functions accept an expression as a token list or an
-[Expression][SRToolkit.utils.expression.Expression].
+[Node][SRToolkit.utils.expression_tree.Node] is a binary expression tree, built from tokens by
+[tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree]. Functions elsewhere accept an
+expression as a token list or an [Expression][SRToolkit.utils.expression.Expression], which
+parses its tokens into a tree once.
 """
 
 import itertools
@@ -206,7 +206,7 @@ class Node:
         """
         if symbol_library is None:
             symbol_library = SymbolLibrary.get_active()
-        used = {label.rpartition("_")[2] for label in parameter_labels(self, symbol_library) if label is not None}
+        used = {label.rpartition("_")[2] for label in _parameter_labels(self, symbol_library) if label is not None}
         bare_numbers = (str(n) for n in itertools.count() if str(n) not in used)
         return f"${self.__to_latex_rec(symbol_library, bare_numbers)}$"
 
@@ -473,7 +473,7 @@ def _constant_indices(tokens: list[str], symbol_library: SymbolLibrary) -> list[
     symbol, e.g. ``C``) is a new parameter, a labelled constant (``C_5``) gets one at its first
     occurrence and keeps it. Operands keep their order in infix, prefix and postfix, so the
     numbering is the same in every notation. The single definition of the order, shared by the
-    compiler and [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels].
+    compiler and ``_parameter_labels``.
     """
     slots: dict[str, int] = {}
     indices: list[int] = []
@@ -493,37 +493,15 @@ def _constant_indices(tokens: list[str], symbol_library: SymbolLibrary) -> list[
     return indices
 
 
-def parameter_labels(expr: "list[str] | Node", symbol_library: SymbolLibrary | None = None) -> list[str | None]:
-    """Name the entries of a parameter vector.
+def _parameter_labels(expr: "list[str] | Node", symbol_library: SymbolLibrary) -> list[str | None]:
+    """Return the label of each free parameter, or ``None`` for a bare constant.
 
-    The fitted values of an expression ([ModelResult.parameters][SRToolkit.utils.types.ModelResult],
-    the ``C`` argument of [compile_expr][SRToolkit.utils.expression_compiler.compile_expr]) are a flat
-    array. This function says which constant each entry belongs to: its label (``C_5``), or ``None``
-    for a bare ``C``. A label is one entry however often it occurs; each bare ``C`` is its own entry.
-
-    Args:
-        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].
-        symbol_library: Symbol library used to recognise constants. ``None`` uses the active or
-            default library.
-
-    Returns:
-        One entry per parameter, in the order of the parameter vector.
-
-    Raises:
-        TypeError: If ``expr`` is neither a list of token strings nor a
-            [Node][SRToolkit.utils.expression_tree.Node].
-
-    Examples:
-        >>> expr = ["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C", "*", "C_5"]
-        >>> labels = parameter_labels(expr)
-        >>> labels
-        [None, 'C_5', None]
-        >>> {label: v for label, v in zip(labels, [0.5, 2.0, -1.0]) if label is not None}
-        {'C_5': 2.0}
+    In the order of the parameter vector (see
+    [Expression.parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels]). A
+    label is one parameter however often it occurs; each bare ``C`` is its own. Reads the tokens
+    (a tree is written out first) without parsing or checking them.
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    tokens = _as_tokens(expr, symbol_library)
+    tokens = expr.to_list(symbol_library=symbol_library) if isinstance(expr, Node) else expr
     constants = [token for token in tokens if (s := symbol_library.get(token)) is not None and s.type == "const"]
     indices = _constant_indices(tokens, symbol_library)
     labels: list[str | None] = [None] * len(set(indices))
@@ -775,33 +753,3 @@ def _prefix_postfix_to_tree(tokens: list[str], sl: SymbolLibrary, notation: str)
     if len(out_stack) != 1:
         raise ExpressionParseError(f"Error while parsing expression {expr_str}.")
     return out_stack[0]
-
-
-def expr_to_latex(expr: Node | list[str], symbol_library: SymbolLibrary | None = None) -> str:
-    """Convert an expression to a LaTeX string.
-
-    Constants are numbered as in [Node.to_latex][SRToolkit.utils.expression_tree.Node.to_latex].
-
-    Examples:
-        >>> expr_to_latex(["(", "X_0", "+", "X_1", ")"], SymbolLibrary.default_symbols())
-        '$X_{0} + X_{1}$'
-        >>> expr = Node("+", Node("X_0"), Node("1"))
-        >>> expr_to_latex(expr, SymbolLibrary.default_symbols())
-        '$1 + X_{0}$'
-
-    Args:
-        expr: Expression as a token list or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library providing LaTeX templates. If None, falls
-            back to the currently active library set via
-            'with SymbolLibrary(...) as sl:'. Defaults to None.
-
-    Returns:
-        A LaTeX string of the form ``$...$``, or an empty string if conversion fails.
-    """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_active()
-    try:
-        return _as_tree(expr, symbol_library).to_latex(symbol_library)
-    except Exception as e:
-        print(f"Error while converting expression {str(expr)} to LaTeX: {str(e)}")
-        return ""
