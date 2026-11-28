@@ -60,7 +60,8 @@ class Constant:
 
     Args:
         label: The labelled-constant token the spec applies to, e.g. ``"C_5"``. ``None`` makes the
-            spec a template. Whether the label occurs in an expression is checked by
+            spec a template. Whether the label occurs in an expression is checked when an
+            [Expression][SRToolkit.utils.expression.Expression] is built and by
             [resolve_constants][SRToolkit.utils.free_constants.resolve_constants]; a token the
             symbol library registers as a symbol (e.g. a named constant ``C_1``) is never a
             labelled constant.
@@ -290,16 +291,7 @@ def resolve_constants(
             f"'default_constant' must be a template with a prior and bounds and no label, value or fixed, got {d!r}."
         )
     labels = parameter_labels(expr, symbol_library)
-    specs: dict[str, Constant] = {}
-    for spec in free_constants or ():
-        if spec.label is None:
-            raise ValueError(f"Every spec in 'free_constants' needs a label, got {spec!r}.")
-        if spec.label in specs:
-            raise ValueError(f"Two specs in 'free_constants' share the label {spec.label!r}.")
-        specs[spec.label] = spec
-    unknown = sorted(set(specs) - set(labels))
-    if unknown:
-        raise ValueError(f"'free_constants' labels {unknown} are not labelled constants of the expression.")
+    specs = _specs_by_label(free_constants, labels)
     resolved = []
     for label in labels:
         given = specs.get(label) if label is not None else None
@@ -317,6 +309,26 @@ def resolve_constants(
         except ValueError as e:  # a free value outside the inherited bounds
             raise ValueError(f"'free_constants': {e}") from None
     return tuple(resolved)
+
+
+def _specs_by_label(free_constants: Sequence[Constant] | None, labels: Sequence[str | None]) -> dict[str, Constant]:
+    """Return the specs by label.
+
+    Raises:
+        ValueError: If a spec has no label, two specs share a label, or a spec's label is not in
+            ``labels`` (the parameter labels of the expression).
+    """
+    specs: dict[str, Constant] = {}
+    for spec in free_constants or ():
+        if spec.label is None:
+            raise ValueError(f"Every spec in 'free_constants' needs a label, got {spec!r}.")
+        if spec.label in specs:
+            raise ValueError(f"Two specs in 'free_constants' share the label {spec.label!r}.")
+        specs[spec.label] = spec
+    unknown = sorted(set(specs) - set(labels))
+    if unknown:
+        raise ValueError(f"'free_constants' labels {unknown} are not labelled constants of the expression.")
+    return specs
 
 
 def canonicalise(expr: list[str] | Node, symbol_library: SymbolLibrary | None = None) -> list[str]:

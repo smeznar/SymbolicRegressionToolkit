@@ -5,6 +5,8 @@ Modules:
         token properties.
     expression_tree: The [Node][SRToolkit.utils.expression_tree.Node] binary-tree representation and conversion utilities
         for expressions.
+    expression: The [Expression][SRToolkit.utils.expression.Expression] class, an expression with its
+        free-constant specs, accepted besides token lists.
     expression_compiler: Compiles token-list or tree expressions into executable Python
         callables.
     expression_simplifier: Algebraic simplification and constant folding with e-graphs, and the rewrite rules.
@@ -33,6 +35,7 @@ Modules:
         ([UnitRule][SRToolkit.utils.units.UnitRule]).
 """
 
+from .expression import Expression
 from .expression_compiler import compile_expr, compile_expr_rmse
 from .expression_constraints import (
     ConsistentUnits,
@@ -55,7 +58,14 @@ from .expression_simplifier import (
     fold,
     simplify,
 )
-from .expression_tree import ExpressionParseError, Node, expr_to_latex, is_float, parameter_labels, tokens_to_tree
+from .expression_tree import (
+    ExpressionParseError,
+    Node,
+    expr_to_latex,
+    is_float,
+    parameter_labels,
+    tokens_to_tree,
+)
 from .free_constants import Constant, canonicalise, resolve_constants, uniform_default
 from .grammar import (
     AncestorInfo,
@@ -146,6 +156,7 @@ __all__ = [
     "Symbol",
     "SymbolLibrary",
     "Node",
+    "Expression",
     "tokens_to_tree",
     "ExpressionParseError",
     "is_float",

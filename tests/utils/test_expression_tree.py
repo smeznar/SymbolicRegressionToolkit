@@ -288,7 +288,7 @@ class TestNodeToList:
         assert outer.to_list(self.sl) == ["(", "X_1", "+", "X_0", ")", "*", "X_2"]
 
     def test_infix_with_library_invalid_symbol_raises(self):
-        with pytest.raises(Exception, match="Invalid symbol type"):
+        with pytest.raises(ExpressionParseError, match="Invalid symbol type"):
             Node("unknown_sym").to_list(self.sl)
 
 
@@ -353,7 +353,7 @@ class TestNodeToLatex:
         assert tokens_to_tree(tokens.split(), self.sl).to_latex(self.sl) == latex
 
     def test_invalid_symbol_raises(self):
-        with pytest.raises(Exception, match="Invalid symbol type"):
+        with pytest.raises(ExpressionParseError, match="Invalid symbol type"):
             Node("unknown").to_latex(self.sl)
 
     def test_to_latex_with_auto_generated_templates(self):

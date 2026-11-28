@@ -1,6 +1,9 @@
-"""Binary expression tree ([Node][SRToolkit.utils.expression_tree.Node]) and conversion utilities between token
-lists, trees, and LaTeX strings, and [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels],
-the order of an expression's free parameters.
+"""Expression trees and conversions between token lists, trees and LaTeX.
+
+[Node][SRToolkit.utils.expression_tree.Node] is a binary expression tree, and
+[parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] gives the order of an
+expression's free parameters. Functions accept an expression as a token list or an
+[Expression][SRToolkit.utils.expression.Expression].
 """
 
 import itertools
@@ -100,8 +103,8 @@ class Node:
 
         Raises:
             Exception: If ``notation`` is not one of the accepted values.
-            Exception: If ``symbol_library`` is provided and a token's type cannot be
-                resolved during infix reconstruction.
+            ExpressionParseError: If, in infix notation with a library (given or active), a symbol of
+                the tree is neither a number nor in the library.
         """
         # if symbol_library is None:
         #     symbol_library = SymbolLibrary.default_symbols()
@@ -146,7 +149,7 @@ class Node:
                 return [self.symbol]
             symbol = symbol_library.get(self.symbol)
             if symbol is None:
-                raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+                raise ExpressionParseError(f"Invalid symbol type for symbol {self.symbol}.")
             if symbol.type in ["var", "const", "lit"]:
                 return [self.symbol]
             elif symbol.type == "fn":
@@ -165,7 +168,7 @@ class Node:
                     right = ["("] + right + [")"]
                 return left + [self.symbol] + right
             else:
-                raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+                raise ExpressionParseError(f"Invalid symbol type for symbol {self.symbol}.")
         else:
             raise Exception(
                 "Invalid notation selected. Use 'infix', 'prefix', 'postfix', or leave blank (defaults to 'infix')."
@@ -198,7 +201,7 @@ class Node:
             A LaTeX string of the form ``$...$``.
 
         Raises:
-            Exception: If the tree contains a token whose type cannot be resolved in
+            ExpressionParseError: If the tree contains a token whose type cannot be resolved in
                 ``symbol_library``.
         """
         if symbol_library is None:
@@ -215,7 +218,7 @@ class Node:
             return str(self.symbol)
         symbol = symbol_library.get(self.symbol)
         if symbol is None:
-            raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+            raise ExpressionParseError(f"Invalid symbol type for symbol {self.symbol}.")
         if symbol.type == "const":
             # A labelled constant shows its label's number, a bare one the next unused number.
             labelled = self.symbol not in symbol_library.symbols
@@ -243,7 +246,7 @@ class Node:
                 right = f"({right})"
             return template.format(left, right)
         else:
-            raise Exception(f"Invalid symbol type for symbol {self.symbol}.")
+            raise ExpressionParseError(f"Invalid symbol type for symbol {self.symbol}.")
 
     @staticmethod
     def _latex_needs_brackets(

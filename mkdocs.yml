@@ -129,6 +129,7 @@ nav:
           - references/utils/index.md
           - symbol_library: references/utils/symbol_library.md
           - expression_tree: references/utils/expression_tree.md
+          - expression: references/utils/expression.md
           - expression_compiler: references/utils/expression_compiler.md
           - expression_simplifier: references/utils/expression_simplifier.md
           - expression_constraints: references/utils/expression_constraints.md
