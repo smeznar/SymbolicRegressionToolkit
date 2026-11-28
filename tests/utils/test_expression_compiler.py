@@ -326,12 +326,12 @@ class TestPrepareCythonTraversal:
         self.sl = _sl(2)
 
     def test_var_token_emits_var_with_column_index(self):
-        tok, ari, ei, fv, po = _prepare_cython_traversal(["X_0"], self.sl)
+        tok, ari, ei, fv, po = _prepare_cython_traversal(tokens_to_tree(["X_0"], self.sl), self.sl)
         assert tok[0] == _eval.VAR
         assert ei[0] == 0
 
     def test_var_second_column(self):
-        tok, ari, ei, fv, po = _prepare_cython_traversal(["X_1"], self.sl)
+        tok, ari, ei, fv, po = _prepare_cython_traversal(tokens_to_tree(["X_1"], self.sl), self.sl)
         assert tok[0] == _eval.VAR
         assert ei[0] == 1
 
@@ -352,12 +352,12 @@ class TestPrepareCythonTraversal:
         assert indices == [0, 1]
 
     def test_lit_pi_emits_float(self):
-        tok, ari, ei, fv, po = _prepare_cython_traversal(["pi"], self.sl)
+        tok, ari, ei, fv, po = _prepare_cython_traversal(tokens_to_tree(["pi"], self.sl), self.sl)
         assert tok[0] == _eval.FLOAT
         assert fv[0] == pytest.approx(np.pi)
 
     def test_lit_e_emits_float(self):
-        tok, ari, ei, fv, po = _prepare_cython_traversal(["e"], self.sl)
+        tok, ari, ei, fv, po = _prepare_cython_traversal(tokens_to_tree(["e"], self.sl), self.sl)
         assert tok[0] == _eval.FLOAT
         assert fv[0] == pytest.approx(np.e)
 
@@ -384,7 +384,7 @@ class TestPrepareCythonTraversal:
         assert callable(po[1])
 
     def test_op_with_cython_id_positive(self):
-        tok, ari, ei, fv, po = _prepare_cython_traversal(["X_0", "+", "X_1"], self.sl)
+        tok, ari, ei, fv, po = _prepare_cython_traversal(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         op_idx = 2  # postfix: X_0, X_1, +
         assert tok[op_idx] == self.sl.get("+").cython_id
         assert ari[op_idx] == 2
@@ -403,10 +403,6 @@ class TestPrepareCythonTraversal:
         tree = Node("??unknown??")
         with pytest.raises(ValueError, match="unknown type"):
             _prepare_cython_traversal(tree, self.sl)
-
-    def test_list_input_works(self):
-        tok, ari, ei, fv, po = _prepare_cython_traversal(["X_0", "+", "X_1"], self.sl)
-        assert len(tok) == 3
 
     def test_node_input_works(self):
         tree = Node("+", left=Node("X_0"), right=Node("X_1"))
@@ -427,22 +423,24 @@ class TestPrepareCythonTraversalPartial:
     def test_no_const_falls_through_to_regular(self):
         # Expression without C: has_const=False, falls through
         tok_partial, ari_partial, ei_partial, fv_partial, po_partial = _prepare_cython_traversal_partial(
-            ["X_0", "+", "X_1"], self.sl, self.X
+            tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl, self.X
         )
         tok_regular, ari_regular, ei_regular, fv_regular, po_regular = _prepare_cython_traversal(
-            ["X_0", "+", "X_1"], self.sl
+            tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl
         )
         np.testing.assert_array_equal(tok_partial, tok_regular)
 
     def test_pure_const_falls_through(self):
         # Expression is just ["C"]: has_const=True but const_free_nodes=[]
-        tok_partial, _, _, _, _ = _prepare_cython_traversal_partial(["C"], self.sl, self.X)
-        tok_regular, _, _, _, _ = _prepare_cython_traversal(["C"], self.sl)
+        tok_partial, _, _, _, _ = _prepare_cython_traversal_partial(tokens_to_tree(["C"], self.sl), self.sl, self.X)
+        tok_regular, _, _, _, _ = _prepare_cython_traversal(tokens_to_tree(["C"], self.sl), self.sl)
         np.testing.assert_array_equal(tok_partial, tok_regular)
 
     def test_normal_case_x0_plus_c_caches_x0(self):
         # X_0 + C: X_0 subtree is pre-evaluated and replaced with CACHED
-        tok, ari, ei, fv, po = _prepare_cython_traversal_partial(["X_0", "+", "C"], self.sl, self.X)
+        tok, ari, ei, fv, po = _prepare_cython_traversal_partial(
+            tokens_to_tree(["X_0", "+", "C"], self.sl), self.sl, self.X
+        )
         # After caching, instructions should contain CACHED (not VAR)
         assert _eval.CACHED in tok
 
@@ -450,8 +448,10 @@ class TestPrepareCythonTraversalPartial:
         # Verify the cached partial traversal produces the same result as the regular one
         X = _X([2.0, 3.0], [4.0, 5.0])
         C = np.array([10.0])
-        tok_p, ari_p, ei_p, fv_p, po_p = _prepare_cython_traversal_partial(["X_0", "+", "C"], self.sl, X)
-        tok_r, ari_r, ei_r, fv_r, po_r = _prepare_cython_traversal(["X_0", "+", "C"], self.sl)
+        tok_p, ari_p, ei_p, fv_p, po_p = _prepare_cython_traversal_partial(
+            tokens_to_tree(["X_0", "+", "C"], self.sl), self.sl, X
+        )
+        tok_r, ari_r, ei_r, fv_r, po_r = _prepare_cython_traversal(tokens_to_tree(["X_0", "+", "C"], self.sl), self.sl)
         from SRToolkit.utils import _eval_cython as ev
 
         result_partial = ev.execute(X, C, tok_p, ari_p, ei_p, fv_p, po_p)
@@ -470,25 +470,19 @@ class TestExprToCythonCallable:
         self.X = _X([1.0, 2.0], [3.0, 4.0], [5.0, 6.0])
 
     def test_basic_expression_correctness(self):
-        f = _expr_to_cython_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_cython_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         result = f(self.X, np.array([]))
         np.testing.assert_allclose(result, [3.0, 7.0, 11.0])
 
     def test_c_none_handled(self):
-        f = _expr_to_cython_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_cython_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         result = f(self.X, None)
         np.testing.assert_allclose(result, [3.0, 7.0, 11.0])
 
     def test_with_constant(self):
-        f = _expr_to_cython_callable(["X_0", "+", "C"], self.sl)
+        f = _expr_to_cython_callable(tokens_to_tree(["X_0", "+", "C"], self.sl), self.sl)
         result = f(self.X, np.array([5.0]))
         np.testing.assert_allclose(result, [6.0, 8.0, 10.0])
-
-    def test_node_input(self):
-        tree = Node("+", left=Node("X_0"), right=Node("X_1"))
-        f = _expr_to_cython_callable(tree, self.sl)
-        result = f(self.X, None)
-        np.testing.assert_allclose(result, [3.0, 7.0, 11.0])
 
 
 # ---------------------------------------------------------------------------
@@ -502,22 +496,22 @@ class TestExprToCythonErrorCallable:
         self.X = _X([1.0, 2.0], [2.0, 3.0], [3.0, 4.0])
 
     def test_zero_rmse_perfect_prediction(self):
-        f = _expr_to_cython_error_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_cython_error_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([3.0, 5.0, 7.0])
         assert f(self.X, np.array([]), y) == pytest.approx(0.0)
 
     def test_nonzero_rmse(self):
-        f = _expr_to_cython_error_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_cython_error_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([0.0, 0.0, 0.0])
         assert f(self.X, np.array([]), y) > 0
 
     def test_x_provided_for_caching(self):
-        f = _expr_to_cython_error_callable(["X_0", "+", "C"], self.sl, X=self.X)
+        f = _expr_to_cython_error_callable(tokens_to_tree(["X_0", "+", "C"], self.sl), self.sl, X=self.X)
         y = np.array([2.0, 3.0, 4.0])
         assert f(self.X, np.array([1.0]), y) == pytest.approx(0.0)
 
     def test_c_none_handled(self):
-        f = _expr_to_cython_error_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_cython_error_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([3.0, 5.0, 7.0])
         assert f(self.X, None, y) == pytest.approx(0.0)
 
@@ -533,25 +527,19 @@ class TestExprToPythonCallable:
         self.X = _X([1.0, 2.0], [3.0, 4.0])
 
     def test_basic_expression_correctness(self):
-        f = _expr_to_python_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_python_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         result = f(self.X, np.array([]))
         np.testing.assert_allclose(result, [3.0, 7.0])
 
     def test_c_none_handled(self):
-        f = _expr_to_python_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_python_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         result = f(self.X, None)
         np.testing.assert_allclose(result, [3.0, 7.0])
 
     def test_with_constant(self):
-        f = _expr_to_python_callable(["X_0", "+", "C"], self.sl)
+        f = _expr_to_python_callable(tokens_to_tree(["X_0", "+", "C"], self.sl), self.sl)
         result = f(self.X, np.array([10.0]))
         np.testing.assert_allclose(result, [11.0, 13.0])
-
-    def test_node_input(self):
-        tree = Node("+", left=Node("X_0"), right=Node("X_1"))
-        f = _expr_to_python_callable(tree, self.sl)
-        result = f(self.X, None)
-        np.testing.assert_allclose(result, [3.0, 7.0])
 
 
 # ---------------------------------------------------------------------------
@@ -565,22 +553,22 @@ class TestExprToPythonStackErrorCallable:
         self.X = _X([1.0, 2.0], [2.0, 3.0], [3.0, 4.0])
 
     def test_zero_rmse(self):
-        f = _expr_to_python_stack_error_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_python_stack_error_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([3.0, 5.0, 7.0])
         assert f(self.X, np.array([]), y) == pytest.approx(0.0)
 
     def test_nonzero_rmse(self):
-        f = _expr_to_python_stack_error_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_python_stack_error_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([0.0, 0.0, 0.0])
         assert f(self.X, np.array([]), y) > 0
 
     def test_x_provided_for_caching(self):
-        f = _expr_to_python_stack_error_callable(["X_0", "+", "C"], self.sl, X=self.X)
+        f = _expr_to_python_stack_error_callable(tokens_to_tree(["X_0", "+", "C"], self.sl), self.sl, X=self.X)
         y = np.array([2.0, 3.0, 4.0])
         assert f(self.X, np.array([1.0]), y) == pytest.approx(0.0)
 
     def test_c_none_handled(self):
-        f = _expr_to_python_stack_error_callable(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_python_stack_error_callable(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([3.0, 5.0, 7.0])
         assert f(self.X, None, y) == pytest.approx(0.0)
 
@@ -596,30 +584,20 @@ class TestExprToExecutableFunction:
         self.X = _X([1.0, 2.0], [3.0, 4.0], [5.0, 6.0])
 
     def test_basic_arithmetic(self):
-        f = _expr_to_executable_function(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_executable_function(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         result = f(self.X, np.array([]))
         np.testing.assert_allclose(result, [3.0, 7.0, 11.0])
 
     def test_standalone_literal_pi(self):
-        f = _expr_to_executable_function(["pi"], self.sl)
+        f = _expr_to_executable_function(tokens_to_tree(["pi"], self.sl), self.sl)
         result = f(self.X, np.array([]))
         assert result.shape == (3,)
         np.testing.assert_allclose(result, np.full(3, np.pi))
 
     def test_constant_expression(self):
-        f = _expr_to_executable_function(["C"], self.sl)
+        f = _expr_to_executable_function(tokens_to_tree(["C"], self.sl), self.sl)
         result = f(self.X, np.array([3.0]))
         np.testing.assert_allclose(result, np.full(3, 3.0))
-
-    def test_node_input(self):
-        tree = tokens_to_tree(["X_0", "+", "X_1"], self.sl)
-        f = _expr_to_executable_function(tree, self.sl)
-        result = f(self.X, np.array([]))
-        np.testing.assert_allclose(result, [3.0, 7.0, 11.0])
-
-    def test_invalid_input_raises(self):
-        with pytest.raises(Exception):
-            _expr_to_executable_function(42, self.sl)
 
 
 # ---------------------------------------------------------------------------
@@ -633,24 +611,14 @@ class TestExprToErrorFunction:
         self.X = _X([1.0, 2.0], [3.0, 4.0], [5.0, 6.0])
 
     def test_zero_rmse(self):
-        f = _expr_to_error_function(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_error_function(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([3.0, 7.0, 11.0])
         assert float(f(self.X, np.array([]), y)) == pytest.approx(0.0)
 
     def test_nonzero_rmse(self):
-        f = _expr_to_error_function(["X_0", "+", "X_1"], self.sl)
+        f = _expr_to_error_function(tokens_to_tree(["X_0", "+", "X_1"], self.sl), self.sl)
         y = np.array([0.0, 0.0, 0.0])
         assert float(f(self.X, np.array([]), y)) > 0
-
-    def test_node_input(self):
-        tree = tokens_to_tree(["X_0", "+", "X_1"], self.sl)
-        f = _expr_to_error_function(tree, self.sl)
-        y = np.array([3.0, 7.0, 11.0])
-        assert float(f(self.X, np.array([]), y)) == pytest.approx(0.0)
-
-    def test_invalid_input_raises(self):
-        with pytest.raises(Exception):
-            _expr_to_error_function(42, self.sl)
 
 
 # ---------------------------------------------------------------------------
@@ -678,11 +646,6 @@ class TestCompileExpr:
     def test_unknown_backend_raises(self):
         with pytest.raises(ValueError, match="Unknown backend"):
             compile_expr(["X_0"], self.sl, backend="unknown_backend")
-
-    def test_node_input(self):
-        tree = Node("+", left=Node("X_0"), right=Node("X_1"))
-        f = compile_expr(tree, self.sl, backend="stack")
-        np.testing.assert_allclose(f(self.X, None), [3.0, 7.0, 11.0])
 
     @pytest.mark.parametrize(
         "expr, expected",
@@ -741,11 +704,6 @@ class TestCompileExprRmse:
     def test_unknown_backend_raises(self):
         with pytest.raises(ValueError, match="Unknown backend"):
             compile_expr_rmse(["X_0"], self.sl, backend="bad_backend")
-
-    def test_node_input(self):
-        tree = Node("+", left=Node("X_0"), right=Node("X_1"))
-        f = compile_expr_rmse(tree, self.sl, backend="stack")
-        assert f(self.X, np.array([]), self.y_exact) == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -910,14 +868,3 @@ class TestModulesInCustomSymbols:
         y = prediction + np.array([1.0, -1.0, 1.0])
         f = compile_expr_rmse(tokens, _math_sl(), backend=backend, X=self.X if precompute else None)
         assert float(f(self.X, np.array([2.0]), y)) == pytest.approx(1.0)
-
-
-@pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
-def test_tree_with_numeric_leaf_compiles_regression(backend):
-    # Regression: a leaf holding a number (not a string) crashed the symbol lookup.
-    sl = SymbolLibrary.default_symbols(1)
-    tree = Node("*", left=Node("C"), right=Node("+", left=Node(2.0), right=Node("X_0")))
-    X = np.array([[1.0], [2.0]])
-    np.testing.assert_allclose(compile_expr(tree, sl, backend=backend)(X, np.array([3.0])), [9.0, 12.0])
-    rmse = compile_expr_rmse(tree, sl, backend=backend, X=X)
-    assert rmse(X, np.array([3.0]), np.array([9.0, 12.0])) == pytest.approx(0.0)

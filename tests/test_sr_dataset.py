@@ -304,7 +304,11 @@ class TestSRDatasetResample:
         "ground_truth, specs, named",
         [
             (["X_0", "*", "C"], None, "C"),
-            (tokens_to_tree(["X_0", "*", "C_1"], SymbolLibrary.default_symbols(1)), None, "C_1"),
+            (
+                Expression.from_tree(tokens_to_tree(["X_0", "*", "C_1"], _LIB1), _LIB1),
+                None,
+                "C_1",
+            ),
             (["X_0", "*", "C_0"], [Constant("C_0", value=1.0)], "C_0"),
             (["C_0", "*", "X_0", "+", "C"], [_FIX2], "C"),
         ],
@@ -646,13 +650,6 @@ class TestDataSplits:
         )
         restored = SR_dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
         assert restored.create_evaluator().evaluate_expr(["C", "*", "X_0", "+", "X_1"]).error < 1e-6
-
-    def test_node_ground_truth_serialised_with_dataset_library(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        lib = SymbolLibrary.from_symbol_list(["+", "*", "sin", "C"], num_variables=2)
-        gt = tokens_to_tree(["sin", "(", "X_0", ")", "*", "X_1"], lib)
-        ds = SR_dataset(np.zeros((3, 2)), lib, y=np.zeros(3), ground_truth=gt, benchmark="b", version="1")
-        assert ds.to_dict()["ground_truth"] == gt.to_list(symbol_library=lib)
 
 
 # ── Background knowledge, objective and format 4 (stage C) ────────────────────
@@ -1462,7 +1459,7 @@ class TestOriginalEquation:
             # With the library to_list gives X_0 ^2; without it ( X_0 ) ^2.
             (
                 dict(
-                    ground_truth=tokens_to_tree(["X_0", "^2"], _LIB_EQ),
+                    ground_truth=Expression.from_tree(tokens_to_tree(["X_0", "^2"], _LIB_EQ), _LIB_EQ),
                     variables={"X_0": VariableInfo("v")},
                     target=VariableInfo("E"),
                 ),
@@ -1487,7 +1484,7 @@ class TestOriginalEquation:
             "empty-target-name",
             "no-names",
             "swapped-names",
-            "node-gt",
+            "from-tree-gt",
             "token-list-verbatim",
             "unary-minus",
             "default-target-avoids-names",

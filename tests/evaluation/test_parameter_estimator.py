@@ -9,7 +9,7 @@ import pytest
 from SRToolkit.dataset.sampling import LogUniformSampling, Sampler, UniformSampling
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.utils.expression import Expression
-from SRToolkit.utils.expression_tree import Node, tokens_to_tree
+from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -118,14 +118,6 @@ class TestEstimateParametersWithConstants:
         rmse, params = pe.estimate_parameters(["C", "*", "X_0"])
         assert rmse < 1e-4
         assert len(params) == 1
-        assert abs(params[0] - 2.0) < 0.01
-
-    def test_node_input_branch(self):
-        # Node tree for C * X_0: prefix order is ["*", "C", "X_0"]
-        node = Node("*", left=Node("C"), right=Node("X_0"))
-        pe = ParameterEstimator(_X, _y_linear, seed=0)
-        rmse, params = pe.estimate_parameters(node)
-        assert rmse < 1e-4
         assert abs(params[0] - 2.0) < 0.01
 
 
@@ -297,7 +289,7 @@ class TestOptimizeParameters:
         # Infix order with brackets differs from the tree's prefix order (* + X_0 C C).
         tokens = ["(", "X_0", "+", "C", ")", "*", "C"]
         pe = ParameterEstimator(_X, _y_linear, seed=3)
-        pe.estimate_parameters(tokens_to_tree(tokens, pe.symbol_library))
+        pe.estimate_parameters(Expression.from_tree(tokens_to_tree(tokens, pe.symbol_library), pe.symbol_library))
         pe.estimate_parameters(tokens)
         np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
 

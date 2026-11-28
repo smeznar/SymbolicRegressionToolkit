@@ -26,8 +26,7 @@ its bounds; an infinite end leaves that side unbounded.
 
 **Seeding.** With ``"random"`` initialization, each fit's starting point is drawn from a
 generator seeded with a hash of ``seed``, the expression's tokens (a token list as given, an
-``Expression`` by its ``tokens``, a tree by its ``to_list`` tokens) and its specs (in any order; the order does not affect
-the seed). An expression's fit therefore depends only on ``seed``, its tokens, its
+``Expression`` by its ``tokens``) and its specs (in any order; the order does not affect the seed). An expression's fit therefore depends only on ``seed``, its tokens, its
 specs, ``default_constant``, ``X``, ``y`` and the ``estimation`` and ``minimize`` settings, not on
 earlier fits, and is the same in every process, on every platform and Python version. With
 ``seed=None`` every fit draws a fresh random starting point.
@@ -41,9 +40,8 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
-from SRToolkit.utils.expression import Expression, _to_expression
+from SRToolkit.utils.expression import Expression, _as_expression
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
-from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.free_constants import Constant, _check_default_constant, _spec_key, uniform_default
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -119,7 +117,7 @@ class ParameterEstimator:
         self.settings = settings
         self.default_constant = default_constant
 
-    def estimate_parameters(self, expr: list[str] | Expression | Node) -> tuple[float, np.ndarray]:
+    def estimate_parameters(self, expr: list[str] | Expression) -> tuple[float, np.ndarray]:
         """Fit free constants in *expr* by minimizing RMSE against the target values.
 
         Expressions without free parameters (no constants, or only fixed ones) are evaluated directly,
@@ -128,10 +126,9 @@ class ParameterEstimator:
         required constraints.
 
         Args:
-            expr: The expression, as an infix token list (no specs), an
+            expr: The expression, as an infix token list (no specs) or an
                 [Expression][SRToolkit.utils.expression.Expression], whose specs of labelled
-                constants are used, or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-                Parameters without a spec use ``default_constant``.
+                constants are used. Parameters without a spec use ``default_constant``.
 
         Returns:
             A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the parameters
@@ -141,7 +138,7 @@ class ParameterEstimator:
             entries of ``parameters`` are the optimizer's final point.
 
         Raises:
-            TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+            TypeError: If ``expr`` is neither a token list nor an ``Expression``.
             ExpressionParseError: If ``expr`` is not a well-formed expression.
             ValueError: If a spec of ``expr`` that is not fixed has a ``value`` outside the bounds
                 it takes from ``default_constant``.
@@ -169,9 +166,7 @@ class ParameterEstimator:
         rmse, parameters, _ = self.estimate_parameters_with_info(expr)
         return rmse, parameters
 
-    def estimate_parameters_with_info(
-        self, expr: list[str] | Expression | Node
-    ) -> tuple[float, np.ndarray, dict[str, Any]]:
+    def estimate_parameters_with_info(self, expr: list[str] | Expression) -> tuple[float, np.ndarray, dict[str, Any]]:
         """Fit free constants in *expr* and report how the optimizer ended.
 
         Like [estimate_parameters][SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters],
@@ -209,7 +204,7 @@ class ParameterEstimator:
             (True, True)
         """
         # The tokens and specs also seed the random starting point.
-        expr = _to_expression(expr, self.symbol_library)
+        expr = _as_expression(expr, self.symbol_library)
         specs = expr.resolve(self.default_constant)
 
         executable_error_fn = compile_expr_rmse(

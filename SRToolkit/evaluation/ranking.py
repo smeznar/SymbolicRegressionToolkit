@@ -22,7 +22,7 @@ import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
-from SRToolkit.utils.expression import Expression, _to_expression
+from SRToolkit.utils.expression import Expression, _as_expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.free_constants import _ground_truth_parameters
 from SRToolkit.utils.measures import bed, create_behavior_matrix
@@ -268,7 +268,7 @@ class RMSERanking(RankingFunction):
                 raise ValueError(
                     "RMSE ranking requires either target values y or a ground truth expression to generate them from."
                 )
-            ground_truth = _to_expression(ground_truth, symbol_library, "ground_truth")
+            ground_truth = _as_expression(ground_truth, symbol_library, "ground_truth")
             y = compile_expr(ground_truth)(X, _ground_truth_parameters(ground_truth, "[RMSERanking]"))
         self.parameter_estimator = ParameterEstimator(
             X, y, symbol_library, seed, settings, background_knowledge.default_constant
@@ -381,7 +381,7 @@ class BEDRanking(RankingFunction):
         """
         self.symbol_library = background_knowledge.symbol_library
         if ground_truth is not None:
-            ground_truth = _to_expression(ground_truth, self.symbol_library, "ground_truth")
+            ground_truth = _as_expression(ground_truth, self.symbol_library, "ground_truth")
         self.ground_truth = ground_truth
         # All of BED's randomness (points, behaviour matrices, threshold) follows this one seed.
         self.seed = seed

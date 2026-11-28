@@ -58,7 +58,7 @@ import numpy as np
 import zss
 from scipy.stats.qmc import LatinHypercube
 
-from .expression import Expression, _to_expression
+from .expression import Expression, _as_expression
 from .expression_compiler import _variable_column, compile_expr
 from .expression_tree import Node
 from .free_constants import Constant, uniform_default
@@ -132,8 +132,8 @@ def edit_distance(
     """
     if notation not in _NOTATIONS:
         raise ValueError(f"notation must be one of {_NOTATIONS}, got {notation!r}.")
-    e1 = _to_expression(expr1, symbol_library, "expr1")
-    e2 = _to_expression(expr2, symbol_library, "expr2")
+    e1 = _as_expression(expr1, symbol_library, "expr1")
+    e2 = _as_expression(expr2, symbol_library, "expr2")
     tokens1 = e1.tree.to_list(symbol_library=e1.symbol_library, notation=notation)
     tokens2 = e2.tree.to_list(symbol_library=e2.symbol_library, notation=notation)
     return _levenshtein(tokens1, tokens2)
@@ -189,8 +189,8 @@ def tree_edit_distance(
         >>> tree_edit_distance(["X_0", "+", "1"], ["X_0"])
         2
     """
-    zss1 = _expr_to_zss(_to_expression(expr1, symbol_library, "expr1").tree)
-    zss2 = _expr_to_zss(_to_expression(expr2, symbol_library, "expr2").tree)
+    zss1 = _expr_to_zss(_as_expression(expr1, symbol_library, "expr1").tree)
+    zss2 = _expr_to_zss(_as_expression(expr2, symbol_library, "expr2").tree)
 
     # Unit costs: zss otherwise uses the `editdistance` package (when installed) to price relabelling
     # by the character edit distance between symbols. zss is untyped; without return_operations=True
@@ -292,7 +292,7 @@ def create_behavior_matrix(
     X = np.asarray(X, dtype=np.float64)
     if X.ndim != 2:
         raise ValueError(f"X must be 2-D with shape (n_samples, n_features), got shape {X.shape}.")
-    expr = _to_expression(expr, symbol_library, "expr")
+    expr = _as_expression(expr, symbol_library, "expr")
     specs = expr.resolve(default)
     callable_expr = compile_expr(expr, backend=backend)
 
@@ -505,7 +505,7 @@ def bed(
                 )
             matrices[name] = arg
         elif isinstance(arg, (list, tuple, Expression, Node)):
-            exprs[name] = _to_expression(arg, symbol_library, name)
+            exprs[name] = _as_expression(arg, symbol_library, name)
             exprs[name].tree
         else:
             raise TypeError(

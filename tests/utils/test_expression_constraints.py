@@ -294,11 +294,11 @@ class TestSharedContracts:
         library = lib(1)
         constraint = set_up(make(), library)
         tokens = ["sin", "(", "X_0", "+", "C", ")"]
-        tree = tokens_to_tree(list(tokens), library)
+        expr = Expression(list(tokens), library)
         constraint.pre_check(tokens)
-        constraint.pre_check(tree)
+        constraint.pre_check(expr)
         assert tokens == ["sin", "(", "X_0", "+", "C", ")"]
-        assert tree.to_list(library) == ["sin", "(", "X_0", "+", "C", ")"]
+        assert expr.tree.to_list(library) == ["sin", "(", "X_0", "+", "C", ")"]
 
     def test_post_check_does_not_modify_model(self):
         constraint = set_up(OutputBounds([[-1.0], [2.0]], lower=0.0), lib(1))
@@ -334,7 +334,7 @@ class TestSharedContracts:
         library = lib(2)
         constraint = set_up(make(), library)
         expected = constraint.pre_check(tokens)
-        assert constraint.pre_check(tokens_to_tree(tokens, library)) == expected
+        assert constraint.pre_check(Expression.from_tree(tokens_to_tree(tokens, library), library)) == expected
         assert constraint.pre_check(Expression(tokens, library)) == expected
 
     # Reason: clause (pre_check reads a token list in the library given to setup, not the active or
@@ -437,9 +437,10 @@ class TestMaxTokens:
         ],
         ids=["redundant-brackets-dropped", "needed-brackets-kept", "precedence-needs-no-brackets"],
     )
-    def test_max_tokens_counts_tree_as_written_by_to_list(self, limit, tokens, expected):
+    def test_max_tokens_counts_from_tree_tokens(self, limit, tokens, expected):
         library = lib(1)
-        assert_result(set_up(MaxTokens(limit), library).pre_check(tokens_to_tree(tokens, library)), expected)
+        expr = Expression.from_tree(tokens_to_tree(tokens, library), library)
+        assert_result(set_up(MaxTokens(limit), library).pre_check(expr), expected)
 
 
 class TestMaxTreeDepth:
@@ -508,7 +509,7 @@ class TestRequiredVariables:
     )
     def test_required_variables_pre_check_table(self, variables, make_lib, tokens, as_tree, expected):
         library = make_lib()
-        expr = tokens_to_tree(tokens, library) if as_tree else tokens
+        expr = Expression.from_tree(tokens_to_tree(tokens, library), library) if as_tree else tokens
         assert_result(set_up(RequiredVariables(variables), library).pre_check(expr), expected)
 
     @pytest.mark.parametrize(
@@ -582,10 +583,10 @@ class TestMaxSymbolCount:
         ],
         ids=["redundant-brackets-dropped", "needed-brackets-kept", "precedence-needs-no-brackets"],
     )
-    def test_max_symbol_count_counts_tree_as_written_by_to_list(self, tokens, expected):
+    def test_max_symbol_count_counts_from_tree_tokens(self, tokens, expected):
         library = lib(1)
         constraint = set_up(MaxSymbolCount("(", 0), library)
-        assert_result(constraint.pre_check(tokens_to_tree(tokens, library)), expected)
+        assert_result(constraint.pre_check(Expression.from_tree(tokens_to_tree(tokens, library), library)), expected)
 
     @pytest.mark.parametrize(
         "symbols, expected",
@@ -653,9 +654,9 @@ class TestNoNesting:
 
     def test_no_nesting_tree_input(self):
         library = lib(1)
-        tree = tokens_to_tree(["sin", "(", "cos", "(", "X_0", ")", ")"], library)
+        expr = Expression.from_tree(tokens_to_tree(["sin", "(", "cos", "(", "X_0", ")", ")"], library), library)
         assert_result(
-            set_up(NoNesting(["sin", "cos"]), library).pre_check(tree), fail("'cos' nested inside 'sin'", 1.0)
+            set_up(NoNesting(["sin", "cos"]), library).pre_check(expr), fail("'cos' nested inside 'sin'", 1.0)
         )
 
     @pytest.mark.parametrize(

@@ -4,6 +4,7 @@ from copy import copy
 import numpy as np
 import pytest
 
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import (
     ExpressionParseError,
@@ -396,7 +397,9 @@ class TestFreeParameters:
         sl = SymbolLibrary.default_symbols(2, const_symbol="K")
         tree = tokens_to_tree(["K", "*", "X_0", "+", "K_1", "*", "X_1", "+", "K_1"], sl)
         X = np.array([[1.0, 2.0], [3.0, -4.0]])
-        np.testing.assert_allclose(compile_expr(tree, sl)(X, np.array([2.0, 10.0])), [32.0, -24.0])
+        np.testing.assert_allclose(
+            compile_expr(Expression.from_tree(tree, sl))(X, np.array([2.0, 10.0])), [32.0, -24.0]
+        )
         assert tree.to_latex(sl) == r"$K_{0} \cdot X_{0} + K_{1} \cdot X_{1} + K_{1}$"
 
 

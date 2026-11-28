@@ -298,7 +298,7 @@ from SRToolkit.evaluation.callbacks import (
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot, _capture_rngs
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
 from SRToolkit.evaluation.results import SR_results
-from SRToolkit.utils.expression import Expression, _to_expression, canonicalise
+from SRToolkit.utils.expression import Expression, _as_expression, canonicalise
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import (
     ExpressionConstraint,
@@ -308,7 +308,7 @@ from SRToolkit.utils.expression_constraints import (
     _validate_limit,
 )
 from SRToolkit.utils.expression_simplifier import fold, simplify
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node
+from SRToolkit.utils.expression_tree import ExpressionParseError
 from SRToolkit.utils.free_constants import Constant, _spec_key
 from SRToolkit.utils.grammar.grammar import Grammar
 from SRToolkit.utils.measures import REGRESSION_METRICS
@@ -326,7 +326,7 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate_metric(
-    expr: list[str] | Expression | Node,
+    expr: list[str] | Expression,
     parameters: np.ndarray | None,
     X: np.ndarray,
     y: np.ndarray,
@@ -343,9 +343,8 @@ def evaluate_metric(
     data) — the same call against different arrays.
 
     Args:
-        expr: The expression, as an infix token list, an
-            [Expression][SRToolkit.utils.expression.Expression] or a
-            [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr: The expression, as an infix token list or an
+            [Expression][SRToolkit.utils.expression.Expression].
         parameters: Fitted values of every parameter, fixed values included (as
             ``ModelResult.parameters`` holds them; the specs of an ``Expression`` are not used).
             ``None`` is treated as an empty array.
@@ -366,7 +365,7 @@ def evaluate_metric(
     Raises:
         ValueError: If ``metric`` is a string that is not a known built-in metric.
         TypeError: If ``metric`` is neither a string nor a callable, or ``expr`` is neither a
-            token list, an ``Expression`` nor a ``Node``.
+            token list nor an ``Expression``.
         ExpressionParseError: If ``expr`` is not a well-formed expression.
     """
     if isinstance(metric, str):
@@ -382,7 +381,7 @@ def evaluate_metric(
     else:
         raise TypeError(f"[evaluate_metric] metric must be a string or a callable, got {type(metric).__name__}.")
 
-    expr = _to_expression(expr, symbol_library)
+    expr = _as_expression(expr, symbol_library)
     raw = compile_expr(expr, symbol_library, backend=backend)
     params = parameters if parameters is not None else np.array([])
 
@@ -497,7 +496,7 @@ def _as_ground_truth(ground_truth: Any, symbol_library: SymbolLibrary, default_c
             "An ndarray ground_truth (a precomputed BED behaviour matrix) is not supported; provide a symbolic "
             "ground truth (a token list or an Expression). Pass a precomputed behaviour matrix to the BED ranking."
         )
-    expr = _to_expression(ground_truth, symbol_library, "ground_truth")
+    expr = _as_expression(ground_truth, symbol_library, "ground_truth")
     try:
         expr.tree
     except ExpressionParseError as e:
@@ -1380,7 +1379,7 @@ class SR_evaluator:
             return expr
         return Expression(list(tokens), self.symbol_library, specs)
 
-    def get_model(self, expr: list[str] | Expression | Node) -> ModelResult | None:
+    def get_model(self, expr: list[str] | Expression) -> ModelResult | None:
         """Return the result of an already evaluated expression, or ``None``.
 
         Does not count toward ``max_evaluations`` and fires no callbacks. The expression is matched
@@ -1388,16 +1387,16 @@ class SR_evaluator:
         remain, as by [stored_tokens][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens].
 
         Args:
-            expr: The expression, as an infix token list, an
+            expr: The expression, as an infix token list or an
                 [Expression][SRToolkit.utils.expression.Expression] with the specs it was evaluated
-                with, or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+                with.
 
         Returns:
             The cached [ModelResult][SRToolkit.utils.types.ModelResult], or ``None`` if ``expr`` has
             not been evaluated.
 
         Raises:
-            TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+            TypeError: If ``expr`` is neither a token list nor an ``Expression``.
 
         Examples:
             >>> X = np.array([[1.0], [2.0]])
@@ -1408,11 +1407,11 @@ class SR_evaluator:
             >>> se.get_model(["X_0"]).status
             'ok'
         """
-        stored = self._stored_form(_to_expression(expr, self.symbol_library))
+        stored = self._stored_form(_as_expression(expr, self.symbol_library))
         found = self._store.lookup(list(stored.tokens), _spec_key(stored.free_constants))
         return None if found is None else self.models[found[0]]
 
-    def stored_tokens(self, expr: list[str] | Expression | Node) -> list[str]:
+    def stored_tokens(self, expr: list[str] | Expression) -> list[str]:
         """Return the tokens of the stored form of ``expr``.
 
         These are the tokens
@@ -1427,15 +1426,14 @@ class SR_evaluator:
         [Stored form][SRToolkit.evaluation.sr_evaluator]).
 
         Args:
-            expr: The expression, as an infix token list, an
-                [Expression][SRToolkit.utils.expression.Expression] with its specs, or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree.
+            expr: The expression, as an infix token list or an
+                [Expression][SRToolkit.utils.expression.Expression] with its specs.
 
         Returns:
             The stored form as a list of infix tokens.
 
         Raises:
-            TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+            TypeError: If ``expr`` is neither a token list nor an ``Expression``.
 
         Examples:
             >>> X = np.array([[1.0], [2.0]])
@@ -1443,9 +1441,9 @@ class SR_evaluator:
             >>> "".join(se.stored_tokens(["C_3", "*", "X_0", "+", "C_3"]))
             'C_0*X_0+C_0'
         """
-        return list(self._stored_form(_to_expression(expr, self.symbol_library)).tokens)
+        return list(self._stored_form(_as_expression(expr, self.symbol_library)).tokens)
 
-    def check_constraints(self, expr: list[str] | Expression | Node) -> tuple[list[CheckResult], list[CheckResult]]:
+    def check_constraints(self, expr: list[str] | Expression) -> tuple[list[CheckResult], list[CheckResult]]:
         """Run the constraints' pre-checks on an expression without evaluating it.
 
         The call is free: it reads no data, does not count toward ``max_evaluations``, fires no
@@ -1467,11 +1465,10 @@ class SR_evaluator:
         constraint does not implement are skipped.
 
         Args:
-            expr: The expression, as an infix token list, an
-                [Expression][SRToolkit.utils.expression.Expression] or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree. The specs of an ``Expression``
-                are checked as by ``evaluate_expr`` and shape the stored form (see above), which
-                the pre-checks get.
+            expr: The expression, as an infix token list or an
+                [Expression][SRToolkit.utils.expression.Expression]. The specs of an
+                ``Expression`` are checked as by ``evaluate_expr`` and shape the stored form (see
+                above), which the pre-checks get.
 
         Returns:
             A tuple ``(required, advisory)`` of lists with one
@@ -1482,7 +1479,7 @@ class SR_evaluator:
             all its pre-checks pass.
 
         Raises:
-            TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+            TypeError: If ``expr`` is neither a token list nor an ``Expression``.
             ExpressionParseError: If ``expr`` is not a well-formed expression (after its specs
                 are checked). It is always parsed, even when there are no constraints.
             ValueError: If a spec of ``expr`` that is not fixed has a ``value`` outside the bounds
@@ -1504,7 +1501,7 @@ class SR_evaluator:
             >>> se.total_evaluations
             0
         """
-        expr = _to_expression(expr, self.symbol_library)
+        expr = _as_expression(expr, self.symbol_library)
         if expr.free_constants:
             expr.resolve(self.default_constant)  # before parsing, as in evaluate_expr
         expr.tree  # raises ExpressionParseError for a malformed expression
@@ -1551,7 +1548,7 @@ class SR_evaluator:
                 f"got {type(callbacks).__name__}."
             )
 
-    def evaluate_expr(self, expr: list[str] | Expression | Node, *, verbose: int = 0) -> ModelResult | None:
+    def evaluate_expr(self, expr: list[str] | Expression, *, verbose: int = 0) -> ModelResult | None:
         """Evaluate an expression, or return its cached model.
 
         A new expression is parsed, checked against the constraints, scored by the ranking
@@ -1573,11 +1570,11 @@ class SR_evaluator:
         (still folded and canonicalised); a malformed one is ``"invalid"`` without a warning.
 
         Args:
-            expr: The expression, as an infix token list, an
+            expr: The expression, as an infix token list or an
                 [Expression][SRToolkit.utils.expression.Expression], whose specs of labelled
-                constants are used (see [Free constants][SRToolkit.evaluation.sr_evaluator]), or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree. Constants without a spec, and a
-                spec's unset ``prior`` or ``bounds``, use ``default_constant``.
+                constants are used (see [Free constants][SRToolkit.evaluation.sr_evaluator]).
+                Constants without a spec, and a spec's unset ``prior`` or ``bounds``, use
+                ``default_constant``.
             verbose: ``0`` (default): no logging. ``1``: log at DEBUG level (logger
                 ``SRToolkit.evaluation.sr_evaluator``) each new expression with its final status,
                 error and ``status_detail``, and each cache hit. ``2``: also let NumPy
@@ -1593,7 +1590,7 @@ class SR_evaluator:
             if evaluation has already stopped: the call then emits a warning and is not counted.
 
         Raises:
-            TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``. If
+            TypeError: If ``expr`` is neither a token list nor an ``Expression``. If
                 a spec of ``expr`` cannot be saved (see
                 [Constant.to_dict][SRToolkit.utils.free_constants.Constant.to_dict]); nothing is
                 then recorded or counted. At the first counted call of ``evaluate_expr`` or
@@ -1637,7 +1634,7 @@ class SR_evaluator:
             )
             return None
         else:
-            expr = _to_expression(expr, self.symbol_library)
+            expr = _as_expression(expr, self.symbol_library)
             if expr.free_constants:
                 # Specs that do not fit raise here, not as a failed simplification or fold.
                 expr.resolve(self.default_constant)
@@ -1836,7 +1833,7 @@ class SR_evaluator:
 
     def get_metric(
         self,
-        expr: list[str] | Expression | Node,
+        expr: list[str] | Expression,
         metric: str | Callable[[Callable[[np.ndarray], np.ndarray], np.ndarray, np.ndarray], float] = "r2",
     ) -> float:
         """Return another metric of an already-evaluated model, without using the budget.
@@ -1869,7 +1866,7 @@ class SR_evaluator:
             ValueError: If ``expr`` has not been evaluated yet with these specs, or ``metric`` is a
                 string that is not a built-in metric.
             TypeError: If ``metric`` is neither a string nor a callable, or ``expr`` is neither a
-                token list, an ``Expression`` nor a ``Node``.
+                token list nor an ``Expression``.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
@@ -1884,7 +1881,7 @@ class SR_evaluator:
             >>> print(se.get_metric(["C", "*", "X_1", "-", "X_0"], max_abs_residual) < 1e-6)
             True
         """
-        stored = self._stored_form(_to_expression(expr, self.symbol_library))
+        stored = self._stored_form(_as_expression(expr, self.symbol_library))
         expr_str = str(stored)
 
         found = self._store.lookup(list(stored.tokens), _spec_key(stored.free_constants))

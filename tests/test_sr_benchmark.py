@@ -16,7 +16,7 @@ from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils import units as u
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth, RequiredVariables
-from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
+from SRToolkit.utils.expression_tree import ExpressionParseError
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.grammar.constraints import MaxDepth
 from SRToolkit.utils.grammar.grammar import Grammar, Rule
@@ -144,12 +144,6 @@ def test_add_dataset_writes_arrays_to_cache(dataset, ranking_function, library, 
     assert set(entry) == (set(ds.to_dict()) - {"test", "aux"}) | {"num_variables"}
     np.testing.assert_array_equal(ds.X, _X)
     np.testing.assert_equal(ds.y, expected_y)  # also matches None to None
-
-
-def test_add_dataset_node_ground_truth_saved_as_tokens():
-    bm = SR_benchmark("b")
-    bm.add_dataset(_lib2c(), _XY, "a", ground_truth=tokens_to_tree(_GT, _lib2c()))
-    assert list(bm.create_dataset("a").ground_truth.tokens) == _GT
 
 
 # Reason: regression (add_from_samplers with symbol_library None ignored an Expression's library) +

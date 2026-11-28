@@ -271,7 +271,7 @@ def test_default_state_methods_round_trip_with_own_generator():
 
 class _Mixed(SteppedApproach):
     # Proposes Candidates (Expressions with a free-constant spec: one from tokens, one from a tree), a
-    # Node and a token list, then stops.
+    # bare Expression and a token list, then stops.
     def ask(self, sr_evaluator, state):
         if state["asks"]:
             return []
@@ -279,7 +279,7 @@ class _Mixed(SteppedApproach):
         self.proposed = [
             Candidate(Expression(["C_0", "*", "X_0"], free_constants=[_SPEC])),
             Candidate(["C", "+", "X_0"]),
-            tokens_to_tree(["X_0", "*", "X_0"], sr_evaluator.symbol_library),
+            Expression(["X_0", "*", "X_0"], sr_evaluator.symbol_library),
             ["X_0"],
             Candidate(
                 Expression.from_tree(
@@ -295,7 +295,7 @@ class _Mixed(SteppedApproach):
 _SPEC = Constant(label="C_0", bounds=(0.0, 10.0))
 
 
-def test_step_loop_takes_candidates_nodes_and_token_lists():
+def test_step_loop_takes_candidates_expressions_and_token_lists():
     se, approach = _se(), _Mixed()
     approach.search(se, seed=0)
     [(candidates, results)] = approach.told

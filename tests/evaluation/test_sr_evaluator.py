@@ -47,7 +47,7 @@ from SRToolkit.utils.expression_constraints import (
     RequiredVariables,
 )
 from SRToolkit.utils.expression_simplifier import DefaultRules, fold, simplify
-from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
+from SRToolkit.utils.expression_tree import ExpressionParseError, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
 from SRToolkit.utils.measures import bed, create_behavior_matrix
@@ -918,17 +918,12 @@ class TestEvaluateExprRmse:
         assert (len(se.models), se.trace) == (1, [0, 0])
 
     # Reason: clause (evaluate_expr: "If a well-formed expression cannot be simplified, a UserWarning is
-    # emitted and it is used as given"), for a token list and a Node: scored like the plain evaluator.
-    @pytest.mark.parametrize(
-        "make_expr",
-        [lambda lib: ["C", "*", "X_0"], lambda lib: tokens_to_tree(["C", "*", "X_0"], lib)],
-        ids=["tokens", "node"],
-    )
-    def test_simplify_failure_warns_and_uses_the_input(self, make_expr):
+    # emitted and it is used as given"): scored like the plain evaluator.
+    def test_simplify_failure_warns_and_uses_the_input(self):
         se, plain = _make_se(settings=Settings(evaluator={"simplify_expr": True})), _make_se()
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
-                model = se.evaluate_expr(make_expr(se.symbol_library))
+                model = se.evaluate_expr(["C", "*", "X_0"])
         expected = plain.evaluate_expr(["C", "*", "X_0"])
         assert (model.expr, model.error) == (["C", "*", "X_0"], expected.error)
 
@@ -942,12 +937,6 @@ class TestEvaluateExprRmse:
             warnings.simplefilter("error")
             model = se.evaluate_expr(["C", "*", "X_1", "X_0"])
         assert (model.error, model.status) == (np.inf, "invalid")
-
-    def test_node_input_accepted(self):
-        se = _make_se()
-        node = Node("*", left=Node("C"), right=Node("X_0"))
-        result = se.evaluate_expr(node).error
-        assert np.isfinite(result)
 
     @pytest.mark.parametrize(
         "make_kwargs, expr, status",
@@ -1297,12 +1286,6 @@ class TestEvaluationStatus:
         se.evaluate_expr(["X_1", "X_0"])
         assert se.invalid == ["X_0X_1", "X_1X_0"]
 
-    def test_node_input_is_classified(self):
-        se = _make_se()
-        tree = tokens_to_tree(["log", "(", "X_0", "-", "X_0", ")"], se.symbol_library)
-        se.evaluate_expr(tree)
-        assert se.models[0].status == "undefined"
-
     def test_failed_models_never_become_best(self):
         cb = _mock_callback()
         cb.on_expr_evaluated.return_value = True
@@ -1419,12 +1402,6 @@ class TestGetMetric:
         se = _make_se()
         se.evaluate_expr(self._BEST)
         assert se.get_metric(self._BEST) == se.get_metric(self._BEST, "r2")
-
-    def test_node_input_accepted(self):
-        se = _make_se()
-        se.evaluate_expr(self._BEST)
-        tree = tokens_to_tree(self._BEST, se.symbol_library)
-        assert se.get_metric(tree, "r2") > 0.999
 
     def test_custom_callable_receives_predict_X_y(self):
         se = _make_se()
@@ -1928,9 +1905,17 @@ class TestCheckConstraints:
         "make, make_expr, messages",
         [
             (lambda: MaxTokens(3), lambda sl: ["(", "X_0", "+", "C", ")"], ["5 tokens, limit 3"]),
-            (lambda: MaxTokens(3), lambda sl: tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), []),
+            (
+                lambda: MaxTokens(3),
+                lambda sl: Expression.from_tree(tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), sl),
+                [],
+            ),
             (lambda: MaxConstants(1), lambda sl: ["C", "+", "C"], ["2 constants, limit 1"]),
-            (lambda: MaxTokens(5), lambda sl: tokens_to_tree(["X_0", "+", "X_0", "*", "X_0"], sl), []),
+            (
+                lambda: MaxTokens(5),
+                lambda sl: Expression.from_tree(tokens_to_tree(["X_0", "+", "X_0", "*", "X_0"], sl), sl),
+                [],
+            ),
         ],
         ids=["list-as-given", "tree-written-out", "not-simplified", "tree-minimal-brackets"],
     )
@@ -1988,7 +1973,7 @@ class TestCheckConstraints:
             success_threshold=-1,
             required_constraints=[MaxConstants(1), MaxTreeDepth(3), MaxTokens(9)],
         )
-        expr = tokens_to_tree(tokens, library) if as_tree else tokens
+        expr = Expression.from_tree(tokens_to_tree(tokens, library), library) if as_tree else tokens
         failed, _ = se.check_constraints(expr)
         se.evaluate_expr(expr)
         expected = ("rejected", f"{failed[0].constraint}: {failed[0].message}") if failed else ("ok", None)
@@ -2167,7 +2152,7 @@ class TestConstraintEvaluation:
         "make_expr, simplify, allowed",
         [
             (lambda sl: ["X_0", "+", "C"], False, {"X_0+C"}),
-            (lambda sl: tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), False, {"X_0+C"}),
+            (lambda sl: Expression.from_tree(tokens_to_tree(["(", "X_0", "+", "C", ")"], sl), sl), False, {"X_0+C"}),
             # simplified: C + X_1 in either order (same-cost forms may come back in either order)
             (lambda sl: ["C", "+", "X_0", "*", "X_1", "/", "X_0"], True, {"C+X_1", "X_1+C"}),
         ],
@@ -2412,12 +2397,6 @@ class TestGetModel:
             assert se.get_model(["X_0"]).to_dict() == se.models[0].to_dict()
         assert se.total_evaluations == 1 and se.trace == [0]
 
-    def test_get_model_accepts_node(self):
-        lib = _LIB2()
-        se = SR_evaluator(_X, _y, symbol_library=lib)
-        se.evaluate_expr(["X_0", "+", "X_1"])
-        assert se.get_model(tokens_to_tree(["X_0", "+", "X_1"], lib)).to_dict() == se.models[0].to_dict()
-
     # Reason: clause (get_model, get_metric and stored_tokens use the stored form of evaluate_expr:
     # with simplify_expr, the input and its simplified form both find the model, with the
     # evaluator's simplify_* settings).
@@ -2442,7 +2421,7 @@ class TestGetModel:
         assert se.get_metric(expr, "mse") == se.get_metric(stored_expr, "mse")
         assert se.total_evaluations == 1
 
-    # Reason: clause (stored_tokens Raises: "TypeError: If expr is neither a token list, a Node nor an
+    # Reason: clause (stored_tokens Raises: "TypeError: If expr is neither a token list nor an
     # Expression").
     @pytest.mark.parametrize("expr", ["X_0", None, 42], ids=["str", "None", "int"])
     def test_stored_tokens_rejects_non_expressions(self, expr):
@@ -2818,7 +2797,7 @@ class TestStoredFormCache:
 
 @pytest.fixture
 def parses(monkeypatch):
-    """The token lists parsed while the test runs, by any path (Expression.tree, simplify, _as_tree)."""
+    """The token lists parsed while the test runs, by any path (Expression.tree, simplify)."""
     calls = []
     real = expression_tree.tokens_to_tree
 
@@ -2972,14 +2951,13 @@ class TestFoldConstants:
         assert se.evaluate_expr(["C", "*", "*", "X_0"]).error == math.inf
         assert (se.models[0].status, se.models[0].expr) == ("invalid", ["C", "*", "*", "X_0"])
 
-    # Reason: regression (with folding a malformed tree, an unknown symbol, was folded away and scored
-    # as "ok"); it now fails as without folding.
-    def test_unknown_symbol_not_folded_away(self):
-        tree = Node("*", left=Node("C"), right=Node("X_7"))
-        for setting in ("none", "default"):
-            se = _spec_se(settings=Settings(evaluator={"fold_constants": setting}))
-            with pytest.raises(Exception, match="X_7"):
-                se.evaluate_expr(tree)
+    # Reason: regression (with folding an unknown symbol was folded away and scored as "ok"); it is
+    # "invalid" as without folding.
+    @pytest.mark.parametrize("setting", ["none", "default"])
+    def test_unknown_symbol_not_folded_away(self, setting):
+        se = _spec_se(settings=Settings(evaluator={"fold_constants": setting}))
+        model = se.evaluate_expr(["C", "*", "X_7"])
+        assert model.status == "invalid" and "X_7" in model.status_detail
 
     # Reason: clause (stored_tokens: "The specs' values are not checked against default_constant:
     # specs that do not fit match no model"; it records nothing and emits no warnings) + regression

@@ -3,7 +3,8 @@
 [Node][SRToolkit.utils.expression_tree.Node] is a binary expression tree, built from tokens by
 [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree]. Functions elsewhere accept an
 expression as a token list or an [Expression][SRToolkit.utils.expression.Expression], which
-parses its tokens into a tree once.
+parses its tokens into a tree once; wrap a tree with
+[Expression.from_tree][SRToolkit.utils.expression.Expression.from_tree] to pass it to them.
 """
 
 import itertools
@@ -420,50 +421,6 @@ def _check_tokens(tokens: Any, name: str) -> None:
             raise TypeError(
                 f"{name} must contain only token strings, but contains {token!r} ({type(token).__name__}).{hint}"
             )
-
-
-def _as_tree(expr: Any, symbol_library: SymbolLibrary | None = None, name: str = "expr") -> "Node":
-    """Return an expression given as an infix token list or a Node as a Node tree.
-
-    The single place where SRToolkit accepts "a token list or a Node": token lists are checked and
-    parsed with [tokens_to_tree][SRToolkit.utils.expression_tree.tokens_to_tree], and a Node is
-    returned unchanged.
-
-    Returns:
-        The expression as a [Node][SRToolkit.utils.expression_tree.Node] tree.
-
-    Raises:
-        TypeError: If ``expr`` is neither a Node nor a list of token strings (the message names ``name``).
-        ExpressionParseError: If a token list cannot be parsed with ``symbol_library``.
-    """
-    if isinstance(expr, Node):
-        return expr
-    if not isinstance(expr, list):
-        raise TypeError(f"{name} must be a list of token strings or a Node, got {type(expr).__name__}.")
-    _check_tokens(expr, name)
-    return tokens_to_tree(expr, symbol_library)
-
-
-def _as_tokens(expr: Any, symbol_library: SymbolLibrary | None = None, name: str = "expr") -> list[str]:
-    """Return an expression given as an infix token list or a Node as an infix token list.
-
-    The counterpart of [_as_tree][SRToolkit.utils.expression_tree._as_tree]: a token list is checked
-    and returned unchanged (not parsed, not copied), and a Node is written out with
-    [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], which places only the brackets
-    that are needed.
-
-    Returns:
-        The expression as a list of infix token strings.
-
-    Raises:
-        TypeError: If ``expr`` is neither a Node nor a list of token strings (the message names ``name``).
-    """
-    if isinstance(expr, Node):
-        return expr.to_list(symbol_library=symbol_library)
-    if not isinstance(expr, list):
-        raise TypeError(f"{name} must be a list of token strings or a Node, got {type(expr).__name__}.")
-    _check_tokens(expr, name)
-    return expr
 
 
 def _constant_indices(tokens: list[str], symbol_library: SymbolLibrary) -> list[int]:

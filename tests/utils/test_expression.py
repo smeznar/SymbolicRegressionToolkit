@@ -6,12 +6,20 @@ from hypothesis import given, settings
 from strategies import infix_expressions, labelled_infix_expressions
 
 import SRToolkit.utils.expression as expression
-from SRToolkit.dataset import UniformSampling
+from SRToolkit.dataset import SR_dataset, UniformSampling
+from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.expression import Expression, _as_expression, canonicalise
-from SRToolkit.utils.expression_compiler import compile_expr
+from SRToolkit.utils.expression_compiler import compile_expr, compile_expr_rmse
+from SRToolkit.utils.expression_constraints import MaxTreeDepth
+from SRToolkit.utils.expression_simplifier import simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node
 from SRToolkit.utils.free_constants import Constant, uniform_default
+from SRToolkit.utils.measures import bed, edit_distance
 from SRToolkit.utils.symbol_library import SymbolLibrary
+
+_X = np.array([[1.0, 2.0], [2.0, 3.0], [3.0, 5.0]])
+_Y = np.array([1.0, 2.0, 3.0])
 
 
 class _Tagged(Expression):
@@ -323,6 +331,44 @@ class TestAsExpression:
     def test_node_raises_pointing_to_from_tree(self):
         with pytest.raises(TypeError, match="from_tree"):
             _as_expression(Node("X_0"), self.sl)
+
+    # Reason: clause (public functions take a token list or an Expression; a Node raises TypeError
+    # pointing to Expression.from_tree, also where it reaches _as_expression through other checks).
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda node, sl, se: compile_expr(node, sl),
+            lambda node, sl, se: compile_expr_rmse(node, sl),
+            lambda node, sl, se: se.evaluate_expr(node),
+            lambda node, sl, se: se.check_constraints(node),
+            lambda node, sl, se: se.get_model(node),
+            lambda node, sl, se: se.stored_tokens(node),
+            lambda node, sl, se: ParameterEstimator(_X, _Y, symbol_library=sl).estimate_parameters(node),
+            lambda node, sl, se: (c := MaxTreeDepth(3), c.setup(sl), c.pre_check(node)),
+            lambda node, sl, se: simplify(node, sl),
+            lambda node, sl, se: edit_distance(node, ["X_0"], symbol_library=sl),
+            lambda node, sl, se: bed(node, ["X_0"], _X, symbol_library=sl),
+            lambda node, sl, se: SR_dataset(_X, sl, y=_Y, ground_truth=node),
+        ],
+        ids=[
+            "compile_expr",
+            "compile_expr_rmse",
+            "evaluate_expr",
+            "check_constraints",
+            "get_model",
+            "stored_tokens",
+            "estimate_parameters",
+            "pre_check",
+            "simplify",
+            "edit_distance",
+            "bed",
+            "dataset-ground-truth",
+        ],
+    )
+    def test_public_entry_points_reject_a_node(self, call):
+        se = SR_evaluator(_X, _Y, symbol_library=self.sl)
+        with pytest.raises(TypeError, match="Expression.from_tree"):
+            call(Node("X_0"), self.sl, se)
 
     def test_other_inputs_raise_naming_the_parameter(self):
         with pytest.raises(TypeError, match="^expr must be .* got set"):

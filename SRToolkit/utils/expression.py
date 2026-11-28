@@ -8,7 +8,8 @@ rewrites how an expression's constants are written.
 
 A function given an ``Expression`` and ``symbol_library=None`` uses the expression's own library; a
 function given another library reads the expression's tokens in that library (it is rebuilt from its
-tokens and specs). Functions that rewrite an expression
+tokens and specs, and raises ``ValueError`` if a spec's label is not a labelled constant there).
+Functions that rewrite an expression
 ([simplify][SRToolkit.utils.expression_simplifier.simplify],
 [fold][SRToolkit.utils.expression_simplifier.fold], ``canonicalise``) return an ``Expression`` in
 its library, the given one itself if nothing changes. Stored results are tokens:
@@ -423,7 +424,7 @@ def _as_expression(expr: Any, symbol_library: SymbolLibrary | None = None, name:
 
     Raises:
         TypeError: If ``expr`` is neither a list or tuple of token strings nor an ``Expression`` (the message
-            names ``name``, and for a Node points to
+            names ``name``; for a [Node][SRToolkit.utils.expression_tree.Node] it points to
             [Expression.from_tree][SRToolkit.utils.expression.Expression.from_tree]).
         ValueError: If ``expr`` is an ``Expression`` rebuilt with ``symbol_library``, and its specs'
             labels are not labelled constants in that library.
@@ -442,11 +443,3 @@ def _as_expression(expr: Any, symbol_library: SymbolLibrary | None = None, name:
         raise TypeError(f"{name} must be a list of token strings or an Expression, got {type(expr).__name__}.")
     _check_tokens(expr, name)
     return Expression(expr, symbol_library)
-
-
-def _to_expression(expr: Any, symbol_library: SymbolLibrary | None = None, name: str = "expr") -> Expression:
-    # Temporary until Node inputs are dropped: _as_expression that also accepts a Node, wrapped
-    # with Expression.from_tree.
-    if isinstance(expr, Node):
-        return Expression.from_tree(expr, symbol_library)
-    return _as_expression(expr, symbol_library, name)

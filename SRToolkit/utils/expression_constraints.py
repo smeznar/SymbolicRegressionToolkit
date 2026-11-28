@@ -60,11 +60,9 @@ same object to every constraint and to the ranking. A constraint reads what it n
 such as ``expr.num_parameters``. It is the stored form, saved as ``ModelResult.expr`` and
 ``ModelResult.free_constants``, so a saved result re-checked as
 ``Expression(model.expr, symbol_library, model.free_constants)`` gets the same verdict. Used on
-their own, the built-in constraints also accept an infix token list or a
-[Node][SRToolkit.utils.expression_tree.Node] tree, which they wrap in an ``Expression``. A tree is
-written out with [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], which places only
-the brackets that are needed, so a tree can have fewer tokens than a token list with redundant
-brackets for the same expression.
+their own, the built-in constraints also accept an infix token list, which they wrap in an
+``Expression``. Wrap a [Node][SRToolkit.utils.expression_tree.Node] tree with
+[Expression.from_tree][SRToolkit.utils.expression.Expression.from_tree] first.
 
 The expression must be well-formed. For a malformed expression, constraints that read the tree
 raise [ExpressionParseError][SRToolkit.utils.expression_tree.ExpressionParseError], while
@@ -149,7 +147,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ..bundle._relocate import _auto_bind, _import_class
-from .expression import Expression, _to_expression
+from .expression import Expression, _as_expression
 from .expression_compiler import compile_expr
 from .expression_tree import Node, _constant_indices, is_float
 from .serialization import _from_json_safe, _to_json_safe
@@ -303,7 +301,7 @@ class ExpressionConstraint:
         """
         self.symbol_library = symbol_library
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Check an expression before it is scored.
 
         Must not change ``expr.tree``, which the other constraints and the ranking share. The base
@@ -312,8 +310,7 @@ class ExpressionConstraint:
         Args:
             expr: A well-formed expression. The evaluator passes an
                 [Expression][SRToolkit.utils.expression.Expression]; the built-in constraints also
-                accept an infix token list or a [Node][SRToolkit.utils.expression_tree.Node] tree
-                (see "Input forms of pre_check" in
+                accept an infix token list (see "Input forms of pre_check" in
                 [expression_constraints][SRToolkit.utils.expression_constraints]).
 
         Returns:
@@ -479,11 +476,11 @@ class MaxConstants(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxConstants")
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if the expression has more than ``limit`` free constants.
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if there are at most ``limit`` free constants; otherwise failed with the message
@@ -494,7 +491,7 @@ class MaxConstants(ExpressionConstraint):
                 has not been called.
         """
         symbol_library = _require_setup(self)
-        n = _to_expression(expr, symbol_library).num_parameters
+        n = _as_expression(expr, symbol_library).num_parameters
         if n <= self.limit:
             return CheckResult()
         return CheckResult(passed=False, message=f"{n} constants, limit {self.limit}", amount=float(n - self.limit))
@@ -535,9 +532,9 @@ class MaxConstants(ExpressionConstraint):
 class MaxTokens(ExpressionConstraint):
     """Limit the length of an expression in infix tokens, brackets included.
 
-    A token list is counted as given; a tree is first written out with
-    [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list], which adds only the brackets that
-    are needed. Only looks at tokens; does not parse. This is the check behind the evaluator's
+    Tokens are counted as given; an expression built from a tree with
+    [Expression.from_tree][SRToolkit.utils.expression.Expression.from_tree] has only the brackets
+    that are needed. Only looks at tokens; does not parse. This is the check behind the evaluator's
     ``max_expr_length`` setting.
 
     Args:
@@ -563,11 +560,11 @@ class MaxTokens(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxTokens")
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if the expression has more than ``limit`` tokens.
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if there are at most ``limit`` tokens; otherwise failed with the message
@@ -578,7 +575,7 @@ class MaxTokens(ExpressionConstraint):
                 has not been called.
         """
         symbol_library = _require_setup(self)
-        n = len(_to_expression(expr, symbol_library).tokens)
+        n = len(_as_expression(expr, symbol_library).tokens)
         if n <= self.limit:
             return CheckResult()
         return CheckResult(passed=False, message=f"{n} tokens, limit {self.limit}", amount=float(n - self.limit))
@@ -647,11 +644,11 @@ class MaxTreeDepth(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxTreeDepth")
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if the expression tree is higher than ``limit``.
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if the height is at most ``limit``; otherwise failed with the message
@@ -663,7 +660,7 @@ class MaxTreeDepth(ExpressionConstraint):
             ExpressionParseError: If ``expr`` is malformed.
         """
         symbol_library = _require_setup(self)
-        n = _to_expression(expr, symbol_library).tree.height()
+        n = _as_expression(expr, symbol_library).tree.height()
         if n <= self.limit:
             return CheckResult()
         return CheckResult(passed=False, message=f"depth {n}, limit {self.limit}", amount=float(n - self.limit))
@@ -731,11 +728,11 @@ class MaxTreeSize(ExpressionConstraint):
     def __init__(self, limit: int) -> None:
         self.limit = _validate_limit(limit, "MaxTreeSize")
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if the expression tree has more than ``limit`` nodes.
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if there are at most ``limit`` nodes; otherwise failed with the message
@@ -747,7 +744,7 @@ class MaxTreeSize(ExpressionConstraint):
             ExpressionParseError: If ``expr`` is malformed.
         """
         symbol_library = _require_setup(self)
-        n = len(_to_expression(expr, symbol_library).tree)
+        n = len(_as_expression(expr, symbol_library).tree)
         if n <= self.limit:
             return CheckResult()
         return CheckResult(passed=False, message=f"{n} nodes, limit {self.limit}", amount=float(n - self.limit))
@@ -841,11 +838,11 @@ class RequiredVariables(ExpressionConstraint):
             )
         super().setup(symbol_library)
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if a required variable does not occur in the expression.
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if every required variable occurs; otherwise failed with the message
@@ -858,7 +855,7 @@ class RequiredVariables(ExpressionConstraint):
                 has not been called.
         """
         symbol_library = _require_setup(self)
-        present = set(_to_expression(expr, symbol_library).variables)
+        present = set(_as_expression(expr, symbol_library).variables)
         if self.variables is not None:
             required: Sequence[str] = self.variables
         else:
@@ -905,14 +902,15 @@ class RequiredVariables(ExpressionConstraint):
 class MaxSymbolCount(ExpressionConstraint):
     """Limit how often a symbol, or a group of symbols together, occurs in an expression.
 
-    Counts the tokens that belong to ``symbols``: a token list as given, a tree after writing it out
-    with [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list]. For a group, the occurrences
-    of all its symbols are added up: ``MaxSymbolCount(["sin", "cos", "exp"], 2)`` allows at most two
-    of these functions in total. To limit several symbols separately (e.g. at most one ``sin`` and
-    at most one ``cos``), create one ``MaxSymbolCount`` per symbol. The free constant (``C``) counts
+    Counts the tokens that belong to ``symbols``. For a group, the occurrences of all its symbols are
+    added up: ``MaxSymbolCount(["sin", "cos", "exp"], 2)`` allows at most two of these functions in
+    total. To limit several symbols separately (e.g. at most one ``sin`` and at most one ``cos``),
+    create one ``MaxSymbolCount`` per symbol. The free constant (``C``) counts
     its parameters, as [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] does:
     labelled constants (``C_1``) included, each once however often it occurs. Tracking a bracket
-    counts brackets, which a tree does not determine uniquely. Only looks at tokens; does not parse.
+    counts brackets as given, which a tree does not determine uniquely (an expression built with
+    [Expression.from_tree][SRToolkit.utils.expression.Expression.from_tree] has only the brackets
+    that are needed). Only looks at tokens; does not parse.
 
     Args:
         symbols: The token to count, e.g. ``"sin"`` or ``"X_0"``, or an iterable of tokens whose
@@ -945,11 +943,11 @@ class MaxSymbolCount(ExpressionConstraint):
             raise ValueError("MaxSymbolCount: the group of symbols is empty.")
         self.limit = _validate_limit(limit, "MaxSymbolCount")
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if the symbols occur more than ``limit`` times in total.
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if there are at most ``limit`` occurrences; otherwise failed with
@@ -962,7 +960,7 @@ class MaxSymbolCount(ExpressionConstraint):
                 has not been called.
         """
         symbol_library = _require_setup(self)
-        expr = _to_expression(expr, symbol_library)
+        expr = _as_expression(expr, symbol_library)
         tokens = expr.tokens
         if symbol_library.constant_symbol in self.symbols:
             n = expr.num_parameters
@@ -1056,11 +1054,11 @@ class NoNesting(ExpressionConstraint):
         if not self.symbols:
             raise ValueError("NoNesting: the group of symbols is empty.")
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if a group symbol occurs below a group symbol in the expression tree.
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if no group symbol has a group symbol below it. Otherwise failed with the message
@@ -1078,7 +1076,7 @@ class NoNesting(ExpressionConstraint):
         """
         symbol_library = _require_setup(self)
         nested: list[tuple[str, str]] = []
-        self._collect_nested(_to_expression(expr, symbol_library).tree, None, nested, symbol_library)
+        self._collect_nested(_as_expression(expr, symbol_library).tree, None, nested, symbol_library)
         if not nested:
             return CheckResult()
         inner, outer = nested[0]
@@ -1503,11 +1501,11 @@ class ConsistentUnits(ExpressionConstraint):
         _check_units_fit("ConsistentUnits", symbol_library, self.variable_units, self.named_constant_units)
         super().setup(symbol_library)
 
-    def pre_check(self, expr: list[str] | Expression | Node) -> CheckResult:
+    def pre_check(self, expr: list[str] | Expression) -> CheckResult:
         """Fail if the expression has a unit conflict (see the class docstring).
 
         Args:
-            expr: A well-formed expression, as a token list, an ``Expression`` or a tree.
+            expr: A well-formed expression, as a token list or an ``Expression``.
 
         Returns:
             Passed if there is no conflict. Otherwise failed with ``amount`` 1.0 and a message
@@ -1530,7 +1528,7 @@ class ConsistentUnits(ExpressionConstraint):
             ExpressionParseError: If ``expr`` is malformed.
         """
         symbol_library = _require_setup(self)
-        tree = _to_expression(expr, symbol_library).tree
+        tree = _as_expression(expr, symbol_library).tree
         try:
             unit = _expression_unit(tree, symbol_library, self.variable_units, self.named_constant_units)
         except _UnitConflict as conflict:

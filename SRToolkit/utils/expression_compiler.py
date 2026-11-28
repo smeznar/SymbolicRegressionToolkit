@@ -47,10 +47,9 @@ import numpy as np
 # single import transparently selects the fast Cython path when available and
 # falls back to the pure-Python implementation otherwise.
 from SRToolkit.utils import _eval_cython as _eval  # type: ignore[attr-defined]
-from SRToolkit.utils.expression import Expression, _to_expression
+from SRToolkit.utils.expression import Expression, _as_expression
 from SRToolkit.utils.expression_tree import (
     Node,
-    _as_tree,
     _constant_indices,
     is_float,
     tokens_to_tree,  # noqa: F401  (used by the doctests)
@@ -144,8 +143,8 @@ _eval_py_spec.loader.exec_module(_eval_py)  # type: ignore[union-attr]
 
 
 def _expr_to_executable_function(
-    expr: list[str] | Node,
-    symbol_library: SymbolLibrary | None = None,
+    tree: Node,
+    symbol_library: SymbolLibrary,
 ) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into an executable Python function.
 
@@ -153,41 +152,34 @@ def _expr_to_executable_function(
     of constant values.
 
     Examples:
-        >>> executable_fun = _expr_to_executable_function(["X_0", "+", "1"])
+        >>> sl = SymbolLibrary.default_symbols(1)
+        >>> tree = tokens_to_tree(["X_0", "+", "1"], sl)
+        >>> executable_fun = _expr_to_executable_function(tree, sl)
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
         array([2, 3, 4, 5])
-        >>> executable_fun = _expr_to_executable_function(["pi"])
-        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([1]))
+        >>> executable_fun = _expr_to_executable_function(tokens_to_tree(["pi"], sl), sl)
+        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
         array([3.14159265, 3.14159265, 3.14159265, 3.14159265])
-        >>> executable_fun = _expr_to_executable_function(["C"])
+        >>> executable_fun = _expr_to_executable_function(tokens_to_tree(["C"], sl), sl)
         >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([1]))
         array([1, 1, 1, 1])
-        >>> tree = tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1))
-        >>> executable_fun = _expr_to_executable_function(tree)
-        >>> executable_fun(np.array([[1], [2], [3], [4]]), np.array([]))
-        array([2, 3, 4, 5])
         >>> # Custom symbols can use modules other than numpy, listed in the library's ``modules``.
         >>> from SRToolkit.utils import FN_PREFIX
         >>> symbol_library = SymbolLibrary(["+"], 1, modules={"m": "math"})
         >>> symbol_library.add_symbol("lgamma", "fn", FN_PREFIX, "np.vectorize(m.lgamma)({})")
-        >>> executable_fun = _expr_to_executable_function(["lgamma", "(", "X_0", ")"], symbol_library)
+        >>> tree = tokens_to_tree(["lgamma", "(", "X_0", ")"], symbol_library)
+        >>> executable_fun = _expr_to_executable_function(tree, symbol_library)
         >>> executable_fun(np.array([[1.0], [3.0]]), np.array([]))
         array([0.        , 0.69314718])
 
     Args:
-        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Defines token semantics (NumPy function strings, modules).
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in; defines token semantics (NumPy function
+            strings, modules).
 
     Returns:
         A callable ``f(X, C)`` where ``X`` is a 2-D array of shape ``(n_samples, n_features)`` and ``C`` is a 1-D array of constant values. Returns a 1-D output array of shape ``(n_samples,)``.
-
-    Raises:
-        TypeError: If ``expr`` is neither a list of token strings nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    tree = _as_tree(expr, symbol_library)
     slots = _constant_indices(tree.to_list(symbol_library, notation="postfix"), symbol_library)
     code, symbol, _ = _tree_to_function_rec(tree, symbol_library, iter(slots))
     num_constants = len(set(slots))
@@ -207,34 +199,25 @@ def _expr_to_executable_function(
 
 
 def _expr_to_error_function(
-    expr: list[str] | Node,
-    symbol_library: SymbolLibrary | None = None,
+    tree: Node,
+    symbol_library: SymbolLibrary,
 ) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into a callable that computes the RMSE against target values.
 
     Examples:
-        >>> executable_fun = _expr_to_error_function(["X_0", "+", "1"])
-        >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
-        0.0
-        >>> tree = tokens_to_tree(["X_0", "+", "1"], SymbolLibrary.default_symbols(1))
-        >>> executable_fun = _expr_to_error_function(tree)
+        >>> sl = SymbolLibrary.default_symbols(1)
+        >>> executable_fun = _expr_to_error_function(tokens_to_tree(["X_0", "+", "1"], sl), sl)
         >>> print(float(executable_fun(np.array([[1], [2], [3], [4]]), np.array([]), np.array([2, 3, 4, 5]))))
         0.0
 
     Args:
-        expr: Expression as a token list in infix notation or a [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Defines token semantics (NumPy function strings, modules).
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in; defines token semantics (NumPy function
+            strings, modules).
 
     Returns:
         A callable ``f(X, C, y)`` where ``X`` is a 2-D array of shape ``(n_samples, n_features)``, ``C`` is a 1-D array of constant values, and ``y`` is a 1-D target array. Returns the scalar RMSE as a float.
-
-    Raises:
-        TypeError: If ``expr`` is neither a list of token strings nor a [Node][SRToolkit.utils.expression_tree.Node].
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    tree = _as_tree(expr, symbol_library)
     slots = _constant_indices(tree.to_list(symbol_library, notation="postfix"), symbol_library)
     code, symbol, _ = _tree_to_function_rec(tree, symbol_library, iter(slots))
     num_constants = len(set(slots))
@@ -470,7 +453,7 @@ def _build_partial_instructions(
 
 
 def _prepare_cython_traversal_partial(
-    expr: list[str] | Node,
+    tree: Node,
     symbol_library: SymbolLibrary,
     X: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list]:
@@ -484,16 +467,14 @@ def _prepare_cython_traversal_partial(
     subsequent call only executes the nodes that actually depend on *C*.
 
     Args:
-        expr: Expression as a token list or a Node tree.
-        symbol_library: Symbol library.
-        X: Input data, shape ``(n_samples, n_features)``.  Must be C-contiguous
-            float64; the caller is responsible for ensuring this.
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in.
+        X: Input data, shape ``(n_samples, n_features)``.
 
     Returns:
         Same 5-tuple as ``_prepare_cython_traversal``.
     """
     X = np.ascontiguousarray(X, dtype=np.float64)
-    tree = _as_tree(expr, symbol_library)
 
     has_const, const_free_nodes = _collect_maximal_const_free(tree, symbol_library)
 
@@ -540,7 +521,7 @@ def _prepare_cython_traversal_partial(
 
 
 def _prepare_cython_traversal(
-    expr: list[str] | Node,
+    tree: Node,
     symbol_library: SymbolLibrary,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list]:
     """Convert an expression into the postfix instruction arrays consumed by the
@@ -550,16 +531,14 @@ def _prepare_cython_traversal(
     appearance), as in ``_tree_to_function_rec``.
 
     Args:
-        expr: Expression as a token list or a Node tree.
-        symbol_library: Symbol library used to look up token types and Cython IDs.
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in, used to look up token types and Cython IDs.
 
     Returns:
         A 5-tuple ``(token_ids, arities, extra_int, float_vals, python_ops)``
         where the first four are 1-D NumPy arrays and the last is a list of
         Python callables (``None`` for C-implemented tokens).
     """
-    tree = _as_tree(expr, symbol_library)
-
     postfix: list[str] = tree.to_list(notation="postfix")
     n = len(postfix)
 
@@ -618,8 +597,8 @@ def _prepare_cython_traversal(
 
 
 def _expr_to_cython_callable(
-    expr: list[str] | Node,
-    symbol_library: SymbolLibrary | None = None,
+    tree: Node,
+    symbol_library: SymbolLibrary,
 ) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into a fast callable backed by the Cython evaluator.
 
@@ -632,19 +611,18 @@ def _expr_to_cython_callable(
     transparently uses the pure-Python fallback evaluator instead.
 
     Examples:
-        >>> f = _expr_to_cython_callable(["X_0", "+", "1"])
+        >>> sl = SymbolLibrary.default_symbols(1)
+        >>> f = _expr_to_cython_callable(tokens_to_tree(["X_0", "+", "1"], sl), sl)
         >>> f(np.array([[1.0], [2.0], [3.0]]), np.array([]))
         array([2., 3., 4.])
-        >>> f = _expr_to_cython_callable(["sin", "(", "X_0", ")"])
+        >>> f = _expr_to_cython_callable(tokens_to_tree(["sin", "(", "X_0", ")"], sl), sl)
         >>> import math
         >>> abs(f(np.array([[math.pi / 2]]), np.array([]))[0] - 1.0) < 1e-10
         np.True_
 
     Args:
-        expr: Expression as a token list in infix notation or a
-            [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library used to look up token types and Cython IDs.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in, used to look up token types and Cython IDs.
 
     Returns:
         A callable ``f(X, C)`` where ``X`` is a 2-D C-contiguous float64 array of
@@ -652,9 +630,7 @@ def _expr_to_cython_callable(
         constant values (pass an empty array or ``None`` for constant-free
         expressions). Returns a 1-D output array of shape ``(n_samples,)``.
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+    token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(tree, symbol_library)
     num_constants = _num_parameters(token_ids, extra_int)
     num_columns = _columns_used(token_ids, extra_int)
 
@@ -671,8 +647,8 @@ def _expr_to_cython_callable(
 
 
 def _expr_to_cython_error_callable(
-    expr: list[str] | Node,
-    symbol_library: SymbolLibrary | None = None,
+    tree: Node,
+    symbol_library: SymbolLibrary,
     X: np.ndarray | None = None,
 ) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into a fast RMSE callable backed by the Cython evaluator.
@@ -688,15 +664,14 @@ def _expr_to_cython_error_callable(
     repeated evaluations with varying *C* (e.g. inside the L-BFGS-B loop).
 
     Examples:
-        >>> f = _expr_to_cython_error_callable(["X_0", "+", "1"])
+        >>> sl = SymbolLibrary.default_symbols(1)
+        >>> f = _expr_to_cython_error_callable(tokens_to_tree(["X_0", "+", "1"], sl), sl)
         >>> f(np.array([[1.0], [2.0], [3.0]]), np.array([]), np.array([2.0, 3.0, 4.0]))
         0.0
 
     Args:
-        expr: Expression as a token list in infix notation or a
-            [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library used to look up token types and Cython IDs.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in, used to look up token types and Cython IDs.
         X: Optional input data used to pre-evaluate constant-free subtrees.
             Must be C-contiguous float64, shape ``(n_samples, n_features)``.
             When ``None`` (default), the full expression is compiled without caching.
@@ -704,14 +679,12 @@ def _expr_to_cython_error_callable(
     Returns:
         A callable ``f(X, C, y)`` returning the scalar RMSE as a float.
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
     if X is not None:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal_partial(
-            expr, symbol_library, X
+            tree, symbol_library, X
         )
     else:
-        token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+        token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(tree, symbol_library)
     num_constants = _num_parameters(token_ids, extra_int)
     num_columns = _columns_used(token_ids, extra_int)
 
@@ -732,8 +705,8 @@ def _expr_to_cython_error_callable(
 
 
 def _expr_to_python_callable(
-    expr: list[str] | Node,
-    symbol_library: SymbolLibrary | None = None,
+    tree: Node,
+    symbol_library: SymbolLibrary,
 ) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into a callable backed by the pure-Python evaluator.
 
@@ -745,15 +718,14 @@ def _expr_to_python_callable(
     many user-defined symbols.
 
     Examples:
-        >>> f = _expr_to_python_callable(["X_0", "+", "1"])
+        >>> sl = SymbolLibrary.default_symbols(1)
+        >>> f = _expr_to_python_callable(tokens_to_tree(["X_0", "+", "1"], sl), sl)
         >>> f(np.array([[1.0], [2.0], [3.0]]), np.array([]))
         array([2., 3., 4.])
 
     Args:
-        expr: Expression as a token list in infix notation or a
-            [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library used to look up token types and Cython IDs.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in, used to look up token types and Cython IDs.
 
     Returns:
         A callable ``f(X, C)`` where ``X`` is a 2-D array of shape
@@ -761,9 +733,7 @@ def _expr_to_python_callable(
         (pass ``None`` or an empty array for constant-free expressions).
         Returns a 1-D output array of shape ``(n_samples,)``.
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
-    token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+    token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(tree, symbol_library)
     num_constants = _num_parameters(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: np.ndarray | None) -> np.ndarray:
@@ -777,8 +747,8 @@ def _expr_to_python_callable(
 
 
 def _expr_to_python_stack_error_callable(
-    expr: list[str] | Node,
-    symbol_library: SymbolLibrary | None = None,
+    tree: Node,
+    symbol_library: SymbolLibrary,
     X: np.ndarray | None = None,
 ) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into an RMSE callable backed by the pure-Python evaluator.
@@ -796,15 +766,14 @@ def _expr_to_python_stack_error_callable(
     varying *C*.
 
     Examples:
-        >>> f = _expr_to_python_stack_error_callable(["X_0", "+", "1"])
+        >>> sl = SymbolLibrary.default_symbols(1)
+        >>> f = _expr_to_python_stack_error_callable(tokens_to_tree(["X_0", "+", "1"], sl), sl)
         >>> f(np.array([[1.0], [2.0], [3.0]]), np.array([]), np.array([2.0, 3.0, 4.0]))
         0.0
 
     Args:
-        expr: Expression as a token list in infix notation or a
-            [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library used to look up token types and Cython IDs.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        tree: The expression tree.
+        symbol_library: The library ``tree`` was built in, used to look up token types and Cython IDs.
         X: Optional input data used to pre-evaluate constant-free subtrees.
             Must be C-contiguous float64, shape ``(n_samples, n_features)``.
             When ``None`` (default), the full expression is compiled without caching.
@@ -812,14 +781,12 @@ def _expr_to_python_stack_error_callable(
     Returns:
         A callable ``f(X, C, y)`` returning the scalar RMSE as a float.
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
     if X is not None:
         token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal_partial(
-            expr, symbol_library, X
+            tree, symbol_library, X
         )
     else:
-        token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(expr, symbol_library)
+        token_ids, arities, extra_int, float_vals, python_ops = _prepare_cython_traversal(tree, symbol_library)
     num_constants = _num_parameters(token_ids, extra_int)
 
     def _callable_(X: np.ndarray, C: np.ndarray | None, y: np.ndarray) -> float:
@@ -835,17 +802,8 @@ def _expr_to_python_stack_error_callable(
 # ── Interface for compiling expressions ──────────────────────────────────────────────
 
 
-def _tree_and_library(expr: Any, symbol_library: SymbolLibrary | None) -> tuple[Node, SymbolLibrary]:
-    # The tree of compile_expr's input and the library to compile it in: for None, an Expression's
-    # own library, otherwise the active or default one.
-    if symbol_library is None:
-        symbol_library = expr.symbol_library if isinstance(expr, Expression) else SymbolLibrary.get_or_default()
-    tree = expr if isinstance(expr, Node) else _to_expression(expr, symbol_library).tree
-    return tree, symbol_library
-
-
 def compile_expr(
-    expr: list[str] | Expression | Node,
+    expr: list[str] | Expression,
     symbol_library: SymbolLibrary | None = None,
     backend: str = "stack",
 ) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
@@ -855,9 +813,8 @@ def compile_expr(
     compiled. Its specs are not used: ``C`` holds every parameter, fixed values included.
 
     Args:
-        expr: The expression, as an infix token list, an
-            [Expression][SRToolkit.utils.expression.Expression] or a
-            [Node][SRToolkit.utils.expression_tree.Node] tree.
+        expr: The expression, as an infix token list or an
+            [Expression][SRToolkit.utils.expression.Expression].
         symbol_library: The library to compile ``expr`` in. ``None``: an ``Expression``'s own
             library, otherwise the active or default library.
         backend: Evaluation backend. One of:
@@ -880,7 +837,7 @@ def compile_expr(
         ``f`` returns an array of shape ``(n_samples,)``.
 
     Raises:
-        TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+        TypeError: If ``expr`` is neither a token list nor an ``Expression``.
         ExpressionParseError: If ``expr`` is not a well-formed expression.
         ValueError: If ``backend`` is not one of the supported values.
 
@@ -892,20 +849,21 @@ def compile_expr(
         >>> f(np.array([[1], [2], [3]]), np.array([]))
         array([2, 3, 4])
     """
-    expr, symbol_library = _tree_and_library(expr, symbol_library)
+    expr = _as_expression(expr, symbol_library)
+    tree, symbol_library = expr.tree, expr.symbol_library
     if backend == "stack":
         _warn_if_no_cython()
-        return _expr_to_cython_callable(expr, symbol_library)
+        return _expr_to_cython_callable(tree, symbol_library)
     elif backend == "codegen":
-        return _expr_to_executable_function(expr, symbol_library)
+        return _expr_to_executable_function(tree, symbol_library)
     elif backend == "stack_py":
-        return _expr_to_python_callable(expr, symbol_library)
+        return _expr_to_python_callable(tree, symbol_library)
     else:
         raise ValueError(f"Unknown backend '{backend}'. Must be one of: 'stack', 'codegen', 'stack_py'.")
 
 
 def compile_expr_rmse(
-    expr: list[str] | Expression | Node,
+    expr: list[str] | Expression,
     symbol_library: SymbolLibrary | None = None,
     backend: str = "stack",
     X: np.ndarray | None = None,
@@ -940,7 +898,7 @@ def compile_expr_rmse(
         [compile_expr][SRToolkit.utils.expression_compiler.compile_expr].
 
     Raises:
-        TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+        TypeError: If ``expr`` is neither a token list nor an ``Expression``.
         ExpressionParseError: If ``expr`` is not a well-formed expression.
         ValueError: If ``backend`` is not one of the supported values.
 
@@ -952,13 +910,14 @@ def compile_expr_rmse(
         >>> print(float(f(np.array([[1], [2], [3]]), np.array([]), np.array([2, 3, 4]))))
         0.0
     """
-    expr, symbol_library = _tree_and_library(expr, symbol_library)
+    expr = _as_expression(expr, symbol_library)
+    tree, symbol_library = expr.tree, expr.symbol_library
     if backend == "stack":
         _warn_if_no_cython()
-        return _expr_to_cython_error_callable(expr, symbol_library, X)
+        return _expr_to_cython_error_callable(tree, symbol_library, X)
     elif backend == "codegen":
-        return _expr_to_error_function(expr, symbol_library)
+        return _expr_to_error_function(tree, symbol_library)
     elif backend == "stack_py":
-        return _expr_to_python_stack_error_callable(expr, symbol_library, X)
+        return _expr_to_python_stack_error_callable(tree, symbol_library, X)
     else:
         raise ValueError(f"Unknown backend '{backend}'. Must be one of: 'stack', 'codegen', 'stack_py'.")

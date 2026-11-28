@@ -173,10 +173,6 @@ In future releases, our primary focus will:
 
 * **Result Visualization:** Implement a robust visualization and result aggregation framework for SR results.
 
-* **Constraints:** Implement more robust expression generation constraints using techniques like attribute grammars.
-
-* **Improved Benchmarking:** Improve the robustness and efficiency of the benchmarking framework (continuous).
-
 * **Advanced Expressions (Distant Plan):** Implement support for different types of expressions, such as **ODEs and PDEs**.
 
 ## Contributing 🤝

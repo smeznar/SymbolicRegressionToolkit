@@ -76,7 +76,7 @@ from typing import Any, Literal, cast
 import egglog as egg
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
-from SRToolkit.utils.expression import Expression, _to_expression
+from SRToolkit.utils.expression import Expression, _as_expression
 from SRToolkit.utils.expression_constraints import _validate_limit
 from SRToolkit.utils.expression_tree import Node, _parameter_labels
 from SRToolkit.utils.free_constants import Constant
@@ -646,7 +646,7 @@ def fold(
         ('C*X_0', ())
     """
     _check_fold_mode(mode, "mode")
-    expr = _to_expression(expr, symbol_library)
+    expr = _as_expression(expr, symbol_library)
     if mode == "none":
         return expr
     tree, kept, changed = _fold_tree(expr.tree, expr.symbol_library, expr.free_constants, mode)
@@ -786,7 +786,7 @@ def simplify(
     _check_fold_mode(fold, "fold")
     if rules is None:
         rules = DefaultRules()
-    expr = _to_expression(expr, symbol_library)
+    expr = _as_expression(expr, symbol_library)
     symbol_library = expr.symbol_library
     tree = expr.tree
     free_constants = expr.free_constants

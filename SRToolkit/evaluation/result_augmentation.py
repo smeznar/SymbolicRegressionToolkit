@@ -21,7 +21,7 @@ from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.results import ResultAugmenter
 from SRToolkit.evaluation.sr_evaluator import evaluate_metric
 from SRToolkit.utils import SymbolLibrary, simplify
-from SRToolkit.utils.expression import Expression, _to_expression
+from SRToolkit.utils.expression import Expression, _as_expression
 from SRToolkit.utils.expression_simplifier import (
     DefaultRules,
     SimplificationRules,
@@ -547,7 +547,7 @@ class HoldoutMetric(ResultAugmenter):
             self.metric.setup(
                 self._X,
                 self._y,
-                None if ground_truth is None else _to_expression(ground_truth, self.symbol_library, "ground_truth"),
+                None if ground_truth is None else _as_expression(ground_truth, self.symbol_library, "ground_truth"),
                 background_knowledge,
                 seed if ranking_seed is None else ranking_seed,
                 self.settings,
