@@ -1600,14 +1600,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1858,7 +1858,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srdataset/" class="md-nav__link">
+      <a href="../../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1914,7 +1914,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2214,14 +2214,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../approaches/sr_approach/" class="md-nav__link">
+      <a href="../../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2798,7 +2798,7 @@ away from <code>X</code>, e.g. at perturbed or held-out points. Built-in metrics
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-module-attribute&quot;&gt;&lt;code&gt;module-attribute&lt;/code&gt;&lt;/small&gt;
   &lt;/span&gt;" href="#SRToolkit.utils.measures.REGRESSION_METRICS">REGRESSION_METRICS</a>, which
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_metric&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric">SR_evaluator.get_metric</a> uses; a user
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_metric&lt;/span&gt;" href="../../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.get_metric">Evaluator.get_metric</a> uses; a user
 callable with the same signature can be used in place of a name.</p>
 <p>All metrics return a Python float and never emit NumPy warnings: an undefined or infinite result is
 returned as <code>nan</code> or <code>inf</code> (each metric lists when). <code>predict(X)</code> and <code>y</code> must both have
@@ -2892,7 +2892,7 @@ model's fitted constants already bound in.</p>
         <p>Read-only mapping from name to built-in regression metric.</p>
 <p>Keys are <code>"mse"</code>, <code>"rmse"</code>, <code>"mae"</code>, <code>"r2"</code> and <code>"nrmse"</code>; every value has the signature
 <code>metric(predict, X, y) -&gt; float</code>.
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_metric&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric">SR_evaluator.get_metric</a> uses it to
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_metric&lt;/span&gt;" href="../../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.get_metric">Evaluator.get_metric</a> uses it to
 resolve a metric given by name. The mapping cannot be modified; to use another metric, pass a
 callable with the same signature instead of a name.</p>
 

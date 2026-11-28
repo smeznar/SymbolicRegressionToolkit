@@ -1415,14 +1415,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1673,7 +1673,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../dataset/srdataset/" class="md-nav__link">
+      <a href="../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1729,7 +1729,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2029,14 +2029,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../approaches/sr_approach/" class="md-nav__link">
+      <a href="../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -5998,7 +5998,7 @@ JSON.</p>
         <p>Read-only mapping from name to built-in regression metric.</p>
 <p>Keys are <code>"mse"</code>, <code>"rmse"</code>, <code>"mae"</code>, <code>"r2"</code> and <code>"nrmse"</code>; every value has the signature
 <code>metric(predict, X, y) -&gt; float</code>.
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_metric&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric">SR_evaluator.get_metric</a> uses it to
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_metric&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.get_metric">Evaluator.get_metric</a> uses it to
 resolve a metric given by name. The mapping cannot be modified; to use another metric, pass a
 callable with the same signature instead of a name.</p>
 
@@ -16721,7 +16721,7 @@ override it.</p>
         <p>Raised by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;tokens_to_tree&lt;/span&gt;" href="expression_tree/#SRToolkit.utils.expression_tree.tokens_to_tree">tokens_to_tree</a> when a token list
 is not a well-formed expression: an unknown token, a missing operand, two adjacent operands,
 or unbalanced or empty brackets.</p>
-<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator">SR_evaluator</a> marks expressions that raise it
+<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator">Evaluator</a> marks expressions that raise it
 as <code>invalid</code>.</p>
 
 
@@ -29083,7 +29083,7 @@ and folds less. Default <code>True</code>.</p>
               <div class="doc-md-description">
                 <p>Evaluation stops with the reason <code>"max_consecutive_skips"</code> after
 this many skips in a row (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;count_skip&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip">count_skip</a>); negative for
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;count_skip&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.count_skip">count_skip</a>); negative for
 no limit. Default <code>10000</code>.</p>
               </div>
             </td>
@@ -29138,7 +29138,7 @@ Default <code>"stack"</code>.</p>
                 <p>Seed of the ranking's randomness (BED's points and behaviours, the starting
 points of fits), a non-negative int, in place of the evaluator's seed; <code>None</code> uses
 the evaluator's seed.
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator">SR_dataset.create_evaluator</a>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../dataset/dataset/#SRToolkit.dataset.dataset.Dataset.create_evaluator">Dataset.create_evaluator</a>
 sets it to the dataset's seed unless the dataset resamples its objective each run.
 Default <code>None</code>.</p>
               </div>
@@ -34409,7 +34409,7 @@ uses the alias <code>"np"</code>, or a <code>"preamble"</code> line is not <code
         <p>The outcome of one check of one <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ExpressionConstraint&lt;/span&gt;" href="expression_constraints/#SRToolkit.utils.expression_constraints.ExpressionConstraint">ExpressionConstraint</a>.</p>
 <p>Immutable (a frozen dataclass), so results can be shared. A constraint's <code>pre_check</code> / <code>post_check</code> returns one; it fills in <code>passed</code>, <code>message</code>
 and <code>amount</code> and leaves <code>constraint</code> and <code>stage</code> empty. When the
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator">SR_evaluator</a> records a result, it stores a
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator">Evaluator</a> records a result, it stores a
 copy with <code>constraint</code> and <code>stage</code> filled in.</p>
 
 
@@ -34573,7 +34573,7 @@ the expression; leave it out when counting violations.</p>
 
 
 
-        <p>Result of a single SR experiment, as returned by <code>SR_results[i]</code>.</p>
+        <p>Result of a single SR experiment, as returned by <code>Results[i]</code>.</p>
 <p>The stored data is the list of evaluated models and the evaluation trace; summary values
 such as <code>min_error</code>, <code>best_expr</code>, <code>success</code> and <code>top_models()</code> are derived from them.
 The ranking behind these summaries is cached. After construction models must not be modified
@@ -34585,7 +34585,7 @@ or replaced, or the summaries can be stale.</p>
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
   &lt;/span&gt;" href="types/#SRToolkit.utils.types.RunSummary">RunSummary</a> (<code>keep_all_models=False</code>, see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_results&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results">SR_evaluator.get_results</a>); its
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_results&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.get_results">Evaluator.get_results</a>); its
 methods then give the same answers, except where noted. All models of such a run stay in its
 checkpoint, if it was kept (see
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;open_checkpoint&lt;/span&gt;" href="types/#SRToolkit.utils.types.EvalResult.open_checkpoint">open_checkpoint</a>).</p>
@@ -34629,7 +34629,7 @@ first.</p>
                 <p>The evaluation trace. <code>trace[k]</code> is the index into <code>all_models</code> of the
 expression requested by the <code>(k+1)</code>-th counted call to <code>evaluate_expr</code> (a call
 that counts toward <code>max_evaluations</code>; see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.sr_evaluator&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator">sr_evaluator</a>). Cache hits appear as repeated
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.evaluator&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator">evaluator</a>). Cache hits appear as repeated
 indices; calls made after evaluation was stopped are not recorded. Every entry must
 be a valid, non-negative index into <code>all_models</code>; otherwise behaviour is undefined.
 Empty with a <code>summary</code>.</p>
@@ -34707,7 +34707,7 @@ the dataset's metadata under <code>"dataset_metadata"</code>). <code>None</code>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.wall_time">SR_evaluator.wall_time</a>).
+  &lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.wall_time">Evaluator.wall_time</a>).
 <code>None</code> if not known, e.g. from a checkpoint of a run that crashed before its first
 commit.</p>
               </div>
@@ -34767,7 +34767,7 @@ complete specs of a saved model. <code>None</code> for results saved in format 2
               <div class="doc-md-description">
                 <p>Why the run ended: <code>"success_threshold"</code>, <code>"max_evaluations"</code>, the reason
 of a callback (e.g. <code>"time_limit"</code>) or of the approach (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;stop&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop">stop</a>), or <code>"returned"</code> if the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;stop&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.stop">stop</a>), or <code>"returned"</code> if the
 search returned without stopping the evaluator. Any other reason than the first two
 marks a run that ended with budget left. <code>None</code> for results saved before it was
 recorded.</p>
@@ -34800,14 +34800,14 @@ recorded.</p>
               <div class="doc-md-description">
                 <p>A reference to the run's checkpoint, <code>{"path": ..., "fingerprint": ...}</code>
 (the absolute path and the evaluator's fingerprint, see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.sr_evaluator&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator">Checkpoints</a>), or <code>None</code>.
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.evaluator&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator">Checkpoints</a>), or <code>None</code>.
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_checkpoint&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../evaluation/results/#SRToolkit.evaluation.results.SR_results.from_checkpoint">SR_results.from_checkpoint</a>,
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;evaluate_approach&lt;/span&gt;" href="../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach">evaluate_approach</a> and
+  &lt;/span&gt;" href="../evaluation/results/#SRToolkit.evaluation.results.Results.from_checkpoint">Results.from_checkpoint</a>,
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;evaluate_approach&lt;/span&gt;" href="../dataset/dataset/#SRToolkit.dataset.dataset.Dataset.evaluate_approach">evaluate_approach</a> and
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;run&lt;/span&gt;" href="../experiments/#SRToolkit.experiments.ExperimentJob.run">ExperimentJob.run</a> set it when the file
 still exists as they return; <code>get_results</code> does not. Only
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;open_checkpoint&lt;/span&gt;" href="types/#SRToolkit.utils.types.EvalResult.open_checkpoint">open_checkpoint</a> uses it.</p>
@@ -34822,8 +34822,8 @@ still exists as they return; <code>get_results</code> does not. Only
             <td>
               <div class="doc-md-description">
                 <p>The run's limit segments: one for its start and one per
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;extend_run&lt;/span&gt;" href="../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.extend_run">extension</a> that changed something
-(a plain resume adds none; see <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.sr_evaluator&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator">Extending runs</a>).
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;extend_run&lt;/span&gt;" href="../dataset/dataset/#SRToolkit.dataset.dataset.Dataset.extend_run">extension</a> that changed something
+(a plain resume adds none; see <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.evaluator&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator">Extending runs</a>).
 Each is a dict with <code>calls</code> (the calls kept when the segment starts),
 <code>max_evaluations</code> (negative: no limit), <code>success_threshold</code> (<code>None</code>: none),
 <code>callbacks</code> (the <code>to_dict()</code> of each callback; <code>[]</code> if calls were made without
@@ -34848,7 +34848,7 @@ before it was, or built by hand).</p>
             <td>
               <div class="doc-md-description">
                 <p>How many expressions the approach skipped without evaluating them, by reason (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;count_skip&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip">count_skip</a>), e.g.
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;count_skip&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.count_skip">count_skip</a>), e.g.
 <code>{"evaluated": 12, "rejected": 3}</code>. Evaluated calls are not counted: calls that repeat
 an evaluated model (cache hits) number <code>evaluation_calls - num_evaluated</code>, rejected
 calls <code>status_counts(per="call")["rejected"]</code>. <code>{}</code> if the approach reported none,
@@ -35443,7 +35443,7 @@ holds each model.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.sr_evaluator&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator">sr_evaluator</a>).</p>
+                <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.evaluator&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator">evaluator</a>).</p>
               </div>
             </td>
           </tr>
@@ -35528,7 +35528,7 @@ holds each model.</p>
 <a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-614" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-614"></a><span class="sd">        ``nan`` threshold). Failed models (non-finite error) never count. When aggregating</span>
 <a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-615" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-615"></a><span class="sd">        over runs, treat</span>
 <a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-616" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-616"></a><span class="sd">        ``None`` as censored at ``evaluation_calls`` rather than dropping the run (see</span>
-<a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-617" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-617"></a><span class="sd">        [sr_evaluator][SRToolkit.evaluation.sr_evaluator]).</span>
+<a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-617" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-617"></a><span class="sd">        [evaluator][SRToolkit.evaluation.evaluator]).</span>
 <a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-618" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-618"></a>
 <a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-619" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-619"></a><span class="sd">    Raises:</span>
 <a id="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-620" name="SRToolkit.utils.EvalResult.calls_to_threshold--source--__codelineno-0-620"></a><span class="sd">        ValueError: If ``threshold`` is not given and ``success_threshold`` is ``None``.</span>
@@ -35568,7 +35568,7 @@ holds each model.</p>
 <p>With a <code>summary</code>, read from <code>summary.incumbents</code> (the same answer).</p>
 <p>A budget larger than <code>evaluation_calls</code> gets the run's final best error. This is exact
 for a run that reached <code>success_threshold</code>, but only an upper bound for a run that
-stopped early for another reason (see <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.sr_evaluator&lt;/span&gt;" href="../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator">sr_evaluator</a>).
+stopped early for another reason (see <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.evaluation.evaluator&lt;/span&gt;" href="../evaluation/evaluator/#SRToolkit.evaluation.evaluator">evaluator</a>).
 Keep budgets at or below the experiment's <code>max_evaluations</code>.</p>
 
 
@@ -35709,7 +35709,7 @@ behaviour.</p>
 <a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-639" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-639"></a>
 <a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-640" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-640"></a><span class="sd">    A budget larger than ``evaluation_calls`` gets the run's final best error. This is exact</span>
 <a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-641" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-641"></a><span class="sd">    for a run that reached ``success_threshold``, but only an upper bound for a run that</span>
-<a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-642" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-642"></a><span class="sd">    stopped early for another reason (see [sr_evaluator][SRToolkit.evaluation.sr_evaluator]).</span>
+<a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-642" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-642"></a><span class="sd">    stopped early for another reason (see [evaluator][SRToolkit.evaluation.evaluator]).</span>
 <a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-643" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-643"></a><span class="sd">    Keep budgets at or below the experiment's ``max_evaluations``.</span>
 <a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-644" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-644"></a>
 <a id="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-645" name="SRToolkit.utils.EvalResult.best_error_within--source--__codelineno-0-645"></a><span class="sd">    Args:</span>
@@ -36196,7 +36196,7 @@ a run of any length can be gone through without loading it (see
                 <p>If <code>checkpoint</code> is <code>None</code>; if the file is a checkpoint of another run
 (its fingerprint differs from the one in <code>checkpoint</code>; the message names the
 differing parts), which includes the run after an
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;extend_run&lt;/span&gt;" href="../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.extend_run">extension</a> that changed its
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;extend_run&lt;/span&gt;" href="../dataset/dataset/#SRToolkit.dataset.dataset.Dataset.extend_run">extension</a> that changed its
 limits; if it is not a checkpoint, or one of another format version.</p>
               </div>
             </td>
@@ -36282,7 +36282,7 @@ limits; if it is not a checkpoint, or one of another format version.</p>
 <a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-758" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-758"></a><span class="sd">        ValueError: If ``checkpoint`` is ``None``; if the file is a checkpoint of another run</span>
 <a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-759" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-759"></a><span class="sd">            (its fingerprint differs from the one in ``checkpoint``; the message names the</span>
 <a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-760" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-760"></a><span class="sd">            differing parts), which includes the run after an</span>
-<a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-761" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-761"></a><span class="sd">            [extension][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] that changed its</span>
+<a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-761" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-761"></a><span class="sd">            [extension][SRToolkit.dataset.dataset.Dataset.extend_run] that changed its</span>
 <a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-762" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-762"></a><span class="sd">            limits; if it is not a checkpoint, or one of another format version.</span>
 <a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-763" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-763"></a><span class="sd">        FileNotFoundError: If no file exists at the path; the message gives the path.</span>
 <a id="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-764" name="SRToolkit.utils.EvalResult.open_checkpoint--source--__codelineno-0-764"></a><span class="sd">    """</span>

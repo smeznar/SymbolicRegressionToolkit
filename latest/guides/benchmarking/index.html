@@ -1532,14 +1532,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../references/evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1790,7 +1790,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/dataset/srdataset/" class="md-nav__link">
+      <a href="../../references/dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1846,7 +1846,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../references/dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2146,14 +2146,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/approaches/sr_approach/" class="md-nav__link">
+      <a href="../../references/approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2619,7 +2619,7 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Filter by number of variables</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">names</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">list_datasets</span><span class="p">(</span><span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Create an SR_dataset ready for evaluation</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Create a Dataset ready for evaluation</span>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>          <span class="c1"># (n_samples, n_variables)</span>
@@ -2627,7 +2627,7 @@
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">original_equation</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="evaluating-an-approach">Evaluating an approach</h2>
-<p>Pass any <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_approach&lt;/span&gt;" href="../../references/approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach">SR_approach</a> to <code>dataset.evaluate_approach()</code>:</p>
+<p>Pass any <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Approach&lt;/span&gt;" href="../../references/approaches/approach/#SRToolkit.approaches.approach.Approach">Approach</a> to <code>dataset.evaluate_approach()</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.approaches</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProGED</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">model</span> <span class="o">=</span> <span class="n">ProGED</span><span class="p">()</span>
@@ -2635,7 +2635,7 @@
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Run 5 independent experiments and keep the top 20 expressions each</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">results</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">evaluate_approach</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">num_experiments</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">initial_seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </code></pre></div>
-<p><code>results</code> is an <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_results&lt;/span&gt;" href="../../references/evaluation/results/#SRToolkit.evaluation.results.SR_results">SR_results</a> object. Inspect individual runs:</p>
+<p><code>results</code> is an <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Results&lt;/span&gt;" href="../../references/evaluation/results/#SRToolkit.evaluation.results.Results">Results</a> object. Inspect individual runs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">dataset_name</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">approach_name</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">best_expr</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">min_error</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">success</span><span class="p">)</span>
 </code></pre></div>
@@ -2646,7 +2646,7 @@
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"I.16.6"</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">y</span>
 </code></pre></div>
-<p>The cache is not modified — only the returned <code>SR_dataset</code> instance contains the new data.</p>
+<p>The cache is not modified — only the returned <code>Dataset</code> instance contains the new data.</p>
 <p>For SRSD_Feynman, this uses the per-variable sampling objects (log-uniform, linear, integer) defined for each equation.</p>
 <h2 id="using-callbacks">Using callbacks</h2>
 <p>Callbacks attach to the evaluator and fire events during search. Pass them to <code>evaluate_approach()</code>:</p>
@@ -2689,10 +2689,10 @@
 </tbody>
 </table>
 <h3 id="writing-a-custom-callback">Writing a custom callback</h3>
-<p>Subclass <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_callback&lt;/span&gt;" href="../../references/evaluation/callbacks/#SRToolkit.evaluation.callbacks.SR_callback">SR_callback</a> and override only the events you need. Return a reason (a string) from <code>on_expr_evaluated</code>, <code>on_best_expression</code> or <code>on_skip</code> (fired for each expression the approach skips without evaluating) to stop the search early; it is saved in the results as <code>stop_reason</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.evaluation.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_callback</span><span class="p">,</span> <span class="n">BestExpressionFound</span>
+<p>Subclass <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Callback&lt;/span&gt;" href="../../references/evaluation/callbacks/#SRToolkit.evaluation.callbacks.Callback">Callback</a> and override only the events you need. Return a reason (a string) from <code>on_expr_evaluated</code>, <code>on_best_expression</code> or <code>on_skip</code> (fired for each expression the approach skips without evaluating) to stop the search early; it is saved in the results as <code>stop_reason</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.evaluation.callbacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callback</span><span class="p">,</span> <span class="n">BestExpressionFound</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">PrintEveryImprovement</span><span class="p">(</span><span class="n">SR_callback</span><span class="p">):</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">PrintEveryImprovement</span><span class="p">(</span><span class="n">Callback</span><span class="p">):</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_best_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="n">BestExpressionFound</span><span class="p">):</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  [</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">evaluation_number</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">expression</span><span class="si">}</span><span class="s2">  error=</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">error</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div>

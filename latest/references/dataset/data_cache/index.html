@@ -1413,14 +1413,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1673,7 +1673,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../srdataset/" class="md-nav__link">
+      <a href="../dataset/" class="md-nav__link">
         
   
   
@@ -1729,7 +1729,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../srbenchmark/" class="md-nav__link">
+      <a href="../benchmark/" class="md-nav__link">
         
   
   
@@ -2170,14 +2170,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../approaches/sr_approach/" class="md-nav__link">
+      <a href="../../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2964,7 +2964,7 @@ so a format 2/3 config and its migration hash the same.</p>
               <div class="doc-md-description">
                 <p>Full dataset config dict containing a <code>"data_source"</code> key, in format 4
 (symbol library and samplers inside <code>"background_knowledge"</code>, as written by
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.to_dict">SR_dataset.to_dict</a>) or in the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset.to_dict">Dataset.to_dict</a>) or in the
 format 2/3 layout (<code>"symbol_library"</code> and <code>"samplers"</code> at the top level).
 <code>None</code> (or a config with <code>data_source=None</code>) is valid only when
 the cache entry already exists.</p>
@@ -3149,7 +3149,7 @@ the cache entry already exists.</p>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-123" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-123"></a><span class="sd">        key: Dataset key / name (e.g. ``"I.16.6"``).</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-124" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-124"></a><span class="sd">        config: Full dataset config dict containing a ``"data_source"`` key, in format 4</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-125" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-125"></a><span class="sd">            (symbol library and samplers inside ``"background_knowledge"``, as written by</span>
-<a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-126" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-126"></a><span class="sd">            [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]) or in the</span>
+<a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-126" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-126"></a><span class="sd">            [Dataset.to_dict][SRToolkit.dataset.dataset.Dataset.to_dict]) or in the</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-127" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-127"></a><span class="sd">            format 2/3 layout (``"symbol_library"`` and ``"samplers"`` at the top level).</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-128" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-128"></a><span class="sd">            ``None`` (or a config with ``data_source=None``) is valid only when</span>
 <a id="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-129" name="SRToolkit.dataset.data_cache.resolve--source--__codelineno-0-129"></a><span class="sd">            the cache entry already exists.</span>
@@ -3819,7 +3819,7 @@ nothing is raised.</p>
 origin of the data (e.g. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;UrlSource&lt;/span&gt;" href="../data_source/#SRToolkit.dataset.data_source.UrlSource">UrlSource</a>).
 For a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SampleSource&lt;/span&gt;" href="../data_source/#SRToolkit.dataset.data_source.SampleSource">SampleSource</a> — which needs the
 dataset's samplers — use
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;refresh&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.refresh">SR_dataset.refresh</a> instead.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;refresh&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset.refresh">Dataset.refresh</a> instead.</p>
               </div>
             </td>
             <td>
@@ -3856,7 +3856,7 @@ dataset's samplers — use
 <a id="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-324" name="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-324"></a><span class="sd">            origin of the data (e.g. [UrlSource][SRToolkit.dataset.data_source.UrlSource]).</span>
 <a id="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-325" name="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-325"></a><span class="sd">            For a [SampleSource][SRToolkit.dataset.data_source.SampleSource] — which needs the</span>
 <a id="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-326" name="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-326"></a><span class="sd">            dataset's samplers — use</span>
-<a id="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-327" name="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-327"></a><span class="sd">            [SR_dataset.refresh][SRToolkit.dataset.sr_dataset.SR_dataset.refresh] instead.</span>
+<a id="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-327" name="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-327"></a><span class="sd">            [Dataset.refresh][SRToolkit.dataset.dataset.Dataset.refresh] instead.</span>
 <a id="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-328" name="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-328"></a><span class="sd">    """</span>
 <a id="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-329" name="SRToolkit.dataset.data_cache.refresh--source--__codelineno-0-329"></a>    <span class="n">resolve</span><span class="p">(</span><span class="n">benchmark</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="p">{</span><span class="s2">"data_source"</span><span class="p">:</span> <span class="n">source</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()},</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>

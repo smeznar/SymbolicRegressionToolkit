@@ -13,7 +13,7 @@
       
       
       
-        <link rel="prev" href="../sr_approach/">
+        <link rel="prev" href="../approach/">
       
       
         <link rel="next" href="../EDHiE/">
@@ -1413,14 +1413,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1671,7 +1671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srdataset/" class="md-nav__link">
+      <a href="../../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1727,7 +1727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2029,14 +2029,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../sr_approach/" class="md-nav__link">
+      <a href="../approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2720,7 +2720,7 @@
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.ApproachConfig&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.ApproachConfig">ApproachConfig</a></code></p>
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.ApproachConfig&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.ApproachConfig">ApproachConfig</a></code></p>
 
 
 
@@ -2817,7 +2817,7 @@
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_approach&lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.SR_approach&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach">SR_approach</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Approach&lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.Approach&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.Approach">Approach</a></code></p>
 
 
 
@@ -2826,7 +2826,7 @@
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;GrammarConstraint&lt;/span&gt;" href="../../utils/grammar/#SRToolkit.utils.grammar.GrammarConstraint">GrammarConstraint</a>s exclude invalid ones; a
 domain-specific grammar is how this approach uses prior knowledge. Full version:
 https://github.com/brencej/ProGED.</p>
-<p>Each step of the <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.approaches.sr_approach&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach">step interface</a> proposes one sample, and
+<p>Each step of the <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.approaches.approach&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach">step interface</a> proposes one sample, and
 a stopped run can be resumed. Resuming needs the same grammar (the same constructor
 argument, or the same task for <code>adapt</code>); a different one is not detected.</p>
 
@@ -3028,7 +3028,7 @@ so they use the budget and appear in the results as <code>"rejected"</code>.</p>
 <a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-48" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-48"></a><span class="sd">    domain-specific grammar is how this approach uses prior knowledge. Full version:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-49" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-49"></a><span class="sd">    https://github.com/brencej/ProGED.</span>
 <a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-50" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-50"></a>
-<a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-51" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-51"></a><span class="sd">    Each step of the [step interface][SRToolkit.approaches.sr_approach] proposes one sample, and</span>
+<a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-51" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-51"></a><span class="sd">    Each step of the [step interface][SRToolkit.approaches.approach] proposes one sample, and</span>
 <a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-52" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-52"></a><span class="sd">    a stopped run can be resumed. Resuming needs the same grammar (the same constructor</span>
 <a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-53" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-53"></a><span class="sd">    argument, or the same task for ``adapt``); a different one is not detected.</span>
 <a id="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-54" name="SRToolkit.approaches.ProGED.ProGED--source--__codelineno-0-54"></a>
@@ -3189,7 +3189,7 @@ the reference grammar if set, else a generic grammar for the symbol library. <co
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">start</span><span class="p">(</span><span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">start</span><span class="p">(</span><span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3234,7 +3234,7 @@ the reference grammar if set, else a generic grammar for the symbol library. <co
 <span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-138">138</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-139">139</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-140">140</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-141">141</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-130" name="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-130"></a><span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-141">141</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-130" name="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-130"></a><span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-131" name="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-131"></a><span class="w">    </span><span class="sd">"""Seed NumPy's global random state, unless ``seed`` is ``None``.</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-132" name="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-132"></a>
 <a id="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-133" name="SRToolkit.approaches.ProGED.ProGED.start--source--__codelineno-0-133"></a><span class="sd">    The same seed, grammar and evaluator settings give the same samples.</span>
@@ -3260,7 +3260,7 @@ the reference grammar if set, else a generic grammar for the symbol library. <co
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ask</span><span class="p">(</span><span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ask</span><span class="p">(</span><span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3270,7 +3270,7 @@ the reference grammar if set, else a generic grammar for the symbol library. <co
 and is proposed as <code>None</code> (the skip <code>"not_expression"</code>), not redrawn. A sample is
 proposed with the skip reason <code>"evaluated"</code> if <code>skip_evaluated</code> is set and its stored
 form was evaluated before (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_model&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model">get_model</a>), else
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;get_model&lt;/span&gt;" href="../../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.get_model">get_model</a>), else
 <code>"rejected"</code> if <code>skip_rejected</code> is set and it breaks a required constraint.</p>
 
 
@@ -3290,7 +3290,7 @@ form was evaluated before (see
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.Candidate&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.Candidate&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3299,7 +3299,7 @@ form was evaluated before (see
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.Candidate">Candidate</a>, or</p>
+  &lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach.Candidate">Candidate</a>, or</p>
               </div>
             </td>
           </tr>
@@ -3310,7 +3310,7 @@ form was evaluated before (see
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.Candidate&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.Candidate&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3348,18 +3348,18 @@ form was evaluated before (see
 <span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-164">164</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-165">165</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-166">166</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-167">167</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-143" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-143"></a><span class="k">def</span><span class="w"> </span><span class="nf">ask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="normal"><a href="#SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-167">167</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-143" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-143"></a><span class="k">def</span><span class="w"> </span><span class="nf">ask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-144" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-144"></a><span class="w">    </span><span class="sd">"""Propose one sample from the grammar.</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-145" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-145"></a>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-146" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-146"></a><span class="sd">    A derivation that needs more than 1000 rule applications, or in which no rule fits, fails</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-147" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-147"></a><span class="sd">    and is proposed as ``None`` (the skip ``"not_expression"``), not redrawn. A sample is</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-148" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-148"></a><span class="sd">    proposed with the skip reason ``"evaluated"`` if ``skip_evaluated`` is set and its stored</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-149" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-149"></a><span class="sd">    form was evaluated before (see</span>
-<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-150" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-150"></a><span class="sd">    [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), else</span>
+<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-150" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-150"></a><span class="sd">    [get_model][SRToolkit.evaluation.evaluator.Evaluator.get_model]), else</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-151" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-151"></a><span class="sd">    ``"rejected"`` if ``skip_rejected`` is set and it breaks a required constraint.</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-152" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-152"></a>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-153" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-153"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-154" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-154"></a><span class="sd">        A one-element list: a [Candidate][SRToolkit.approaches.sr_approach.Candidate], or</span>
+<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-154" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-154"></a><span class="sd">        A one-element list: a [Candidate][SRToolkit.approaches.approach.Candidate], or</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-155" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-155"></a><span class="sd">        ``None`` if the derivation failed.</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-156" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-156"></a><span class="sd">    """</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-157" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-157"></a>    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sampling_grammar</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>  <span class="c1"># set by the constructor or adapt; checked in start</span>
@@ -3367,10 +3367,10 @@ form was evaluated before (see
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-159" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-159"></a>    <span class="k">if</span> <span class="n">tokens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-160" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-160"></a>        <span class="k">return</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-161" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-161"></a>    <span class="c1"># One Expression, so the lookups below and the evaluation parse it once.</span>
-<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-162" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-162"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-163" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-163"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_evaluated</span> <span class="ow">and</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-162" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-162"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-163" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-163"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_evaluated</span> <span class="ow">and</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-164" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-164"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">Candidate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="s2">"evaluated"</span><span class="p">)]</span>
-<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-165" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-165"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_rejected</span> <span class="ow">and</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">check_constraints</span><span class="p">(</span><span class="n">expr</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+<a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-165" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-165"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_rejected</span> <span class="ow">and</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">check_constraints</span><span class="p">(</span><span class="n">expr</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-166" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-166"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">Candidate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="s2">"rejected"</span><span class="p">)]</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-167" name="SRToolkit.approaches.ProGED.ProGED.ask--source--__codelineno-0-167"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">Candidate</span><span class="p">(</span><span class="n">expr</span><span class="p">)]</span>
 </code></pre></div></td></tr></table></div>
@@ -3427,7 +3427,7 @@ an evaluator setting) are ignored.</p>
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
   &lt;/span&gt;" href="#SRToolkit.approaches.ProGED.ProGEDConfig">ProGEDConfig</a> as a dict (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.ApproachConfig.to_dict">ApproachConfig.to_dict</a>).</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach.ApproachConfig.to_dict">ApproachConfig.to_dict</a>).</p>
               </div>
             </td>
             <td>
@@ -3491,7 +3491,7 @@ an evaluator setting) are ignored.</p>
 <a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-175" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-175"></a>
 <a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-176" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-176"></a><span class="sd">    Args:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-177" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-177"></a><span class="sd">        config: A [ProGEDConfig][SRToolkit.approaches.ProGED.ProGEDConfig] as a dict (see</span>
-<a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-178" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-178"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]).</span>
+<a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-178" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-178"></a><span class="sd">            [ApproachConfig.to_dict][SRToolkit.approaches.approach.ApproachConfig.to_dict]).</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-179" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-179"></a>
 <a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-180" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-180"></a><span class="sd">    Returns:</span>
 <a id="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-181" name="SRToolkit.approaches.ProGED.ProGED.from_config--source--__codelineno-0-181"></a><span class="sd">        The approach.</span>

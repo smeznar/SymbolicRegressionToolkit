@@ -2254,14 +2254,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -2512,7 +2512,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srdataset/" class="md-nav__link">
+      <a href="../../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -2568,7 +2568,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2868,14 +2868,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../approaches/sr_approach/" class="md-nav__link">
+      <a href="../../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -4090,7 +4090,7 @@ tokens too many). Amounts of different constraints are in different units and ar
 saves it with <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="#SRToolkit.utils.expression_constraints.ExpressionConstraint.to_dict">to_dict</a>. The
 context it shares with the evaluator, the symbol library, comes through
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;setup&lt;/span&gt;" href="#SRToolkit.utils.expression_constraints.ExpressionConstraint.setup">setup</a> and is not saved. The
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator">SR_evaluator</a> calls <code>setup</code> in its constructor,
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt;" href="../../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator">Evaluator</a> calls <code>setup</code> in its constructor,
 on its own shallow copies of the constraints, so the same instance can be given to evaluators with
 different symbol libraries. Every built-in constraint needs the library: to use one on its own, call
 <code>setup</code> first, or its checks raise <code>RuntimeError</code>. A custom constraint that does not need the

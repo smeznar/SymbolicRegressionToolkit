@@ -1413,14 +1413,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1671,7 +1671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srdataset/" class="md-nav__link">
+      <a href="../../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1727,7 +1727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2029,14 +2029,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../sr_approach/" class="md-nav__link">
+      <a href="../approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2846,14 +2846,14 @@
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_approach&lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.SR_approach&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach">SR_approach</a></code></p>
+              Bases: <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Approach&lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.Approach&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.Approach">Approach</a></code></p>
 
 
 
         <p>EDHiE: equation discovery with hierarchical variational autoencoders by Mežnar et al.</p>
 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;adapt&lt;/span&gt;" href="#SRToolkit.approaches.EDHiE.EDHiE.adapt">adapt</a> trains a hierarchical VAE (HVAE) on random
 expressions for the task; the search runs a genetic algorithm in its latent space. In the
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.approaches.sr_approach&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach">step interface</a>, one step is one generation and is never
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.approaches.approach&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach">step interface</a>, one step is one generation and is never
 empty, so the search runs until the evaluator stops it.</p>
 <p>A stopped run resumes only with the same HVAE, bit for bit: load it from a file
 (<code>weights_path</code> or a saved adapted state), or train it again with the same
@@ -3270,7 +3270,7 @@ them, so they use the budget and appear in the results as <code>"rejected"</code
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-106" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-106"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-107" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-107"></a><span class="sd">    [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] trains a hierarchical VAE (HVAE) on random</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-108" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-108"></a><span class="sd">    expressions for the task; the search runs a genetic algorithm in its latent space. In the</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-109" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-109"></a><span class="sd">    [step interface][SRToolkit.approaches.sr_approach], one step is one generation and is never</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-109" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-109"></a><span class="sd">    [step interface][SRToolkit.approaches.approach], one step is one generation and is never</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-110" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-110"></a><span class="sd">    empty, so the search runs until the evaluator stops it.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-111" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-111"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-112" name="SRToolkit.approaches.EDHiE.EDHiE--source--__codelineno-0-112"></a><span class="sd">    A stopped run resumes only with the same HVAE, bit for bit: load it from a file</span>
@@ -4099,13 +4099,13 @@ row are repeats; then repeats fill the rest, with a warning.</p>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">start</span><span class="p">(</span><span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_GASearch</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">start</span><span class="p">(</span><span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_GASearch</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Seed the random states and start a new search.</p>
-<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;start&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.start">start</a>. With <code>seed</code> set, it seeds the global
+<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;start&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach.Approach.start">start</a>. With <code>seed</code> set, it seeds the global
 random states (Python, NumPy, PyTorch; not restored) and the GA's own generator, so the same
 seed, HVAE, approach and evaluator settings give the same run; with <code>None</code>, the GA's
 generator draws fresh entropy.</p>
@@ -4124,10 +4124,10 @@ generator draws fresh entropy.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>sr_evaluator</code>
+                <code>evaluator</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.SR_evaluator&lt;/code&gt;)" href="../../evaluation/#SRToolkit.evaluation.SR_evaluator">SR_evaluator</a></code>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.Evaluator&lt;/code&gt;)" href="../../evaluation/#SRToolkit.evaluation.Evaluator">Evaluator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4230,16 +4230,16 @@ generator draws fresh entropy.</p>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-376">376</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-377">377</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-378">378</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-379">379</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-355" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-355"></a><span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_GASearch</span><span class="p">:</span>
+<span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-379">379</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-355" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-355"></a><span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_GASearch</span><span class="p">:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-356" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-356"></a><span class="w">    </span><span class="sd">"""Seed the random states and start a new search.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-357" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-357"></a>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-358" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-358"></a><span class="sd">    See [start][SRToolkit.approaches.sr_approach.SR_approach.start]. With ``seed`` set, it seeds the global</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-358" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-358"></a><span class="sd">    See [start][SRToolkit.approaches.approach.Approach.start]. With ``seed`` set, it seeds the global</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-359" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-359"></a><span class="sd">    random states (Python, NumPy, PyTorch; not restored) and the GA's own generator, so the same</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-360" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-360"></a><span class="sd">    seed, HVAE, approach and evaluator settings give the same run; with ``None``, the GA's</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-361" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-361"></a><span class="sd">    generator draws fresh entropy.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-362" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-362"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-363" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-363"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-364" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-364"></a><span class="sd">        sr_evaluator: The evaluator of the run.</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-364" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-364"></a><span class="sd">        evaluator: The evaluator of the run.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-365" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-365"></a><span class="sd">        seed: The run's seed, or ``None``.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-366" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-366"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-367" name="SRToolkit.approaches.EDHiE.EDHiE.start--source--__codelineno-0-367"></a><span class="sd">    Returns:</span>
@@ -4269,18 +4269,18 @@ generator draws fresh entropy.</p>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ask</span><span class="p">(</span><span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ask</span><span class="p">(</span><span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Decode the next generation and propose one entry per individual, in order.</p>
-<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;ask&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.ask">ask</a>. Each individual is proposed as the first of
+<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;ask&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach.Approach.ask">ask</a>. Each individual is proposed as the first of
 these that applies:</p>
 <ol>
 <li><code>None</code> if it does not decode;</li>
 <li>a skip <code>"evaluated"</code> if <code>skip_evaluated</code> is set and its stored form (see
-   <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;stored_tokens&lt;/span&gt;" href="../../evaluation/sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens">stored_tokens</a>) is that of
+   <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;stored_tokens&lt;/span&gt;" href="../../evaluation/evaluator/#SRToolkit.evaluation.evaluator.Evaluator.stored_tokens">stored_tokens</a>) is that of
    an expression evaluated before or proposed for evaluation earlier in this generation;</li>
 <li>a skip <code>"rejected"</code> if <code>skip_rejected</code> is set and it breaks a required constraint;</li>
 <li>its expression, to be evaluated.</li>
@@ -4300,10 +4300,10 @@ these that applies:</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>sr_evaluator</code>
+                <code>evaluator</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.SR_evaluator&lt;/code&gt;)" href="../../evaluation/#SRToolkit.evaluation.SR_evaluator">SR_evaluator</a></code>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.Evaluator&lt;/code&gt;)" href="../../evaluation/#SRToolkit.evaluation.Evaluator">Evaluator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4350,7 +4350,7 @@ these that applies:</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.Candidate&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.Candidate&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4405,21 +4405,21 @@ these that applies:</p>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-419">419</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-420">420</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-421">421</a></span>
-<span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-422">422</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-381" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-381"></a><span class="k">def</span><span class="w"> </span><span class="nf">ask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-422">422</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-381" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-381"></a><span class="k">def</span><span class="w"> </span><span class="nf">ask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-382" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-382"></a><span class="w">    </span><span class="sd">"""Decode the next generation and propose one entry per individual, in order.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-383" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-383"></a>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-384" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-384"></a><span class="sd">    See [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]. Each individual is proposed as the first of</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-384" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-384"></a><span class="sd">    See [ask][SRToolkit.approaches.approach.Approach.ask]. Each individual is proposed as the first of</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-385" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-385"></a><span class="sd">    these that applies:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-386" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-386"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-387" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-387"></a><span class="sd">    1. ``None`` if it does not decode;</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-388" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-388"></a><span class="sd">    2. a skip ``"evaluated"`` if ``skip_evaluated`` is set and its stored form (see</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-389" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-389"></a><span class="sd">       [stored_tokens][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens]) is that of</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-389" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-389"></a><span class="sd">       [stored_tokens][SRToolkit.evaluation.evaluator.Evaluator.stored_tokens]) is that of</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-390" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-390"></a><span class="sd">       an expression evaluated before or proposed for evaluation earlier in this generation;</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-391" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-391"></a><span class="sd">    3. a skip ``"rejected"`` if ``skip_rejected`` is set and it breaks a required constraint;</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-392" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-392"></a><span class="sd">    4. its expression, to be evaluated.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-393" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-393"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-394" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-394"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-395" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-395"></a><span class="sd">        sr_evaluator: The evaluator of the run.</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-395" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-395"></a><span class="sd">        evaluator: The evaluator of the run.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-396" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-396"></a><span class="sd">        state: The search state.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-397" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-397"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-398" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-398"></a><span class="sd">    Returns:</span>
@@ -4437,11 +4437,11 @@ these that applies:</p>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-410" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-410"></a>            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-411" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-411"></a>            <span class="k">continue</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-412" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-412"></a>        <span class="c1"># One Expression per individual, so the lookups below and the evaluation parse it once.</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-413" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-413"></a>        <span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="o">.</span><span class="n">from_tree</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-414" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-414"></a>        <span class="n">key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">sr_evaluator</span><span class="o">.</span><span class="n">stored_tokens</span><span class="p">(</span><span class="n">expr</span><span class="p">))</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-415" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-415"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_evaluated</span> <span class="ow">and</span> <span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">evaluated</span> <span class="ow">or</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-413" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-413"></a>        <span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="o">.</span><span class="n">from_tree</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-414" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-414"></a>        <span class="n">key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">evaluator</span><span class="o">.</span><span class="n">stored_tokens</span><span class="p">(</span><span class="n">expr</span><span class="p">))</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-415" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-415"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_evaluated</span> <span class="ow">and</span> <span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">evaluated</span> <span class="ow">or</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-416" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-416"></a>            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Candidate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="s2">"evaluated"</span><span class="p">))</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-417" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-417"></a>        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_rejected</span> <span class="ow">and</span> <span class="n">sr_evaluator</span><span class="o">.</span><span class="n">check_constraints</span><span class="p">(</span><span class="n">expr</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-417" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-417"></a>        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">skip_rejected</span> <span class="ow">and</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">check_constraints</span><span class="p">(</span><span class="n">expr</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-418" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-418"></a>            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Candidate</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="s2">"rejected"</span><span class="p">))</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-419" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-419"></a>        <span class="k">else</span><span class="p">:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-420" name="SRToolkit.approaches.EDHiE.EDHiE.ask--source--__codelineno-0-420"></a>            <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
@@ -4461,13 +4461,13 @@ these that applies:</p>
 
 
 </h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">tell</span><span class="p">(</span><span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">,</span> <span class="n">candidates</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span> <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ModelResult</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">tell</span><span class="p">(</span><span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">,</span> <span class="n">candidates</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span> <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ModelResult</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Score the generation from <code>ask</code> and select the next population.</p>
-<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;tell&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.tell">tell</a>. Individual <em>i</em> gets the error of
+<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;tell&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach.Approach.tell">tell</a>. Individual <em>i</em> gets the error of
 <code>results[i]</code> (lower is better), or <code>inf</code> if that is <code>None</code>, its error is <code>nan</code>, or
 the step stopped before it.</p>
 
@@ -4485,10 +4485,10 @@ the step stopped before it.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>sr_evaluator</code>
+                <code>evaluator</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.SR_evaluator&lt;/code&gt;)" href="../../evaluation/#SRToolkit.evaluation.SR_evaluator">SR_evaluator</a></code>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt; (&lt;code&gt;SRToolkit.evaluation.Evaluator&lt;/code&gt;)" href="../../evaluation/#SRToolkit.evaluation.Evaluator">Evaluator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4525,7 +4525,7 @@ the step stopped before it.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.Candidate&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.Candidate&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.Candidate">Candidate</a> | <span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.Expression&lt;/code&gt;)" href="../../utils/#SRToolkit.utils.Expression">Expression</a> | None]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4591,19 +4591,19 @@ the step stopped before it.</p>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-449">449</a></span>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-450">450</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-424" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-424"></a><span class="k">def</span><span class="w"> </span><span class="nf">tell</span><span class="p">(</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-425" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-425"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-426" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-426"></a>    <span class="n">sr_evaluator</span><span class="p">:</span> <span class="n">SR_evaluator</span><span class="p">,</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-426" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-426"></a>    <span class="n">evaluator</span><span class="p">:</span> <span class="n">Evaluator</span><span class="p">,</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-427" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-427"></a>    <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">,</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-428" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-428"></a>    <span class="n">candidates</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Candidate</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-429" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-429"></a>    <span class="n">results</span><span class="p">:</span> <span class="s2">"list[ModelResult | None]"</span><span class="p">,</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-430" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-430"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-431" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-431"></a><span class="w">    </span><span class="sd">"""Score the generation from ``ask`` and select the next population.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-432" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-432"></a>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-433" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-433"></a><span class="sd">    See [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]. Individual *i* gets the error of</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-433" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-433"></a><span class="sd">    See [tell][SRToolkit.approaches.approach.Approach.tell]. Individual *i* gets the error of</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-434" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-434"></a><span class="sd">    ``results[i]`` (lower is better), or ``inf`` if that is ``None``, its error is ``nan``, or</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-435" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-435"></a><span class="sd">    the step stopped before it.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-436" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-436"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-437" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-437"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-438" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-438"></a><span class="sd">        sr_evaluator: The evaluator of the run.</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-438" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-438"></a><span class="sd">        evaluator: The evaluator of the run.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-439" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-439"></a><span class="sd">        state: The search state.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-440" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-440"></a><span class="sd">        candidates: Not used.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-441" name="SRToolkit.approaches.EDHiE.EDHiE.tell--source--__codelineno-0-441"></a><span class="sd">        results: The models of the entries from ``ask`` that the step loop reached.</span>
@@ -4636,7 +4636,7 @@ the step stopped before it.</p>
     <div class="doc doc-contents ">
 
         <p>Serialise the search state between two steps.</p>
-<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;dump_search_state&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.dump_search_state">dump_search_state</a>.</p>
+<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;dump_search_state&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach.Approach.dump_search_state">dump_search_state</a>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4724,7 +4724,7 @@ the step stopped before it.</p>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-468">468</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-452" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-452"></a><span class="k">def</span><span class="w"> </span><span class="nf">dump_search_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">_GASearch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-453" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-453"></a><span class="w">    </span><span class="sd">"""Serialise the search state between two steps.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-454" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-454"></a>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-455" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-455"></a><span class="sd">    See [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-455" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-455"></a><span class="sd">    See [dump_search_state][SRToolkit.approaches.approach.Approach.dump_search_state].</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-456" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-456"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-457" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-457"></a><span class="sd">    Args:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-458" name="SRToolkit.approaches.EDHiE.EDHiE.dump_search_state--source--__codelineno-0-458"></a><span class="sd">        state: The search state.</span>
@@ -4758,7 +4758,7 @@ the step stopped before it.</p>
     <div class="doc doc-contents ">
 
         <p>Rebuild a search state from <code>dump_search_state</code>, on this approach's HVAE.</p>
-<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load_search_state&lt;/span&gt;" href="../sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.load_search_state">load_search_state</a>.</p>
+<p>See <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;load_search_state&lt;/span&gt;" href="../approach/#SRToolkit.approaches.approach.Approach.load_search_state">load_search_state</a>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4881,7 +4881,7 @@ compared bit for bit).</p>
 <span class="normal"><a href="#SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-497">497</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-470" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-470"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_search_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_GASearch</span><span class="p">:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-471" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-471"></a><span class="w">    </span><span class="sd">"""Rebuild a search state from ``dump_search_state``, on this approach's HVAE.</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-472" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-472"></a>
-<a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-473" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-473"></a><span class="sd">    See [load_search_state][SRToolkit.approaches.sr_approach.SR_approach.load_search_state].</span>
+<a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-473" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-473"></a><span class="sd">    See [load_search_state][SRToolkit.approaches.approach.Approach.load_search_state].</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-474" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-474"></a>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-475" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-475"></a><span class="sd">    Args:</span>
 <a id="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-476" name="SRToolkit.approaches.EDHiE.EDHiE.load_search_state--source--__codelineno-0-476"></a><span class="sd">        data: The serialised state.</span>
@@ -5047,7 +5047,7 @@ compared bit for bit).</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.sr_approach.ApproachConfig&lt;/code&gt;)" href="../sr_approach/#SRToolkit.approaches.sr_approach.ApproachConfig">ApproachConfig</a></code></p>
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.approaches.approach.ApproachConfig&lt;/code&gt;)" href="../approach/#SRToolkit.approaches.approach.ApproachConfig">ApproachConfig</a></code></p>
 
 
 

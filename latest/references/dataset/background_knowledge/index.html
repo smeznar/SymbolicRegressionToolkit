@@ -13,10 +13,10 @@
       
       
       
-        <link rel="prev" href="../srdataset/">
+        <link rel="prev" href="../dataset/">
       
       
-        <link rel="next" href="../srbenchmark/">
+        <link rel="next" href="../benchmark/">
       
       
         
@@ -1413,14 +1413,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1673,7 +1673,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../srdataset/" class="md-nav__link">
+      <a href="../dataset/" class="md-nav__link">
         
   
   
@@ -1926,7 +1926,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../srbenchmark/" class="md-nav__link">
+      <a href="../benchmark/" class="md-nav__link">
         
   
   
@@ -2226,14 +2226,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../approaches/sr_approach/" class="md-nav__link">
+      <a href="../../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2815,7 +2815,7 @@ dataset deliberately gives the approach that solves it:</p>
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;priors&lt;/span&gt;" href="#SRToolkit.dataset.background_knowledge.BackgroundKnowledge.priors">priors</a> lists the records. A prior
 that cannot be checked is a constraint that implements neither check: the evaluator skips it, and it
 is still described. Anything else goes into <code>description</code>.</p>
-<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a> builds one from its arguments
+<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset">Dataset</a> builds one from its arguments
 (<code>symbol_library=</code>, <code>samplers=</code>, <code>advisory_constraints=</code>, <code>variables=</code>, <code>named_constants=</code>,
 ...).</p>
 <p>Units are facts about the task: stating them does not constrain anything. To check expressions
@@ -2830,13 +2830,13 @@ against them, build a
 and register it as an advisory or a required constraint.</p>
 <h4 id="SRToolkit.dataset.background_knowledge--what-it-does-not-hold">What it does not hold</h4>
 <p>The answer stays out: the ground truth, the human-readable equation, the success threshold and
-anything derived from them live on <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>, not
+anything derived from them live on <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset">Dataset</a>, not
 here.
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;describe&lt;/span&gt;" href="#SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe">describe</a> renders only
 background knowledge, so its text can go into a prompt without leaking the answer (unlike
 <code>str(dataset)</code>, which starts with the equation).</p>
 <p>Required constraints are not background knowledge either: they are part of the objective and live
-on the dataset (<code>SR_dataset.required_constraints</code>). Advisory and required constraints are the
+on the dataset (<code>Dataset.required_constraints</code>). Advisory and required constraints are the
 same classes; the list a constraint is in decides its role (see
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.utils.expression_constraints&lt;/span&gt;" href="../../utils/expression_constraints/#SRToolkit.utils.expression_constraints">expression_constraints</a>).</p>
 
@@ -4054,7 +4054,7 @@ empty or <code>None</code>:</p>
               <div class="doc-md-description">
                 <p>The dataset's required constraints, listed apart from the
 advisory ones. Empty when called on its own;
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;describe&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.describe">SR_dataset.describe</a> passes the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;describe&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset.describe">Dataset.describe</a> passes the
 dataset's.</p>
               </div>
             </td>
@@ -4227,7 +4227,7 @@ dataset's.</p>
 <a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-444" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-444"></a><span class="sd">    Args:</span>
 <a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-445" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-445"></a><span class="sd">        required_constraints: The dataset's required constraints, listed apart from the</span>
 <a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-446" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-446"></a><span class="sd">            advisory ones. Empty when called on its own;</span>
-<a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-447" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-447"></a><span class="sd">            [SR_dataset.describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe] passes the</span>
+<a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-447" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-447"></a><span class="sd">            [Dataset.describe][SRToolkit.dataset.dataset.Dataset.describe] passes the</span>
 <a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-448" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-448"></a><span class="sd">            dataset's.</span>
 <a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-449" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-449"></a>
 <a id="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-450" name="SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe--source--__codelineno-0-450"></a><span class="sd">    Returns:</span>

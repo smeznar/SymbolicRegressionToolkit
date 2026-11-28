@@ -1676,14 +1676,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../references/evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1934,7 +1934,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/dataset/srdataset/" class="md-nav__link">
+      <a href="../../references/dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1990,7 +1990,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../references/dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2290,14 +2290,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/approaches/sr_approach/" class="md-nav__link">
+      <a href="../../references/approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -3053,7 +3053,7 @@ the matching dispatcher can reconstruct it via <code>importlib</code> — no cen
 <a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"forbidden_terminals"</span><span class="p">])</span>
 </code></pre></div>
 <p>Custom <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Sampler&lt;/span&gt;" href="../../references/dataset/sampling/#SRToolkit.dataset.sampling.Sampler">samplers</a>,
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_callback&lt;/span&gt;" href="../../references/evaluation/callbacks/#SRToolkit.evaluation.callbacks.SR_callback">callbacks</a>, and
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Callback&lt;/span&gt;" href="../../references/evaluation/callbacks/#SRToolkit.evaluation.callbacks.Callback">callbacks</a>, and
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DataSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.DataSource">data sources</a> follow the same pattern, dispatched
 via <code>sampler_class</code>, <code>callback_class</code>, and <code>source_class</code> respectively.</p>
 <div class="admonition warning">
@@ -3078,7 +3078,7 @@ data arrays. The recipient calls <code>from_dict</code> and the data is regenera
 downloaded on first use. To make the data travel <em>with</em> the config instead, use
 <a href="#sharing-a-whole-object">share.save</a>.</p>
 <h3 id="serialising-a-benchmark">Serialising a benchmark</h3>
-<p>Call <code>to_dict()</code> on any <code>SR_benchmark</code> to get a plain dict — no files are written.</p>
+<p>Call <code>to_dict()</code> on any <code>Benchmark</code> to get a plain dict — no files are written.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Nguyen</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">Nguyen</span><span class="p">()</span>
@@ -3090,18 +3090,18 @@ downloaded on first use. To make the data travel <em>with</em> the config instea
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="reconstructing-a-benchmark-from-config">Reconstructing a benchmark from config</h3>
-<p>Pass either the dict or the file path to <code>SR_benchmark.from_dict()</code>. Each dataset stays lazy:
+<p>Pass either the dict or the file path to <code>Benchmark.from_dict()</code>. Each dataset stays lazy:
 its data is materialised from the embedded <code>data_source</code> only when <code>create_dataset()</code> is
 called.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_benchmark</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Benchmark</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>            <span class="c1"># from a dict in memory</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">"nguyen_config.json"</span><span class="p">)</span>   <span class="c1"># or directly from a JSON file</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">Benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>            <span class="c1"># from a dict in memory</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">bm</span> <span class="o">=</span> <span class="n">Benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">"nguyen_config.json"</span><span class="p">)</span>   <span class="c1"># or directly from a JSON file</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"NG-1"</span><span class="p">)</span>            <span class="c1"># materialises this dataset's data on demand</span>
 </code></pre></div>
 <h3 id="standalone-dataset-configs">Standalone dataset configs</h3>
-<p><code>SR_dataset.to_dict()</code> works the same way, but the instance must have its <code>benchmark</code> and
+<p><code>Dataset.to_dict()</code> works the same way, but the instance must have its <code>benchmark</code> and
 <code>version</code> fields set — both are required so the cache layer can locate the data. The easiest
 way to get a config-only dataset is
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;from_samplers&lt;/span&gt;
@@ -3109,12 +3109,12 @@ way to get a config-only dataset is
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers"><code>from_samplers</code></a>, which records a
+  &lt;/span&gt;" href="../../references/dataset/dataset/#SRToolkit.dataset.dataset.Dataset.from_samplers"><code>from_samplers</code></a>, which records a
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SampleSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.SampleSource"><code>SampleSource</code></a> for you:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_dataset</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.sampling</span><span class="w"> </span><span class="kn">import</span> <span class="n">UniformSampling</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="o">.</span><span class="n">from_samplers</span><span class="p">(</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_samplers</span><span class="p">(</span>
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="n">ground_truth</span><span class="o">=</span><span class="p">[</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">],</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">samplers</span><span class="o">=</span><span class="p">[</span><span class="n">UniformSampling</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)],</span>
 <a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span>
@@ -3140,16 +3140,16 @@ call has no filesystem side effects.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers"><code>from_samplers</code></a> (single dataset,
+  &lt;/span&gt;" href="../../references/dataset/dataset/#SRToolkit.dataset.dataset.Dataset.from_samplers"><code>from_samplers</code></a> (single dataset,
 above) or
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_from_samplers&lt;/span&gt;" href="../../references/dataset/srbenchmark/#SRToolkit.dataset.sr_benchmark.SR_benchmark.add_from_samplers"><code>add_from_samplers</code></a> (within a
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_from_samplers&lt;/span&gt;" href="../../references/dataset/benchmark/#SRToolkit.dataset.benchmark.Benchmark.add_from_samplers"><code>add_from_samplers</code></a> (within a
 benchmark), then ship the JSON. The recipient's <code>from_dict</code> regenerates the arrays by drawing
 from the stored samplers:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">sender_config</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>                       <span class="c1"># → my_eq.json, no .npz</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">recipient</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sender_config</span><span class="p">)</span>    <span class="c1"># data regenerated by sampling here</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">recipient</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">sender_config</span><span class="p">)</span>    <span class="c1"># data regenerated by sampling here</span>
 </code></pre></div>
 <p>For a single dataset, <code>from_dict</code> materialises immediately; within a benchmark,
-<code>SR_benchmark.from_dict</code> keeps each entry lazy and the first <code>create_dataset()</code> triggers the
+<code>Benchmark.from_dict</code> keeps each entry lazy and the first <code>create_dataset()</code> triggers the
 sampling.</p>
 <div class="admonition warning">
 <p class="admonition-title">Reproducibility depends on the seed</p>
@@ -3252,7 +3252,7 @@ materialised <code>.npz</code> files (the version directory uses underscores: <c
 <a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">UrlSource</span>
 <a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="n">data_cache</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="s2">"feynman"</span><span class="p">,</span> <span class="s2">"1.0.0"</span><span class="p">,</span> <span class="s2">"I.16.6"</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">UrlSource</span><span class="p">(</span><span class="s2">"https://..."</span><span class="p">))</span>
 </code></pre></div>
-<p>You can also refresh through the <code>SR_dataset</code> instance (required for a <code>SampleSource</code>, which
+<p>You can also refresh through the <code>Dataset</code> instance (required for a <code>SampleSource</code>, which
 needs the dataset's samplers, and the only option when <code>data_source</code> is set):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"I.16.6"</span><span class="p">)</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">ds</span><span class="o">.</span><span class="n">refresh</span><span class="p">()</span>   <span class="c1"># re-materialises from data_source; reloads self.X / self.y</span>

@@ -591,10 +591,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#creating-a-standalone-sr_dataset" class="md-nav__link">
+  <a href="#creating-a-standalone-dataset" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Creating a standalone SR_dataset
+        Creating a standalone Dataset
       
     </span>
   </a>
@@ -613,15 +613,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#building-a-benchmark-with-sr_benchmark" class="md-nav__link">
+  <a href="#building-a-benchmark-with-benchmark" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a benchmark with SR_benchmark
+        Building a benchmark with Benchmark
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Building a benchmark with SR_benchmark">
+    <nav class="md-nav" aria-label="Building a benchmark with Benchmark">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1565,14 +1565,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../references/evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1823,7 +1823,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/dataset/srdataset/" class="md-nav__link">
+      <a href="../../references/dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1879,7 +1879,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../references/dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2179,14 +2179,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../references/approaches/sr_approach/" class="md-nav__link">
+      <a href="../../references/approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2556,10 +2556,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#creating-a-standalone-sr_dataset" class="md-nav__link">
+  <a href="#creating-a-standalone-dataset" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Creating a standalone SR_dataset
+        Creating a standalone Dataset
       
     </span>
   </a>
@@ -2578,15 +2578,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#building-a-benchmark-with-sr_benchmark" class="md-nav__link">
+  <a href="#building-a-benchmark-with-benchmark" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building a benchmark with SR_benchmark
+        Building a benchmark with Benchmark
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Building a benchmark with SR_benchmark">
+    <nav class="md-nav" aria-label="Building a benchmark with Benchmark">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2687,10 +2687,10 @@
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-staticmethod&quot;&gt;&lt;code&gt;staticmethod&lt;/code&gt;&lt;/small&gt;
   &lt;/span&gt;" href="../../references/utils/symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols">SymbolLibrary.default_symbols</a>.</p>
-<h2 id="creating-a-standalone-sr_dataset">Creating a standalone SR_dataset</h2>
-<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../references/dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a> wraps input data and evaluation settings for one problem:</p>
+<h2 id="creating-a-standalone-dataset">Creating a standalone Dataset</h2>
+<p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../../references/dataset/dataset/#SRToolkit.dataset.dataset.Dataset">Dataset</a> wraps input data and evaluation settings for one problem:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_dataset</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
@@ -2701,7 +2701,7 @@
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="p">[</span><span class="s2">"+"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"sin"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">],</span> <span class="n">num_variables</span><span class="o">=</span><span class="mi">2</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">)</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="p">(</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span>
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">,</span>
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">symbol_library</span><span class="o">=</span><span class="n">sl</span><span class="p">,</span>
@@ -2752,15 +2752,15 @@ inputs — no data arrays yet. <a class="autorefs autorefs-internal" title="&lt;
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../references/dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers"><code>SR_dataset.from_samplers</code></a>
+  &lt;/span&gt;" href="../../references/dataset/dataset/#SRToolkit.dataset.dataset.Dataset.from_samplers"><code>Dataset.from_samplers</code></a>
 covers it in one call: it draws <code>X</code> from the samplers (one per variable), evaluates the
 ground truth to produce <code>y</code>, and records a
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SampleSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.SampleSource"><code>SampleSource</code></a> so the data can be
 regenerated or resampled later.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_dataset</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.sampling</span><span class="w"> </span><span class="kn">import</span> <span class="n">UniformSampling</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">SR_dataset</span><span class="o">.</span><span class="n">from_samplers</span><span class="p">(</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">dataset</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_samplers</span><span class="p">(</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">ground_truth</span><span class="o">=</span><span class="p">[</span><span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"sin"</span><span class="p">,</span> <span class="s2">"("</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">")"</span><span class="p">],</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">samplers</span><span class="o">=</span><span class="p">[</span><span class="n">UniformSampling</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span> <span class="n">UniformSampling</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)],</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
@@ -2773,9 +2773,9 @@ given, is derived from the ground truth with the variable and target names (<cod
 without them), so the minimal call is just the expression and the samplers. Use <code>ranking_function="bed"</code> for a dataset that only needs inputs (no <code>y</code>).
 <code>from_samplers</code> takes the constructor's other arguments (<code>max_evaluations</code>, <code>constant_bounds</code>,
 <code>settings=</code>, …) and generates the data instead of taking <code>X</code>, <code>y</code> and the test and aux arrays.</p>
-<h2 id="building-a-benchmark-with-sr_benchmark">Building a benchmark with SR_benchmark</h2>
-<p>Group multiple datasets into a reusable benchmark by subclassing <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_benchmark&lt;/span&gt;" href="../../references/dataset/srbenchmark/#SRToolkit.dataset.sr_benchmark.SR_benchmark">SR_benchmark</a>. Provide a <code>data_source</code> for each dataset so data is generated (or downloaded) automatically on first use and cached locally for subsequent runs.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_benchmark</span>
+<h2 id="building-a-benchmark-with-benchmark">Building a benchmark with Benchmark</h2>
+<p>Group multiple datasets into a reusable benchmark by subclassing <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Benchmark&lt;/span&gt;" href="../../references/dataset/benchmark/#SRToolkit.dataset.benchmark.Benchmark">Benchmark</a>. Provide a <code>data_source</code> for each dataset so data is generated (or downloaded) automatically on first use and cached locally for subsequent runs.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Benchmark</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.data_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">SampleSource</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset.sampling</span><span class="w"> </span><span class="kn">import</span> <span class="n">UniformSampling</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">SymbolLibrary</span>
@@ -2783,7 +2783,7 @@ without them), so the minimal call is just the expression and the samplers. Use 
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">_SYMBOL_LIST</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"+"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"/"</span><span class="p">,</span> <span class="s2">"sin"</span><span class="p">,</span> <span class="s2">"cos"</span><span class="p">,</span> <span class="s2">"^2"</span><span class="p">,</span> <span class="s2">"^3"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">]</span>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyBenchmark</span><span class="p">(</span><span class="n">SR_benchmark</span><span class="p">):</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyBenchmark</span><span class="p">(</span><span class="n">Benchmark</span><span class="p">):</span>
 <a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">__data_version__</span> <span class="o">=</span> <span class="s2">"1.0.0"</span>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2805,7 +2805,7 @@ without them), so the minimal call is just the expression and the samplers. Use 
 <a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>                         <span class="n">data_source</span><span class="o">=</span><span class="n">SampleSource</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">))</span>
 </code></pre></div>
 <h3 id="shortcut-add_from_samplers">Shortcut: <code>add_from_samplers</code></h3>
-<p>When every dataset is "expression + samplers", <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_from_samplers&lt;/span&gt;" href="../../references/dataset/srbenchmark/#SRToolkit.dataset.sr_benchmark.SR_benchmark.add_from_samplers"><code>add_from_samplers</code></a>
+<p>When every dataset is "expression + samplers", <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;add_from_samplers&lt;/span&gt;" href="../../references/dataset/benchmark/#SRToolkit.dataset.benchmark.Benchmark.add_from_samplers"><code>add_from_samplers</code></a>
 is a shorthand for the <code>add_dataset(None, …, data_source=SampleSource(...))</code> form above: it
 wires up the <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SampleSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.SampleSource"><code>SampleSource</code></a> for you and
 defaults the symbol library to one variable per sampler. Data is still generated lazily on
@@ -2823,7 +2823,7 @@ the first <code>create_dataset()</code>.</p>
 <p><code>data_source</code> is a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;DataSource&lt;/span&gt;" href="../../references/dataset/data_source/#SRToolkit.dataset.data_source.DataSource">DataSource</a> that tells the
 cache layer where the raw arrays come from. It describes the data's <em>origin</em> only — the
 problem's input distribution lives in <code>samplers</code>, which stays available for
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resample&lt;/span&gt;" href="../../references/dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.resample">resample</a> regardless of the source.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resample&lt;/span&gt;" href="../../references/dataset/dataset/#SRToolkit.dataset.dataset.Dataset.resample">resample</a> regardless of the source.</p>
 <table>
 <thead>
 <tr>
@@ -2878,9 +2878,9 @@ to <code>create_dataset()</code> load from this cache instantly.</p>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
 <p>Reconstruct from the config file (data materialises on first <code>create_dataset</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_benchmark</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Benchmark</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">bm2</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">"my_benchmark.json"</span><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">bm2</span> <span class="o">=</span> <span class="n">Benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="s2">"my_benchmark.json"</span><span class="p">)</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">bm2</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">"eq1"</span><span class="p">)</span>
 </code></pre></div>
 <p>For self-contained sharing (data embedded in a single file), use <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;save&lt;/span&gt;" href="../../references/share/#SRToolkit.share.save">share.save</a> instead — see the <a href="../sharing/">Sharing guide</a>.</p>
@@ -2901,7 +2901,7 @@ shared:</p>
 </tr>
 <tr>
 <td>A JSON config / recipe</td>
-<td><code>SR_dataset.from_dict(path_or_dict)</code> / <code>SR_benchmark.from_dict(...)</code></td>
+<td><code>Dataset.from_dict(path_or_dict)</code> / <code>Benchmark.from_dict(...)</code></td>
 </tr>
 </tbody>
 </table>

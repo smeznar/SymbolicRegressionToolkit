@@ -1413,14 +1413,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1673,7 +1673,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../srdataset/" class="md-nav__link">
+      <a href="../dataset/" class="md-nav__link">
         
   
   
@@ -1729,7 +1729,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../srbenchmark/" class="md-nav__link">
+      <a href="../benchmark/" class="md-nav__link">
         
   
   
@@ -2293,14 +2293,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../approaches/sr_approach/" class="md-nav__link">
+      <a href="../../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2915,7 +2915,7 @@
 dataset's data (where the <code>X</code> / <code>y</code> arrays come from). This is a separate
 concern from the dataset's <em>input-distribution spec</em> (its <code>samplers</code>): the samplers
 define what the inputs of the problem look like and power
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resample&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.resample">resample</a>, and remain available no
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resample&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset.resample">resample</a>, and remain available no
 matter where the data originated.</p>
 <p>Two concrete sources ship with the toolkit:</p>
 <ul>
@@ -3381,7 +3381,7 @@ source's parameters, or <code>None</code> (data is already cached / supplied dir
             <td>
               <div class="doc-md-description">
                 <p>The full serialised dataset config (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.to_dict">SR_dataset.to_dict</a>).
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;to_dict&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset.to_dict">Dataset.to_dict</a>).
 Sources that generate data (e.g.
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SampleSource&lt;/span&gt;" href="#SRToolkit.dataset.data_source.SampleSource">SampleSource</a>) read the
 dataset's samplers, symbol library, <code>"ground_truth"</code> and
@@ -3423,7 +3423,7 @@ dataset's samplers, symbol library, <code>"ground_truth"</code> and
 <a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-135" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-135"></a><span class="sd">    Args:</span>
 <a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-136" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-136"></a><span class="sd">        cache_path: Target ``.npz`` path inside the data cache.</span>
 <a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-137" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-137"></a><span class="sd">        config: The full serialised dataset config (see</span>
-<a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-138" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-138"></a><span class="sd">            [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]).</span>
+<a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-138" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-138"></a><span class="sd">            [Dataset.to_dict][SRToolkit.dataset.dataset.Dataset.to_dict]).</span>
 <a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-139" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-139"></a><span class="sd">            Sources that generate data (e.g.</span>
 <a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-140" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-140"></a><span class="sd">            [SampleSource][SRToolkit.dataset.data_source.SampleSource]) read the</span>
 <a id="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-141" name="SRToolkit.dataset.data_source.DataSource.materialize--source--__codelineno-0-141"></a><span class="sd">            dataset's samplers, symbol library, ``"ground_truth"`` and</span>
@@ -3970,7 +3970,7 @@ token-list ground truth, the targets <code>y</code> are produced by evaluating t
 on the generated inputs.</p>
 <p>Because the output depends on the samplers and seed, this source is <em>volatile</em>: the
 cache layer records a hash and warns when the configuration drifts (call
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;refresh&lt;/span&gt;" href="../srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.refresh">refresh</a> to regenerate).</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;refresh&lt;/span&gt;" href="../dataset/#SRToolkit.dataset.dataset.Dataset.refresh">refresh</a> to regenerate).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

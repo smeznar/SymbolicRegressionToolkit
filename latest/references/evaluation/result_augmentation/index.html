@@ -1415,14 +1415,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../sr_evaluator/" class="md-nav__link">
+      <a href="../evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1953,7 +1953,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srdataset/" class="md-nav__link">
+      <a href="../../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -2009,7 +2009,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2309,14 +2309,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../approaches/sr_approach/" class="md-nav__link">
+      <a href="../../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -5055,7 +5055,7 @@ default rules and limits; a dictionary without <code>fold</code> or <code>fold_a
 
         <p>Scores a result's models on held-out data.</p>
 <p>Use it to measure how the expressions found by a search perform on data the search never
-saw. Apply it with <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;augment&lt;/span&gt;" href="../results/#SRToolkit.evaluation.results.SR_results.augment">SR_results.augment</a>;
+saw. Apply it with <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;augment&lt;/span&gt;" href="../results/#SRToolkit.evaluation.results.Results.augment">Results.augment</a>;
 it adds the score of the best model to the
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;EvalResult&lt;/span&gt;
 
@@ -5089,7 +5089,7 @@ the background knowledge's <code>default_constant</code>, not
   &lt;/span&gt;" href="../../utils/types/#SRToolkit.utils.types.EvalResult">EvalResult.default_constant</a>. To score under the
 search's task and settings, pass the <code>background_knowledge</code> and <code>settings</code> of the
 search's evaluator (e.g. from
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator">create_evaluator</a>, which adds
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset.create_evaluator">create_evaluator</a>, which adds
 the dataset's <code>ranking_seed</code>).</p>
 <p>With every kind of metric, models the search could not score (any
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;Status&lt;/span&gt;
@@ -5338,9 +5338,9 @@ strings nor an <code>Expression</code>.</p>
 
 
 <p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SR_evaluator</span>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">SRToolkit.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Evaluator</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">7.0</span><span class="p">,</span> <span class="mf">9.0</span><span class="p">]])</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">se</span> <span class="o">=</span> <span class="n">SR_evaluator</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">se</span> <span class="o">=</span> <span class="n">Evaluator</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">evaluate_expr</span><span class="p">([</span><span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"-"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">])</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">se</span><span class="o">.</span><span class="n">get_results</span><span class="p">(</span><span class="n">top_k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">X_test</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">]])</span>
@@ -5551,7 +5551,7 @@ strings nor an <code>Expression</code>.</p>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-411" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-411"></a><span class="w">    </span><span class="sd">"""Scores a result's models on held-out data.</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-412" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-412"></a>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-413" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-413"></a><span class="sd">    Use it to measure how the expressions found by a search perform on data the search never</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-414" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-414"></a><span class="sd">    saw. Apply it with [SR_results.augment][SRToolkit.evaluation.results.SR_results.augment];</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-414" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-414"></a><span class="sd">    saw. Apply it with [Results.augment][SRToolkit.evaluation.results.Results.augment];</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-415" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-415"></a><span class="sd">    it adds the score of the best model to the</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-416" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-416"></a><span class="sd">    [EvalResult][SRToolkit.utils.types.EvalResult] and, depending on ``scope``, to each model.</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-417" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-417"></a>
@@ -5576,7 +5576,7 @@ strings nor an <code>Expression</code>.</p>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-436" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-436"></a><span class="sd">    [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]. To score under the</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-437" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-437"></a><span class="sd">    search's task and settings, pass the ``background_knowledge`` and ``settings`` of the</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-438" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-438"></a><span class="sd">    search's evaluator (e.g. from</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-439" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-439"></a><span class="sd">    [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator], which adds</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-439" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-439"></a><span class="sd">    [create_evaluator][SRToolkit.dataset.dataset.Dataset.create_evaluator], which adds</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-440" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-440"></a><span class="sd">    the dataset's ``ranking_seed``).</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-441" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-441"></a>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-442" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-442"></a><span class="sd">    With every kind of metric, models the search could not score (any</span>
@@ -5623,9 +5623,9 @@ strings nor an <code>Expression</code>.</p>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-483" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-483"></a><span class="sd">            strings nor an ``Expression``.</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-484" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-484"></a>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-485" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-485"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-486" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-486"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.evaluation import SR_evaluator</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-486" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-486"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.evaluation import Evaluator</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-487" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-487"></a><span class="sd">        &gt;&gt;&gt; X = np.array([[1.0, 2.0], [8.0, 4.0], [5.0, 4.0], [7.0, 9.0]])</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-488" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-488"></a><span class="sd">        &gt;&gt;&gt; se = SR_evaluator(X, 2 * X[:, 1] - X[:, 0], seed=42)</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-488" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-488"></a><span class="sd">        &gt;&gt;&gt; se = Evaluator(X, 2 * X[:, 1] - X[:, 0], seed=42)</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-489" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-489"></a><span class="sd">        &gt;&gt;&gt; _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-490" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-490"></a><span class="sd">        &gt;&gt;&gt; results = se.get_results(top_k=1)</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-491" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-491"></a><span class="sd">        &gt;&gt;&gt; X_test = np.array([[2.0, 3.0], [4.0, 1.0], [0.0, 5.0]])</span>
@@ -5680,9 +5680,9 @@ strings nor an <code>Expression</code>.</p>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-540" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-540"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_ranking_mode</span> <span class="o">=</span> <span class="kc">True</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-541" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-541"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_label</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-542" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-542"></a>        <span class="c1"># Deep-copy so setup() mutates our own instance, not the caller's (which may be shared</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-543" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-543"></a>        <span class="c1"># with an SR_evaluator or another HoldoutMetric).</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-543" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-543"></a>        <span class="c1"># with an Evaluator or another HoldoutMetric).</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-544" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-544"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">metric</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
-<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-545" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-545"></a>        <span class="c1"># As in SR_evaluator, a ranking_seed replaces the seed for the ranking.</span>
+<a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-545" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-545"></a>        <span class="c1"># As in Evaluator, a ranking_seed replaces the seed for the ranking.</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-546" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-546"></a>        <span class="n">ranking_seed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">ranking_seed</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-547" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-547"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">metric</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span>
 <a id="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-548" name="SRToolkit.evaluation.result_augmentation.HoldoutMetric--source--__codelineno-0-548"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_X</span><span class="p">,</span>

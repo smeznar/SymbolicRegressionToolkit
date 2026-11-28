@@ -1413,14 +1413,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../evaluation/sr_evaluator/" class="md-nav__link">
+      <a href="../evaluation/evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1671,7 +1671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../dataset/srdataset/" class="md-nav__link">
+      <a href="../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -1727,7 +1727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2027,14 +2027,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../approaches/sr_approach/" class="md-nav__link">
+      <a href="../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2590,9 +2590,9 @@ tweaked independently of the implementation.</p>
 <a id="SRToolkit.bundle--__codelineno-1-6" name="SRToolkit.bundle--__codelineno-1-6" href="#SRToolkit.bundle--__codelineno-1-6"></a><span class="n">raw</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="s2">"meznar_settings.srtk.json"</span><span class="p">))</span>  <span class="c1"># config shared separately</span>
 <a id="SRToolkit.bundle--__codelineno-1-7" name="SRToolkit.bundle--__codelineno-1-7" href="#SRToolkit.bundle--__codelineno-1-7"></a><span class="c1"># The config is annotated with _bundle/_version by pack(..., configs=[...]),</span>
 <a id="SRToolkit.bundle--__codelineno-1-8" name="SRToolkit.bundle--__codelineno-1-8" href="#SRToolkit.bundle--__codelineno-1-8"></a><span class="c1"># so it can be passed straight to any project `from_dict` consumer</span>
-<a id="SRToolkit.bundle--__codelineno-1-9" name="SRToolkit.bundle--__codelineno-1-9" href="#SRToolkit.bundle--__codelineno-1-9"></a><span class="c1"># (SR_dataset, Sampler, the experiment grid, ...) — they call bind_config</span>
+<a id="SRToolkit.bundle--__codelineno-1-9" name="SRToolkit.bundle--__codelineno-1-9" href="#SRToolkit.bundle--__codelineno-1-9"></a><span class="c1"># (Dataset, Sampler, the experiment grid, ...) — they call bind_config</span>
 <a id="SRToolkit.bundle--__codelineno-1-10" name="SRToolkit.bundle--__codelineno-1-10" href="#SRToolkit.bundle--__codelineno-1-10"></a><span class="c1"># internally to repoint every *_class path at the installed bundle.</span>
-<a id="SRToolkit.bundle--__codelineno-1-11" name="SRToolkit.bundle--__codelineno-1-11" href="#SRToolkit.bundle--__codelineno-1-11"></a><span class="n">benchmark</span> <span class="o">=</span> <span class="n">SR_benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+<a id="SRToolkit.bundle--__codelineno-1-11" name="SRToolkit.bundle--__codelineno-1-11" href="#SRToolkit.bundle--__codelineno-1-11"></a><span class="n">benchmark</span> <span class="o">=</span> <span class="n">Benchmark</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
 </code></pre></div>
 <p>If the config was <em>not</em> annotated by <code>pack</code> (no <code>_bundle</code> key), bind it
 explicitly first, passing the bundle name:</p>

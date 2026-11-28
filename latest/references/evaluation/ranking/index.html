@@ -1415,14 +1415,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../sr_evaluator/" class="md-nav__link">
+      <a href="../evaluator/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_evaluator
+    evaluator
   
 
     
@@ -1964,7 +1964,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srdataset/" class="md-nav__link">
+      <a href="../../dataset/dataset/" class="md-nav__link">
         
   
   
@@ -2020,7 +2020,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../dataset/srbenchmark/" class="md-nav__link">
+      <a href="../../dataset/benchmark/" class="md-nav__link">
         
   
   
@@ -2320,14 +2320,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../approaches/sr_approach/" class="md-nav__link">
+      <a href="../../approaches/approach/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    sr_approach
+    approach
   
 
     
@@ -2964,7 +2964,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>Pluggable ranking functions for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt;" href="../sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator">SR_evaluator</a>.</p>
+        <p>Pluggable ranking functions for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt;" href="../evaluator/#SRToolkit.evaluation.evaluator.Evaluator">Evaluator</a>.</p>
 <p>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RankingFunction&lt;/span&gt;" href="#SRToolkit.evaluation.ranking.RankingFunction">RankingFunction</a> turns an expression into a
 single lower-is-better scalar. Built-ins are <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RMSERanking&lt;/span&gt;" href="#SRToolkit.evaluation.ranking.RMSERanking">RMSERanking</a>
 (alias <code>"rmse"</code>) and <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BEDRanking&lt;/span&gt;" href="#SRToolkit.evaluation.ranking.BEDRanking">BEDRanking</a> (alias <code>"bed"</code>);
@@ -3196,7 +3196,7 @@ the evaluator writes a generic one (e.g. <code>"rmse score is nan"</code>).</p>
 
 
         <p>Abstract single-objective ranking strategy for
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_evaluator&lt;/span&gt;" href="../sr_evaluator/#SRToolkit.evaluation.sr_evaluator.SR_evaluator">SR_evaluator</a>.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Evaluator&lt;/span&gt;" href="../evaluator/#SRToolkit.evaluation.evaluator.Evaluator">Evaluator</a>.</p>
 <p>Subclasses own all of their data-derived state (built in
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;setup&lt;/span&gt;
 
@@ -3732,7 +3732,7 @@ labelled constants, sorted by label and already checked against
 
     <div class="doc doc-contents ">
 
-        <p>Human-readable description for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>
+        <p>Human-readable description for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset">Dataset</a>
 <code>__str__</code>. Each subclass describes itself correctly.</p>
 
 
@@ -3803,7 +3803,7 @@ labelled constants, sorted by label and already checked against
 <span class="normal"><a href="#SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-172">172</a></span>
 <span class="normal"><a href="#SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-173">173</a></span>
 <span class="normal"><a href="#SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-174">174</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-164" name="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-164"></a><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">success_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-165" name="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-165"></a><span class="w">    </span><span class="sd">"""Human-readable description for [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]</span>
+<a id="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-165" name="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-165"></a><span class="w">    </span><span class="sd">"""Human-readable description for [Dataset][SRToolkit.dataset.dataset.Dataset]</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-166" name="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-166"></a><span class="sd">    ``__str__``. Each subclass describes itself correctly.</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-167" name="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-167"></a>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-168" name="SRToolkit.evaluation.ranking.RankingFunction.describe--source--__codelineno-0-168"></a><span class="sd">    Args:</span>
@@ -3929,7 +3929,7 @@ form.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-classmethod&quot;&gt;&lt;code&gt;classmethod&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="../../approaches/sr_approach/#SRToolkit.approaches.sr_approach.SR_approach.from_config_dict">SR_approach.from_config_dict</a>:
+  &lt;/span&gt;" href="../../approaches/approach/#SRToolkit.approaches.approach.Approach.from_config_dict">Approach.from_config_dict</a>:
 binds the config to any installed <code>.srtk</code> bundle, then resolves <code>ranking_class</code> (a
 fully-qualified import path or a built-in alias) via
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;build_ranking&lt;/span&gt;" href="#SRToolkit.evaluation.ranking.build_ranking">build_ranking</a>.</p>
@@ -4015,7 +4015,7 @@ fully-qualified import path or a built-in alias) via
 <a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-189" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-189"></a><span class="sd">    form.</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-190" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-190"></a>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-191" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-191"></a><span class="sd">    Mirrors [Sampler.from_dict][SRToolkit.dataset.sampling.Sampler.from_dict] and</span>
-<a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-192" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-192"></a><span class="sd">    [SR_approach.from_config_dict][SRToolkit.approaches.sr_approach.SR_approach.from_config_dict]:</span>
+<a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-192" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-192"></a><span class="sd">    [Approach.from_config_dict][SRToolkit.approaches.approach.Approach.from_config_dict]:</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-193" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-193"></a><span class="sd">    binds the config to any installed ``.srtk`` bundle, then resolves ``ranking_class`` (a</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-194" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-194"></a><span class="sd">    fully-qualified import path or a built-in alias) via</span>
 <a id="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-195" name="SRToolkit.evaluation.ranking.RankingFunction.from_dict--source--__codelineno-0-195"></a><span class="sd">    [build_ranking][SRToolkit.evaluation.ranking.build_ranking].</span>
@@ -4083,10 +4083,10 @@ values of its specs for its free constants.</p>
 <p>The random starting points of the fits are seeded by the <code>evaluator.ranking_seed</code> setting
 when set, otherwise by the evaluator's seed, combined with each expression's tokens and specs;
 with neither seed they are random.
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator">SR_dataset.create_evaluator</a> sets
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset.create_evaluator">Dataset.create_evaluator</a> sets
 <code>ranking_seed</code> (when the settings do not) to the dataset's seed, so every run on a dataset
 is scored by the same objective, unless the dataset sets
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">ranking_resample</a>.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset">ranking_resample</a>.</p>
 
 
 
@@ -4483,7 +4483,7 @@ parse.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Human-readable description for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>
+        <p>Human-readable description for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset">Dataset</a>
 <code>__str__</code>. Each subclass describes itself correctly.</p>
 
 
@@ -4630,10 +4630,10 @@ rows of <code>X</code> (the same rows are kept in the behavior) and <code>sample
 which is how to score on exactly a given set of points.</p>
 <p>All randomness (points, behavior matrices, threshold) follows one seed: the
 <code>evaluator.ranking_seed</code> setting when set, otherwise the evaluator's seed.
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator">SR_dataset.create_evaluator</a> sets
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;create_evaluator&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset.create_evaluator">Dataset.create_evaluator</a> sets
 <code>ranking_seed</code> (when the settings do not) to the dataset's seed, so every run on a dataset
 is scored by the same objective, unless the dataset sets
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">ranking_resample</a>.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset">ranking_resample</a>.</p>
 <p>The default success threshold is the ground truth's own noise floor: its largest BED to
 itself over 100 resamplings of its unfixed parameters, times 1.1, and at least <code>1e-7</code> (so a
 ground truth without unfixed parameters gets <code>1e-7</code>). Without a ground-truth expression
@@ -5050,7 +5050,7 @@ not parse.</p>
 <a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-431" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-431"></a>    <span class="k">if</span> <span class="n">samplers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points_sampled</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
 <a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-432" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-432"></a>        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">samplers</span><span class="p">)</span> <span class="o">!=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
 <a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-433" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-433"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">samplers</span><span class="p">)</span><span class="si">}</span><span class="s2"> samplers for </span><span class="si">{</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> variables; give one per variable."</span><span class="p">)</span>
-<a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-434" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-434"></a>        <span class="c1"># One sampler per feature; each draws a column (cf. SR_dataset.resample). Samplers</span>
+<a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-434" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-434"></a>        <span class="c1"># One sampler per feature; each draws a column (cf. Dataset.resample). Samplers</span>
 <a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-435" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-435"></a>        <span class="c1"># draw from the global np.random state, so seed it here for reproducibility.</span>
 <a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-436" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-436"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 <a id="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-437" name="SRToolkit.evaluation.ranking.BEDRanking.setup--source--__codelineno-0-437"></a>            <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
@@ -5216,7 +5216,7 @@ not parse.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Human-readable description for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SR_dataset&lt;/span&gt;" href="../../dataset/srdataset/#SRToolkit.dataset.sr_dataset.SR_dataset">SR_dataset</a>
+        <p>Human-readable description for <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Dataset&lt;/span&gt;" href="../../dataset/dataset/#SRToolkit.dataset.dataset.Dataset">Dataset</a>
 <code>__str__</code>. Each subclass describes itself correctly.</p>
 
 
