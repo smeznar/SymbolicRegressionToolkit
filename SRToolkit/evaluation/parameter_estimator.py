@@ -122,7 +122,7 @@ class ParameterEstimator:
 
         Expressions without free parameters (no constants, or only fixed ones) are evaluated directly,
         without running the optimizer. Limits on the number of constants or tokens are not checked
-        here; [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] enforces them as
+        here; [Evaluator][SRToolkit.evaluation.evaluator.Evaluator] enforces them as
         required constraints.
 
         Args:

@@ -23,17 +23,17 @@ from strategies import (
     result_answers,
 )
 
-from SRToolkit.approaches import ApproachConfig, ProGED, SR_approach
-from SRToolkit.dataset import SR_dataset, data_cache
+from SRToolkit.approaches import Approach, ApproachConfig, ProGED
+from SRToolkit.dataset import Dataset, data_cache
 from SRToolkit.dataset.sampling import UniformSampling
-from SRToolkit.evaluation.results import SR_results
+from SRToolkit.evaluation.results import Results
 from SRToolkit.experiments import ExperimentGrid, ExperimentInfo, ExperimentJob
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth
 
 
 def _make_dataset(name="ds1", benchmark="unit_test", version="1.0.0", max_evaluations=-1):
     """A small, network-free sample-source dataset (no arrays embedded in config)."""
-    return SR_dataset.from_samplers(
+    return Dataset.from_samplers(
         ground_truth=["X_0", "*", "X_0"],
         samplers=[UniformSampling(0.5, 5.0)],
         n_samples=64,
@@ -241,7 +241,7 @@ def test_add_dataset_rejects_duplicate_name(tmp_path):
 
 def test_add_dataset_rejects_wrong_type(tmp_path):
     grid = _make_grid(str(tmp_path / "run"))
-    with pytest.raises(ValueError, match="must be an SR_dataset or SR_benchmark"):
+    with pytest.raises(ValueError, match="must be a Dataset or Benchmark"):
         grid.add_dataset("not a dataset")
 
 
@@ -594,7 +594,7 @@ _TASK_REQUIRED = [MaxConstants(8), MaxTokens(20), MaxTreeDepth(5)]
 
 def _task_dataset():
     """Grid dataset whose required list is _TASK_REQUIRED, with a hint and a description."""
-    return SR_dataset.from_samplers(
+    return Dataset.from_samplers(
         ground_truth=["X_0", "*", "X_0"],
         samplers=[UniformSampling(0.5, 5.0)],
         n_samples=16,
@@ -616,7 +616,7 @@ class _RecorderConfig(ApproachConfig):
     scope: str = "experiment"
 
 
-class _GridRecorder(SR_approach):
+class _GridRecorder(Approach):
     """Logs calls; its saved state is a JSON record of what the last ``adapt`` received."""
 
     def __init__(self, scope="experiment"):
@@ -635,9 +635,9 @@ class _GridRecorder(SR_approach):
         checked = [c.pre_check(["X_0"]).passed for c in required]  # raises unless set up
         self.adapt_args.append((X, background_knowledge, required, checked))
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         self.events.append("search")
-        sr_evaluator.evaluate_expr(["X_0"])
+        evaluator.evaluate_expr(["X_0"])
 
     def save_adapted_state(self, path):
         self.events.append("save")
@@ -714,7 +714,7 @@ def _job(tmp_path, approach, dataset=None, keep_checkpoint=False, name="r.json",
 
 
 def _result(path):
-    return {**SR_results.load(str(path))[0].to_dict(), "wall_time": None, "limits": None}
+    return {**Results.load(str(path))[0].to_dict(), "wall_time": None, "limits": None}
 
 
 @pytest.mark.parametrize(
@@ -795,7 +795,7 @@ class TestJobCheckpoints:
         assert not job.is_complete  # no result
         assert (tmp_path / "r.lock").exists()  # deleted only once a result is saved
         assert not (tmp_path / "r.sqlite-wal").exists()  # closed
-        saved = SR_results.from_checkpoint(tmp_path / "r.sqlite")[0]
+        saved = Results.from_checkpoint(tmp_path / "r.sqlite")[0]
         assert (saved.trace, saved.stop_reason) == ([0, 1, 0], "interrupted")
 
     def test_resume_of_interrupted_job_equals_uninterrupted_job(self, tmp_path, monkeypatch):
@@ -835,7 +835,7 @@ class TestJobCheckpoints:
         _isolate_cache(monkeypatch, tmp_path / "cache")
         with pytest.raises(KeyboardInterrupt):
             _job(tmp_path, SteppedApproach(), callbacks=SignalAfter(3)).run()
-        other = SR_dataset.from_samplers(
+        other = Dataset.from_samplers(
             ground_truth=["X_0", "+", "X_0"],
             samplers=[UniformSampling(0.5, 5.0)],
             n_samples=64,
@@ -862,7 +862,7 @@ class TestJobCheckpoints:
         assert not [w for w in caught if "snapshot" in str(w.message)]  # not restarted
         _job(tmp_path, ScriptedApproach(), name="straight.json", keep_all_models=keep_all_models).run()
         assert (approach.seeds, _result(tmp_path / "r.json")) == ([], _result(tmp_path / "straight.json"))
-        saved = SR_results.load(str(tmp_path / "r.json"))[0]
+        saved = Results.load(str(tmp_path / "r.json"))[0]
         assert ((saved.summary is None), saved.checkpoint) == (keep_all_models, None)
         assert not (tmp_path / "r.sqlite").exists()
 
@@ -948,9 +948,9 @@ class _LockProbe(_GridRecorder):
     def adapt(self, X, background_knowledge, required_constraints):
         self.locked.append(("adapt", _lock_taken(self.lock_path)))
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         self.locked.append(("search", _lock_taken(self.lock_path)))
-        sr_evaluator.evaluate_expr(["X_0"])
+        evaluator.evaluate_expr(["X_0"])
 
 
 def _bad_header(tmp_path):  # a checkpoint whose stop reason cannot be read
@@ -962,9 +962,9 @@ def _bad_header(tmp_path):  # a checkpoint whose stop reason cannot be read
 class _StatusProbe(_GridRecorder):
     """Records ``job.status`` during its search."""
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         self.seen = self.job.status
-        sr_evaluator.evaluate_expr(["X_0"])
+        evaluator.evaluate_expr(["X_0"])
 
 
 class _FailingSetup(_GridRecorder):
@@ -1286,7 +1286,7 @@ def test_cli_run_job_rerun(tmp_path, monkeypatch, capsys):
     run = _cli_grid(tmp_path, monkeypatch, "{}")  # a placeholder result: the job counts as done
     assert _cli_run_job(monkeypatch, run, "--rerun") == 0
     assert "Already done" not in capsys.readouterr().out
-    assert len(SR_results.load(str(run / "ds1" / "scripted" / "exp_7.json"))) == 1
+    assert len(Results.load(str(run / "ds1" / "scripted" / "exp_7.json"))) == 1
 
 
 # Reason: clause (commands skips done jobs; --all lists them with --rerun; --python sets the executable).
@@ -1311,8 +1311,8 @@ class TestKeepAllModels:
         # top_k=1: the smallest allowed; the job evaluates 5 distinct models.
         _job(tmp_path, ScriptedApproach(), keep_checkpoint=True, keep_all_models=False, top_k=1).run()
         _job(tmp_path, ScriptedApproach(), name="full.json").run()
-        saved = SR_results.load(str(tmp_path / "r.json"))[0]
-        full = SR_results.load(str(tmp_path / "full.json"))[0]
+        saved = Results.load(str(tmp_path / "r.json"))[0]
+        full = Results.load(str(tmp_path / "full.json"))[0]
         assert saved.summary is not None
         assert saved.all_models == full.top_models(1)
         np.testing.assert_equal(result_answers(saved, 1), result_answers(full, 1))
@@ -1414,7 +1414,7 @@ class TestExtendJobs:
         job.extend(max_evaluations=10, success_threshold=5e-8)  # below RMSE's default 1e-7, met by no candidate
         straight = _extension_grid(tmp_path, monkeypatch, name="straight", budget=10, keep_checkpoint=False)
         straight.build_job("ds1", "stepped", 7).run()
-        extended = SR_results.load(job.result_path)[0]
+        extended = Results.load(job.result_path)[0]
         assert {**_result(job.result_path), "checkpoint": None, "success_threshold": None} == {
             **_result(straight.build_job("ds1", "stepped", 7).result_path),
             "success_threshold": None,

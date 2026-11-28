@@ -17,13 +17,13 @@ torch = pytest.importorskip("torch")
 pytest.importorskip("pymoo")
 
 
+from SRToolkit.approaches.approach import Candidate  # noqa: E402
 from SRToolkit.approaches.EDHiE import EDHiE  # noqa: E402
-from SRToolkit.approaches.sr_approach import Candidate  # noqa: E402
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge  # noqa: E402
-from SRToolkit.dataset.sr_dataset import SR_dataset  # noqa: E402
-from SRToolkit.evaluation import SR_evaluator  # noqa: E402
+from SRToolkit.dataset.dataset import Dataset  # noqa: E402
+from SRToolkit.evaluation import Evaluator  # noqa: E402
 from SRToolkit.evaluation.model_store import ModelStore  # noqa: E402
-from SRToolkit.evaluation.results import SR_results  # noqa: E402
+from SRToolkit.evaluation.results import Results  # noqa: E402
 from SRToolkit.utils.expression import Expression  # noqa: E402
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, RequiredVariables  # noqa: E402
 from SRToolkit.utils.expression_tree import tokens_to_tree  # noqa: E402
@@ -169,7 +169,7 @@ def test_weights_path_makes_scope_never(tmp_path, trained_model):
 
 
 def _evaluator(**kwargs):
-    return SR_evaluator(
+    return Evaluator(
         _X,
         _X[:, 0],
         symbol_library=_lib(),
@@ -301,7 +301,7 @@ def test_max_training_skips_below_one_raises():
 
 
 def _rejecting_evaluator(**kwargs):
-    return SR_evaluator(
+    return Evaluator(
         _X,
         _X[:, 0],
         symbol_library=_lib(),
@@ -581,7 +581,7 @@ _SESSION = textwrap.dedent(
     from strategies import SignalAfter
 
     from SRToolkit.approaches.EDHiE import EDHiE
-    from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+    from SRToolkit.evaluation.evaluator import Evaluator
     from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
@@ -591,7 +591,7 @@ _SESSION = textwrap.dedent(
         approach = EDHiE(latent_size=8, max_expression_length=10, population_size=10, verbose=False,
                          weights_path=weights)  # a fresh object each session
         # No MaxTokens: with it the tiny model runs out of new expressions before the budget.
-        se = SR_evaluator(X, X[:, 0], symbol_library=lib, max_evaluations=40, seed=0, success_threshold=-1,
+        se = Evaluator(X, X[:, 0], symbol_library=lib, max_evaluations=40, seed=0, success_threshold=-1,
                           checkpoint=checkpoint, resume=resume, snapshot_interval=snapshot_interval)
         for n in signals:
             se.register_callbacks(SignalAfter(n))
@@ -654,13 +654,13 @@ def test_resume_equals_straight_run(tmp_path, trained_model, case):
         script = tmp_path / "session.py"
         script.write_text(_SESSION)
         _run_session(script, weights, path, "new", _N)
-        assert len(SR_results.from_checkpoint(path)[0].trace) > _N
+        assert len(Results.from_checkpoint(path)[0].trace) > _N
     if case == "fresh-process":
         _run_session(script, weights, path, "resume", 0)
     else:
         _session(str(weights), path, resume=True).close()
     straight = _session(str(weights))
-    resumed = SR_results.from_checkpoint(path)[0]
+    resumed = Results.from_checkpoint(path)[0]
     assert [m.to_dict() for m in resumed.all_models] == [m.to_dict() for m in straight.models]
     assert resumed.trace == list(straight.trace)
     assert resumed.skips == straight.skips
@@ -669,7 +669,7 @@ def test_resume_equals_straight_run(tmp_path, trained_model, case):
 def _extension_dataset(budget):
     X = np.random.default_rng(0).random((10, 2)) + 0.5
     lib = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
-    return SR_dataset(X, lib, y=X[:, 0], dataset_name="ds", max_evaluations=budget, success_threshold=-1, seed=0)
+    return Dataset(X, lib, y=X[:, 0], dataset_name="ds", max_evaluations=budget, success_threshold=-1, seed=0)
 
 
 # Reason: clause (stage 6: an extension after a budget that cut a generation equals a run with the

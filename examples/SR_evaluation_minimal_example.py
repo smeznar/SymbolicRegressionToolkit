@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.evaluation import Evaluator
 from SRToolkit.utils.settings import Settings
 
 
@@ -25,7 +25,7 @@ def read_expressions(filename):
 
 
 if __name__ == "__main__":
-    # An example of how to use the SR_evaluator class for equation discovery/symbolic regression
+    # An example of how to use the Evaluator class for equation discovery/symbolic regression
     # Read input and target data and divide them into X (input) and y (target)
     data = read_eq_data("../data/aaai_spring_example.csv")
     X = data[:, :-1]
@@ -34,8 +34,8 @@ if __name__ == "__main__":
     # Read expressions into a list of expressions, where each expression is a list of tokens (strings)
     expressions = read_expressions("../data/test_exprs_100k.txt")
 
-    # Create an instance of the SR_evaluator class
-    evaluator = SR_evaluator(X, y, settings=Settings(evaluator={"simplify_expr": True}))
+    # Create an instance of the Evaluator class
+    evaluator = Evaluator(X, y, settings=Settings(evaluator={"simplify_expr": True}))
 
     start_time = time.time()
 

@@ -1,6 +1,6 @@
 """Storage of an evaluator's models and trace in SQLite.
 
-[SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] keeps every evaluated model and its
+[Evaluator][SRToolkit.evaluation.evaluator.Evaluator] keeps every evaluated model and its
 evaluation trace in a [ModelStore][SRToolkit.evaluation.model_store.ModelStore] and exposes them
 as the read-only views [ModelsView][SRToolkit.evaluation.model_store.ModelsView] (``se.models``)
 and [TraceView][SRToolkit.evaluation.model_store.TraceView] (``se.trace``).
@@ -18,16 +18,16 @@ summary never parse the record of every model (a cache hit parses only the recor
 come back as new objects (numpy scalars in ``ranking_data`` as Python scalars), so changing one
 saves nothing.
 
-Only [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] writes to the
+Only [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr] writes to the
 store. Do not change the database or the file yourself: a cache hit returns the stored model and
 the trace refers to models by position, so a changed or removed row makes later results wrong.
 
 ## Checkpoint file
 
 The file layout is internal; read a checkpoint with ``mode="read"`` or
-[SR_results.from_checkpoint][SRToolkit.evaluation.results.SR_results.from_checkpoint]. Besides the
+[Results.from_checkpoint][SRToolkit.evaluation.results.Results.from_checkpoint]. Besides the
 models and trace it holds a header of JSON values the evaluator uses to check a resume (see
-[Checkpoints][SRToolkit.evaluation.sr_evaluator]) and at most one
+[Checkpoints][SRToolkit.evaluation.evaluator]) and at most one
 [Snapshot][SRToolkit.evaluation.model_store.Snapshot].
 
 The store never commits on its own: the evaluator commits when
@@ -89,7 +89,7 @@ class Snapshot:
 
     Attributes:
         state: The approach's search state, as returned by its
-            [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].
+            [dump_search_state][SRToolkit.approaches.approach.Approach.dump_search_state].
         rngs: The global random states (Python, NumPy and, if imported, PyTorch), as pickled bytes.
         callbacks: The callbacks' states (see
             [CallbackDispatcher.get_state][SRToolkit.evaluation.callbacks.CallbackDispatcher.get_state]).
@@ -676,8 +676,8 @@ class ModelsView(_View[ModelResult]):
 
     Examples:
         >>> import numpy as np
-        >>> from SRToolkit.evaluation import SR_evaluator
-        >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
+        >>> from SRToolkit.evaluation import Evaluator
+        >>> se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
         >>> _ = se.evaluate_expr(["X_0"])
         >>> len(se.models), se.models[-1].expr
         (1, ['X_0'])

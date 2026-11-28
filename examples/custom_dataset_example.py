@@ -2,18 +2,18 @@ import json
 
 import numpy as np
 
-from SRToolkit.dataset import SR_benchmark, SR_dataset
+from SRToolkit.dataset import Benchmark, Dataset
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.utils import SymbolLibrary
 
 _SYMBOL_LIST = ["+", "-", "*", "/", "sin", "cos", "^2", "^3", "C"]
 
 
-# ----------------------------------- A reusable benchmark via SR_benchmark ------------------------------------
-# Group multiple datasets into a reusable benchmark by subclassing SR_benchmark. add_from_samplers attaches a
+# ----------------------------------- A reusable benchmark via Benchmark ------------------------------------
+# Group multiple datasets into a reusable benchmark by subclassing Benchmark. add_from_samplers attaches a
 # SampleSource so each dataset's data is generated lazily (and reproducibly, given a seed) from its samplers
 # and ground truth the first time create_dataset() is called, then cached locally for subsequent runs.
-class MyBenchmark(SR_benchmark):
+class MyBenchmark(Benchmark):
     __data_version__ = "1.0.0"
 
     def __init__(self):
@@ -47,15 +47,15 @@ class MyBenchmark(SR_benchmark):
 
 
 if __name__ == "__main__":
-    # ------------------------------------ A standalone SR_dataset ---------------------------------------------
-    # SR_dataset wraps input data and evaluation settings for a single problem. Here we build one directly from
+    # ------------------------------------ A standalone Dataset ---------------------------------------------
+    # Dataset wraps input data and evaluation settings for a single problem. Here we build one directly from
     # arrays we already have in memory.
     rng = np.random.default_rng(0)
     X = rng.uniform(0.5, 5.0, size=(1000, 2))
     y = X[:, 0] ** 2 + np.sin(X[:, 1])
 
     sl = SymbolLibrary.from_symbol_list(["+", "*", "sin", "^2", "C"], num_variables=2)
-    dataset = SR_dataset(
+    dataset = Dataset(
         X=X,
         y=y,
         symbol_library=sl,
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     # ------------------------- A dataset from an expression + samplers (no arrays yet) ------------------------
     # A common case is having only the target expression and a sampling spec. from_samplers draws X from the
     # samplers, evaluates the ground truth for y, and records a SampleSource so the data can be regenerated.
-    sampled = SR_dataset.from_samplers(
+    sampled = Dataset.from_samplers(
         ground_truth=["X_0", "^2", "+", "sin", "(", "X_1", ")"],
         samplers=[UniformSampling(0.5, 5.0), UniformSampling(0.5, 5.0)],
         n_samples=1000,
@@ -99,6 +99,6 @@ if __name__ == "__main__":
     with open("my_benchmark.json", "w") as fh:
         json.dump(config, fh, indent=2)
 
-    bm2 = SR_benchmark.from_dict("my_benchmark.json")
+    bm2 = Benchmark.from_dict("my_benchmark.json")
     ds2 = bm2.create_dataset("eq2")
     print("\nReconstructed from config:", ds2.X.shape, ds2.original_equation)

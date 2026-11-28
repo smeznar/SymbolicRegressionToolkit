@@ -3,9 +3,9 @@
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 from .background_knowledge import VariableInfo
+from .benchmark import Benchmark
 from .data_source import FallbackSource, SampleSource, UrlSource
 from .sampling import IntegerUniformSampling, LogUniformSampling, UniformSampling
-from .sr_benchmark import SR_benchmark
 
 _SYMBOL_LIST = [
     "+",
@@ -29,7 +29,7 @@ _SYMBOL_LIST = [
 ]
 
 
-class SRSD_Feynman(SR_benchmark):
+class SRSD_Feynman(Benchmark):
     """The SRSD Feynman symbolic regression benchmark.
 
     Contains 120 physics equations from the Feynman Symbolic Regression Dataset with

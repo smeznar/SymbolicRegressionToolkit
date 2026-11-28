@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 
+from SRToolkit.evaluation.evaluator import evaluate_metric
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.results import ResultAugmenter
-from SRToolkit.evaluation.sr_evaluator import evaluate_metric
 from SRToolkit.utils import SymbolLibrary, simplify
 from SRToolkit.utils.expression import Expression, _as_expression
 from SRToolkit.utils.expression_simplifier import (
@@ -411,7 +411,7 @@ class HoldoutMetric(ResultAugmenter):
         """Scores a result's models on held-out data.
 
         Use it to measure how the expressions found by a search perform on data the search never
-        saw. Apply it with [SR_results.augment][SRToolkit.evaluation.results.SR_results.augment];
+        saw. Apply it with [Results.augment][SRToolkit.evaluation.results.Results.augment];
         it adds the score of the best model to the
         [EvalResult][SRToolkit.utils.types.EvalResult] and, depending on ``scope``, to each model.
 
@@ -436,7 +436,7 @@ class HoldoutMetric(ResultAugmenter):
         [EvalResult.default_constant][SRToolkit.utils.types.EvalResult]. To score under the
         search's task and settings, pass the ``background_knowledge`` and ``settings`` of the
         search's evaluator (e.g. from
-        [create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator], which adds
+        [create_evaluator][SRToolkit.dataset.dataset.Dataset.create_evaluator], which adds
         the dataset's ``ranking_seed``).
 
         With every kind of metric, models the search could not score (any
@@ -483,9 +483,9 @@ class HoldoutMetric(ResultAugmenter):
                 strings nor an ``Expression``.
 
         Examples:
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1.0, 2.0], [8.0, 4.0], [5.0, 4.0], [7.0, 9.0]])
-            >>> se = SR_evaluator(X, 2 * X[:, 1] - X[:, 0], seed=42)
+            >>> se = Evaluator(X, 2 * X[:, 1] - X[:, 0], seed=42)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> X_test = np.array([[2.0, 3.0], [4.0, 1.0], [0.0, 5.0]])
@@ -540,9 +540,9 @@ class HoldoutMetric(ResultAugmenter):
             self._ranking_mode = True
             self._metric_label = metric.name
             # Deep-copy so setup() mutates our own instance, not the caller's (which may be shared
-            # with an SR_evaluator or another HoldoutMetric).
+            # with an Evaluator or another HoldoutMetric).
             self.metric = copy.deepcopy(metric)
-            # As in SR_evaluator, a ranking_seed replaces the seed for the ranking.
+            # As in Evaluator, a ranking_seed replaces the seed for the ranking.
             ranking_seed = self.settings.evaluator.ranking_seed
             self.metric.setup(
                 self._X,

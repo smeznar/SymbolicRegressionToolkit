@@ -148,7 +148,7 @@ nav:
       - evaluation:
           - references/evaluation/index.md
           - parameter_estimator: references/evaluation/parameter_estimator.md
-          - sr_evaluator: references/evaluation/sr_evaluator.md
+          - evaluator: references/evaluation/evaluator.md
           - results: references/evaluation/results.md
           - model_store: references/evaluation/model_store.md
           - ranking: references/evaluation/ranking.md
@@ -156,9 +156,9 @@ nav:
           - callbacks: references/evaluation/callbacks.md
       - dataset:
           - references/dataset/index.md
-          - dataset: references/dataset/srdataset.md
+          - dataset: references/dataset/dataset.md
           - background_knowledge: references/dataset/background_knowledge.md
-          - benchmark: references/dataset/srbenchmark.md
+          - benchmark: references/dataset/benchmark.md
           - feynman: references/dataset/feynman.md
           - nguyen: references/dataset/nguyen.md
           - srsd_feynman: references/dataset/srsd_feynman.md
@@ -168,7 +168,7 @@ nav:
           - data_cache: references/dataset/data_cache.md
       - approaches:
           - references/approaches/index.md
-          - sr_approach: references/approaches/sr_approach.md
+          - approach: references/approaches/approach.md
           - ProGED: references/approaches/ProGED.md
           - EDHiE: references/approaches/EDHiE.md
       - experiments:

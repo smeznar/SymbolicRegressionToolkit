@@ -1,8 +1,8 @@
 """Symbolic regression approaches and the base class for implementing new ones.
 
 Modules:
-    sr_approach: [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] — abstract base class
-        for all SR approaches; [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] —
+    approach: [Approach][SRToolkit.approaches.approach.Approach] — abstract base class
+        for all SR approaches; [ApproachConfig][SRToolkit.approaches.approach.ApproachConfig] —
         serialisable configuration dataclass.
     ProGED: [ProGED][SRToolkit.approaches.ProGED.ProGED] — probabilistic grammar-based equation
         discovery by Brence et al.
@@ -16,10 +16,10 @@ import sys as _sys
 import types as _types
 from typing import Any
 
+from .approach import Approach, ApproachConfig, Candidate
 from .ProGED import ProGED
-from .sr_approach import ApproachConfig, Candidate, SR_approach
 
-__all__ = ["SR_approach", "Candidate", "ProGED", "ApproachConfig", "EDHiE", "EDHiEConfig"]
+__all__ = ["Approach", "Candidate", "ProGED", "ApproachConfig", "EDHiE", "EDHiEConfig"]
 
 _LAZY_EDHIE = ("EDHiE", "EDHiEConfig")
 _INSTALL_HINT = (

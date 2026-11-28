@@ -24,7 +24,7 @@ class ExpressionParseError(ValueError):
     is not a well-formed expression: an unknown token, a missing operand, two adjacent operands,
     or unbalanced or empty brackets.
 
-    [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] marks expressions that raise it
+    [Evaluator][SRToolkit.evaluation.evaluator.Evaluator] marks expressions that raise it
     as ``invalid``.
 
     Examples:

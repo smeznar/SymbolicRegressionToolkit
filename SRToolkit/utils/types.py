@@ -12,7 +12,7 @@
   listed there. [CheckResult][SRToolkit.utils.types.CheckResult] is the outcome of one check of an
   [ExpressionConstraint][SRToolkit.utils.expression_constraints.ExpressionConstraint]; a
   ``ModelResult`` saves the failed advisory ones. The trace-based metrics of ``EvalResult`` are explained in
-  [sr_evaluator][SRToolkit.evaluation.sr_evaluator].
+  [evaluator][SRToolkit.evaluation.evaluator].
 """
 
 import bisect
@@ -105,7 +105,7 @@ class CheckResult:
 
     Immutable (a frozen dataclass), so results can be shared. A constraint's ``pre_check`` / ``post_check`` returns one; it fills in ``passed``, ``message``
     and ``amount`` and leaves ``constraint`` and ``stage`` empty. When the
-    [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] records a result, it stores a
+    [Evaluator][SRToolkit.evaluation.evaluator.Evaluator] records a result, it stores a
     copy with ``constraint`` and ``stage`` filled in.
 
     Attributes:
@@ -334,7 +334,7 @@ class RunSummary:
     """What an [EvalResult][SRToolkit.utils.types.EvalResult] keeps of a run instead of all its models.
 
     Made by ``get_results(keep_all_models=False)`` (see
-    [SR_evaluator.get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results]) and
+    [Evaluator.get_results][SRToolkit.evaluation.evaluator.Evaluator.get_results]) and
     stored in [EvalResult.summary][SRToolkit.utils.types.EvalResult]. Each field equals what the full
     result would give, so the methods of ``EvalResult`` answer the same with either.
 
@@ -371,7 +371,7 @@ def _ranking_key(model: ModelResult) -> tuple[bool, float, int]:
 
 @dataclass
 class EvalResult:
-    """Result of a single SR experiment, as returned by ``SR_results[i]``.
+    """Result of a single SR experiment, as returned by ``Results[i]``.
 
     The stored data is the list of evaluated models and the evaluation trace; summary values
     such as ``min_error``, ``best_expr``, ``success`` and ``top_models()`` are derived from them.
@@ -380,7 +380,7 @@ class EvalResult:
 
     A result of a long run can instead keep only its top models and a
     [RunSummary][SRToolkit.utils.types.RunSummary] (``keep_all_models=False``, see
-    [SR_evaluator.get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results]); its
+    [Evaluator.get_results][SRToolkit.evaluation.evaluator.Evaluator.get_results]); its
     methods then give the same answers, except where noted. All models of such a run stay in its
     checkpoint, if it was kept (see
     [open_checkpoint][SRToolkit.utils.types.EvalResult.open_checkpoint]).
@@ -392,7 +392,7 @@ class EvalResult:
         trace: The evaluation trace. ``trace[k]`` is the index into ``all_models`` of the
             expression requested by the ``(k+1)``-th counted call to ``evaluate_expr`` (a call
             that counts toward ``max_evaluations``; see
-            [sr_evaluator][SRToolkit.evaluation.sr_evaluator]). Cache hits appear as repeated
+            [evaluator][SRToolkit.evaluation.evaluator]). Cache hits appear as repeated
             indices; calls made after evaluation was stopped are not recorded. Every entry must
             be a valid, non-negative index into ``all_models``; otherwise behaviour is undefined.
             Empty with a ``summary``.
@@ -405,7 +405,7 @@ class EvalResult:
         metadata: The evaluator's metadata without ``dataset_name`` (e.g. model name, seed, and
             the dataset's metadata under ``"dataset_metadata"``). ``None`` if there is none.
         wall_time: Seconds the run took, all sessions of a resumed run together (see
-            [SR_evaluator.wall_time][SRToolkit.evaluation.sr_evaluator.SR_evaluator.wall_time]).
+            [Evaluator.wall_time][SRToolkit.evaluation.evaluator.Evaluator.wall_time]).
             ``None`` if not known, e.g. from a checkpoint of a run that crashed before its first
             commit.
         augmentations: Per-augmenter data keyed by augmenter name. Populated by
@@ -420,7 +420,7 @@ class EvalResult:
             complete specs of a saved model. ``None`` for results saved in format 2.
         stop_reason: Why the run ended: ``"success_threshold"``, ``"max_evaluations"``, the reason
             of a callback (e.g. ``"time_limit"``) or of the approach (see
-            [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]), or ``"returned"`` if the
+            [stop][SRToolkit.evaluation.evaluator.Evaluator.stop]), or ``"returned"`` if the
             search returned without stopping the evaluator. Any other reason than the first two
             marks a run that ended with budget left. ``None`` for results saved before it was
             recorded.
@@ -428,15 +428,15 @@ class EvalResult:
             ``all_models`` and ``trace`` are complete.
         checkpoint: A reference to the run's checkpoint, ``{"path": ..., "fingerprint": ...}``
             (the absolute path and the evaluator's fingerprint, see
-            [Checkpoints][SRToolkit.evaluation.sr_evaluator]), or ``None``.
-            [SR_results.from_checkpoint][SRToolkit.evaluation.results.SR_results.from_checkpoint],
-            [evaluate_approach][SRToolkit.dataset.sr_dataset.SR_dataset.evaluate_approach] and
+            [Checkpoints][SRToolkit.evaluation.evaluator]), or ``None``.
+            [Results.from_checkpoint][SRToolkit.evaluation.results.Results.from_checkpoint],
+            [evaluate_approach][SRToolkit.dataset.dataset.Dataset.evaluate_approach] and
             [ExperimentJob.run][SRToolkit.experiments.ExperimentJob.run] set it when the file
             still exists as they return; ``get_results`` does not. Only
             [open_checkpoint][SRToolkit.utils.types.EvalResult.open_checkpoint] uses it.
         limits: The run's limit segments: one for its start and one per
-            [extension][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] that changed something
-            (a plain resume adds none; see [Extending runs][SRToolkit.evaluation.sr_evaluator]).
+            [extension][SRToolkit.dataset.dataset.Dataset.extend_run] that changed something
+            (a plain resume adds none; see [Extending runs][SRToolkit.evaluation.evaluator]).
             Each is a dict with ``calls`` (the calls kept when the segment starts),
             ``max_evaluations`` (negative: no limit), ``success_threshold`` (``None``: none),
             ``callbacks`` (the ``to_dict()`` of each callback; ``[]`` if calls were made without
@@ -446,7 +446,7 @@ class EvalResult:
             beside ``stop_reason`` before comparing runs. ``[]`` if not recorded (results saved
             before it was, or built by hand).
         skips: How many expressions the approach skipped without evaluating them, by reason (see
-            [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]), e.g.
+            [count_skip][SRToolkit.evaluation.evaluator.Evaluator.count_skip]), e.g.
             ``{"evaluated": 12, "rejected": 3}``. Evaluated calls are not counted: calls that repeat
             an evaluated model (cache hits) number ``evaluation_calls - num_evaluated``, rejected
             calls ``status_counts(per="call")["rejected"]``. ``{}`` if the approach reported none,
@@ -614,7 +614,7 @@ class EvalResult:
             ``nan`` threshold). Failed models (non-finite error) never count. When aggregating
             over runs, treat
             ``None`` as censored at ``evaluation_calls`` rather than dropping the run (see
-            [sr_evaluator][SRToolkit.evaluation.sr_evaluator]).
+            [evaluator][SRToolkit.evaluation.evaluator]).
 
         Raises:
             ValueError: If ``threshold`` is not given and ``success_threshold`` is ``None``.
@@ -639,7 +639,7 @@ class EvalResult:
 
         A budget larger than ``evaluation_calls`` gets the run's final best error. This is exact
         for a run that reached ``success_threshold``, but only an upper bound for a run that
-        stopped early for another reason (see [sr_evaluator][SRToolkit.evaluation.sr_evaluator]).
+        stopped early for another reason (see [evaluator][SRToolkit.evaluation.evaluator]).
         Keep budgets at or below the experiment's ``max_evaluations``.
 
         Args:
@@ -758,7 +758,7 @@ class EvalResult:
             ValueError: If ``checkpoint`` is ``None``; if the file is a checkpoint of another run
                 (its fingerprint differs from the one in ``checkpoint``; the message names the
                 differing parts), which includes the run after an
-                [extension][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] that changed its
+                [extension][SRToolkit.dataset.dataset.Dataset.extend_run] that changed its
                 limits; if it is not a checkpoint, or one of another format version.
             FileNotFoundError: If no file exists at the path; the message gives the path.
         """

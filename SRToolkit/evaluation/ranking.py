@@ -1,4 +1,4 @@
-"""Pluggable ranking functions for [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+"""Pluggable ranking functions for [Evaluator][SRToolkit.evaluation.evaluator.Evaluator].
 
 A [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] turns an expression into a
 single lower-is-better scalar. Built-ins are [RMSERanking][SRToolkit.evaluation.ranking.RMSERanking]
@@ -84,7 +84,7 @@ class RankingResult:
 
 class RankingFunction(ABC):
     """Abstract single-objective ranking strategy for
-    [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator].
+    [Evaluator][SRToolkit.evaluation.evaluator.Evaluator].
 
     Subclasses own all of their data-derived state (built in
     [setup][SRToolkit.evaluation.ranking.RankingFunction.setup]) and implement
@@ -162,7 +162,7 @@ class RankingFunction(ABC):
         return None
 
     def describe(self, success_threshold: float | None) -> str:
-        """Human-readable description for [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]
+        """Human-readable description for [Dataset][SRToolkit.dataset.dataset.Dataset]
         ``__str__``. Each subclass describes itself correctly.
 
         Args:
@@ -189,7 +189,7 @@ class RankingFunction(ABC):
         form.
 
         Mirrors [Sampler.from_dict][SRToolkit.dataset.sampling.Sampler.from_dict] and
-        [SR_approach.from_config_dict][SRToolkit.approaches.sr_approach.SR_approach.from_config_dict]:
+        [Approach.from_config_dict][SRToolkit.approaches.approach.Approach.from_config_dict]:
         binds the config to any installed ``.srtk`` bundle, then resolves ``ranking_class`` (a
         fully-qualified import path or a built-in alias) via
         [build_ranking][SRToolkit.evaluation.ranking.build_ranking].
@@ -222,10 +222,10 @@ class RMSERanking(RankingFunction):
     The random starting points of the fits are seeded by the ``evaluator.ranking_seed`` setting
     when set, otherwise by the evaluator's seed, combined with each expression's tokens and specs;
     with neither seed they are random.
-    [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] sets
+    [Dataset.create_evaluator][SRToolkit.dataset.dataset.Dataset.create_evaluator] sets
     ``ranking_seed`` (when the settings do not) to the dataset's seed, so every run on a dataset
     is scored by the same objective, unless the dataset sets
-    [ranking_resample][SRToolkit.dataset.sr_dataset.SR_dataset].
+    [ranking_resample][SRToolkit.dataset.dataset.Dataset].
     """
 
     name = "rmse"
@@ -326,10 +326,10 @@ class BEDRanking(RankingFunction):
 
     All randomness (points, behavior matrices, threshold) follows one seed: the
     ``evaluator.ranking_seed`` setting when set, otherwise the evaluator's seed.
-    [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] sets
+    [Dataset.create_evaluator][SRToolkit.dataset.dataset.Dataset.create_evaluator] sets
     ``ranking_seed`` (when the settings do not) to the dataset's seed, so every run on a dataset
     is scored by the same objective, unless the dataset sets
-    [ranking_resample][SRToolkit.dataset.sr_dataset.SR_dataset].
+    [ranking_resample][SRToolkit.dataset.dataset.Dataset].
 
     The default success threshold is the ground truth's own noise floor: its largest BED to
     itself over 100 resamplings of its unfixed parameters, times 1.1, and at least ``1e-7`` (so a
@@ -431,7 +431,7 @@ class BEDRanking(RankingFunction):
         if samplers is not None and self.num_points_sampled != -1:
             if len(samplers) != X.shape[1]:
                 raise ValueError(f"Got {len(samplers)} samplers for {X.shape[1]} variables; give one per variable.")
-            # One sampler per feature; each draws a column (cf. SR_dataset.resample). Samplers
+            # One sampler per feature; each draws a column (cf. Dataset.resample). Samplers
             # draw from the global np.random state, so seed it here for reproducibility.
             if self.seed is not None:
                 np.random.seed(self.seed)

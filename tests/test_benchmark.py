@@ -1,4 +1,4 @@
-"""Tests for SRToolkit.dataset.sr_benchmark (stage C: background knowledge, format 4)."""
+"""Tests for SRToolkit.dataset.benchmark (stage C: background knowledge, format 4)."""
 
 import json
 from pathlib import Path
@@ -8,11 +8,11 @@ import pytest
 
 from SRToolkit.dataset import Feynman, data_cache
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
+from SRToolkit.dataset.benchmark import Benchmark
 from SRToolkit.dataset.data_source import FallbackSource, SampleSource, UrlSource
+from SRToolkit.dataset.dataset import Dataset
 from SRToolkit.dataset.sampling import LogUniformSampling, UniformSampling
-from SRToolkit.dataset.sr_benchmark import SR_benchmark
-from SRToolkit.dataset.sr_dataset import SR_dataset
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.utils import units as u
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import MaxConstants, MaxTokens, MaxTreeDepth, RequiredVariables
@@ -65,7 +65,7 @@ def test_add_dataset_v5_entry_builds_dataset():
         constant_bounds=(-3, 3),
         default_constant=_LU_DEFAULT,
     )
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_dataset(
         _lib2c(),
         None,
@@ -83,9 +83,9 @@ def test_add_dataset_v5_entry_builds_dataset():
     assert entry["format_version"] == 5
     assert "samplers" not in entry and "symbol_library" not in entry
     assert (entry["settings"], entry["ranking_resample"]) == (Settings(minimize={"max_iter": 5}).to_dict(), True)
-    ds = SR_benchmark.from_dict(json.loads(json.dumps(bm.to_dict()))).create_dataset("a")
+    ds = Benchmark.from_dict(json.loads(json.dumps(bm.to_dict()))).create_dataset("a")
     assert (ds.settings, ds.ranking_resample) == (Settings(minimize={"max_iter": 5}), True)
-    expected = SR_dataset(np.zeros((1, 2)), _lib2c(), **flat).background_knowledge
+    expected = Dataset(np.zeros((1, 2)), _lib2c(), **flat).background_knowledge
     assert ds.background_knowledge.to_dict() == expected.to_dict()
     assert ds.default_constant.to_dict() == _LU_DEFAULT.to_dict()
     assert _dicts(ds.required_constraints) == _dicts([MaxConstants(8), MaxTokens(12), MaxTreeDepth(5)])
@@ -128,7 +128,7 @@ def _lib_c1():
     ],
 )
 def test_add_dataset_writes_arrays_to_cache(dataset, ranking_function, library, ground_truth, gt_constants, expected_y):
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_dataset(
         library(),
         dataset,
@@ -150,7 +150,7 @@ def test_add_dataset_writes_arrays_to_cache(dataset, ranking_function, library, 
 # clause (None uses the Expression's own library).
 def test_add_from_samplers_uses_the_expression_library():
     lib = SymbolLibrary.default_symbols(1, const_symbol="K")
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_from_samplers(
         Expression(["K", "*", "X_0"], lib),
         [UniformSampling(0, 1)],
@@ -162,7 +162,7 @@ def test_add_from_samplers_uses_the_expression_library():
 
 
 def test_add_from_samplers_forwards_arguments():
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_from_samplers(
         _GT,
         [UniformSampling(0, 1)] * 2,
@@ -185,7 +185,7 @@ def test_add_from_samplers_forwards_arguments():
         ranking_resample=True,
     )
     ds = bm.create_dataset("a")
-    reference = SR_dataset.from_samplers(_GT, [UniformSampling(0, 1)] * 2, n_samples=8, seed=3)
+    reference = Dataset.from_samplers(_GT, [UniformSampling(0, 1)] * 2, n_samples=8, seed=3)
     np.testing.assert_array_equal(ds.X, reference.X)
     assert (ds.ranking_function, ds.seed, ds.original_equation) == ("bed", 3, "z = x + y")
     assert (ds.success_threshold, ds.max_evaluations, ds.dataset_metadata) == (0.1, 50, {"citation": "x"})
@@ -196,7 +196,7 @@ def test_add_from_samplers_forwards_arguments():
 
 
 def test_create_dataset_resamples_v4():
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_from_samplers(_GT, _samplers(), symbol_library=_lib2c(), dataset_name="a", n_samples=10, seed=0)
     ds = bm.create_dataset("a", n_samples=50, seed=1)
     assert ds.X.shape == (50, 2)
@@ -234,7 +234,7 @@ _FIX2 = Constant("C_0", value=2.0, fixed=True)
     ids=["add_dataset-ndarray", "add_from_samplers", "add_from_samplers-resampled"],
 )  # fmt: skip
 def test_ground_truth_constants_reach_dataset_and_y(add, n_samples):
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     add(bm)
     assert bm.datasets["a"]["ground_truth_constants"] == [_FIX2.to_dict()]
     ds = bm.create_dataset("a", n_samples=n_samples, seed=1)
@@ -384,7 +384,7 @@ def _add_existing(bm):
     ],
 )
 def test_add_dataset_rejects_before_writing(add, exc, match):
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     with pytest.raises(exc, match=match):
         add(bm)
     assert not data_cache.dataset_path("b", bm.version, "x").exists()
@@ -396,7 +396,7 @@ def test_add_dataset_rejects_before_writing(add, exc, match):
     ids=["unknown-name", "resample-without-samplers"],
 )
 def test_create_dataset_errors(name, n_samples, match):
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_dataset(_lib2c(), _XY, "x", ground_truth=_GT)
     with pytest.raises(ValueError, match=match):
         bm.create_dataset(name, n_samples=n_samples)
@@ -406,7 +406,7 @@ def test_add_dataset_gt_eval_error_chained():
     # The ground truth parses but cannot be evaluated: its function's body names nothing that exists.
     lib = SymbolLibrary.default_symbols(1)
     lib.add_symbol("bad", "fn", 5, "no_such_function({})")
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     with pytest.raises(ValueError, match="Could not evaluate the ground truth") as info:
         bm.add_dataset(lib, np.ones((5, 1)), "x", ground_truth=["bad", "(", "X_0", ")"])
     assert info.value.__cause__ is not None
@@ -414,8 +414,8 @@ def test_add_dataset_gt_eval_error_chained():
 
 # Reason: clause (Raises: a ground truth that does not parse is rejected before anything is written).
 def test_add_dataset_rejects_unparsable_ground_truth():
-    bm = SR_benchmark("b")
-    with pytest.raises(ExpressionParseError, match=r"^\[SR_benchmark.add_dataset\] 'ground_truth' does not parse"):
+    bm = Benchmark("b")
+    with pytest.raises(ExpressionParseError, match=r"^\[Benchmark.add_dataset\] 'ground_truth' does not parse"):
         bm.add_dataset(SymbolLibrary.default_symbols(1), np.ones((5, 1)), "x", ground_truth=["X_0", "*"])
     assert not data_cache.dataset_path("b", bm.version, "x").exists()
 
@@ -430,7 +430,7 @@ def test_add_from_samplers_forwards_background_knowledge():
         default_constant=_LU_DEFAULT,
         reference_grammar=_grammar(),
     )
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_from_samplers(
         _GT,
         [UniformSampling(0, 1)] * 2,
@@ -455,21 +455,21 @@ def test_add_from_samplers_forwards_background_knowledge():
 @pytest.mark.parametrize("samplers", [None, []], ids=["none", "empty"])
 def test_add_from_samplers_errors(samplers):
     with pytest.raises(ValueError, match="non-empty"):
-        SR_benchmark("b").add_from_samplers(_GT, samplers, symbol_library=_lib2c(), dataset_name="a")
+        Benchmark("b").add_from_samplers(_GT, samplers, symbol_library=_lib2c(), dataset_name="a")
 
 
 def test_v3_benchmark_entry_migrates(tmp_path):
-    # A dataset entry as SR_benchmark wrote it before format 4 (benchmark file format 2).
+    # A dataset entry as Benchmark wrote it before format 4 (benchmark file format 2).
     v3 = json.loads((Path(__file__).parent / "data" / "v3_cache" / "config_v3.json").read_text())
     del v3["test"], v3["aux"]
     v3.update(benchmark="b", dataset_name="a")  # no "num_variables": inferred from the samplers
-    bm = SR_benchmark("b", metadata={"citation": "x"})
+    bm = Benchmark("b", metadata={"citation": "x"})
     bm.add_from_samplers(_GT, [UniformSampling(0, 1)] * 2, dataset_name="a", n_samples=5, seed=0)
     d = bm.to_dict()
     d["datasets"]["a"] = v3
     path = tmp_path / "benchmark.json"
     path.write_text(json.dumps(d))
-    loaded = SR_benchmark.from_dict(path)
+    loaded = Benchmark.from_dict(path)
     assert loaded.metadata == {"citation": "x"}
     assert loaded.list_datasets(verbose=False, num_variables=2) == ["a"]
     ds = loaded.create_dataset("a")
@@ -485,7 +485,7 @@ def test_builtin_scores_unchanged(benchmark, name):
     assert bm.datasets[name]["format_version"] == 5
     ds = bm.create_dataset(name)
     ev = ds.create_evaluator()
-    reference = SR_evaluator(ds.X, ds.y, symbol_library=ds.symbol_library, ground_truth=ds.ground_truth, seed=0)
+    reference = Evaluator(ds.X, ds.y, symbol_library=ds.symbol_library, ground_truth=ds.ground_truth, seed=0)
 
     ev.evaluate_expr(_NINE_CONSTANTS)
     assert (ev.models[-1].status, ev.models[-1].status_detail) == ("rejected", "MaxConstants: 9 constants, limit 8")
@@ -497,12 +497,12 @@ def test_builtin_scores_unchanged(benchmark, name):
     assert ev.models[-1].status == "ok"
 
 
-# ── Regression tests for older SR_benchmark behaviour (fixed with stage C) ────
+# ── Regression tests for older Benchmark behaviour (fixed with stage C) ────
 
 
 def test_create_dataset_keeps_documented_exception_types():
     # regression: every from_dict error used to become a bare ValueError without its cause.
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_from_samplers(_GT, [UniformSampling(0, 1)] * 2, dataset_name="a", n_samples=5, seed=0)
     bm.datasets["a"]["background_knowledge"]["samplers"][0]["sampler_class"] = "nope.Missing"
     with pytest.raises(ImportError):
@@ -515,7 +515,7 @@ def test_create_dataset_keeps_documented_exception_types():
 
 def test_add_dataset_without_data_or_source_rejected():
     # regression: an entry that can never be materialised was stored silently.
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     with pytest.raises(ValueError, match="data_source"):
         bm.add_dataset(_lib2c(), None, "a", ground_truth=_GT)
     assert "a" not in bm.datasets
@@ -523,16 +523,16 @@ def test_add_dataset_without_data_or_source_rejected():
 
 def test_from_dict_rejects_zip_path():
     with pytest.raises(ValueError, match="share.load"):
-        SR_benchmark.from_dict("benchmark.zip")
+        Benchmark.from_dict("benchmark.zip")
 
 
 def test_from_dict_does_not_modify_input():
     # regression: from_dict wrote num_variables into the caller's entry dicts.
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_from_samplers(_GT, [UniformSampling(0, 1)] * 2, dataset_name="a", n_samples=5, seed=0)
     d = bm.to_dict()
     del d["datasets"]["a"]["num_variables"]
-    loaded = SR_benchmark.from_dict(d)
+    loaded = Benchmark.from_dict(d)
     assert "num_variables" not in d["datasets"]["a"]
     assert loaded.datasets["a"]["num_variables"] == 2
 
@@ -553,18 +553,18 @@ _NAMES = dict(variables={"X_0": VariableInfo("x")}, target=VariableInfo("z"))
     ids=["add_dataset", "add_from_samplers"],
 )
 def test_entry_stores_none_and_dataset_derives(add):
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     add(bm)
     assert bm.datasets["a"]["original_equation"] is None
     assert bm.create_dataset("a").original_equation == "z = x+X_1"
 
 
 def test_list_datasets_prints_equations(capsys):
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     bm.add_dataset(_lib2c(), _XY, "given_entry", ground_truth=_GT, original_equation="z = x + y")
     bm.add_dataset(_lib2c(), _XY, "derived_entry", ground_truth=_GT, **_NAMES)
     bm.add_dataset(_lib2c(), _XY, "untargeted_entry", ground_truth=_GT, variables={"X_1": VariableInfo("v")})
-    instance = SR_dataset(
+    instance = Dataset(
         _X, _lib2c(), y=_XY[1], ground_truth=["X_0", "*", "X_1"],
         variables={"X_0": VariableInfo("m")}, target=VariableInfo("F"),
     )  # fmt: skip
@@ -622,10 +622,10 @@ def _lib2pi():
     ids=["add_dataset", "add_from_samplers"],
 )
 def test_entry_keeps_constants_and_units(add, tmp_path):
-    bm = SR_benchmark("b")
+    bm = Benchmark("b")
     add(bm)
     path = tmp_path / "benchmark.json"
     path.write_text(json.dumps(bm.to_dict()))
-    bk = SR_benchmark.from_dict(path).create_dataset("a").background_knowledge
+    bk = Benchmark.from_dict(path).create_dataset("a").background_knowledge
     assert bk.named_constants == {"pi": VariableInfo("π", unit=Unit())}
     assert bk.variables["X_0"].unit == u.m

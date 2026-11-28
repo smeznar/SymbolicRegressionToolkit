@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
+    Callback,
     CallbackDispatcher,
     EarlyStoppingCallback,
     ExperimentEvent,
@@ -16,7 +17,6 @@ from SRToolkit.evaluation.callbacks import (
     ExprSkipped,
     LoggingCallback,
     ProgressBarCallback,
-    SR_callback,
     TimeLimitCallback,
 )
 from SRToolkit.utils.types import EvalResult, ModelResult
@@ -24,7 +24,7 @@ from SRToolkit.utils.types import EvalResult, ModelResult
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-class _ConcreteCallback(SR_callback):
+class _ConcreteCallback(Callback):
     """Minimal concrete subclass used to instantiate the abstract base."""
 
     pass
@@ -107,7 +107,7 @@ class TestExperimentEventDataclass:
         assert ev.seed is None
 
 
-# ── SR_callback defaults ───────────────────────────────────────────────────────
+# ── Callback defaults ───────────────────────────────────────────────────────
 
 
 class TestSRCallbackDefaults:
@@ -203,7 +203,7 @@ _HOOKS = [
 ]
 
 
-class _NamedStop(SR_callback):
+class _NamedStop(Callback):
     def on_expr_evaluated(self, event):
         return False
 
@@ -217,7 +217,7 @@ class _NamedStop(SR_callback):
 @pytest.mark.parametrize("hook, make_event", _HOOKS)
 class TestCallbackDispatcherStopReason:
     def _cb(self, hook, value):
-        cb = MagicMock(spec=SR_callback)
+        cb = MagicMock(spec=Callback)
         getattr(cb, hook).return_value = value
         return cb
 
@@ -248,7 +248,7 @@ class TestCallbackDispatcherStopReason:
 
 class TestCallbackDispatcherOnExperimentStart:
     def test_dispatches_to_all_callbacks(self):
-        cb1, cb2 = MagicMock(spec=SR_callback), MagicMock(spec=SR_callback)
+        cb1, cb2 = MagicMock(spec=Callback), MagicMock(spec=Callback)
         event = _make_experiment_event()
         CallbackDispatcher(callbacks=[cb1, cb2]).on_experiment_start(event)
         cb1.on_experiment_start.assert_called_once_with(event)
@@ -260,7 +260,7 @@ class TestCallbackDispatcherOnExperimentStart:
 
 class TestCallbackDispatcherOnExperimentEnd:
     def test_dispatches_to_all_callbacks(self):
-        cb1, cb2 = MagicMock(spec=SR_callback), MagicMock(spec=SR_callback)
+        cb1, cb2 = MagicMock(spec=Callback), MagicMock(spec=Callback)
         event = _make_experiment_event()
         result = _make_eval_result()
         CallbackDispatcher(callbacks=[cb1, cb2]).on_experiment_end(event, result)
@@ -599,7 +599,7 @@ class TestLoggingCallbackSerialization:
 # ── Checkpoint state ──────────────────────────────────────────────────────────
 
 
-class _StateA(SR_callback):
+class _StateA(Callback):
     def __init__(self, tag=""):
         self.tag = tag
         self.got = []

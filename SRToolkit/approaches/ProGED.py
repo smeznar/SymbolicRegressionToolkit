@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.evaluation import Evaluator
 from SRToolkit.utils import Expression, Grammar, SymbolLibrary
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
-from .sr_approach import ApproachConfig, Candidate, SR_approach
+from .approach import Approach, ApproachConfig, Candidate
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports the approaches.
@@ -34,7 +34,7 @@ class ProGEDConfig(ApproachConfig):
     skip_rejected: bool = True
 
 
-class ProGED(SR_approach):
+class ProGED(Approach):
     def __init__(
         self,
         grammar: str | Grammar | SymbolLibrary | None = None,
@@ -48,7 +48,7 @@ class ProGED(SR_approach):
         domain-specific grammar is how this approach uses prior knowledge. Full version:
         https://github.com/brencej/ProGED.
 
-        Each step of the [step interface][SRToolkit.approaches.sr_approach] proposes one sample, and
+        Each step of the [step interface][SRToolkit.approaches.approach] proposes one sample, and
         a stopped run can be resumed. Resuming needs the same grammar (the same constructor
         argument, or the same task for ``adapt``); a different one is not detected.
 
@@ -127,7 +127,7 @@ class ProGED(SR_approach):
             return
         self._sampling_grammar = background_knowledge.sampling_grammar()
 
-    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> None:
+    def start(self, evaluator: Evaluator, seed: int | None = None) -> None:
         """Seed NumPy's global random state, unless ``seed`` is ``None``.
 
         The same seed, grammar and evaluator settings give the same samples.
@@ -140,18 +140,18 @@ class ProGED(SR_approach):
         if seed is not None:
             np.random.seed(seed)
 
-    def ask(self, sr_evaluator: SR_evaluator, state: None) -> list[Candidate | list[str] | Expression | None]:
+    def ask(self, evaluator: Evaluator, state: None) -> list[Candidate | list[str] | Expression | None]:
         """Propose one sample from the grammar.
 
         A derivation that needs more than 1000 rule applications, or in which no rule fits, fails
         and is proposed as ``None`` (the skip ``"not_expression"``), not redrawn. A sample is
         proposed with the skip reason ``"evaluated"`` if ``skip_evaluated`` is set and its stored
         form was evaluated before (see
-        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]), else
+        [get_model][SRToolkit.evaluation.evaluator.Evaluator.get_model]), else
         ``"rejected"`` if ``skip_rejected`` is set and it breaks a required constraint.
 
         Returns:
-            A one-element list: a [Candidate][SRToolkit.approaches.sr_approach.Candidate], or
+            A one-element list: a [Candidate][SRToolkit.approaches.approach.Candidate], or
             ``None`` if the derivation failed.
         """
         assert self._sampling_grammar is not None  # set by the constructor or adapt; checked in start
@@ -159,10 +159,10 @@ class ProGED(SR_approach):
         if tokens is None:
             return [None]
         # One Expression, so the lookups below and the evaluation parse it once.
-        expr = Expression(tokens, sr_evaluator.symbol_library)
-        if self.skip_evaluated and sr_evaluator.get_model(expr) is not None:
+        expr = Expression(tokens, evaluator.symbol_library)
+        if self.skip_evaluated and evaluator.get_model(expr) is not None:
             return [Candidate(expr, skip="evaluated")]
-        if self.skip_rejected and sr_evaluator.check_constraints(expr)[0]:
+        if self.skip_rejected and evaluator.check_constraints(expr)[0]:
             return [Candidate(expr, skip="rejected")]
         return [Candidate(expr)]
 
@@ -175,7 +175,7 @@ class ProGED(SR_approach):
 
         Args:
             config: A [ProGEDConfig][SRToolkit.approaches.ProGED.ProGEDConfig] as a dict (see
-                [ApproachConfig.to_dict][SRToolkit.approaches.sr_approach.ApproachConfig.to_dict]).
+                [ApproachConfig.to_dict][SRToolkit.approaches.approach.ApproachConfig.to_dict]).
 
         Returns:
             The approach.

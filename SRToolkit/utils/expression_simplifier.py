@@ -574,7 +574,7 @@ def _check_fold_mode(mode: Any, name: str) -> None:
 def _check_settings(
     rules: Any, max_iterations: Any, max_nodes: Any, max_time: Any, fold_aware: Any, prefix: str = ""
 ) -> None:
-    # The checks of the simplification settings of SR_evaluator (prefix "simplify_") and the
+    # The checks of the simplification settings of Evaluator (prefix "simplify_") and the
     # ExpressionSimplifier augmenter: TypeError for rules and fold_aware, ValueError for the limits.
     # None means simplify's default and is not checked.
     if rules is not None and not isinstance(rules, SimplificationRules):

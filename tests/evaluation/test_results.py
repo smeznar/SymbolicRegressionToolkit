@@ -12,9 +12,9 @@ import pytest
 from strategies import result_dict
 
 from SRToolkit.evaluation import results as results_module
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.evaluation.model_store import ModelStore
-from SRToolkit.evaluation.results import ResultAugmenter, SR_results
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.evaluation.results import ResultAugmenter, Results
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
 from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
@@ -47,7 +47,7 @@ class _FailingAugmenter(ResultAugmenter):
 def _make_se(**kwargs):
     defaults = dict(seed=42, success_threshold=-1)
     defaults.update(kwargs)
-    return SR_evaluator(_X, _y, **defaults)
+    return Evaluator(_X, _y, **defaults)
 
 
 def _single_result(approach_name="", top_k=5):
@@ -80,8 +80,8 @@ def _summary(top):
 
 
 def _with_compact(full_first=False):
-    """SR_results with a compact result (after a full one if ``full_first``)."""
-    results = _two_result(top_k=2) if full_first else SR_results()
+    """Results with a compact result (after a full one if ``full_first``)."""
+    results = _two_result(top_k=2) if full_first else Results()
     top = _top()
     results.add_results(top, [], 2, 0.2, "A", summary=_summary(top))
     return results
@@ -131,15 +131,15 @@ class TestResultAugmenterFromDict:
             ResultAugmenter.from_dict({})
 
 
-# ── SR_results.__init__ ────────────────────────────────────────────────────────
+# ── Results.__init__ ────────────────────────────────────────────────────────
 
 
 class TestSRResultsInit:
     def test_empty_results_list(self):
-        assert SR_results().results == []
+        assert Results().results == []
 
 
-# ── SR_results.add_results ────────────────────────────────────────────────────
+# ── Results.add_results ────────────────────────────────────────────────────
 
 
 class TestSRResultsAddResults:
@@ -151,38 +151,38 @@ class TestSRResultsAddResults:
         assert r.min_error < 1e-6
 
     def test_success_true_when_below_threshold(self):
-        se = SR_evaluator(_X, _y, seed=42, success_threshold=1.0)
+        se = Evaluator(_X, _y, seed=42, success_threshold=1.0)
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         assert se.get_results()[0].success is True
 
     def test_success_false_when_above_threshold(self):
-        se = SR_evaluator(_X, _y, seed=42, success_threshold=1e-20)
+        se = Evaluator(_X, _y, seed=42, success_threshold=1e-20)
         se.evaluate_expr(["X_0", "+", "X_1"])
         assert se.get_results()[0].success is False
 
     def test_success_false_when_threshold_none(self):
-        se = SR_evaluator(_X, _y, seed=42, success_threshold=-1)
+        se = Evaluator(_X, _y, seed=42, success_threshold=-1)
         se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
         # success_threshold=-1 (< 0) means threshold check never passes
         r = se.get_results()[0]
         assert r.success is False
 
     def test_dataset_name_extracted_from_metadata(self):
-        se = SR_evaluator(_X, _y, metadata={"dataset_name": "ds", "extra": 1}, seed=0)
+        se = Evaluator(_X, _y, metadata={"dataset_name": "ds", "extra": 1}, seed=0)
         se.evaluate_expr(["X_0"])
         r = se.get_results()[0]
         assert r.dataset_name == "ds"
         assert r.metadata == {"extra": 1}
 
     def test_metadata_without_dataset_name_fully_preserved(self):
-        se = SR_evaluator(_X, _y, metadata={"source": "feynman"}, seed=0)
+        se = Evaluator(_X, _y, metadata={"source": "feynman"}, seed=0)
         se.evaluate_expr(["X_0"])
         r = se.get_results()[0]
         assert r.dataset_name is None
         assert r.metadata == {"source": "feynman"}
 
     def test_only_dataset_name_in_metadata_gives_none_remaining(self):
-        se = SR_evaluator(_X, _y, metadata={"dataset_name": "only"}, seed=0)
+        se = Evaluator(_X, _y, metadata={"dataset_name": "only"}, seed=0)
         se.evaluate_expr(["X_0"])
         assert se.get_results()[0].metadata is None
 
@@ -190,7 +190,7 @@ class TestSRResultsAddResults:
     def test_add_results_with_summary(self):
         top = _top()
         summary = _summary(top)
-        results = SR_results()
+        results = Results()
         results.add_results(top, [3, 1, 4], 2, 0.2, "A", summary=summary)
         result = results[0]
         assert (result.all_models, result.trace, result.summary) == (top, [], summary)
@@ -203,7 +203,7 @@ class TestSRResultsAddResults:
         trace = [0, 1, 0]
         limits = [{"calls": 0, "max_evaluations": 5}]
         skips = {"rejected": 1}
-        results = SR_results()
+        results = Results()
         results.add_results(tuple(models), tuple(trace), 2, None, "A", limits=limits, skips=skips)
         models.append(ModelResult(["C"], 0.1))
         trace.append(2)
@@ -225,14 +225,14 @@ class TestSRResultsAddResults:
         summary = _summary(models[:2]) if with_summary else None
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            SR_results().add_results(models, list(range(n)), 2, None, "A", summary=summary)
+            Results().add_results(models, list(range(n)), 2, None, "A", summary=summary)
         messages = [str(w.message) for w in caught if issubclass(w.category, UserWarning)]
         assert ["keep_all_models" in m for m in messages] == ([True] if warns else [])
 
     # Reason: the large-run warning points at the user's call of get_results, not at library code.
     def test_large_run_warning_points_at_the_caller(self, monkeypatch):
         monkeypatch.setattr(results_module, "_LARGE_RUN_MODELS", 1)
-        se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 5.0]))
+        se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 5.0]))
         se.evaluate_expr(["X_0"])
         se.evaluate_expr(["C"])  # neither fits exactly, so both are stored
         with pytest.warns(UserWarning, match="keep_all_models") as caught:
@@ -240,7 +240,7 @@ class TestSRResultsAddResults:
         assert caught[0].filename == __file__
 
 
-# ── SR_results.print_results ──────────────────────────────────────────────────
+# ── Results.print_results ──────────────────────────────────────────────────
 
 
 class TestSRResultsPrintResults:
@@ -267,7 +267,7 @@ class TestSRResultsPrintResults:
         assert "Best expression" in capsys.readouterr().out
 
     def test_prints_dataset_and_approach_when_set(self, capsys):
-        se = SR_evaluator(_X, _y, metadata={"dataset_name": "MyDS"}, seed=0)
+        se = Evaluator(_X, _y, metadata={"dataset_name": "MyDS"}, seed=0)
         se.evaluate_expr(["X_0"])
         se.get_results(approach_name="MyApproach").print_results()
         out = capsys.readouterr().out
@@ -283,7 +283,7 @@ class TestSRResultsPrintResults:
         assert "Stopped" not in capsys.readouterr().out
 
     def test_prints_metadata_block(self, capsys):
-        se = SR_evaluator(_X, _y, metadata={"source": "feynman"}, seed=0)
+        se = Evaluator(_X, _y, metadata={"source": "feynman"}, seed=0)
         se.evaluate_expr(["X_0"])
         se.get_results().print_results()
         assert "source: feynman" in capsys.readouterr().out
@@ -412,7 +412,7 @@ class TestSRResultsPrintResults:
         assert "ExpressionToLatex" in out
 
 
-# ── SR_results.augment ────────────────────────────────────────────────────────
+# ── Results.augment ────────────────────────────────────────────────────────
 
 
 class TestSRResultsAugment:
@@ -454,7 +454,7 @@ class TestSRResultsAugment:
         assert "good" in combined[1].augmentations
 
 
-# ── SR_results container ops ──────────────────────────────────────────────────
+# ── Results container ops ──────────────────────────────────────────────────
 
 
 class TestSRResultsContainerOps:
@@ -473,7 +473,7 @@ class TestSRResultsContainerOps:
         assert all(isinstance(r, EvalResult) for r in combined)
 
     def test_iteration_over_empty_results(self):
-        assert list(SR_results()) == []
+        assert list(Results()) == []
 
     def test_can_iterate_more_than_once(self):
         combined = _single_result() + _single_result()
@@ -517,7 +517,7 @@ class TestSRResultsContainerOps:
         assert len(r1) == 2
 
 
-# ── SR_results.save / load ────────────────────────────────────────────────────
+# ── Results.save / load ────────────────────────────────────────────────────
 
 
 @pytest.mark.filterwarnings("ignore")
@@ -562,21 +562,21 @@ class TestSRResultsSaveLoad:
         results = _single_result()
         path = str(tmp_path / "r.json")
         results.save(path)
-        loaded = SR_results.load(path)
+        loaded = Results.load(path)
         assert len(loaded) == 1
 
     def test_load_from_directory(self, tmp_path):
         _single_result().save(str(tmp_path))
-        loaded = SR_results.load(str(tmp_path))
+        loaded = Results.load(str(tmp_path))
         assert len(loaded) == 1
 
     def test_load_nonexistent_file_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
-            SR_results.load(str(tmp_path / "missing.json"))
+            Results.load(str(tmp_path / "missing.json"))
 
     def test_load_invalid_extension_raises(self, tmp_path):
         with pytest.raises(ValueError, match="Invalid file extension"):
-            SR_results.load(str(tmp_path / "out.txt"))
+            Results.load(str(tmp_path / "out.txt"))
 
     def test_load_invalid_format_version_raises(self, tmp_path):
         _single_result().save(str(tmp_path))
@@ -587,7 +587,7 @@ class TestSRResultsSaveLoad:
         with open(path, "w") as f:
             json.dump(data, f)
         with pytest.raises(ValueError, match="Unsupported format_version"):
-            SR_results.load(str(tmp_path))
+            Results.load(str(tmp_path))
 
     def test_save_load_round_trip(self, tmp_path):
         se = _make_se()
@@ -595,7 +595,7 @@ class TestSRResultsSaveLoad:
         se.evaluate_expr(["X_0", "+", "X_1"])
         results = se.get_results(top_k=2)
         results.save(str(tmp_path))
-        loaded = SR_results.load(str(tmp_path))
+        loaded = Results.load(str(tmp_path))
         assert loaded[0].best_expr == results[0].best_expr
         assert abs(loaded[0].min_error - results[0].min_error) < 1e-12
         assert loaded[0].num_evaluated == results[0].num_evaluated
@@ -609,17 +609,17 @@ class TestSRResultsSaveLoad:
         r2 = _single_result()
         combined = r1 + r2
         combined.save(str(tmp_path))
-        loaded = SR_results.load(str(tmp_path))
+        loaded = Results.load(str(tmp_path))
         assert len(loaded) == 2
         assert loaded[0].best_expr == combined[0].best_expr
         assert loaded[1].best_expr == combined[1].best_expr
 
     def test_save_load_with_metadata(self, tmp_path):
-        se = SR_evaluator(_X, _y, metadata={"dataset_name": "ds", "fold": 3}, seed=42)
+        se = Evaluator(_X, _y, metadata={"dataset_name": "ds", "fold": 3}, seed=42)
         se.evaluate_expr(["X_0"])
         results = se.get_results(approach_name="Ap")
         results.save(str(tmp_path))
-        loaded = SR_results.load(str(tmp_path))
+        loaded = Results.load(str(tmp_path))
         assert loaded[0].dataset_name == "ds"
         assert loaded[0].metadata == {"fold": 3}
         assert loaded[0].approach_name == "Ap"
@@ -631,7 +631,7 @@ class TestSRResultsSaveLoad:
         results = _single_result()
         results.augment([ExpressionToLatex(sl)])
         results.save(str(tmp_path))
-        loaded = SR_results.load(str(tmp_path))
+        loaded = Results.load(str(tmp_path))
         assert "ExpressionToLatex" in loaded[0].augmentations
         orig = results[0].augmentations["ExpressionToLatex"]["best_expr_latex"]
         assert loaded[0].augmentations["ExpressionToLatex"]["best_expr_latex"] == orig
@@ -645,7 +645,7 @@ class TestSRResultsSaveLoad:
         results = se.get_results(top_k=2)
         results.augment([HoldoutMetric((se.X, se.y), metric="rmse", background_knowledge=se.background_knowledge)])
         results.save(str(tmp_path))
-        loaded = SR_results.load(str(tmp_path))
+        loaded = Results.load(str(tmp_path))
         orig_aug = results[0].augmentations["HoldoutMetric"]
         rest_aug = loaded[0].augmentations["HoldoutMetric"]
         assert rest_aug["_type"] == "SRToolkit.evaluation.result_augmentation.HoldoutMetric"
@@ -662,7 +662,7 @@ _CALLS = [["X_0"], ["C", "*", "X_1"], ["X_0"], ["C", "*", "X_1", "-", "X_0"]]
 
 
 def _run(checkpoint, budget, calls):
-    se = SR_evaluator(
+    se = Evaluator(
         _X,
         _y,
         seed=0,
@@ -696,7 +696,7 @@ class TestFromCheckpoint:
         path = tmp_path / "run.sqlite"
         finish(_run(path, budget, _CALLS))
         twin = result_dict(_run(None, budget, _CALLS).get_results("A", 2)[0])
-        results = SR_results.from_checkpoint(path, "A", 2)
+        results = Results.from_checkpoint(path, "A", 2)
         assert len(results) == 1
         saved = result_dict(results[0])
         assert saved == {**twin, "stop_reason": stop_reason, "checkpoint": saved["checkpoint"]}
@@ -706,7 +706,7 @@ class TestFromCheckpoint:
     def test_from_checkpoint_before_any_commit(self, tmp_path):
         path = tmp_path / "run.sqlite"
         _run(path, -1, [])  # counts one skip, not committed
-        result = SR_results.from_checkpoint(path)[0]
+        result = Results.from_checkpoint(path)[0]
         assert (result.skips, result.wall_time, result.trace) == ({}, None, [])
 
     def test_from_checkpoint_sees_committed_calls_without_blocking_writer(self, tmp_path):
@@ -716,10 +716,10 @@ class TestFromCheckpoint:
         se.evaluate_expr(["X_1"])
         se.evaluate_expr(["X_0"])  # both pending
         se.count_skip("x")
-        committed = SR_results.from_checkpoint(path)[0]
+        committed = Results.from_checkpoint(path)[0]
         assert (committed.trace, committed.skips) == ([0, 1, 0], {"evaluated": 1})
         se.get_results()  # the writer still commits
-        committed = SR_results.from_checkpoint(path)[0]
+        committed = Results.from_checkpoint(path)[0]
         assert (committed.trace, committed.skips) == ([0, 1, 0, 2, 0], {"evaluated": 1, "x": 1})
 
     @pytest.mark.parametrize(
@@ -736,14 +736,14 @@ class TestFromCheckpoint:
         if make_file is not None:
             make_file(path)
         with pytest.raises(error, match=match):
-            SR_results.from_checkpoint(path, **kwargs)
+            Results.from_checkpoint(path, **kwargs)
 
     # Reason: clause (keep_all_models as for get_results).
     def test_from_checkpoint_compact_equals_get_results(self, tmp_path):
         path = tmp_path / "run.sqlite"
         _run(path, 3, _CALLS).close()
         twin = result_dict(_run(None, 3, _CALLS).get_results("A", 2, keep_all_models=False)[0])
-        saved = result_dict(SR_results.from_checkpoint(path, "A", 2, keep_all_models=False)[0])
+        saved = result_dict(Results.from_checkpoint(path, "A", 2, keep_all_models=False)[0])
         assert saved["summary"] is not None
         assert saved == {**twin, "checkpoint": saved["checkpoint"]}
 
@@ -751,7 +751,7 @@ class TestFromCheckpoint:
     def test_from_checkpoint_sets_absolute_reference(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         _run("run.sqlite", 3, _CALLS).close()
-        reference = SR_results.from_checkpoint("run.sqlite")[0].checkpoint
+        reference = Results.from_checkpoint("run.sqlite")[0].checkpoint
         assert set(reference) == {"path", "fingerprint"}
         assert reference["path"] == str(tmp_path / "run.sqlite")
 
@@ -761,7 +761,7 @@ class TestFromCheckpoint:
 
 def _compact_from_checkpoint(path, budget=3):
     _run(path, budget, _CALLS).close()
-    return SR_results.from_checkpoint(path, "A", 1, keep_all_models=False)[0]
+    return Results.from_checkpoint(path, "A", 1, keep_all_models=False)[0]
 
 
 def _no_reference(tmp_path):
@@ -882,7 +882,7 @@ def _too_big(result):
 )
 def test_failed_save_keeps_previous_file(tmp_path, previous, spoil, error):
     path = tmp_path / "results.json"
-    se = SR_evaluator(_X, _y, seed=0)
+    se = Evaluator(_X, _y, seed=0)
     se.evaluate_expr(["X_0"])
     if previous:
         se.get_results().save(str(path))
@@ -905,11 +905,11 @@ def test_save_writes_its_temporary_file_next_to_the_target(tmp_path, monkeypatch
     locked.chmod(0o500)
     monkeypatch.setattr(tempfile, "tempdir", str(locked))
     monkeypatch.chdir(out if relative else locked)
-    se = SR_evaluator(_X, _y, seed=0)
+    se = Evaluator(_X, _y, seed=0)
     se.evaluate_expr(["X_0"])
     try:
         se.get_results().save("results.json" if relative else str(out / "results.json"))
     finally:
         locked.chmod(0o700)
     assert sorted(os.listdir(out)) == ["results.json"]
-    assert SR_results.load(str(out / "results.json"))[0].trace == [0]
+    assert Results.load(str(out / "results.json"))[0].trace == [0]

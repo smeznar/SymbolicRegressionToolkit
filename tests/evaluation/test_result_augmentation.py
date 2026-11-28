@@ -8,6 +8,7 @@ import pytest
 
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import BEDRanking, RankingFunction, RankingResult, RMSERanking
 from SRToolkit.evaluation.result_augmentation import (
@@ -15,8 +16,7 @@ from SRToolkit.evaluation.result_augmentation import (
     ExpressionToLatex,
     HoldoutMetric,
 )
-from SRToolkit.evaluation.results import SR_results
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.evaluation.results import Results
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_simplifier import DefaultRules, simplify
 from SRToolkit.utils.free_constants import Constant, uniform_default
@@ -43,7 +43,7 @@ _OTHER_EXPR = ["X_0", "+", "X_1"]
 def _rmse_se(**kwargs):
     defaults = dict(seed=42, success_threshold=-1)
     defaults.update(kwargs)
-    return SR_evaluator(_X, _y, **defaults)
+    return Evaluator(_X, _y, **defaults)
 
 
 def _bed_se(**kwargs):
@@ -54,7 +54,7 @@ def _bed_se(**kwargs):
         ground_truth=["C", "+", "X_0"],
     )
     defaults.update(kwargs)
-    return SR_evaluator(_X_BED, **defaults)
+    return Evaluator(_X_BED, **defaults)
 
 
 def _one_model_result(se=None):
@@ -687,7 +687,7 @@ class TestHoldoutMetricReuseParams:
     def test_reuses_train_params_no_refit(self):
         # The reported value must equal scoring with the EvalResult's *stored* (train-fitted)
         # parameters — i.e. no refit on the held-out data.
-        from SRToolkit.evaluation.sr_evaluator import evaluate_metric
+        from SRToolkit.evaluation.evaluator import evaluate_metric
 
         se, result = _one_model_result()
         HoldoutMetric(
@@ -989,12 +989,12 @@ class TestHoldoutMetricSerialization:
         assert os.path.isabs(d["data"])
 
     def test_loaded_results_scored_once_per_expression(self, tmp_path):
-        # After SR_results.load, top_models() still returns the objects in all_models.
+        # After Results.load, top_models() still returns the objects in all_models.
         se = _rmse_se()
         se.evaluate_expr(_BEST_EXPR)
         se.evaluate_expr(_OTHER_EXPR)
         se.get_results(top_k=1).save(str(tmp_path / "r.json"))
-        result = SR_results.load(str(tmp_path / "r.json"))[0]
+        result = Results.load(str(tmp_path / "r.json"))[0]
         aug = HoldoutMetric((_X_TEST, _y_TEST), scope="all", background_knowledge=BackgroundKnowledge(_sl))
         with patch.object(aug, "_value", wraps=aug._value) as value:
             aug.write_results(result)

@@ -1,6 +1,6 @@
 """Results of symbolic regression experiments and their post-processing.
 
-Contains [SR_results][SRToolkit.evaluation.results.SR_results], a container for the
+Contains [Results][SRToolkit.evaluation.results.Results], a container for the
 [EvalResult][SRToolkit.utils.types.EvalResult] of each experiment, and
 [ResultAugmenter][SRToolkit.evaluation.results.ResultAugmenter], the base class for augmenters that
 add post-hoc information to results. Concrete augmenters are in
@@ -133,16 +133,16 @@ class ResultAugmenter(ABC):
         )
 
 
-class SR_results:
+class Results:
     def __init__(self):
         """Container for SR experiment results, typically obtained via
-        [SR_evaluator.get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
+        [Evaluator.get_results][SRToolkit.evaluation.evaluator.Evaluator.get_results].
 
         Examples:
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = Evaluator(X, y, seed=42)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> print(results[0].best_expr)
@@ -179,7 +179,7 @@ class SR_results:
         empty. Without a ``summary``, warns
         (``UserWarning``) if there are more than 1,000,000 models, which may not fit in memory or
         in a results file that can be loaded again; ``keep_all_models=False`` of
-        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] avoids this.
+        [get_results][SRToolkit.evaluation.evaluator.Evaluator.get_results] avoids this.
 
         Args:
             models: Evaluated models in the order they were first evaluated, or, with a
@@ -215,7 +215,7 @@ class SR_results:
 
         if summary is None and len(models) > _LARGE_RUN_MODELS:
             warnings.warn(
-                f"[SR_results.add_results] Keeping all {len(models)} models of this run may not fit in memory or in a "
+                f"[Results.add_results] Keeping all {len(models)} models of this run may not fit in memory or in a "
                 "results file that can be loaded again; use keep_all_models=False to keep the top models and a "
                 "summary instead.",
                 UserWarning,
@@ -245,17 +245,17 @@ class SR_results:
         model_scope: Literal["best", "top", "all"] = "top",
         augmentations: list[str] | None = None,
     ):
-        r"""Prints the results of the SR_evaluator.
+        r"""Prints the results of the Evaluator.
 
         Shows the minimum error, best expression, evaluation counts, success status, stop reason,
         metadata and approach name; with *detailed*, also each model. Augmentation data is
         formatted by the augmenter that added it.
 
         Examples:
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = Evaluator(X, y, seed=42)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> results.print_results()  # doctest: +ELLIPSIS
@@ -294,16 +294,16 @@ class SR_results:
         selected = self.results if experiment_number is None else [self[experiment_number]]
         if detailed and model_scope == "all" and any(result.summary is not None for result in selected):
             raise ValueError(
-                "[SR_results.print_results] model_scope='all' needs all models, but a result keeps only its top "
+                "[Results.print_results] model_scope='all' needs all models, but a result keeps only its top "
                 "models (keep_all_models=False); open its checkpoint to reach all of them."
             )
         if experiment_number is None:
             for i, result in enumerate(self.results):
                 print(f"=== Experiment {i + 1}/{len(self.results)} ===")
-                SR_results._print_result_(result, detailed, model_scope, augmentations)
+                Results._print_result_(result, detailed, model_scope, augmentations)
                 print()
         else:
-            SR_results._print_result_(self[experiment_number], detailed, model_scope, augmentations)
+            Results._print_result_(self[experiment_number], detailed, model_scope, augmentations)
 
     @staticmethod
     def _print_result_(
@@ -404,10 +404,10 @@ class SR_results:
         representations, simplified expressions, or R² scores.
 
         Examples:
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = Evaluator(X, y, seed=42)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> from SRToolkit.evaluation.result_augmentation import ExpressionToLatex
@@ -443,8 +443,8 @@ class SR_results:
                     except Exception as e:
                         warnings.warn(f"Error augmenting results with {augmenter.name}, skipping: {e}")
 
-    def __add__(self, other: "SR_results") -> "SR_results":
-        """Return a new SR_results holding the results of both, these first.
+    def __add__(self, other: "Results") -> "Results":
+        """Return a new Results holding the results of both, these first.
 
         Args:
             other: The results to append.
@@ -452,11 +452,11 @@ class SR_results:
         Returns:
             The new results.
         """
-        new = SR_results()
+        new = Results()
         new.results = self.results + other.results
         return new
 
-    def __iadd__(self, other: "SR_results") -> "SR_results":
+    def __iadd__(self, other: "Results") -> "Results":
         """Append the results of ``other`` to these.
 
         Args:
@@ -472,10 +472,10 @@ class SR_results:
         """Returns the results of the experiment with the given index.
 
         Examples:
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = Evaluator(X, y)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> result_of_first_experiment = results[0]
@@ -491,19 +491,19 @@ class SR_results:
             IndexError: If ``item`` is out of range.
         """
         if not isinstance(item, int):
-            raise TypeError(f"[SR_results.__getitem__] Index must be an integer, got {type(item).__name__}.")
+            raise TypeError(f"[Results.__getitem__] Index must be an integer, got {type(item).__name__}.")
         if not -len(self.results) <= item < len(self.results):
-            raise IndexError(f"[SR_results.__getitem__] Index {item} out of range for {len(self.results)} results.")
+            raise IndexError(f"[Results.__getitem__] Index {item} out of range for {len(self.results)} results.")
         return self.results[item]
 
     def __iter__(self) -> Iterator[EvalResult]:
         """Iterate over the results, in the order they were added.
 
         Examples:
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = Evaluator(X, y)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> for r in results:
@@ -519,10 +519,10 @@ class SR_results:
         """Return the number of results.
 
         Examples:
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = Evaluator(X, y)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> len(results)
@@ -542,15 +542,15 @@ class SR_results:
 
         Examples:
             >>> import tempfile
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = Evaluator(X, y, seed=42)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> with tempfile.TemporaryDirectory() as tmpdir:
             ...     results.save(tmpdir + "/my_results/results.json")
-            ...     loaded = SR_results.load(tmpdir + "/my_results/results.json")
+            ...     loaded = Results.load(tmpdir + "/my_results/results.json")
             ...     print(loaded[0].best_expr)
             C*X_1-X_0
 
@@ -581,7 +581,7 @@ class SR_results:
 
         output = {
             "format_version": 1,
-            "type": "SR_results",
+            "type": "Results",
             "results": [r.to_dict() for r in self.results],
         }
 
@@ -597,8 +597,8 @@ class SR_results:
             raise
 
     @staticmethod
-    def load(path: str) -> "SR_results":
-        """Load results previously saved with [save][SRToolkit.evaluation.results.SR_results.save].
+    def load(path: str) -> "Results":
+        """Load results previously saved with [save][SRToolkit.evaluation.results.Results.save].
 
         If *path* is a directory, it looks for ``results.json`` inside it.
         If *path* is a file, it must end with the ``.json`` extension.
@@ -607,7 +607,7 @@ class SR_results:
             path: Directory path containing ``results.json`` or path to a specific .json file.
 
         Returns:
-            A new [SR_results][SRToolkit.evaluation.results.SR_results] instance with the loaded data.
+            A new [Results][SRToolkit.evaluation.results.Results] instance with the loaded data.
 
         Raises:
             FileNotFoundError: If the specified file or directory does not exist.
@@ -619,7 +619,7 @@ class SR_results:
             _, extension = os.path.splitext(path)
             if extension.lower() != ".json":
                 raise ValueError(
-                    f"Invalid file extension '{extension}'. SR_results can only be loaded from '.json' files."
+                    f"Invalid file extension '{extension}'. Results can only be loaded from '.json' files."
                 )
             results_path = path
 
@@ -630,22 +630,20 @@ class SR_results:
             data = json.load(f)
 
         if data.get("format_version", 1) != 1:
-            raise ValueError(
-                f"[SR_results.load] Unsupported format_version: {data.get('format_version')!r}. Expected 1."
-            )
+            raise ValueError(f"[Results.load] Unsupported format_version: {data.get('format_version')!r}. Expected 1.")
 
-        sr_results = SR_results()
+        sr_results = Results()
         sr_results.results = [EvalResult.from_dict(r) for r in data["results"]]
         return sr_results
 
     @staticmethod
     def from_checkpoint(
         path: str | os.PathLike, approach_name: str = "", top_k: int = 20, keep_all_models: bool = True
-    ) -> "SR_results":
+    ) -> "Results":
         """Build results from a checkpoint file.
 
         The results are those
-        [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results] would give for
+        [get_results][SRToolkit.evaluation.evaluator.Evaluator.get_results] would give for
         everything in the file. It is opened read-only, so this also works while the run goes on (on what was
         committed) and after a crash. Needs no data; add test-data metrics afterwards (see
         [result_augmentation][SRToolkit.evaluation.result_augmentation]).
@@ -656,7 +654,7 @@ class SR_results:
             top_k: The number of top models, as for ``get_results``.
             keep_all_models: As for ``get_results``. With ``False``, memory use does not grow with
                 the size of the run; with ``True`` (default), it warns as
-                [add_results][SRToolkit.evaluation.results.SR_results.add_results] for a very large
+                [add_results][SRToolkit.evaluation.results.Results.add_results] for a very large
                 run.
 
         Returns:
@@ -674,13 +672,13 @@ class SR_results:
 
         Examples:
             >>> import tempfile
-            >>> from SRToolkit.evaluation import SR_evaluator
+            >>> from SRToolkit.evaluation import Evaluator
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> with tempfile.TemporaryDirectory() as tmpdir:
-            ...     se = SR_evaluator(X, np.array([3, 0, 3, 11]), checkpoint=tmpdir + "/run.sqlite")
+            ...     se = Evaluator(X, np.array([3, 0, 3, 11]), checkpoint=tmpdir + "/run.sqlite")
             ...     _ = se.evaluate_expr(["C", "*", "X_1"])
             ...     se.close()  # as if the process ended here
-            ...     results = SR_results.from_checkpoint(tmpdir + "/run.sqlite")
+            ...     results = Results.from_checkpoint(tmpdir + "/run.sqlite")
             >>> results[0].best_expr, results[0].stop_reason
             ('C*X_1', 'interrupted')
         """
@@ -688,7 +686,7 @@ class SR_results:
         from SRToolkit.evaluation.model_store import ModelStore, _checkpoint_reference
 
         if not keep_all_models and top_k <= 0:
-            raise ValueError(f"[SR_results.from_checkpoint] keep_all_models=False needs top_k >= 1, got {top_k}.")
+            raise ValueError(f"[Results.from_checkpoint] keep_all_models=False needs top_k >= 1, got {top_k}.")
         store = ModelStore(path, "read")
         try:
             with store.consistent_read():  # a run going on may commit between the reads
@@ -698,7 +696,7 @@ class SR_results:
                 models: Sequence[ModelResult] = store.models
                 if not keep_all_models:
                     models, summary = store.summary(top_k)
-                results = SR_results()
+                results = Results()
                 results.add_results(
                     models,
                     store.trace,

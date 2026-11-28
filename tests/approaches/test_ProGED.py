@@ -8,8 +8,8 @@ import pytest
 
 from SRToolkit.approaches import ProGED
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
-from SRToolkit.dataset.sr_dataset import SR_dataset
-from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.dataset.dataset import Dataset
+from SRToolkit.evaluation import Evaluator
 from SRToolkit.utils import expression
 from SRToolkit.utils.expression_constraints import MaxTokens, MaxTreeDepth
 from SRToolkit.utils.expression_tree import tokens_to_tree
@@ -31,7 +31,7 @@ def _products_of(var):
 
 
 def _dataset(reference_grammar=None):
-    return SR_dataset(_X, _lib(), y=_X[:, 0] + _X[:, 1], max_evaluations=5, reference_grammar=reference_grammar)
+    return Dataset(_X, _lib(), y=_X[:, 0] + _X[:, 1], max_evaluations=5, reference_grammar=reference_grammar)
 
 
 def _tokens(results):
@@ -46,7 +46,7 @@ def test_adapt_uses_reference_grammar(caplog):
     approach = ProGED()
     with caplog.at_level(logging.INFO, logger=_LOGGER):
         approach.adapt(_X, bk, (required,))
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=lib, max_evaluations=5, success_threshold=-1)
+    se = Evaluator(_X, _X[:, 0], symbol_library=lib, max_evaluations=5, success_threshold=-1)
     approach.search(se, seed=0)
     assert {t for m in se.models for t in m.expr} <= {"X_0", "*"}
     assert any(len(m.expr) > 1 for m in se.models)  # the MaxTokens(1) constraints did not shape the grammar
@@ -79,7 +79,7 @@ def test_constructor_grammar_is_kept():
     assert approach.adaptation_scope == "never"
     # adapt does nothing with a constructor grammar, even if the task has a reference grammar.
     approach.adapt(_X, BackgroundKnowledge(_lib(), reference_grammar=_products_of("X_1")), ())
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=5, success_threshold=-1)
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=5, success_threshold=-1)
     approach.search(se, seed=0)
     assert {t for m in se.models for t in m.expr} <= {"X_0", "*"}
 
@@ -96,7 +96,7 @@ def test_constructor_grammar_is_kept():
 def test_constructor_grammar_survives_config_round_trip(grammar, allowed):
     # A grid rebuilds approaches from their config, so the constructor grammar must be in it.
     approach = ProGED.from_config(ProGED(grammar).config.to_dict())
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=5, success_threshold=-1)
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=5, success_threshold=-1)
     approach.search(se, seed=0)
     assert {t for m in se.models for t in m.expr} <= allowed
 
@@ -104,7 +104,7 @@ def test_constructor_grammar_survives_config_round_trip(grammar, allowed):
 def test_search_skips_repeats_and_rejected_then_stops():
     grammar = Grammar(Rule.from_line("E -> E '+' 'X_0' [0.3] | 'X_0' [0.7]"), start="E")
     lib = _lib()
-    se = SR_evaluator(
+    se = Evaluator(
         _X,
         _X[:, 0],
         symbol_library=lib,
@@ -135,14 +135,14 @@ def test_search_canonicalise_constants(canonicalise, exprs):
     grammar = Grammar(
         Rule.from_line("E -> 'C_0' '*' 'X_0' '+' 'C_0' [0.5] | 'C_1' '*' 'X_0' '+' 'C_1' [0.5]"), start="E"
     )
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, settings=Settings(evaluator={"max_consecutive_skips": 20, "canonicalise_constants": canonicalise}))  # fmt: skip
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1, settings=Settings(evaluator={"max_consecutive_skips": 20, "canonicalise_constants": canonicalise}))  # fmt: skip
     ProGED(grammar).search(se, seed=0)
     assert se.stop_reason == "max_consecutive_skips"
     assert sorted(m.expr for m in se.models) == exprs
 
 
 def test_search_spends_budget_on_new_expressions():
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=20, success_threshold=-1)
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=20, success_threshold=-1)
     with warnings.catch_warnings():
         warnings.simplefilter("error", UserWarning)
         ProGED(_lib()).search(se, seed=0)
@@ -156,7 +156,7 @@ def test_search_spends_budget_on_new_expressions():
 )
 def test_search_skip_flags_are_independent(skip_evaluated, skip_rejected):
     grammar = Grammar(Rule.from_line("E -> E '+' 'X_0' [0.5] | 'X_0' [0.5]"), start="E")
-    se = SR_evaluator(
+    se = Evaluator(
         _X,
         _X[:, 0],
         symbol_library=_lib(),
@@ -197,7 +197,7 @@ def test_config_round_trip_keeps_skip_settings():
 def test_search_stops_after_exactly_max_consecutive_skips(rejects, skip_evaluated, expected):
     only_x0 = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
     constraints = [MaxTokens(0)] if rejects else None
-    se = SR_evaluator(
+    se = Evaluator(
         _X,
         _X[:, 0],
         symbol_library=_lib(),
@@ -220,7 +220,7 @@ def test_search_stops_after_exactly_max_consecutive_skips(rejects, skip_evaluate
 # the step loop counts, not ask).
 def test_ask_proposes_skipped_samples_as_lookups():
     only_x0 = Grammar(Rule.from_line("E -> 'X_0' [1.0]"), start="E")
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
     approach = ProGED(only_x0)
     state = approach.start(se, seed=0)
     (first,) = approach.ask(se, state)
@@ -235,7 +235,7 @@ def test_ask_proposes_skipped_samples_as_lookups():
 # and the Candidate, so a sample proposed and then evaluated is parsed once).
 def test_a_proposed_and_evaluated_sample_is_parsed_once(monkeypatch):
     product = Grammar(Rule.from_line("E -> 'X_0' '*' 'X_1' [1.0]"), start="E")
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1, required_constraints=[MaxTreeDepth(5)])
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1, required_constraints=[MaxTreeDepth(5)])
     approach = ProGED(product)
     state = approach.start(se, seed=0)
     parses = []
@@ -247,7 +247,7 @@ def test_a_proposed_and_evaluated_sample_is_parsed_once(monkeypatch):
 
 def test_search_is_reproducible_with_a_seed():
     def run():
-        se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=15, success_threshold=-1)
+        se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=15, success_threshold=-1)
         ProGED(_lib()).search(se, seed=5)
         return ["".join(m.expr) for m in se.models]
 
@@ -265,7 +265,7 @@ def test_from_config_defaults_for_older_configs():
 
 
 def test_start_without_grammar_or_adapt_raises():
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib())
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib())
     with pytest.raises(RuntimeError, match="adapt"):
         ProGED().start(se, seed=0)
 
@@ -279,7 +279,7 @@ def test_start_without_grammar_or_adapt_raises():
     ids=["seed-none-leaves-state", "seed-sets-state"],
 )
 def test_start_seeds_or_leaves_global_random_state(seed, reference_seed):
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib())
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib())
     np.random.seed(reference_seed)
     expected = np.random.random(3)
     np.random.seed(123)
@@ -295,7 +295,7 @@ def test_ask_failed_derivation_is_none_not_redrawn():
     half_failing = Grammar(Rule.from_line("S -> 'X_0' [0.5] | L [0.5]") + Rule.from_line("L -> L 'X_0' [1.0]"), "S")
     np.random.seed(0)
     expected = [half_failing.generate_one(max_retries=1) for _ in range(20)]
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), max_evaluations=10, success_threshold=-1)
     approach = ProGED(half_failing)
     state = approach.start(se, seed=0)
     proposals = [approach.ask(se, state)[0] for _ in range(20)]
@@ -309,7 +309,7 @@ def test_ask_failed_derivation_is_none_not_redrawn():
 # The old code raised a bare Exception after 100 failed derivations in a row.
 def test_search_with_grammar_that_never_yields_stops_on_skip_limit():
     never_ends = Grammar(Rule.from_line("E -> E '+' 'X_0' [1.0]"), start="E")
-    se = SR_evaluator(
+    se = Evaluator(
         _X,
         _X[:, 0],
         symbol_library=_lib(),
@@ -336,9 +336,7 @@ _LONG_GRAMMAR = Grammar(Rule.from_line("E -> " + " ".join(f"'{t}'" for t in _LON
     ids=["no-constraint", "max-tokens-rejects"],
 )
 def test_ask_proposes_long_samples(required_constraints, skip):
-    se = SR_evaluator(
-        _X, _X[:, 0], symbol_library=_lib(), success_threshold=-1, required_constraints=required_constraints
-    )
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1, required_constraints=required_constraints)
     approach = ProGED(_LONG_GRAMMAR)
     (candidate,) = approach.ask(se, approach.start(se, seed=0))
     assert (list(candidate.expr.tokens), candidate.skip) == (_LONG_EXPR, skip)
@@ -361,7 +359,7 @@ def _branches(copies, depth):
     ids=["1000-steps", "1001-steps"],
 )
 def test_ask_derivation_step_limit_is_1000(copies, depth, expr):
-    se = SR_evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1)
+    se = Evaluator(_X, _X[:, 0], symbol_library=_lib(), success_threshold=-1)
     approach = ProGED(_branches(copies, depth))
     (candidate,) = approach.ask(se, approach.start(se, seed=0))
     assert (candidate if candidate is None else list(candidate.expr.tokens)) == expr

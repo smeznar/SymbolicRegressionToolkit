@@ -36,7 +36,7 @@ on its own, by ``data``:
 - ``"none"``: no split.
 
 Configs always keep their ``data_source``, so a loaded dataset can still be
-[refreshed][SRToolkit.dataset.sr_dataset.SR_dataset.refresh]. Datasets of a grid or benchmark
+[refreshed][SRToolkit.dataset.dataset.Dataset.refresh]. Datasets of a grid or benchmark
 with the same benchmark, version and name share one copy of their data; they must have the same
 data (the same ``data_source`` and samplers, and equal arrays where shipped).
 
@@ -76,7 +76,7 @@ from SRToolkit.dataset import data_cache
 from SRToolkit.dataset.data_source import _URL_TIMEOUT
 
 if TYPE_CHECKING:
-    from SRToolkit.dataset import SR_benchmark, SR_dataset
+    from SRToolkit.dataset import Benchmark, Dataset
     from SRToolkit.experiments import ExperimentGrid
 
 _FORMAT_VERSION = 1
@@ -84,7 +84,7 @@ _SOURCES = "SRToolkit.dataset.data_source."
 
 
 def save(
-    obj: SR_dataset | SR_benchmark | ExperimentGrid,
+    obj: Dataset | Benchmark | ExperimentGrid,
     path: str | Path,
     *,
     data: Literal["all", "auto", "none"] = "all",
@@ -120,7 +120,7 @@ def save(
         ``path`` as a ``Path``.
 
     Raises:
-        TypeError: If ``obj`` is not an ``SR_dataset``, ``SR_benchmark`` or ``ExperimentGrid``.
+        TypeError: If ``obj`` is not an ``Dataset``, ``Benchmark`` or ``ExperimentGrid``.
         ValueError: If ``data`` is not one of the three values; ``results`` is set for an object
             that is not a grid; a dataset has no ``benchmark`` or ``version``; two datasets with
             the same benchmark, version and name have different data; ``strict`` is set and a
@@ -130,18 +130,18 @@ def save(
         FileNotFoundError: If a shipped split has no ``data_source`` and is missing from the cache.
     """
     from SRToolkit import __version__
-    from SRToolkit.dataset import SR_benchmark, SR_dataset
+    from SRToolkit.dataset import Benchmark, Dataset
     from SRToolkit.experiments import ExperimentGrid
 
-    if isinstance(obj, SR_dataset):
+    if isinstance(obj, Dataset):
         kind = "dataset"
-    elif isinstance(obj, SR_benchmark):
+    elif isinstance(obj, Benchmark):
         kind = "benchmark"
     elif isinstance(obj, ExperimentGrid):
         kind = "grid"
     else:
         raise TypeError(
-            f"[share.save] Cannot save a {type(obj).__name__}; expected an SR_dataset, SR_benchmark or ExperimentGrid."
+            f"[share.save] Cannot save a {type(obj).__name__}; expected a Dataset, Benchmark or ExperimentGrid."
         )
     if data not in ("all", "auto", "none"):
         raise ValueError(f"[share.save] data must be 'all', 'auto' or 'none', got {data!r}.")
@@ -167,9 +167,9 @@ def save(
             )
 
     recipe = obj.to_dict()  # raises for a dataset without benchmark / version
-    if isinstance(obj, SR_dataset):
-        pairs: list[tuple[dict, SR_dataset | None]] = [(recipe, obj)]
-    elif isinstance(obj, SR_benchmark):
+    if isinstance(obj, Dataset):
+        pairs: list[tuple[dict, Dataset | None]] = [(recipe, obj)]
+    elif isinstance(obj, Benchmark):
         pairs = [(recipe["datasets"][name], entry.get("sr_dataset")) for name, entry in obj.datasets.items()]
     else:
         pairs = [(cfg, None) for cfg in recipe["datasets"].values()]
@@ -388,7 +388,7 @@ def load(
     *,
     install_bundles: bool = False,
     results_dir: str | Path | None = None,
-) -> SR_dataset | SR_benchmark | ExperimentGrid:
+) -> Dataset | Benchmark | ExperimentGrid:
     """Load an object from an archive written by [save][SRToolkit.share.save].
 
     Shipped data is copied into the [data cache][SRToolkit.dataset.data_cache], replacing a cached
@@ -415,7 +415,7 @@ def load(
             and in the current directory for a URL; required when that name has no suffix.
 
     Returns:
-        The saved object: an ``SR_dataset``, ``SR_benchmark`` or ``ExperimentGrid``.
+        The saved object: an ``Dataset``, ``Benchmark`` or ``ExperimentGrid``.
 
     Raises:
         FileNotFoundError: If ``source`` is a path that does not exist.
@@ -428,7 +428,7 @@ def load(
             for an object that is not a grid, or is missing for a grid whose archive name has no
             suffix.
     """
-    from SRToolkit.dataset import SR_benchmark, SR_dataset
+    from SRToolkit.dataset import Benchmark, Dataset
     from SRToolkit.experiments import ExperimentGrid
 
     is_url = str(source).startswith(("http://", "https://"))
@@ -542,9 +542,9 @@ def load(
             )
 
         if kind == "dataset":
-            return SR_dataset.from_dict(config)
+            return Dataset.from_dict(config)
         if kind == "benchmark":
-            return SR_benchmark.from_dict(config)
+            return Benchmark.from_dict(config)
         grid = ExperimentGrid.from_dict(config, results_dir=str(results_root))
         kept = []
         for member, target in targets.items():

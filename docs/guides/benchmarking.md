@@ -25,7 +25,7 @@ bm.list_datasets()
 # Filter by number of variables
 names = bm.list_datasets(num_variables=2, verbose=False)
 
-# Create an SR_dataset ready for evaluation
+# Create a Dataset ready for evaluation
 dataset = bm.create_dataset(names[0])
 
 print(dataset.X.shape)          # (n_samples, n_variables)
@@ -35,7 +35,7 @@ print(dataset.original_equation)
 
 ## Evaluating an approach
 
-Pass any [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] to `dataset.evaluate_approach()`:
+Pass any [Approach][SRToolkit.approaches.approach.Approach] to `dataset.evaluate_approach()`:
 
 ```python
 from SRToolkit.approaches import ProGED
@@ -46,7 +46,7 @@ model = ProGED()
 results = dataset.evaluate_approach(model, num_experiments=5, top_k=20, initial_seed=0)
 ```
 
-`results` is an [SR_results][SRToolkit.evaluation.results.SR_results] object. Inspect individual runs:
+`results` is an [Results][SRToolkit.evaluation.results.Results] object. Inspect individual runs:
 
 ```python
 for r in results:
@@ -64,7 +64,7 @@ ds = bm.create_dataset("I.16.6", n_samples=500, seed=42)
 X, y = ds.X, ds.y
 ```
 
-The cache is not modified — only the returned `SR_dataset` instance contains the new data.
+The cache is not modified — only the returned `Dataset` instance contains the new data.
 
 For SRSD_Feynman, this uses the per-variable sampling objects (log-uniform, linear, integer) defined for each equation.
 
@@ -98,12 +98,12 @@ results = dataset.evaluate_approach(
 
 ### Writing a custom callback
 
-Subclass [SR_callback][SRToolkit.evaluation.callbacks.SR_callback] and override only the events you need. Return a reason (a string) from `on_expr_evaluated`, `on_best_expression` or `on_skip` (fired for each expression the approach skips without evaluating) to stop the search early; it is saved in the results as `stop_reason`.
+Subclass [Callback][SRToolkit.evaluation.callbacks.Callback] and override only the events you need. Return a reason (a string) from `on_expr_evaluated`, `on_best_expression` or `on_skip` (fired for each expression the approach skips without evaluating) to stop the search early; it is saved in the results as `stop_reason`.
 
 ```python
-from SRToolkit.evaluation.callbacks import SR_callback, BestExpressionFound
+from SRToolkit.evaluation.callbacks import Callback, BestExpressionFound
 
-class PrintEveryImprovement(SR_callback):
+class PrintEveryImprovement(Callback):
     def on_best_expression(self, event: BestExpressionFound):
         print(f"  [{event.evaluation_number}] {event.expression}  error={event.error:.4g}")
 ```

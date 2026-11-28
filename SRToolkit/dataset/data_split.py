@@ -1,9 +1,9 @@
-"""A set of named arrays held by an [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset].
+"""A set of named arrays held by an [Dataset][SRToolkit.dataset.dataset.Dataset].
 
 A dataset keeps its data as [DataSplit][SRToolkit.dataset.data_split.DataSplit]s: the data the
 search runs on, an optional held-out test split
-([SR_dataset.test][SRToolkit.dataset.sr_dataset.SR_dataset]), and any extra data for your own
-measures ([SR_dataset.aux_data][SRToolkit.dataset.sr_dataset.SR_dataset]). All of them are saved,
+([Dataset.test][SRToolkit.dataset.dataset.Dataset]), and any extra data for your own
+measures ([Dataset.aux_data][SRToolkit.dataset.dataset.Dataset]). All of them are saved,
 cached and shared together with the dataset.
 """
 

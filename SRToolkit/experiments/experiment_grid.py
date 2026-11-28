@@ -12,7 +12,7 @@ Provides three public classes:
 
 Each job keeps its files in one directory (in a grid, ``results_dir/{dataset}/{approach}/``): its
 result ``exp_{seed}.json``, which marks it done; its checkpoint ``exp_{seed}.sqlite`` while it is
-unfinished (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]); and the lock file
+unfinished (see [Checkpoints][SRToolkit.evaluation.evaluator]); and the lock file
 ``exp_{seed}.lock``, locked while it runs and deleted once its result is saved.
 [ExperimentJob.status][SRToolkit.experiments.ExperimentJob.status] reads the job's state from
 them, and running an unfinished job again resumes it.
@@ -41,11 +41,11 @@ try:
 except ImportError:  # e.g. Windows: jobs are not locked
     fcntl = None  # type: ignore[assignment]
 
-from SRToolkit.approaches.sr_approach import SR_approach
+from SRToolkit.approaches.approach import Approach
 from SRToolkit.bundle._relocate import _auto_bind, _class_refs, _import_class
-from SRToolkit.dataset.sr_benchmark import SR_benchmark
-from SRToolkit.dataset.sr_dataset import SR_dataset
-from SRToolkit.evaluation.callbacks import CallbackDispatcher, ExperimentEvent, SR_callback
+from SRToolkit.dataset.benchmark import Benchmark
+from SRToolkit.dataset.dataset import Dataset
+from SRToolkit.evaluation.callbacks import Callback, CallbackDispatcher, ExperimentEvent
 from SRToolkit.evaluation.model_store import (
     ModelStore,
     _checkpoint_reference,
@@ -53,7 +53,7 @@ from SRToolkit.evaluation.model_store import (
     _remove_checkpoint,
     _run_finished,
 )
-from SRToolkit.evaluation.results import SR_results
+from SRToolkit.evaluation.results import Results
 
 # Lock files this process holds. status() must not open them: on NFS, flock is emulated by fcntl
 # locks, and closing any descriptor of a file drops all of this process's locks on it.
@@ -134,10 +134,10 @@ class ExperimentInfo:
             self-contained file, e.g. to inspect all its models later. Default ``False``: it is
             deleted.
         snapshot_interval: Seconds between the job's snapshots (see
-            [Checkpoints][SRToolkit.evaluation.sr_evaluator]); ``None``: only when the approach's
+            [Checkpoints][SRToolkit.evaluation.evaluator]); ``None``: only when the approach's
             step loop ends. Default ``300.0``.
         keep_all_models: As for
-            [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results]: ``False``
+            [get_results][SRToolkit.evaluation.evaluator.Evaluator.get_results]: ``False``
             saves only the ``top_k`` models and a summary of the run. Default ``True``.
     """
 
@@ -200,19 +200,19 @@ class ExperimentJob:
 
     def __init__(
         self,
-        dataset: SR_dataset | str | dict,
-        approach: SR_approach | str | dict,
+        dataset: Dataset | str | dict,
+        approach: Approach | str | dict,
         info: ExperimentInfo | str | dict,
-        callbacks: SR_callback | list[SR_callback] | dict | list[dict] | None = None,
+        callbacks: Callback | list[Callback] | dict | list[dict] | None = None,
     ) -> None:
         """Args:
-            dataset: An ``SR_dataset``, or its ``to_dict()`` as a dict or the path of a JSON file.
-            approach: An ``SR_approach``, or its config's ``to_dict()`` as a dict or the path of a
+            dataset: An ``Dataset``, or its ``to_dict()`` as a dict or the path of a JSON file.
+            approach: An ``Approach``, or its config's ``to_dict()`` as a dict or the path of a
                 JSON file.
             info: An [ExperimentInfo][SRToolkit.experiments.ExperimentInfo], or its ``to_dict()``
                 as a dict or the path of a JSON file.
             callbacks: Callbacks for [run][SRToolkit.experiments.ExperimentJob.run]: an
-                [SR_callback][SRToolkit.evaluation.callbacks.SR_callback], a callback's
+                [Callback][SRToolkit.evaluation.callbacks.Callback], a callback's
                 ``to_dict()``, or a list of either. Stored as configs, so each run builds fresh
                 instances. ``None`` for none.
 
@@ -228,8 +228,8 @@ class ExperimentJob:
         else:
             self.info = ExperimentInfo.from_dict(dict(info))
 
-        if isinstance(dataset, SR_dataset):
-            self._dataset_instance: SR_dataset | None = dataset
+        if isinstance(dataset, Dataset):
+            self._dataset_instance: Dataset | None = dataset
             self._dataset_dict: dict | None = None
             self.dataset_name: str = dataset.dataset_name
         elif isinstance(dataset, str):
@@ -242,8 +242,8 @@ class ExperimentJob:
             self._dataset_instance = None
             self.dataset_name = self._dataset_dict.get("dataset_name", "unnamed")
 
-        if isinstance(approach, SR_approach):
-            self._approach_instance: SR_approach | None = approach
+        if isinstance(approach, Approach):
+            self._approach_instance: Approach | None = approach
             self._approach_dict: dict | None = None
             self.approach_name: str = approach.name
         elif isinstance(approach, str):
@@ -270,9 +270,7 @@ class ExperimentJob:
         else:
             _, extension = os.path.splitext(self.info.result_path)
             if extension.lower() != ".json":
-                raise ValueError(
-                    f"Invalid file extension '{extension}'. SR_results can only be saved as '.json' files."
-                )
+                raise ValueError(f"Invalid file extension '{extension}'. Results can only be saved as '.json' files.")
             self.result_path = self.info.result_path
         self.checkpoint_path = os.path.splitext(self.result_path)[0] + ".sqlite"
         self._lock_path = os.path.splitext(self.result_path)[0] + ".lock"
@@ -337,19 +335,19 @@ class ExperimentJob:
         ``UserWarning`` and runs unlocked.
 
         Adapts as
-        [adaptation_scope][SRToolkit.approaches.sr_approach.SR_approach.adaptation_scope] says
-        (``"once"``: [adapt_or_load][SRToolkit.dataset.sr_dataset.SR_dataset.adapt_or_load] with
+        [adaptation_scope][SRToolkit.approaches.approach.Approach.adaptation_scope] says
+        (``"once"``: [adapt_or_load][SRToolkit.dataset.dataset.Dataset.adapt_or_load] with
         ``info.adapted_state_path``).
 
         The evaluator keeps its models and trace in the checkpoint at ``checkpoint_path`` and
         continues it from its last snapshot if it exists (see
-        [Checkpoints][SRToolkit.evaluation.sr_evaluator]), so running an unfinished job again
+        [Checkpoints][SRToolkit.evaluation.evaluator]), so running an unfinished job again
         resumes it. An approach whose runs cannot be resumed (see
-        [supports_steps][SRToolkit.approaches.sr_approach.SR_approach.supports_steps]) starts
+        [supports_steps][SRToolkit.approaches.approach.Approach.supports_steps]) starts
         its job afresh, with a ``UserWarning``, and replaces the checkpoint. A checkpoint of a
         finished run (e.g. killed while saving its result) gives the result directly, without
         adapting or running anything. The search runs inside
-        [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals]:
+        [stop_on_signals][SRToolkit.evaluation.evaluator.Evaluator.stop_on_signals]:
 
         - a job that finishes saves its result, and only then deletes its checkpoint (or, with
           ``info.keep_checkpoint``, compacts it into one self-contained file, which the saved
@@ -375,7 +373,7 @@ class ExperimentJob:
                 job while this one was taking it, before any job file is changed.
             ValueError: If ``info.keep_all_models`` is ``False`` and ``info.top_k <= 0``, before
                 any job file is changed; as for
-                [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] with
+                [Evaluator][SRToolkit.evaluation.evaluator.Evaluator] with
                 ``resume=True``, if the checkpoint is from a run with other settings or
                 ``info.snapshot_interval`` is not positive.
         """
@@ -396,7 +394,7 @@ class ExperimentJob:
                 return
 
             if not rerun and os.path.exists(self.checkpoint_path) and _run_finished(self.checkpoint_path):
-                results = SR_results.from_checkpoint(
+                results = Results.from_checkpoint(
                     self.checkpoint_path, self.approach_name, info.top_k, info.keep_all_models
                 )
                 self._save_result(results)
@@ -431,7 +429,7 @@ class ExperimentJob:
                 evaluator._experiment_id = f"{self.dataset_name}_{self.approach_name}_{self.info.seed}"
                 dispatcher: CallbackDispatcher | None = None
                 if self._callback_configs:
-                    cbs = [SR_callback.from_config_dict(d) for d in self._callback_configs]
+                    cbs = [Callback.from_config_dict(d) for d in self._callback_configs]
                     dispatcher = CallbackDispatcher(callbacks=cbs)
                     evaluator.register_callbacks(dispatcher)
 
@@ -463,12 +461,12 @@ class ExperimentJob:
         self,
         max_evaluations: int | None = None,
         success_threshold: float | None = None,
-        callbacks: SR_callback | list[SR_callback] | None = None,
+        callbacks: Callback | list[Callback] | None = None,
     ) -> None:
         """Continue the job's run with new limits and save the result.
 
         The run, done or not, continues from the job's checkpoint as in
-        [extend_run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run], under the job's lock and
+        [extend_run][SRToolkit.dataset.dataset.Dataset.extend_run], under the job's lock and
         after adapting as in [run][SRToolkit.experiments.ExperimentJob.run] (``"once"``: with
         ``info.adapted_state_path``). The result replaces the old one; the
         checkpoint is then kept compacted if ``info.keep_checkpoint``, else deleted. An interrupt
@@ -546,22 +544,22 @@ class ExperimentJob:
             finally:
                 _held_locks.discard(lock_path)
 
-    def _dataset_and_approach(self) -> tuple[SR_dataset, SR_approach]:
+    def _dataset_and_approach(self) -> tuple[Dataset, Approach]:
         # The job's dataset and approach; the constructor sets exactly one of the instance and the
         # dict of each.
         if self._dataset_instance is not None:
             dataset = self._dataset_instance
         else:
             assert self._dataset_dict is not None
-            dataset = SR_dataset.from_dict(self._dataset_dict)
+            dataset = Dataset.from_dict(self._dataset_dict)
         if self._approach_instance is not None:
             approach = self._approach_instance
         else:
             assert self._approach_dict is not None
-            approach = SR_approach.from_config_dict(self._approach_dict)
+            approach = Approach.from_config_dict(self._approach_dict)
         return dataset, approach
 
-    def _save_result(self, results: SR_results, already_compacted: bool = False) -> None:
+    def _save_result(self, results: Results, already_compacted: bool = False) -> None:
         # Save the result, then delete (or compact, unless already compacted) the checkpoint and
         # delete the lock file: a result marks the job done. The lock file goes only once the result
         # exists, so a process that opened it just before sees the result after taking the lock and
@@ -613,12 +611,12 @@ class ExperimentGrid:
 
     Args:
         datasets: One or more datasets to run experiments on. Accepts a single
-            [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset], a
-            [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] (all
+            [Dataset][SRToolkit.dataset.dataset.Dataset], a
+            [Benchmark][SRToolkit.dataset.benchmark.Benchmark] (all
             datasets in the benchmark are included), or a list containing
-            ``SR_dataset``-s and ``SR_benchmark``-s.
+            ``Dataset``-s and ``Benchmark``-s.
         approaches: One or more SR approaches. Accepts a single
-            [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] or a list of them.
+            [Approach][SRToolkit.approaches.approach.Approach] or a list of them.
         num_experiments: Number of independent experiments per (dataset, approach) pair.
         results_dir: Root directory where all results and grid metadata are stored.
         initial_seed: Seed for the first experiment. Subsequent experiments use
@@ -648,14 +646,14 @@ class ExperimentGrid:
 
     def __init__(
         self,
-        datasets: SR_dataset | list[SR_dataset | SR_benchmark] | SR_benchmark,
-        approaches: SR_approach | list[SR_approach],
+        datasets: Dataset | list[Dataset | Benchmark] | Benchmark,
+        approaches: Approach | list[Approach],
         num_experiments: int,
         results_dir: str,
         initial_seed: int = 0,
         top_k: int = 20,
         adapted_states: dict[str, dict[str, str]] | None = None,
-        callbacks: SR_callback | list[SR_callback] | None = None,
+        callbacks: Callback | list[Callback] | None = None,
         keep_all_models: bool = True,
         keep_checkpoint: bool = False,
         snapshot_interval: float | None = 300.0,
@@ -685,7 +683,7 @@ class ExperimentGrid:
 
         # Build approach configs (plain serialisable dicts, no instance caching)
         self.approach_configs: list[dict] = []
-        if isinstance(approaches, SR_approach):
+        if isinstance(approaches, Approach):
             approaches = [approaches]
         for approach in approaches:
             self.add_approach(approach)
@@ -698,7 +696,7 @@ class ExperimentGrid:
         else:
             self.add_dataset(datasets)
 
-    def add_approach(self, approach: SR_approach) -> None:
+    def add_approach(self, approach: Approach) -> None:
         """Add an approach to the grid.
 
         The approach's config is serialised immediately (its ``adaptation_scope`` is
@@ -706,7 +704,7 @@ class ExperimentGrid:
         [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] to extend a loaded grid.
 
         Args:
-            approach: The [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] to add.
+            approach: The [Approach][SRToolkit.approaches.approach.Approach] to add.
 
         Raises:
             ValueError: If an approach with the same ``name`` is already in the grid
@@ -722,7 +720,7 @@ class ExperimentGrid:
             )
         self.approach_configs.append(cfg)
 
-    def add_dataset(self, dataset: SR_dataset | SR_benchmark) -> None:
+    def add_dataset(self, dataset: Dataset | Benchmark) -> None:
         """Add a dataset, or every dataset in a benchmark, to the grid.
 
         Each dataset is serialised immediately to its config dict (no data arrays
@@ -730,20 +728,20 @@ class ExperimentGrid:
         [from_dict][SRToolkit.experiments.ExperimentGrid.from_dict] to extend a loaded grid.
 
         Args:
-            dataset: An [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] or an
-                [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] (all of its
+            dataset: An [Dataset][SRToolkit.dataset.dataset.Dataset] or an
+                [Benchmark][SRToolkit.dataset.benchmark.Benchmark] (all of its
                 datasets are added).
 
         Raises:
             ValueError: If a dataset name already exists in the grid, or if ``dataset``
-                is neither an ``SR_dataset`` nor an ``SR_benchmark``.
+                is neither an ``Dataset`` nor an ``Benchmark``.
         """
-        if isinstance(dataset, SR_benchmark):
+        if isinstance(dataset, Benchmark):
             named = [(name, dataset.create_dataset(name)) for name in dataset.list_datasets(verbose=False)]
-        elif isinstance(dataset, SR_dataset):
+        elif isinstance(dataset, Dataset):
             named = [(dataset.dataset_name, dataset)]
         else:
-            raise ValueError(f"[ExperimentGrid] datasets must be an SR_dataset or SR_benchmark, got {type(dataset)}")
+            raise ValueError(f"[ExperimentGrid] datasets must be a Dataset or Benchmark, got {type(dataset)}")
         for name, ds in named:
             if name in self.datasets:
                 raise ValueError(
@@ -764,7 +762,7 @@ class ExperimentGrid:
                 (there is nothing to download or sample, so it cannot be materialised here).
         """
         for dataset_name in self.datasets:
-            SR_dataset.from_dict(self.datasets[dataset_name])
+            Dataset.from_dict(self.datasets[dataset_name])
 
     def _pairs_needing_adaptation(self) -> "list[tuple[str, str]]":
         # The (approach_name, dataset_name) pairs of "once" approaches whose state path is listed in
@@ -828,8 +826,8 @@ class ExperimentGrid:
         state_path = self._adapted_states.get(approach_name, {}).get(dataset_name)
         if state_path is None or (os.path.exists(state_path) and not force):
             return
-        dataset = SR_dataset.from_dict(self.datasets[dataset_name])
-        approach = SR_approach.from_config_dict(approach_config)
+        dataset = Dataset.from_dict(self.datasets[dataset_name])
+        approach = Approach.from_config_dict(approach_config)
         dataset.adapt_or_load(approach, state_path, force=True)
 
     def adapt_if_missing(self):
@@ -1056,7 +1054,7 @@ class ExperimentGrid:
                 if status in ("interrupted", "crashed"):
                     print(f"{status:<13}{dataset_name} / {approach_name} / seed {seed}")
 
-    def load_results(self, dataset_name: str, approach_name: str) -> SR_results:
+    def load_results(self, dataset_name: str, approach_name: str) -> Results:
         """Load and merge all completed per-experiment results for a (dataset, approach) pair.
 
         Args:
@@ -1064,15 +1062,15 @@ class ExperimentGrid:
             approach_name: Name of the approach.
 
         Returns:
-            [SR_results][SRToolkit.evaluation.results.SR_results] with one
+            [Results][SRToolkit.evaluation.results.Results] with one
             [EvalResult][SRToolkit.utils.types.EvalResult] per completed experiment; empty if none.
         """
-        merged = SR_results()
+        merged = Results()
         for i in range(self.num_experiments):
             seed = self.initial_seed + i
             result_path = os.path.join(self.results_dir, dataset_name, approach_name, f"exp_{seed}.json")
             if os.path.exists(result_path):
-                merged += SR_results.load(result_path)
+                merged += Results.load(result_path)
         return merged
 
     def to_dict(self) -> dict:

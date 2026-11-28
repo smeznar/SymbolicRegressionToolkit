@@ -13,9 +13,9 @@ from strategies import STORE_POOL, result_answers, result_dict, store_calls
 
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation import model_store
-from SRToolkit.evaluation.callbacks import SR_callback
+from SRToolkit.evaluation.callbacks import Callback
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.types import EvalResult, ModelResult, RunSummary
 
@@ -42,7 +42,7 @@ _X2 = np.array([[1.0], [2.0], [3.0]])
 _y2 = np.array([2.0, 4.0, 6.0])
 
 
-class _StopOnNextCall(SR_callback):
+class _StopOnNextCall(Callback):
     def on_expr_evaluated(self, event):
         return "callback"  # a string stops with that reason
 
@@ -185,7 +185,7 @@ class TestCheckpoint:
 
     @pytest.mark.parametrize(
         "create",
-        [ModelStore, lambda path: SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path)],
+        [ModelStore, lambda path: Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path)],
         ids=["store", "evaluator"],
     )
     def test_existing_file_raises_and_is_kept(self, tmp_path, create):
@@ -265,7 +265,7 @@ class TestCheckpoint:
     )
     def test_evaluator_commits_when_it_stops(self, tmp_path, budget, callback, last_call, reason):
         path = tmp_path / "run.sqlite"
-        se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), max_evaluations=budget, checkpoint=path)
+        se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), max_evaluations=budget, checkpoint=path)
         se.evaluate_expr(["X_0", "+", "X_0"])
         se.evaluate_expr(["X_0", "*", "X_0"])
         assert _committed(path) == (0, 0)
@@ -276,7 +276,7 @@ class TestCheckpoint:
 
     def test_evaluator_commits_when_results_are_collected(self, tmp_path):
         path = tmp_path / "run.sqlite"
-        se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path, success_threshold=-1)
+        se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path, success_threshold=-1)
         se.evaluate_expr(["X_0", "+", "X_0"])
         se.get_results()
         assert _committed(path) == (1, 1)
@@ -287,8 +287,8 @@ class TestCheckpoint:
     def test_evaluator_works_from_another_thread(self, tmp_path, resume):
         path = tmp_path / "run.sqlite"
         if resume:
-            SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path).close()
-        se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path, resume=resume)
+            Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path).close()
+        se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]), checkpoint=path, resume=resume)
         worker = threading.Thread(target=se.evaluate_expr, args=(["X_0"],))
         worker.start()
         worker.join()
@@ -296,7 +296,7 @@ class TestCheckpoint:
 
     def test_checkpoint_and_memory_runs_agree(self, tmp_path):
         def run(checkpoint):
-            se = SR_evaluator(_X2, _y2, seed=0, success_threshold=-1, checkpoint=checkpoint)
+            se = Evaluator(_X2, _y2, seed=0, success_threshold=-1, checkpoint=checkpoint)
             for expr in (["C", "*", "X_0"], ["X_0", "+", "C"], ["C", "*", "X_0"], ["X_0", "X_0"]):
                 se.evaluate_expr(expr)
             return [m.to_dict() for m in se.models], list(se.trace), se.invalid, result_dict(se.get_results()[0])
@@ -306,14 +306,14 @@ class TestCheckpoint:
     def test_failing_constructor_leaves_no_file(self, tmp_path):
         path = tmp_path / "run.sqlite"
         with pytest.raises(ValueError):
-            SR_evaluator(np.array([[1.0], [2.0]]), checkpoint=path)  # RMSE needs y or a ground truth
+            Evaluator(np.array([[1.0], [2.0]]), checkpoint=path)  # RMSE needs y or a ground truth
         assert not path.exists()
 
 
 # Reason: implied (a dropped evaluator frees its database at once, without waiting for the garbage
 # collector; grids create many evaluators).
 def test_dropped_evaluator_frees_its_store():
-    se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
+    se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
     se.evaluate_expr(["X_0"])
     store = weakref.ref(se._store)
     gc.disable()

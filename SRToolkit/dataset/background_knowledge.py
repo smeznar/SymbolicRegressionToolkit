@@ -24,7 +24,7 @@ Priors about the answer's form are advisory constraints: each has a text form
 that cannot be checked is a constraint that implements neither check: the evaluator skips it, and it
 is still described. Anything else goes into ``description``.
 
-[SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] builds one from its arguments
+[Dataset][SRToolkit.dataset.dataset.Dataset] builds one from its arguments
 (``symbol_library=``, ``samplers=``, ``advisory_constraints=``, ``variables=``, ``named_constants=``,
 ...).
 
@@ -37,14 +37,14 @@ and register it as an advisory or a required constraint.
 ## What it does not hold
 
 The answer stays out: the ground truth, the human-readable equation, the success threshold and
-anything derived from them live on [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset], not
+anything derived from them live on [Dataset][SRToolkit.dataset.dataset.Dataset], not
 here.
 [describe][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe] renders only
 background knowledge, so its text can go into a prompt without leaking the answer (unlike
 ``str(dataset)``, which starts with the equation).
 
 Required constraints are not background knowledge either: they are part of the objective and live
-on the dataset (``SR_dataset.required_constraints``). Advisory and required constraints are the
+on the dataset (``Dataset.required_constraints``). Advisory and required constraints are the
 same classes; the list a constraint is in decides its role (see
 [expression_constraints][SRToolkit.utils.expression_constraints]).
 """
@@ -444,7 +444,7 @@ class BackgroundKnowledge:
         Args:
             required_constraints: The dataset's required constraints, listed apart from the
                 advisory ones. Empty when called on its own;
-                [SR_dataset.describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe] passes the
+                [Dataset.describe][SRToolkit.dataset.dataset.Dataset.describe] passes the
                 dataset's.
 
         Returns:

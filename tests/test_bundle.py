@@ -9,13 +9,13 @@ from unittest.mock import patch
 
 import pytest
 
-from SRToolkit.approaches.sr_approach import SR_approach
+from SRToolkit.approaches.approach import Approach
 from SRToolkit.bundle._manifest import BundleManifest, _sha256
 from SRToolkit.bundle._pack import pack
 from SRToolkit.bundle._relocate import _import_class, _relocate_class_paths
 from SRToolkit.dataset.data_source import DataSource
 from SRToolkit.dataset.sampling import Sampler, UniformSampling
-from SRToolkit.evaluation.callbacks import SR_callback
+from SRToolkit.evaluation.callbacks import Callback
 from SRToolkit.utils.grammar.constraints import GrammarConstraint
 
 # ---------------------------------------------------------------------------
@@ -431,8 +431,8 @@ class TestImportClass:
         [
             (Sampler.from_dict, "sampler_class"),
             (DataSource.from_dict, "source_class"),
-            (SR_approach.from_config_dict, "approach_class"),
-            (SR_callback.from_config_dict, "callback_class"),
+            (Approach.from_config_dict, "approach_class"),
+            (Callback.from_config_dict, "callback_class"),
             (GrammarConstraint.from_dict, "constraint_class"),
         ],
         ids=["sampler", "data-source", "approach", "callback", "grammar-constraint"],

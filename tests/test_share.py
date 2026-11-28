@@ -26,14 +26,14 @@ import numpy as np
 import pytest
 
 from SRToolkit import share
-from SRToolkit.approaches import ProGED, SR_approach
+from SRToolkit.approaches import Approach, ProGED
 from SRToolkit.bundle import _store, bind_config, install, list_installed, pack
 from SRToolkit.dataset import data_cache
+from SRToolkit.dataset.benchmark import Benchmark
 from SRToolkit.dataset.data_source import DataSource, FallbackSource, SampleSource, UrlSource
 from SRToolkit.dataset.data_split import DataSplit
+from SRToolkit.dataset.dataset import Dataset
 from SRToolkit.dataset.sampling import UniformSampling
-from SRToolkit.dataset.sr_benchmark import SR_benchmark
-from SRToolkit.dataset.sr_dataset import SR_dataset
 from SRToolkit.experiments import ExperimentGrid
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
@@ -77,12 +77,12 @@ def custom(tmp_path):
     (mod_dir / "share_custom.py").write_text(
         "import pathlib\n"
         f"pathlib.Path({str(marker)!r}).touch()\n"
-        "from SRToolkit.approaches import ApproachConfig, SR_approach\n"
+        "from SRToolkit.approaches import ApproachConfig, Approach\n"
         "from SRToolkit.dataset.data_source import DataSource\n\n"
-        "class CustomAp(SR_approach):\n"
+        "class CustomAp(Approach):\n"
         "    def __init__(self):\n"
         "        super().__init__(ApproachConfig(name='CustomAp'))\n"
-        "    def search(self, sr_evaluator, seed=None):\n"
+        "    def search(self, evaluator, seed=None):\n"
         "        pass\n"
         "    @classmethod\n"
         "    def from_config(cls, config):\n"
@@ -140,7 +140,7 @@ def _samplers():
 def _array_ds(name="eq1", benchmark="b", offset=10.0, **kwargs):
     """Dataset from arrays (``data_source`` None). X lies outside the samplers' [0, 1) range."""
     X = np.arange(8.0).reshape(4, 2) + offset
-    return SR_dataset(
+    return Dataset(
         X,
         SymbolLibrary.default_symbols(2),
         ground_truth=["X_0", "+", "X_1"],
@@ -166,7 +166,7 @@ def _full_ds():
 
 def _bed_ds():
     X = np.arange(8.0).reshape(4, 2) + 10.0
-    return SR_dataset(
+    return Dataset(
         X,
         SymbolLibrary.default_symbols(2),
         ranking_function="bed",
@@ -179,7 +179,7 @@ def _bed_ds():
 
 
 def _seeded_ds(name="s1", benchmark="b"):
-    return SR_dataset.from_samplers(
+    return Dataset.from_samplers(
         ground_truth=["X_0", "+", "X_1"],
         samplers=_samplers(),
         n_samples=5,
@@ -191,7 +191,7 @@ def _seeded_ds(name="s1", benchmark="b"):
 
 
 def _seeded_benchmark():
-    bm = SR_benchmark("b", version="1.0.0")
+    bm = Benchmark("b", version="1.0.0")
     bm.add_dataset(
         SymbolLibrary.default_symbols(2),
         None,
@@ -205,7 +205,7 @@ def _seeded_benchmark():
 
 def _benchmark():
     """Benchmark ``b``: an array entry ``e1`` and an instance entry ``e2`` with test and aux splits."""
-    bm = SR_benchmark("b", version="1.0.0")
+    bm = Benchmark("b", version="1.0.0")
     X = np.arange(6.0).reshape(3, 2) + 50.0
     bm.add_dataset(
         SymbolLibrary.default_symbols(2), (X, X.sum(axis=1)), dataset_name="e1", ground_truth=["X_0", "+", "X_1"]
@@ -286,7 +286,7 @@ class TestSaveRoundTrip:
 
         loaded = share.load(out)
 
-        assert isinstance(loaded, SR_dataset)
+        assert isinstance(loaded, Dataset)
         np.testing.assert_array_equal(loaded.X, ds.X)
         np.testing.assert_array_equal(loaded.y, ds.y)  # None for BED
         assert loaded.to_dict() == ds.to_dict()  # sources kept, settings unchanged
@@ -309,7 +309,7 @@ class TestSaveRoundTrip:
 
         loaded = share.load(out)
 
-        assert isinstance(loaded, SR_benchmark)
+        assert isinstance(loaded, Benchmark)
         assert sorted(loaded.list_datasets(verbose=False)) == ["e1", "e2"]
         np.testing.assert_array_equal(loaded.create_dataset("e1").X, np.arange(6.0).reshape(3, 2) + 50.0)
         e2 = loaded.create_dataset("e2")
@@ -331,7 +331,7 @@ class TestSaveRoundTrip:
         assert isinstance(loaded, ExperimentGrid)
         assert loaded.to_dict() == grid.to_dict()
         assert Path(loaded.results_dir) == tmp_path / "recipient_run"
-        np.testing.assert_array_equal(SR_dataset.from_dict(loaded.datasets["c"]).X, np.arange(8.0).reshape(4, 2) + 40.0)
+        np.testing.assert_array_equal(Dataset.from_dict(loaded.datasets["c"]).X, np.arange(8.0).reshape(4, 2) + 40.0)
         assert ("results/a/ProGED/exp_0.json" in _names(out)) is results
         assert (tmp_path / "recipient_run" / "a" / "ProGED" / "exp_0.json").exists() is results
 
@@ -443,7 +443,7 @@ class TestSaveData:
             np.testing.assert_array_equal(npz["X"], ds.X)
 
     def test_same_dataset_twice_ships_one_copy(self, tmp_path):
-        bm = SR_benchmark("b", version="1.0.0")
+        bm = Benchmark("b", version="1.0.0")
         bm.add_dataset_instance("k1", _array_ds())
         bm.add_dataset_instance("k2", _array_ds())
 
@@ -452,7 +452,7 @@ class TestSaveData:
         assert _data_members(out) == {_member("b", "eq1")}
 
     def test_same_dataset_key_with_different_data_raises(self, tmp_path):
-        bm = SR_benchmark("b", version="1.0.0")
+        bm = Benchmark("b", version="1.0.0")
         bm.add_dataset_instance("k1", _array_ds())
         bm.add_dataset_instance("k2", _array_ds(offset=99.0))
 
@@ -495,7 +495,7 @@ class TestSaveCode:
     def test_installed_bundle_repacked_unless_supplied(self, tmp_path, custom, supplied, shipped_version):
         _install(custom.srtk("1.0.0"))
         bound = bind_config({"approach_class": custom.ap_path}, _BUNDLE, "1.0.0")
-        approach = SR_approach.from_config_dict(bound)
+        approach = Approach.from_config_dict(bound)
         bundles = [custom.srtk(supplied)] if supplied else []
 
         out = share.save(_grid(tmp_path, approaches=[approach]), tmp_path / "g.zip", bundles=bundles)
@@ -508,7 +508,7 @@ class TestSaveCode:
         _install(custom.srtk("1.0.0"))
         _install(custom.srtk("2.0.0"))
         bound = bind_config({"approach_class": custom.ap_path}, _BUNDLE, "1.0.0")
-        grid = _grid(tmp_path, approaches=[SR_approach.from_config_dict(bound)])
+        grid = _grid(tmp_path, approaches=[Approach.from_config_dict(bound)])
 
         out = share.save(grid, tmp_path / "g.zip")
 
@@ -546,7 +546,7 @@ class TestSaveCode:
     def test_loaded_object_saves_again_with_its_installed_bundle(self, tmp_path, custom, kind):
         ds = _custom_source_ds(custom)
         if kind == "benchmark":
-            obj = SR_benchmark("b", version="1.0.0")
+            obj = Benchmark("b", version="1.0.0")
             obj.add_dataset_instance("e", ds)
         else:
             # The grid holds only the config, so put the arrays in the cache for the custom source.
@@ -574,7 +574,7 @@ class TestSaveCode:
         _install(custom.srtk("1.2.0"))
         entry = _custom_source_ds(custom).to_dict()
         entry["data_source"]["_bundle"] = _BUNDLE  # as a packed config may carry it, with no _version
-        bm = SR_benchmark.from_dict({"benchmark_name": "b", "version": "1.0.0", "datasets": {"e": entry}})
+        bm = Benchmark.from_dict({"benchmark_name": "b", "version": "1.0.0", "datasets": {"e": entry}})
         custom.forget()
 
         with warnings.catch_warnings():
@@ -586,7 +586,7 @@ class TestSaveCode:
     def test_stale_annotation_of_an_uncovered_class_is_dropped(self, tmp_path, custom):
         entry = _custom_source_ds(custom).to_dict()
         entry["data_source"].update(_bundle="gone_bundle", _version="9.9.9")  # not installed, not supplied
-        bm = SR_benchmark.from_dict({"benchmark_name": "b", "version": "1.0.0", "datasets": {"e": entry}})
+        bm = Benchmark.from_dict({"benchmark_name": "b", "version": "1.0.0", "datasets": {"e": entry}})
 
         with pytest.warns(UserWarning, match="share_custom.CustomSource"):
             out = share.save(bm, tmp_path / "bm.zip", data="none")
@@ -827,7 +827,7 @@ class TestLoad:
             (
                 lambda tmp: _grid(tmp, datasets=[_seeded_ds()]),
                 {"results_dir": "r"},
-                lambda obj: SR_dataset.from_dict(obj.datasets["s1"]),
+                lambda obj: Dataset.from_dict(obj.datasets["s1"]),
             ),
         ],
         ids=["benchmark", "grid"],
@@ -868,7 +868,7 @@ class TestLoad:
             loaded = share.load(out, install_bundles=True, results_dir=tmp_path / "r")
 
         assert (_BUNDLE, "1.2.0") in _installed()
-        assert type(SR_approach.from_config_dict(loaded.approach_configs[0])).__module__.startswith("srtk_bundles.")
+        assert type(Approach.from_config_dict(loaded.approach_configs[0])).__module__.startswith("srtk_bundles.")
         assert not [w for w in recwarn if "install_bundles=True" in str(w.message)]
 
     def test_installed_bundle_is_skipped(self, tmp_path, custom, recwarn):
@@ -943,13 +943,13 @@ class TestLoad:
         to_recipient()
         stale = ds.to_dict()
         stale["data_source"] = SampleSource(n_samples=4, seed=99).to_dict()
-        SR_dataset.from_dict(stale)  # recipient's own earlier materialisation of b/1.0.0/eq1
+        Dataset.from_dict(stale)  # recipient's own earlier materialisation of b/1.0.0/eq1
 
         with pytest.warns(UserWarning, match="eq1"):
             share.load(out)
 
         with _no_warning():
-            reloaded = SR_dataset.from_dict(ds.to_dict())
+            reloaded = Dataset.from_dict(ds.to_dict())
         np.testing.assert_array_equal(reloaded.X, ds.X)
 
     def test_changed_source_after_load_gives_stale_cache_warning(self, tmp_path, to_recipient):
@@ -961,7 +961,7 @@ class TestLoad:
         changed["data_source"] = SampleSource(n_samples=4, seed=5).to_dict()
 
         with pytest.warns(UserWarning, match="changed since the cache was built"):
-            SR_dataset.from_dict(changed)
+            Dataset.from_dict(changed)
 
 
 def _text(path, content):

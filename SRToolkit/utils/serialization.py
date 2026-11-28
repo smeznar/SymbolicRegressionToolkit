@@ -2,7 +2,7 @@
 
 SRToolkit saves results and configurations as JSON ([ModelResult][SRToolkit.utils.types.ModelResult],
 [EvalResult][SRToolkit.utils.types.EvalResult],
-[ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig],
+[ApproachConfig][SRToolkit.approaches.approach.ApproachConfig],
 [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric]). Everything you put into
 augmentation data, ranking data or an approach config must be one of the values in the table below,
 nested as deeply as you like; anything else makes ``to_dict`` raise a ``TypeError`` that names the

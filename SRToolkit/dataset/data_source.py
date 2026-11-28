@@ -4,7 +4,7 @@ A [DataSource][SRToolkit.dataset.data_source.DataSource] describes the *origin* 
 dataset's data (where the ``X`` / ``y`` arrays come from). This is a separate
 concern from the dataset's *input-distribution spec* (its ``samplers``): the samplers
 define what the inputs of the problem look like and power
-[resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample], and remain available no
+[resample][SRToolkit.dataset.dataset.Dataset.resample], and remain available no
 matter where the data originated.
 
 Two concrete sources ship with the toolkit:
@@ -135,7 +135,7 @@ class DataSource(ABC):
         Args:
             cache_path: Target ``.npz`` path inside the data cache.
             config: The full serialised dataset config (see
-                [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]).
+                [Dataset.to_dict][SRToolkit.dataset.dataset.Dataset.to_dict]).
                 Sources that generate data (e.g.
                 [SampleSource][SRToolkit.dataset.data_source.SampleSource]) read the
                 dataset's samplers, symbol library, ``"ground_truth"`` and
@@ -255,7 +255,7 @@ class SampleSource(DataSource):
 
     Because the output depends on the samplers and seed, this source is *volatile*: the
     cache layer records a hash and warns when the configuration drifts (call
-    [refresh][SRToolkit.dataset.sr_dataset.SR_dataset.refresh] to regenerate).
+    [refresh][SRToolkit.dataset.dataset.Dataset.refresh] to regenerate).
 
     Args:
         n_samples: Number of input rows to generate. Defaults to ``10000``.

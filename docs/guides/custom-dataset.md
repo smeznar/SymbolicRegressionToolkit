@@ -21,13 +21,13 @@ sl = SymbolLibrary.from_symbol_list(
 Full list of supported default tokens is documented in
 [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
 
-## Creating a standalone SR_dataset
+## Creating a standalone Dataset
 
-[SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] wraps input data and evaluation settings for one problem:
+[Dataset][SRToolkit.dataset.dataset.Dataset] wraps input data and evaluation settings for one problem:
 
 ```python
 import numpy as np
-from SRToolkit.dataset import SR_dataset
+from SRToolkit.dataset import Dataset
 from SRToolkit.utils import SymbolLibrary
 
 rng = np.random.default_rng(0)
@@ -38,7 +38,7 @@ sl = SymbolLibrary.from_symbol_list(
     ["+", "*", "sin", "^2", "C"], num_variables=2
 )
 
-dataset = SR_dataset(
+dataset = Dataset(
     X=X,
     y=y,
     symbol_library=sl,
@@ -65,17 +65,17 @@ Key parameters:
 ## Creating a dataset from an expression and samplers
 
 A very common case is having only the target expression and a sampling spec for its
-inputs — no data arrays yet. [`SR_dataset.from_samplers`][SRToolkit.dataset.sr_dataset.SR_dataset.from_samplers]
+inputs — no data arrays yet. [`Dataset.from_samplers`][SRToolkit.dataset.dataset.Dataset.from_samplers]
 covers it in one call: it draws `X` from the samplers (one per variable), evaluates the
 ground truth to produce `y`, and records a
 [`SampleSource`][SRToolkit.dataset.data_source.SampleSource] so the data can be
 regenerated or resampled later.
 
 ```python
-from SRToolkit.dataset import SR_dataset
+from SRToolkit.dataset import Dataset
 from SRToolkit.dataset.sampling import UniformSampling
 
-dataset = SR_dataset.from_samplers(
+dataset = Dataset.from_samplers(
     ground_truth=["X_0", "^2", "+", "sin", "(", "X_1", ")"],
     samplers=[UniformSampling(0.5, 5.0), UniformSampling(0.5, 5.0)],
     n_samples=1000,
@@ -90,12 +90,12 @@ without them), so the minimal call is just the expression and the samplers. Use 
 `from_samplers` takes the constructor's other arguments (`max_evaluations`, `constant_bounds`,
 `settings=`, …) and generates the data instead of taking `X`, `y` and the test and aux arrays.
 
-## Building a benchmark with SR_benchmark
+## Building a benchmark with Benchmark
 
-Group multiple datasets into a reusable benchmark by subclassing [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark]. Provide a `data_source` for each dataset so data is generated (or downloaded) automatically on first use and cached locally for subsequent runs.
+Group multiple datasets into a reusable benchmark by subclassing [Benchmark][SRToolkit.dataset.benchmark.Benchmark]. Provide a `data_source` for each dataset so data is generated (or downloaded) automatically on first use and cached locally for subsequent runs.
 
 ```python
-from SRToolkit.dataset import SR_benchmark
+from SRToolkit.dataset import Benchmark
 from SRToolkit.dataset.data_source import SampleSource
 from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.utils import SymbolLibrary
@@ -103,7 +103,7 @@ from SRToolkit.utils import SymbolLibrary
 _SYMBOL_LIST = ["+", "-", "*", "/", "sin", "cos", "^2", "^3", "C"]
 
 
-class MyBenchmark(SR_benchmark):
+class MyBenchmark(Benchmark):
     __data_version__ = "1.0.0"
 
     def __init__(self):
@@ -127,7 +127,7 @@ class MyBenchmark(SR_benchmark):
 
 ### Shortcut: `add_from_samplers`
 
-When every dataset is "expression + samplers", [`add_from_samplers`][SRToolkit.dataset.sr_benchmark.SR_benchmark.add_from_samplers]
+When every dataset is "expression + samplers", [`add_from_samplers`][SRToolkit.dataset.benchmark.Benchmark.add_from_samplers]
 is a shorthand for the `add_dataset(None, …, data_source=SampleSource(...))` form above: it
 wires up the [`SampleSource`][SRToolkit.dataset.data_source.SampleSource] for you and
 defaults the symbol library to one variable per sampler. Data is still generated lazily on
@@ -149,7 +149,7 @@ self.add_from_samplers(
 `data_source` is a [DataSource][SRToolkit.dataset.data_source.DataSource] that tells the
 cache layer where the raw arrays come from. It describes the data's *origin* only — the
 problem's input distribution lives in `samplers`, which stays available for
-[resample][SRToolkit.dataset.sr_dataset.SR_dataset.resample] regardless of the source.
+[resample][SRToolkit.dataset.dataset.Dataset.resample] regardless of the source.
 
 | Source | Example | Behaviour |
 |---|---|---|
@@ -197,9 +197,9 @@ with open("my_benchmark.json", "w") as f:
 Reconstruct from the config file (data materialises on first `create_dataset`):
 
 ```python
-from SRToolkit.dataset import SR_benchmark
+from SRToolkit.dataset import Benchmark
 
-bm2 = SR_benchmark.from_dict("my_benchmark.json")
+bm2 = Benchmark.from_dict("my_benchmark.json")
 ds = bm2.create_dataset("eq1")
 ```
 
@@ -213,7 +213,7 @@ shared:
 | Shared as | Load with |
 |---|---|
 | A `.zip` archive, local or hosted | `share.load(path_or_url)` (from `SRToolkit import share`) |
-| A JSON config / recipe | `SR_dataset.from_dict(path_or_dict)` / `SR_benchmark.from_dict(...)` |
+| A JSON config / recipe | `Dataset.from_dict(path_or_dict)` / `Benchmark.from_dict(...)` |
 
 The trade-offs between these channels — shipping data versus shipping a recipe that
 regenerates by sampling — are covered in the [Sharing guide](sharing.md).

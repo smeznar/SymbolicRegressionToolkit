@@ -1,8 +1,8 @@
 """Expression evaluation for symbolic regression.
 
-Contains [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator], which ranks expressions
+Contains [Evaluator][SRToolkit.evaluation.evaluator.Evaluator], which ranks expressions
 with a [RankingFunction][SRToolkit.evaluation.ranking.RankingFunction] (RMSE by default) and
-collects them into [SR_results][SRToolkit.evaluation.results.SR_results].
+collects them into [Results][SRToolkit.evaluation.results.Results].
 
 ## Settings
 
@@ -13,7 +13,7 @@ backend, ``ranking_seed``); the ranking reads its own section and shared ones (s
 [ranking][SRToolkit.evaluation.ranking]). Facts about the task are not settings: ``constant_bounds``,
 ``default_constant`` and ``samplers`` are arguments of the evaluator, which passes them to the
 ranking in its
-[background_knowledge][SRToolkit.evaluation.sr_evaluator.SR_evaluator.background_knowledge].
+[background_knowledge][SRToolkit.evaluation.evaluator.Evaluator.background_knowledge].
 
 ## Evaluation statuses
 
@@ -60,10 +60,10 @@ results as [EvalResult.stop_reason][SRToolkit.utils.types.EvalResult]:
   records ``"success_threshold"``);
 - ``"max_consecutive_skips"``: the approach skipped ``max_consecutive_skips`` expressions in a row
   (the setting ``evaluator.max_consecutive_skips``, default ``10000``; see
-  [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]);
-- a callback asked to stop (see [SR_callback][SRToolkit.evaluation.callbacks.SR_callback]), e.g.
+  [count_skip][SRToolkit.evaluation.evaluator.Evaluator.count_skip]);
+- a callback asked to stop (see [Callback][SRToolkit.evaluation.callbacks.Callback]), e.g.
   ``"time_limit"``;
-- the approach called [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with its own
+- the approach called [stop][SRToolkit.evaluation.evaluator.Evaluator.stop] with its own
   reason, e.g. because its search space is exhausted.
 
 An approach loops while ``should_stop`` is ``False``. If its search returns without any of these,
@@ -75,7 +75,7 @@ calls are not evaluated: they warn, return ``None`` and are not counted.
 An approach can give specs for the labelled constants of an expression (priors, bounds, fixed
 values; see [free_constants][SRToolkit.utils.free_constants]) by passing an
 [Expression][SRToolkit.utils.expression.Expression] that carries them to
-[evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]; a token list has
+[evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr]; a token list has
 no specs. A **model** is an expression together with its specs: the same tokens with different
 specs are two models, each scored, cached, counted in ``num_evaluated`` and ``status_counts`` and
 stored in ``models`` on its own. Specs are matched by value (the fields that affect the score) and
@@ -100,7 +100,7 @@ produce, in this order:
 
 1. ``simplify_expr``: [simplified][SRToolkit.utils.expression_simplifier.simplify] with the
    ``simplify_*`` settings. If simplification fails, the expression is kept as given;
-   [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] then warns,
+   [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr] then warns,
    unless the expression is malformed (it is scored ``"invalid"``, which says why). A malformed
    expression is still canonicalised token by token in step 3.
 2. ``fold_constants``: [folded][SRToolkit.utils.expression_simplifier.fold] (during simplification
@@ -112,10 +112,10 @@ Simplifying and folding drop the specs of the labels they remove; if none remain
 without specs (``ModelResult.free_constants`` is ``None``). Inputs with the same stored form and
 the same remaining specs are one model: scored once, cached once. ``ModelResult.expr`` holds the
 stored form, the pre-checks see it, and
-[get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model],
-[get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric] and
-[check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints] bring their
-input to it first. [stored_tokens][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens]
+[get_model][SRToolkit.evaluation.evaluator.Evaluator.get_model],
+[get_metric][SRToolkit.evaluation.evaluator.Evaluator.get_metric] and
+[check_constraints][SRToolkit.evaluation.evaluator.Evaluator.check_constraints] bring their
+input to it first. [stored_tokens][SRToolkit.evaluation.evaluator.Evaluator.stored_tokens]
 returns it.
 
 With ``simplify_expr``, the evaluator remembers the stored form of the 100,000 most recently used
@@ -137,7 +137,7 @@ library on its own copies, so the instances passed in are not changed.
   of that stage are not run. The settings ``evaluator.max_constants`` (default 8) and
   ``evaluator.max_expr_length`` add a ``MaxConstants`` and a ``MaxTokens`` in front of the list,
   unless a negative setting disables them or the list already has one of that class (see
-  [SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator]), so ``[]`` still allows at most
+  [Evaluator][SRToolkit.evaluation.evaluator.Evaluator]), so ``[]`` still allows at most
   8 constants.
 - ``advisory_constraints``: pre-checks run on every parsed expression, post-checks on every ``"ok"``
   model. Each failed check is recorded in
@@ -155,16 +155,16 @@ constraint (see [Checks that raise][SRToolkit.utils.expression_constraints]).
 
 To avoid spending evaluations on expressions that would fail a pre-check, or to filter candidates
 by the advisory constraints, an approach can call
-[check_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.check_constraints] first: it runs
+[check_constraints][SRToolkit.evaluation.evaluator.Evaluator.check_constraints] first: it runs
 the pre-checks only, on the stored form, and is not billed.
 
 ## Background knowledge
 
 The search sees only the evaluator, so the evaluator carries the task's
 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge] as
-[background_knowledge][SRToolkit.evaluation.sr_evaluator.SR_evaluator.background_knowledge].
-[describe][SRToolkit.evaluation.sr_evaluator.SR_evaluator.describe] and
-[priors][SRToolkit.evaluation.sr_evaluator.SR_evaluator.priors] give the task as text and as
+[background_knowledge][SRToolkit.evaluation.evaluator.Evaluator.background_knowledge].
+[describe][SRToolkit.evaluation.evaluator.Evaluator.describe] and
+[priors][SRToolkit.evaluation.evaluator.Evaluator.priors] give the task as text and as
 records, the same as the dataset's, e.g. to build an LLM prompt. Neither mentions the answer, but
 the evaluator does not hide it: ``ground_truth`` is a public attribute, which an approach must not
 read.
@@ -172,7 +172,7 @@ read.
 ## Evaluation trace
 
 The evaluator records every counted call to
-[evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] in order, and each
+[evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr] in order, and each
 [EvalResult][SRToolkit.utils.types.EvalResult] carries this record as ``trace``: ``trace[k]`` is the
 index into ``all_models`` of the expression requested by call ``k + 1``. Cache hits appear as
 repeated indices, since they count toward ``max_evaluations``; calls made after evaluation stopped
@@ -217,14 +217,14 @@ below), before comparing approaches.
 [model_store][SRToolkit.evaluation.model_store]). ``se.models[i]`` returns a new
 [ModelResult][SRToolkit.utils.types.ModelResult] each time, so changing it saves nothing. An
 evaluator holds an open database connection, so it cannot be pickled or deep-copied; release it
-with [close][SRToolkit.evaluation.sr_evaluator.SR_evaluator.close] when done (a dropped evaluator
+with [close][SRToolkit.evaluation.evaluator.Evaluator.close] when done (a dropped evaluator
 loses only what was not committed). It is not thread-safe: call it from one thread at a time.
 
 ## Checkpoints
 
 With ``checkpoint=path`` the evaluator writes the models and trace to that file as it goes, so a
 run that crashes, is killed or is stopped keeps what it evaluated: convert it to results with
-[SR_results.from_checkpoint][SRToolkit.evaluation.results.SR_results.from_checkpoint], or continue
+[Results.from_checkpoint][SRToolkit.evaluation.results.Results.from_checkpoint], or continue
 it with ``resume=True``. A resume must match the saved run in:
 
 - the data, ranking, symbols, ground truth and seed;
@@ -233,7 +233,7 @@ it with ``resume=True``. A resume must match the saved run in:
 - ``default_constant``, ``constant_bounds``, ``samplers`` and the ground truth's specs (compared
   in any order);
 - ``max_evaluations`` and ``success_threshold``, which only
-  [extending the run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run] changes;
+  [extending the run][SRToolkit.dataset.dataset.Dataset.extend_run] changes;
 - every setting that differs from its default, in every section, whether the ranking reads it or
   not. Settings are compared by their saved form, so a setting written at its default is the same
   as one left out.
@@ -243,7 +243,7 @@ Otherwise it raises ``ValueError`` naming what differs (a setting as ``<section>
 
 Resuming continues from the run's last [snapshot][SRToolkit.evaluation.model_store.Snapshot], the
 approach's state saved between two steps. Approaches that support snapshots (see
-[SR_approach][SRToolkit.approaches.sr_approach.SR_approach]) save one every ``snapshot_interval``
+[Approach][SRToolkit.approaches.approach.Approach]) save one every ``snapshot_interval``
 seconds (5 minutes by default) and when they stop. A crash loses only the work since the last
 snapshot. A run without any snapshot starts over. A finished run (stopped for any reason except an
 interrupt) is not run again. Snapshots may be pickled, so resume only checkpoints you trust.
@@ -251,7 +251,7 @@ interrupt) is not run again. Snapshots may be pickled, so resume only checkpoint
 ## Extending runs
 
 To give a run a larger budget, a lower threshold or a longer time limit, extend it with
-[SR_dataset.extend_run][SRToolkit.dataset.sr_dataset.SR_dataset.extend_run]:
+[Dataset.extend_run][SRToolkit.dataset.dataset.Dataset.extend_run]:
 
 ```python
 results = dataset.evaluate_approach(approach, checkpoint_dir="runs", keep_checkpoint=True)
@@ -290,14 +290,14 @@ import numpy as np
 
 from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
+    Callback,
     CallbackDispatcher,
     ExprEvaluated,
     ExprSkipped,
-    SR_callback,
 )
 from SRToolkit.evaluation.model_store import ModelStore, Snapshot, _capture_rngs
 from SRToolkit.evaluation.ranking import RankingFunction, build_ranking
-from SRToolkit.evaluation.results import SR_results
+from SRToolkit.evaluation.results import Results
 from SRToolkit.utils.expression import Expression, _as_expression, canonicalise
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_constraints import (
@@ -338,7 +338,7 @@ def evaluate_metric(
 
     Builds a constants-bound prediction function ``predict(X) -> y_pred`` from ``expr`` and
     ``parameters`` and applies ``metric``. This is the shared scoring core behind
-    [SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric] (train
+    [Evaluator.get_metric][SRToolkit.evaluation.evaluator.Evaluator.get_metric] (train
     data) and [HoldoutMetric][SRToolkit.evaluation.result_augmentation.HoldoutMetric] (held-out
     data) — the same call against different arrays.
 
@@ -396,7 +396,7 @@ def evaluate_metric(
         return float("nan")
 
 
-# Entries of SR_evaluator's stored-form cache (used with simplify_expr); the least recently used is
+# Entries of Evaluator's stored-form cache (used with simplify_expr); the least recently used is
 # evicted first.
 _STORED_FORM_CACHE_SIZE = 100_000
 
@@ -420,11 +420,11 @@ def _as_constraint_tuple(constraints: Any, name: str) -> tuple[ExpressionConstra
         items = tuple(constraints)
     except TypeError:
         raise TypeError(
-            f"[SR_evaluator] {name} must be an iterable of ExpressionConstraint, got {constraints!r}."
+            f"[Evaluator] {name} must be an iterable of ExpressionConstraint, got {constraints!r}."
         ) from None
     for item in items:
         if not isinstance(item, ExpressionConstraint):
-            raise TypeError(f"[SR_evaluator] {name} must contain ExpressionConstraint instances, got {item!r}.")
+            raise TypeError(f"[Evaluator] {name} must contain ExpressionConstraint instances, got {item!r}.")
     return items
 
 
@@ -446,7 +446,7 @@ def _add_limit_constraints(
             clash = next((c for c in listed if c.limit != value), None)
             if key in limits and value >= 0 and clash is not None:
                 raise ValueError(
-                    f"[SR_evaluator] {key}={value} disagrees with {cls.__name__}({clash.limit}) in "
+                    f"[Evaluator] {key}={value} disagrees with {cls.__name__}({clash.limit}) in "
                     f"required_constraints; remove the setting or the constraint."
                 )
     return tuple(built) + constraints
@@ -468,7 +468,7 @@ def _failed_checks(
                 raise TypeError(f"{stage}_check returned {type(result).__name__}, expected CheckResult")
         except Exception as e:
             error = f"{type(e).__name__}: {e}"
-            warnings.warn(f"[SR_evaluator] {name}.{stage}_check raised {error}", UserWarning)
+            warnings.warn(f"[Evaluator] {name}.{stage}_check raised {error}", UserWarning)
             result = CheckResult(passed=False, message=f"raised {error}", amount=math.inf, error=error)
         if not result.implemented or result.passed:
             continue
@@ -481,7 +481,7 @@ def _failed_checks(
 def _as_ground_truth(ground_truth: Any, symbol_library: SymbolLibrary, default_constant: Constant) -> Expression | None:
     """Return a ground truth as an ``Expression`` in ``symbol_library``, checked to parse and to fit the default spec.
 
-    Shared by SR_evaluator, SR_dataset and SR_benchmark.add_dataset, which prefix the message.
+    Shared by Evaluator, Dataset and Benchmark.add_dataset, which prefix the message.
 
     Raises:
         TypeError: If ``ground_truth`` is neither a token list nor an ``Expression``.
@@ -510,7 +510,7 @@ def _as_ground_truth(ground_truth: Any, symbol_library: SymbolLibrary, default_c
     return expr
 
 
-class SR_evaluator:
+class Evaluator:
     def __init__(
         self,
         X: np.ndarray,
@@ -542,8 +542,8 @@ class SR_evaluator:
         Each distinct model (an expression with its free-constant specs) is scored once and
         cached; repeating it returns the cached model but still counts toward
         ``max_evaluations``. Statuses, free constants, constraints and the evaluation trace
-        are described in the [module docs][SRToolkit.evaluation.sr_evaluator]; results are
-        collected with [get_results][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_results].
+        are described in the [module docs][SRToolkit.evaluation.evaluator]; results are
+        collected with [get_results][SRToolkit.evaluation.evaluator.Evaluator.get_results].
 
         Args:
             X: Input data of shape ``(n_samples, n_features)``.
@@ -553,7 +553,7 @@ class SR_evaluator:
             symbol_library: Symbol library defining the tokens. ``None`` (default): the active
                 library ([get_or_default][SRToolkit.utils.symbol_library.SymbolLibrary.get_or_default]).
             max_evaluations: Budget of counted calls to
-                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr],
+                [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr],
                 cache hits included. A negative value (default ``-1``) means no limit.
             success_threshold: Error below which an expression counts as successful and the search
                 stops. ``None`` (default) uses the ranking's default (``1e-7`` for RMSE; for BED
@@ -578,7 +578,7 @@ class SR_evaluator:
                 ``"dataset_name"`` key is copied to
                 [EvalResult][SRToolkit.utils.types.EvalResult] ``dataset_name``.
             required_constraints: Constraints every evaluated expression must satisfy (see the
-                [module docs][SRToolkit.evaluation.sr_evaluator]); ``None`` means ``[]``. The
+                [module docs][SRToolkit.evaluation.evaluator]); ``None`` means ``[]``. The
                 settings ``evaluator.max_constants`` and ``evaluator.max_expr_length`` add a
                 [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants] and a
                 [MaxTokens][SRToolkit.utils.expression_constraints.MaxTokens] in front, unless a
@@ -608,13 +608,13 @@ class SR_evaluator:
                 the ranking's sections. ``None``: the defaults.
             checkpoint: A file to store the models and trace in, committed as described in
                 [model_store][SRToolkit.evaluation.model_store]; created, or continued with
-                ``resume=True`` (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``
+                ``resume=True`` (see [Checkpoints][SRToolkit.evaluation.evaluator]). ``None``
                 (default): they are kept in memory.
             resume: Continue the run saved in ``checkpoint`` (see
-                [Checkpoints][SRToolkit.evaluation.sr_evaluator]). If the run already meets a limit,
+                [Checkpoints][SRToolkit.evaluation.evaluator]). If the run already meets a limit,
                 the evaluator starts stopped. Default ``False``.
             snapshot_interval: Seconds between snapshots during a run with a ``checkpoint`` (see
-                [Checkpoints][SRToolkit.evaluation.sr_evaluator]). ``None``: a snapshot only when
+                [Checkpoints][SRToolkit.evaluation.evaluator]). ``None``: a snapshot only when
                 the step loop ends. Default ``300.0``. Not checked on resume, so a resume may change
                 it.
 
@@ -635,7 +635,7 @@ class SR_evaluator:
             ValueError: If ``max_evaluations`` is ``0``, ``snapshot_interval`` is not positive, or
                 ``checkpoint`` is an empty path. If ``resume=True`` and ``checkpoint`` is ``None``,
                 is not a checkpoint (or one of another format version), or was saved with another
-                run (see [Checkpoints][SRToolkit.evaluation.sr_evaluator]); the message names what
+                run (see [Checkpoints][SRToolkit.evaluation.evaluator]); the message names what
                 differs. If ``evaluator.max_constants`` or ``evaluator.max_expr_length`` differs
                 from its default (a value written at its default counts as not given), is
                 non-negative and differs from the limit of a constraint of its class in
@@ -675,11 +675,11 @@ class SR_evaluator:
                 order they were first evaluated.
             trace: Read-only [view][SRToolkit.evaluation.model_store.TraceView] with one entry per
                 counted call to
-                [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+                [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr]
                 (cache hits included, calls after stopping excluded): the index into ``models`` of
                 the requested expression.
             stop_reason: Why evaluation stopped (see the
-                [module docs][SRToolkit.evaluation.sr_evaluator]), or ``None`` while it runs.
+                [module docs][SRToolkit.evaluation.evaluator]), or ``None`` while it runs.
             checkpoint: The ``checkpoint`` passed, or ``None``.
             snapshot_interval: The ``snapshot_interval`` passed.
             resumed_from: The [Snapshot][SRToolkit.evaluation.model_store.Snapshot] a resumed
@@ -689,7 +689,7 @@ class SR_evaluator:
                 the checkpoint.
             skips: How many expressions the approach skipped without evaluating them, by reason; a
                 resume restores them (see
-                [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]).
+                [count_skip][SRToolkit.evaluation.evaluator.Evaluator.count_skip]).
             default_constant: The run's default spec, complete:
                 [background_knowledge.default_constant][SRToolkit.dataset.background_knowledge.BackgroundKnowledge],
                 built from ``default_constant`` and ``constant_bounds``. The ranking and the results
@@ -698,7 +698,7 @@ class SR_evaluator:
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = Evaluator(X, y)
             >>> rmse = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"]).error
             >>> print(rmse < 1e-6)
             True
@@ -710,7 +710,7 @@ class SR_evaluator:
         if settings is None:
             settings = Settings()
         if not isinstance(settings, Settings):
-            raise TypeError(f"[SR_evaluator] settings must be a Settings, got {type(settings).__name__}.")
+            raise TypeError(f"[Evaluator] settings must be a Settings, got {type(settings).__name__}.")
         self.settings = settings
         self.success_threshold = success_threshold
         self.metadata = metadata
@@ -723,9 +723,9 @@ class SR_evaluator:
             symbol_library = SymbolLibrary.get_or_default()
         self.symbol_library = symbol_library
         if isinstance(max_evaluations, bool) or not isinstance(max_evaluations, (int, np.integer)):
-            raise TypeError(f"[SR_evaluator] max_evaluations must be an int, got {type(max_evaluations).__name__}.")
+            raise TypeError(f"[Evaluator] max_evaluations must be an int, got {type(max_evaluations).__name__}.")
         if max_evaluations == 0:
-            raise ValueError("[SR_evaluator] max_evaluations must be positive, or negative for no limit; got 0.")
+            raise ValueError("[Evaluator] max_evaluations must be positive, or negative for no limit; got 0.")
         self.max_evaluations = max_evaluations
         self.seed = seed
 
@@ -761,7 +761,7 @@ class SR_evaluator:
         try:
             self.ground_truth = _as_ground_truth(ground_truth, symbol_library, self.default_constant)
         except (TypeError, ValueError) as e:
-            raise type(e)(f"[SR_evaluator] {e}") from None
+            raise type(e)(f"[Evaluator] {e}") from None
 
         if seed is not None:
             np.random.seed(seed)
@@ -794,10 +794,10 @@ class SR_evaluator:
         self._in_step = False  # inside se.step(): a signal takes effect when the step ends
         self.checkpoint = checkpoint
         if snapshot_interval is not None and not snapshot_interval > 0:
-            raise ValueError(f"[SR_evaluator] snapshot_interval must be positive or None, got {snapshot_interval!r}.")
+            raise ValueError(f"[Evaluator] snapshot_interval must be positive or None, got {snapshot_interval!r}.")
         self.snapshot_interval = snapshot_interval
         if resume and checkpoint is None:
-            raise ValueError("[SR_evaluator] resume=True needs a checkpoint to resume.")
+            raise ValueError("[Evaluator] resume=True needs a checkpoint to resume.")
         # The run's limit segments (see EvalResult.limits); a resume reads them from the checkpoint.
         self.limits: list[dict[str, Any]] = [
             {
@@ -836,12 +836,12 @@ class SR_evaluator:
             if changed:
                 self._store.close()
                 hint = (
-                    " Change limits with SR_dataset.extend_run."
+                    " Change limits with Dataset.extend_run."
                     if set(changed) <= {"max_evaluations", "success_threshold"}
                     else ""
                 )
                 raise ValueError(
-                    f"[SR_evaluator] Cannot resume {os.fspath(checkpoint)!r}: these parameters differ from the "
+                    f"[Evaluator] Cannot resume {os.fspath(checkpoint)!r}: these parameters differ from the "
                     f"saved run: {', '.join(changed)}.{hint}"
                 )
             self.limits = _from_json_safe(self._store.get_header("limits"))
@@ -910,7 +910,7 @@ class SR_evaluator:
         return {name: _fingerprint_hash(value, name) for name, value in parts.items()}
 
     def _results_header(self) -> dict[str, Any]:
-        # What SR_results.from_checkpoint needs besides the models and trace.
+        # What Results.from_checkpoint needs besides the models and trace.
         return {
             "success_threshold": self.success_threshold,
             "metadata": _to_json_safe(self.metadata, "metadata"),
@@ -921,10 +921,10 @@ class SR_evaluator:
     def should_stop(self) -> bool:
         """Whether evaluation has stopped: ``stop_reason is not None``.
 
-        Later calls to [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr]
+        Later calls to [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr]
         warn and return ``None`` without being counted. After a signal caught by
-        [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals], reading
-        it outside a [step][SRToolkit.evaluation.sr_evaluator.SR_evaluator.step] stops evaluation
+        [stop_on_signals][SRToolkit.evaluation.evaluator.Evaluator.stop_on_signals], reading
+        it outside a [step][SRToolkit.evaluation.evaluator.Evaluator.step] stops evaluation
         with the reason ``"interrupted"``.
         """
         if self._interrupted and not self._in_step and self.stop_reason is None:
@@ -936,14 +936,14 @@ class SR_evaluator:
         """Defer an interrupt to the end of one step of an approach.
 
         Inside the ``with`` block a signal caught by
-        [stop_on_signals][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop_on_signals] does not stop
+        [stop_on_signals][SRToolkit.evaluation.evaluator.Evaluator.stop_on_signals] does not stop
         evaluation; the stop applies when the block ends (also with an exception). So the step's
         candidates are all evaluated and told: without it, Ctrl-C after the 2nd of 5 candidates would
         stop at the 3rd, the approach would be told 2, and its final snapshot would hold a state an
         uninterrupted run never reaches, so a resumed run would differ from it. Other stops (budget,
-        threshold, callbacks, [stop][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop]) apply at
+        threshold, callbacks, [stop][SRToolkit.evaluation.evaluator.Evaluator.stop]) apply at
         once, since they happen at the same call in every run. The default step loop of
-        [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] wraps each step in it.
+        [Approach][SRToolkit.approaches.approach.Approach] wraps each step in it.
         """
         self._in_step = True
         try:
@@ -972,13 +972,13 @@ class SR_evaluator:
         if PyTorch is imported, its CPU and CUDA states), the callbacks' states and the
         skip counts (``skips`` and the count of skips in a row), at the current
         number of calls and models. Does nothing without a ``checkpoint``. Only the step loop of
-        [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] should call it, between two
+        [Approach][SRToolkit.approaches.approach.Approach] should call it, between two
         steps, where ``state`` is the approach's whole search state: a resumed run always
         continues with that loop.
 
         Args:
             state: The approach's search state, as returned by its
-                [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].
+                [dump_search_state][SRToolkit.approaches.approach.Approach.dump_search_state].
 
         Raises:
             TypeError: If a callback's state cannot be saved.
@@ -1002,13 +1002,13 @@ class SR_evaluator:
 
         The first signal stops evaluation with the reason ``"interrupted"`` at the next read of
         ``should_stop`` or call to
-        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] outside a
-        [step][SRToolkit.evaluation.sr_evaluator.SR_evaluator.step], or at the end of the block, and
+        [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr] outside a
+        [step][SRToolkit.evaluation.evaluator.Evaluator.step], or at the end of the block, and
         commits the checkpoint. A second signal raises ``KeyboardInterrupt`` at once.
 
         Cluster schedulers send SIGTERM some time before they kill a job (30 s by default on SLURM):
         if the current step ends in that time and the approach implements the
-        [step interface][SRToolkit.approaches.sr_approach.SR_approach.supports_steps], the job
+        [step interface][SRToolkit.approaches.approach.Approach.supports_steps], the job
         resumes without losing work.
 
         The previous handlers are restored at the end of the block. Outside the main thread, where
@@ -1016,7 +1016,7 @@ class SR_evaluator:
 
         Examples:
             >>> import os
-            >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 3.0]))
+            >>> se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 3.0]))
             >>> with se.stop_on_signals():
             ...     os.kill(os.getpid(), signal.SIGINT)  # as Ctrl-C would
             ...     se.should_stop
@@ -1065,7 +1065,7 @@ class SR_evaluator:
         and commits the checkpoint.
 
         Examples:
-            >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
+            >>> se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
             >>> se.stop("grammar exhausted")
             >>> se.stop("other")
             >>> se.should_stop, se.stop_reason
@@ -1081,7 +1081,7 @@ class SR_evaluator:
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
         if not isinstance(reason, str) or not reason:
-            raise ValueError(f"[SR_evaluator.stop] reason must be a non-empty str, got {reason!r}.")
+            raise ValueError(f"[Evaluator.stop] reason must be a non-empty str, got {reason!r}.")
         if self.stop_reason is None:
             self.stop_reason = reason
             self._stopped_at = time.monotonic()
@@ -1110,8 +1110,8 @@ class SR_evaluator:
             segment["callbacks"] = configs
         elif saved != _to_json_safe(segment["callbacks"], "callbacks"):
             warnings.warn(
-                "[SR_evaluator] The callbacks differ from those this part of the run started with; "
-                "change limits with SR_dataset.extend_run.",
+                "[Evaluator] The callbacks differ from those this part of the run started with; "
+                "change limits with Dataset.extend_run.",
                 UserWarning,
             )
         self._callbacks_ready = True
@@ -1130,14 +1130,14 @@ class SR_evaluator:
         included) resets them; lookups (``get_model``, ``check_constraints``) do not. When they
         reach the setting ``evaluator.max_consecutive_skips`` (see
         [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings]), evaluation
-        [stops][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stop] with the reason
+        [stops][SRToolkit.evaluation.evaluator.Evaluator.stop] with the reason
         ``"max_consecutive_skips"``.
 
         Each skip, like each evaluation, is then reported to the callbacks'
-        [on_skip][SRToolkit.evaluation.callbacks.SR_callback.on_skip], which may also stop
+        [on_skip][SRToolkit.evaluation.callbacks.Callback.on_skip], which may also stop
         evaluation; on the same skip ``"max_consecutive_skips"`` is checked first, so its reason is
         kept. Skips are still counted and reported after evaluation has stopped. Step approaches
-        report skipped proposals through [Candidate][SRToolkit.approaches.sr_approach.Candidate]
+        report skipped proposals through [Candidate][SRToolkit.approaches.approach.Candidate]
         instead; the step loop counts them here.
 
         The counts are saved with each commit and snapshot. A resumed run continues from the counts
@@ -1156,14 +1156,14 @@ class SR_evaluator:
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
 
         Examples:
-            >>> se = SR_evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
+            >>> se = Evaluator(np.array([[1.0], [2.0]]), np.array([1.0, 2.0]))
             >>> se.count_skip("rejected")
             >>> se.count_skip("rejected")
             >>> se.skips
             {'rejected': 2}
         """
         if not isinstance(reason, str) or not reason:
-            raise ValueError(f"[SR_evaluator.count_skip] reason must be a non-empty str, got {reason!r}.")
+            raise ValueError(f"[Evaluator.count_skip] reason must be a non-empty str, got {reason!r}.")
         self._setup_callbacks()
         self.skips[reason] = self.skips.get(reason, 0) + 1
         self._skips_in_a_row += 1
@@ -1214,7 +1214,7 @@ class SR_evaluator:
     @property
     def total_evaluations(self) -> int:
         """Number of counted calls to
-        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr], including
+        [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr], including
         cache hits but not calls made after evaluation was stopped. Equal to ``len(trace)``.
         """
         return len(self.trace)
@@ -1270,12 +1270,12 @@ class SR_evaluator:
         r"""Return the task as text for people and LLM prompts, without the answer.
 
         [BackgroundKnowledge.describe][SRToolkit.dataset.background_knowledge.BackgroundKnowledge.describe]
-        of [background_knowledge][SRToolkit.evaluation.sr_evaluator.SR_evaluator.background_knowledge]
-        with [required_constraints][SRToolkit.evaluation.sr_evaluator.SR_evaluator.required_constraints]
+        of [background_knowledge][SRToolkit.evaluation.evaluator.Evaluator.background_knowledge]
+        with [required_constraints][SRToolkit.evaluation.evaluator.Evaluator.required_constraints]
         listed as enforced (including a ``MaxConstants`` / ``MaxTokens`` added by the settings).
         For an evaluator from
-        [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator] it
-        equals [SR_dataset.describe][SRToolkit.dataset.sr_dataset.SR_dataset.describe]. It does not
+        [Dataset.create_evaluator][SRToolkit.dataset.dataset.Dataset.create_evaluator] it
+        equals [Dataset.describe][SRToolkit.dataset.dataset.Dataset.describe]. It does not
         mention the ground truth, success threshold, ranking or budget.
 
         Returns:
@@ -1284,7 +1284,7 @@ class SR_evaluator:
         Examples:
             >>> from SRToolkit.utils.expression_constraints import MaxTreeDepth
             >>> X = np.array([[1.0], [2.0]])
-            >>> se = SR_evaluator(X, X[:, 0], symbol_library=SymbolLibrary.from_symbol_list(["+", "*", "C"], 1),
+            >>> se = Evaluator(X, X[:, 0], symbol_library=SymbolLibrary.from_symbol_list(["+", "*", "C"], 1),
             ...     advisory_constraints=[MaxTreeDepth(4)])
             >>> print(se.describe())
             Symbols: +, *, C, X_0
@@ -1300,7 +1300,7 @@ class SR_evaluator:
         """Return the constraints as records, the structured form of ``describe``.
 
         For an evaluator from ``create_evaluator`` it equals
-        [SR_dataset.priors][SRToolkit.dataset.sr_dataset.SR_dataset.priors].
+        [Dataset.priors][SRToolkit.dataset.dataset.Dataset.priors].
 
         Returns:
             ``{"required": [...], "advisory": [...]}``: the
@@ -1383,8 +1383,8 @@ class SR_evaluator:
         """Return the result of an already evaluated expression, or ``None``.
 
         Does not count toward ``max_evaluations`` and fires no callbacks. The expression is matched
-        in its [stored form][SRToolkit.evaluation.sr_evaluator], together with the specs that
-        remain, as by [stored_tokens][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens].
+        in its [stored form][SRToolkit.evaluation.evaluator], together with the specs that
+        remain, as by [stored_tokens][SRToolkit.evaluation.evaluator.Evaluator.stored_tokens].
 
         Args:
             expr: The expression, as an infix token list or an
@@ -1400,7 +1400,7 @@ class SR_evaluator:
 
         Examples:
             >>> X = np.array([[1.0], [2.0]])
-            >>> se = SR_evaluator(X, X[:, 0], symbol_library=SymbolLibrary.from_symbol_list(["+"], 1))
+            >>> se = Evaluator(X, X[:, 0], symbol_library=SymbolLibrary.from_symbol_list(["+"], 1))
             >>> se.get_model(["X_0"]) is None
             True
             >>> _ = se.evaluate_expr(["X_0"])
@@ -1415,15 +1415,15 @@ class SR_evaluator:
         """Return the tokens of the stored form of ``expr``.
 
         These are the tokens
-        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] stores
-        ``expr`` under (see [Stored form][SRToolkit.evaluation.sr_evaluator]), so two
+        [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr] stores
+        ``expr`` under (see [Stored form][SRToolkit.evaluation.evaluator]), so two
         inputs with the same stored tokens and the same remaining specs are one model. Approaches
         use it to recognise repeats among expressions not yet evaluated. Does not count toward
         ``max_evaluations``, records nothing and emits no warnings. The specs' values are not
         checked against ``default_constant``: specs that do not fit match no model. With the
         ``evaluator.simplify_max_time`` setting, a lookup can miss a model that was evaluated
         before a resume, or whose input has since been forgotten (see
-        [Stored form][SRToolkit.evaluation.sr_evaluator]).
+        [Stored form][SRToolkit.evaluation.evaluator]).
 
         Args:
             expr: The expression, as an infix token list or an
@@ -1437,7 +1437,7 @@ class SR_evaluator:
 
         Examples:
             >>> X = np.array([[1.0], [2.0]])
-            >>> se = SR_evaluator(X, X[:, 0], settings=Settings(evaluator={"canonicalise_constants": True}))
+            >>> se = Evaluator(X, X[:, 0], settings=Settings(evaluator={"canonicalise_constants": True}))
             >>> "".join(se.stored_tokens(["C_3", "*", "X_0", "+", "C_3"]))
             'C_0*X_0+C_0'
         """
@@ -1452,12 +1452,12 @@ class SR_evaluator:
         post-checks need a scored model.
 
         The pre-checks are the ones
-        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr] runs, on the
-        same input: the [stored form][SRToolkit.evaluation.sr_evaluator] of ``expr``. So an empty
+        [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr] runs, on the
+        same input: the [stored form][SRToolkit.evaluation.evaluator] of ``expr``. So an empty
         ``required`` list means ``evaluate_expr(expr)`` will neither reject
         ``expr`` in a pre-check nor give it the status ``"error"`` there (unless a
         ``simplify_max_time`` limit simplifies it differently, which the
-        [stored form][SRToolkit.evaluation.sr_evaluator] memory prevents within a run, but not
+        [stored form][SRToolkit.evaluation.evaluator] memory prevents within a run, but not
         across a resume or after the input is forgotten). Unlike evaluation, every failed
         pre-check is reported, not only the first. A check that raises, or returns something other
         than a ``CheckResult``, is reported like a failed one, with ``error`` set (see
@@ -1489,7 +1489,7 @@ class SR_evaluator:
         Examples:
             >>> from SRToolkit.utils.expression_constraints import MaxConstants, MaxTreeDepth
             >>> X = np.array([[1.0], [2.0], [3.0]])
-            >>> se = SR_evaluator(X, X[:, 0], symbol_library=SymbolLibrary.default_symbols(1),
+            >>> se = Evaluator(X, X[:, 0], symbol_library=SymbolLibrary.default_symbols(1),
             ...     required_constraints=[MaxConstants(1)], advisory_constraints=[MaxTreeDepth(2)])
             >>> required, advisory = se.check_constraints(["C", "*", "sin", "(", "X_0", "+", "C", ")"])
             >>> [(r.constraint, r.message) for r in required]
@@ -1511,7 +1511,7 @@ class SR_evaluator:
             _failed_checks(self._advisory_constraints, "pre", stored),
         )
 
-    def register_callbacks(self, callbacks: SR_callback | CallbackDispatcher | None = None) -> None:
+    def register_callbacks(self, callbacks: Callback | CallbackDispatcher | None = None) -> None:
         """Add callbacks for monitoring and early stopping to those already registered.
 
         The evaluator enforces ``success_threshold`` and ``max_evaluations`` itself; callbacks add
@@ -1526,25 +1526,25 @@ class SR_evaluator:
             >>> from SRToolkit.evaluation.callbacks import TimeLimitCallback
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = Evaluator(X, y)
             >>> se.register_callbacks(TimeLimitCallback(time_limit=60))
 
         Args:
-            callbacks: A single [SR_callback][SRToolkit.evaluation.callbacks.SR_callback], or a
+            callbacks: A single [Callback][SRToolkit.evaluation.callbacks.Callback], or a
                 [CallbackDispatcher][SRToolkit.evaluation.callbacks.CallbackDispatcher] whose
                 callbacks are added (the dispatcher itself is not changed). ``None`` adds nothing.
 
         Raises:
             TypeError: If ``callbacks`` is of another type (e.g. a list).
         """
-        if isinstance(callbacks, SR_callback):
+        if isinstance(callbacks, Callback):
             self._callbacks.add(callbacks)
         elif isinstance(callbacks, CallbackDispatcher):
             for cb in callbacks.get_callbacks():
                 self._callbacks.add(cb)
         elif callbacks is not None:
             raise TypeError(
-                "[SR_evaluator.register_callbacks] Expected an SR_callback, a CallbackDispatcher or None, "
+                "[Evaluator.register_callbacks] Expected a Callback, a CallbackDispatcher or None, "
                 f"got {type(callbacks).__name__}."
             )
 
@@ -1553,17 +1553,17 @@ class SR_evaluator:
 
         A new expression is parsed, checked against the constraints, scored by the ranking
         function and stored in ``models`` (statuses and the order of checks are in the
-        [module docs][SRToolkit.evaluation.sr_evaluator]). An expression whose stored form and
+        [module docs][SRToolkit.evaluation.evaluator]). An expression whose stored form and
         remaining specs match a stored model is not scored again; that model is returned. Either
         way the call is appended to ``trace``, counts toward ``max_evaluations``, resets the count
-        of skips in a row (see [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip])
+        of skips in a row (see [count_skip][SRToolkit.evaluation.evaluator.Evaluator.count_skip])
         and is reported to the callbacks: ``on_expr_evaluated`` for every call, plus
         ``on_best_expression`` when the error improves on the best so far. Evaluation then stops
         if the error is below ``success_threshold``, the budget is used up, or a callback asks to
-        stop (see [Stopping][SRToolkit.evaluation.sr_evaluator]).
+        stop (see [Stopping][SRToolkit.evaluation.evaluator]).
 
         The expression is checked, scored and stored in its
-        [stored form][SRToolkit.evaluation.sr_evaluator], set by the settings
+        [stored form][SRToolkit.evaluation.evaluator], set by the settings
         ``evaluator.simplify_expr``, ``evaluator.fold_constants`` and
         ``evaluator.canonicalise_constants``, with the specs that remain. If a well-formed
         expression cannot be simplified, a ``UserWarning`` is emitted and it is used as given
@@ -1572,11 +1572,11 @@ class SR_evaluator:
         Args:
             expr: The expression, as an infix token list or an
                 [Expression][SRToolkit.utils.expression.Expression], whose specs of labelled
-                constants are used (see [Free constants][SRToolkit.evaluation.sr_evaluator]).
+                constants are used (see [Free constants][SRToolkit.evaluation.evaluator]).
                 Constants without a spec, and a spec's unset ``prior`` or ``bounds``, use
                 ``default_constant``.
             verbose: ``0`` (default): no logging. ``1``: log at DEBUG level (logger
-                ``SRToolkit.evaluation.sr_evaluator``) each new expression with its final status,
+                ``SRToolkit.evaluation.evaluator``) each new expression with its final status,
                 error and ``status_detail``, and each cache hit. ``2``: also let NumPy
                 floating-point warnings through while scoring.
 
@@ -1606,7 +1606,7 @@ class SR_evaluator:
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = Evaluator(X, y, seed=42)
             >>> model = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> print(model.error < 1e-6, model.status, round(float(model.parameters[0]), 3))
             True ok 2.0
@@ -1614,21 +1614,21 @@ class SR_evaluator:
             >>> from SRToolkit.dataset import UniformSampling
             >>> from SRToolkit.utils import Constant, Expression
             >>> spec = Constant(label="C_0", prior=UniformSampling(0, 10), bounds=(0.0, 10.0))
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = Evaluator(X, y, seed=42)
             >>> model = se.evaluate_expr(Expression(["C_0", "*", "X_1", "-", "X_0"], free_constants=[spec]))
             >>> print(model.error < 1e-6, model.free_constants == (spec,))
             True True
             >>> # With the setting evaluator.simplify_expr, the simplified expression is scored and stored
             >>> X = np.array([[0, 1], [0, 2], [0, 3]])
             >>> settings = Settings(evaluator={"simplify_expr": True})
-            >>> se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1, settings=settings)
+            >>> se = Evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1, settings=settings)
             >>> model = se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"])
             >>> "".join(model.expr), bool(0.99 < model.parameters[0] < 1.01)
             ('C+X_1', True)
         """
         if self.should_stop:
             warnings.warn(
-                f"[SR_evaluator] Evaluation has already stopped ({self.stop_reason}); "
+                f"[Evaluator] Evaluation has already stopped ({self.stop_reason}); "
                 "the call is not evaluated or counted.",
                 UserWarning,
             )
@@ -1677,7 +1677,7 @@ class SR_evaluator:
                 except TypeError as e:
                     # The ranking's output cannot be saved: a failure of the evaluation.
                     message = f"the model cannot be saved: {e}"
-                    warnings.warn(f"[SR_evaluator] Error scoring expression {expr_str}: {message}")
+                    warnings.warn(f"[Evaluator] Error scoring expression {expr_str}: {message}")
                     model.ranking_data = {}
                     model.parameters = None
                     model.advisory_violations = []
@@ -1780,7 +1780,7 @@ class SR_evaluator:
             # The expression is well-formed, so this is a failure of the evaluation; warn, since it
             # usually points at a bug rather than at the expression.
             message = f"{type(e).__name__}: {e}"
-            warnings.warn(f"[SR_evaluator] Error scoring expression {expr_str}: {message}")
+            warnings.warn(f"[Evaluator] Error scoring expression {expr_str}: {message}")
             return ModelResult(expr=expr_list, error=np.inf, status="error", status_detail=message)
 
         score = float(result.score)
@@ -1788,7 +1788,7 @@ class SR_evaluator:
         if result.status not in (None, "undefined", "rejected"):
             # Only "rejected" and "undefined" may come from a ranking; see RankingResult.status.
             message = f"the {self.ranking.name} ranking returned a status it may not set: {result.status!r}"
-            warnings.warn(f"[SR_evaluator] Error scoring expression {expr_str}: {message}")
+            warnings.warn(f"[Evaluator] Error scoring expression {expr_str}: {message}")
             return ModelResult(expr=expr_list, error=np.inf, status="error", status_detail=message)
         status: Status
         if result.status == "rejected":
@@ -1842,14 +1842,14 @@ class SR_evaluator:
         custom callable) without access to ``X`` and ``y``. It does not count toward
         ``max_evaluations`` and changes nothing: not the ranking, the cache, ``trace`` or the
         callbacks. The model must already have been evaluated with the same specs by
-        [evaluate_expr][SRToolkit.evaluation.sr_evaluator.SR_evaluator.evaluate_expr], so that
+        [evaluate_expr][SRToolkit.evaluation.evaluator.Evaluator.evaluate_expr], so that
         un-evaluated expressions cannot be scored for free; it is matched as in
-        [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model]. The metric is
+        [get_model][SRToolkit.evaluation.evaluator.Evaluator.get_model]. The metric is
         computed with the model's fitted parameters on the evaluator's ``X`` and ``y``.
 
         Args:
             expr: The expression, as in
-                [get_model][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_model].
+                [get_model][SRToolkit.evaluation.evaluator.Evaluator.get_model].
             metric: The name of a built-in metric in
                 [REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS] (``"mse"``,
                 ``"rmse"``, ``"mae"``, ``"r2"``, ``"nrmse"``), or a callable
@@ -1871,7 +1871,7 @@ class SR_evaluator:
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9]])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y, seed=42)
+            >>> se = Evaluator(X, y, seed=42)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> print(se.get_metric(["C", "*", "X_1", "-", "X_0"], "r2") > 0.999)
             True
@@ -1887,7 +1887,7 @@ class SR_evaluator:
         found = self._store.lookup(list(stored.tokens), _spec_key(stored.free_constants))
         if found is None:
             raise ValueError(
-                f"[SR_evaluator.get_metric] Expression '{expr_str}' has not been evaluated yet. "
+                f"[Evaluator.get_metric] Expression '{expr_str}' has not been evaluated yet. "
                 "Call evaluate_expr() on it first so its constants are fitted and cached."
             )
 
@@ -1895,13 +1895,13 @@ class SR_evaluator:
         if isinstance(metric, str):
             if metric not in REGRESSION_METRICS:
                 raise ValueError(
-                    f"[SR_evaluator.get_metric] Unknown metric '{metric}'. Available built-in metrics: "
+                    f"[Evaluator.get_metric] Unknown metric '{metric}'. Available built-in metrics: "
                     f"{sorted(REGRESSION_METRICS)}. Alternatively pass a callable with signature "
                     "metric(predict, X, y) -> float."
                 )
         elif not callable(metric):
             raise TypeError(
-                f"[SR_evaluator.get_metric] metric must be a string or a callable, got {type(metric).__name__}."
+                f"[Evaluator.get_metric] metric must be a string or a callable, got {type(metric).__name__}."
             )
 
         model = self.models[found[0]]
@@ -1927,21 +1927,21 @@ class SR_evaluator:
         self,
         approach_name: str = "",
         top_k: int = 20,
-        results: "SR_results | None" = None,
+        results: "Results | None" = None,
         keep_all_models: bool = True,
-    ) -> "SR_results":
+    ) -> "Results":
         """Return the results of the evaluation.
 
-        Saves the [wall_time][SRToolkit.evaluation.sr_evaluator.SR_evaluator.wall_time] and
+        Saves the [wall_time][SRToolkit.evaluation.evaluator.Evaluator.wall_time] and
         ``skips`` it reports and commits the checkpoint first. It does not stop evaluation, so it can be called during a
         run; a checkpoint records the run as finished only once evaluation stops.
-        [SR_approach.run][SRToolkit.approaches.sr_approach.SR_approach.run] stops it when the search
+        [Approach.run][SRToolkit.approaches.approach.Approach.run] stops it when the search
         returns; after calling ``search`` directly, call ``stop`` yourself.
 
         Examples:
             >>> X = np.array([[1, 2], [8, 4], [5, 4], [7, 9], ])
             >>> y = np.array([3, 0, 3, 11])
-            >>> se = SR_evaluator(X, y)
+            >>> se = Evaluator(X, y)
             >>> _ = se.evaluate_expr(["C", "*", "X_1", "-", "X_0"])
             >>> results = se.get_results(top_k=1)
             >>> print(results[0].num_evaluated)
@@ -1961,20 +1961,20 @@ class SR_evaluator:
                 is greater than the number of evaluated expressions, all
                 evaluated expressions are included. If `top_k` is less than 0,
                 all evaluated expressions are included.
-            results: An SR_results object containing the results of the previous evaluation. If provided,
-                the results of the current evaluation are appended to the existing results. Otherwise, a new SR_results
+            results: A Results object containing the results of the previous evaluation. If provided,
+                the results of the current evaluation are appended to the existing results. Otherwise, a new Results
                 object is created.
             keep_all_models: If ``True`` (default), the result holds every model and the trace. If
                 ``False``, only the ``top_k`` best models and a
                 [RunSummary][SRToolkit.utils.types.RunSummary] (counts, the best-so-far history with
                 its models, the Pareto front), so memory and file size do not grow with the run;
                 all models stay in the checkpoint, if one is kept. With ``True``, warns as
-                [add_results][SRToolkit.evaluation.results.SR_results.add_results] for a very large
+                [add_results][SRToolkit.evaluation.results.Results.add_results] for a very large
                 run. The result's [checkpoint][SRToolkit.utils.types.EvalResult] reference is not
                 set.
 
         Returns:
-            An instance of the SR_results object with the results of the evaluation. Its
+            An instance of the Results object with the results of the evaluation. Its
             ``stop_reason`` is the evaluator's, or ``"returned"`` if evaluation has not stopped.
 
         Raises:
@@ -1983,14 +1983,14 @@ class SR_evaluator:
                 [ModelStore.commit][SRToolkit.evaluation.model_store.ModelStore.commit]).
         """
         if not keep_all_models and top_k <= 0:
-            raise ValueError(f"[SR_evaluator.get_results] keep_all_models=False needs top_k >= 1, got {top_k}.")
+            raise ValueError(f"[Evaluator.get_results] keep_all_models=False needs top_k >= 1, got {top_k}.")
         wall_time = self.wall_time  # read once: it still grows if evaluation has not stopped
         if self.checkpoint is not None:
             self._store.set_header("wall_time", wall_time)
             self._store.set_header("skips", self.skips)
         self._store.commit()
         if results is None:
-            results = SR_results()
+            results = Results()
 
         summary = None
         models: Sequence[ModelResult] = self.models

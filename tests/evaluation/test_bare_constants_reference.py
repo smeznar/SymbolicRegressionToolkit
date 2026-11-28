@@ -22,7 +22,7 @@ import pytest
 import scipy
 
 from SRToolkit.dataset import Nguyen
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.utils.measures import create_behavior_matrix
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -75,7 +75,7 @@ def compute() -> dict[str, Any]:
                         estimation={"initialization": init},
                         minimize={"max_iter": max_iter},
                     )
-                    se = SR_evaluator(X, y, symbol_library=sl, seed=SEED, settings=settings)
+                    se = Evaluator(X, y, symbol_library=sl, seed=SEED, settings=settings)
                     for tokens in exprs:
                         error = se.evaluate_expr(tokens).error
                         model = se.models[-1]
@@ -83,7 +83,7 @@ def compute() -> dict[str, Any]:
                             "error": float(error).hex(),
                             "parameters": _hex(model.parameters),
                         }
-            se = SR_evaluator(
+            se = Evaluator(
                 X, ground_truth=dataset.ground_truth, ranking_function="bed", symbol_library=sl, seed=SEED,
                 settings=Settings(evaluator={"backend": backend}),
             )  # fmt: skip

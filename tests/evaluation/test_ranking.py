@@ -5,6 +5,7 @@ import pytest
 
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 from SRToolkit.dataset.sampling import UniformSampling
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
 from SRToolkit.evaluation.ranking import (
     BEDRanking,
@@ -13,7 +14,6 @@ from SRToolkit.evaluation.ranking import (
     RMSERanking,
     build_ranking,
 )
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.measures import create_behavior_matrix
@@ -111,7 +111,7 @@ class TestCustomRankingSettings:
     def test_custom_section_reaches_setup(self):
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
         path = f"{_CustomKwargRanking.__module__}.{_CustomKwargRanking.__qualname__}"
-        se = SR_evaluator(
+        se = Evaluator(
             X, ranking_function=path, success_threshold=-1, settings=Settings(custom_kwarg=_CustomSection(0.5))
         )
         assert se.evaluate_expr(["X_0"]).error == 0.5

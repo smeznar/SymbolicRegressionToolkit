@@ -4,14 +4,14 @@ title: Implementing a Custom Approach
 
 # Implementing a Custom Approach
 
-All SR approaches subclass [SR_approach][SRToolkit.approaches.sr_approach.SR_approach] and implement `search()`, or the step interface `start()`, `ask()` and `tell()` (see the [module docs][SRToolkit.approaches.sr_approach]). Optionally, override `adapt()` when your approach benefits from a pre-training or warm-up phase.
+All SR approaches subclass [Approach][SRToolkit.approaches.approach.Approach] and implement `search()`, or the step interface `start()`, `ask()` and `tell()` (see the [module docs][SRToolkit.approaches.approach]). Optionally, override `adapt()` when your approach benefits from a pre-training or warm-up phase.
 
 ## Minimal example
 
 ```python
 import numpy as np
-from SRToolkit.approaches.sr_approach import SR_approach, ApproachConfig
-from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.approaches.approach import Approach, ApproachConfig
+from SRToolkit.evaluation import Evaluator
 from SRToolkit.utils import SymbolLibrary, generate_n_expressions
 from dataclasses import dataclass
 
@@ -20,28 +20,28 @@ class RandomSearchConfig(ApproachConfig):
     name: str = "RandomSearch"
     batch_size: int = 50
 
-class RandomSearch(SR_approach):
+class RandomSearch(Approach):
     def __init__(self, batch_size: int = 50):
         super().__init__(RandomSearchConfig(batch_size=batch_size))
         self.batch_size = batch_size
 
-    def search(self, sr_evaluator: SR_evaluator, seed: int | None = None):
+    def search(self, evaluator: Evaluator, seed: int | None = None):
         rng = np.random.default_rng(seed)
-        sl = sr_evaluator.symbol_library
+        sl = evaluator.symbol_library
 
-        while not sr_evaluator.should_stop:
+        while not evaluator.should_stop:
             exprs = generate_n_expressions(sl, self.batch_size, verbose=False)
             for expr in exprs:
-                sr_evaluator.evaluate_expr(expr)
-                if sr_evaluator.should_stop:
+                evaluator.evaluate_expr(expr)
+                if evaluator.should_stop:
                     return
 ```
 
 ### Key rules for `search()`
 
-- Call `sr_evaluator.evaluate_expr(expr)` for every candidate expression. The evaluator handles parameter fitting, caching, and result bookkeeping.
-- Check `sr_evaluator.should_stop` regularly and finish search when it is `True`.
-- To end the search early (e.g. the search space is exhausted), call `sr_evaluator.stop("reason")`; the reason is saved in the results as `stop_reason`.
+- Call `evaluator.evaluate_expr(expr)` for every candidate expression. The evaluator handles parameter fitting, caching, and result bookkeeping.
+- Check `evaluator.should_stop` regularly and finish search when it is `True`.
+- To end the search early (e.g. the search space is exhausted), call `evaluator.stop("reason")`; the reason is saved in the results as `stop_reason`.
 - Do **not** access target values directly — use the evaluator as the sole interface to `y`.
 
 ## The `adapt()` lifecycle
@@ -96,7 +96,7 @@ def load_adapted_state(self, path: str):
 
 ## Configuration with ApproachConfig
 
-Subclass [ApproachConfig][SRToolkit.approaches.sr_approach.ApproachConfig] to make your approach serialisable. This enables saving/loading grids and running jobs from the command line:
+Subclass [ApproachConfig][SRToolkit.approaches.approach.ApproachConfig] to make your approach serialisable. This enables saving/loading grids and running jobs from the command line:
 
 ```python
 @dataclass
@@ -105,7 +105,7 @@ class RandomSearchConfig(ApproachConfig):
     batch_size: int = 50
 ```
 
-The config is serialised automatically when the grid is saved. To support CLI execution, your SR_approach subclass should also implement [from_config][SRToolkit.approaches.sr_approach.SR_approach.from_config]:
+The config is serialised automatically when the grid is saved. To support CLI execution, your Approach subclass should also implement [from_config][SRToolkit.approaches.approach.Approach.from_config]:
 
 ```python
 @classmethod

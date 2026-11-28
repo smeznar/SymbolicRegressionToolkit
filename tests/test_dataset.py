@@ -1,4 +1,4 @@
-"""Tests for SRToolkit.dataset.sr_dataset."""
+"""Tests for SRToolkit.dataset.dataset."""
 
 import json
 import shutil
@@ -20,16 +20,16 @@ from strategies import (
 )
 
 from SRToolkit.approaches import ProGED
-from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach
+from SRToolkit.approaches.approach import Approach, ApproachConfig
 from SRToolkit.dataset import data_cache
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
 from SRToolkit.dataset.data_source import SampleSource
 from SRToolkit.dataset.data_split import DataSplit
+from SRToolkit.dataset.dataset import Dataset
 from SRToolkit.dataset.sampling import LogUniformSampling, UniformSampling
-from SRToolkit.dataset.sr_dataset import SR_dataset
-from SRToolkit.evaluation.callbacks import SR_callback, TimeLimitCallback
+from SRToolkit.evaluation.callbacks import Callback, TimeLimitCallback
 from SRToolkit.evaluation.model_store import ModelStore
-from SRToolkit.evaluation.results import SR_results
+from SRToolkit.evaluation.results import Results
 from SRToolkit.utils import units as u
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import (
@@ -68,7 +68,7 @@ class _DatasetSection(SettingsSection):
 @pytest.fixture
 def simple_dataset():
     X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-    return SR_dataset(
+    return Dataset(
         X,
         SymbolLibrary.default_symbols(2),
         ground_truth=["X_0", "+", "X_1"],
@@ -85,7 +85,7 @@ def serialisable_dataset(tmp_path, monkeypatch):
     monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
     X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=float)
     samplers = [UniformSampling(0, 5), UniformSampling(0, 5)]
-    dataset = SR_dataset(
+    dataset = Dataset(
         X,
         SymbolLibrary.default_symbols(2),
         ground_truth=["X_0", "+", "X_1"],
@@ -111,10 +111,10 @@ class TestSRDatasetInit:
     @pytest.mark.parametrize("const_symbol, expected", [("C", True), (None, False)], ids=["with-C", "without-C"])
     def test_contains_constants(self, const_symbol, expected):
         lib = SymbolLibrary.from_symbol_list(["+"], num_variables=1, const_symbol=const_symbol)
-        assert SR_dataset(np.zeros((2, 1)), lib, y=np.zeros(2)).contains_constants is expected
+        assert Dataset(np.zeros((2, 1)), lib, y=np.zeros(2)).contains_constants is expected
 
     def test_str_bed_describes_bed(self):
-        dataset = SR_dataset(
+        dataset = Dataset(
             np.zeros((3, 2)),
             SymbolLibrary.default_symbols(2),
             ranking_function="bed",
@@ -137,7 +137,7 @@ class TestSRDatasetInit:
 
 def _bed_dataset(bed=None, **kwargs):
     """BED dataset whose samplers draw from |x| in [10, 11], far from X in [0, 1)."""
-    return SR_dataset(
+    return Dataset(
         np.random.default_rng(0).random((20, 2)),
         SymbolLibrary.default_symbols(2),
         ranking_function="bed",
@@ -175,7 +175,7 @@ class TestSRDatasetEvaluator:
     def test_rmse_score_same_across_run_seeds_unless_resampled(self, resample, same):
         # One optimizer iteration on a multimodal fit leaves the score dependent on the start.
         X = np.random.default_rng(0).random((10, 1))
-        dataset = SR_dataset(
+        dataset = Dataset(
             X,
             SymbolLibrary.default_symbols(1),
             y=np.sin(7 * X[:, 0]),
@@ -208,7 +208,7 @@ class TestSRDatasetEvaluator:
     )
     def test_evaluator_ranking_seed(self, dataset_seed, kwargs, expected):
         X = np.random.default_rng(0).random((5, 1))
-        dataset = SR_dataset(X, SymbolLibrary.default_symbols(1), y=X[:, 0], seed=dataset_seed, **kwargs)
+        dataset = Dataset(X, SymbolLibrary.default_symbols(1), y=X[:, 0], seed=dataset_seed, **kwargs)
         assert dataset.create_evaluator().settings.evaluator.ranking_seed == expected
 
     def test_ranking_resample_uses_run_seed(self):
@@ -218,7 +218,7 @@ class TestSRDatasetEvaluator:
 
     def test_bed_without_ground_truth_uses_y_not_samplers(self):
         X = np.random.default_rng(0).random((20, 2))
-        dataset = SR_dataset(
+        dataset = Dataset(
             X,
             SymbolLibrary.default_symbols(2),
             ranking_function="bed",
@@ -244,7 +244,7 @@ class TestSRDatasetEvaluator:
         assert evaluator.success_threshold == 1e-6
 
     def test_evaluator_metadata_and_seed(self):
-        ds = SR_dataset(_X2, _lib2c(), y=_Y, seed=7, dataset_name="ds", dataset_metadata={"citation": "x"})
+        ds = Dataset(_X2, _lib2c(), y=_Y, seed=7, dataset_name="ds", dataset_metadata={"citation": "x"})
         evaluator = ds.create_evaluator(metadata={"key": "val"})
         assert evaluator.metadata == {"key": "val", "dataset_name": "ds", "dataset_metadata": {"citation": "x"}}
         assert evaluator.seed == 7
@@ -258,7 +258,7 @@ class TestSRDatasetSerialization:
 
     def test_to_dict_requires_version(self):
         X = np.array([[1.0, 2.0]])
-        ds = SR_dataset(X, SymbolLibrary.default_symbols(2), benchmark="b", version=None)
+        ds = Dataset(X, SymbolLibrary.default_symbols(2), benchmark="b", version=None)
         with pytest.raises(ValueError, match="version"):
             ds.to_dict()
 
@@ -318,9 +318,9 @@ class TestSRDatasetResample:
         # A free constant has no value to evaluate against during generation (issue #4: the compiled
         # backend used to read past an empty constant array and produce garbage).
         with pytest.raises(
-            ValueError, match=rf"^\[SR_dataset\.resample\] .*free constant \({named}\) without a fixed value"
+            ValueError, match=rf"^\[Dataset\.resample\] .*free constant \({named}\) without a fixed value"
         ):
-            SR_dataset.from_samplers(
+            Dataset.from_samplers(
                 ground_truth=ground_truth if specs is None else Expression(ground_truth, _LIB1, specs),
                 samplers=[UniformSampling(0.5, 5.0)],
                 n_samples=16,
@@ -338,7 +338,7 @@ class TestGroundTruthConstants:
     )
     def test_specs_view_sorted_or_none(self, specs, expected):
         lib = _lib2c()
-        ds = SR_dataset(_X2, lib, y=_Y, ground_truth=Expression(["C_0", "*", "X_0", "+", "C_1"], lib, specs))
+        ds = Dataset(_X2, lib, y=_Y, ground_truth=Expression(["C_0", "*", "X_0", "+", "C_1"], lib, specs))
         assert ds.ground_truth_constants == expected
         assert ds.ground_truth.symbol_library is lib
 
@@ -346,25 +346,25 @@ class TestGroundTruthConstants:
     # Expression built in another library is rebuilt in it).
     def test_ground_truth_is_an_expression_in_the_dataset_library(self):
         lib = _lib2c()
-        ds = SR_dataset(_X2, lib, y=_Y, ground_truth=["X_0", "+", "X_1"])
+        ds = Dataset(_X2, lib, y=_Y, ground_truth=["X_0", "+", "X_1"])
         assert ds.ground_truth == Expression(["X_0", "+", "X_1"])
         assert ds.ground_truth.symbol_library is lib
-        rebuilt = SR_dataset(_X2, lib, y=_Y, ground_truth=Expression(["X_0", "+", "C_0"], free_constants=[_FIX2]))
+        rebuilt = Dataset(_X2, lib, y=_Y, ground_truth=Expression(["X_0", "+", "C_0"], free_constants=[_FIX2]))
         assert rebuilt.ground_truth.symbol_library is lib
         assert rebuilt.ground_truth_constants == (_FIX2,)
 
     # Reason: regression (a malformed ground truth was accepted and failed only when y or BED needed
     # it) + clause (Raises ExpressionParseError if ground_truth does not parse).
     def test_malformed_ground_truth_raises(self):
-        with pytest.raises(ExpressionParseError, match=r"^\[SR_dataset\] 'ground_truth' does not parse"):
-            SR_dataset(_X2, _lib2c(), y=_Y, ground_truth=["X_0", "+"])
+        with pytest.raises(ExpressionParseError, match=r"^\[Dataset\] 'ground_truth' does not parse"):
+            Dataset(_X2, _lib2c(), y=_Y, ground_truth=["X_0", "+"])
 
     # Reason: regression (from_samplers with symbol_library None ignored an Expression's library) +
     # clause (None uses the Expression's own library).
     def test_from_samplers_uses_the_expression_library(self):
         lib = SymbolLibrary.default_symbols(1, const_symbol="K")
         gt = Expression(["K_0", "*", "X_0"], lib, [Constant("K_0", value=2.0, fixed=True)])
-        ds = SR_dataset.from_samplers(gt, [UniformSampling(1, 2)], n_samples=5, seed=0)
+        ds = Dataset.from_samplers(gt, [UniformSampling(1, 2)], n_samples=5, seed=0)
         assert ds.symbol_library is lib
         np.testing.assert_allclose(ds.y, 2 * ds.X[:, 0])
 
@@ -373,8 +373,8 @@ class TestGroundTruthConstants:
     def test_spec_outside_default_bounds_raises(self):
         lib = _lib2c()
         gt = Expression(["C_0", "*", "X_0"], lib, [Constant("C_0", value=9.0)])
-        with pytest.raises(ValueError, match=r"(?s)^\[SR_dataset\].*'ground_truth'.*outside 'bounds'") as info:
-            SR_dataset(_X2, lib, y=_Y, ground_truth=gt)
+        with pytest.raises(ValueError, match=r"(?s)^\[Dataset\].*'ground_truth'.*outside 'bounds'") as info:
+            Dataset(_X2, lib, y=_Y, ground_truth=gt)
         assert "free_constants" not in str(info.value)  # an argument the caller did not pass
 
     # Reason: clause (Constant: "a token the symbol library registers as a symbol (e.g. a named
@@ -385,14 +385,14 @@ class TestGroundTruthConstants:
         lib.add_symbol("C_1", "lit", 5, "3.0")
         with pytest.raises(ValueError, match=r"\['C_1'\]"):
             Expression(["X_0", "+", "C_1"], lib, [Constant("C_1", value=1.0, fixed=True)])
-        ds = SR_dataset.from_samplers(["X_0", "+", "C_1"], [UniformSampling(0, 1)], symbol_library=lib, n_samples=5)
+        ds = Dataset.from_samplers(["X_0", "+", "C_1"], [UniformSampling(0, 1)], symbol_library=lib, n_samples=5)
         np.testing.assert_allclose(ds.y, ds.X[:, 0] + 3.0)
 
     # Reason: clause (create_evaluator passes the ground truth with its specs; RMSE generates y
     # with the fixed values). y = 2x + 2, so C*X_0 + C fits exactly with parameters (2, 2).
     def test_create_evaluator_passes_them(self):
         X = np.array([[1.0], [2.0], [3.0], [4.0]])
-        ds = SR_dataset(
+        ds = Dataset(
             X, SymbolLibrary.default_symbols(1),
             ground_truth=Expression(["C_0", "*", "X_0", "+", "C_0"], free_constants=[_FIX2]),
         )  # fmt: skip
@@ -405,7 +405,7 @@ class TestGroundTruthConstants:
     # and from_dict regenerates y from them). y = 2.5x + 2.5, one value at both occurrences.
     def test_y_uses_fixed_values(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "a")
-        ds = SR_dataset.from_samplers(
+        ds = Dataset.from_samplers(
             Expression(["C_0", "*", "X_0", "+", "C_0"], _LIB1, [Constant("C_0", value=2.5, fixed=True)]),
             [UniformSampling(1, 2)],
             n_samples=10,
@@ -418,7 +418,7 @@ class TestGroundTruthConstants:
         np.testing.assert_allclose(y_new, 2.5 * X_new[:, 0] + 2.5)
         d = ds.to_dict()
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "b")
-        restored = SR_dataset.from_dict(d)
+        restored = Dataset.from_dict(d)
         np.testing.assert_allclose(restored.y, 2.5 * restored.X[:, 0] + 2.5)
         np.testing.assert_array_equal(restored.X, ds.X)
 
@@ -433,13 +433,13 @@ class TestGroundTruthConstants:
     def test_from_dict_rejects_specs_that_do_not_fit(self, serialisable_dataset, ground_truth, match):
         d = {**serialisable_dataset.to_dict(), "ground_truth": ground_truth}
         d["ground_truth_constants"] = [_FIX2.to_dict()]
-        with pytest.raises(ValueError, match=rf"^\[SR_dataset\.from_dict\] 'ground_truth_constants' .*{match}"):
-            SR_dataset.from_dict(d)
+        with pytest.raises(ValueError, match=rf"^\[Dataset\.from_dict\] 'ground_truth_constants' .*{match}"):
+            Dataset.from_dict(d)
 
     def test_format4_without_key_loads_as_none(self, serialisable_dataset):
         d = serialisable_dataset.to_dict()
         del d["ground_truth_constants"]
-        assert SR_dataset.from_dict(d).ground_truth_constants is None
+        assert Dataset.from_dict(d).ground_truth_constants is None
 
 
 # ── Data splits (train / test / aux) ──────────────────────────────────────────
@@ -448,7 +448,7 @@ class TestGroundTruthConstants:
 class TestDataSplits:
     def _dataset_with_extras(self):
         X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-        return SR_dataset(
+        return Dataset(
             X,
             SymbolLibrary.default_symbols(2),
             ground_truth=["X_0", "+", "X_1"],
@@ -486,16 +486,16 @@ class TestDataSplits:
 
     def test_ndarray_ground_truth_rejected(self):
         with pytest.raises(ValueError, match="ndarray ground_truth"):
-            SR_dataset(np.zeros((2, 1)), SymbolLibrary.default_symbols(1), ground_truth=np.zeros((4, 4)))
+            Dataset(np.zeros((2, 1)), SymbolLibrary.default_symbols(1), ground_truth=np.zeros((4, 4)))
 
     def test_zero_budget_rejected(self):
         with pytest.raises(ValueError, match="max_evaluations"):
-            SR_dataset(np.zeros((2, 1)), SymbolLibrary.default_symbols(1), max_evaluations=0)
+            Dataset(np.zeros((2, 1)), SymbolLibrary.default_symbols(1), max_evaluations=0)
 
     @pytest.mark.parametrize("bad_key", ["", ".", "..", "a/b", "a\\b", "a:b", "a?b"])
     def test_invalid_aux_key_rejected(self, bad_key):
         with pytest.raises(ValueError, match="aux keys become file names"):
-            SR_dataset(
+            Dataset(
                 np.zeros((2, 1)),
                 SymbolLibrary.default_symbols(1),
                 y=np.zeros(2),
@@ -504,7 +504,7 @@ class TestDataSplits:
 
     @pytest.mark.parametrize("key", ["train", "test", "a__b", "grid 2"])
     def test_aux_keys_only_need_to_be_valid_file_names(self, key):
-        ds = SR_dataset(
+        ds = Dataset(
             np.zeros((2, 1)), SymbolLibrary.default_symbols(1), y=np.zeros(2), aux_data={key: {"X": np.ones((1, 1))}}
         )
         assert ds.aux_data[key].X.sum() == 1.0
@@ -519,7 +519,7 @@ class TestDataSplits:
         # A dataset named "ds__test" used to share its file with the test data of "ds".
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         ds = self._dataset_with_extras()
-        other = SR_dataset(
+        other = Dataset(
             np.full((2, 2), 5.0),
             SymbolLibrary.default_symbols(2),
             y=np.zeros(2),
@@ -529,18 +529,18 @@ class TestDataSplits:
         )
         ds.to_dict()
         other.to_dict()
-        restored = SR_dataset.from_dict(ds.to_dict())
+        restored = Dataset.from_dict(ds.to_dict())
         np.testing.assert_array_equal(restored.test_X, ds.test_X)
 
     def test_aux_value_can_be_a_data_split(self):
         split = DataSplit({"X": np.ones((2, 2))})
-        ds = SR_dataset(np.zeros((2, 2)), SymbolLibrary.default_symbols(2), y=np.zeros(2), aux_data={"grid": split})
+        ds = Dataset(np.zeros((2, 2)), SymbolLibrary.default_symbols(2), y=np.zeros(2), aux_data={"grid": split})
         assert ds.aux_data["grid"] is split
 
     def test_aux_split_with_source_regenerated_not_stored(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         far = DataSplit({"X": np.zeros((5, 2))}, data_source=SampleSource(n_samples=5, seed=3))
-        ds = SR_dataset(
+        ds = Dataset(
             np.zeros((3, 2)),
             SymbolLibrary.default_symbols(2),
             y=np.zeros(3),
@@ -553,7 +553,7 @@ class TestDataSplits:
         )
         d = ds.to_dict()
         assert not data_cache.dataset_path("bench", "1.0.0", "ds/aux/far").exists()
-        restored = SR_dataset.from_dict(d)
+        restored = Dataset.from_dict(d)
         assert restored.aux_data["far"].X.shape == (5, 2)
         assert np.all(np.abs(restored.aux_data["far"].X) >= 10)
         assert restored.aux_data["far"].data_source is not None
@@ -562,7 +562,7 @@ class TestDataSplits:
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         ds = self._dataset_with_extras()
         ds.aux_data["weights"] = DataSplit({"w": np.arange(3.0)})
-        restored = SR_dataset.from_dict(ds.to_dict())
+        restored = Dataset.from_dict(ds.to_dict())
         np.testing.assert_array_equal(restored.aux_data["weights"].arrays["w"], np.arange(3.0))
 
     def test_invalid_aux_key_added_later_rejected_on_save(self, tmp_path, monkeypatch):
@@ -576,12 +576,12 @@ class TestDataSplits:
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         ds = self._dataset_with_extras()
         ds.test.arrays["weights"] = np.array([1.0, 2.0])
-        restored = SR_dataset.from_dict(ds.to_dict())
+        restored = Dataset.from_dict(ds.to_dict())
         np.testing.assert_array_equal(restored.test.arrays["weights"], np.array([1.0, 2.0]))
 
     def test_refresh_regenerates_test_split(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        ds = SR_dataset.from_samplers(
+        ds = Dataset.from_samplers(
             ["X_0", "+", "X_1"],
             [UniformSampling(0, 5), UniformSampling(0, 5)],
             n_samples=10,
@@ -605,7 +605,7 @@ class TestDataSplits:
         assert not (data_cache.dataset_path("bench", "1.0.0", "ds").parent / "ds").exists()
 
     def test_from_samplers_n_test_creates_test_split(self):
-        ds = SR_dataset.from_samplers(
+        ds = Dataset.from_samplers(
             ["X_0", "+", "X_1"],
             [UniformSampling(0, 5), UniformSampling(0, 5)],
             n_samples=40,
@@ -618,11 +618,11 @@ class TestDataSplits:
         # The test split carries its own source, so it is regenerated (not persisted).
         assert ds.test.data_source is not None
         # Seeded at seed + 1.
-        same_seed = SR_dataset.from_samplers(
+        same_seed = Dataset.from_samplers(
             ["X_0", "+", "X_1"], [UniformSampling(0, 5), UniformSampling(0, 5)], n_samples=12, seed=1
         )
         np.testing.assert_array_equal(ds.test_X, same_seed.X)
-        unseeded = SR_dataset.from_samplers(
+        unseeded = Dataset.from_samplers(
             ["X_0", "+", "X_1"], [UniformSampling(0, 5), UniformSampling(0, 5)], n_samples=4, n_test=3
         )
         assert unseeded.test_X.shape == (3, 2)
@@ -630,7 +630,7 @@ class TestDataSplits:
     def test_to_dict_from_dict_round_trips_test_and_aux(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         ds = self._dataset_with_extras()
-        restored = SR_dataset.from_dict(ds.to_dict())
+        restored = Dataset.from_dict(ds.to_dict())
         np.testing.assert_array_equal(restored.test_X, ds.test_X)
         np.testing.assert_array_equal(restored.test_y, ds.test_y)
         np.testing.assert_array_equal(restored.aux_data["grid"].X, ds.aux_data["grid"].X)
@@ -639,7 +639,7 @@ class TestDataSplits:
         # JSON turns the tuple into a list; expressions with constants must still be fitted.
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         X = np.random.default_rng(0).random((10, 2))
-        ds = SR_dataset(
+        ds = Dataset(
             X,
             SymbolLibrary.default_symbols(2),
             y=2 * X[:, 0] + X[:, 1],
@@ -648,7 +648,7 @@ class TestDataSplits:
             dataset_name="cb",
             constant_bounds=(-3, 3),
         )
-        restored = SR_dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
+        restored = Dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
         assert restored.create_evaluator().evaluate_expr(["C", "*", "X_0", "+", "X_1"]).error < 1e-6
 
 
@@ -697,7 +697,7 @@ class TestBackgroundKnowledgeArguments:
         lib = _lib2c()
         s0, s1 = UniformSampling(2, 3), UniformSampling(0, 1)
         variables = {"X_0": VariableInfo("x", "position")}
-        ds = SR_dataset(
+        ds = Dataset(
             _X2,
             lib,
             y=_Y,
@@ -745,17 +745,17 @@ class TestBackgroundKnowledgeArguments:
     @pytest.mark.parametrize(
         "make, match",
         [
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=True), "max_constants"),
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=2.0), "max_constants"),
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=3, required_constraints=[MaxConstants(2)]), "disagrees"),
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_constants=0, required_constraints=[MaxConstants(2)]), "disagrees"),
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, max_expr_length=5, required_constraints=[MaxTokens(4)]), "disagrees"),
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, samplers=[UniformSampling(0, 1)] * 3), "samplers"),
-            (lambda: SR_dataset(np.zeros((3, 3)), _lib2c(), y=_Y), "columns"),
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, settings=Settings(evaluator={"max_constants": 4})), "evaluator.max_constants"),
-            (lambda: SR_dataset(_X2, _lib2c(), y=_Y, settings=Settings(evaluator={"max_expr_length": 10})), "evaluator.max_expr_length"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, max_constants=True), "max_constants"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, max_constants=2.0), "max_constants"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, max_constants=3, required_constraints=[MaxConstants(2)]), "disagrees"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, max_constants=0, required_constraints=[MaxConstants(2)]), "disagrees"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, max_expr_length=5, required_constraints=[MaxTokens(4)]), "disagrees"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, samplers=[UniformSampling(0, 1)] * 3), "samplers"),
+            (lambda: Dataset(np.zeros((3, 3)), _lib2c(), y=_Y), "columns"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, settings=Settings(evaluator={"max_constants": 4})), "evaluator.max_constants"),
+            (lambda: Dataset(_X2, _lib2c(), y=_Y, settings=Settings(evaluator={"max_expr_length": 10})), "evaluator.max_expr_length"),
             (
-                lambda: SR_dataset.from_samplers(
+                lambda: Dataset.from_samplers(
                     ["X_0"], [UniformSampling(0, 1)] * 2, n_samples=3, settings=Settings(evaluator={"max_constants": 4})
                 ),
                 "evaluator.max_constants",
@@ -803,7 +803,7 @@ class TestBackgroundKnowledgeArguments:
     )
     def test_init_type_errors(self, kwargs, match):
         with pytest.raises(TypeError, match=match):
-            SR_dataset(_X2, _lib2c(), y=_Y, **kwargs)
+            Dataset(_X2, _lib2c(), y=_Y, **kwargs)
 
 
 class TestRequiredConstraints:
@@ -840,12 +840,12 @@ class TestRequiredConstraints:
         ],
     )
     def test_required_constraints_assembly(self, kwargs, expected):
-        ds = SR_dataset(_X2, _lib2c(), y=_Y, **kwargs)
+        ds = Dataset(_X2, _lib2c(), y=_Y, **kwargs)
         assert _dicts(ds.required_constraints) == _dicts(expected)
 
     def test_required_constraints_accepts_any_iterable(self):
         c = MaxTreeDepth(4)
-        ds = SR_dataset(_X2, _lib2c(), y=_Y, required_constraints=(x for x in [c]))
+        ds = Dataset(_X2, _lib2c(), y=_Y, required_constraints=(x for x in [c]))
         assert isinstance(ds.required_constraints, tuple)
         assert ds.required_constraints[-1].to_dict() == c.to_dict()
 
@@ -853,7 +853,7 @@ class TestRequiredConstraints:
 class TestDescribe:
     def test_describe_lists_required_constraints(self):
         lib = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=1)
-        ds = SR_dataset(np.zeros((3, 1)), lib, y=_Y, description="Toy")
+        ds = Dataset(np.zeros((3, 1)), lib, y=_Y, description="Toy")
         assert ds.describe() == (
             "Task: Toy\n"
             "Symbols: +, *, C, X_0\n"
@@ -864,7 +864,7 @@ class TestDescribe:
 
     def test_priors_split_required_and_advisory(self):
         hints = [MaxTreeDepth(4), NoNesting(["sin", "cos"]), NoNesting(["exp", "ln"])]
-        ds = SR_dataset(
+        ds = Dataset(
             np.zeros((3, 1)), SymbolLibrary.default_symbols(1), y=_Y, advisory_constraints=hints, max_expr_length=20
         )
         assert ds.priors() == {
@@ -876,7 +876,7 @@ class TestDescribe:
         # b's equation is derived from its names: "F = m*X_1"; neither answer may leak into describe.
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
         names = dict(variables={"X_0": VariableInfo("m")}, target=VariableInfo("F"))
-        a = SR_dataset(
+        a = Dataset(
             X,
             _lib2c(),
             y=X.sum(axis=1),
@@ -885,7 +885,7 @@ class TestDescribe:
             success_threshold=1e-6,
             **names,
         )
-        b = SR_dataset(
+        b = Dataset(
             X,
             _lib2c(),
             y=X.prod(axis=1),
@@ -898,7 +898,7 @@ class TestDescribe:
         assert "F = m*X_1" not in b.describe()
 
     def test_str_layout(self):
-        ds = SR_dataset(
+        ds = Dataset(
             _X2,
             _lib2c(),
             y=_Y,
@@ -930,7 +930,7 @@ class TestDescribe:
         ids=["default", "two-sections", "custom-section"],
     )
     def test_str_non_default_settings_line(self, settings, expected):
-        s = str(SR_dataset(_X2, _lib2c(), y=_Y, settings=settings))
+        s = str(Dataset(_X2, _lib2c(), y=_Y, settings=settings))
         lines = [line for line in s.split("\n") if line.startswith("Non-default settings")]
         assert lines == ([] if expected is None else [expected])
         assert "section_class" not in s
@@ -940,7 +940,7 @@ class TestCreateEvaluatorConstraints:
     def test_evaluator_gets_settings_and_task_facts(self):
         X = np.random.default_rng(0).random((5, 2))
         samplers = [UniformSampling(0, 1), UniformSampling(0, 1)]
-        ds = SR_dataset(
+        ds = Dataset(
             X,
             SymbolLibrary.default_symbols(2),
             y=X.sum(axis=1),
@@ -960,7 +960,7 @@ class TestCreateEvaluatorConstraints:
 
     def test_create_evaluator_passes_constraint_lists(self):
         hints = [MaxTreeDepth(3)]
-        ds = SR_dataset(
+        ds = Dataset(
             _X2,
             SymbolLibrary.default_symbols(2),
             y=_Y,
@@ -998,7 +998,7 @@ class TestCreateEvaluatorConstraints:
     )
     def test_create_evaluator_adds_no_limits(self, kwargs, expr, status, detail):
         X = np.random.default_rng(0).random((10, 1))
-        ds = SR_dataset(X, SymbolLibrary.default_symbols(1), y=3 * X[:, 0], **kwargs)
+        ds = Dataset(X, SymbolLibrary.default_symbols(1), y=3 * X[:, 0], **kwargs)
         ev = ds.create_evaluator()
         ev.evaluate_expr(expr)
         assert ev.models[-1].status == status
@@ -1006,7 +1006,7 @@ class TestCreateEvaluatorConstraints:
 
     def test_create_evaluator_records_hints(self):
         X = np.random.default_rng(0).random((10, 2))
-        ds = SR_dataset(X, SymbolLibrary.default_symbols(2), y=X.sum(axis=1), advisory_constraints=[MaxTreeDepth(1)])
+        ds = Dataset(X, SymbolLibrary.default_symbols(2), y=X.sum(axis=1), advisory_constraints=[MaxTreeDepth(1)])
         ev = ds.create_evaluator()
         assert ev.evaluate_expr(["X_0", "+", "X_1"]).error < 1e-9
         violations = ev.models[-1].advisory_violations
@@ -1030,7 +1030,7 @@ class TestCreateEvaluatorConstraints:
                 (-5.0, 5.0),
             ),
             (
-                lambda: SR_dataset(
+                lambda: Dataset(
                     np.random.default_rng(0).random((20, 2)),
                     SymbolLibrary.default_symbols(2),
                     y=np.zeros(20),
@@ -1040,7 +1040,7 @@ class TestCreateEvaluatorConstraints:
                 (-5.0, 5.0),
             ),
             (
-                lambda: SR_dataset(
+                lambda: Dataset(
                     np.random.default_rng(0).random((20, 2)),
                     SymbolLibrary.default_symbols(2),
                     y=np.zeros(20),
@@ -1065,7 +1065,7 @@ class TestCreateEvaluatorConstraints:
 class TestFormat5:
     def test_to_dict_v5_layout(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        ds = SR_dataset(
+        ds = Dataset(
             _X2, _lib2c(), y=_Y, benchmark="b", version="1", constant_bounds=(-3, 3), max_constants=8, seed=3,
             dataset_metadata={"citation": "x"},
         )  # fmt: skip
@@ -1092,7 +1092,7 @@ class TestFormat5:
             bed={"num_consts_sampled": 4, "bed_gt": np.arange(12.0).reshape(3, 4)},
             my_ranking=_DatasetSection(alpha=0.3),
         )
-        ds = SR_dataset(
+        ds = Dataset(
             _X2,
             _lib2c(),
             y=_Y,
@@ -1124,24 +1124,24 @@ class TestFormat5:
         d = json.loads(json.dumps(ds.to_dict()))
         assert (d["settings"], d["ranking_resample"]) == (settings.to_dict(), True)
         assert d["ground_truth_constants"] == [ds.ground_truth_constants[0].to_dict()]
-        restored = SR_dataset.from_dict(d)
+        restored = Dataset.from_dict(d)
         assert (restored.settings, restored.ranking_resample) == (settings, True)
         np.testing.assert_array_equal(restored.settings.bed.bed_gt, np.arange(12.0).reshape(3, 4))
         assert restored.to_dict() == d
         assert restored.background_knowledge.to_dict() == ds.background_knowledge.to_dict()
         path = tmp_path / "ds.json"
         path.write_text(json.dumps(d))
-        assert SR_dataset.from_dict(path).to_dict() == d
+        assert Dataset.from_dict(path).to_dict() == d
         # max_constants=-1 saves no limit, and loading adds no default MaxConstants(8) back.
-        unlimited = SR_dataset(_X2, _lib2c(), y=_Y, benchmark="b", version="1", dataset_name="u", max_constants=-1)
-        assert SR_dataset.from_dict(json.loads(json.dumps(unlimited.to_dict()))).required_constraints == ()
+        unlimited = Dataset(_X2, _lib2c(), y=_Y, benchmark="b", version="1", dataset_name="u", max_constants=-1)
+        assert Dataset.from_dict(json.loads(json.dumps(unlimited.to_dict()))).required_constraints == ()
 
     # Reason: clause (evaluator.simplify_*: stored in the dataset settings, the rules saved with their
     # to_dict, and read by the evaluator): rules without "powers" keep X_0*X_0 after a JSON round trip.
     def test_simplify_rules_round_trip_and_reach_evaluator(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         rules = DefaultRules(exclude=["powers"])
-        ds = SR_dataset(
+        ds = Dataset(
             _X2,
             SymbolLibrary.default_symbols(2),
             y=_Y,
@@ -1161,7 +1161,7 @@ class TestFormat5:
         d = json.loads(json.dumps(ds.to_dict()))
         assert d["settings"] == ds.settings.to_dict()
         assert d["settings"]["sections"]["evaluator"]["simplify_rules"] == rules.to_dict()
-        restored = SR_dataset.from_dict(d)
+        restored = Dataset.from_dict(d)
         assert restored.to_dict() == d
         se = restored.create_evaluator()
         se.evaluate_expr(["X_0", "*", "X_0"])  # simplified with simplify_expr and the rules
@@ -1174,7 +1174,7 @@ class TestFormat5:
         # Array data saved in an older version: no samplers, no data_source, arrays in the cache.
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         X = np.arange(6.0).reshape(3, 2)
-        SR_dataset(X, _lib2c(), y=X.sum(axis=1), benchmark="b", version="1", dataset_name="arr").to_dict()
+        Dataset(X, _lib2c(), y=X.sum(axis=1), benchmark="b", version="1", dataset_name="arr").to_dict()
         v3 = {
             **_v3_config(),
             "benchmark": "b",
@@ -1184,7 +1184,7 @@ class TestFormat5:
             "samplers": None,
             "data_source": None,
         }
-        ds = SR_dataset.from_dict(v3)
+        ds = Dataset.from_dict(v3)
         assert ds.samplers is None
         np.testing.assert_array_equal(ds.X, X)
 
@@ -1236,7 +1236,7 @@ class TestFormat5:
         d = {**_v3_config(), "format_version": format_version, "kwargs": kwargs}
         if format_version == 2:
             del d["test"], d["aux"]
-        ds = SR_dataset.from_dict(d)
+        ds = Dataset.from_dict(d)
         assert ds.constant_bounds == bounds
         assert _dicts(ds.required_constraints) == _dicts(required)
         assert (ds.settings, ds.ranking_resample) == (settings, resample)
@@ -1251,7 +1251,7 @@ class TestFormat5:
     # ranking_resample; the saved background knowledge and required constraints are kept).
     def test_migrates_v4_kwargs(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
-        ds = SR_dataset(_X2, _lib2c(), y=_Y, benchmark="b", version="1", constant_bounds=(-2, 2), max_expr_length=12)
+        ds = Dataset(_X2, _lib2c(), y=_Y, benchmark="b", version="1", constant_bounds=(-2, 2), max_expr_length=12)
         v4 = _as_v4(
             ds.to_dict(),
             {
@@ -1263,7 +1263,7 @@ class TestFormat5:
                 "ranking_resample": True,
             },
         )
-        migrated = SR_dataset.from_dict(v4)
+        migrated = Dataset.from_dict(v4)
         assert migrated.settings == Settings(
             evaluator={"simplify_expr": True, "backend": "codegen"},
             estimation={"initialization": "mean"},
@@ -1288,7 +1288,7 @@ class TestFormat5:
     )
     def test_old_kwargs_unknown_key_rejected(self, serialisable_dataset, make, key):
         with pytest.raises(ValueError, match=key):
-            SR_dataset.from_dict(make(serialisable_dataset.to_dict()))
+            Dataset.from_dict(make(serialisable_dataset.to_dict()))
 
     @pytest.mark.parametrize(
         "make, match",
@@ -1303,16 +1303,16 @@ class TestFormat5:
     )
     def test_from_dict_errors(self, serialisable_dataset, make, match):
         with pytest.raises(ValueError, match=match):
-            SR_dataset.from_dict(make(serialisable_dataset.to_dict()))
+            Dataset.from_dict(make(serialisable_dataset.to_dict()))
 
     @pytest.mark.filterwarnings("error::UserWarning")
     def test_v3_cache_has_no_drift_after_migration(self, tmp_path, monkeypatch):
         shutil.copytree(_GOLDEN / "cache", tmp_path / "cache")
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
         cached_X = np.load(tmp_path / "cache" / "golden_bench" / "1_0_0" / "ds.npz")["X"]
-        ds = SR_dataset.from_dict(_v3_config())
+        ds = Dataset.from_dict(_v3_config())
         v4 = ds.to_dict()
-        restored = SR_dataset.from_dict(v4)
+        restored = Dataset.from_dict(v4)
         data_cache.resolve("golden_bench", "1.0.0", "ds", v4)
         np.testing.assert_array_equal(ds.X, cached_X)
         np.testing.assert_array_equal(restored.X, cached_X)
@@ -1320,10 +1320,10 @@ class TestFormat5:
     def test_v4_sampler_change_warns_refresh(self, tmp_path, monkeypatch):
         shutil.copytree(_GOLDEN / "cache", tmp_path / "cache")
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
-        v4 = SR_dataset.from_dict(_v3_config()).to_dict()
+        v4 = Dataset.from_dict(_v3_config()).to_dict()
         v4["background_knowledge"]["samplers"][0]["max_value"] = 2
         with pytest.warns(UserWarning, match="refresh"):
-            SR_dataset.from_dict(v4)
+            Dataset.from_dict(v4)
 
 
 class TestFromSamplersStageC:
@@ -1333,7 +1333,7 @@ class TestFromSamplersStageC:
         lib = SymbolLibrary.from_symbol_list(["+"], num_variables=2)
         lib.add_symbol("sq", "fn", 5, "np.square({})")
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "a")
-        ds = SR_dataset.from_samplers(
+        ds = Dataset.from_samplers(
             ["sq", "(", "X_0", ")", "+", "X_1"],
             {"X_1": UniformSampling(10, 11), "X_0": UniformSampling(0, 1)},
             symbol_library=lib,
@@ -1349,7 +1349,7 @@ class TestFromSamplersStageC:
         np.testing.assert_allclose(ds.y, ds.X[:, 0] ** 2 + ds.X[:, 1])
         d = ds.to_dict()
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "b")
-        restored = SR_dataset.from_dict(d)
+        restored = Dataset.from_dict(d)
         np.testing.assert_array_equal(restored.X, ds.X)
         np.testing.assert_allclose(restored.y, ds.y)
         np.testing.assert_array_equal(restored.test_X, ds.test_X)
@@ -1358,7 +1358,7 @@ class TestFromSamplersStageC:
         "original_equation, expected", [(None, "z = x+X_1"), ("z = x + y", "z = x + y")], ids=["auto", "given"]
     )
     def test_from_samplers_forwards_arguments(self, original_equation, expected):
-        ds = SR_dataset.from_samplers(
+        ds = Dataset.from_samplers(
             ["X_0", "+", "X_1"],
             [UniformSampling(0, 1), UniformSampling(0, 1)],
             n_samples=5,
@@ -1389,7 +1389,7 @@ class TestFromSamplersStageC:
     def test_from_samplers_uses_flat_arguments_and_limits(self):
         lib = SymbolLibrary.default_symbols(2)
         samplers = [UniformSampling(0, 1), UniformSampling(0, 1)]
-        ds = SR_dataset.from_samplers(
+        ds = Dataset.from_samplers(
             ["X_0", "+", "X_1"],
             samplers,
             symbol_library=lib,
@@ -1418,7 +1418,7 @@ class TestFromSamplersStageC:
     )
     def test_from_samplers_errors(self, kwargs, match):
         with pytest.raises(ValueError, match=match):
-            SR_dataset.from_samplers(["X_0"], n_samples=5, seed=0, **kwargs)
+            Dataset.from_samplers(["X_0"], n_samples=5, seed=0, **kwargs)
 
 
 # ── evaluate_approach ─────────────────────────────────────────────────────────
@@ -1432,7 +1432,7 @@ _M = {"X_0": VariableInfo("m")}
 
 
 def _eq_dataset(**kwargs):
-    return SR_dataset(np.zeros((3, 2)), _LIB_EQ, y=np.zeros(3), **kwargs)
+    return Dataset(np.zeros((3, 2)), _LIB_EQ, y=np.zeros(3), **kwargs)
 
 
 class TestOriginalEquation:
@@ -1513,7 +1513,7 @@ class TestOriginalEquation:
         )
         d = ds.to_dict()
         assert d["original_equation"] == saved
-        restored = SR_dataset.from_dict(d)
+        restored = Dataset.from_dict(d)
         assert restored.original_equation == value
         assert restored.to_dict() == d
 
@@ -1528,16 +1528,16 @@ class TestOriginalEquation:
         assert "F = m*X_1" in str(ds).split("\n")[0]
 
 
-class _SeedRecorder(SR_approach):
+class _SeedRecorder(Approach):
     """Records the seed of every search; evaluates one expression so each run has a result."""
 
     def __init__(self):
         super().__init__(ApproachConfig(name="recorder"))
         self.seeds = []
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         self.seeds.append(seed)
-        sr_evaluator.evaluate_expr(["X_0"])
+        evaluator.evaluate_expr(["X_0"])
 
 
 @pytest.mark.parametrize(
@@ -1548,9 +1548,7 @@ class _SeedRecorder(SR_approach):
 def test_evaluate_approach_seeds_experiments_from_base(initial_seed, dataset_seed, expected):
     # regression: experiment i got base + i + 1, so the base seed was never used (ExperimentGrid
     # gives job i the seed initial_seed + i).
-    ds = SR_dataset(
-        np.array([[1.0], [2.0]]), SymbolLibrary.default_symbols(1), y=np.array([1.0, 2.0]), seed=dataset_seed
-    )
+    ds = Dataset(np.array([[1.0], [2.0]]), SymbolLibrary.default_symbols(1), y=np.array([1.0, 2.0]), seed=dataset_seed)
     approach = _SeedRecorder()
     results = ds.evaluate_approach(approach, num_experiments=3, initial_seed=initial_seed)
     assert approach.seeds == expected
@@ -1560,7 +1558,7 @@ def test_evaluate_approach_seeds_experiments_from_base(initial_seed, dataset_see
 # ── Approach access (stage D) ─────────────────────────────────────────────────
 
 
-class _AdaptRecorder(SR_approach):
+class _AdaptRecorder(Approach):
     """Logs the framework's calls and what ``adapt`` received; ``pre_check`` raises unless set up."""
 
     def __init__(self, scope="experiment"):
@@ -1581,9 +1579,9 @@ class _AdaptRecorder(SR_approach):
         checked = [c.pre_check(["X_0"]).passed for c in required]
         self.adapt_args.append((X, background_knowledge, required, checked))
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         self.events.append("search")
-        sr_evaluator.evaluate_expr(["X_0"])
+        evaluator.evaluate_expr(["X_0"])
 
     def save_adapted_state(self, path):
         self.events.append("save")
@@ -1607,7 +1605,7 @@ def _task_dataset(**kwargs):
         target=VariableInfo("F", "force"),
     )
     defaults.update(kwargs)
-    return SR_dataset(X, _lib2c(), **defaults)
+    return Dataset(X, _lib2c(), **defaults)
 
 
 _TASK_REQUIRED = [MaxConstants(8), MaxTokens(20), MaxTreeDepth(5)]
@@ -1637,7 +1635,7 @@ class TestRequiredConstraintsSetUp:
     )
     def test_misfit_required_constraint_rejected(self, constraint, match):
         with pytest.raises(ValueError, match=match):
-            SR_dataset(_X2, _lib2c(), y=_Y, required_constraints=[constraint])
+            Dataset(_X2, _lib2c(), y=_Y, required_constraints=[constraint])
 
 
 class TestEvaluateApproachAdapt:
@@ -1685,7 +1683,7 @@ class TestEvaluateApproachAdapt:
         assert second.loaded_from == [path]
 
 
-class _AdaptOnly(SR_approach):
+class _AdaptOnly(Approach):
     """Implements ``adapt`` but keeps the base ``save_adapted_state`` / ``load_adapted_state``."""
 
     def __init__(self):
@@ -1695,7 +1693,7 @@ class _AdaptOnly(SR_approach):
     def adapt(self, X, background_knowledge, required_constraints):
         self.adapted += 1
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         pass
 
 
@@ -1756,7 +1754,7 @@ class TestAdaptOrLoad:
 @pytest.mark.parametrize(
     "make",
     [
-        lambda: SR_dataset(_X2, _lib2c(), y=_Y),
+        lambda: Dataset(_X2, _lib2c(), y=_Y),
         lambda: _task_dataset(
             samplers=[UniformSampling(0, 1), UniformSampling(2, 3)],
             constant_bounds=(-2, 2),
@@ -1784,8 +1782,8 @@ _UNIT_INFOS = dict(
 @pytest.mark.parametrize(
     "make",
     [
-        lambda lib: SR_dataset(_X2, lib, y=_Y, benchmark="b", version="1", **_UNIT_INFOS),
-        lambda lib: SR_dataset.from_samplers(
+        lambda lib: Dataset(_X2, lib, y=_Y, benchmark="b", version="1", **_UNIT_INFOS),
+        lambda lib: Dataset.from_samplers(
             ["X_0", "+", "X_1"],
             [UniformSampling(0, 1), UniformSampling(0, 1)],
             symbol_library=lib,
@@ -1801,7 +1799,7 @@ _UNIT_INFOS = dict(
 def test_constants_and_units_survive(make, tmp_path, monkeypatch):
     monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
     ds = make(SymbolLibrary.from_symbol_list(["+", "*", "C", "pi"], num_variables=2))
-    restored = SR_dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
+    restored = Dataset.from_dict(json.loads(json.dumps(ds.to_dict())))
     bks = [ds.background_knowledge, ds.create_evaluator().background_knowledge, restored.background_knowledge]
     assert [bk.named_constants for bk in bks] == [_PI] * 3
     assert [(bk.variables["X_0"].unit, bk.target.unit) for bk in bks] == [(u.m, u.s)] * 3
@@ -1814,7 +1812,7 @@ class TestDefaultConstant:
     @pytest.mark.parametrize(
         "make",
         [
-            lambda: SR_dataset(
+            lambda: Dataset(
                 _X2,
                 _lib2c(),
                 y=_Y,
@@ -1824,7 +1822,7 @@ class TestDefaultConstant:
                 benchmark="b",
                 version="1",
             ),
-            lambda: SR_dataset.from_samplers(
+            lambda: Dataset.from_samplers(
                 ["X_0"],
                 [UniformSampling(0, 1)],
                 n_samples=5,
@@ -1851,7 +1849,7 @@ class TestDefaultConstant:
 
 def _ckpt_dataset(scale=2.0, seed=None):
     X = np.array([[1.0], [2.0], [3.0]])
-    return SR_dataset(X, SymbolLibrary.default_symbols(1), y=scale * X[:, 0], dataset_name="ds", seed=seed)
+    return Dataset(X, SymbolLibrary.default_symbols(1), y=scale * X[:, 0], dataset_name="ds", seed=seed)
 
 
 def _without_wall_time(results):
@@ -1867,7 +1865,7 @@ def _journal_mode(path):
         return con.execute("PRAGMA journal_mode").fetchone()[0]
 
 
-class _PerSeed(SR_callback):
+class _PerSeed(Callback):
     # Counts the evaluation events of each experiment and records how each one ended.
     def __init__(self):
         self.counts = {}
@@ -1926,13 +1924,13 @@ class TestEvaluateApproachCheckpoints:
         path = tmp_path / "ds" / "scripted" / "exp_10.sqlite"
         assert _files(tmp_path) == ["exp_10.sqlite", "exp_11.sqlite"]  # no -wal or -shm
         assert _journal_mode(path) == "delete"
-        assert SR_results.from_checkpoint(path)[0].trace == results[0].trace
+        assert Results.from_checkpoint(path)[0].trace == results[0].trace
         se = _ckpt_dataset().create_evaluator(seed=10, checkpoint=path, resume=True)
         assert _journal_mode(path) == "wal"  # resuming switches back to WAL
         se.close()
 
     def test_interrupt_returns_partial_results_and_keeps_checkpoints(self, tmp_path):
-        approach, recorder, results = ScriptedApproach(kill_seed=11), _PerSeed(), SR_results()
+        approach, recorder, results = ScriptedApproach(kill_seed=11), _PerSeed(), Results()
         with pytest.warns(UserWarning, match="exp_11.sqlite"):
             returned = _ckpt_dataset().evaluate_approach(
                 approach,
@@ -1980,7 +1978,7 @@ class TestEvaluateApproachCheckpoints:
         with pytest.raises(RuntimeError, match="boom"):
             _evaluate(ScriptedApproach(raise_seed=11), tmp_path)
         assert _files(tmp_path) == ["exp_10.sqlite", "exp_11.sqlite"]
-        saved = SR_results.from_checkpoint(tmp_path / "ds" / "scripted" / "exp_11.sqlite")[0]
+        saved = Results.from_checkpoint(tmp_path / "ds" / "scripted" / "exp_11.sqlite")[0]
         assert (saved.trace, saved.stop_reason) == ([0, 1, 0], "interrupted")  # committed and closed
 
     # Reason: clause (keep_all_models=False for every experiment; with keep_checkpoint the compacted
@@ -2082,7 +2080,7 @@ class TestEvaluateApproachCheckpoints:
 # --------------------------------------------------------------------------- #
 def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, minimize=None):
     X = np.array([[1.0], [2.0], [3.0]])
-    return SR_dataset(
+    return Dataset(
         X,
         SymbolLibrary.default_symbols(1),
         y=scale * X[:, 0],
@@ -2120,7 +2118,7 @@ def _straight(dataset, approach):
         return dataset.evaluate_approach(approach, 1, initial_seed=10, verbose=False)[0]
 
 
-class _Tick(SR_callback):
+class _Tick(Callback):
     # Advances the fake clock of TimeLimitCallback by one second per evaluation.
     now = [0.0]
 
@@ -2128,7 +2126,7 @@ class _Tick(SR_callback):
         _Tick.now[0] += 1.0
 
 
-class _ExperimentEvents(SR_callback):
+class _ExperimentEvents(Callback):
     # Records each experiment start, the experiment ids of the evaluations and how each experiment ended.
     def __init__(self):
         self.starts, self.ends, self.ids = [], [], set()
@@ -2145,7 +2143,7 @@ class _ExperimentEvents(SR_callback):
         self.ends.append((results.evaluation_calls, results.stop_reason))
 
 
-class _Unsaveable(SR_callback):
+class _Unsaveable(Callback):
     def to_dict(self):
         return {**super().to_dict(), "limit": {1}}
 
@@ -2173,9 +2171,9 @@ class _AdaptingStepped(SteppedApproach):
     def load_adapted_state(self, path):
         self.events.append("load")
 
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         self.events.append("ask")
-        return super().ask(sr_evaluator, state)
+        return super().ask(evaluator, state)
 
 
 class _FailingStepped(SteppedApproach):
@@ -2184,10 +2182,10 @@ class _FailingStepped(SteppedApproach):
         super().__init__(**kwargs)
         self.fail_at = fail_at
 
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         if state["asks"] == self.fail_at:
             raise RuntimeError("boom")
-        return super().ask(sr_evaluator, state)
+        return super().ask(evaluator, state)
 
 
 def _plain_file(path):
@@ -2215,7 +2213,7 @@ class TestExtendRun:
     )
     def test_extension_equals_straight_run(self, tmp_path, make, first, new, interval, kept):
         path = _first_run(tmp_path, make(), _limited(*first), snapshot_interval=interval)
-        stopped = SR_results.from_checkpoint(path)[0]
+        stopped = Results.from_checkpoint(path)[0]
         assert stopped.stop_reason == ("max_evaluations" if "max_evaluations" in new else "success_threshold")
         limits = (new.get("max_evaluations", first[0]), new.get("success_threshold", first[1]))
         extended = _extend(_limited(*first), make(), path, **new)
@@ -2249,7 +2247,7 @@ class TestExtendRun:
     )
     def test_run_meeting_its_limits_stops_at_once(self, tmp_path, make, first, new, reason):
         path = _first_run(tmp_path, make(), _limited(*first))
-        stopped = SR_results.from_checkpoint(path)[0]
+        stopped = Results.from_checkpoint(path)[0]
         counter = _PerSeed()
         extended = _extend(_limited(*first), make(), path, callbacks=counter, **new)
         assert (extended.trace, extended.stop_reason) == (stopped.trace, reason)
@@ -2262,7 +2260,7 @@ class TestExtendRun:
     # extension with no new limits raised.
     def test_extension_changing_nothing_adds_no_segment(self, tmp_path):
         path = _first_run(tmp_path, ProGED(), _limited(6, -1))
-        assert _extend(_limited(6), ProGED(), path).limits == SR_results.from_checkpoint(path)[0].limits
+        assert _extend(_limited(6), ProGED(), path).limits == Results.from_checkpoint(path)[0].limits
         once = _extend(_limited(6), ProGED(), path, max_evaluations=12)
         twice = _extend(_limited(6), ProGED(), path, max_evaluations=12)
         assert (len(twice.limits), twice.trace, twice.stop_reason) == (2, once.trace, "max_evaluations")
@@ -2274,7 +2272,7 @@ class TestExtendRun:
     # new limits, here through extend_run again).
     def test_interrupted_extension_continues(self, tmp_path):
         path = _first_run(tmp_path, SteppedApproach(), _limited(6), callbacks=SignalAfter(3))
-        assert SR_results.from_checkpoint(path)[0].stop_reason == "interrupted"
+        assert Results.from_checkpoint(path)[0].stop_reason == "interrupted"
         with pytest.warns(UserWarning, match="interrupted"):
             interrupted = _limited(6).extend_run(SteppedApproach(), path, max_evaluations=10, callbacks=SignalAfter(1))[
                 0
@@ -2294,7 +2292,7 @@ class TestExtendRun:
         monkeypatch.setattr(callbacks.time, "monotonic", lambda: _Tick.now[0])
         cbs = [_Tick(), TimeLimitCallback(3)]
         path = _first_run(tmp_path, SteppedApproach(batch=1), _limited(-1), callbacks=cbs, snapshot_interval=1e-9)
-        assert SR_results.from_checkpoint(path)[0].evaluation_calls == 3
+        assert Results.from_checkpoint(path)[0].evaluation_calls == 3
         _Tick.now[0] = 100.0  # time between the sessions does not count
         extended = _extend(_limited(-1), SteppedApproach(batch=1), path, callbacks=[_Tick(), TimeLimitCallback(5)])
         assert (extended.evaluation_calls, extended.stop_reason) == (5, "time_limit")
@@ -2372,7 +2370,7 @@ class TestExtendRun:
     # and stops there.
     def test_budget_cannot_shorten_the_run(self, tmp_path):
         path = _first_run(tmp_path, SteppedApproach(), _limited(5), snapshot_interval=1e-9)
-        stopped = SR_results.from_checkpoint(path)[0]
+        stopped = Results.from_checkpoint(path)[0]
         with pytest.raises(ValueError, match="below the 5 calls"):
             _limited(5).extend_run(SteppedApproach(), path, max_evaluations=4)
         counter = _PerSeed()

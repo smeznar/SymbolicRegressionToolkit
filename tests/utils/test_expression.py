@@ -6,9 +6,9 @@ from hypothesis import given, settings
 from strategies import infix_expressions, labelled_infix_expressions
 
 import SRToolkit.utils.expression as expression
-from SRToolkit.dataset import SR_dataset, UniformSampling
+from SRToolkit.dataset import Dataset, UniformSampling
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
 from SRToolkit.utils.expression import Expression, _as_expression, canonicalise
 from SRToolkit.utils.expression_compiler import compile_expr, compile_expr_rmse
 from SRToolkit.utils.expression_constraints import MaxTreeDepth
@@ -348,7 +348,7 @@ class TestAsExpression:
             lambda node, sl, se: simplify(node, sl),
             lambda node, sl, se: edit_distance(node, ["X_0"], symbol_library=sl),
             lambda node, sl, se: bed(node, ["X_0"], _X, symbol_library=sl),
-            lambda node, sl, se: SR_dataset(_X, sl, y=_Y, ground_truth=node),
+            lambda node, sl, se: Dataset(_X, sl, y=_Y, ground_truth=node),
         ],
         ids=[
             "compile_expr",
@@ -366,7 +366,7 @@ class TestAsExpression:
         ],
     )
     def test_public_entry_points_reject_a_node(self, call):
-        se = SR_evaluator(_X, _Y, symbol_library=self.sl)
+        se = Evaluator(_X, _Y, symbol_library=self.sl)
         with pytest.raises(TypeError, match="Expression.from_tree"):
             call(Node("X_0"), self.sl, se)
 

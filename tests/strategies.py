@@ -13,8 +13,8 @@ import numpy as np
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as hnp
 
-from SRToolkit.approaches.sr_approach import ApproachConfig, SR_approach
-from SRToolkit.evaluation.callbacks import SR_callback
+from SRToolkit.approaches.approach import Approach, ApproachConfig
+from SRToolkit.evaluation.callbacks import Callback
 
 # --- Expressions -----------------------------------------------------------------------------
 
@@ -214,7 +214,7 @@ class ScriptedConfig(ApproachConfig):
     sig: int = int(signal.SIGINT)
 
 
-class ScriptedApproach(SR_approach):
+class ScriptedApproach(Approach):
     """Evaluates SCRIPTED_CALLS in order while ``should_stop`` is False, so a run is reproducible.
 
     In the experiment seeded ``kill_seed`` it sends ``sig`` to the process after call ``at_call``;
@@ -231,20 +231,20 @@ class ScriptedApproach(SR_approach):
     def from_config(cls, config):
         return cls(**{k: config[k] for k in ("kill_seed", "raise_seed", "at_call", "sig")})
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         self.seeds.append(seed)
         self.handlers.append(signal.getsignal(signal.SIGINT))
         for k, expr in enumerate(SCRIPTED_CALLS, start=1):
-            if sr_evaluator.should_stop:
+            if evaluator.should_stop:
                 break
-            sr_evaluator.evaluate_expr(expr)
+            evaluator.evaluate_expr(expr)
             if k == self.config.at_call and seed is not None and seed == self.config.kill_seed:
                 send_signal(self.config.sig)
             if k == self.config.at_call and seed is not None and seed == self.config.raise_seed:
                 raise RuntimeError("boom")
 
 
-class EventLog(SR_callback):
+class EventLog(Callback):
     """Appends each evaluation event to the class-level ``events``, so it can be read even when a job
     rebuilds its callbacks from their dicts. Clear ``EventLog.events`` before use."""
 
@@ -260,7 +260,7 @@ class EventLog(SR_callback):
         EventLog.references.append(results.checkpoint)
 
 
-class SignalAfter(SR_callback):
+class SignalAfter(Callback):
     """Sends ``sig`` to the process at the ``n``-th evaluation event (inside the step that made it),
     only in the experiment seeded ``seed`` if that is set."""
 
@@ -307,7 +307,7 @@ class SteppedConfig(ApproachConfig):
     stop_with: str | None = None
 
 
-class SteppedApproach(SR_approach):
+class SteppedApproach(Approach):
     """A step-interface approach whose proposals depend on the global random states.
 
     ``start`` seeds Python's ``random`` and NumPy; each ``ask`` draws ``batch`` token lists from
@@ -327,21 +327,21 @@ class SteppedApproach(SR_approach):
     def from_config(cls, config):
         return cls(**{k: config[k] for k in ("batch", "stop_after_asks", "stop_with")})
 
-    def start(self, sr_evaluator, seed=None):
+    def start(self, evaluator, seed=None):
         self.started = True
-        self.evaluator = sr_evaluator
+        self.evaluator = evaluator
         random.seed(seed)
         np.random.seed(seed)
         return {"asks": 0}
 
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         if self.config.stop_after_asks is not None and state["asks"] >= self.config.stop_after_asks:
             if self.config.stop_with is not None:
-                sr_evaluator.stop(self.config.stop_with)
+                evaluator.stop(self.config.stop_with)
             return []
         state["asks"] += 1
         n = len(STEPPED_POOL)
         return [STEPPED_POOL[(int(np.random.randint(n)) + random.randrange(n)) % n] for _ in range(self.config.batch)]
 
-    def tell(self, sr_evaluator, state, candidates, results):
+    def tell(self, evaluator, state, candidates, results):
         self.told.append((list(candidates), list(results)))

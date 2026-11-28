@@ -11,7 +11,7 @@ import pytest
 
 from SRToolkit.dataset import data_cache
 from SRToolkit.dataset.data_source import SampleSource
-from SRToolkit.dataset.sr_dataset import SR_dataset
+from SRToolkit.dataset.dataset import Dataset
 from SRToolkit.utils import SymbolLibrary
 from SRToolkit.utils.free_constants import Constant
 
@@ -311,7 +311,7 @@ class TestRemove:
 
 
 # ---------------------------------------------------------------------------
-# SR_dataset.refresh raises ValueError when data_source is None
+# Dataset.refresh raises ValueError when data_source is None
 # ---------------------------------------------------------------------------
 
 
@@ -319,32 +319,32 @@ class TestSRDatasetRefresh:
     def test_refresh_null_source_raises(self):
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
         sl = SymbolLibrary.default_symbols(2)
-        ds = SR_dataset(X, sl, benchmark="test", version="1.0.0")
+        ds = Dataset(X, sl, benchmark="test", version="1.0.0")
         with pytest.raises(ValueError, match="data_source is null"):
             ds.refresh()
 
     def test_refresh_null_benchmark_raises(self):
         X = np.array([[1.0, 2.0], [3.0, 4.0]])
         sl = SymbolLibrary.default_symbols(2)
-        ds = SR_dataset(X, sl, benchmark=None, version="1.0.0")
+        ds = Dataset(X, sl, benchmark=None, version="1.0.0")
         ds.data_source = SampleSource(n_samples=2, seed=0)
         with pytest.raises(ValueError):
             ds.refresh()
 
 
 # ---------------------------------------------------------------------------
-# SR_benchmark round-trip through to_dict / from_dict
+# Benchmark round-trip through to_dict / from_dict
 # ---------------------------------------------------------------------------
 
 
 class TestSRBenchmarkDictRoundtrip:
     def test_from_dict_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path / "cache")
+        from SRToolkit.dataset.benchmark import Benchmark
         from SRToolkit.dataset.sampling import UniformSampling
-        from SRToolkit.dataset.sr_benchmark import SR_benchmark
 
         sl = SymbolLibrary.from_symbol_list(_SYMBOL_LIST, 2)
-        bm = SR_benchmark("bench2", version="1.0.0")
+        bm = Benchmark("bench2", version="1.0.0")
         bm.add_dataset(
             sl,
             None,
@@ -357,7 +357,7 @@ class TestSRBenchmarkDictRoundtrip:
         )
 
         d = bm.to_dict()
-        bm2 = SR_benchmark.from_dict(d)
+        bm2 = Benchmark.from_dict(d)
         assert bm2.benchmark_name == "bench2"
         assert bm2.version == "1.0.0"
         assert "ds_a" in bm2.datasets
@@ -467,7 +467,7 @@ def test_builtin_benchmarks_use_fallback_source():
 def _url_array_ds(name, benchmark, offset):
     """Dataset from arrays; X lies outside any sampler range, so it can only come from the archive."""
     X = np.arange(8.0).reshape(4, 2) + offset
-    return SR_dataset(
+    return Dataset(
         X,
         SymbolLibrary.default_symbols(2),
         ground_truth=["X_0", "+", "X_1"],
@@ -499,7 +499,7 @@ class TestUrlSource:
         stale_meta.parent.mkdir(parents=True)
         stale_meta.write_text('{"source_hash": "stale"}')
 
-        loaded = SR_dataset.from_dict(cfg)
+        loaded = Dataset.from_dict(cfg)
 
         np.testing.assert_array_equal(loaded.X, a.X)
         assert not stale_meta.exists()
@@ -542,7 +542,7 @@ class TestUrlSource:
 
         monkeypatch.setattr(data_source, "urlopen", recording_urlopen)
 
-        loaded = SR_dataset.from_dict(cfg)
+        loaded = Dataset.from_dict(cfg)
 
         assert calls == [{"timeout": 60}]
 

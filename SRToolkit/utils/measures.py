@@ -31,7 +31,7 @@ signature ``metric(predict, X, y) -> float``, where ``predict`` is a
 in. Taking ``predict`` rather than precomputed predictions lets a metric also evaluate the model
 away from ``X``, e.g. at perturbed or held-out points. Built-in metrics are listed by name in
 [REGRESSION_METRICS][SRToolkit.utils.measures.REGRESSION_METRICS], which
-[SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric] uses; a user
+[Evaluator.get_metric][SRToolkit.evaluation.evaluator.Evaluator.get_metric] uses; a user
 callable with the same signature can be used in place of a name.
 
 All metrics return a Python float and never emit NumPy warnings: an undefined or infinite result is
@@ -831,7 +831,7 @@ REGRESSION_METRICS: Mapping[str, Callable[[PredictFn, np.ndarray, np.ndarray], f
 
 Keys are ``"mse"``, ``"rmse"``, ``"mae"``, ``"r2"`` and ``"nrmse"``; every value has the signature
 ``metric(predict, X, y) -> float``.
-[SR_evaluator.get_metric][SRToolkit.evaluation.sr_evaluator.SR_evaluator.get_metric] uses it to
+[Evaluator.get_metric][SRToolkit.evaluation.evaluator.Evaluator.get_metric] uses it to
 resolve a metric given by name. The mapping cannot be modified; to use another metric, pass a
 callable with the same signature instead of a name.
 """

@@ -1,16 +1,16 @@
 """Datasets and benchmarks for symbolic regression.
 
-A dataset ([SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset]) represents a single equation
+A dataset ([Dataset][SRToolkit.dataset.dataset.Dataset]) represents a single equation
 with associated data, a symbol library, and evaluation constraints. A benchmark
-([SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark]) is a collection of datasets.
+([Benchmark][SRToolkit.dataset.benchmark.Benchmark]) is a collection of datasets.
 
 Modules:
-    sr_dataset: [SR_dataset][SRToolkit.dataset.sr_dataset.SR_dataset] — wraps input data and
+    dataset: [Dataset][SRToolkit.dataset.dataset.Dataset] — wraps input data and
         evaluation settings for a single equation discovery problem.
     background_knowledge: [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge]
         and [VariableInfo][SRToolkit.dataset.background_knowledge.VariableInfo] — what a dataset
         tells the approach besides the data (symbols, input distribution, hints, descriptions).
-    sr_benchmark: [SR_benchmark][SRToolkit.dataset.sr_benchmark.SR_benchmark] — manages a
+    benchmark: [Benchmark][SRToolkit.dataset.benchmark.Benchmark] — manages a
         collection of datasets.
     feynman: [Feynman][SRToolkit.dataset.feynman.Feynman] — 100-equation physics benchmark.
     nguyen: [Nguyen][SRToolkit.dataset.nguyen.Nguyen] — 10-equation polynomial/trig benchmark.
@@ -32,18 +32,18 @@ Modules:
 
 from . import data_cache
 from .background_knowledge import BackgroundKnowledge, VariableInfo
+from .benchmark import Benchmark
 from .data_source import DataSource, FallbackSource, SampleSource, UrlSource
 from .data_split import DataSplit
+from .dataset import Dataset
 from .feynman import Feynman
 from .nguyen import Nguyen
 from .sampling import IntegerUniformSampling, LogUniformSampling, Sampler, UniformSampling
-from .sr_benchmark import SR_benchmark
-from .sr_dataset import SR_dataset
 from .srsd_feynman import SRSD_Feynman
 
 __all__ = [
-    "SR_dataset",
-    "SR_benchmark",
+    "Dataset",
+    "Benchmark",
     "BackgroundKnowledge",
     "VariableInfo",
     "Feynman",

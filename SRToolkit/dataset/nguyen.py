@@ -2,12 +2,12 @@
 
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
+from .benchmark import Benchmark
 from .data_source import FallbackSource, SampleSource, UrlSource
 from .sampling import UniformSampling
-from .sr_benchmark import SR_benchmark
 
 
-class Nguyen(SR_benchmark):
+class Nguyen(Benchmark):
     """The Nguyen symbolic regression benchmark.
 
     Contains 10 expressions without constant parameters (first 4 are polynomials, first 8 use

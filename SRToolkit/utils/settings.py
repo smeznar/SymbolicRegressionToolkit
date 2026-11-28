@@ -201,7 +201,7 @@ class EvaluatorSettings(SettingsSection):
             and folds less. Default ``True``.
         max_consecutive_skips: Evaluation stops with the reason ``"max_consecutive_skips"`` after
             this many skips in a row (see
-            [count_skip][SRToolkit.evaluation.sr_evaluator.SR_evaluator.count_skip]); negative for
+            [count_skip][SRToolkit.evaluation.evaluator.Evaluator.count_skip]); negative for
             no limit. Default ``10000``.
         max_constants: Shorthand for the required constraint
             [MaxConstants][SRToolkit.utils.expression_constraints.MaxConstants], an int; negative
@@ -216,7 +216,7 @@ class EvaluatorSettings(SettingsSection):
         ranking_seed: Seed of the ranking's randomness (BED's points and behaviours, the starting
             points of fits), a non-negative int, in place of the evaluator's seed; ``None`` uses
             the evaluator's seed.
-            [SR_dataset.create_evaluator][SRToolkit.dataset.sr_dataset.SR_dataset.create_evaluator]
+            [Dataset.create_evaluator][SRToolkit.dataset.dataset.Dataset.create_evaluator]
             sets it to the dataset's seed unless the dataset resamples its objective each run.
             Default ``None``.
 

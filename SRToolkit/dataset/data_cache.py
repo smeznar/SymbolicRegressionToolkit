@@ -123,7 +123,7 @@ def resolve(
         key: Dataset key / name (e.g. ``"I.16.6"``).
         config: Full dataset config dict containing a ``"data_source"`` key, in format 4
             (symbol library and samplers inside ``"background_knowledge"``, as written by
-            [SR_dataset.to_dict][SRToolkit.dataset.sr_dataset.SR_dataset.to_dict]) or in the
+            [Dataset.to_dict][SRToolkit.dataset.dataset.Dataset.to_dict]) or in the
             format 2/3 layout (``"symbol_library"`` and ``"samplers"`` at the top level).
             ``None`` (or a config with ``data_source=None``) is valid only when
             the cache entry already exists.
@@ -324,6 +324,6 @@ def refresh(benchmark: str, version: str, key: str, source: "DataSource") -> Non
             origin of the data (e.g. [UrlSource][SRToolkit.dataset.data_source.UrlSource]).
             For a [SampleSource][SRToolkit.dataset.data_source.SampleSource] — which needs the
             dataset's samplers — use
-            [SR_dataset.refresh][SRToolkit.dataset.sr_dataset.SR_dataset.refresh] instead.
+            [Dataset.refresh][SRToolkit.dataset.dataset.Dataset.refresh] instead.
     """
     resolve(benchmark, version, key, {"data_source": source.to_dict()}, force=True)

@@ -24,15 +24,15 @@ from SRToolkit.dataset.sampling import UniformSampling
 from SRToolkit.evaluation import model_store
 from SRToolkit.evaluation.callbacks import (
     BestExpressionFound,
+    Callback,
     CallbackDispatcher,
     ExprEvaluated,
-    SR_callback,
     TimeLimitCallback,
 )
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.ranking import RankingFunction, RankingResult, RMSERanking
-from SRToolkit.evaluation.results import SR_results
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.evaluation.results import Results
 from SRToolkit.utils import expression as expression_module
 from SRToolkit.utils import expression_tree
 from SRToolkit.utils.expression import Expression, canonicalise
@@ -67,11 +67,11 @@ _LIB_BED = SymbolLibrary.default_symbols(2)
 # ── Concrete helpers ──────────────────────────────────────────────────────────
 
 
-class _SimpleCb(SR_callback):
+class _SimpleCb(Callback):
     pass
 
 
-_LOGGER = "SRToolkit.evaluation.sr_evaluator"
+_LOGGER = "SRToolkit.evaluation.evaluator"
 
 
 def _log_messages(caplog):
@@ -81,12 +81,12 @@ def _log_messages(caplog):
 def _make_se(**kwargs):
     defaults = dict(seed=42, success_threshold=-1)
     defaults.update(kwargs)
-    return SR_evaluator(_X, _y, **defaults)
+    return Evaluator(_X, _y, **defaults)
 
 
 def _mock_callback():
     # A mock callback whose config can be saved: the evaluator records it at the first call.
-    cb = MagicMock(spec=SR_callback)
+    cb = MagicMock(spec=Callback)
     cb.to_dict.return_value = {"callback_class": "unittest.mock.MagicMock"}
     return cb
 
@@ -100,12 +100,12 @@ def _with_stopping_callback(se, reason):
     return se
 
 
-# ── SR_evaluator.__init__ — RMSE ──────────────────────────────────────────────
+# ── Evaluator.__init__ — RMSE ──────────────────────────────────────────────
 
 
 class TestSREvaluatorInitRmse:
     def test_stores_X_y_seed(self):
-        se = SR_evaluator(_X, _y, seed=7)
+        se = Evaluator(_X, _y, seed=7)
         assert se.X is _X
         assert se.y is _y
         assert se.seed == 7
@@ -120,7 +120,7 @@ class TestSREvaluatorInitRmse:
     )
     def test_settings_must_be_a_settings_object(self, given):
         with pytest.raises(TypeError, match="settings must be a Settings"):
-            SR_evaluator(_X, _y, settings=given)
+            Evaluator(_X, _y, settings=given)
 
     # Reason: clause (setup gets the ground truth as an Expression in the evaluator's library with its
     # specs, the background knowledge with the complete default_constant, and the run's whole
@@ -130,7 +130,7 @@ class TestSREvaluatorInitRmse:
         settings = Settings(minimize={"max_iter": 3})
         ranking = _SetupRecordingRanking()
         gt = Expression(["C_0", "*", "X_0"], free_constants=specs)
-        se = SR_evaluator(_X, _y, ranking_function=ranking, ground_truth=gt, settings=settings, seed=0)
+        se = Evaluator(_X, _y, ranking_function=ranking, ground_truth=gt, settings=settings, seed=0)
         assert ranking.ground_truth is se.ground_truth
         assert se.ground_truth == gt
         assert se.ground_truth.symbol_library is se.symbol_library
@@ -142,7 +142,7 @@ class TestSREvaluatorInitRmse:
         # "If given, the constructor also calls np.random.seed(seed)": the next global draw is the
         # first draw after np.random.seed(3).
         ground_truth = ["C", "*", "X_1", "-", "X_0"]
-        se = SR_evaluator(_X, _y, seed=3, ground_truth=ground_truth, settings=Settings(evaluator={"max_constants": 3}))
+        se = Evaluator(_X, _y, seed=3, ground_truth=ground_truth, settings=Settings(evaluator={"max_constants": 3}))
         drawn = np.random.random()
         np.random.seed(3)
         assert drawn == np.random.random()
@@ -157,37 +157,37 @@ class TestSREvaluatorInitRmse:
 
     def test_custom_symbol_library(self):
         sl = SymbolLibrary.default_symbols(num_variables=2)
-        se = SR_evaluator(_X, _y, symbol_library=sl, seed=0)
+        se = Evaluator(_X, _y, symbol_library=sl, seed=0)
         assert se.symbol_library is sl
 
     def test_rmse_requires_y_or_ground_truth(self):
         with pytest.raises(ValueError, match="either target values y or a ground truth"):
-            SR_evaluator(_X, ranking_function="rmse")
+            Evaluator(_X, ranking_function="rmse")
 
     def test_rmse_derives_y_from_ground_truth(self):
-        se = SR_evaluator(_X, ground_truth=["X_0", "+", "X_1"], ranking_function="rmse", seed=0)
+        se = Evaluator(_X, ground_truth=["X_0", "+", "X_1"], ranking_function="rmse", seed=0)
         assert se.evaluate_expr(["X_0", "+", "X_1"]).error == pytest.approx(0.0)
 
     def test_rmse_ground_truth_with_free_constant_rejected(self):
         # The message names the offending tokens.
         with pytest.raises(ValueError, match=r"contains a free constant \(C, C_1\)"):
-            SR_evaluator(_X, ground_truth=["X_0", "+", "C_1", "+", "C"], ranking_function="rmse", seed=0)
+            Evaluator(_X, ground_truth=["X_0", "+", "C_1", "+", "C"], ranking_function="rmse", seed=0)
 
     def test_rmse_default_success_threshold_is_1e7(self):
-        se = SR_evaluator(_X, _y, seed=0, success_threshold=None)
+        se = Evaluator(_X, _y, seed=0, success_threshold=None)
         assert se.success_threshold == 1e-7
 
     def test_rmse_explicit_success_threshold_preserved(self):
-        se = SR_evaluator(_X, _y, seed=0, success_threshold=0.05)
+        se = Evaluator(_X, _y, seed=0, success_threshold=0.05)
         assert se.success_threshold == 0.05
 
     def test_invalid_ranking_function_warns_and_falls_back(self):
         with pytest.warns(UserWarning, match="not supported"):
-            se = SR_evaluator(_X, _y, seed=0, ranking_function="invalid")
+            se = Evaluator(_X, _y, seed=0, ranking_function="invalid")
         assert se.ranking_function == "rmse"
 
     def test_num_points_sampled_minus_one_uses_x_row_count(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
@@ -202,23 +202,23 @@ class TestSREvaluatorInitRmse:
         assert se.stop_reason is None and se.should_stop is False
 
 
-# ── SR_evaluator.__init__ — BED ───────────────────────────────────────────────
+# ── Evaluator.__init__ — BED ───────────────────────────────────────────────
 
 
 class TestSREvaluatorInitBed:
     def test_bed_requires_ground_truth_bed_gt_or_y(self):
         with pytest.raises(ValueError, match="a ground truth .* a precomputed bed_gt .* or target values y"):
-            SR_evaluator(_X_BED, ranking_function="bed")
+            Evaluator(_X_BED, ranking_function="bed")
 
     def test_bed_list_ground_truth_creates_behavior_matrix(self):
-        se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0)
+        se = Evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0)
         assert se.ranking.gt_behavior is not None
         assert isinstance(se.ranking.gt_behavior, np.ndarray)
 
     def test_bed_ndarray_ground_truth_rejected(self):
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
         with pytest.raises(ValueError, match="ndarray ground_truth"):
-            SR_evaluator(
+            Evaluator(
                 _X_BED,
                 ground_truth=gt,
                 ranking_function="bed",
@@ -227,8 +227,8 @@ class TestSREvaluatorInitBed:
             )
 
     def test_bed_invalid_ground_truth_type_raises(self):
-        with pytest.raises(TypeError, match=r"^\[SR_evaluator\] ground_truth must"):
-            SR_evaluator(_X_BED, ground_truth="not_valid", ranking_function="bed", seed=0)
+        with pytest.raises(TypeError, match=r"^\[Evaluator\] ground_truth must"):
+            Evaluator(_X_BED, ground_truth="not_valid", ranking_function="bed", seed=0)
 
     # Reason: regression (a malformed ground truth was accepted when y was given, and specs outside the
     # default bounds were not checked) + clause (Raises ExpressionParseError / ValueError).
@@ -241,14 +241,14 @@ class TestSREvaluatorInitBed:
         ids=["malformed", "spec-outside-default-bounds"],
     )
     def test_unusable_ground_truth_raises(self, ground_truth, exc, match):
-        with pytest.raises(exc, match=rf"^\[SR_evaluator\] .*{match}"):
-            SR_evaluator(_X, _y, ground_truth=ground_truth, seed=0)
+        with pytest.raises(exc, match=rf"^\[Evaluator\] .*{match}"):
+            Evaluator(_X, _y, ground_truth=ground_truth, seed=0)
 
     # Reason: clause (BED draws its points from the samplers). U(2, 3) lies outside the rows of X (all in
     # [-0.5, 0.5)), so the points cannot be a subsample of X.
     def test_bed_samplers_generate_bed_X(self):
         samplers = [UniformSampling(2.0, 3.0), UniformSampling(2.0, 3.0)]
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             symbol_library=_LIB_BED,
             ground_truth=["C", "+", "X_0"],
@@ -263,7 +263,7 @@ class TestSREvaluatorInitBed:
 
     def test_bed_samplers_seeded_reproducible(self):
         def build():
-            return SR_evaluator(
+            return Evaluator(
                 _X_BED,
                 symbol_library=_LIB_BED,
                 ground_truth=["C", "+", "X_0"],
@@ -276,7 +276,7 @@ class TestSREvaluatorInitBed:
         assert np.array_equal(build().ranking.bed_X, build().ranking.bed_X)
 
     def test_bed_use_all_points_wins_over_samplers(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             symbol_library=_LIB_BED,
             ground_truth=["C", "+", "X_0"],
@@ -288,7 +288,7 @@ class TestSREvaluatorInitBed:
         np.testing.assert_array_equal(se.ranking.bed_X, _X_BED)
 
     def test_bed_subsamples_X_without_replacement(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
@@ -303,7 +303,7 @@ class TestSREvaluatorInitBed:
         assert len({tuple(row) for row in bed_X}) == 10
 
     def test_bed_num_points_minus_one_uses_all_X(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
@@ -315,7 +315,7 @@ class TestSREvaluatorInitBed:
     def test_bed_precomputed_bed_gt_used(self):
         points = _X_BED[:8]
         gt = create_behavior_matrix(["X_0", "+", "C"], points, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(
+        se = Evaluator(
             points,
             ground_truth=["X_0", "+", "C"],
             ranking_function="bed",
@@ -327,7 +327,7 @@ class TestSREvaluatorInitBed:
     def test_bed_gt_subsampled_jointly_with_X(self):
         # The matrix is tied to the rows of X, so subsampling keeps the same rows of both.
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             ranking_function="bed",
             seed=0,
@@ -341,7 +341,7 @@ class TestSREvaluatorInitBed:
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED, num_consts_sampled=4, seed=0)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            se = SR_evaluator(
+            se = Evaluator(
                 _X_BED,
                 symbol_library=_LIB_BED,
                 ranking_function="bed",
@@ -354,7 +354,7 @@ class TestSREvaluatorInitBed:
     def test_bed_gt_row_mismatch_rejected(self):
         gt = create_behavior_matrix(["X_0", "+", "C"], _X_BED[:5], num_consts_sampled=4, seed=0)
         with pytest.raises(ValueError, match="X it was computed on"):
-            SR_evaluator(
+            Evaluator(
                 _X_BED[:8],
                 ground_truth=["X_0", "+", "C"],
                 ranking_function="bed",
@@ -365,7 +365,7 @@ class TestSREvaluatorInitBed:
     def test_bed_gt_without_ground_truth_works(self):
         points = _X_BED[:8]
         gt = create_behavior_matrix(["X_0", "+", "C"], points, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(
+        se = Evaluator(
             points,
             ranking_function="bed",
             success_threshold=-1,
@@ -380,7 +380,7 @@ class TestSREvaluatorInitBed:
     def test_bed_gt_without_ground_truth_has_no_default_threshold(self):
         points = _X_BED[:8]
         gt = create_behavior_matrix(["X_0", "+", "C"], points, num_consts_sampled=4, seed=0)
-        se = SR_evaluator(
+        se = Evaluator(
             points,
             ranking_function="bed",
             success_threshold=None,
@@ -390,7 +390,7 @@ class TestSREvaluatorInitBed:
         assert se.success_threshold is None
 
     def test_bed_auto_success_threshold_computed(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
@@ -401,7 +401,7 @@ class TestSREvaluatorInitBed:
         assert se.success_threshold > 0
 
     def test_bed_explicit_success_threshold_preserved(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
@@ -412,13 +412,13 @@ class TestSREvaluatorInitBed:
 
     def test_bed_auto_success_threshold_reproducible_with_seed(self):
         def build():
-            return SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=3)
+            return Evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=3)
 
         assert build().success_threshold == build().success_threshold
 
     def test_bed_y_used_as_deterministic_behavior(self):
         y = _X_BED[:, 0]
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             y,
             ranking_function="bed",
@@ -432,7 +432,7 @@ class TestSREvaluatorInitBed:
 
     def test_bed_y_subsampled_jointly_with_X(self):
         y = _X_BED[:, 0] * 2.0
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             y,
             ranking_function="bed",
@@ -444,7 +444,7 @@ class TestSREvaluatorInitBed:
 
     def test_bed_ground_truth_takes_precedence_over_y(self):
         y = np.zeros(_X_BED.shape[0])
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             y,
             ground_truth=["X_0"],
@@ -457,7 +457,7 @@ class TestSREvaluatorInitBed:
     def test_bed_y_with_samplers_ignored(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            se = SR_evaluator(
+            se = Evaluator(
                 _X_BED,
                 _X_BED[:, 0],
                 symbol_library=_LIB_BED,
@@ -468,12 +468,12 @@ class TestSREvaluatorInitBed:
         np.testing.assert_array_equal(se.ranking.bed_X, _X_BED)
 
     def test_bed_y_has_no_default_threshold(self):
-        se = SR_evaluator(_X_BED, _X_BED[:, 0], ranking_function="bed", seed=0)
+        se = Evaluator(_X_BED, _X_BED[:, 0], ranking_function="bed", seed=0)
         assert se.success_threshold is None
 
     def test_bed_sampler_count_must_match_variables(self):
         with pytest.raises(ValueError, match="1 samplers"):
-            SR_evaluator(
+            Evaluator(
                 _X_BED,
                 symbol_library=_LIB_BED,
                 ground_truth=["C", "+", "X_0"],
@@ -492,12 +492,12 @@ class TestSREvaluatorInitBed:
     )
     def test_ranking_setup_gets_ranking_seed_else_evaluator_seed(self, settings, expected):
         # Custom rankings get the per-dataset seed without reading ranking_seed themselves.
-        se = SR_evaluator(_X, _y, ranking_function=_SeedRecordingRanking(), seed=1, settings=settings)
+        se = Evaluator(_X, _y, ranking_function=_SeedRecordingRanking(), seed=1, settings=settings)
         assert se.ranking.seed == expected
 
     def test_bed_ranking_seed_overrides_evaluator_seed(self):
         def build(seed):
-            return SR_evaluator(
+            return Evaluator(
                 _X_BED,
                 ground_truth=["C", "+", "X_0"],
                 ranking_function="bed",
@@ -511,7 +511,7 @@ class TestSREvaluatorInitBed:
         assert a.evaluate_expr(["X_0", "*", "C"]).error == b.evaluate_expr(["X_0", "*", "C"]).error
 
 
-# ── SR_evaluator.set_callbacks ────────────────────────────────────────────────
+# ── Evaluator.set_callbacks ────────────────────────────────────────────────
 
 
 class TestSetCallbacks:
@@ -540,7 +540,7 @@ class TestSetCallbacks:
         assert se._callbacks.get_callbacks() == []
 
 
-# ── SR_evaluator stopping ─────────────────────────────────────────────────────
+# ── Evaluator stopping ─────────────────────────────────────────────────────
 
 
 class TestStopReason:
@@ -674,7 +674,7 @@ class TestStopReason:
         assert se.get_results()[0].stop_reason == "done"
 
 
-# ── SR_evaluator.evaluate_expr — RMSE ─────────────────────────────────────────
+# ── Evaluator.evaluate_expr — RMSE ─────────────────────────────────────────
 
 
 class TestEvaluateExprRmse:
@@ -921,7 +921,7 @@ class TestEvaluateExprRmse:
     # emitted and it is used as given"): scored like the plain evaluator.
     def test_simplify_failure_warns_and_uses_the_input(self):
         se, plain = _make_se(settings=Settings(evaluator={"simplify_expr": True})), _make_se()
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
+        with patch("SRToolkit.evaluation.evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
                 model = se.evaluate_expr(["C", "*", "X_0"])
         expected = plain.evaluate_expr(["C", "*", "X_0"])
@@ -932,7 +932,7 @@ class TestEvaluateExprRmse:
     def test_malformed_expression_with_simplify_is_invalid_without_warning(self):
         X = np.array([[0, 1], [0, 2], [0, 3]])
         settings = Settings(evaluator={"simplify_expr": True})
-        se = SR_evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1, settings=settings)
+        se = Evaluator(X, np.array([2, 3, 4]), seed=42, success_threshold=-1, settings=settings)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             model = se.evaluate_expr(["C", "*", "X_1", "X_0"])
@@ -999,7 +999,7 @@ class TestEvaluateExprRmse:
             se.ranking_function = "invalid"
 
 
-# ── SR_evaluator.evaluate_expr — BED ──────────────────────────────────────────
+# ── Evaluator.evaluate_expr — BED ──────────────────────────────────────────
 
 
 class TestEvaluationTrace:
@@ -1025,7 +1025,7 @@ class TestEvaluationTrace:
         se = _make_se()
         numbers = []
 
-        class _Recorder(SR_callback):
+        class _Recorder(Callback):
             def on_expr_evaluated(self, event):
                 numbers.append((event.evaluation_number, len(se.trace)))
 
@@ -1063,7 +1063,7 @@ class TestEvaluationTrace:
         results = se.get_results(top_k=1)
         path = str(tmp_path / "r.json")
         results.save(path)
-        loaded = SR_results.load(path)[0]
+        loaded = Results.load(path)[0]
         assert loaded.trace == [0, 0, 1]
         assert loaded.calls_to_threshold() == 3
         assert loaded.success_threshold == 1e-6
@@ -1144,9 +1144,7 @@ class TestEvaluationStatus:
         if ranking == "rmse":
             se = _make_se(settings=Settings(evaluator={"backend": backend}))
         else:
-            se = SR_evaluator(
-                _X_BED, ground_truth=["C", "*", "X_0"], ranking_function="bed", seed=0, success_threshold=-1
-            )
+            se = Evaluator(_X_BED, ground_truth=["C", "*", "X_0"], ranking_function="bed", seed=0, success_threshold=-1)
         for expr, rmse_status, bed_status in _STATUS_CASES:
             expected = rmse_status if ranking == "rmse" else bed_status
             error = se.evaluate_expr(expr).error
@@ -1176,7 +1174,7 @@ class TestEvaluationStatus:
         assert np.isfinite(se.evaluate_expr(["X_0", "+", "X_1"]).error)
 
     def test_bed_enforces_max_constants(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X_BED,
             ground_truth=["C", "*", "X_0"],
             ranking_function="bed",
@@ -1188,7 +1186,7 @@ class TestEvaluationStatus:
         assert se.models[0].status == "rejected"
 
     def test_ranking_exception_gives_error_with_warning(self):
-        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(RuntimeError("boom")), success_threshold=-1)
+        se = Evaluator(_X, _y, ranking_function=_FixedRanking(RuntimeError("boom")), success_threshold=-1)
         with pytest.warns(UserWarning, match="boom"):
             assert se.evaluate_expr(["X_0"]).error == np.inf
         assert se.models[0].status == "error"
@@ -1198,26 +1196,26 @@ class TestEvaluationStatus:
 
     def test_ranking_status_is_respected(self):
         outcome = RankingResult(score=0.3, status="rejected", status_detail="not physical")
-        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        se = Evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
         assert se.evaluate_expr(["X_0"]).error == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("rejected", "not physical")
 
     def test_ranking_rejection_without_detail(self):
         outcome = RankingResult(score=np.inf, status="rejected")
-        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        se = Evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
         se.evaluate_expr(["X_0"])
         assert (se.models[0].status, se.models[0].status_detail) == ("rejected", "rejected by the ranking")
 
     def test_non_finite_score_is_undefined(self):
         outcome = RankingResult(score=np.nan)
-        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        se = Evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
         assert se.evaluate_expr(["X_0"]).error == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "fixed score is nan")
 
     @pytest.mark.parametrize("status", ["ok", "invalid", "error", "weird"])
     def test_disallowed_ranking_status_gives_error(self, status):
         outcome = RankingResult(score=0.3, status=status)  # type: ignore[arg-type]
-        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        se = Evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
         with pytest.warns(UserWarning, match="status it may not set"):
             se.evaluate_expr(["X_0"])
         assert se.models[0].status == "error"
@@ -1227,7 +1225,7 @@ class TestEvaluationStatus:
 
     def test_ranking_undefined_with_finite_score(self):
         outcome = RankingResult(score=0.3, status="undefined", status_detail="no finite behaviour")
-        se = SR_evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
+        se = Evaluator(_X, _y, ranking_function=_FixedRanking(outcome), success_threshold=-1)
         assert se.evaluate_expr(["X_0"]).error == np.inf
         assert (se.models[0].status, se.models[0].status_detail) == ("undefined", "no finite behaviour")
 
@@ -1244,7 +1242,7 @@ class TestEvaluationStatus:
     )
     def test_unsaveable_model_gives_error_with_warning(self, parameters, extra, advisory, path):
         outcome = RankingResult(score=0.0, parameters=parameters, extra=extra)
-        se = SR_evaluator(
+        se = Evaluator(
             _X, _y, ranking_function=_FixedRanking(outcome), success_threshold=1.0, advisory_constraints=advisory
         )
         with pytest.warns(UserWarning, match="cannot be saved"):
@@ -1273,7 +1271,7 @@ class TestEvaluationStatus:
                 operation()
                 return RankingResult(score=0.1)
 
-        se = SR_evaluator(_X, _y, ranking_function=_WarningRanking(None), success_threshold=-1)
+        se = Evaluator(_X, _y, ranking_function=_WarningRanking(None), success_threshold=-1)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             se.evaluate_expr(["X_0"], verbose=verbose)
@@ -1339,7 +1337,7 @@ class TestEvaluationStatus:
 
 class TestEvaluateExprBed:
     def setup_method(self):
-        self.se = SR_evaluator(
+        self.se = Evaluator(
             _X_BED,
             ground_truth=["C", "+", "X_0"],
             ranking_function="bed",
@@ -1360,7 +1358,7 @@ class TestEvaluateExprBed:
     # exact match may still have a small positive error"; the bound 0.2 is the documented one).
     def test_bed_exact_match_has_small_error(self):
         X = np.random.default_rng(1).random((10, 2)) - 0.5
-        se = SR_evaluator(X, ground_truth=["X_0", "+", "C"], ranking_function="bed", seed=42)
+        se = Evaluator(X, ground_truth=["X_0", "+", "C"], ranking_function="bed", seed=42)
         assert 0 <= se.evaluate_expr(["C", "+", "X_0"]).error < 0.2
 
     def test_bed_invalid_expression_returns_inf_and_appends_invalid(self):
@@ -1376,7 +1374,7 @@ class TestEvaluateExprBed:
         assert self.se.should_stop is True
 
 
-# ── SR_evaluator.get_metric ───────────────────────────────────────────────────
+# ── Evaluator.get_metric ───────────────────────────────────────────────────
 
 
 class TestGetMetric:
@@ -1452,21 +1450,21 @@ class TestGetMetric:
         assert np.isnan(se.get_metric(["C", "*", "X_1", "X_0"], "r2"))
 
     def test_bed_mode_returns_nan(self):
-        se = SR_evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0)
+        se = Evaluator(_X_BED, ground_truth=["C", "+", "X_0"], ranking_function="bed", seed=0)
         se.evaluate_expr(["C", "+", "X_0"])
         assert np.isnan(se.get_metric(["C", "+", "X_0"], "r2"))
 
     # Reason: clause (Returns: NaN "if the ranking is not rmse"), also when y is given and the model has
     # no constants to fit, so the metric itself could be computed.
     def test_bed_with_y_returns_nan(self):
-        se = SR_evaluator(_X, _y, ranking_function="bed", seed=0, settings=Settings(bed={"num_points_sampled": -1}))
+        se = Evaluator(_X, _y, ranking_function="bed", seed=0, settings=Settings(bed={"num_points_sampled": -1}))
         se.evaluate_expr(["X_1", "-", "X_0"])
         assert np.isnan(se.get_metric(["X_1", "-", "X_0"], "r2"))
 
     # Reason: clause (Returns: NaN "if y was not given to the evaluator (e.g. RMSE generated it from the
     # ground truth)"). The model fits the generated y exactly, so only the missing y gives NaN.
     def test_generated_y_returns_nan(self):
-        se = SR_evaluator(_X, ground_truth=["X_1", "-", "X_0"], seed=0)
+        se = Evaluator(_X, ground_truth=["X_1", "-", "X_0"], seed=0)
         assert se.evaluate_expr(["X_1", "-", "X_0"]).error < 1e-12
         assert np.isnan(se.get_metric(["X_1", "-", "X_0"], "r2"))
 
@@ -1484,7 +1482,7 @@ class TestGetMetric:
         assert se.total_evaluations == before
 
 
-# ── SR_evaluator.get_results ──────────────────────────────────────────────────
+# ── Evaluator.get_results ──────────────────────────────────────────────────
 
 
 class TestGetResults:
@@ -1521,19 +1519,19 @@ class TestGetResults:
     def test_appends_to_existing_sr_results(self):
         se = _make_se()
         se.evaluate_expr(["X_0"])
-        existing = SR_results()
+        existing = Results()
         se.get_results(results=existing)
         assert len(existing) == 1
 
     def test_metadata_dataset_name_extracted(self):
-        se = SR_evaluator(_X, _y, metadata={"dataset_name": "test_ds", "fold": 3}, seed=0)
+        se = Evaluator(_X, _y, metadata={"dataset_name": "test_ds", "fold": 3}, seed=0)
         se.evaluate_expr(["X_0"])
         r = se.get_results()[0]
         assert r.dataset_name == "test_ds"
         assert r.metadata == {"fold": 3}
 
     def test_metadata_only_dataset_name_gives_none_remaining(self):
-        se = SR_evaluator(_X, _y, metadata={"dataset_name": "only"}, seed=0)
+        se = Evaluator(_X, _y, metadata={"dataset_name": "only"}, seed=0)
         se.evaluate_expr(["X_0"])
         r = se.get_results()[0]
         assert r.dataset_name == "only"
@@ -1666,7 +1664,7 @@ class TestCompactResults:
             se.get_results(top_k=top_k, keep_all_models=False)
 
 
-class _Recorder(SR_callback):
+class _Recorder(Callback):
     def __init__(self):
         self.events = []
         self.best = []
@@ -1758,8 +1756,8 @@ class TestConstraintSetup:
 
     def test_same_instance_serves_evaluators_with_different_libraries(self):
         shared = RequiredVariables()
-        se1 = SR_evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[shared])
-        se3 = SR_evaluator(
+        se1 = Evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[shared])
+        se3 = Evaluator(
             np.column_stack([_X, _X[:, 0]]),
             _y,
             symbol_library=SymbolLibrary.default_symbols(3),
@@ -1866,7 +1864,7 @@ class TestConstraintSetup:
 
 class TestCheckConstraints:
     def _se(self):
-        return SR_evaluator(
+        return Evaluator(
             _X1,
             _y,
             symbol_library=_LIB1(),
@@ -1886,7 +1884,7 @@ class TestCheckConstraints:
         )
 
     def test_check_constraints_same_class_in_both_lists(self):
-        se = SR_evaluator(
+        se = Evaluator(
             _X1, _y, symbol_library=_LIB1(), required_constraints=[MaxTokens(5)], advisory_constraints=[MaxTokens(2)]
         )
         assert se.check_constraints(["X_0", "+", "C"]) == (
@@ -1895,7 +1893,7 @@ class TestCheckConstraints:
         )
 
     def test_check_constraints_has_no_side_effects(self):
-        se = SR_evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[MaxConstants(0)])
+        se = Evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[MaxConstants(0)])
         recorder = _Recorder()
         se.register_callbacks(recorder)
         assert se.check_constraints(["C"]) == ([_violation("MaxConstants", "pre", "1 constants, limit 0", 1.0)], [])
@@ -1920,7 +1918,7 @@ class TestCheckConstraints:
         ids=["list-as-given", "tree-written-out", "not-simplified", "tree-minimal-brackets"],
     )
     def test_check_constraints_input_form(self, make, make_expr, messages):
-        se = SR_evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[make()])
+        se = Evaluator(_X1, _y, symbol_library=_LIB1(), required_constraints=[make()])
         required, _ = se.check_constraints(make_expr(se.symbol_library))
         assert [r.message for r in required] == messages
 
@@ -1939,13 +1937,13 @@ class TestCheckConstraints:
         ids=["parsed-with-no-constraints", "parsed-for-token-only", "wrong-type"],
     )
     def test_check_constraints_error_contract(self, make_kwargs, expr, error, match):
-        se = SR_evaluator(_X1, _y, symbol_library=_LIB1(), **make_kwargs())
+        se = Evaluator(_X1, _y, symbol_library=_LIB1(), **make_kwargs())
         with pytest.raises(error, match=match):
             se.check_constraints(expr)
 
     def test_check_constraints_returns_raising_check(self):
         # The raising check is reported in either list, and the checks after it still run.
-        se = SR_evaluator(
+        se = Evaluator(
             _X1,
             _y,
             symbol_library=_LIB1(),
@@ -1965,7 +1963,7 @@ class TestCheckConstraints:
     @given(tokens=infix_expressions(), as_tree=st.booleans())
     def test_check_constraints_required_empty_iff_not_rejected(self, tokens, as_tree):
         library = _LIB2()
-        se = SR_evaluator(
+        se = Evaluator(
             _X,
             _y,
             symbol_library=library,
@@ -1984,7 +1982,7 @@ class TestCheckConstraints:
     # accepted as C*X_0, breaking "an empty required list means evaluate_expr(expr) will not reject").
     @pytest.mark.parametrize("fold", ["keep", "default"])
     def test_check_constraints_checks_the_stored_form(self, fold):
-        se = SR_evaluator(
+        se = Evaluator(
             _X1,
             _y,
             symbol_library=_LIB1(),
@@ -2007,7 +2005,7 @@ class TestCheckConstraints:
         ids=["spec-keeps-label", "no-spec"],
     )
     def test_specs_shape_the_checked_stored_form(self, specs, failed, status):
-        se = SR_evaluator(
+        se = Evaluator(
             _X1,
             _y,
             symbol_library=_LIB1(),
@@ -2032,7 +2030,7 @@ class TestConstraintEvaluation:
         ids=["depth-first", "constants-first"],
     )
     def test_first_failed_required_pre_check_decides(self, make_required, detail):
-        se = SR_evaluator(
+        se = Evaluator(
             _X1, _y, symbol_library=_LIB1(), ranking_function=_CountingRanking(), required_constraints=make_required()
         )
         assert se.evaluate_expr(["C", "*", "sin", "(", "X_0", ")"]).error == _INF
@@ -2043,7 +2041,7 @@ class TestConstraintEvaluation:
 
     def test_required_post_check_rejects_and_keeps_fit(self):
         # Fitted C = 2 gives 2 * (-1) - 0 = -2 at the point (0, -1), below the lower bound 0.
-        se = SR_evaluator(
+        se = Evaluator(
             _X,
             _y,
             symbol_library=_LIB2(),
@@ -2118,7 +2116,7 @@ class TestConstraintEvaluation:
         # At the point (1, 1): X_0 - X_1 = 0 passes the required lower bound 0 but not the advisory
         # 0.5; X_0 - X_1 - X_1 = -1 fails the required bound (and would fail the advisory one).
         point = [[1.0, 1.0]]
-        se = SR_evaluator(
+        se = Evaluator(
             _X,
             _y,
             symbol_library=_LIB2(),
@@ -2192,7 +2190,7 @@ class TestConstraintEvaluation:
     def test_required_check_exception_gives_error_status(self, make, detail, parameters, ranking_data):
         # A pre-check that raises stops before scoring; a post-check that raises keeps the fit. The
         # advisory pre-checks ran before and stay recorded, as for every parsed expression.
-        se = SR_evaluator(
+        se = Evaluator(
             _X,
             _y,
             symbol_library=_LIB2(),
@@ -2273,7 +2271,7 @@ def _lib_pmc():
 
 
 def _task_parts(**kwargs):
-    # The parts of a task's background knowledge, as SR_evaluator takes them (flat).
+    # The parts of a task's background knowledge, as Evaluator takes them (flat).
     parts = dict(
         advisory_constraints=[MaxTreeDepth(4)],
         description="Toy task",
@@ -2295,7 +2293,7 @@ class TestBackgroundKnowledge:
         grammar = Grammar.from_symbol_library(lib)
         samplers = [UniformSampling(0, 1), UniformSampling(2, 3)]
         parts = _task_parts(advisory_constraints=[hint], reference_grammar=grammar)
-        se = SR_evaluator(_X, _y, symbol_library=lib, constant_bounds=(-2, 2), samplers=samplers, **parts)
+        se = Evaluator(_X, _y, symbol_library=lib, constant_bounds=(-2, 2), samplers=samplers, **parts)
         bk = se.background_knowledge
         expected = _bk_from_parts(lib, constant_bounds=(-2, 2), samplers=samplers, **parts)
         assert bk.to_dict() == expected.to_dict()
@@ -2307,7 +2305,7 @@ class TestBackgroundKnowledge:
             se.background_knowledge = expected
 
     def test_minimal_background_knowledge_defaults(self):
-        se = SR_evaluator(_X, _y)
+        se = Evaluator(_X, _y)
         bk = se.background_knowledge
         assert bk.symbol_library is se.symbol_library
         assert bk.constant_bounds == (-5.0, 5.0)
@@ -2327,7 +2325,7 @@ class TestBackgroundKnowledge:
     )
     def test_background_knowledge_argument_errors(self, kwargs, match):
         with pytest.raises(ValueError, match=match):
-            SR_evaluator(_X, _y, symbol_library=_lib_pmc(), **kwargs)
+            Evaluator(_X, _y, symbol_library=_lib_pmc(), **kwargs)
 
     # Reason: clause (default_constant -> background knowledge -> evaluator.default_constant, completed
     # from constant_bounds -> the ranking -> EvalResult.default_constant). y = 50 x: C reaches 50 only under the default's bounds (0, inf);
@@ -2335,7 +2333,7 @@ class TestBackgroundKnowledge:
     def test_default_constant_setting_reaches_fit_and_results(self):
         X = np.array([[1.0], [2.0], [3.0], [4.0]])
         template = Constant(bounds=(0, float("inf")))
-        se = SR_evaluator(
+        se = Evaluator(
             X,
             50.0 * X[:, 0],
             symbol_library=SymbolLibrary.default_symbols(1),
@@ -2351,7 +2349,7 @@ class TestBackgroundKnowledge:
 
     def test_describe_lists_settings_limits_as_enforced(self):
         lib = _lib_pmc()
-        se = SR_evaluator(
+        se = Evaluator(
             _X,
             _y,
             symbol_library=lib,
@@ -2364,10 +2362,10 @@ class TestBackgroundKnowledge:
 
     def test_describe_and_priors_ignore_answer_ranking_and_budget(self):
         lib = _lib_pmc()
-        a = SR_evaluator(
+        a = Evaluator(
             _X, _y, symbol_library=lib, ground_truth=["X_0", "+", "X_1"], success_threshold=1e-6, **_task_parts()
         )
-        b = SR_evaluator(
+        b = Evaluator(
             _X,
             symbol_library=lib,
             **_task_parts(),
@@ -2381,7 +2379,7 @@ class TestBackgroundKnowledge:
         assert a.priors() == b.priors()
 
     def test_priors_are_constraint_summaries(self):
-        se = SR_evaluator(_X, _y, symbol_library=_lib_pmc(), required_constraints=[MaxTreeDepth(3)], **_task_parts())
+        se = Evaluator(_X, _y, symbol_library=_lib_pmc(), required_constraints=[MaxTreeDepth(3)], **_task_parts())
         assert se.priors() == {
             "required": [MaxConstants(8).summary(), MaxTreeDepth(3).summary()],
             "advisory": [MaxTreeDepth(4).summary()],
@@ -2390,7 +2388,7 @@ class TestBackgroundKnowledge:
 
 class TestGetModel:
     def test_get_model_returns_cached_result_without_billing(self):
-        se = SR_evaluator(_X, _y, symbol_library=_LIB2())
+        se = Evaluator(_X, _y, symbol_library=_LIB2())
         assert se.get_model(["X_0"]) is None
         se.evaluate_expr(["X_0"])
         for _ in range(3):
@@ -2405,7 +2403,7 @@ class TestGetModel:
     )
     def test_lookups_with_simplify_expr_match_evaluate_expr(self, settings, stored):
         expr = ["X_0", "*", "X_1", "/", "X_0"]
-        se = SR_evaluator(
+        se = Evaluator(
             _X,
             _y,
             symbol_library=_LIB2(),
@@ -2425,7 +2423,7 @@ class TestGetModel:
     # Expression").
     @pytest.mark.parametrize("expr", ["X_0", None, 42], ids=["str", "None", "int"])
     def test_stored_tokens_rejects_non_expressions(self, expr):
-        se = SR_evaluator(_X, _y, symbol_library=_LIB2())
+        se = Evaluator(_X, _y, symbol_library=_LIB2())
         with pytest.raises(TypeError, match="Expression"):
             se.stored_tokens(expr)
 
@@ -2445,9 +2443,7 @@ _OUT_OF_BOUNDS = Constant("C_0", value=9.0)  # outside the default bounds (-5, 5
 
 
 def _spec_se(**kwargs):
-    return SR_evaluator(
-        _X3, _y3, symbol_library=SymbolLibrary.default_symbols(1), seed=0, success_threshold=-1, **kwargs
-    )
+    return Evaluator(_X3, _y3, symbol_library=SymbolLibrary.default_symbols(1), seed=0, success_threshold=-1, **kwargs)
 
 
 class _RecordingRanking(RankingFunction):
@@ -2471,7 +2467,7 @@ class TestFreeConstants:
             def to_dict(self):
                 return {**super().to_dict(), "extra": object()}
 
-        se = SR_evaluator(_X, _y)
+        se = Evaluator(_X, _y)
         with pytest.raises(TypeError):
             se.evaluate_expr(
                 Expression(["C_0", "*", "X_0"], free_constants=[Constant(label="C_0", prior=_Unsaveable(0, 1))])
@@ -2570,7 +2566,7 @@ class TestFreeConstants:
     # K_0 is a labelled constant that a spec can address.
     @pytest.mark.parametrize("simplify_expr", [False, True], ids=["plain", "simplify"])
     def test_specs_are_checked_with_the_evaluators_library(self, simplify_expr):
-        se = SR_evaluator(
+        se = Evaluator(
             _X3,
             _y3,
             symbol_library=SymbolLibrary.default_symbols(1, const_symbol="K"),
@@ -2620,7 +2616,7 @@ class TestFreeConstants:
     def test_bed_score_with_specs_is_reproduced_from_saved_result(self, tmp_path):
         X = np.linspace(-1, 1, 10).reshape(-1, 1)
         lib = SymbolLibrary.default_symbols(1)
-        se = SR_evaluator(
+        se = Evaluator(
             X,
             ground_truth=["X_0"],
             ranking_function="bed",
@@ -2634,7 +2630,7 @@ class TestFreeConstants:
         spec = _fix("C_0", 3.0)
         assert se.evaluate_expr(Expression(expr, free_constants=[spec])).error == pytest.approx(3.0, abs=1e-9)
         se.get_results().save(str(tmp_path))
-        result = SR_results.load(str(tmp_path))[0]
+        result = Results.load(str(tmp_path))[0]
         model = result.all_models[0]
         default = uniform_default((-2.0, 4.0))
         assert result.default_constant.to_dict() == default.to_dict()
@@ -2736,7 +2732,7 @@ class TestStoredFormCache:
         se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
         expr = ["X_0", "*", "X_1", "/", "X_0"]
         answers = [Expression(["X_1"], se.symbol_library), Expression(expr, se.symbol_library)]
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=answers) as spy:
+        with patch("SRToolkit.evaluation.evaluator.simplify", side_effect=answers) as spy:
             se.evaluate_expr(expr)
             stored = [se.stored_tokens(expr), se.check_constraints(expr), se.get_model(expr) is not None]
             se.evaluate_expr(expr)
@@ -2747,7 +2743,7 @@ class TestStoredFormCache:
     def test_specs_are_part_of_the_input(self):
         se = _spec_se(settings=Settings(evaluator={"simplify_expr": True, "fold_constants": "keep"}))
         expr = ["C_0", "*", "X_0"]
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
+        with patch("SRToolkit.evaluation.evaluator.simplify", wraps=simplify) as spy:
             plain = se.evaluate_expr(expr)
             with_specs = se.evaluate_expr(Expression(expr, free_constants=[_fix("C_0", 2.0)]))
         assert spy.call_count == 2
@@ -2766,7 +2762,7 @@ class TestStoredFormCache:
     # emitted") + regression risk: a silent lookup that filled the memory first must not swallow it.
     def test_simplify_failure_warns_after_a_silent_lookup(self):
         se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
+        with patch("SRToolkit.evaluation.evaluator.simplify", side_effect=Exception("bad")):
             with warnings.catch_warnings():
                 warnings.simplefilter("error")
                 se.get_model(["C", "*", "X_0"])
@@ -2777,10 +2773,10 @@ class TestStoredFormCache:
     # past the size limit, the least recently used input is forgotten. With a limit of 2, a is used
     # again before c arrives, so c evicts b, not a: simplify runs for a, b, c and then b again.
     def test_least_recently_used_input_is_forgotten_first(self, monkeypatch):
-        monkeypatch.setattr("SRToolkit.evaluation.sr_evaluator._STORED_FORM_CACHE_SIZE", 2)
+        monkeypatch.setattr("SRToolkit.evaluation.evaluator._STORED_FORM_CACHE_SIZE", 2)
         se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
         a, b, c = ["X_0"], ["X_1"], ["X_0", "+", "X_1"]
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
+        with patch("SRToolkit.evaluation.evaluator.simplify", wraps=simplify) as spy:
             for expr in (a, b, a, c, a, b):
                 se.stored_tokens(expr)
         assert [list(call.args[0].tokens) for call in spy.call_args_list] == [a, b, c, b]
@@ -2789,7 +2785,7 @@ class TestStoredFormCache:
     # on every call).
     def test_without_simplify_expr_nothing_is_remembered(self):
         se = _make_se(settings=Settings(evaluator={"fold_constants": "default"}))
-        with patch("SRToolkit.evaluation.sr_evaluator.fold", wraps=fold) as spy:
+        with patch("SRToolkit.evaluation.evaluator.fold", wraps=fold) as spy:
             se.stored_tokens(["X_0", "+", "1", "+", "1"])
             se.stored_tokens(["X_0", "+", "1", "+", "1"])
         assert spy.call_count == 2
@@ -2896,7 +2892,7 @@ class TestParsedOnce:
     def test_expression_in_other_library_uses_evaluators(self):
         lib = SymbolLibrary.default_symbols(1)
         lib.add_symbol("C_1", "lit", 5, "50.0")
-        se = SR_evaluator(_X3, _X3[:, 0] + 50.0, symbol_library=lib, seed=0, success_threshold=-1)
+        se = Evaluator(_X3, _X3[:, 0] + 50.0, symbol_library=lib, seed=0, success_threshold=-1)
         model = se.evaluate_expr(Expression(["X_0", "+", "C_1"], SymbolLibrary.default_symbols(1)))
         assert model.error < 1e-9
         assert model.parameters.size == 0
@@ -2985,7 +2981,7 @@ class TestFoldConstants:
     # shares it).
     def test_lookup_does_not_warn_when_simplification_fails(self):
         se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
+        with patch("SRToolkit.evaluation.evaluator.simplify", side_effect=Exception("bad")):
             with warnings.catch_warnings():
                 warnings.simplefilter("error")
                 assert se.get_model(["X_0"]) is None
@@ -3039,7 +3035,7 @@ class TestFoldConstants:
     )
     def test_folded_and_canonicalised_after_failed_simplification(self, settings, expr, stored):
         se = _make_se(settings=settings.get("settings", Settings()).replace(evaluator={"simplify_expr": True}))
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
+        with patch("SRToolkit.evaluation.evaluator.simplify", side_effect=Exception("bad")):
             with pytest.warns(UserWarning, match="Unable to simplify"):
                 se.evaluate_expr(expr)
         assert se.models[0].expr == stored
@@ -3049,7 +3045,7 @@ class TestFoldConstants:
         se = _make_se(
             settings=Settings(evaluator={"fold_constants": "keep", "simplify_fold_aware": False, "simplify_expr": True})
         )
-        with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
+        with patch("SRToolkit.evaluation.evaluator.simplify", wraps=simplify) as spy:
             se.evaluate_expr(["X_0"])
         assert (spy.call_args.kwargs["fold"], spy.call_args.kwargs["fold_aware"]) == ("keep", False)
 
@@ -3059,7 +3055,7 @@ _y3_affine = 2 * _X3[:, 0] + 2  # fitted by C_0*X_0 + C_0 with C_0 = 2
 
 def _canon_se(lib=None, **kwargs):
     lib = SymbolLibrary.default_symbols(1) if lib is None else lib
-    return SR_evaluator(_X3, _y3_affine, symbol_library=lib, seed=0, success_threshold=-1, **kwargs)
+    return Evaluator(_X3, _y3_affine, symbol_library=lib, seed=0, success_threshold=-1, **kwargs)
 
 
 class TestCanonicalisation:
@@ -3143,7 +3139,7 @@ class TestCanonicalisation:
     # the shared labels C_5 and C_2, the stored form must be canonical (a fixed point of canonicalise).
     def test_simplified_expression_is_canonicalised(self):
         lib = SymbolLibrary.default_symbols(2)
-        se = SR_evaluator(
+        se = Evaluator(
             _X,
             _y,
             symbol_library=lib,
@@ -3207,7 +3203,7 @@ class TestCacheKey:
     def test_cache_key_distinguishes_token_lists_with_equal_join(
         self, lib, X, y, first, second, second_error, second_status
     ):
-        se = SR_evaluator(X, y, symbol_library=lib(), seed=0, success_threshold=-1)
+        se = Evaluator(X, y, symbol_library=lib(), seed=0, success_threshold=-1)
         se.evaluate_expr(first)
         assert se.evaluate_expr(second).error == pytest.approx(second_error)
         assert len(se.models) == 2
@@ -3254,7 +3250,7 @@ def _ckpt_se(checkpoint=None, **kwargs):
     args = dict(seed=0, success_threshold=-1, ranking_function=_CountingRMSE())
     args.update(kwargs)
     args["settings"] = args.get("settings", Settings()).replace(estimation={"initialization": "mean"})
-    return SR_evaluator(_CX, _CY, checkpoint=checkpoint, **args)
+    return Evaluator(_CX, _CY, checkpoint=checkpoint, **args)
 
 
 def _evaluate(se, calls):
@@ -3280,7 +3276,7 @@ def _straight(calls, **kwargs):
     return se
 
 
-class _StateLog(SR_callback):
+class _StateLog(Callback):
     def __init__(self, state=None):
         self.log = []
         self.seen = 0
@@ -3302,7 +3298,7 @@ class _StateLog(SR_callback):
 
 
 def _stepped(path=None, resume=False, signal_after=None, approach=None, **kwargs):
-    # One session of a SteppedApproach (batches of 2) run through SR_approach.run.
+    # One session of a SteppedApproach (batches of 2) run through Approach.run.
     se = _ckpt_se(path, resume=resume, **kwargs)
     approach = approach or SteppedApproach()
     if signal_after is not None:
@@ -3346,11 +3342,11 @@ class TestCheckpoints:
             if os.path.exists(f"{path}{suffix}"):
                 shutil.copy(f"{path}{suffix}", crash / f"run.sqlite{suffix}")
         se.close()
-        assert SR_results.from_checkpoint(crash / "run.sqlite")[0].trace == [0, 1, 0]
+        assert Results.from_checkpoint(crash / "run.sqlite")[0].trace == [0, 1, 0]
         resumed = _ckpt_se(crash / "run.sqlite", resume=True)
         assert (resumed.resumed_from.state, resumed.resumed_from.num_calls) == (b"state", 2)
         assert (list(resumed.trace), resumed.total_evaluations, resumed.stop_reason) == ([0, 1], 2, None)
-        assert SR_results.from_checkpoint(crash / "run.sqlite")[0].trace == [0, 1]  # rewound and committed
+        assert Results.from_checkpoint(crash / "run.sqlite")[0].trace == [0, 1]  # rewound and committed
 
     def test_resume_without_snapshot_starts_empty(self, tmp_path):
         path = tmp_path / "run.sqlite"
@@ -3394,7 +3390,7 @@ class TestCheckpoints:
         assert se.wall_time == 15.0  # still running: until now, plus the first session
         se.stop("done")
         se.close()
-        assert SR_results.from_checkpoint(path)[0].wall_time == 15.0
+        assert Results.from_checkpoint(path)[0].wall_time == 15.0
 
     def test_snapshot_saves_wall_time(self, tmp_path, monkeypatch):
         now = [100.0]
@@ -3405,7 +3401,7 @@ class TestCheckpoints:
         se.save_snapshot(b"state")
         now[0] = 107.0
         # As after a crash: read before close, which would save the wall time itself.
-        assert SR_results.from_checkpoint(path)[0].wall_time == 5.0
+        assert Results.from_checkpoint(path)[0].wall_time == 5.0
         se.close()
 
     def test_resume_restores_best_error(self, tmp_path):
@@ -3497,7 +3493,7 @@ class TestCheckpoints:
         se = _ckpt_se(path, resume=True)
         assert (se.stop_reason, se.total_evaluations) == ("done", 4)
         se.close()
-        assert SR_results.from_checkpoint(path)[0].stop_reason == "done"
+        assert Results.from_checkpoint(path)[0].stop_reason == "done"
 
     def test_callback_state_restored_from_snapshot(self, tmp_path):
         path = tmp_path / "run.sqlite"
@@ -3603,12 +3599,12 @@ class TestCheckpoints:
     def test_changed_fingerprint_part_raises(self, tmp_path, changed, name):
         path = tmp_path / "run.sqlite"
         base = {"X": _CX, "y": _CY, "seed": 0}
-        se = SR_evaluator(**base, checkpoint=path)
+        se = Evaluator(**base, checkpoint=path)
         se.evaluate_expr(["X_0"])
         se.close()
         with pytest.raises(ValueError, match=name):
-            SR_evaluator(**{**base, **changed}, checkpoint=path, resume=True)
-        SR_evaluator(**base, checkpoint=path, resume=True).close()  # the file is kept
+            Evaluator(**{**base, **changed}, checkpoint=path, resume=True)
+        Evaluator(**base, checkpoint=path, resume=True).close()  # the file is kept
 
     # Reason: clause (a resume must match the saved run in the ground truth's specs and in every changed
     # setting): a part given at the start and given again with another value is a change.
@@ -3631,11 +3627,11 @@ class TestCheckpoints:
     def test_changed_value_of_a_given_part_raises(self, tmp_path, started, resumed, name):
         path = tmp_path / "run.sqlite"
         base = {"X": _CX, "y": _CY, "seed": 0}
-        se = SR_evaluator(**base, **started, checkpoint=path)
+        se = Evaluator(**base, **started, checkpoint=path)
         se.evaluate_expr(["X_0"])
         se.close()
         with pytest.raises(ValueError, match=name):
-            SR_evaluator(**base, **resumed, checkpoint=path, resume=True)
+            Evaluator(**base, **resumed, checkpoint=path, resume=True)
 
     # Reason: regression (the fingerprint hashed settings as passed, so a setting left out, passed at its
     # default, or passed as None (the default) counted as a change and the resume was refused) + clause
@@ -3682,10 +3678,10 @@ class TestCheckpoints:
     def test_resume_accepts_defaults_and_unchecked_settings(self, tmp_path, started, resumed):
         path = tmp_path / "run.sqlite"
         base = {"X": _CX, "y": _CY, "seed": 0}
-        se = SR_evaluator(**base, **started, checkpoint=path)
+        se = Evaluator(**base, **started, checkpoint=path)
         se.evaluate_expr(["X_0"])
         se.close()
-        SR_evaluator(**base, **resumed, checkpoint=path, resume=True).close()  # accepted: no ValueError
+        Evaluator(**base, **resumed, checkpoint=path, resume=True).close()  # accepted: no ValueError
 
     @pytest.mark.parametrize(
         "make_file, kwargs, error, match",
@@ -3740,7 +3736,7 @@ class TestCheckpoints:
         se.close()
         assert sorted(p.name for p in tmp_path.iterdir()) == ["run.sqlite"]
         # as get_results gave, but the run never stopped, so it reads as unfinished
-        loaded = SR_results.from_checkpoint(path)[0].to_dict()
+        loaded = Results.from_checkpoint(path)[0].to_dict()
         assert loaded.pop("checkpoint")["path"] == str(path)
         assert expected.pop("checkpoint") is None
         # close saves the wall time until then: the run never stopped, so it is still running
@@ -3851,7 +3847,7 @@ class TestStopOnSignals:
                 assert se.stop_reason is None  # the handler only sets a flag
                 safe_point(se)
         assert (se.stop_reason, se.total_evaluations) == ("interrupted", 1)
-        saved = SR_results.from_checkpoint(path)[0]  # the writer is still open: the stop committed
+        saved = Results.from_checkpoint(path)[0]  # the writer is still open: the stop committed
         assert (saved.trace, saved.stop_reason) == ([0], "interrupted")
 
     @pytest.mark.parametrize(
@@ -3867,7 +3863,7 @@ class TestStopOnSignals:
                 between(se)
                 send_signal(signal.SIGINT)
         assert se.stop_reason == "interrupted"  # the pending stop is applied on the way out
-        assert SR_results.from_checkpoint(path)[0].stop_reason == "interrupted"
+        assert Results.from_checkpoint(path)[0].stop_reason == "interrupted"
 
     def test_signal_after_a_stop_keeps_the_first_reason(self, tmp_path):
         se = _ckpt_se(tmp_path / "run.sqlite")
@@ -3929,13 +3925,13 @@ class TestStopOnSignals:
 # --------------------------------------------------------------------------- #
 # Limits of a run (checkpoint stage 6)
 # --------------------------------------------------------------------------- #
-class _ArrayConfig(SR_callback):
+class _ArrayConfig(Callback):
     # A callback whose config holds a tuple and an array, as SRToolkit's encoder saves them.
     def to_dict(self):
         return {**super().to_dict(), "window": (1, 2), "weights": np.array([0.5, 1.5])}
 
 
-class _SetConfig(SR_callback):
+class _SetConfig(Callback):
     # A callback whose config holds a set, which cannot be saved.
     def to_dict(self):
         return {**super().to_dict(), "limit": {1}}
@@ -3972,7 +3968,7 @@ class TestLimits:
         se.save_snapshot(b"state")
         recorded = se.get_results()[0].limits[0]["callbacks"][0]
         se.close()
-        saved = SR_results.from_checkpoint(path)[0].limits[0]["callbacks"][0]
+        saved = Results.from_checkpoint(path)[0].limits[0]["callbacks"][0]
         for config in (recorded, saved):
             assert config["window"] == (1, 2)
             np.testing.assert_array_equal(config["weights"], [0.5, 1.5])
@@ -4005,14 +4001,14 @@ class TestLimits:
         assert se.get_results()[0].limits == expected
         se.close()
         if with_checkpoint:
-            assert SR_results.from_checkpoint(path)[0].limits == expected
+            assert Results.from_checkpoint(path)[0].limits == expected
 
     # Reason: clause (a plain resume with changed limits raises and points to extend_run; other changed
     # settings, which an extension cannot change either, get no such hint).
     @pytest.mark.parametrize(
         "changes, match",
         [
-            ({"max_evaluations": 10}, "max_evaluations. Change limits with SR_dataset.extend_run"),
+            ({"max_evaluations": 10}, "max_evaluations. Change limits with Dataset.extend_run"),
             ({"max_evaluations": 10, "success_threshold": 0.5}, "max_evaluations, success_threshold. Change"),
             ({"seed": 1}, r"seed\.$"),
             (
@@ -4033,7 +4029,7 @@ class TestLimits:
     def test_run_without_calls_keeps_its_segment(self, tmp_path):
         path = tmp_path / "run.sqlite"
         _ckpt_se(path, seed=None, max_evaluations=5).close()
-        assert SR_results.from_checkpoint(path)[0].limits == [
+        assert Results.from_checkpoint(path)[0].limits == [
             {
                 "calls": 0,
                 "max_evaluations": 5,
@@ -4093,13 +4089,13 @@ class TestSkips:
         se.count_skip("rejected")
         if snapshot:
             se.save_snapshot(b"state")
-            assert SR_results.from_checkpoint(path)[0].skips == {"rejected": 1}  # saved with the snapshot
+            assert Results.from_checkpoint(path)[0].skips == {"rejected": 1}  # saved with the snapshot
         se.count_skip("rejected")  # after the snapshot: a resume redoes it
         se.stop("done" if finished else "interrupted")
         se.close()
         resumed = _ckpt_se(path, resume=True)
         assert resumed.skips == expected
-        assert SR_results.from_checkpoint(path)[0].skips == expected  # the file agrees before any new commit
+        assert Results.from_checkpoint(path)[0].skips == expected  # the file agrees before any new commit
         assert resumed.get_results()[0].skips == expected
 
     # Reason: clause (count_skip: max_consecutive_skips skips in a row stop the run; every counted

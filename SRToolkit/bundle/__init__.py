@@ -35,9 +35,9 @@ install("meznar_gp.srtk")   # one-time, interactive
 raw = json.load(open("meznar_settings.srtk.json"))  # config shared separately
 # The config is annotated with _bundle/_version by pack(..., configs=[...]),
 # so it can be passed straight to any project `from_dict` consumer
-# (SR_dataset, Sampler, the experiment grid, ...) — they call bind_config
+# (Dataset, Sampler, the experiment grid, ...) — they call bind_config
 # internally to repoint every *_class path at the installed bundle.
-benchmark = SR_benchmark.from_dict(raw)
+benchmark = Benchmark.from_dict(raw)
 ```
 
 If the config was *not* annotated by ``pack`` (no ``_bundle`` key), bind it

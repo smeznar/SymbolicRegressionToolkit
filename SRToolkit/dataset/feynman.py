@@ -3,12 +3,12 @@
 from SRToolkit.utils.symbol_library import SymbolLibrary
 
 from .background_knowledge import VariableInfo
+from .benchmark import Benchmark
 from .data_source import FallbackSource, SampleSource, UrlSource
 from .sampling import UniformSampling
-from .sr_benchmark import SR_benchmark
 
 
-class Feynman(SR_benchmark):
+class Feynman(Benchmark):
     """The Feynman symbolic regression benchmark.
 
     Contains 100 physics equations with up to 9 variables. Data is downloaded on first use from

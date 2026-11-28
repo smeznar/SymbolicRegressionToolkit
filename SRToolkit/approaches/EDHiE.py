@@ -15,11 +15,11 @@ from typing import TYPE_CHECKING
 
 from tqdm import tqdm
 
-from SRToolkit.evaluation import SR_evaluator
+from SRToolkit.evaluation import Evaluator
 from SRToolkit.utils import Expression, Node, SymbolLibrary, generate_n_expressions, tokens_to_tree
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
 
-from .sr_approach import ApproachConfig, Candidate, SR_approach, check_dependencies
+from .approach import Approach, ApproachConfig, Candidate, check_dependencies
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports the approaches.
@@ -84,7 +84,7 @@ class _GASearch:
     pending: Population | None = None
 
 
-class EDHiE(SR_approach):
+class EDHiE(Approach):
     def __init__(
         self,
         latent_size: int = 32,
@@ -106,7 +106,7 @@ class EDHiE(SR_approach):
 
         [adapt][SRToolkit.approaches.EDHiE.EDHiE.adapt] trains a hierarchical VAE (HVAE) on random
         expressions for the task; the search runs a genetic algorithm in its latent space. In the
-        [step interface][SRToolkit.approaches.sr_approach], one step is one generation and is never
+        [step interface][SRToolkit.approaches.approach], one step is one generation and is never
         empty, so the search runs until the evaluator stops it.
 
         A stopped run resumes only with the same HVAE, bit for bit: load it from a file
@@ -352,16 +352,16 @@ class EDHiE(SR_approach):
         )
         self.model.load_state_dict(checkpoint["state_dict"])
 
-    def start(self, sr_evaluator: SR_evaluator, seed: int | None = None) -> _GASearch:
+    def start(self, evaluator: Evaluator, seed: int | None = None) -> _GASearch:
         """Seed the random states and start a new search.
 
-        See [start][SRToolkit.approaches.sr_approach.SR_approach.start]. With ``seed`` set, it seeds the global
+        See [start][SRToolkit.approaches.approach.Approach.start]. With ``seed`` set, it seeds the global
         random states (Python, NumPy, PyTorch; not restored) and the GA's own generator, so the same
         seed, HVAE, approach and evaluator settings give the same run; with ``None``, the GA's
         generator draws fresh entropy.
 
         Args:
-            sr_evaluator: The evaluator of the run.
+            evaluator: The evaluator of the run.
             seed: The run's seed, or ``None``.
 
         Returns:
@@ -378,21 +378,21 @@ class EDHiE(SR_approach):
             random.seed(seed)
         return _GASearch(self._new_ga(seed))
 
-    def ask(self, sr_evaluator: SR_evaluator, state: _GASearch) -> list[Candidate | list[str] | Expression | None]:
+    def ask(self, evaluator: Evaluator, state: _GASearch) -> list[Candidate | list[str] | Expression | None]:
         """Decode the next generation and propose one entry per individual, in order.
 
-        See [ask][SRToolkit.approaches.sr_approach.SR_approach.ask]. Each individual is proposed as the first of
+        See [ask][SRToolkit.approaches.approach.Approach.ask]. Each individual is proposed as the first of
         these that applies:
 
         1. ``None`` if it does not decode;
         2. a skip ``"evaluated"`` if ``skip_evaluated`` is set and its stored form (see
-           [stored_tokens][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens]) is that of
+           [stored_tokens][SRToolkit.evaluation.evaluator.Evaluator.stored_tokens]) is that of
            an expression evaluated before or proposed for evaluation earlier in this generation;
         3. a skip ``"rejected"`` if ``skip_rejected`` is set and it breaks a required constraint;
         4. its expression, to be evaluated.
 
         Args:
-            sr_evaluator: The evaluator of the run.
+            evaluator: The evaluator of the run.
             state: The search state.
 
         Returns:
@@ -410,11 +410,11 @@ class EDHiE(SR_approach):
                 candidates.append(None)
                 continue
             # One Expression per individual, so the lookups below and the evaluation parse it once.
-            expr = Expression.from_tree(tree, sr_evaluator.symbol_library)
-            key = tuple(sr_evaluator.stored_tokens(expr))
-            if self.skip_evaluated and (key in evaluated or sr_evaluator.get_model(expr) is not None):
+            expr = Expression.from_tree(tree, evaluator.symbol_library)
+            key = tuple(evaluator.stored_tokens(expr))
+            if self.skip_evaluated and (key in evaluated or evaluator.get_model(expr) is not None):
                 candidates.append(Candidate(expr, skip="evaluated"))
-            elif self.skip_rejected and sr_evaluator.check_constraints(expr)[0]:
+            elif self.skip_rejected and evaluator.check_constraints(expr)[0]:
                 candidates.append(Candidate(expr, skip="rejected"))
             else:
                 candidates.append(expr)
@@ -423,19 +423,19 @@ class EDHiE(SR_approach):
 
     def tell(
         self,
-        sr_evaluator: SR_evaluator,
+        evaluator: Evaluator,
         state: _GASearch,
         candidates: list[Candidate | list[str] | Expression | None],
         results: "list[ModelResult | None]",
     ) -> None:
         """Score the generation from ``ask`` and select the next population.
 
-        See [tell][SRToolkit.approaches.sr_approach.SR_approach.tell]. Individual *i* gets the error of
+        See [tell][SRToolkit.approaches.approach.Approach.tell]. Individual *i* gets the error of
         ``results[i]`` (lower is better), or ``inf`` if that is ``None``, its error is ``nan``, or
         the step stopped before it.
 
         Args:
-            sr_evaluator: The evaluator of the run.
+            evaluator: The evaluator of the run.
             state: The search state.
             candidates: Not used.
             results: The models of the entries from ``ask`` that the step loop reached.
@@ -452,7 +452,7 @@ class EDHiE(SR_approach):
     def dump_search_state(self, state: _GASearch) -> bytes:
         """Serialise the search state between two steps.
 
-        See [dump_search_state][SRToolkit.approaches.sr_approach.SR_approach.dump_search_state].
+        See [dump_search_state][SRToolkit.approaches.approach.Approach.dump_search_state].
 
         Args:
             state: The search state.
@@ -470,7 +470,7 @@ class EDHiE(SR_approach):
     def load_search_state(self, data: bytes) -> _GASearch:
         """Rebuild a search state from ``dump_search_state``, on this approach's HVAE.
 
-        See [load_search_state][SRToolkit.approaches.sr_approach.SR_approach.load_search_state].
+        See [load_search_state][SRToolkit.approaches.approach.Approach.load_search_state].
 
         Args:
             data: The serialised state.

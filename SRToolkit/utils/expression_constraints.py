@@ -21,7 +21,7 @@ A constraint receives the data it owns at construction (limits, units, evaluatio
 saves it with [to_dict][SRToolkit.utils.expression_constraints.ExpressionConstraint.to_dict]. The
 context it shares with the evaluator, the symbol library, comes through
 [setup][SRToolkit.utils.expression_constraints.ExpressionConstraint.setup] and is not saved. The
-[SR_evaluator][SRToolkit.evaluation.sr_evaluator.SR_evaluator] calls ``setup`` in its constructor,
+[Evaluator][SRToolkit.evaluation.evaluator.Evaluator] calls ``setup`` in its constructor,
 on its own shallow copies of the constraints, so the same instance can be given to evaluators with
 different symbol libraries. Every built-in constraint needs the library: to use one on its own, call
 ``setup`` first, or its checks raise ``RuntimeError``. A custom constraint that does not need the
@@ -249,7 +249,7 @@ def _validate_limit(limit: int, name: str, allow_negative: bool = False) -> int:
     # Returns ``limit`` as an int if it is an int or numpy integer (bool rejected) and, unless
     # ``allow_negative``, non-negative; else raises ValueError naming ``name`` (the constraint class
     # or setting). Shared by the built-in limits and, with allow_negative=True (a negative value
-    # disables the limit), by SR_evaluator and ParameterEstimator for max_constants /
+    # disables the limit), by Evaluator and ParameterEstimator for max_constants /
     # max_expr_length.
     if isinstance(limit, (bool, np.bool_)) or not isinstance(limit, (int, np.integer)):
         kind = "an int (a negative value disables the limit)" if allow_negative else "a non-negative int"

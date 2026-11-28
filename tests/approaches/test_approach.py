@@ -1,5 +1,5 @@
-"""Tests for the step interface of SRToolkit.approaches.sr_approach: the default step loop,
-SR_approach.run and resuming from snapshots (checkpoint stage 2c)."""
+"""Tests for the step interface of SRToolkit.approaches.approach: the default step loop,
+Approach.run and resuming from snapshots (checkpoint stage 2c)."""
 
 import pickle
 import random
@@ -22,12 +22,12 @@ from strategies import (
 )
 
 from SRToolkit.approaches import ProGED
-from SRToolkit.approaches.sr_approach import Candidate, SR_approach
+from SRToolkit.approaches.approach import Approach, Candidate
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
 from SRToolkit.evaluation import model_store
+from SRToolkit.evaluation.evaluator import Evaluator
 from SRToolkit.evaluation.model_store import ModelStore
-from SRToolkit.evaluation.results import SR_results
-from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.evaluation.results import Results
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_tree import tokens_to_tree
 from SRToolkit.utils.free_constants import Constant
@@ -42,7 +42,7 @@ def _se(checkpoint=None, **kwargs):
     args = dict(seed=0, success_threshold=-1)
     args.update(kwargs)
     args["settings"] = args.get("settings", Settings()).replace(estimation={"initialization": "mean"})
-    return SR_evaluator(_X, _Y, checkpoint=checkpoint, **args)
+    return Evaluator(_X, _Y, checkpoint=checkpoint, **args)
 
 
 def _result(se):
@@ -150,20 +150,20 @@ class _Log(SteppedApproach):
         super().__init__(**kwargs)
         self.log, self.evaluators = [], []
 
-    def start(self, sr_evaluator, seed=None):
-        self.evaluators.append(sr_evaluator)
-        state = super().start(sr_evaluator, seed)
+    def start(self, evaluator, seed=None):
+        self.evaluators.append(evaluator)
+        state = super().start(evaluator, seed)
         self.log.append(("start", state))
         return state
 
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         self.log.append(("ask", state))
-        return super().ask(sr_evaluator, state)
+        return super().ask(evaluator, state)
 
-    def tell(self, sr_evaluator, state, candidates, results):
+    def tell(self, evaluator, state, candidates, results):
         self.log.append(("tell", state))
-        self.evaluators.append(sr_evaluator)
-        super().tell(sr_evaluator, state, candidates, results)
+        self.evaluators.append(evaluator)
+        super().tell(evaluator, state, candidates, results)
 
     def dump_search_state(self, state):
         self.log.append(("dump", state))
@@ -183,8 +183,8 @@ def test_step_loop_passes_one_state_object_in_documented_order(tmp_path):
 
 
 class _Unpicklable(SteppedApproach):
-    def start(self, sr_evaluator, seed=None):
-        return {**super().start(sr_evaluator, seed), "lock": threading.Lock()}
+    def start(self, evaluator, seed=None):
+        return {**super().start(evaluator, seed), "lock": threading.Lock()}
 
 
 # Reason: clause (dump_search_state: with a checkpoint the state is dumped once before the first step,
@@ -207,10 +207,10 @@ def test_unpicklable_state_fails_before_first_step_only_with_checkpoint(tmp_path
 class _ResumeOnly(_Log):
     # Fails if a resumed run starts or searches anew; load_search_state disturbs the global random
     # states, which the framework restores after it.
-    def start(self, sr_evaluator, seed=None):
+    def start(self, evaluator, seed=None):
         raise AssertionError("start called on resume")
 
-    def search(self, sr_evaluator, seed=None):
+    def search(self, evaluator, seed=None):
         raise AssertionError("search called on resume")
 
     def load_search_state(self, data):
@@ -272,19 +272,19 @@ def test_default_state_methods_round_trip_with_own_generator():
 class _Mixed(SteppedApproach):
     # Proposes Candidates (Expressions with a free-constant spec: one from tokens, one from a tree), a
     # bare Expression and a token list, then stops.
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         if state["asks"]:
             return []
         state["asks"] += 1
         self.proposed = [
             Candidate(Expression(["C_0", "*", "X_0"], free_constants=[_SPEC])),
             Candidate(["C", "+", "X_0"]),
-            Expression(["X_0", "*", "X_0"], sr_evaluator.symbol_library),
+            Expression(["X_0", "*", "X_0"], evaluator.symbol_library),
             ["X_0"],
             Candidate(
                 Expression.from_tree(
-                    tokens_to_tree(["C_0", "-", "X_0"], sr_evaluator.symbol_library),
-                    sr_evaluator.symbol_library,
+                    tokens_to_tree(["C_0", "-", "X_0"], evaluator.symbol_library),
+                    evaluator.symbol_library,
                     [_SPEC],
                 )
             ),
@@ -320,7 +320,7 @@ class _SkipsAndNone(SteppedApproach):
         [["X_1"]],
     ]
 
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         state["asks"] += 1
         return self._STEPS[state["asks"] - 1] if state["asks"] <= len(self._STEPS) else []
 
@@ -328,7 +328,7 @@ class _SkipsAndNone(SteppedApproach):
 # Reason: clause (Candidate.skip: a skip is looked up, spending no budget; tell gets its stored model,
 # or None if it was never evaluated, and None for a None entry).
 def test_skip_and_none_candidates_spend_no_budget():
-    se = SR_evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
+    se = Evaluator(np.ones((3, 2)), np.ones(3), seed=0, success_threshold=-1)
     approach = _SkipsAndNone()
     approach.search(se, seed=0)
     [(_, first), (_, skipped), _] = approach.told  # the step of skips did not end the run
@@ -342,9 +342,9 @@ class _Steps(SteppedApproach):
         super().__init__()
         self.steps, self.ask_skip = steps, ask_skip
 
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         if self.ask_skip is not None:
-            sr_evaluator.count_skip(self.ask_skip)
+            evaluator.count_skip(self.ask_skip)
         state["asks"] += 1
         return self.steps[state["asks"] - 1] if state["asks"] <= len(self.steps) else []
 
@@ -369,7 +369,7 @@ _SKIP_STEPS = [
     ids=["reset-by-evaluation", "limit-reached"],
 )
 def test_step_loop_counts_skips_in_order(steps, limit, told, skips, calls, stop_reason):
-    se = SR_evaluator(
+    se = Evaluator(
         np.ones((3, 2)),
         np.ones(3),
         seed=0,
@@ -384,7 +384,7 @@ def test_step_loop_counts_skips_in_order(steps, limit, told, skips, calls, stop_
 # Reason: clause (Skips: a count_skip from ask is counted before the step's candidates, so it can stop
 # the run before any of them is evaluated; tell then gets empty lists).
 def test_count_skip_in_ask_can_stop_before_the_step():
-    se = SR_evaluator(
+    se = Evaluator(
         np.ones((3, 2)),
         np.ones(3),
         seed=0,
@@ -425,7 +425,7 @@ class _FieldLookup(SteppedApproach):
         ],
     ]
 
-    def ask(self, sr_evaluator, state):
+    def ask(self, evaluator, state):
         state["asks"] += 1
         return self._STEPS[state["asks"] - 1] if state["asks"] <= len(self._STEPS) else []
 
@@ -433,7 +433,7 @@ class _FieldLookup(SteppedApproach):
 # Reason: clause (Candidate: the expression's specs are used for evaluating; a skip is looked up
 # "with its specs") + the evaluator's simplify_expr and canonicalise_constants apply to both.
 def test_candidate_fields_and_settings_are_used_for_evaluation_and_lookup():
-    se = SR_evaluator(
+    se = Evaluator(
         np.ones((3, 2)),
         np.ones(3),
         seed=0,
@@ -449,8 +449,8 @@ def test_candidate_fields_and_settings_are_used_for_evaluation_and_lookup():
 
 
 class _FailingSecondTell(SteppedApproach):
-    def tell(self, sr_evaluator, state, candidates, results):
-        super().tell(sr_evaluator, state, candidates, results)
+    def tell(self, evaluator, state, candidates, results):
+        super().tell(evaluator, state, candidates, results)
         if len(self.told) == 2:
             raise RuntimeError("boom")
 
@@ -471,7 +471,7 @@ def test_due_snapshot_is_taken_between_steps(tmp_path, monkeypatch):
 
 
 class _FailingTell(SteppedApproach):
-    def tell(self, sr_evaluator, state, candidates, results):
+    def tell(self, evaluator, state, candidates, results):
         raise RuntimeError("boom")
 
 
@@ -516,7 +516,7 @@ _SESSION = textwrap.dedent(
 
     from SRToolkit.approaches import ProGED
     from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
-    from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+    from SRToolkit.evaluation.evaluator import Evaluator
     from SRToolkit.utils.symbol_library import SymbolLibrary
 
 
@@ -525,7 +525,7 @@ _SESSION = textwrap.dedent(
         lib = SymbolLibrary.from_symbol_list(["+", "*", "C"], num_variables=2)
         approach = ProGED()  # a fresh object each session
         approach.adapt(X, BackgroundKnowledge(lib), ())
-        se = SR_evaluator(X, X[:, 0] + X[:, 1], symbol_library=lib, max_evaluations=40, seed=0,
+        se = Evaluator(X, X[:, 0] + X[:, 1], symbol_library=lib, max_evaluations=40, seed=0,
                           success_threshold=-1, checkpoint=checkpoint, resume=resume)
         if signal_after is not None:
             se.register_callbacks(SignalAfter(signal_after))
@@ -566,7 +566,7 @@ def test_proged_resume_equals_straight_run(tmp_path, fresh_process):
             script = tmp_path / "session.py"
             script.write_text(_SESSION)
             _run_session(script, path, "new", 20)
-            assert len(SR_results.from_checkpoint(path)[0].trace) == 20  # interrupted at N
+            assert len(Results.from_checkpoint(path)[0].trace) == 20  # interrupted at N
             _run_session(script, path, "resume", 0)
         else:
             first = _session(path, signal_after=20)
@@ -574,19 +574,19 @@ def test_proged_resume_equals_straight_run(tmp_path, fresh_process):
             first.close()
             _session(path, resume=True).close()
         straight = _session()
-    resumed = SR_results.from_checkpoint(path)[0]
+    resumed = Results.from_checkpoint(path)[0]
     assert [m.to_dict() for m in resumed.all_models] == [m.to_dict() for m in straight.models]
     assert resumed.trace == list(straight.trace)
     assert resumed.skips == straight.skips
 
 
-class _NoSearch(SR_approach):  # neither search nor the step interface
+class _NoSearch(Approach):  # neither search nor the step interface
     def __init__(self):
         super().__init__(SteppedApproach().config)
 
 
 class _NoStart(SteppedApproach):
-    start = SR_approach.start
+    start = Approach.start
 
 
 # Reason: clause (search raises if the approach implements neither search nor ask, or ask without
@@ -596,8 +596,8 @@ class _NoStart(SteppedApproach):
     [
         (lambda: _NoSearch().search(_se(), seed=0), "step interface"),
         (lambda: _NoStart().search(_se(), seed=0), "implements ask but not start"),
-        (lambda: SR_approach.start(SteppedApproach(), _se(), seed=0), "start"),
-        (lambda: SR_approach.ask(SteppedApproach(), _se(), None), None),  # the type is all the spec says
+        (lambda: Approach.start(SteppedApproach(), _se(), seed=0), "start"),
+        (lambda: Approach.ask(SteppedApproach(), _se(), None), None),  # the type is all the spec says
     ],
     ids=["neither", "ask-without-start", "start-default", "ask-default"],
 )
@@ -612,7 +612,7 @@ def _proged_session(path=None, resume=False, signal_on_skip=False):
     lib = SymbolLibrary.from_symbol_list(["+", "*"], num_variables=2)
     approach = ProGED()
     approach.adapt(X, BackgroundKnowledge(lib), ())
-    se = SR_evaluator(
+    se = Evaluator(
         X,
         X[:, 0] + X[:, 1],
         symbol_library=lib,
@@ -650,7 +650,7 @@ def test_proged_interrupted_among_skips_resumes_as_straight_run(tmp_path):
         _proged_session(path, resume=True).close()
         straight = _proged_session()
     assert straight.stop_reason == "max_consecutive_skips"
-    resumed = SR_results.from_checkpoint(path)[0]
+    resumed = Results.from_checkpoint(path)[0]
     assert [m.to_dict() for m in resumed.all_models] == [m.to_dict() for m in straight.models]
     assert resumed.trace == list(straight.trace)
     assert resumed.skips == straight.skips
