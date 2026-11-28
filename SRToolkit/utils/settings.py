@@ -9,6 +9,7 @@ its class attribute ``name`` is its key in ``Settings``. The built-in sections a
 |---|---|---|
 | ``evaluator`` | [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings] | the evaluator |
 | ``estimation`` | [EstimationSettings][SRToolkit.utils.settings.EstimationSettings] | the parameter estimator |
+| ``minimize`` | [MinimizeSettings][SRToolkit.utils.settings.MinimizeSettings] | the parameter estimator's optimizer |
 | ``rmse`` | [RMSESettings][SRToolkit.utils.settings.RMSESettings] | RMSE ranking |
 | ``bed`` | [BEDSettings][SRToolkit.utils.settings.BEDSettings] | BED ranking |
 
@@ -24,12 +25,12 @@ Only the fields that differ from their defaults are saved (``to_dict``), and two
 equal when their saved forms are.
 
 Examples:
-    >>> settings = Settings(estimation={"max_iter": 200}, evaluator=EvaluatorSettings(simplify_expr=True))
-    >>> settings.estimation.max_iter, settings.estimation.method
+    >>> settings = Settings(minimize={"max_iter": 200}, evaluator=EvaluatorSettings(simplify_expr=True))
+    >>> settings.minimize.max_iter, settings.minimize.method
     (200, 'L-BFGS-B')
-    >>> settings.replace(estimation={"tol": 1e-8}).estimation.max_iter
+    >>> settings.replace(minimize={"tol": 1e-8}).minimize.max_iter
     200
-    >>> settings.to_dict()["sections"]["estimation"]
+    >>> settings.to_dict()["sections"]["minimize"]
     {'max_iter': 200}
 
     A custom section:
@@ -286,6 +287,29 @@ _MINIMIZE_METHODS = {
 class EstimationSettings(SettingsSection):
     """Settings of the [parameter estimator][SRToolkit.evaluation.parameter_estimator].
 
+    The optimizer's own settings are in the ``minimize`` section
+    ([MinimizeSettings][SRToolkit.utils.settings.MinimizeSettings]).
+
+    Attributes:
+        initialization: Starting point of a free constant without a ``value``: ``"random"`` draws
+            it from its prior, ``"mean"`` takes the prior's ``ppf(0.5)``. Default ``"random"``.
+
+    Raises:
+        ValueError: If ``initialization`` is not one of its values.
+    """
+
+    name: ClassVar[str] = "estimation"
+
+    initialization: Literal["random", "mean"] = "random"
+
+    def __post_init__(self) -> None:
+        _check_choice(self.initialization, ("random", "mean"), "estimation.initialization")
+
+
+@dataclass(frozen=True, eq=False)
+class MinimizeSettings(SettingsSection):
+    """Settings of ``scipy.optimize.minimize``, which the [parameter estimator][SRToolkit.evaluation.parameter_estimator] runs.
+
     Attributes:
         method: A ``scipy.optimize.minimize`` method, in any letter case; stored in SciPy's
             spelling (``"l-bfgs-b"`` becomes ``"L-BFGS-B"``). Default ``"L-BFGS-B"``.
@@ -295,44 +319,39 @@ class EstimationSettings(SettingsSection):
             positive finite number. Default ``1e-3``.
         max_iter: Maximum optimizer iterations (``options["maxiter"]``), a non-negative int.
             Default ``100``.
-        initialization: Starting point of a free constant without a ``value``: ``"random"`` draws
-            it from its prior, ``"mean"`` takes the prior's ``ppf(0.5)``. Default ``"random"``.
 
     Raises:
         TypeError: If ``method`` is not a string, ``tol`` / ``gtol`` is not a number or
             ``max_iter`` is not an int.
         ValueError: If ``method`` is not a ``minimize`` method, ``tol`` / ``gtol`` is not
-            positive and finite (``nan`` included), ``max_iter`` is negative or ``initialization`` is not one
-            of its values.
+            positive and finite (``nan`` included) or ``max_iter`` is negative.
     """
 
-    name: ClassVar[str] = "estimation"
+    name: ClassVar[str] = "minimize"
 
     method: str = "L-BFGS-B"
     tol: float = 1e-6
     gtol: float = 1e-3
     max_iter: int = 100
-    initialization: Literal["random", "mean"] = "random"
 
     def __post_init__(self) -> None:
         if not isinstance(self.method, str):
-            raise TypeError(f"[Settings] estimation.method must be a string, got {self.method!r}.")
+            raise TypeError(f"[Settings] minimize.method must be a string, got {self.method!r}.")
         if self.method.lower() not in _MINIMIZE_METHODS:
             raise ValueError(
-                f"[Settings] estimation.method must be a scipy.optimize.minimize method, got {self.method!r}."
+                f"[Settings] minimize.method must be a scipy.optimize.minimize method, got {self.method!r}."
             )
         object.__setattr__(self, "method", _MINIMIZE_METHODS[self.method.lower()])
-        _check_positive_real(self.tol, "estimation.tol")
-        _check_positive_real(self.gtol, "estimation.gtol")
-        object.__setattr__(self, "max_iter", _check_int(self.max_iter, "estimation.max_iter", 0))
-        _check_choice(self.initialization, ("random", "mean"), "estimation.initialization")
+        _check_positive_real(self.tol, "minimize.tol")
+        _check_positive_real(self.gtol, "minimize.gtol")
+        object.__setattr__(self, "max_iter", _check_int(self.max_iter, "minimize.max_iter", 0))
 
 
 @dataclass(frozen=True, eq=False)
 class RMSESettings(SettingsSection):
     """Settings of [RMSERanking][SRToolkit.evaluation.ranking.RMSERanking]; none yet.
 
-    Constants are fitted with the ``estimation`` section.
+    Constants are fitted with the ``estimation`` and ``minimize`` sections.
     """
 
     name: ClassVar[str] = "rmse"
@@ -388,6 +407,7 @@ class BEDSettings(SettingsSection):
 _BUILT_IN: dict[str, type[SettingsSection]] = {
     "evaluator": EvaluatorSettings,
     "estimation": EstimationSettings,
+    "minimize": MinimizeSettings,
     "rmse": RMSESettings,
     "bed": BEDSettings,
 }
@@ -429,6 +449,7 @@ class Settings:
     Args:
         evaluator: [EvaluatorSettings][SRToolkit.utils.settings.EvaluatorSettings] or a dict.
         estimation: [EstimationSettings][SRToolkit.utils.settings.EstimationSettings] or a dict.
+        minimize: [MinimizeSettings][SRToolkit.utils.settings.MinimizeSettings] or a dict.
         rmse: [RMSESettings][SRToolkit.utils.settings.RMSESettings] or a dict.
         bed: [BEDSettings][SRToolkit.utils.settings.BEDSettings] or a dict.
         **custom: Custom sections, each an instance of its class under its ``name``.
@@ -448,11 +469,19 @@ class Settings:
         self,
         evaluator: EvaluatorSettings | Mapping[str, Any] | None = None,
         estimation: EstimationSettings | Mapping[str, Any] | None = None,
+        minimize: MinimizeSettings | Mapping[str, Any] | None = None,
         rmse: RMSESettings | Mapping[str, Any] | None = None,
         bed: BEDSettings | Mapping[str, Any] | None = None,
         **custom: SettingsSection,
     ) -> None:
-        given = {"evaluator": evaluator, "estimation": estimation, "rmse": rmse, "bed": bed, **custom}
+        given = {
+            "evaluator": evaluator,
+            "estimation": estimation,
+            "minimize": minimize,
+            "rmse": rmse,
+            "bed": bed,
+            **custom,
+        }
         sections = {name: _as_section(name, value, None) for name, value in given.items() if value is not None}
         for name, cls in _BUILT_IN.items():
             sections.setdefault(name, cls())
@@ -470,6 +499,11 @@ class Settings:
     def estimation(self) -> EstimationSettings:
         """The ``estimation`` section."""
         return self._sections["estimation"]  # type: ignore[return-value]
+
+    @property
+    def minimize(self) -> MinimizeSettings:
+        """The ``minimize`` section."""
+        return self._sections["minimize"]  # type: ignore[return-value]
 
     @property
     def rmse(self) -> RMSESettings:

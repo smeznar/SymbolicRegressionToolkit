@@ -179,7 +179,7 @@ class TestSRDatasetEvaluator:
             y=np.sin(7 * X[:, 0]),
             seed=4,
             ranking_resample=resample,
-            settings=Settings(estimation={"max_iter": 1}),
+            settings=Settings(minimize={"max_iter": 1}),
         )
         expr = ["sin", "(", "C", "*", "X_0", ")"]
         a, b = dataset.create_evaluator(seed=1), dataset.create_evaluator(seed=2)
@@ -690,7 +690,7 @@ class TestBackgroundKnowledgeArguments:
             constant_bounds=(-3, 3),
             advisory_constraints=[MaxTreeDepth(4)],
             reference_grammar=_grammar(),
-            settings=Settings(estimation={"method": "Nelder-Mead"}),
+            settings=Settings(minimize={"method": "Nelder-Mead"}),
         )
         expected = BackgroundKnowledge(
             lib,
@@ -706,7 +706,7 @@ class TestBackgroundKnowledgeArguments:
         assert ds.symbol_library is lib
         assert ds.samplers[0] is s0 and ds.samplers[1] is s1
         assert ds.constant_bounds == (-3.0, 3.0)
-        assert ds.settings == Settings(estimation={"method": "Nelder-Mead"})
+        assert ds.settings == Settings(minimize={"method": "Nelder-Mead"})
 
     @pytest.mark.parametrize(
         "name",
@@ -769,7 +769,7 @@ class TestBackgroundKnowledgeArguments:
             ({"variables": {"X_0": "x"}}, "VariableInfo"),
             ({"advisory_constraints": MaxTreeDepth(4)}, "iterable"),
             ({"reference_grammar": "g"}, "reference_grammar"),
-            ({"settings": {"estimation": {"tol": 1e-3}}}, "Settings"),
+            ({"settings": {"minimize": {"tol": 1e-3}}}, "Settings"),
             ({"ranking_resample": 1}, "ranking_resample"),
         ],
         ids=[
@@ -887,14 +887,12 @@ class TestDescribe:
             original_equation="z = x + y",
             success_threshold=1e-6,
             description="Toy",
-            settings=Settings(estimation={"method": "Nelder-Mead"}),
+            settings=Settings(minimize={"method": "Nelder-Mead"}),
         )
         s = str(ds)
         lines = s.split("\n")
         assert "z = x + y" in lines[0]
-        assert (
-            s.index("z = x + y") < s.index("RMSE") < s.index("estimation.method=Nelder-Mead") < s.index(ds.describe())
-        )
+        assert s.index("z = x + y") < s.index("RMSE") < s.index("minimize.method=Nelder-Mead") < s.index(ds.describe())
         assert s.index(ds.describe()) + len(ds.describe()) < len(s) - len(lines[-1])
         assert "dataset_metadata" in lines[-1]
 
@@ -906,8 +904,8 @@ class TestDescribe:
         [
             (Settings(), None),
             (
-                Settings(bed={"num_points_sampled": 8}, estimation={"max_iter": 5, "method": "Nelder-Mead"}),
-                "Non-default settings: estimation.method=Nelder-Mead, estimation.max_iter=5, bed.num_points_sampled=8.",
+                Settings(bed={"num_points_sampled": 8}, minimize={"max_iter": 5, "method": "Nelder-Mead"}),
+                "Non-default settings: minimize.method=Nelder-Mead, minimize.max_iter=5, bed.num_points_sampled=8.",
             ),
             (Settings(my_ranking=_DatasetSection(alpha=0.3)), "Non-default settings: my_ranking.alpha=0.3."),
         ],
@@ -932,7 +930,7 @@ class TestCreateEvaluatorConstraints:
             samplers=samplers,
             constant_bounds=(-2, 2),
             seed=3,
-            settings=Settings(estimation={"method": "Nelder-Mead"}),
+            settings=Settings(minimize={"method": "Nelder-Mead"}),
         )
         ev = ds.create_evaluator()
         assert ev.settings == ds.settings.replace(
@@ -1072,7 +1070,7 @@ class TestFormat5:
     def test_v5_round_trip(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         settings = Settings(
-            estimation={"method": "Nelder-Mead"},
+            minimize={"method": "Nelder-Mead"},
             bed={"num_consts_sampled": 4, "bed_gt": np.arange(12.0).reshape(3, 4)},
             my_ranking=_DatasetSection(alpha=0.3),
         )
@@ -1193,7 +1191,7 @@ class TestFormat5:
                 [MaxConstants(4), MaxTokens(20)],
                 Settings(
                     evaluator={"simplify_rules": DefaultRules(exclude=["powers"]), "ranking_seed": 7},
-                    estimation={"method": "Nelder-Mead"},
+                    minimize={"method": "Nelder-Mead"},
                     bed={"num_consts_sampled": 4, "bed_gt": np.ones((5, 4))},
                 ),
                 True,
@@ -1240,6 +1238,7 @@ class TestFormat5:
                 "simplify_expr": True,
                 "backend": "codegen",
                 "tol": 1e-3,
+                "initialization": "mean",
                 "num_points_sampled": 8,
                 "ranking_resample": True,
             },
@@ -1247,7 +1246,8 @@ class TestFormat5:
         migrated = SR_dataset.from_dict(v4)
         assert migrated.settings == Settings(
             evaluator={"simplify_expr": True, "backend": "codegen"},
-            estimation={"tol": 1e-3},
+            estimation={"initialization": "mean"},
+            minimize={"tol": 1e-3},
             bed={"num_points_sampled": 8},
         )
         assert migrated.ranking_resample is True
@@ -1354,7 +1354,7 @@ class TestFromSamplersStageC:
             target=VariableInfo("z"),
             description="Toy",
             reference_grammar=_grammar(),
-            settings=Settings(estimation={"method": "Nelder-Mead"}),
+            settings=Settings(minimize={"method": "Nelder-Mead"}),
             ranking_resample=True,
         )
         assert ds.original_equation == expected
@@ -1364,7 +1364,7 @@ class TestFromSamplersStageC:
         assert ds.background_knowledge.variables == {"X_0": VariableInfo("x")}
         assert (ds.background_knowledge.target, ds.background_knowledge.description) == (VariableInfo("z"), "Toy")
         assert ds.background_knowledge.reference_grammar.to_dict() == _grammar().to_dict()
-        assert (ds.settings, ds.ranking_resample) == (Settings(estimation={"method": "Nelder-Mead"}), True)
+        assert (ds.settings, ds.ranking_resample) == (Settings(minimize={"method": "Nelder-Mead"}), True)
 
     def test_from_samplers_uses_flat_arguments_and_limits(self):
         lib = SymbolLibrary.default_symbols(2)
@@ -2061,7 +2061,7 @@ class TestEvaluateApproachCheckpoints:
 # --------------------------------------------------------------------------- #
 # extend_run (checkpoint stage 6)
 # --------------------------------------------------------------------------- #
-def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, estimation=None):
+def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, minimize=None):
     X = np.array([[1.0], [2.0], [3.0]])
     return SR_dataset(
         X,
@@ -2071,7 +2071,7 @@ def _limited(max_evaluations, success_threshold=-1.0, scale=2.0, estimation=None
         max_evaluations=max_evaluations,
         success_threshold=success_threshold,
         # Fitted constants do not depend on the random state.
-        settings=Settings(estimation={"initialization": "mean", **(estimation or {})}),
+        settings=Settings(estimation={"initialization": "mean"}, minimize=minimize),
     )
 
 
@@ -2373,11 +2373,11 @@ class TestExtendRun:
             (SteppedApproach(), _limited(6, scale=3.0), None, {}, ValueError, "other settings than this dataset's: y"),
             (
                 SteppedApproach(),
-                _limited(6, estimation={"tol": 1e-3}),
+                _limited(6, minimize={"tol": 1e-3}),
                 None,
                 {},
                 ValueError,
-                "other settings than this dataset's: estimation.tol",
+                "other settings than this dataset's: minimize.tol",
             ),
             (SteppedApproach(), _limited(6), None, {"keep_all_models": False, "top_k": 0}, ValueError, "top_k"),
             (SteppedApproach(), _limited(6), None, {"callbacks": _Unsaveable()}, TypeError, "set"),

@@ -3,7 +3,7 @@
 [ParameterEstimator][SRToolkit.evaluation.parameter_estimator.ParameterEstimator] fits the
 parameters of an expression (its free constants, in the order of
 [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]) to data ``(X, y)`` with
-``scipy.optimize.minimize``.
+``scipy.optimize.minimize``, configured by the ``minimize`` settings section.
 [RMSERanking][SRToolkit.evaluation.ranking.RMSERanking] scores expressions with it.
 
 **Specs.** Each parameter is fitted under a spec (see
@@ -28,9 +28,9 @@ its bounds; an infinite end leaves that side unbounded.
 generator seeded with a hash of ``seed``, the expression's tokens (a tree is seeded as its
 ``to_list`` tokens, a token list as given) and the specs passed for it (in any order; the order
 does not affect the seed). An expression's fit therefore depends only on ``seed``, its tokens, its
-specs, ``default_constant``, ``X``, ``y`` and the ``estimation`` settings, not on earlier fits, and
-is the same in every process, on every platform and Python version. With ``seed=None`` every fit
-draws a fresh random starting point.
+specs, ``default_constant``, ``X``, ``y`` and the ``estimation`` and ``minimize`` settings, not on
+earlier fits, and is the same in every process, on every platform and Python version. With
+``seed=None`` every fit draws a fresh random starting point.
 """
 
 import hashlib
@@ -65,7 +65,8 @@ class ParameterEstimator:
             combined with each expression's tokens and the specs passed for it. ``None`` gives a
             fresh random starting point per fit. Default ``None``.
         settings: The run's [Settings][SRToolkit.utils.settings.Settings]; the estimator reads
-            the ``estimation`` section and ``evaluator.backend``. ``None``: the defaults.
+            the ``estimation`` and ``minimize`` sections and ``evaluator.backend``. ``None``: the
+            defaults.
         default_constant: The default spec, a complete
             [Constant][SRToolkit.utils.free_constants.Constant] template. ``None``:
             [uniform_default((-5, 5))][SRToolkit.utils.free_constants.uniform_default].
@@ -288,11 +289,11 @@ class ParameterEstimator:
         res = minimize(
             objective,
             x0,
-            method=self.settings.estimation.method,
-            tol=self.settings.estimation.tol,
+            method=self.settings.minimize.method,
+            tol=self.settings.minimize.tol,
             options={
-                "maxiter": self.settings.estimation.max_iter,
-                "gtol": self.settings.estimation.gtol,
+                "maxiter": self.settings.minimize.max_iter,
+                "gtol": self.settings.minimize.gtol,
             },
             # An infinite end is passed as None: no bound on that side.
             bounds=[tuple(None if math.isinf(b) else b for b in s.bounds) for s in free_specs],  # type: ignore[union-attr]

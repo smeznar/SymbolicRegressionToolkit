@@ -16,6 +16,7 @@ from SRToolkit.utils.settings import (
     BEDSettings,
     EstimationSettings,
     EvaluatorSettings,
+    MinimizeSettings,
     RMSESettings,
     Settings,
     SettingsSection,
@@ -55,10 +56,11 @@ class TestSections:
         [
             (EvaluatorSettings, "evaluator"),
             (EstimationSettings, "estimation"),
+            (MinimizeSettings, "minimize"),
             (RMSESettings, "rmse"),
             (BEDSettings, "bed"),
         ],
-        ids=["evaluator", "estimation", "rmse", "bed"],
+        ids=["evaluator", "estimation", "minimize", "rmse", "bed"],
     )
     def test_builtin_section_names(self, cls, name):
         assert cls.name == name
@@ -78,10 +80,10 @@ class TestSections:
             (EvaluatorSettings, "max_expr_length", -1),
             (EvaluatorSettings, "backend", "stack"),
             (EvaluatorSettings, "ranking_seed", None),
-            (EstimationSettings, "method", "L-BFGS-B"),
-            (EstimationSettings, "tol", 1e-6),
-            (EstimationSettings, "gtol", 1e-3),
-            (EstimationSettings, "max_iter", 100),
+            (MinimizeSettings, "method", "L-BFGS-B"),
+            (MinimizeSettings, "tol", 1e-6),
+            (MinimizeSettings, "gtol", 1e-3),
+            (MinimizeSettings, "max_iter", 100),
             (EstimationSettings, "initialization", "random"),
             (BEDSettings, "num_points_sampled", 64),
             (BEDSettings, "num_consts_sampled", 32),
@@ -125,25 +127,28 @@ class TestSections:
     @pytest.mark.parametrize(
         "kwargs, exc, match",
         [
-            ({"method": 5}, TypeError, "estimation.method"),
-            ({"tol": "1e-6"}, TypeError, "estimation.tol"),
-            ({"tol": True}, TypeError, "estimation.tol"),
-            ({"gtol": None}, TypeError, "estimation.gtol"),
-            ({"max_iter": 1.5}, TypeError, "estimation.max_iter"),
-            ({"max_iter": True}, TypeError, "estimation.max_iter"),
-            ({"method": "foo"}, ValueError, "estimation.method"),
-            ({"tol": 0}, ValueError, "estimation.tol"),
-            ({"tol": float("nan")}, ValueError, "estimation.tol"),
-            ({"gtol": -1}, ValueError, "estimation.gtol"),
-            ({"gtol": float("inf")}, ValueError, "estimation.gtol"),
-            ({"max_iter": -1}, ValueError, "estimation.max_iter"),
-            ({"initialization": "zeros"}, ValueError, "estimation.initialization"),
+            ({"method": 5}, TypeError, "minimize.method"),
+            ({"tol": "1e-6"}, TypeError, "minimize.tol"),
+            ({"tol": True}, TypeError, "minimize.tol"),
+            ({"gtol": None}, TypeError, "minimize.gtol"),
+            ({"max_iter": 1.5}, TypeError, "minimize.max_iter"),
+            ({"max_iter": True}, TypeError, "minimize.max_iter"),
+            ({"method": "foo"}, ValueError, "minimize.method"),
+            ({"tol": 0}, ValueError, "minimize.tol"),
+            ({"tol": float("nan")}, ValueError, "minimize.tol"),
+            ({"gtol": -1}, ValueError, "minimize.gtol"),
+            ({"gtol": float("inf")}, ValueError, "minimize.gtol"),
+            ({"max_iter": -1}, ValueError, "minimize.max_iter"),
         ],
         ids=lambda v: "-".join(f"{k}={x}" for k, x in v.items()) if isinstance(v, dict) else "",
     )
-    def test_estimation_settings_rejects_invalid(self, kwargs, exc, match):
+    def test_minimize_settings_rejects_invalid(self, kwargs, exc, match):
         with pytest.raises(exc, match=match):
-            EstimationSettings(**kwargs)
+            MinimizeSettings(**kwargs)
+
+    def test_estimation_settings_rejects_invalid_initialization(self):
+        with pytest.raises(ValueError, match="estimation.initialization"):
+            EstimationSettings(initialization="zeros")
 
     @pytest.mark.parametrize(
         "kwargs, exc, match",
@@ -182,8 +187,8 @@ class TestSections:
             (EvaluatorSettings, "max_constants", -1),
             (EvaluatorSettings, "simplify_max_time", 1),
             (EvaluatorSettings, "simplify_max_time", 0.5),
-            (EstimationSettings, "max_iter", 0),
-            (EstimationSettings, "tol", 1),
+            (MinimizeSettings, "max_iter", 0),
+            (MinimizeSettings, "tol", 1),
             (BEDSettings, "num_points_sampled", -1),
             (BEDSettings, "num_points_sampled", 1),
             (EvaluatorSettings, "backend", "codegen"),
@@ -200,10 +205,10 @@ class TestSections:
     # Reason: clause (method "stored in SciPy's spelling").
     @pytest.mark.parametrize("given", ["nelder-mead", "NELDER-MEAD", "Nelder-Mead"])
     def test_method_is_stored_in_scipy_spelling(self, given):
-        assert EstimationSettings(method=given).method == "Nelder-Mead"
+        assert MinimizeSettings(method=given).method == "Nelder-Mead"
 
     def test_method_in_other_letter_case_equals_default(self):
-        assert Settings(estimation={"method": "l-bfgs-b"}) == Settings()
+        assert Settings(minimize={"method": "l-bfgs-b"}) == Settings()
 
     def test_bed_accepts_one_constant_column(self):
         gt = np.ones((3, 1))
@@ -218,7 +223,7 @@ class TestSections:
             (EvaluatorSettings, "max_constants"),
             (EvaluatorSettings, "max_expr_length"),
             (EvaluatorSettings, "ranking_seed"),
-            (EstimationSettings, "max_iter"),
+            (MinimizeSettings, "max_iter"),
             (BEDSettings, "num_points_sampled"),
             (BEDSettings, "num_consts_sampled"),
         ],
@@ -253,8 +258,8 @@ class TestSections:
     @pytest.mark.parametrize(
         "obj, attr, value",
         [
-            (EstimationSettings(), "max_iter", 5),
-            (Settings(), "estimation", EstimationSettings(max_iter=5)),
+            (MinimizeSettings(), "max_iter", 5),
+            (Settings(), "minimize", MinimizeSettings(max_iter=5)),
             (Settings(), "foo", 1),
         ],
         ids=["section_field", "settings_property", "settings_new_attribute"],
@@ -271,9 +276,9 @@ class TestSettingsSection:
     @pytest.mark.parametrize(
         "section, expected",
         [
-            (EstimationSettings(), {}),
-            (EstimationSettings(max_iter=100, tol=1e-6), {}),
-            (EstimationSettings(max_iter=5), {"max_iter": 5}),
+            (MinimizeSettings(), {}),
+            (MinimizeSettings(max_iter=100, tol=1e-6), {}),
+            (MinimizeSettings(max_iter=5), {"max_iter": 5}),
             (EvaluatorSettings(simplify_rules=DefaultRules()), {}),
             (EvaluatorSettings(simplify_rules=_RULES), {"simplify_rules": _RULES}),
             (BEDSettings(), {}),
@@ -289,26 +294,26 @@ class TestSettingsSection:
         assert section.to_dict() == {"simplify_rules": _RULES_SAVED, "max_constants": 3}
 
     def test_section_from_dict_fills_missing_fields_with_defaults(self):
-        assert EstimationSettings.from_dict({"max_iter": 5}) == EstimationSettings(max_iter=5)
+        assert MinimizeSettings.from_dict({"max_iter": 5}) == MinimizeSettings(max_iter=5)
 
     @pytest.mark.parametrize(
         "data, exc, match",
         [
             ({"maxiter": 5}, TypeError, "maxiter"),
-            ({"tol": -1}, ValueError, "estimation.tol"),
-            ({"max_iter": "5"}, TypeError, "estimation.max_iter"),
+            ({"tol": -1}, ValueError, "minimize.tol"),
+            ({"max_iter": "5"}, TypeError, "minimize.max_iter"),
         ],
         ids=["unknown_field", "out_of_range", "wrong_type"],
     )
     def test_section_from_dict_rejects_invalid(self, data, exc, match):
         with pytest.raises(exc, match=match):
-            EstimationSettings.from_dict(data)
+            MinimizeSettings.from_dict(data)
 
     @pytest.mark.parametrize(
         "left, right, expected",
         [
             (EvaluatorSettings(), EvaluatorSettings(), True),
-            (EstimationSettings(max_iter=5), EstimationSettings(max_iter=6), False),
+            (MinimizeSettings(max_iter=5), MinimizeSettings(max_iter=6), False),
             (BEDSettings(num_consts_sampled=2, bed_gt=_GT), BEDSettings(num_consts_sampled=2, bed_gt=_GT.copy()), True),
             (BEDSettings(num_consts_sampled=2, bed_gt=_GT), BEDSettings(num_consts_sampled=2, bed_gt=_GT + 1), False),
             (BEDSettings(num_consts_sampled=2, bed_gt=_GT), BEDSettings(num_consts_sampled=2), False),
@@ -339,11 +344,11 @@ class TestSettingsConstruction:
         "kwargs, prop, expected",
         [
             ({}, "evaluator", EvaluatorSettings()),
-            ({"estimation": {"max_iter": 200}}, "estimation", EstimationSettings(max_iter=200)),
+            ({"minimize": {"max_iter": 200}}, "minimize", MinimizeSettings(max_iter=200)),
             ({"rmse": None}, "rmse", RMSESettings()),
             ({"rmse": RMSESettings()}, "rmse", RMSESettings()),
             ({"bed": BEDSettings(num_consts_sampled=4)}, "bed", BEDSettings(num_consts_sampled=4)),
-            ({"estimation": {}}, "estimation", EstimationSettings()),
+            ({"minimize": {}}, "minimize", MinimizeSettings()),
         ],
         ids=["not_given", "dict_over_defaults", "none", "rmse_instance", "instance", "empty_dict"],
     )
@@ -354,13 +359,13 @@ class TestSettingsConstruction:
         "kwargs, exc, match",
         [
             ({"other": _MySection()}, ValueError, "other"),
-            ({"estimation": EvaluatorSettings()}, ValueError, "estimation"),
+            ({"minimize": EvaluatorSettings()}, ValueError, "minimize"),
             ({"bed": _BEDChild()}, ValueError, "bed"),
             ({"my_ranking": {"alpha": 0.3}}, ValueError, "my_ranking"),
-            ({"estimation": {"tol": 0}}, ValueError, "estimation.tol"),
-            ({"estimation": 5}, TypeError, "estimation"),
+            ({"minimize": {"tol": 0}}, ValueError, "minimize.tol"),
+            ({"minimize": 5}, TypeError, "minimize"),
             ({"my_ranking": "x"}, TypeError, "my_ranking"),
-            ({"estimation": {"maxiter": 5}}, TypeError, "maxiter"),
+            ({"minimize": {"maxiter": 5}}, TypeError, "maxiter"),
             ({"my_ranking": _MySection(alpha=1 + 2j)}, TypeError, "complex"),
             ({"evaluator": {"simplify_expr": "yes"}}, TypeError, "evaluator.simplify_expr"),
         ],
@@ -388,7 +393,7 @@ class TestSettingsGetReplace:
         [
             (Settings(my_ranking=_MySection(alpha=0.3)), _MySection, _MySection(alpha=0.3)),
             (Settings(), _MySection, _MySection()),
-            (Settings(estimation={"max_iter": 5}), EstimationSettings, EstimationSettings(max_iter=5)),
+            (Settings(minimize={"max_iter": 5}), MinimizeSettings, MinimizeSettings(max_iter=5)),
         ],
         ids=["stored_custom", "absent_custom_defaults", "builtin"],
     )
@@ -403,14 +408,14 @@ class TestSettingsGetReplace:
         "start, kwargs, expected",
         [
             (
-                Settings(estimation={"max_iter": 200}),
-                {"estimation": {"tol": 1e-8}},
-                Settings(estimation={"max_iter": 200, "tol": 1e-8}),
+                Settings(minimize={"max_iter": 200}),
+                {"minimize": {"tol": 1e-8}},
+                Settings(minimize={"max_iter": 200, "tol": 1e-8}),
             ),
             (
-                Settings(estimation={"max_iter": 200}),
-                {"estimation": EstimationSettings(tol=1e-8)},
-                Settings(estimation={"tol": 1e-8}),
+                Settings(minimize={"max_iter": 200}),
+                {"minimize": MinimizeSettings(tol=1e-8)},
+                Settings(minimize={"tol": 1e-8}),
             ),
             (
                 Settings(my_ranking=_MySection(alpha=0.3)),
@@ -419,9 +424,9 @@ class TestSettingsGetReplace:
             ),
             (Settings(), {"my_ranking": _MySection(alpha=0.3)}, Settings(my_ranking=_MySection(alpha=0.3))),
             (
-                Settings(estimation={"max_iter": 200}, bed={"num_consts_sampled": 4}),
-                {"estimation": {"tol": 1e-8}},
-                Settings(estimation={"max_iter": 200, "tol": 1e-8}, bed={"num_consts_sampled": 4}),
+                Settings(minimize={"max_iter": 200}, bed={"num_consts_sampled": 4}),
+                {"minimize": {"tol": 1e-8}},
+                Settings(minimize={"max_iter": 200, "tol": 1e-8}, bed={"num_consts_sampled": 4}),
             ),
         ],
         ids=["dict_updates_current", "instance_replaces", "custom_dict_updates", "custom_added", "unnamed_kept"],
@@ -430,18 +435,18 @@ class TestSettingsGetReplace:
         assert start.replace(**kwargs) == expected
 
     def test_replace_leaves_self_unchanged(self):
-        settings = Settings(estimation={"max_iter": 200}, my_ranking=_MySection(alpha=0.3))
-        settings.replace(estimation={"tol": 1e-8}, my_ranking={"alpha": 0.7})
-        assert settings.to_dict() == Settings(estimation={"max_iter": 200}, my_ranking=_MySection(alpha=0.3)).to_dict()
+        settings = Settings(minimize={"max_iter": 200}, my_ranking=_MySection(alpha=0.3))
+        settings.replace(minimize={"tol": 1e-8}, my_ranking={"alpha": 0.7})
+        assert settings.to_dict() == Settings(minimize={"max_iter": 200}, my_ranking=_MySection(alpha=0.3)).to_dict()
 
     @pytest.mark.parametrize(
         "kwargs, exc, match",
         [
-            ({"estimation": None}, TypeError, "estimation"),
+            ({"minimize": None}, TypeError, "minimize"),
             ({"my_ranking": None}, TypeError, "my_ranking"),
-            ({"estimation": {"maxiter": 1}}, TypeError, "maxiter"),
+            ({"minimize": {"maxiter": 1}}, TypeError, "maxiter"),
             ({"my_ranking": {"alpha": 0.7}}, ValueError, "my_ranking"),
-            ({"estimation": {"tol": -1}}, ValueError, "estimation.tol"),
+            ({"minimize": {"tol": -1}}, ValueError, "minimize.tol"),
             ({"bed": _BEDChild()}, ValueError, "bed"),
         ],
         ids=["builtin_none", "custom_none", "unknown_field", "dict_for_absent_custom", "out_of_range", "subclass"],
@@ -457,8 +462,8 @@ class TestSettingsSaving:
         [
             (Settings(), {"format_version": 1, "sections": {}}),
             (
-                Settings(estimation={"max_iter": 200, "tol": 1e-6}, bed={"num_consts_sampled": 4}, rmse=None),
-                {"format_version": 1, "sections": {"estimation": {"max_iter": 200}, "bed": {"num_consts_sampled": 4}}},
+                Settings(minimize={"max_iter": 200, "tol": 1e-6}, bed={"num_consts_sampled": 4}, rmse=None),
+                {"format_version": 1, "sections": {"minimize": {"max_iter": 200}, "bed": {"num_consts_sampled": 4}}},
             ),
         ],
         ids=["defaults", "changed_fields_only"],
@@ -475,11 +480,11 @@ class TestSettingsSaving:
         [
             Settings(),
             Settings(evaluator={"simplify_rules": _RULES, "simplify_expr": True}),
-            Settings(estimation={"max_iter": 200, "method": "Nelder-Mead"}),
+            Settings(minimize={"max_iter": 200, "method": "Nelder-Mead"}),
             Settings(bed={"num_consts_sampled": 2, "num_points_sampled": -1, "bed_gt": _GT}),
             Settings(my_ranking=_MySection(alpha=0.3)),
         ],
-        ids=["defaults", "evaluator_rules", "estimation", "bed_gt", "custom"],
+        ids=["defaults", "evaluator_rules", "minimize", "bed_gt", "custom"],
     )
     def test_from_dict_round_trips_through_json(self, settings):
         assert Settings.from_dict(json.loads(json.dumps(settings.to_dict()))) == settings
@@ -490,7 +495,7 @@ class TestSettingsSaving:
     )
     def test_settings_copy_and_pickle(self, copy_fn):
         settings = Settings(
-            estimation={"max_iter": 200},
+            minimize={"max_iter": 200},
             bed={"num_consts_sampled": 2, "bed_gt": _GT},
             my_ranking=_MySection(alpha=0.3),
         )
@@ -498,7 +503,7 @@ class TestSettingsSaving:
         assert copied == settings and copied is not settings
 
     def test_from_dict_does_not_mutate_input(self):
-        settings = Settings(estimation={"max_iter": 200}, my_ranking=_MySection(alpha=0.3))
+        settings = Settings(minimize={"max_iter": 200}, my_ranking=_MySection(alpha=0.3))
         data = settings.to_dict()
         Settings.from_dict(data)
         assert data == settings.to_dict()
@@ -509,7 +514,7 @@ class TestSettingsSaving:
             ({}, 2, ValueError, "format_version"),
             ({"foo": {"alpha": 1}}, 1, ValueError, "foo"),
             ({"other": {"section_class": _MY_PATH}}, 1, ValueError, "other"),
-            ({"estimation": {"tol": -1}}, 1, ValueError, "estimation.tol"),
+            ({"minimize": {"tol": -1}}, 1, ValueError, "minimize.tol"),
             ({"my_ranking": {"section_class": "no_such_module.X"}}, 1, ImportError, "no_such_module"),
             ({"my_ranking": {"section_class": "collections.OrderedDict"}}, 1, TypeError, "OrderedDict"),
             (
@@ -518,9 +523,9 @@ class TestSettingsSaving:
                 TypeError,
                 "SettingsSection",
             ),
-            ({"estimation": {"maxiter": 1}}, 1, TypeError, "maxiter"),
+            ({"minimize": {"maxiter": 1}}, 1, TypeError, "maxiter"),
             (None, 1, TypeError, "sections"),
-            ({"estimation": 5}, 1, TypeError, "sections"),
+            ({"minimize": 5}, 1, TypeError, "sections"),
         ],
         ids=[
             "format_version",
@@ -581,9 +586,9 @@ class TestSettingsEquality:
     @pytest.mark.parametrize(
         "left, right, expected",
         [
-            (Settings(estimation={"max_iter": 100}), Settings(), True),
+            (Settings(minimize={"max_iter": 100}), Settings(), True),
             (Settings(my_ranking=_MySection()), Settings(), True),
-            (Settings(estimation={"max_iter": 5}), Settings(estimation={"max_iter": 6}), False),
+            (Settings(minimize={"max_iter": 5}), Settings(minimize={"max_iter": 6}), False),
             (Settings(my_ranking=_MySection(alpha=0.3)), Settings(my_ranking=_OtherSection(alpha=0.3)), False),
             (Settings(), Settings().to_dict(), False),
         ],

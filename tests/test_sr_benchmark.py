@@ -74,16 +74,16 @@ def test_add_dataset_v5_entry_builds_dataset():
         data_source=SampleSource(n_samples=20, seed=0),
         max_expr_length=12,
         required_constraints=[MaxTreeDepth(5)],
-        settings=Settings(estimation={"max_iter": 5}),
+        settings=Settings(minimize={"max_iter": 5}),
         ranking_resample=True,
         **flat,
     )
     entry = bm.datasets["a"]
     assert entry["format_version"] == 5
     assert "samplers" not in entry and "symbol_library" not in entry
-    assert (entry["settings"], entry["ranking_resample"]) == (Settings(estimation={"max_iter": 5}).to_dict(), True)
+    assert (entry["settings"], entry["ranking_resample"]) == (Settings(minimize={"max_iter": 5}).to_dict(), True)
     ds = SR_benchmark.from_dict(json.loads(json.dumps(bm.to_dict()))).create_dataset("a")
-    assert (ds.settings, ds.ranking_resample) == (Settings(estimation={"max_iter": 5}), True)
+    assert (ds.settings, ds.ranking_resample) == (Settings(minimize={"max_iter": 5}), True)
     expected = SR_dataset(np.zeros((1, 2)), _lib2c(), **flat).background_knowledge
     assert ds.background_knowledge.to_dict() == expected.to_dict()
     assert ds.default_constant.to_dict() == _LU_DEFAULT.to_dict()
@@ -172,7 +172,7 @@ def test_add_from_samplers_forwards_arguments():
         max_constants=2,
         max_expr_length=9,
         required_constraints=[MaxTreeDepth(5)],
-        settings=Settings(estimation={"method": "Nelder-Mead"}),
+        settings=Settings(minimize={"method": "Nelder-Mead"}),
         ranking_resample=True,
     )
     ds = bm.create_dataset("a")
@@ -183,7 +183,7 @@ def test_add_from_samplers_forwards_arguments():
     assert ds.background_knowledge.variables == {"X_0": VariableInfo("x")}
     assert (ds.background_knowledge.target, ds.background_knowledge.description) == (VariableInfo("z"), "Toy")
     assert _dicts(ds.required_constraints) == _dicts([MaxConstants(2), MaxTokens(9), MaxTreeDepth(5)])
-    assert (ds.settings, ds.ranking_resample) == (Settings(estimation={"method": "Nelder-Mead"}), True)
+    assert (ds.settings, ds.ranking_resample) == (Settings(minimize={"method": "Nelder-Mead"}), True)
 
 
 def test_create_dataset_resamples_v4():

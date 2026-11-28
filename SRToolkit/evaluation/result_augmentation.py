@@ -467,7 +467,7 @@ class HoldoutMetric(ResultAugmenter):
                 [BackgroundKnowledge][SRToolkit.dataset.background_knowledge.BackgroundKnowledge]
                 with only the active symbol library.
             settings: [Settings][SRToolkit.utils.settings.Settings] for fitting constants on the
-                held-out data (``estimation``, ``evaluator.backend``) and for a
+                held-out data (``estimation``, ``minimize``, ``evaluator.backend``) and for a
                 ``RankingFunction`` metric's setup. ``None``: the defaults.
             seed: Seed for the ranking setup (e.g. BED point sampling) and the constant fitting.
                 The ``evaluator.ranking_seed`` setting overrides it for a ranking metric, but not

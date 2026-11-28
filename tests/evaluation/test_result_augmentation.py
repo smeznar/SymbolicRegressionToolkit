@@ -632,7 +632,7 @@ class TestHoldoutMetricInit:
     @pytest.mark.parametrize(
         "kwargs, match",
         [
-            ({"settings": {"estimation": {"max_iter": 5}}}, "settings"),
+            ({"settings": {"minimize": {"max_iter": 5}}}, "settings"),
             ({"background_knowledge": _sl}, "background_knowledge"),
         ],
         ids=["settings-dict", "library-as-background-knowledge"],
@@ -872,11 +872,11 @@ class TestHoldoutMetricRefitConstants:
         ParameterEstimator(_X_TEST, _y_TEST, _sl, seed=5).estimate_parameters(_BEST_EXPR)
         np.testing.assert_array_equal(fit_starts[-2], fit_starts[-1])
 
-    # Reason: clause (settings are used "for fitting constants on the held-out data (estimation, ...)").
+    # Reason: clause (settings are used "for fitting constants on the held-out data (estimation, minimize, ...)").
     # Differential: the refit equals a ParameterEstimator with the same settings, seed and default spec;
     # with max_iter=0 the constant stays at its start, far from the exact fit of the default settings.
-    def test_refit_uses_estimation_settings(self):
-        settings = Settings(estimation={"max_iter": 0})
+    def test_refit_uses_minimize_settings(self):
+        settings = Settings(minimize={"max_iter": 0})
         model = ModelResult(_BEST_EXPR, 0.0, parameters=np.array([2.0]))
         aug = HoldoutMetric(
             (_X_TEST, _y_TEST),
@@ -966,7 +966,7 @@ class TestHoldoutMetricSerialization:
         assert HoldoutMetric.from_dict(aug.to_dict(str(tmp_path), "t")).refit_constants is True
 
     def test_seed_and_settings_round_trip(self, tmp_path):
-        settings = Settings(estimation={"max_iter": 50})
+        settings = Settings(minimize={"max_iter": 50})
         aug = HoldoutMetric(
             (_X_TEST, _y_TEST), background_knowledge=BackgroundKnowledge(_sl), settings=settings, seed=7
         )

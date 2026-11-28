@@ -55,7 +55,7 @@ knowledge under ``"background_knowledge"``, the required constraints under
 earlier releases, with the same objective; saving the result writes format 5. Their flat
 ``"kwargs"`` are sorted: ``constant_bounds``, ``max_constants``, ``max_expr_length`` and
 ``ranking_resample`` become the arguments of the same name, each built-in setting goes to its
-section (e.g. ``method`` becomes ``estimation.method``), and any other key is a ``ValueError``.
+section (e.g. ``method`` becomes ``minimize.method``), and any other key is a ``ValueError``.
 A ``None`` value is the default, except ``ranking_seed: None``, which becomes
 ``ranking_resample=True`` (the run's seed, as before).
 """
@@ -123,7 +123,8 @@ _OLD_SETTING_SECTIONS = {
         ),
         "evaluator",
     ),
-    **dict.fromkeys(("method", "tol", "gtol", "max_iter", "initialization"), "estimation"),
+    **dict.fromkeys(("method", "tol", "gtol", "max_iter"), "minimize"),
+    "initialization": "estimation",
     **dict.fromkeys(("num_points_sampled", "num_consts_sampled", "bed_gt"), "bed"),
 }
 

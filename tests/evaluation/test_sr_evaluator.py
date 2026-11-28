@@ -121,7 +121,7 @@ class TestSREvaluatorInitRmse:
     # default_constant, and the run's whole Settings; se.ground_truth_constants keeps what was passed).
     def test_ranking_setup_gets_task_facts_and_settings(self):
         specs = [Constant("C_0", value=1.0, fixed=True)]
-        settings = Settings(estimation={"max_iter": 3})
+        settings = Settings(minimize={"max_iter": 3})
         ranking = _SetupRecordingRanking()
         se = SR_evaluator(_X, _y, ranking_function=ranking, ground_truth_constants=specs, settings=settings, seed=0)
         assert ranking.ground_truth_constants is specs
@@ -2939,11 +2939,9 @@ class TestCanonicalisation:
     # Reason: clause (the canonical form is scored, and a fit is seeded by its tokens): with max_iter=0
     # the parameters are the seeded starting point, so they match those of the canonical form.
     def test_fit_starts_from_the_canonical_forms_seed(self):
-        relabelled = _canon_se(
-            settings=Settings(estimation={"max_iter": 0}, evaluator={"canonicalise_constants": True})
-        )
+        relabelled = _canon_se(settings=Settings(minimize={"max_iter": 0}, evaluator={"canonicalise_constants": True}))
         relabelled.evaluate_expr(["C_4", "*", "X_0", "+", "C_4"])
-        canonical = _canon_se(settings=Settings(estimation={"max_iter": 0}))
+        canonical = _canon_se(settings=Settings(minimize={"max_iter": 0}))
         canonical.evaluate_expr(["C_0", "*", "X_0", "+", "C_0"])
         np.testing.assert_array_equal(relabelled.models[0].parameters, canonical.models[0].parameters)
 
@@ -3344,14 +3342,14 @@ class TestCheckpoints:
             ({"y": _CY + 1}, r"\by\b"),
             ({"ground_truth": ["C", "*", "X_0"]}, "ground_truth"),
             ({"ranking_function": _CountingRMSE()}, "ranking_function"),
-            ({"settings": Settings(estimation={"max_iter": 50})}, r"estimation\.max_iter"),
+            ({"settings": Settings(minimize={"max_iter": 50})}, r"minimize\.max_iter"),
             ({"settings": Settings(evaluator={"simplify_expr": True})}, r"evaluator\.simplify_expr"),
             ({"settings": Settings(evaluator={"canonicalise_constants": True})}, "canonicalise_constants"),
             ({"settings": Settings(evaluator={"simplify_rules": DefaultRules(exclude=["powers"])})}, "simplify_rules"),
             (
                 {
                     "settings": Settings(
-                        evaluator={"fold_constants": "none", "simplify_expr": False}, estimation={"max_iter": 50}
+                        evaluator={"fold_constants": "none", "simplify_expr": False}, minimize={"max_iter": 50}
                     )
                 },
                 "max_iter",
@@ -3421,9 +3419,9 @@ class TestCheckpoints:
                 "ground_truth_constants",
             ),
             (
-                {"settings": Settings(estimation={"max_iter": 50})},
-                {"settings": Settings(estimation={"max_iter": 60})},
-                r"estimation\.max_iter",
+                {"settings": Settings(minimize={"max_iter": 50})},
+                {"settings": Settings(minimize={"max_iter": 60})},
+                r"minimize\.max_iter",
             ),
         ],
         ids=["ground_truth_constants", "setting"],
@@ -3447,7 +3445,7 @@ class TestCheckpoints:
         "started, resumed",
         [
             ({}, {"settings": Settings(evaluator={"simplify_expr": False})}),
-            ({}, {"settings": Settings(estimation={"method": "L-BFGS-B"})}),
+            ({}, {"settings": Settings(minimize={"method": "L-BFGS-B"})}),
             ({}, {"settings": Settings(evaluator={"simplify_max_iterations": 30, "simplify_fold_aware": True})}),
             ({}, {"settings": Settings(evaluator={"max_consecutive_skips": 10000})}),
             ({}, {"constant_bounds": [-5, 5]}),

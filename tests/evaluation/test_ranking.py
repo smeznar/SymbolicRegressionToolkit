@@ -124,9 +124,9 @@ class TestRMSERankingSetup:
         ParameterEstimator(X, y, lib, seed=1).estimate_parameters(expr)
         np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
 
-    # Reason: clause (RMSE: constants are fitted with the estimation settings and evaluator.backend).
+    # Reason: clause (RMSE: constants are fitted with the estimation and minimize settings and evaluator.backend).
     def test_estimator_gets_the_settings(self):
-        settings = Settings(estimation={"max_iter": 3}, evaluator={"backend": "codegen"})
+        settings = Settings(minimize={"max_iter": 3}, evaluator={"backend": "codegen"})
         ranking = _setup(RMSERanking(), _X10, _X10[:, 0], None, settings=settings)
         assert ranking.parameter_estimator.settings is settings
 

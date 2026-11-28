@@ -71,7 +71,9 @@ def compute() -> dict[str, Any]:
             for init in ["random", "mean"]:
                 for max_iter in [100, 0]:
                     settings = Settings(
-                        evaluator={"backend": backend}, estimation={"initialization": init, "max_iter": max_iter}
+                        evaluator={"backend": backend},
+                        estimation={"initialization": init},
+                        minimize={"max_iter": max_iter},
                     )
                     se = SR_evaluator(X, y, symbol_library=sl, seed=SEED, settings=settings)
                     for tokens in exprs:

@@ -46,10 +46,10 @@ class TestParameterEstimatorInit:
         assert pe.settings == Settings()
         assert pe.default_constant.to_dict() == uniform_default((-5, 5)).to_dict()
 
-    # Reason: clause (the estimator "reads the estimation section"): method, tol, gtol and max_iter reach
+    # Reason: clause (the estimator reads "the estimation and minimize sections"): method, tol, gtol and max_iter reach
     # scipy's minimize (an outside boundary, wrapped and still run). Nelder-Mead knows no gtol.
     @pytest.mark.filterwarnings("ignore:Unknown solver options")
-    def test_estimation_settings_reach_the_optimizer(self):
+    def test_minimize_settings_reach_the_optimizer(self):
         from scipy.optimize import minimize as real_minimize
 
         calls = []
@@ -58,7 +58,7 @@ class TestParameterEstimatorInit:
             calls.append(kwargs)
             return real_minimize(fn, x0, **kwargs)
 
-        settings = Settings(estimation={"method": "Nelder-Mead", "tol": 1e-3, "gtol": 1e-2, "max_iter": 7})
+        settings = Settings(minimize={"method": "Nelder-Mead", "tol": 1e-3, "gtol": 1e-2, "max_iter": 7})
         pe = ParameterEstimator(_X, _y_linear, seed=0, settings=settings)
         with patch("SRToolkit.evaluation.parameter_estimator.minimize", side_effect=recording_minimize):
             pe.estimate_parameters(["C", "*", "X_0"])
@@ -240,7 +240,7 @@ class TestOptimizeParameters:
 
     def test_max_iter_limits_optimizer_iterations(self):
         # Unlimited, this fit takes 5 iterations. (scipy's L-BFGS-B runs one iteration at maxiter=0.)
-        pe = ParameterEstimator(_X, _y_linear, seed=0, settings=Settings(estimation={"max_iter": 2}))
+        pe = ParameterEstimator(_X, _y_linear, seed=0, settings=Settings(minimize={"max_iter": 2}))
         assert pe.estimate_parameters_with_info(["C", "*", "X_0"])[2]["iterations"] <= 2
 
     def test_custom_constant_bounds_respected(self):
@@ -340,7 +340,7 @@ class TestOptimizeParameters:
             "from SRToolkit.utils.free_constants import Constant\n"
             "X = np.array([[1.0, 2.0], [3.0, 4.0]])\n"
             "from SRToolkit.utils.settings import Settings\n"
-            "pe = ParameterEstimator(X, X[:, 0], seed=1, settings=Settings(estimation={'max_iter': 1}))\n"
+            "pe = ParameterEstimator(X, X[:, 0], seed=1, settings=Settings(minimize={'max_iter': 1}))\n"
             "spec = Constant(label='C_0', prior=LogUniformSampling(0.1, 10.0))\n"
             "print(repr(pe.estimate_parameters(['C_0', '*', 'X_0', '+', 'C'], [spec])[1].tolist()))\n"
         )
@@ -429,7 +429,7 @@ class TestFreeConstantSpecs:
 
     @pytest.mark.parametrize("seed", [0, None], ids=["seed", "no-seed"])
     def test_random_start_outside_bounds_is_clipped(self, fit_starts, seed):
-        pe = ParameterEstimator(_X, _y_linear, seed=seed, settings=Settings(estimation={"max_iter": 0}))
+        pe = ParameterEstimator(_X, _y_linear, seed=seed, settings=Settings(minimize={"max_iter": 0}))
         pe.estimate_parameters(_SIX_LABELS, _six_specs(prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0)))
         assert np.all((fit_starts[0] >= 10.0) & (fit_starts[0] <= 11.0))
         # 6 draws from U(-100, 100): most fall outside [10, 11] and land on a bound.
@@ -437,7 +437,9 @@ class TestFreeConstantSpecs:
 
     def test_mean_start_outside_bounds_is_clipped_to_nearest(self, fit_starts):
         # Median of U(-100, 100) is 0, nearest bound of (10, 11) is 10.
-        pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean", "max_iter": 0}))
+        pe = ParameterEstimator(
+            _X, _y_linear, settings=Settings(estimation={"initialization": "mean"}, minimize={"max_iter": 0})
+        )
         pe.estimate_parameters(
             ["C_0", "*", "X_0"], [Constant(label="C_0", prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0))]
         )
@@ -449,7 +451,7 @@ class TestFreeConstantSpecs:
         specs = _six_specs(prior=LogUniformSampling(0.01, 100.0), bounds=(0.01, 100.0))
         for seed in range(20):
             ParameterEstimator(
-                _X, _y_linear, seed=seed, settings=Settings(estimation={"max_iter": 0})
+                _X, _y_linear, seed=seed, settings=Settings(minimize={"max_iter": 0})
             ).estimate_parameters(_SIX_LABELS, specs)
         starts = np.concatenate(fit_starts)
         assert starts.size == 120
@@ -457,7 +459,9 @@ class TestFreeConstantSpecs:
 
     def test_mean_start_is_prior_median(self, fit_starts):
         # ppf(0.5) of LogUniform(0.1, 10) = 10 ** ((-1 + 1) / 2) = 1; the midpoint would be 5.05.
-        pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean", "max_iter": 0}))
+        pe = ParameterEstimator(
+            _X, _y_linear, settings=Settings(estimation={"initialization": "mean"}, minimize={"max_iter": 0})
+        )
         pe.estimate_parameters(["C_0", "*", "X_0"], [Constant(label="C_0", prior=LogUniformSampling(0.1, 10.0))])
         np.testing.assert_allclose(fit_starts[0], [1.0], rtol=1e-12)
 
@@ -478,7 +482,10 @@ class TestFreeConstantSpecs:
     def test_prior_without_ppf_usable_when_not_needed(self, initialization, spec):
         # Every way the prior is handled starts (or stays) at 0.7, the exact optimum.
         pe = ParameterEstimator(
-            _X, 0.7 * _X[:, 0], seed=0, settings=Settings(estimation={"initialization": initialization, "max_iter": 0})
+            _X,
+            0.7 * _X[:, 0],
+            seed=0,
+            settings=Settings(estimation={"initialization": initialization}, minimize={"max_iter": 0}),
         )
         rmse, params = pe.estimate_parameters(["C_0", "*", "X_0"], [spec])
         np.testing.assert_array_equal(params, [0.7])
