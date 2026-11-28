@@ -6,36 +6,10 @@ title: Implementing a Custom Approach
 
 All SR approaches subclass [Approach][SRToolkit.approaches.approach.Approach] and implement `search()`, or the step interface `start()`, `ask()` and `tell()` (see the [module docs][SRToolkit.approaches.approach]). Optionally, override `adapt()` when your approach benefits from a pre-training or warm-up phase.
 
-## Minimal example
+## Examples
 
-```python
-import numpy as np
-from SRToolkit.approaches.approach import Approach, ApproachConfig
-from SRToolkit.evaluation import Evaluator
-from SRToolkit.utils import SymbolLibrary, generate_n_expressions
-from dataclasses import dataclass
-
-@dataclass
-class RandomSearchConfig(ApproachConfig):
-    name: str = "RandomSearch"
-    batch_size: int = 50
-
-class RandomSearch(Approach):
-    def __init__(self, batch_size: int = 50):
-        super().__init__(RandomSearchConfig(batch_size=batch_size))
-        self.batch_size = batch_size
-
-    def search(self, evaluator: Evaluator, seed: int | None = None):
-        rng = np.random.default_rng(seed)
-        sl = evaluator.symbol_library
-
-        while not evaluator.should_stop:
-            exprs = generate_n_expressions(sl, self.batch_size, verbose=False)
-            for expr in exprs:
-                evaluator.evaluate_expr(expr)
-                if evaluator.should_stop:
-                    return
-```
+- [`examples/custom_approach_random_search.py`](https://github.com/smeznar/SymbolicRegressionToolkit/blob/master/examples/custom_approach_random_search.py): random search with its own `search()`, run in an `ExperimentGrid`.
+- [`examples/custom_approach_step_interface.py`](https://github.com/smeznar/SymbolicRegressionToolkit/blob/master/examples/custom_approach_step_interface.py): a greedy grower with the step interface, whose run is extended from its checkpoint.
 
 ### Key rules for `search()`
 

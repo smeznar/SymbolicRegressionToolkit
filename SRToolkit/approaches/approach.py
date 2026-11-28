@@ -56,6 +56,10 @@ and ``tell`` depend only on the state, the adapted approach object and the globa
 (Python, NumPy, PyTorch), which the framework saves. A random generator of the approach's own
 (e.g. a ``numpy.random.Generator``) therefore belongs in the state, not on the object.
 
+Worked examples of both: ``examples/custom_approach_random_search.py`` (``search``) and
+``examples/custom_approach_step_interface.py`` (the step interface, with an extended run) in the
+repository.
+
 ## The step loop
 
 For a step approach, the framework runs this loop (this is what the inherited ``search`` does).
