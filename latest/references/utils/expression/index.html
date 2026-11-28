@@ -1055,6 +1055,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#SRToolkit.utils.expression.canonicalise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;canonicalise
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2768,6 +2779,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#SRToolkit.utils.expression.canonicalise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;canonicalise
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2812,7 +2834,21 @@
 <p>An <code>Expression</code> is the form that functions accept besides token lists. It holds the tokens, the
 symbol library they are written in and the specs of its labelled constants (see
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-module&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-module-name&quot;&gt;SRToolkit.utils.free_constants&lt;/span&gt;" href="../free_constants/#SRToolkit.utils.free_constants">free_constants</a>), and computes its tree and other facts once, so an
-expression used several times is parsed once.</p>
+expression used several times is parsed once. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;canonicalise&lt;/span&gt;" href="#SRToolkit.utils.expression.canonicalise">canonicalise</a>
+rewrites how an expression's constants are written.</p>
+<p>A function given an <code>Expression</code> and <code>symbol_library=None</code> uses the expression's own library; a
+function given another library reads the expression's tokens in that library (it is rebuilt from its
+tokens and specs). Functions that rewrite an expression
+(<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;simplify&lt;/span&gt;" href="../expression_simplifier/#SRToolkit.utils.expression_simplifier.simplify">simplify</a>,
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;fold&lt;/span&gt;" href="../expression_simplifier/#SRToolkit.utils.expression_simplifier.fold">fold</a>, <code>canonicalise</code>) return an <code>Expression</code> in
+its library, the given one itself if nothing changes. Stored results are tokens:
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../types/#SRToolkit.utils.types.ModelResult">ModelResult.expr</a> and saved files hold tokens, with the specs
+alongside.</p>
 
 
 
@@ -3041,26 +3077,7 @@ expression keeps only its tokens, library and specs.</p>
 
                   <details class="mkdocstrings-source">
                     <summary>Source code in <code>SRToolkit/utils/expression.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-86"> 86</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-87"> 87</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-88"> 88</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-89"> 89</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-90"> 90</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-91"> 91</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-92"> 92</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-93"> 93</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-95"> 95</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-96"> 96</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-97"> 97</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-102">102</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-103">103</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-105">105</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-105">105</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-106">106</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-107">107</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-108">108</a></span>
@@ -3068,34 +3085,53 @@ expression keeps only its tokens, library and specs.</p>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-110">110</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-111">111</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-113">113</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-86" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-86"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-87" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-87"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-88" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-88"></a>    <span class="n">tokens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-89" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-89"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-90" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-90"></a>    <span class="n">free_constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Constant</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-91" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-91"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-92" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-92"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-93" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-93"></a>        <span class="n">tokens</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-94" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-94"></a>    <span class="n">_check_tokens</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="s2">"tokens"</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-95" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-95"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tokens</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-96" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-96"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span> <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">symbol_library</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-97" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-97"></a>    <span class="k">if</span> <span class="n">free_constants</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-98" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-98"></a>        <span class="nb">isinstance</span><span class="p">(</span><span class="n">free_constants</span><span class="p">,</span> <span class="n">Constant</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">free_constants</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-99" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-99"></a>    <span class="p">):</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-100" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-100"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"free_constants must be a sequence of Constant, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">free_constants</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-101" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-101"></a>    <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">free_constants</span> <span class="ow">or</span> <span class="p">():</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-102" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-102"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">Constant</span><span class="p">):</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-103" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-103"></a>            <span class="n">hint</span> <span class="o">=</span> <span class="s2">" Build specs from dicts with Constant.from_dict."</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="s2">""</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-104" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-104"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"free_constants must contain only Constant, but contains </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">hint</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-105" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-105"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">free_constants</span> <span class="ow">or</span> <span class="p">())</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-106" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-106"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_spec_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-107" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-107"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tree</span><span class="p">:</span> <span class="n">Node</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-108" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-108"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_parse_error</span><span class="p">:</span> <span class="n">ExpressionParseError</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-109" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-109"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_labels</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-110" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-110"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_variables</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-111" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-111"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-112" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-112"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-113" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-113"></a>        <span class="n">_specs_by_label</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_labels</span><span class="p">)</span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression--source--__codelineno-0-132">132</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-105" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-105"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-106" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-106"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-107" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-107"></a>    <span class="n">tokens</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-108" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-108"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-109" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-109"></a>    <span class="n">free_constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Constant</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-110" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-110"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-111" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-111"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-112" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-112"></a>        <span class="n">tokens</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-113" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-113"></a>    <span class="n">_check_tokens</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="s2">"tokens"</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-114" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-114"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tokens</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-115" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-115"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span> <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">symbol_library</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-116" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-116"></a>    <span class="k">if</span> <span class="n">free_constants</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-117" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-117"></a>        <span class="nb">isinstance</span><span class="p">(</span><span class="n">free_constants</span><span class="p">,</span> <span class="n">Constant</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">free_constants</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-118" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-118"></a>    <span class="p">):</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-119" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-119"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"free_constants must be a sequence of Constant, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">free_constants</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-120" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-120"></a>    <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">free_constants</span> <span class="ow">or</span> <span class="p">():</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-121" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-121"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">Constant</span><span class="p">):</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-122" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-122"></a>            <span class="n">hint</span> <span class="o">=</span> <span class="s2">" Build specs from dicts with Constant.from_dict."</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="s2">""</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-123" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-123"></a>            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"free_constants must contain only Constant, but contains </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">hint</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-124" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-124"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">free_constants</span> <span class="ow">or</span> <span class="p">())</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-125" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-125"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_spec_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-126" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-126"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_tree</span><span class="p">:</span> <span class="n">Node</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-127" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-127"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_parse_error</span><span class="p">:</span> <span class="n">ExpressionParseError</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-128" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-128"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_parameter_labels</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-129" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-129"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_variables</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-130" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-130"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-131" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-131"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression--source--__codelineno-0-132" name="SRToolkit.utils.expression.Expression--source--__codelineno-0-132"></a>        <span class="n">_specs_by_label</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_labels</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3302,9 +3338,25 @@ expression keeps only its tokens, library and specs.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The label of each free parameter, or <code>None</code> for a bare constant.</p>
-<p>As <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a> returns them, read
-from the tokens without parsing.</p>
+        <p>The label of each parameter (fixed constants included), or <code>None</code> for a bare constant.</p>
+<p>The fitted values of an expression
+(<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ModelResult&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../types/#SRToolkit.utils.types.ModelResult">ModelResult.parameters</a>, the <code>C</code> argument of
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;compile_expr&lt;/span&gt;" href="../expression_compiler/#SRToolkit.utils.expression_compiler.compile_expr">compile_expr</a>) are a flat array; this
+says which constant each entry belongs to, in the order of that array. A label is one entry
+however often it occurs; each bare <code>C</code> is its own entry. Read from the tokens without
+parsing.</p>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">expr</span> <span class="o">=</span> <span class="n">Expression</span><span class="p">([</span><span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_5"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"C_5"</span><span class="p">])</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">expr</span><span class="o">.</span><span class="n">parameter_labels</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">(None, 'C_5', None)</span>
+</code></pre></div>
 
     </div>
 
@@ -3530,26 +3582,7 @@ the constructor.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/expression.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-115">115</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-116">116</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-117">117</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-118">118</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-119">119</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-120">120</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-121">121</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-122">122</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-123">123</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-124">124</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-125">125</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-126">126</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-127">127</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-128">128</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-129">129</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-130">130</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-131">131</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-132">132</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-133">133</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-134">134</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-134">134</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-135">135</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-136">136</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-137">137</a></span>
@@ -3566,43 +3599,62 @@ the constructor.</p>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-148">148</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-149">149</a></span>
 <span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-150">150</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-151">151</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-115" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-115"></a><span class="nd">@classmethod</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-116" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-116"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_tree</span><span class="p">(</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-117" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-117"></a>    <span class="bp">cls</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-118" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-118"></a>    <span class="n">tree</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-119" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-119"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-120" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-120"></a>    <span class="n">free_constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Constant</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-121" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-121"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Expression"</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-122" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-122"></a><span class="w">    </span><span class="sd">"""Build an expression from a tree.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-123" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-123"></a>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-124" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-124"></a><span class="sd">    The tokens are written out with [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list];</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-125" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-125"></a><span class="sd">    the tree is not kept, so the expression is the same as one built from these tokens. A</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-126" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-126"></a><span class="sd">    malformed tree (e.g. an operator with one operand) gives tokens that do not parse.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-127" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-127"></a>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-128" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-128"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-129" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-129"></a><span class="sd">        tree: The expression tree.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-130" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-130"></a><span class="sd">        symbol_library: As for the constructor.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-131" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-131"></a><span class="sd">        free_constants: As for the constructor.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-132" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-132"></a>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-133" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-133"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-134" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-134"></a><span class="sd">        The expression.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-135" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-135"></a>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-136" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-136"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-137" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-137"></a><span class="sd">        TypeError: If ``tree`` is not a [Node][SRToolkit.utils.expression_tree.Node], or as for</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-138" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-138"></a><span class="sd">            the constructor.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-139" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-139"></a><span class="sd">        ExpressionParseError: If a symbol of the tree is neither a number nor in the library.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-140" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-140"></a><span class="sd">        ValueError: As for the constructor.</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-141" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-141"></a>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-142" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-142"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-143" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-143"></a><span class="sd">        &gt;&gt;&gt; tree = Node("+", Node("X_0"), Node("1"))</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-144" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-144"></a><span class="sd">        &gt;&gt;&gt; Expression.from_tree(tree, SymbolLibrary.default_symbols(1)).tokens</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-145" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-145"></a><span class="sd">        ('1', '+', 'X_0')</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-146" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-146"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-147" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-147"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">Node</span><span class="p">):</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-148" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-148"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"tree must be a Node, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-149" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-149"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-150" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-150"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
-<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-151" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-151"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">symbol_library</span><span class="p">),</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="n">free_constants</span><span class="p">)</span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-168">168</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-170">170</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-134" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-134"></a><span class="nd">@classmethod</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-135" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-135"></a><span class="k">def</span><span class="w"> </span><span class="nf">from_tree</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-136" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-136"></a>    <span class="bp">cls</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-137" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-137"></a>    <span class="n">tree</span><span class="p">:</span> <span class="n">Node</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-138" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-138"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-139" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-139"></a>    <span class="n">free_constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Constant</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-140" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-140"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Expression"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-141" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-141"></a><span class="w">    </span><span class="sd">"""Build an expression from a tree.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-142" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-142"></a>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-143" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-143"></a><span class="sd">    The tokens are written out with [Node.to_list][SRToolkit.utils.expression_tree.Node.to_list];</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-144" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-144"></a><span class="sd">    the tree is not kept, so the expression is the same as one built from these tokens. A</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-145" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-145"></a><span class="sd">    malformed tree (e.g. an operator with one operand) gives tokens that do not parse.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-146" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-146"></a>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-147" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-147"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-148" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-148"></a><span class="sd">        tree: The expression tree.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-149" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-149"></a><span class="sd">        symbol_library: As for the constructor.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-150" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-150"></a><span class="sd">        free_constants: As for the constructor.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-151" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-151"></a>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-152" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-152"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-153" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-153"></a><span class="sd">        The expression.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-154" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-154"></a>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-155" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-155"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-156" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-156"></a><span class="sd">        TypeError: If ``tree`` is not a [Node][SRToolkit.utils.expression_tree.Node], or as for</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-157" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-157"></a><span class="sd">            the constructor.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-158" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-158"></a><span class="sd">        ExpressionParseError: If a symbol of the tree is neither a number nor in the library.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-159" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-159"></a><span class="sd">        ValueError: As for the constructor.</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-160" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-160"></a>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-161" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-161"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-162" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-162"></a><span class="sd">        &gt;&gt;&gt; tree = Node("+", Node("X_0"), Node("1"))</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-163" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-163"></a><span class="sd">        &gt;&gt;&gt; Expression.from_tree(tree, SymbolLibrary.default_symbols(1)).tokens</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-164" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-164"></a><span class="sd">        ('1', '+', 'X_0')</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-165" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-165"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-166" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-166"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">Node</span><span class="p">):</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-167" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-167"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"tree must be a Node, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-168" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-168"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-169" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-169"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
+<a id="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-170" name="SRToolkit.utils.expression.Expression.from_tree--source--__codelineno-0-170"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="n">symbol_library</span><span class="p">),</span> <span class="n">symbol_library</span><span class="p">,</span> <span class="n">free_constants</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3623,8 +3675,10 @@ the constructor.</p>
     <div class="doc doc-contents ">
 
         <p>Return one complete spec per parameter.</p>
-<p>As <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve_constants&lt;/span&gt;" href="../free_constants/#SRToolkit.utils.free_constants.resolve_constants">resolve_constants</a> does for the
-expression's specs.</p>
+<p>Each labelled constant with a spec gets that spec, with a <code>prior</code> or <code>bounds</code> of
+<code>None</code> taken from <code>default_constant</code>. Every other parameter (each bare <code>C</code>, and
+labelled constants without a spec) gets <code>default_constant</code> itself. Use it to see what an
+expression is fitted under, e.g. to resample the constants of a saved result.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3652,7 +3706,9 @@ expression's specs.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The default spec, for parameters without a spec.</p>
+                <p>The default spec, for parameters without a spec: a template with
+<code>prior</code> and <code>bounds</code> set and no <code>label</code>, <code>value</code> or <code>fixed</code>, e.g. from
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;uniform_default&lt;/span&gt;" href="../free_constants/#SRToolkit.utils.free_constants.uniform_default">uniform_default</a>.</p>
               </div>
             </td>
             <td>
@@ -3698,7 +3754,37 @@ expression's specs.</p>
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt;" href="#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a>.</p>
+  &lt;/span&gt;" href="#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a>; <code>label</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.free_constants.Constant&lt;/code&gt;)" href="../free_constants/#SRToolkit.utils.free_constants.Constant">Constant</a>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>is <code>None</code> for every parameter that uses the default spec. Empty if the expression has</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.free_constants.Constant&lt;/code&gt;)" href="../free_constants/#SRToolkit.utils.free_constants.Constant">Constant</a>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>no free constants.</p>
               </div>
             </td>
           </tr>
@@ -3721,8 +3807,8 @@ expression's specs.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If <code>default_constant</code> is not a valid default spec, or a spec that is not
-fixed has a <code>value</code> outside the bounds it inherits from <code>default_constant</code>.</p>
+                <p>If <code>default_constant</code> is not such a template, or a spec that is not fixed
+has a <code>value</code> outside the bounds it takes from <code>default_constant</code>.</p>
               </div>
             </td>
           </tr>
@@ -3741,55 +3827,105 @@ fixed has a <code>value</code> outside the bounds it inherits from <code>default
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/expression.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-255">255</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-259">259</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-260">260</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-262">262</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-238" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-238"></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_constant</span><span class="p">:</span> <span class="n">Constant</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Constant</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-239" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-239"></a><span class="w">    </span><span class="sd">"""Return one complete spec per parameter.</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-240" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-240"></a>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-241" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-241"></a><span class="sd">    As [resolve_constants][SRToolkit.utils.free_constants.resolve_constants] does for the</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-242" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-242"></a><span class="sd">    expression's specs.</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-243" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-243"></a>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-244" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-244"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-245" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-245"></a><span class="sd">        default_constant: The default spec, for parameters without a spec.</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-246" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-246"></a>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-247" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-247"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-248" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-248"></a><span class="sd">        One spec per parameter, in the order of</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-249" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-249"></a><span class="sd">        [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels].</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-250" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-250"></a>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-251" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-251"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-252" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-252"></a><span class="sd">        ValueError: If ``default_constant`` is not a valid default spec, or a spec that is not</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-253" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-253"></a><span class="sd">            fixed has a ``value`` outside the bounds it inherits from ``default_constant``.</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-254" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-254"></a>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-255" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-255"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-256" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-256"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.utils.free_constants import uniform_default</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-257" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-257"></a><span class="sd">        &gt;&gt;&gt; spec = Constant(label="C_1", value=2.0, fixed=True)</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-258" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-258"></a><span class="sd">        &gt;&gt;&gt; expr = Expression(["C", "*", "X_0", "+", "C_1"], free_constants=[spec])</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-259" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-259"></a><span class="sd">        &gt;&gt;&gt; [(s.label, s.value, s.bounds) for s in expr.resolve(uniform_default((-5.0, 5.0)))]</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-260" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-260"></a><span class="sd">        [(None, None, (-5.0, 5.0)), ('C_1', 2.0, (-5.0, 5.0))]</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-261" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-261"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-262" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-262"></a>    <span class="k">return</span> <span class="n">resolve_constants</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tokens</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span><span class="p">,</span> <span class="n">default_constant</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbol_library</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-270">270</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-271">271</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-272">272</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-273">273</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-274">274</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-275">275</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-276">276</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-277">277</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-315">315</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-266" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-266"></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_constant</span><span class="p">:</span> <span class="n">Constant</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Constant</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-267" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-267"></a><span class="w">    </span><span class="sd">"""Return one complete spec per parameter.</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-268" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-268"></a>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-269" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-269"></a><span class="sd">    Each labelled constant with a spec gets that spec, with a ``prior`` or ``bounds`` of</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-270" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-270"></a><span class="sd">    ``None`` taken from ``default_constant``. Every other parameter (each bare ``C``, and</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-271" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-271"></a><span class="sd">    labelled constants without a spec) gets ``default_constant`` itself. Use it to see what an</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-272" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-272"></a><span class="sd">    expression is fitted under, e.g. to resample the constants of a saved result.</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-273" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-273"></a>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-274" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-274"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-275" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-275"></a><span class="sd">        default_constant: The default spec, for parameters without a spec: a template with</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-276" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-276"></a><span class="sd">            ``prior`` and ``bounds`` set and no ``label``, ``value`` or ``fixed``, e.g. from</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-277" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-277"></a><span class="sd">            [uniform_default][SRToolkit.utils.free_constants.uniform_default].</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-278" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-278"></a>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-279" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-279"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-280" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-280"></a><span class="sd">        One spec per parameter, in the order of</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-281" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-281"></a><span class="sd">        [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels]; ``label``</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-282" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-282"></a><span class="sd">        is ``None`` for every parameter that uses the default spec. Empty if the expression has</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-283" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-283"></a><span class="sd">        no free constants.</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-284" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-284"></a>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-285" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-285"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-286" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-286"></a><span class="sd">        ValueError: If ``default_constant`` is not such a template, or a spec that is not fixed</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-287" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-287"></a><span class="sd">            has a ``value`` outside the bounds it takes from ``default_constant``.</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-288" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-288"></a>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-289" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-289"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-290" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-290"></a><span class="sd">        &gt;&gt;&gt; from SRToolkit.utils.free_constants import uniform_default</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-291" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-291"></a><span class="sd">        &gt;&gt;&gt; spec = Constant(label="C_1", value=2.0, fixed=True)</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-292" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-292"></a><span class="sd">        &gt;&gt;&gt; expr = Expression(["C", "*", "X_0", "+", "C_1"], free_constants=[spec])</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-293" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-293"></a><span class="sd">        &gt;&gt;&gt; [(s.label, s.value, s.bounds) for s in expr.resolve(uniform_default((-5.0, 5.0)))]</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-294" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-294"></a><span class="sd">        [(None, None, (-5.0, 5.0)), ('C_1', 2.0, (-5.0, 5.0))]</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-295" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-295"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-296" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-296"></a>    <span class="n">_check_default_constant</span><span class="p">(</span><span class="n">default_constant</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-297" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-297"></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">default_constant</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-298" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-298"></a>    <span class="n">specs</span> <span class="o">=</span> <span class="p">{</span><span class="n">spec</span><span class="o">.</span><span class="n">label</span><span class="p">:</span> <span class="n">spec</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_free_constants</span><span class="p">}</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-299" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-299"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-300" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-300"></a>    <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_labels</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-301" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-301"></a>        <span class="n">given</span> <span class="o">=</span> <span class="n">specs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">label</span><span class="p">)</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-302" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-302"></a>        <span class="k">if</span> <span class="n">given</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-303" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-303"></a>            <span class="n">resolved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-304" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-304"></a>            <span class="k">continue</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-305" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-305"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-306" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-306"></a>            <span class="n">resolved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-307" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-307"></a>                <span class="n">replace</span><span class="p">(</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-308" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-308"></a>                    <span class="n">given</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-309" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-309"></a>                    <span class="n">prior</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">prior</span> <span class="k">if</span> <span class="n">given</span><span class="o">.</span><span class="n">prior</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">given</span><span class="o">.</span><span class="n">prior</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-310" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-310"></a>                    <span class="n">bounds</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">bounds</span> <span class="k">if</span> <span class="n">given</span><span class="o">.</span><span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">given</span><span class="o">.</span><span class="n">bounds</span><span class="p">,</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-311" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-311"></a>                <span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-312" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-312"></a>            <span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-313" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-313"></a>        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># a free value outside the inherited bounds</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-314" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-314"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"'free_constants': </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+<a id="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-315" name="SRToolkit.utils.expression.Expression.resolve--source--__codelineno-0-315"></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3862,35 +3998,35 @@ the constants.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>SRToolkit/utils/expression.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-266">266</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-268">268</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-269">269</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-270">270</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-271">271</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-272">272</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-273">273</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-274">274</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-275">275</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-276">276</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-278">278</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-264" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-264"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_latex</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-265" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-265"></a><span class="w">    </span><span class="sd">"""Return the expression as a LaTeX string.</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-266" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-266"></a>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-267" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-267"></a><span class="sd">    Written by [Node.to_latex][SRToolkit.utils.expression_tree.Node.to_latex], which also numbers</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-268" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-268"></a><span class="sd">    the constants.</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-269" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-269"></a>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-270" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-270"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-271" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-271"></a><span class="sd">        A LaTeX string of the form ``$...$``.</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-272" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-272"></a>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-273" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-273"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-274" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-274"></a><span class="sd">        ExpressionParseError: If the tokens are not a well-formed expression.</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-275" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-275"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-276" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-276"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-277" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-277"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">to_latex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-278" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-278"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-331">331</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-317" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-317"></a><span class="k">def</span><span class="w"> </span><span class="nf">to_latex</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-318" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-318"></a><span class="w">    </span><span class="sd">"""Return the expression as a LaTeX string.</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-319" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-319"></a>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-320" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-320"></a><span class="sd">    Written by [Node.to_latex][SRToolkit.utils.expression_tree.Node.to_latex], which also numbers</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-321" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-321"></a><span class="sd">    the constants.</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-322" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-322"></a>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-323" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-323"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-324" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-324"></a><span class="sd">        A LaTeX string of the form ``$...$``.</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-325" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-325"></a>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-326" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-326"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-327" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-327"></a><span class="sd">        ExpressionParseError: If the tokens are not a well-formed expression.</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-328" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-328"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-329" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-329"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-330" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-330"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">to_latex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-331" name="SRToolkit.utils.expression.Expression.to_latex--source--__codelineno-0-331"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_latex</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3905,6 +4041,280 @@ the constants.</p>
 
 </div>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="SRToolkit.utils.expression.canonicalise" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">canonicalise</span>
+
+
+</h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">canonicalise</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expression</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Rewrite the free constants of an expression in a canonical way.</p>
+<p>A parameter that occurs once is written bare (<code>C</code>, the library's constant symbol); one that
+occurs more than once is labelled. Labels <code>C_0</code>, <code>C_1</code>, ... are given out one per parameter
+(bare ones included) in the order of the parameter vector (see
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;parameter_labels&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a>), skipping names
+the library registers as symbols, so a shared constant at position <code>k</code> is <code>C_k</code> unless an
+earlier name was skipped. Expressions that differ only in how their constants are written then
+have one form. The parameter vector keeps its length and order, and applying the rewrite again
+changes nothing. Only looks at tokens; does not parse.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>expr</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.expression.Expression&lt;/code&gt;)" href="#SRToolkit.utils.expression.Expression">Expression</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The expression, as a token list or an
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt;" href="#SRToolkit.utils.expression.Expression">Expression</a> without specs.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>symbol_library</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.symbol_library.SymbolLibrary&lt;/code&gt;)" href="../symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Symbol library used to recognise constants. <code>None</code> uses the expression's
+own library, or the active or default one for a token list.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.expression.Expression&lt;/code&gt;)" href="#SRToolkit.utils.expression.Expression">Expression</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The canonical expression, in the library of <code>expr</code>. An <code>Expression</code> that does not</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.expression.Expression&lt;/code&gt;)" href="#SRToolkit.utils.expression.Expression">Expression</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>change (only bare constants, or a library without a constant symbol) is returned itself.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>expr</code> is neither a list or tuple of token strings nor an <code>Expression</code>
+(a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a> is rejected).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>expr</code> has specs: the rewrite drops the labels they refer to.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">canonicalise</span><span class="p">([</span><span class="s2">"C_0"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">]))</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">'C*X_0+C*X_1'</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">canonicalise</span><span class="p">([</span><span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_5"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_5"</span><span class="p">]))</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">'C*X_0+C_1*X_1+C_1'</span>
+</code></pre></div>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>SRToolkit/utils/expression.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-376">376</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#SRToolkit.utils.expression.canonicalise--source--__codelineno-0-413">413</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-357" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-357"></a><span class="k">def</span><span class="w"> </span><span class="nf">canonicalise</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Expression</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expression</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-358" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-358"></a><span class="w">    </span><span class="sd">"""Rewrite the free constants of an expression in a canonical way.</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-359" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-359"></a>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-360" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-360"></a><span class="sd">    A parameter that occurs once is written bare (``C``, the library's constant symbol); one that</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-361" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-361"></a><span class="sd">    occurs more than once is labelled. Labels ``C_0``, ``C_1``, ... are given out one per parameter</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-362" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-362"></a><span class="sd">    (bare ones included) in the order of the parameter vector (see</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-363" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-363"></a><span class="sd">    [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels]), skipping names</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-364" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-364"></a><span class="sd">    the library registers as symbols, so a shared constant at position ``k`` is ``C_k`` unless an</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-365" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-365"></a><span class="sd">    earlier name was skipped. Expressions that differ only in how their constants are written then</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-366" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-366"></a><span class="sd">    have one form. The parameter vector keeps its length and order, and applying the rewrite again</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-367" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-367"></a><span class="sd">    changes nothing. Only looks at tokens; does not parse.</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-368" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-368"></a>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-369" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-369"></a><span class="sd">    Args:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-370" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-370"></a><span class="sd">        expr: The expression, as a token list or an</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-371" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-371"></a><span class="sd">            [Expression][SRToolkit.utils.expression.Expression] without specs.</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-372" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-372"></a><span class="sd">        symbol_library: Symbol library used to recognise constants. ``None`` uses the expression's</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-373" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-373"></a><span class="sd">            own library, or the active or default one for a token list.</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-374" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-374"></a>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-375" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-375"></a><span class="sd">    Returns:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-376" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-376"></a><span class="sd">        The canonical expression, in the library of ``expr``. An ``Expression`` that does not</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-377" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-377"></a><span class="sd">        change (only bare constants, or a library without a constant symbol) is returned itself.</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-378" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-378"></a>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-379" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-379"></a><span class="sd">    Raises:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-380" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-380"></a><span class="sd">        TypeError: If ``expr`` is neither a list or tuple of token strings nor an ``Expression``</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-381" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-381"></a><span class="sd">            (a [Node][SRToolkit.utils.expression_tree.Node] is rejected).</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-382" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-382"></a><span class="sd">        ValueError: If ``expr`` has specs: the rewrite drops the labels they refer to.</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-383" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-383"></a>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-384" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-384"></a><span class="sd">    Examples:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-385" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-385"></a><span class="sd">        &gt;&gt;&gt; str(canonicalise(["C_0", "*", "X_0", "+", "C_1", "*", "X_1"]))</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-386" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-386"></a><span class="sd">        'C*X_0+C*X_1'</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-387" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-387"></a><span class="sd">        &gt;&gt;&gt; str(canonicalise(["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C_5"]))</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-388" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-388"></a><span class="sd">        'C*X_0+C_1*X_1+C_1'</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-389" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-389"></a><span class="sd">    """</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-390" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-390"></a>    <span class="n">expr</span> <span class="o">=</span> <span class="n">_as_expression</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-391" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-391"></a>    <span class="k">if</span> <span class="n">expr</span><span class="o">.</span><span class="n">free_constants</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-392" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-392"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"canonicalise drops the labels that the specs of expr refer to; give it one without specs."</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-393" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-393"></a>    <span class="n">sl</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">symbol_library</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-394" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-394"></a>    <span class="n">tokens</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">expr</span><span class="o">.</span><span class="n">tokens</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-395" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-395"></a>    <span class="n">symbol</span> <span class="o">=</span> <span class="n">sl</span><span class="o">.</span><span class="n">constant_symbol</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-396" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-396"></a>    <span class="n">indices</span> <span class="o">=</span> <span class="n">_constant_indices</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">sl</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-397" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-397"></a>    <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-398" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-398"></a>    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-399" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-399"></a>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">indices</span><span class="p">))):</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-400" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-400"></a>        <span class="k">while</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">symbol</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span> <span class="ow">in</span> <span class="n">sl</span><span class="o">.</span><span class="n">symbols</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-401" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-401"></a>            <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-402" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-402"></a>        <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">symbol</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-403" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-403"></a>        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-404" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-404"></a>    <span class="n">counts</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-405" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-405"></a>    <span class="n">occurrences</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-406" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-406"></a>    <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-407" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-407"></a>    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-408" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-408"></a>        <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="o">:=</span> <span class="n">sl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">token</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"const"</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-409" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-409"></a>            <span class="n">index</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">occurrences</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-410" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-410"></a>            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="k">if</span> <span class="n">counts</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">symbol</span><span class="p">))</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-411" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-411"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-412" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-412"></a>            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+<a id="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-413" name="SRToolkit.utils.expression.canonicalise--source--__codelineno-0-413"></a>    <span class="k">return</span> <span class="n">expr</span> <span class="k">if</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="n">expr</span><span class="o">.</span><span class="n">tokens</span> <span class="k">else</span> <span class="n">Expression</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">sl</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

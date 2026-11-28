@@ -2581,7 +2581,12 @@
 <ul>
 <li><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;compile_expr&lt;/span&gt;" href="#SRToolkit.utils.expression_compiler.compile_expr">compile_expr</a>:
   returns a callable <code>f(X, C) → np.ndarray</code>; <code>C</code> holds one value per free parameter (see
-  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a>).</li>
+  <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;parameter_labels&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a>).</li>
 <li><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;compile_expr_rmse&lt;/span&gt;" href="#SRToolkit.utils.expression_compiler.compile_expr_rmse">compile_expr_rmse</a>:
   returns an RMSE callable <code>f(X, C, y) → float</code>.</li>
 </ul>
@@ -2784,7 +2789,12 @@ library, otherwise the active or default library.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a> (every occurrence of a</p>
+                <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;parameter_labels&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a> (every occurrence of a</p>
               </div>
             </td>
           </tr>
@@ -2964,7 +2974,7 @@ library, otherwise the active or default library.</p>
 <a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-874" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-874"></a><span class="sd">    Returns:</span>
 <a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-875" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-875"></a><span class="sd">        A callable ``f(X, C)`` where ``X`` has shape ``(n_samples, n_features)`` and ``C`` holds at</span>
 <a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-876" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-876"></a><span class="sd">        least one value per parameter, in the order of</span>
-<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-877" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-877"></a><span class="sd">        [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] (every occurrence of a</span>
+<a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-877" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-877"></a><span class="sd">        [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels] (every occurrence of a</span>
 <a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-878" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-878"></a><span class="sd">        labelled constant reads the same entry). Pass ``None`` or an empty array for a</span>
 <a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-879" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-879"></a><span class="sd">        constant-free expression; too few values raise ``ValueError`` when ``f`` is called.</span>
 <a id="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-880" name="SRToolkit.utils.expression_compiler.compile_expr--source--__codelineno-0-880"></a><span class="sd">        ``f`` returns an array of shape ``(n_samples,)``.</span>

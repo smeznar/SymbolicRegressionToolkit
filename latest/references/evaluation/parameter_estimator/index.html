@@ -2591,7 +2591,12 @@
         <p>Fitting of free constants by minimizing RMSE.</p>
 <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;ParameterEstimator&lt;/span&gt;" href="#SRToolkit.evaluation.parameter_estimator.ParameterEstimator">ParameterEstimator</a> fits the
 parameters of an expression (its free constants, in the order of
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../../utils/expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a>) to data <code>(X, y)</code> with
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;parameter_labels&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../utils/expression/#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a>) to data <code>(X, y)</code> with
 <code>scipy.optimize.minimize</code>, configured by the <code>minimize</code> settings section.
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;RMSERanking&lt;/span&gt;" href="../ranking/#SRToolkit.evaluation.ranking.RMSERanking">RMSERanking</a> scores expressions with it.</p>
 <p><strong>Specs.</strong> Each parameter is fitted under a spec (see
@@ -2962,7 +2967,7 @@ set, no <code>label</code>, no <code>value</code>, <code>fixed=False</code>); th
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-109" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-109"></a>            <span class="sa">f</span><span class="s2">"[ParameterEstimator] default_constant must be a Constant, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">default_constant</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-110" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-110"></a>        <span class="p">)</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-111" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-111"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-112" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-112"></a>        <span class="n">resolve_constants</span><span class="p">([],</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default_constant</span><span class="p">)</span>  <span class="c1"># raises ValueError unless it is a complete template</span>
+<a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-112" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-112"></a>        <span class="n">_check_default_constant</span><span class="p">(</span><span class="n">default_constant</span><span class="p">)</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-113" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-113"></a>    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-114" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-114"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[ParameterEstimator] </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-115" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator--source--__codelineno-0-115"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">symbol_library</span> <span class="o">=</span> <span class="n">symbol_library</span>
@@ -3076,7 +3081,12 @@ Parameters without a spec use <code>default_constant</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../../utils/expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a>, fixed values</p>
+                <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;parameter_labels&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../../utils/expression/#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a>, fixed values</p>
               </div>
             </td>
           </tr>
@@ -3246,7 +3256,7 @@ it takes from <code>default_constant</code>.</p>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-136" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-136"></a><span class="sd">    Returns:</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-137" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-137"></a><span class="sd">        A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the parameters</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-138" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-138"></a><span class="sd">        that gave it, one per parameter in the order of</span>
-<a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-139" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-139"></a><span class="sd">        [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels], fixed values</span>
+<a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-139" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-139"></a><span class="sd">        [parameter_labels][SRToolkit.utils.expression.Expression.parameter_labels], fixed values</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-140" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-140"></a><span class="sd">        included. If no evaluation was finite, ``rmse`` is ``nan`` or ``inf`` and the free</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-141" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-141"></a><span class="sd">        entries of ``parameters`` are the optimizer's final point.</span>
 <a id="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-142" name="SRToolkit.evaluation.parameter_estimator.ParameterEstimator.estimate_parameters--source--__codelineno-0-142"></a>

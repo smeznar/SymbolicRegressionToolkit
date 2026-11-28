@@ -4005,7 +4005,12 @@ unless <code>status</code> is <code>"ok"</code>; this is not validated.</p>
             <td>
               <div class="doc-md-description">
                 <p>Fitted values, one per parameter in the order of
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a>, shape
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;parameter_labels&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.parameter_labels">parameter_labels</a>, shape
 <code>(n_parameters,)</code>, fixed values included; <code>free_constants</code> holds the specs they were
 fitted under. Set by the RMSE ranking only. <code>None</code> for other rankings and when nothing
 was fitted.</p>
@@ -5110,9 +5115,9 @@ parameter without one of its own (see
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
   &lt;/span&gt;" href="#SRToolkit.utils.types.ModelResult">ModelResult.free_constants</a>). With it,
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve_constants&lt;/span&gt;" href="../free_constants/#SRToolkit.utils.free_constants.resolve_constants">resolve_constants</a>
-<code>(model.expr, model.free_constants, result.default_constant, symbol_library)</code> gives
-the complete specs of a saved model. <code>None</code> for results saved in format 2.</p>
+<code>Expression(model.expr, symbol_library, model.free_constants).resolve(result.default_constant)</code>
+(see <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.resolve">Expression.resolve</a>) gives the
+complete specs of a saved model. <code>None</code> for results saved in format 2.</p>
               </div>
             </td>
           </tr>

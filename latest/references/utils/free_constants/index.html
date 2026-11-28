@@ -1096,28 +1096,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#SRToolkit.utils.free_constants.resolve_constants" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_constants
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#SRToolkit.utils.free_constants.canonicalise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;canonicalise
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2592,28 +2570,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#SRToolkit.utils.free_constants.resolve_constants" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_constants
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#SRToolkit.utils.free_constants.canonicalise" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;canonicalise
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2662,18 +2618,25 @@ the library.</p>
 <p>A bare <code>C</code> is a new parameter at every occurrence; a <strong>labelled</strong> constant <code>C_&lt;int&gt;</code> (e.g.
 <code>C_5</code>) is one parameter however often it occurs. Labels are local to an expression: <code>C_0</code> in two
 expressions are unrelated parameters. The parameters of an expression form a vector ordered by first
-appearance, as listed by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a>.</p>
+appearance, as listed by
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-attribute&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-attribute-name&quot;&gt;parameter_labels&lt;/span&gt;
+
+
+  &lt;span class=&quot;doc doc-labels&quot;&gt;
+      &lt;small class=&quot;doc doc-label doc-label-property&quot;&gt;&lt;code&gt;property&lt;/code&gt;&lt;/small&gt;
+  &lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.parameter_labels">Expression.parameter_labels</a>.</p>
 <p>A <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
 
 
   &lt;span class=&quot;doc doc-labels&quot;&gt;
       &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
   &lt;/span&gt;" href="#SRToolkit.utils.free_constants.Constant">Constant</a> describes how one labelled constant is
-treated: the prior its starting points (and BED samples) are drawn from, the hard bounds of the fit,
-an optional value, and whether that value is fixed instead of fitted. Specs address constants by
-label, so to specify a constant write it labelled (<code>C_0</code> instead of <code>C</code>). A bare <code>C</code>, and a
-labelled constant without a spec, use the <strong>default spec</strong>: a <code>Constant</code> template (no label)
-that applies to every parameter without a spec of its own. A spec's unset <code>prior</code> or <code>bounds</code>
+treated; an <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression">Expression</a> carries the specs of its labelled
+constants. A spec gives the prior its starting points (and BED samples) are drawn from, the hard
+bounds of the fit, an optional value, and whether that value is fixed instead of fitted. Specs
+address constants by label, so to specify a constant write it labelled (<code>C_0</code> instead of <code>C</code>).
+A bare <code>C</code>, and a labelled constant without a spec, use the <strong>default spec</strong>: a <code>Constant</code>
+template (no label) that applies to every parameter without a spec of its own. A spec's unset <code>prior</code> or <code>bounds</code>
 are also taken from it, so a fit is unbounded only when infinite bounds are given explicitly. A
 dataset's default spec is
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;BackgroundKnowledge&lt;/span&gt;
@@ -2684,10 +2647,10 @@ dataset's default spec is
   &lt;/span&gt;" href="../../dataset/background_knowledge/#SRToolkit.dataset.background_knowledge.BackgroundKnowledge">BackgroundKnowledge.default_constant</a>;
 <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;uniform_default&lt;/span&gt;" href="#SRToolkit.utils.free_constants.uniform_default">uniform_default</a> builds the usual one, a uniform
 prior on a constant range with that range as bounds.
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve_constants&lt;/span&gt;" href="#SRToolkit.utils.free_constants.resolve_constants">resolve_constants</a> combines the specs given for
-an expression with the default spec into one complete spec per parameter.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.resolve">Expression.resolve</a> combines an expression's specs
+with the default spec into one complete spec per parameter.</p>
 <p>Without specs, how constants are written does not matter: <code>C_0*X_0 + C_0</code> and <code>C_1*X_0 + C_1</code>
-are the same model. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;canonicalise&lt;/span&gt;" href="#SRToolkit.utils.free_constants.canonicalise">canonicalise</a> writes them one way
+are the same model. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;canonicalise&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.canonicalise">canonicalise</a> writes them one way
 (a constant occurring once bare, a shared one labelled), e.g. to deduplicate candidates of an
 approach that writes labelled constants (the evaluator setting <code>canonicalise_constants</code>).</p>
 
@@ -2760,8 +2723,7 @@ parameter that has no spec of its own, see
               <div class="doc-md-description">
                 <p>The labelled-constant token the spec applies to, e.g. <code>"C_5"</code>. <code>None</code> makes the
 spec a template. Whether the label occurs in an expression is checked when an
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression">Expression</a> is built and by
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve_constants&lt;/span&gt;" href="#SRToolkit.utils.free_constants.resolve_constants">resolve_constants</a>; a token the
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Expression&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression">Expression</a> is built; a token the
 symbol library registers as a symbol (e.g. a named constant <code>C_1</code>) is never a
 labelled constant.</p>
               </div>
@@ -2781,7 +2743,7 @@ labelled constant.</p>
               <div class="doc-md-description">
                 <p>Distribution that starting points and BED samples are drawn from. <code>None</code>: the
 default spec's prior, filled in by
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve_constants&lt;/span&gt;" href="#SRToolkit.utils.free_constants.resolve_constants">resolve_constants</a>.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.resolve">Expression.resolve</a>.</p>
               </div>
             </td>
             <td>
@@ -2800,7 +2762,7 @@ default spec's prior, filled in by
                 <p>Hard <code>(lower, upper)</code> bounds of the fit: a pair of real numbers (length-2 sequence
 or array) with <code>lower &lt; upper</code>. Either end may be infinite; <code>(-inf, inf)</code> fits
 without bounds. <code>None</code>: the default spec's bounds, filled in by
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve_constants&lt;/span&gt;" href="#SRToolkit.utils.free_constants.resolve_constants">resolve_constants</a>.</p>
+<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.resolve">Expression.resolve</a>.</p>
               </div>
             </td>
             <td>
@@ -2818,7 +2780,7 @@ without bounds. <code>None</code>: the default spec's bounds, filled in by
               <div class="doc-md-description">
                 <p>The constant's value: used as is when <code>fixed</code>, otherwise the first starting point
 of the fit, which must lie in the closed interval <code>bounds</code> (checked against inherited
-bounds by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve_constants&lt;/span&gt;" href="#SRToolkit.utils.free_constants.resolve_constants">resolve_constants</a>).
+bounds by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-method&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;resolve&lt;/span&gt;" href="../expression/#SRToolkit.utils.expression.Expression.resolve">Expression.resolve</a>).
 <code>None</code> draws the starting point from the prior.</p>
               </div>
             </td>
@@ -3539,632 +3501,6 @@ not accepted as a number).</p>
 <a id="SRToolkit.utils.free_constants.uniform_default--source--__codelineno-0-238" name="SRToolkit.utils.free_constants.uniform_default--source--__codelineno-0-238"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">upper</span><span class="p">)):</span>
 <a id="SRToolkit.utils.free_constants.uniform_default--source--__codelineno-0-239" name="SRToolkit.utils.free_constants.uniform_default--source--__codelineno-0-239"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"'constant_bounds' must be finite, got </span><span class="si">{</span><span class="n">constant_bounds</span><span class="si">!r}</span><span class="s2">."</span><span class="p">)</span>
 <a id="SRToolkit.utils.free_constants.uniform_default--source--__codelineno-0-240" name="SRToolkit.utils.free_constants.uniform_default--source--__codelineno-0-240"></a>    <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">prior</span><span class="o">=</span><span class="n">UniformSampling</span><span class="p">(</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="SRToolkit.utils.free_constants.resolve_constants" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">resolve_constants</span>
-
-
-</h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">resolve_constants</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Node</span><span class="p">,</span> <span class="n">free_constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Constant</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">default_constant</span><span class="p">:</span> <span class="n">Constant</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Constant</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Return one complete spec per parameter of an expression.</p>
-<p>Each labelled constant with a spec gets that spec, with a <code>prior</code> or <code>bounds</code> of <code>None</code>
-taken from <code>default_constant</code>. Every other parameter (each bare <code>C</code>, and labelled constants
-without a spec) gets <code>default_constant</code> itself. Use it to see what an expression is fitted under, e.g. to
-resample the constants of a saved result.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>expr</code>
-            </td>
-            <td>
-                  <code><span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.expression_tree.Node&lt;/code&gt;)" href="../expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Expression as an infix token list or a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>free_constants</code>
-            </td>
-            <td>
-                  <code><span title="collections.abc.Sequence">Sequence</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.free_constants.Constant&lt;/code&gt;)" href="#SRToolkit.utils.free_constants.Constant">Constant</a>] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Specs for labelled constants of <code>expr</code>, in any order. <code>None</code> or empty
-gives every parameter the default spec.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>default_constant</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.free_constants.Constant&lt;/code&gt;)" href="#SRToolkit.utils.free_constants.Constant">Constant</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The default spec, for parameters without a spec: a template with
-<code>prior</code> and <code>bounds</code> set and no <code>label</code>, <code>value</code> or <code>fixed</code>, e.g. from
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;uniform_default&lt;/span&gt;" href="#SRToolkit.utils.free_constants.uniform_default">uniform_default</a>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symbol_library</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.symbol_library.SymbolLibrary&lt;/code&gt;)" href="../symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Symbol library used to recognise constants. <code>None</code> uses the active or
-default library.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.free_constants.Constant&lt;/code&gt;)" href="#SRToolkit.utils.free_constants.Constant">Constant</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>One spec per parameter, in the order of</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code>...</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a>; <code>label</code> is <code>None</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.free_constants.Constant&lt;/code&gt;)" href="#SRToolkit.utils.free_constants.Constant">Constant</a>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>for every parameter that uses the default spec, labelled or not. Empty if <code>expr</code> has no free</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Constant&lt;/span&gt;
-
-
-  &lt;span class=&quot;doc doc-labels&quot;&gt;
-      &lt;small class=&quot;doc doc-label doc-label-dataclass&quot;&gt;&lt;code&gt;dataclass&lt;/code&gt;&lt;/small&gt;
-  &lt;/span&gt; (&lt;code&gt;SRToolkit.utils.free_constants.Constant&lt;/code&gt;)" href="#SRToolkit.utils.free_constants.Constant">Constant</a>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>constants.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="TypeError">TypeError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>expr</code> is neither a list of token strings nor a
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a>.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="ValueError">ValueError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>default_constant</code> has a <code>label</code>, <code>value</code> or <code>fixed=True</code> or lacks a
-<code>prior</code> or <code>bounds</code>, a spec has no label, two specs share a label, a spec's label is
-not a labelled constant of <code>expr</code>, or a spec that is not fixed has a <code>value</code> outside
-the bounds it takes from <code>default_constant</code>. The message names the argument.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">default</span> <span class="o">=</span> <span class="n">uniform_default</span><span class="p">((</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">))</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">specs</span> <span class="o">=</span> <span class="n">resolve_constants</span><span class="p">(</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="p">[</span><span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_1"</span><span class="p">],</span> <span class="p">[</span><span class="n">Constant</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="s2">"C_1"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">fixed</span><span class="o">=</span><span class="kc">True</span><span class="p">)],</span> <span class="n">default</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="p">[(</span><span class="n">s</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">bounds</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">specs</span><span class="p">]</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">[(None, None, (-5.0, 5.0)), ('C_1', 2.0, (-5.0, 5.0))]</span>
-</code></pre></div>
-
-
-            <details class="mkdocstrings-source">
-              <summary>Source code in <code>SRToolkit/utils/free_constants.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-255">255</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-259">259</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-260">260</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-262">262</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-263">263</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-266">266</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-268">268</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-269">269</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-270">270</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-271">271</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-272">272</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-273">273</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-274">274</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-275">275</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-276">276</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-278">278</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-279">279</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-280">280</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-281">281</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-283">283</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-284">284</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-285">285</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-288">288</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-289">289</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-290">290</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-296">296</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-297">297</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-298">298</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-299">299</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-300">300</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-301">301</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-302">302</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-303">303</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-304">304</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-305">305</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-306">306</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-307">307</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-308">308</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-309">309</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-310">310</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-311">311</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-243" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-243"></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve_constants</span><span class="p">(</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-244" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-244"></a>    <span class="n">expr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Node</span><span class="p">,</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-245" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-245"></a>    <span class="n">free_constants</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Constant</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-246" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-246"></a>    <span class="n">default_constant</span><span class="p">:</span> <span class="n">Constant</span><span class="p">,</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-247" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-247"></a>    <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-248" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-248"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Constant</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-249" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-249"></a><span class="w">    </span><span class="sd">"""Return one complete spec per parameter of an expression.</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-250" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-250"></a>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-251" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-251"></a><span class="sd">    Each labelled constant with a spec gets that spec, with a ``prior`` or ``bounds`` of ``None``</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-252" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-252"></a><span class="sd">    taken from ``default_constant``. Every other parameter (each bare ``C``, and labelled constants</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-253" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-253"></a><span class="sd">    without a spec) gets ``default_constant`` itself. Use it to see what an expression is fitted under, e.g. to</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-254" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-254"></a><span class="sd">    resample the constants of a saved result.</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-255" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-255"></a>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-256" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-256"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-257" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-257"></a><span class="sd">        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-258" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-258"></a><span class="sd">        free_constants: Specs for labelled constants of ``expr``, in any order. ``None`` or empty</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-259" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-259"></a><span class="sd">            gives every parameter the default spec.</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-260" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-260"></a><span class="sd">        default_constant: The default spec, for parameters without a spec: a template with</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-261" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-261"></a><span class="sd">            ``prior`` and ``bounds`` set and no ``label``, ``value`` or ``fixed``, e.g. from</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-262" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-262"></a><span class="sd">            [uniform_default][SRToolkit.utils.free_constants.uniform_default].</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-263" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-263"></a><span class="sd">        symbol_library: Symbol library used to recognise constants. ``None`` uses the active or</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-264" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-264"></a><span class="sd">            default library.</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-265" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-265"></a>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-266" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-266"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-267" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-267"></a><span class="sd">        One spec per parameter, in the order of</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-268" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-268"></a><span class="sd">        [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]; ``label`` is ``None``</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-269" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-269"></a><span class="sd">        for every parameter that uses the default spec, labelled or not. Empty if ``expr`` has no free</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-270" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-270"></a><span class="sd">        constants.</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-271" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-271"></a>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-272" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-272"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-273" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-273"></a><span class="sd">        TypeError: If ``expr`` is neither a list of token strings nor a</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-274" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-274"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node].</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-275" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-275"></a><span class="sd">        ValueError: If ``default_constant`` has a ``label``, ``value`` or ``fixed=True`` or lacks a</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-276" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-276"></a><span class="sd">            ``prior`` or ``bounds``, a spec has no label, two specs share a label, a spec's label is</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-277" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-277"></a><span class="sd">            not a labelled constant of ``expr``, or a spec that is not fixed has a ``value`` outside</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-278" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-278"></a><span class="sd">            the bounds it takes from ``default_constant``. The message names the argument.</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-279" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-279"></a>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-280" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-280"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-281" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-281"></a><span class="sd">        &gt;&gt;&gt; default = uniform_default((-5.0, 5.0))</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-282" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-282"></a><span class="sd">        &gt;&gt;&gt; specs = resolve_constants(</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-283" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-283"></a><span class="sd">        ...     ["C", "*", "X_0", "+", "C_1"], [Constant(label="C_1", value=2.0, fixed=True)], default</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-284" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-284"></a><span class="sd">        ... )</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-285" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-285"></a><span class="sd">        &gt;&gt;&gt; [(s.label, s.value, s.bounds) for s in specs]</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-286" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-286"></a><span class="sd">        [(None, None, (-5.0, 5.0)), ('C_1', 2.0, (-5.0, 5.0))]</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-287" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-287"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-288" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-288"></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">default_constant</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-289" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-289"></a>    <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">d</span><span class="o">.</span><span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">d</span><span class="o">.</span><span class="n">fixed</span> <span class="ow">or</span> <span class="n">d</span><span class="o">.</span><span class="n">prior</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">d</span><span class="o">.</span><span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-290" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-290"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-291" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-291"></a>            <span class="sa">f</span><span class="s2">"'default_constant' must be a template with a prior and bounds and no label, value or fixed, got </span><span class="si">{</span><span class="n">d</span><span class="si">!r}</span><span class="s2">."</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-292" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-292"></a>        <span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-293" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-293"></a>    <span class="n">labels</span> <span class="o">=</span> <span class="n">parameter_labels</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-294" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-294"></a>    <span class="n">specs</span> <span class="o">=</span> <span class="n">_specs_by_label</span><span class="p">(</span><span class="n">free_constants</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-295" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-295"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-296" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-296"></a>    <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-297" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-297"></a>        <span class="n">given</span> <span class="o">=</span> <span class="n">specs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">label</span><span class="p">)</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-298" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-298"></a>        <span class="k">if</span> <span class="n">given</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-299" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-299"></a>            <span class="n">resolved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-300" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-300"></a>            <span class="k">continue</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-301" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-301"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-302" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-302"></a>            <span class="n">resolved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-303" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-303"></a>                <span class="n">replace</span><span class="p">(</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-304" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-304"></a>                    <span class="n">given</span><span class="p">,</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-305" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-305"></a>                    <span class="n">prior</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">prior</span> <span class="k">if</span> <span class="n">given</span><span class="o">.</span><span class="n">prior</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">given</span><span class="o">.</span><span class="n">prior</span><span class="p">,</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-306" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-306"></a>                    <span class="n">bounds</span><span class="o">=</span><span class="n">d</span><span class="o">.</span><span class="n">bounds</span> <span class="k">if</span> <span class="n">given</span><span class="o">.</span><span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">given</span><span class="o">.</span><span class="n">bounds</span><span class="p">,</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-307" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-307"></a>                <span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-308" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-308"></a>            <span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-309" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-309"></a>        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># a free value outside the inherited bounds</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-310" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-310"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"'free_constants': </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-<a id="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-311" name="SRToolkit.utils.free_constants.resolve_constants--source--__codelineno-0-311"></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="SRToolkit.utils.free_constants.canonicalise" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">canonicalise</span>
-
-
-</h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">canonicalise</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Node</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Rewrite the free constants of an expression in a canonical way.</p>
-<p>A parameter that occurs once is written bare (<code>C</code>, the library's constant symbol); one that
-occurs more than once is labelled. Labels <code>C_0</code>, <code>C_1</code>, ... are given out one per parameter
-(bare ones included) in the order of the parameter vector (see
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-function&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-function-name&quot;&gt;parameter_labels&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.parameter_labels">parameter_labels</a>), skipping names the library
-registers as symbols, so a shared constant at position <code>k</code> is <code>C_k</code> unless an earlier name was
-skipped. Expressions that differ only in how their constants are written then have one form. The
-parameter vector keeps its length and order, and applying the rewrite again changes nothing. Only
-looks at tokens; does not parse. The rewrite drops the labels specs refer to, so apply it only to
-expressions without specs.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>expr</code>
-            </td>
-            <td>
-                  <code><span title="list">list</span>[<span title="str">str</span>] | <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.expression_tree.Node&lt;/code&gt;)" href="../expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Expression as an infix token list or a <a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a>.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>symbol_library</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;SymbolLibrary&lt;/span&gt; (&lt;code&gt;SRToolkit.utils.symbol_library.SymbolLibrary&lt;/code&gt;)" href="../symbol_library/#SRToolkit.utils.symbol_library.SymbolLibrary">SymbolLibrary</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Symbol library used to recognise constants. <code>None</code> uses the active or
-default library.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="list">list</span>[<span title="str">str</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The canonical token list, as a new list. Equal to <code>expr</code> if it has only bare constants</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="list">list</span>[<span title="str">str</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>or the library has no constant symbol.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="TypeError">TypeError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>expr</code> is neither a list of token strings nor a
-<a class="autorefs autorefs-internal" title="&lt;code class=&quot;doc-symbol doc-symbol-heading doc-symbol-class&quot;&gt;&lt;/code&gt;            &lt;span class=&quot;doc doc-object-name doc-class-name&quot;&gt;Node&lt;/span&gt;" href="../expression_tree/#SRToolkit.utils.expression_tree.Node">Node</a>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Examples:</span></p>
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">canonicalise</span><span class="p">([</span><span class="s2">"C_0"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_1"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">]))</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">'C*X_0+C*X_1'</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">canonicalise</span><span class="p">([</span><span class="s2">"C"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_0"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_5"</span><span class="p">,</span> <span class="s2">"*"</span><span class="p">,</span> <span class="s2">"X_1"</span><span class="p">,</span> <span class="s2">"+"</span><span class="p">,</span> <span class="s2">"C_5"</span><span class="p">]))</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="go">'C*X_0+C_1*X_1+C_1'</span>
-</code></pre></div>
-
-
-            <details class="mkdocstrings-source">
-              <summary>Source code in <code>SRToolkit/utils/free_constants.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-334">334</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-335">335</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-336">336</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-337">337</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-338">338</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-339">339</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-340">340</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-341">341</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-342">342</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-343">343</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-344">344</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-345">345</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-346">346</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-347">347</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-348">348</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-349">349</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-350">350</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-351">351</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-352">352</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-353">353</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-354">354</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-355">355</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-356">356</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-357">357</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-358">358</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-359">359</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-360">360</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-361">361</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-362">362</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-363">363</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-364">364</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-365">365</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-366">366</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-367">367</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-368">368</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-369">369</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-370">370</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-371">371</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-372">372</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-373">373</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-374">374</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-375">375</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-376">376</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-377">377</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-378">378</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-379">379</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-380">380</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-381">381</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-382">382</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-383">383</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-384">384</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-385">385</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-386">386</a></span>
-<span class="normal"><a href="#SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-387">387</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-334" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-334"></a><span class="k">def</span><span class="w"> </span><span class="nf">canonicalise</span><span class="p">(</span><span class="n">expr</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">Node</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">:</span> <span class="n">SymbolLibrary</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-335" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-335"></a><span class="w">    </span><span class="sd">"""Rewrite the free constants of an expression in a canonical way.</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-336" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-336"></a>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-337" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-337"></a><span class="sd">    A parameter that occurs once is written bare (``C``, the library's constant symbol); one that</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-338" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-338"></a><span class="sd">    occurs more than once is labelled. Labels ``C_0``, ``C_1``, ... are given out one per parameter</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-339" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-339"></a><span class="sd">    (bare ones included) in the order of the parameter vector (see</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-340" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-340"></a><span class="sd">    [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels]), skipping names the library</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-341" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-341"></a><span class="sd">    registers as symbols, so a shared constant at position ``k`` is ``C_k`` unless an earlier name was</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-342" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-342"></a><span class="sd">    skipped. Expressions that differ only in how their constants are written then have one form. The</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-343" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-343"></a><span class="sd">    parameter vector keeps its length and order, and applying the rewrite again changes nothing. Only</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-344" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-344"></a><span class="sd">    looks at tokens; does not parse. The rewrite drops the labels specs refer to, so apply it only to</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-345" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-345"></a><span class="sd">    expressions without specs.</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-346" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-346"></a>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-347" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-347"></a><span class="sd">    Args:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-348" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-348"></a><span class="sd">        expr: Expression as an infix token list or a [Node][SRToolkit.utils.expression_tree.Node].</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-349" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-349"></a><span class="sd">        symbol_library: Symbol library used to recognise constants. ``None`` uses the active or</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-350" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-350"></a><span class="sd">            default library.</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-351" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-351"></a>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-352" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-352"></a><span class="sd">    Returns:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-353" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-353"></a><span class="sd">        The canonical token list, as a new list. Equal to ``expr`` if it has only bare constants</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-354" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-354"></a><span class="sd">        or the library has no constant symbol.</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-355" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-355"></a>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-356" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-356"></a><span class="sd">    Raises:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-357" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-357"></a><span class="sd">        TypeError: If ``expr`` is neither a list of token strings nor a</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-358" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-358"></a><span class="sd">            [Node][SRToolkit.utils.expression_tree.Node].</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-359" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-359"></a>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-360" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-360"></a><span class="sd">    Examples:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-361" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-361"></a><span class="sd">        &gt;&gt;&gt; "".join(canonicalise(["C_0", "*", "X_0", "+", "C_1", "*", "X_1"]))</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-362" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-362"></a><span class="sd">        'C*X_0+C*X_1'</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-363" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-363"></a><span class="sd">        &gt;&gt;&gt; "".join(canonicalise(["C", "*", "X_0", "+", "C_5", "*", "X_1", "+", "C_5"]))</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-364" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-364"></a><span class="sd">        'C*X_0+C_1*X_1+C_1'</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-365" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-365"></a><span class="sd">    """</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-366" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-366"></a>    <span class="k">if</span> <span class="n">symbol_library</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-367" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-367"></a>        <span class="n">symbol_library</span> <span class="o">=</span> <span class="n">SymbolLibrary</span><span class="o">.</span><span class="n">get_or_default</span><span class="p">()</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-368" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-368"></a>    <span class="n">tokens</span> <span class="o">=</span> <span class="n">_as_tokens</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-369" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-369"></a>    <span class="n">symbol</span> <span class="o">=</span> <span class="n">symbol_library</span><span class="o">.</span><span class="n">constant_symbol</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-370" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-370"></a>    <span class="n">indices</span> <span class="o">=</span> <span class="n">_constant_indices</span><span class="p">(</span><span class="n">tokens</span><span class="p">,</span> <span class="n">symbol_library</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-371" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-371"></a>    <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-372" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-372"></a>    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-373" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-373"></a>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">indices</span><span class="p">))):</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-374" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-374"></a>        <span class="k">while</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">symbol</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span> <span class="ow">in</span> <span class="n">symbol_library</span><span class="o">.</span><span class="n">symbols</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-375" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-375"></a>            <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-376" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-376"></a>        <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">symbol</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-377" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-377"></a>        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-378" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-378"></a>    <span class="n">counts</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-379" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-379"></a>    <span class="n">occurrences</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-380" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-380"></a>    <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-381" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-381"></a>    <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-382" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-382"></a>        <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="o">:=</span> <span class="n">symbol_library</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">token</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"const"</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-383" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-383"></a>            <span class="n">index</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">occurrences</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-384" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-384"></a>            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="k">if</span> <span class="n">counts</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">symbol</span><span class="p">))</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-385" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-385"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-386" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-386"></a>            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
-<a id="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-387" name="SRToolkit.utils.free_constants.canonicalise--source--__codelineno-0-387"></a>    <span class="k">return</span> <span class="n">result</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
