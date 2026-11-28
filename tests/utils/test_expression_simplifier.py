@@ -1,6 +1,10 @@
 """Spec tests for SRToolkit.utils.expression_simplifier (e-graph simplification)."""
 
 import json
+import os
+import subprocess
+import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -9,6 +13,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from strategies import labelled_infix_expressions
 
+from SRToolkit.utils import expression_simplifier
 from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_simplifier import (
@@ -733,3 +738,40 @@ class TestSimplifyFold:
     def test_unknown_fold_raises(self):
         with pytest.raises(ValueError, match="^fold must"):
             _simplify(["X_0"], _SL, fold="yes")
+
+
+class TestSimplifyForkedProcess:
+    # Reason: clause (simplify "warns when called in a forked process", where freeing an e-graph can hang).
+    @pytest.mark.parametrize("forked", [True, False], ids=["forked", "not-forked"])
+    def test_warns_only_in_forked_process(self, monkeypatch, forked):
+        expected = str(simplify(["X_0", "+", "X_0"]))
+        monkeypatch.setattr(expression_simplifier, "_forked", forked)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = simplify(["X_0", "+", "X_0"])
+        fork_warnings = [w for w in caught if "forked process" in str(w.message)]
+        assert [w.category for w in fork_warnings] == ([UserWarning] if forked else [])
+        assert str(result) == expected  # simplification still runs
+
+    # Reason: implied (the warning needs the at-fork hook registered at import). A fresh interpreter,
+    # since conftest's own at-fork hook clears the flag in children of the test process. The child
+    # stops at the warning before building an e-graph, so it cannot hang.
+    @pytest.mark.slow
+    @pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+    def test_warns_in_a_real_forked_child(self):
+        code = (
+            "import os, warnings\n"
+            "from SRToolkit.utils.expression_simplifier import simplify\n"
+            "pid = os.fork()\n"
+            "if pid == 0:\n"
+            "    warnings.filterwarnings('error', message='.*forked process')\n"
+            "    try:\n"
+            "        simplify(['X_0', '+', 'X_0'])\n"
+            "    except UserWarning:\n"
+            "        os._exit(0)\n"
+            "    os._exit(1)\n"
+            "_, status = os.waitpid(pid, 0)\n"
+            "raise SystemExit(os.waitstatus_to_exitcode(status))\n"
+        )
+        result = subprocess.run([sys.executable, "-c", code], timeout=60, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr

@@ -296,7 +296,10 @@ class ExpressionSimplifier(ResultAugmenter):
                 data[key] = str(simplified)
                 if self.fold not in (None, "none"):
                     data["folded"] = True
-            except Exception as e:
+            except BaseException as e:
+                # A panic in egglog's Rust code is a PanicException, which is not an Exception.
+                if not isinstance(e, Exception) and type(e).__name__ != "PanicException":
+                    raise
                 if self.verbose:
                     warnings.warn(f"Unable to simplify {''.join(model.expr)}: {e}")
             (results if key == "simplified_best_expr" else model).add_augmentation(self.name, data, self._type)
@@ -624,7 +627,8 @@ class HoldoutMetric(ResultAugmenter):
 
         Stores ``{"best_value", "metric", "refit_constants"}`` on the
         [EvalResult][SRToolkit.utils.types.EvalResult] and ``{"value", "metric", "refit_constants"}``
-        on each scoped model.
+        on each scoped model. ``"metric"`` is the ``metric`` string, the ranking's ``name``, or the
+        callable's ``__name__`` (``"custom"`` if it has none).
 
         Args:
             results: The [EvalResult][SRToolkit.utils.types.EvalResult] to augment.

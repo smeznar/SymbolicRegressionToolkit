@@ -52,14 +52,17 @@ def dataset_path(benchmark: str, version: str, key: str) -> Path:
 
 
 def _drift_hash(config: dict) -> str:
-    """Return a 16-char SHA-256 digest of the parts of ``config`` that affect generated
-    data: the ``data_source`` descriptor and the ``samplers``. Used to warn when a
-    volatile source's configuration has drifted since the cache was built.
+    """Return a 16-character SHA-256 digest of the parts of ``config`` that generate the data.
+
+    The parts are ``data_source``, ``samplers`` (read from either layout), ``ground_truth`` and
+    ``ground_truth_constants``; empty constants hash like missing ones.
     """
     payload = {
         "data_source": config.get("data_source"),
         # Read in either layout, so a v3 config and its migration hash the same.
         "samplers": _config_samplers(config),
+        "ground_truth": config.get("ground_truth"),
+        "ground_truth_constants": config.get("ground_truth_constants") or None,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
@@ -109,10 +112,11 @@ def resolve(
 
     On a cache hit (file exists and ``force`` is ``False``): if the source is *volatile*
     (e.g. [SampleSource][SRToolkit.dataset.data_source.SampleSource]), the stored sidecar
-    ``.meta.json`` hash is compared against the current ``data_source`` + ``samplers``
-    config. A mismatch emits a warning telling the user to call ``refresh()``. The samplers are
-    read from either config layout (see ``config``), and the hash does not depend on the layout,
-    so a format 2/3 config and its migration hash the same.
+    ``.meta.json`` hash is compared against the current ``data_source``, ``samplers``,
+    ``ground_truth`` and ``ground_truth_constants``. A mismatch emits a warning telling the user
+    to call ``refresh()``. The samplers are read from either config layout (see ``config``), and
+    the hash does not depend on the layout, so a format 2/3 config and its migration hash the
+    same.
 
     On a cache miss (or ``force=True``): the data is materialised by calling the source's
     [materialize][SRToolkit.dataset.data_source.DataSource.materialize].
@@ -150,8 +154,8 @@ def resolve(
             meta = _read_meta(cache_path)
             if meta is not None and meta.get("source_hash") != _drift_hash(config):
                 warnings.warn(
-                    f"[dataset.data_cache.resolve] The data_source config for '{benchmark}/{key}' has changed "
-                    f"since the cache was built. Call refresh() to regenerate the data.",
+                    f"[dataset.data_cache.resolve] The config that generates the data for '{benchmark}/{key}' "
+                    f"has changed since the cache was built. Call refresh() to regenerate the data.",
                     stacklevel=3,
                 )
         return cache_path

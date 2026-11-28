@@ -662,6 +662,8 @@ _GOLDEN = Path(__file__).parent / "data" / "v3_cache"
 # user's cache written by an older version looks like: the .meta.json holds the old drift hash.
 # On 2026-11-14 the samplers in config_v3.json were converted from the old sign flags to `mirror` and
 # the .meta.json hash recomputed, since old-format sampler dicts are no longer read.
+# On 2026-11-28 the .meta.json hash was recomputed again, since the drift hash now also covers the
+# ground truth and its constants.
 
 _NINE_CONSTANTS = ["C", "*", "X_0", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C", "+", "C"]
 
@@ -1721,6 +1723,31 @@ class TestAdaptOrLoad:
             assert list(tmp_path.iterdir()) == []
         else:
             assert Path(path).read_text() == content
+            assert [p.name for p in Path(path).parent.iterdir()] == ["state"]  # no temporary file left
+
+    def test_adapt_or_load_saves_to_temporary_file_with_same_extension(self, tmp_path):
+        # Reason: regression (parallel grid jobs could load a half-written state file); the extension is
+        # kept because e.g. np.save appends one otherwise.
+        approach = _AdaptRecorder("never")
+        saved_to = []
+        approach.save_adapted_state = lambda p: (saved_to.append(p), Path(p).write_text("state"))
+        path = tmp_path / "state.npy"
+        _task_dataset().adapt_or_load(approach, str(path))
+        (tmp,) = saved_to
+        assert Path(tmp).parent == tmp_path and Path(tmp).suffix == ".npy" and tmp != str(path)
+        assert [p.name for p in tmp_path.iterdir()] == ["state.npy"]
+
+    def test_adapt_or_load_failed_save_leaves_no_file(self, tmp_path):
+        approach = _AdaptRecorder("never")
+
+        def save(p):
+            Path(p).write_text("half")
+            raise OSError("disk full")
+
+        approach.save_adapted_state = save
+        with pytest.raises(OSError, match="disk full"):
+            _task_dataset().adapt_or_load(approach, str(tmp_path / "state"))
+        assert list(tmp_path.iterdir()) == []
 
     def test_adapt_or_load_saves_bare_file_name_in_working_directory(self, tmp_path, monkeypatch):
         # boundary: a path with no parent directory (nothing to create)

@@ -978,8 +978,10 @@ class Dataset:
         ``X``, ``background_knowledge`` and ``required_constraints`` and, if ``path`` is set, saves
         the state there with
         [save_adapted_state][SRToolkit.approaches.approach.Approach.save_adapted_state],
-        creating its parent directories. An existing file is loaded as is; it is not checked against
-        this dataset. Does not check ``adaptation_scope``.
+        creating its parent directories. The state is written to a temporary file next to ``path``
+        and moved into place, so jobs adapting in parallel never load a half-written file; if saving
+        fails, the exception propagates and no file is left behind. An existing file is loaded as
+        is; it is not checked against this dataset. Does not check ``adaptation_scope``.
 
         Args:
             approach: The approach to adapt.
@@ -998,7 +1000,15 @@ class Dataset:
             dir_name = os.path.dirname(path)
             if dir_name:
                 os.makedirs(dir_name, exist_ok=True)
-            approach.save_adapted_state(path)
+            # The temporary name keeps the extension, since e.g. np.save appends one otherwise.
+            root, ext = os.path.splitext(path)
+            tmp_path = f"{root}.tmp{os.getpid()}{ext}"
+            try:
+                approach.save_adapted_state(tmp_path)
+                os.replace(tmp_path, path)
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
 
     def create_evaluator(
         self,

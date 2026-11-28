@@ -137,6 +137,26 @@ class TestResolveSample:
         with pytest.warns(UserWarning, match="refresh"):
             data_cache.resolve("test_bench", "1.0.0", "test_ds", config_changed)
 
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"ground_truth": ["X_0", "*", "X_1", "+", "C_1"]},
+            {"ground_truth_constants": [Constant(label="C_1", value=3.0, fixed=True).to_dict()]},
+        ],
+        ids=["ground-truth", "fixed-constant"],
+    )
+    def test_changed_ground_truth_warns(self, tmp_path, monkeypatch, change):
+        # Reason: regression (y is generated from the ground truth, but the drift hash ignored it).
+        monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
+        config = {
+            **_simple_dataset_config(),
+            "ground_truth": ["X_0", "+", "X_1", "+", "C_1"],
+            "ground_truth_constants": [Constant(label="C_1", value=2.0, fixed=True).to_dict()],
+        }
+        data_cache.resolve("test_bench", "1.0.0", "test_ds", config)
+        with pytest.warns(UserWarning, match="refresh"):
+            data_cache.resolve("test_bench", "1.0.0", "test_ds", {**config, **change})
+
     def test_no_config_no_cache_raises_fnf(self, tmp_path, monkeypatch):
         monkeypatch.setattr("SRToolkit.dataset.data_cache.data_root", lambda: tmp_path)
         with pytest.raises(FileNotFoundError):

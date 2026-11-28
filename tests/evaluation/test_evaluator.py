@@ -74,6 +74,10 @@ class _SimpleCb(Callback):
 _LOGGER = "SRToolkit.evaluation.evaluator"
 
 
+class PanicException(BaseException):
+    """Stands in for pyo3's PanicException, which egglog raises on a Rust panic."""
+
+
 def _log_messages(caplog):
     return [r.getMessage() for r in caplog.records if r.name == _LOGGER]
 
@@ -927,6 +931,20 @@ class TestEvaluateExprRmse:
         expected = plain.evaluate_expr(["C", "*", "X_0"])
         assert (model.expr, model.error) == (["C", "*", "X_0"], expected.error)
 
+    # Reason: regression (a panic in egglog is a pyo3 PanicException, a BaseException, and crashed the run).
+    def test_simplify_panic_warns_and_uses_the_input(self):
+        se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
+        with patch("SRToolkit.evaluation.evaluator.simplify", side_effect=PanicException("boom")):
+            with pytest.warns(UserWarning, match="Unable to simplify"):
+                model = se.evaluate_expr(["C", "*", "X_0"])
+        assert model.expr == ["C", "*", "X_0"]
+
+    def test_simplify_keyboard_interrupt_propagates(self):
+        se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
+        with patch("SRToolkit.evaluation.evaluator.simplify", side_effect=KeyboardInterrupt):
+            with pytest.raises(KeyboardInterrupt):
+                se.evaluate_expr(["C", "*", "X_0"])
+
     # Reason: clause (evaluate_expr: with evaluator.simplify_expr "a malformed one is 'invalid' without a
     # warning"; former doctest).
     def test_malformed_expression_with_simplify_is_invalid_without_warning(self):
@@ -972,6 +990,17 @@ class TestEvaluateExprRmse:
         assert status in message
         assert str(model.error) in message
         assert str(model.status_detail or "") in message
+
+    def test_verbose_logs_fitted_parameters(self, caplog):
+        caplog.set_level(logging.DEBUG, logger=_LOGGER)
+        se = _make_se()
+        model = se.evaluate_expr(["C", "*", "X_0"], verbose=1)
+        (message,) = _log_messages(caplog)
+        assert f"parameters {model.parameters}" in message
+        caplog.clear()
+        invalid = se.evaluate_expr(["X_0", "X_0"], verbose=1)  # no parameters: nothing after the detail
+        (message,) = _log_messages(caplog)
+        assert message.endswith(f"({invalid.status_detail})")
 
     def test_verbose_1_logs_cache_hit(self, caplog):
         caplog.set_level(logging.DEBUG, logger=_LOGGER)

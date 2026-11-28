@@ -1346,7 +1346,10 @@ class Evaluator:
                     fold_aware=s.simplify_fold_aware,
                 )
                 folded = True
-            except Exception as e:
+            except BaseException as e:
+                # A panic in egglog's Rust code is a PanicException, which is not an Exception.
+                if not isinstance(e, Exception) and type(e).__name__ != "PanicException":
+                    raise
                 # A malformed expression is scored "invalid" as given; its status says why.
                 if not isinstance(e, ExpressionParseError):
                     message = f"Unable to simplify: {expr}, problems with subexpression {e}"
@@ -1577,8 +1580,8 @@ class Evaluator:
                 ``default_constant``.
             verbose: ``0`` (default): no logging. ``1``: log at DEBUG level (logger
                 ``SRToolkit.evaluation.evaluator``) each new expression with its final status,
-                error and ``status_detail``, and each cache hit. ``2``: also let NumPy
-                floating-point warnings through while scoring.
+                error, ``status_detail`` and, if any, fitted parameters, and each cache hit. ``2``:
+                also let NumPy floating-point warnings through while scoring.
 
         Returns:
             The expression's [ModelResult][SRToolkit.utils.types.ModelResult], as ``models``
@@ -1687,11 +1690,12 @@ class Evaluator:
                     index = self._store.add(expr_list, spec_key, model)
                 if verbose > 0:
                     logger.debug(
-                        "Evaluated expression %s: status %s, error %s%s",
+                        "Evaluated expression %s: status %s, error %s%s%s",
                         expr_str,
                         model.status,
                         model.error,
                         f" ({model.status_detail})" if model.status_detail else "",
+                        f", parameters {model.parameters}" if model.parameters is not None else "",
                     )
                 error = model.error
 

@@ -60,6 +60,14 @@ then the relations again, and applies each other group once. Custom rules are wr
 [is_fixed][SRToolkit.utils.expression_simplifier.is_fixed],
 [no_free_const][SRToolkit.utils.expression_simplifier.no_free_const] and
 [no_const][SRToolkit.utils.expression_simplifier.no_const] after saturating ``RELATIONS``.
+
+**Processes.** Simplifying in a process forked after SRToolkit was imported can hang, because egglog
+frees e-graphs through a thread pool the forked process lacks;
+[simplify][SRToolkit.utils.expression_simplifier.simplify] warns when called in one. With
+``multiprocessing`` (whose default start method on Linux before Python 3.14 is ``"fork"``), use the
+``"spawn"`` or ``"forkserver"`` start method. This also applies to the ``simplify_expr`` setting of
+the [Evaluator][SRToolkit.evaluation.evaluator.Evaluator] and the
+[ExpressionSimplifier][SRToolkit.evaluation.result_augmentation.ExpressionSimplifier] augmenter.
 """
 
 # egglog constructors are declared with "..." bodies.
@@ -68,7 +76,9 @@ from __future__ import annotations
 
 import math
 import numbers
+import os
 import time
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any, Literal, cast
@@ -563,6 +573,17 @@ class DefaultRules(SimplificationRules):
         return cls(exclude=d["exclude"])
 
 
+_forked = False  # set in a forked process, where freeing an e-graph can hang (see the module docs)
+
+
+def _mark_forked() -> None:
+    global _forked
+    _forked = True
+
+
+if hasattr(os, "register_at_fork"):  # not on Windows, which cannot fork
+    os.register_at_fork(after_in_child=_mark_forked)
+
 _FOLD_MODES = ("none", "default", "keep")  # the modes of fold; see its docstring
 
 
@@ -772,6 +793,10 @@ def simplify(
         ExpressionParseError: If the tokens cannot be parsed.
         ValueError: If ``fold`` is unknown.
 
+    Warns:
+        UserWarning: If called in a process forked after this module was imported, where it can
+            hang (see the module docs). Simplification still runs.
+
     Examples:
         >>> print(simplify(["C", "*", "X_0", "+", "X_1", "*", "X_0", "/", "X_1", "*", "C"]))
         (C+C)*X_0
@@ -784,6 +809,11 @@ def simplify(
         ('C_1*X_0+6', True)
     """
     _check_fold_mode(fold, "fold")
+    if _forked:
+        warnings.warn(
+            "[simplify] Simplifying in a forked process can hang; use the 'spawn' or 'forkserver' "
+            "start method of multiprocessing instead (see the expression_simplifier module docs)."
+        )
     if rules is None:
         rules = DefaultRules()
     expr = _as_expression(expr, symbol_library)

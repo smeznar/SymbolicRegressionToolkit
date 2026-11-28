@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import json
 import os
 from unittest.mock import MagicMock, patch
@@ -367,6 +368,24 @@ class TestExpressionSimplifierWriteResults:
             with pytest.warns(UserWarning):
                 aug.write_results(result)
 
+    # Reason: regression (a panic in egglog is a pyo3 PanicException, a BaseException, and crashed the run).
+    def test_simplification_panic_verbose_warns(self):
+        class PanicException(BaseException):
+            pass
+
+        _, result = _one_model_result()
+        aug = ExpressionSimplifier(_sl, scope="best", verbose=True)
+        with patch("SRToolkit.evaluation.result_augmentation.simplify", side_effect=PanicException("boom")):
+            with pytest.warns(UserWarning, match="Unable to simplify"):
+                aug.write_results(result)
+
+    def test_simplification_keyboard_interrupt_propagates(self):
+        _, result = _one_model_result()
+        aug = ExpressionSimplifier(_sl, scope="best")
+        with patch("SRToolkit.evaluation.result_augmentation.simplify", side_effect=KeyboardInterrupt):
+            with pytest.raises(KeyboardInterrupt):
+                aug.write_results(result)
+
     def test_simplification_failure_silent(self):
         _, result = _one_model_result()
         aug = ExpressionSimplifier(_sl, scope="best", verbose=False)
@@ -662,6 +681,18 @@ class TestHoldoutMetricReuseParams:
         assert "best_value" in aug
         assert aug["metric"] == "rmse"
         assert aug["best_value"] < 1e-6  # perfect expr generalises
+
+    @pytest.mark.parametrize(
+        "metric, label",
+        [(lambda predict, X, y: 0.0, "<lambda>"), (functools.partial(lambda predict, X, y: 0.0), "custom")],
+        ids=["named-callable", "nameless-callable"],
+    )
+    def test_callable_metric_label(self, metric, label):
+        _, result = _one_model_result()
+        HoldoutMetric(
+            (_X_TEST, _y_TEST), metric=metric, scope="best", background_knowledge=BackgroundKnowledge(_sl)
+        ).write_results(result)
+        assert result.augmentations["HoldoutMetric"]["metric"] == label
 
     def test_best_scope_does_not_write_to_models(self):
         se, result = _one_model_result()
@@ -986,7 +1017,8 @@ class TestHoldoutMetricSerialization:
         d = HoldoutMetric((_X_TEST, _y_TEST), background_knowledge=BackgroundKnowledge(_sl)).to_dict(
             "relative_dir", "t"
         )
-        assert os.path.isabs(d["data"])
+        assert d["data"] == str(tmp_path / "relative_dir" / "t_holdout.npz")
+        assert os.path.isfile(d["data"])
 
     def test_loaded_results_scored_once_per_expression(self, tmp_path):
         # After Results.load, top_models() still returns the objects in all_models.

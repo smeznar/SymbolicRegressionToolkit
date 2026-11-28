@@ -82,6 +82,10 @@ def _keep_egraphs_alive() -> None:
         post_init(self, *args, **kwargs)
 
     egglog.EGraph.__post_init__ = keep
+    # Keeping them alive makes simplifying safe here, so simplify need not warn.
+    from SRToolkit.utils import expression_simplifier
+
+    expression_simplifier._forked = False
 
 
 os.register_at_fork(after_in_child=_keep_egraphs_alive)
