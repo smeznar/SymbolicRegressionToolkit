@@ -41,7 +41,7 @@ from SRToolkit.utils.expression_constraints import (
     OutputBounds,
     RequiredVariables,
 )
-from SRToolkit.utils.expression_simplifier import DefaultRules, simplify
+from SRToolkit.utils.expression_simplifier import DefaultRules, fold, simplify
 from SRToolkit.utils.expression_tree import ExpressionParseError, Node, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, canonicalise, resolve_constants, uniform_default
 from SRToolkit.utils.grammar import Grammar, MaxDepth, MaxNodes
@@ -2706,6 +2706,64 @@ class TestSimplifySettings:
             assert se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)]).error == math.inf
         assert se.models[0].status == "invalid"
         assert [c.label for c in se.models[0].free_constants] == ["C_9"]
+
+
+class TestStoredFormCache:
+    # Reason: clause (Stored form: with simplify_expr "a repeated input is not simplified again and
+    # gets the same stored form, even with a simplify_max_time limit"): simplify answers differently
+    # on its second call, as a time limit can make it; evaluations and lookups all see the first answer.
+    def test_repeated_input_is_simplified_once(self):
+        se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
+        expr = ["X_0", "*", "X_1", "/", "X_0"]
+        answers = [(["X_1"], None), (["X_0", "*", "X_1", "/", "X_0"], None)]
+        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=answers) as spy:
+            se.evaluate_expr(expr)
+            stored = [se.stored_tokens(expr), se.check_constraints(expr), se.get_model(expr) is not None]
+            se.evaluate_expr(expr)
+        assert (spy.call_count, stored, se.trace) == (1, [["X_1"], ([], []), True], [0, 0])
+
+    # Reason: clause (Stored form: the memory is per input and specs): the same tokens with and
+    # without specs are two inputs.
+    def test_specs_are_part_of_the_input(self):
+        se = _spec_se(settings=Settings(evaluator={"simplify_expr": True, "fold_constants": "keep"}))
+        expr = ["C_0", "*", "X_0"]
+        with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
+            plain = se.evaluate_expr(expr)
+            with_specs = se.evaluate_expr(expr, [_fix("C_0", 2.0)])
+        assert spy.call_count == 2
+        assert plain.free_constants is None and [c.label for c in with_specs.free_constants] == ["C_0"]
+
+    # Reason: clause (evaluate_expr: "If a well-formed expression cannot be simplified, a UserWarning is
+    # emitted") + regression risk: a silent lookup that filled the memory first must not swallow it.
+    def test_simplify_failure_warns_after_a_silent_lookup(self):
+        se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
+        with patch("SRToolkit.evaluation.sr_evaluator.simplify", side_effect=Exception("bad")):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                se.get_model(["C", "*", "X_0"])
+            with pytest.warns(UserWarning, match="Unable to simplify"):
+                se.evaluate_expr(["C", "*", "X_0"])
+
+    # Reason: clause (Stored form: the evaluator remembers "the 100,000 most recently used inputs"):
+    # past the size limit, the least recently used input is forgotten. With a limit of 2, a is used
+    # again before c arrives, so c evicts b, not a: simplify runs for a, b, c and then b again.
+    def test_least_recently_used_input_is_forgotten_first(self, monkeypatch):
+        monkeypatch.setattr("SRToolkit.evaluation.sr_evaluator._STORED_FORM_CACHE_SIZE", 2)
+        se = _make_se(settings=Settings(evaluator={"simplify_expr": True}))
+        a, b, c = ["X_0"], ["X_1"], ["X_0", "+", "X_1"]
+        with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
+            for expr in (a, b, a, c, a, b):
+                se.stored_tokens(expr)
+        assert [call.args[0] for call in spy.call_args_list] == [a, b, c, b]
+
+    # Reason: clause (Stored form: the memory is only "with simplify_expr"; folding alone is redone
+    # on every call).
+    def test_without_simplify_expr_nothing_is_remembered(self):
+        se = _make_se(settings=Settings(evaluator={"fold_constants": "default"}))
+        with patch("SRToolkit.evaluation.sr_evaluator.fold", wraps=fold) as spy:
+            se.stored_tokens(["X_0", "+", "1", "+", "1"])
+            se.stored_tokens(["X_0", "+", "1", "+", "1"])
+        assert spy.call_count == 2
 
 
 class TestFoldConstants:

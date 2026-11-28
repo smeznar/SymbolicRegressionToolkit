@@ -117,6 +117,11 @@ stored form, the pre-checks see it, and
 input to it first. [stored_tokens][SRToolkit.evaluation.sr_evaluator.SR_evaluator.stored_tokens]
 returns it.
 
+With ``simplify_expr``, the evaluator remembers the stored form of the 100,000 most recently used
+inputs, so a repeated input is not simplified again and gets the same stored form, even with a
+``simplify_max_time`` limit. The memory is not saved in a checkpoint: a resumed run simplifies
+each input again, and with a time limit can store it differently than before.
+
 ## Constraints
 
 The evaluator enforces the ``required_constraints`` and records the advisory ones, which are the
@@ -268,6 +273,7 @@ import logging
 import math
 import os
 import signal
+import sys
 import threading
 import time
 import warnings
@@ -381,6 +387,11 @@ def evaluate_metric(
     except Exception as e:
         warnings.warn(f"[evaluate_metric] Error computing metric for '{''.join(expr_list)}': {e}")
         return float("nan")
+
+
+# Entries of SR_evaluator's stored-form cache (used with simplify_expr); the least recently used is
+# evicted first.
+_STORED_FORM_CACHE_SIZE = 100_000
 
 
 def _fingerprint_hash(value: Any, name: str) -> str:
@@ -757,6 +768,9 @@ class SR_evaluator:
         self._callbacks_ready = False  # whether the callbacks' states are restored and recorded in limits
         self.skips: dict[str, int] = {}
         self._skips_in_a_row = 0  # skips since the last counted evaluate_expr call
+        # With simplify_expr: (input tokens, spec key) -> (stored tokens, specs, simplify warning or
+        # None). In memory only, so a resumed run starts empty.
+        self._stored_forms: dict[tuple[tuple[str, ...], str], tuple[tuple[str, ...], Any, str | None]] = {}
         if checkpoint is not None:
             # Computed before the store, so that unsaveable values leave no checkpoint file behind.
             fingerprint = self._fingerprint()
@@ -1263,10 +1277,22 @@ class SR_evaluator:
         # Simplified with simplify_expr (as given if that fails, with a warning if warn and the
         # expression parses), folded with fold_constants, then canonicalised with
         # canonicalise_constants if no specs are left. Shared by every lookup so they match.
+        # With simplify_expr the result is cached per input, so repeats are not simplified again
+        # and get the same stored form even with simplify_max_time.
         s = self.settings.evaluator
         mode = s.fold_constants
         folded = False
         if s.simplify_expr:
+            key = (tuple(_as_tokens(expr, self.symbol_library)), _spec_key(free_constants))
+            cached = self._stored_forms.pop(key, None)
+            if cached is not None:
+                self._stored_forms[key] = cached  # reinserted last: evicted least recently used first
+                stored, cached_specs, message = cached
+                if warn and message is not None:
+                    warnings.warn(message)
+                tokens = list(stored)
+                return tokens, tokens, cached_specs
+            message = None
             try:
                 expr, free_constants = simplify(
                     expr,
@@ -1282,9 +1308,10 @@ class SR_evaluator:
                 folded = True
             except Exception as e:
                 # A malformed expression is scored "invalid" as given; its status says why.
-                if warn and not isinstance(e, ExpressionParseError):
-                    expr_str = "".join(_as_tokens(expr, self.symbol_library))
-                    warnings.warn(f"Unable to simplify: {expr_str}, problems with subexpression {e}")
+                if not isinstance(e, ExpressionParseError):
+                    message = f"Unable to simplify: {''.join(key[0])}, problems with subexpression {e}"
+                    if warn:
+                        warnings.warn(message)
         if mode != "none" and not folded:
             try:
                 expr, free_constants = fold(expr, self.symbol_library, free_constants, mode)
@@ -1299,6 +1326,16 @@ class SR_evaluator:
             if canonical != tokens:
                 # The ranking gets the canonical tokens, so the fit's seed is that of the canonical form.
                 expr = tokens = canonical
+        if s.simplify_expr:
+            if len(self._stored_forms) >= _STORED_FORM_CACHE_SIZE:
+                del self._stored_forms[next(iter(self._stored_forms))]
+            # Interned, so entries share token strings; an unchanged input shares the key's tuple.
+            key = (tuple(map(sys.intern, key[0])), key[1])
+            stored = key[0] if tuple(tokens) == key[0] else tuple(map(sys.intern, tokens))
+            self._stored_forms[key] = (stored, specs, message)
+            # Returned as tokens, as a cache hit returns it, so both give the ranking the same input.
+            tokens = list(stored)
+            return tokens, tokens, specs
         return expr, tokens, specs
 
     def get_model(
@@ -1347,8 +1384,8 @@ class SR_evaluator:
         use it to recognise repeats among expressions not yet evaluated. Does not count toward
         ``max_evaluations``, records nothing and emits no warnings. The specs are not checked:
         specs that do not fit ``expr`` match no model. With the ``evaluator.simplify_max_time``
-        setting, the result can differ between calls (the time limit depends on the machine's
-        load), so a lookup can miss a model that was evaluated.
+        setting, a lookup can miss a model that was evaluated before a resume, or whose input has
+        since been forgotten (see [Stored form][SRToolkit.evaluation.sr_evaluator]).
 
         Args:
             expr: The expression, as a token list or a [Node][SRToolkit.utils.expression_tree.Node].
@@ -1385,7 +1422,9 @@ class SR_evaluator:
         same input: the [stored form][SRToolkit.evaluation.sr_evaluator] of ``expr``. So an empty
         ``required`` list means ``evaluate_expr(expr, free_constants)`` will neither reject
         ``expr`` in a pre-check nor give it the status ``"error"`` there (unless a
-        ``simplify_max_time`` limit simplifies it differently). Unlike evaluation, every failed
+        ``simplify_max_time`` limit simplifies it differently, which the
+        [stored form][SRToolkit.evaluation.sr_evaluator] memory prevents within a run, but not
+        across a resume or after the input is forgotten). Unlike evaluation, every failed
         pre-check is reported, not only the first. A check that raises, or returns something other
         than a ``CheckResult``, is reported like a failed one, with ``error`` set (see
         [CheckResult][SRToolkit.utils.types.CheckResult]), and emits a ``UserWarning``. Checks a
