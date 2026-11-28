@@ -17,6 +17,7 @@ from SRToolkit.evaluation.result_augmentation import (
 )
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_simplifier import DefaultRules, simplify
 from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.settings import Settings
@@ -467,7 +468,7 @@ class TestExpressionSimplifierWriteResults:
     )
     def test_write_results_uses_model_specs(self, specs, expected):
         se = _rmse_se()
-        se.evaluate_expr(["C_1", "-", "2"], specs)
+        se.evaluate_expr(Expression(["C_1", "-", "2"], free_constants=specs))
         result = se.get_results(top_k=1)[0]
         ExpressionSimplifier(_sl, scope="top").write_results(result)
         assert result.augmentations["ExpressionSimplifier"]["simplified_best_expr"] == expected
@@ -1051,8 +1052,8 @@ class _RecordingRanking(RankingFunction):
     def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.received = []
 
-    def score(self, expr, free_constants=None):
-        self.received.append(free_constants)
+    def score(self, expr):
+        self.received.append(expr.free_constants)
         return RankingResult(score=7.0)
 
 
@@ -1062,7 +1063,7 @@ class _TaskRecordingRanking(RankingFunction):
     def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.args = (ground_truth, ground_truth_constants, background_knowledge, seed, settings)
 
-    def score(self, expr, free_constants=None):
+    def score(self, expr):
         return RankingResult(score=0.0)
 
 
@@ -1145,7 +1146,7 @@ class TestHoldoutMetricSpecs:
         aug.write_results(result)
         assert _values(result) == [7.0, 7.0, 7.0]
         received = aug.metric.received
-        assert len(received) == 2 and received[0] is None
+        assert len(received) == 2 and received[0] == ()
         assert [c.to_dict() for c in received[1]] == [spec.to_dict()]
 
     # Reason: regression (#cache-key: the write_results memo was keyed on "".join(tokens)). ``u`` is the

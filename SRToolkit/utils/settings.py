@@ -76,7 +76,7 @@ def _check_int(value: Any, name: str, minimum: int | None = None) -> int:
 def _check_positive_real(value: Any, name: str) -> None:
     if isinstance(value, bool) or not isinstance(value, numbers.Real):
         raise TypeError(f"[Settings] {name} must be a number, got {value!r}.")
-    if not 0 < value < math.inf:
+    if not 0 < float(value) < math.inf:
         raise ValueError(f"[Settings] {name} must be positive and finite, got {value!r}.")
 
 
@@ -125,7 +125,11 @@ class SettingsSection:
         result = {}
         for f in dataclasses.fields(self):  # type: ignore[arg-type]
             value = getattr(self, f.name)
-            default = f.default_factory() if f.default is dataclasses.MISSING else f.default  # type: ignore[misc]
+            if f.default is not dataclasses.MISSING:
+                default = f.default
+            else:
+                assert f.default_factory is not dataclasses.MISSING  # every settings field has a default
+                default = f.default_factory()
             encoded = json.dumps(self._encode(f, value), sort_keys=True)
             if encoded != json.dumps(self._encode(f, default), sort_keys=True):
                 result[f.name] = value

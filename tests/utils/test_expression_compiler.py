@@ -2,6 +2,9 @@ import numpy as np
 import pytest
 
 from SRToolkit.utils import _eval_cython as _eval
+from SRToolkit.utils import expression as expression_module
+from SRToolkit.utils import expression_tree
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_compiler import (
     _build_partial_instructions,
     _collect_maximal_const_free,
@@ -748,6 +751,42 @@ class TestCompileExprRmse:
 # ---------------------------------------------------------------------------
 # Too few constants in C (issue #4)
 # ---------------------------------------------------------------------------
+
+
+class TestExpressionInput:
+    # Reason: clause (compile_expr / compile_expr_rmse take an Expression and reuse its tree): an
+    # Expression already parsed is not parsed again, and compiles to the same function as its tokens.
+    @pytest.mark.parametrize("backend", ["stack", "stack_py", "codegen"])
+    def test_compile_reuses_parsed_tree(self, monkeypatch, backend):
+        sl = _sl(2)
+        X = _X([1.0, 2.0], [3.0, 4.0], [5.0, 6.0])
+        C, y = np.array([2.0]), np.array([1.0, 2.0, 3.0])
+        tokens = ["C", "*", "X_0", "-", "X_1"]
+        expr = Expression(tokens, sl)
+        expr.tree  # parsed here, once
+
+        def no_parse(*args, **kwargs):
+            raise AssertionError("parsed again")
+
+        monkeypatch.setattr(expression_tree, "tokens_to_tree", no_parse)
+        monkeypatch.setattr(expression_module, "tokens_to_tree", no_parse)
+        f = compile_expr(expr, sl, backend=backend)
+        f_rmse = compile_expr_rmse(expr, sl, backend=backend, X=X)
+        monkeypatch.undo()
+        np.testing.assert_allclose(f(X, C), compile_expr(tokens, sl, backend=backend)(X, C))
+        assert float(f_rmse(X, C, y)) == pytest.approx(float(compile_expr_rmse(tokens, sl, backend=backend)(X, C, y)))
+
+    # Reason: clause (symbol_library=None: an Expression's own library, otherwise the active or
+    # default one). "a" is a variable only in the custom library.
+    @pytest.mark.parametrize("compile_fn", [compile_expr, compile_expr_rmse], ids=["compile_expr", "compile_expr_rmse"])
+    def test_none_library_uses_the_expressions_own(self, compile_fn):
+        custom = SymbolLibrary()
+        custom.add_symbol("a", "var", 5, "X[:, 0]")
+        custom.add_symbol("+", "op", 0, "{} + {}")
+        f = compile_fn(Expression(["a", "+", "a"], custom))
+        X = _X([1.0], [2.0])
+        out = f(X, None) if compile_fn is compile_expr else f(X, None, np.array([2.0, 4.0]))
+        np.testing.assert_allclose(out, [2.0, 4.0] if compile_fn is compile_expr else 0.0)
 
 
 class TestTooFewConstants:

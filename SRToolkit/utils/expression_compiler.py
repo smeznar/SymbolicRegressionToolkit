@@ -47,6 +47,7 @@ import numpy as np
 # single import transparently selects the fast Cython path when available and
 # falls back to the pure-Python implementation otherwise.
 from SRToolkit.utils import _eval_cython as _eval  # type: ignore[attr-defined]
+from SRToolkit.utils.expression import Expression, _to_expression
 from SRToolkit.utils.expression_tree import (
     Node,
     _as_tree,
@@ -834,26 +835,31 @@ def _expr_to_python_stack_error_callable(
 # ── Interface for compiling expressions ──────────────────────────────────────────────
 
 
+def _tree_and_library(expr: Any, symbol_library: SymbolLibrary | None) -> tuple[Node, SymbolLibrary]:
+    # The tree of compile_expr's input and the library to compile it in: for None, an Expression's
+    # own library, otherwise the active or default one.
+    if symbol_library is None:
+        symbol_library = expr.symbol_library if isinstance(expr, Expression) else SymbolLibrary.get_or_default()
+    tree = expr if isinstance(expr, Node) else _to_expression(expr, symbol_library).tree
+    return tree, symbol_library
+
+
 def compile_expr(
-    expr: list[str] | Node,
+    expr: list[str] | Expression | Node,
     symbol_library: SymbolLibrary | None = None,
     backend: str = "stack",
 ) -> Callable[[np.ndarray, np.ndarray | None], np.ndarray]:
     """Compile an expression into a callable ``f(X, C) → np.ndarray``.
 
-    Examples:
-        >>> f = compile_expr(["X_0", "+", "1"])
-        >>> f(np.array([[1.0], [2.0], [3.0]]), None)
-        array([2., 3., 4.])
-        >>> f = compile_expr(["X_0", "+", "1"], backend="codegen")
-        >>> f(np.array([[1], [2], [3]]), np.array([]))
-        array([2, 3, 4])
+    An [Expression][SRToolkit.utils.expression.Expression] is parsed once, however often it is
+    compiled. Its specs are not used: ``C`` holds every parameter, fixed values included.
 
     Args:
-        expr: Expression as a token list in infix notation or a
+        expr: The expression, as an infix token list, an
+            [Expression][SRToolkit.utils.expression.Expression] or a
             [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library used to look up token types.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        symbol_library: The library to compile ``expr`` in. ``None``: an ``Expression``'s own
+            library, otherwise the active or default library.
         backend: Evaluation backend. One of:
 
             - ``"stack"`` (default): postfix stack-machine evaluator backed by
@@ -867,17 +873,26 @@ def compile_expr(
 
     Returns:
         A callable ``f(X, C)`` where ``X`` has shape ``(n_samples, n_features)`` and ``C`` holds at
-        least one value per free parameter, in the order of
+        least one value per parameter, in the order of
         [parameter_labels][SRToolkit.utils.expression_tree.parameter_labels] (every occurrence of a
         labelled constant reads the same entry). Pass ``None`` or an empty array for a
         constant-free expression; too few values raise ``ValueError`` when ``f`` is called.
         ``f`` returns an array of shape ``(n_samples,)``.
 
     Raises:
+        TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+        ExpressionParseError: If ``expr`` is not a well-formed expression.
         ValueError: If ``backend`` is not one of the supported values.
+
+    Examples:
+        >>> f = compile_expr(["X_0", "+", "1"])
+        >>> f(np.array([[1.0], [2.0], [3.0]]), None)
+        array([2., 3., 4.])
+        >>> f = compile_expr(["X_0", "+", "1"], backend="codegen")
+        >>> f(np.array([[1], [2], [3]]), np.array([]))
+        array([2, 3, 4])
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
+    expr, symbol_library = _tree_and_library(expr, symbol_library)
     if backend == "stack":
         _warn_if_no_cython()
         return _expr_to_cython_callable(expr, symbol_library)
@@ -890,26 +905,19 @@ def compile_expr(
 
 
 def compile_expr_rmse(
-    expr: list[str] | Node,
+    expr: list[str] | Expression | Node,
     symbol_library: SymbolLibrary | None = None,
     backend: str = "stack",
     X: np.ndarray | None = None,
 ) -> Callable[[np.ndarray, np.ndarray | None, np.ndarray], float]:
     """Compile an expression into an RMSE callable ``f(X, C, y) → float``.
 
-    Examples:
-        >>> f = compile_expr_rmse(["X_0", "+", "1"])
-        >>> f(np.array([[1.0], [2.0], [3.0]]), np.array([]), np.array([2.0, 3.0, 4.0]))
-        0.0
-        >>> f = compile_expr_rmse(["X_0", "+", "1"], backend="codegen")
-        >>> print(float(f(np.array([[1], [2], [3]]), np.array([]), np.array([2, 3, 4]))))
-        0.0
+    As [compile_expr][SRToolkit.utils.expression_compiler.compile_expr], an ``Expression`` is
+    parsed once and its specs are not used.
 
     Args:
-        expr: Expression as a token list in infix notation or a
-            [Node][SRToolkit.utils.expression_tree.Node] tree.
-        symbol_library: Symbol library used to look up token types.
-            Defaults to [SymbolLibrary.default_symbols][SRToolkit.utils.symbol_library.SymbolLibrary.default_symbols].
+        expr: The expression, as in [compile_expr][SRToolkit.utils.expression_compiler.compile_expr].
+        symbol_library: As in [compile_expr][SRToolkit.utils.expression_compiler.compile_expr].
         backend: Evaluation backend. One of:
 
             - ``"stack"`` (default): postfix stack-machine evaluator backed by
@@ -932,10 +940,19 @@ def compile_expr_rmse(
         [compile_expr][SRToolkit.utils.expression_compiler.compile_expr].
 
     Raises:
+        TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+        ExpressionParseError: If ``expr`` is not a well-formed expression.
         ValueError: If ``backend`` is not one of the supported values.
+
+    Examples:
+        >>> f = compile_expr_rmse(["X_0", "+", "1"])
+        >>> f(np.array([[1.0], [2.0], [3.0]]), np.array([]), np.array([2.0, 3.0, 4.0]))
+        0.0
+        >>> f = compile_expr_rmse(["X_0", "+", "1"], backend="codegen")
+        >>> print(float(f(np.array([[1], [2], [3]]), np.array([]), np.array([2, 3, 4]))))
+        0.0
     """
-    if symbol_library is None:
-        symbol_library = SymbolLibrary.get_or_default()
+    expr, symbol_library = _tree_and_library(expr, symbol_library)
     if backend == "stack":
         _warn_if_no_cython()
         return _expr_to_cython_error_callable(expr, symbol_library, X)

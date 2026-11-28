@@ -8,8 +8,8 @@ parameters of an expression (its free constants, in the order of
 
 **Specs.** Each parameter is fitted under a spec (see
 [free_constants][SRToolkit.utils.free_constants]). Specs given for an expression's labelled
-constants are completed by
-[resolve_constants][SRToolkit.utils.free_constants.resolve_constants]; every other parameter uses
+constants, carried by an [Expression][SRToolkit.utils.expression.Expression], are completed by
+[Expression.resolve][SRToolkit.utils.expression.Expression.resolve]; every other parameter uses
 the default spec ``default_constant`` (a complete template), by default
 [uniform_default((-5, 5))][SRToolkit.utils.free_constants.uniform_default]. A fixed parameter
 keeps its ``value`` and is not fitted; the returned vector holds it in place.
@@ -25,9 +25,9 @@ A start outside the spec's bounds is clipped to the nearest bound. Each paramete
 its bounds; an infinite end leaves that side unbounded.
 
 **Seeding.** With ``"random"`` initialization, each fit's starting point is drawn from a
-generator seeded with a hash of ``seed``, the expression's tokens (a tree is seeded as its
-``to_list`` tokens, a token list as given) and the specs passed for it (in any order; the order
-does not affect the seed). An expression's fit therefore depends only on ``seed``, its tokens, its
+generator seeded with a hash of ``seed``, the expression's tokens (a token list as given, an
+``Expression`` by its ``tokens``, a tree by its ``to_list`` tokens) and its specs (in any order; the order does not affect
+the seed). An expression's fit therefore depends only on ``seed``, its tokens, its
 specs, ``default_constant``, ``X``, ``y`` and the ``estimation`` and ``minimize`` settings, not on
 earlier fits, and is the same in every process, on every platform and Python version. With
 ``seed=None`` every fit draws a fresh random starting point.
@@ -41,8 +41,9 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
+from SRToolkit.utils.expression import Expression, _to_expression
 from SRToolkit.utils.expression_compiler import compile_expr_rmse
-from SRToolkit.utils.expression_tree import Node, _as_tokens
+from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.free_constants import Constant, _spec_key, resolve_constants, uniform_default
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.symbol_library import SymbolLibrary
@@ -118,9 +119,7 @@ class ParameterEstimator:
         self.settings = settings
         self.default_constant = default_constant
 
-    def estimate_parameters(
-        self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None
-    ) -> tuple[float, np.ndarray]:
+    def estimate_parameters(self, expr: list[str] | Expression | Node) -> tuple[float, np.ndarray]:
         """Fit free constants in *expr* by minimizing RMSE against the target values.
 
         Expressions without free parameters (no constants, or only fixed ones) are evaluated directly,
@@ -129,11 +128,10 @@ class ParameterEstimator:
         required constraints.
 
         Args:
-            expr: Expression as a token list in infix notation or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree.
-            free_constants: Specs for labelled constants of ``expr`` (see
-                [Constant][SRToolkit.utils.free_constants.Constant]); parameters without one use
-                ``default_constant``. In any order; ``None`` or empty: all use it.
+            expr: The expression, as an infix token list (no specs), an
+                [Expression][SRToolkit.utils.expression.Expression], whose specs of labelled
+                constants are used, or a [Node][SRToolkit.utils.expression_tree.Node] tree.
+                Parameters without a spec use ``default_constant``.
 
         Returns:
             A 2-tuple ``(rmse, parameters)``: the lowest finite RMSE evaluated and the parameters
@@ -143,9 +141,10 @@ class ParameterEstimator:
             entries of ``parameters`` are the optimizer's final point.
 
         Raises:
-            ValueError: If a spec in ``free_constants`` has no label, two specs share a label, a
-                label is not a labelled constant of ``expr``, or a spec that is not fixed has a
-                ``value`` outside the bounds it takes from ``default_constant``.
+            TypeError: If ``expr`` is neither a token list, an ``Expression`` nor a ``Node``.
+            ExpressionParseError: If ``expr`` is not a well-formed expression.
+            ValueError: If a spec of ``expr`` that is not fixed has a ``value`` outside the bounds
+                it takes from ``default_constant``.
             NotImplementedError: If ``initialization="mean"`` and a free parameter without a
                 ``value`` has a prior that does not implement
                 [ppf][SRToolkit.dataset.sampling.Sampler.ppf].
@@ -160,17 +159,18 @@ class ParameterEstimator:
             >>> print(1.99 < constants[0] < 2.01)
             True
             >>> from SRToolkit.dataset import UniformSampling
-            >>> from SRToolkit.utils.free_constants import Constant
+            >>> from SRToolkit.utils import Constant, Expression
             >>> spec = Constant(label="C_0", prior=UniformSampling(0, 10), bounds=(0, float("inf")))
-            >>> rmse, constants = pe.estimate_parameters(["C_0", "*", "X_1", "-", "X_0"], [spec])
+            >>> expr = Expression(["C_0", "*", "X_1", "-", "X_0"], free_constants=[spec])
+            >>> rmse, constants = pe.estimate_parameters(expr)
             >>> print(rmse < 1e-6, 1.99 < constants[0] < 2.01)
             True True
         """
-        rmse, parameters, _ = self.estimate_parameters_with_info(expr, free_constants)
+        rmse, parameters, _ = self.estimate_parameters_with_info(expr)
         return rmse, parameters
 
     def estimate_parameters_with_info(
-        self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None
+        self, expr: list[str] | Expression | Node
     ) -> tuple[float, np.ndarray, dict[str, Any]]:
         """Fit free constants in *expr* and report how the optimizer ended.
 
@@ -178,9 +178,7 @@ class ParameterEstimator:
         and also reports how the optimizer ended.
 
         Args:
-            expr: Expression as a token list in infix notation or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree.
-            free_constants: Specs for labelled constants of ``expr``, as in ``estimate_parameters``.
+            expr: The expression, as in ``estimate_parameters``.
 
         Returns:
             A 3-tuple ``(rmse, parameters, info)``. ``rmse`` and ``parameters`` are as in
@@ -210,9 +208,9 @@ class ParameterEstimator:
             >>> info["converged"], info["evaluations"] >= info["iterations"]
             (True, True)
         """
-        # Infix tokens: the specs are resolved against them, and they seed the random starting point.
-        tokens = _as_tokens(expr, self.symbol_library)
-        specs = resolve_constants(tokens, free_constants, self.default_constant, self.symbol_library)
+        # The tokens and specs also seed the random starting point.
+        expr = _to_expression(expr, self.symbol_library)
+        specs = expr.resolve(self.default_constant)
 
         executable_error_fn = compile_expr_rmse(
             expr,
@@ -227,7 +225,7 @@ class ParameterEstimator:
         if not free:
             return executable_error_fn(self.X, parameters, self.y), parameters, {}
         return self._optimize_parameters(
-            executable_error_fn, specs, free, parameters, tokens, _spec_key(free_constants)
+            executable_error_fn, specs, free, parameters, list(expr.tokens), _spec_key(expr.free_constants)
         )
 
     def _optimize_parameters(

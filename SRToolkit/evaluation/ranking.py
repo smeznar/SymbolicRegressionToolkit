@@ -23,6 +23,7 @@ import numpy as np
 
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.utils.expression import Expression, _to_expression
 from SRToolkit.utils.expression_compiler import compile_expr
 from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.free_constants import Constant, _ground_truth_parameters
@@ -133,23 +134,25 @@ class RankingFunction(ABC):
         """
 
     @abstractmethod
-    def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
+    def score(self, expr: Expression) -> RankingResult:
         """Score a single expression. Lower is better.
 
+        The evaluator calls it with the stored form, after checking that it parses and running the
+        pre-checks of its required constraints. It may raise; the evaluator then records the
+        status ``"error"`` with the error ``+inf``.
+
         Args:
-            expr: Expression as a token list (infix) or a
-                [Node][SRToolkit.utils.expression_tree.Node] tree.
-            free_constants: Specs for labelled constants of ``expr`` (see
-                [Constant][SRToolkit.utils.free_constants.Constant]). The evaluator passes a
-                non-empty tuple sorted by label, checked against ``expr`` beforehand, or ``None``.
-                Parameters without a spec, and a spec's unset ``prior`` or ``bounds``, use the
-                background knowledge's ``default_constant``.
+            expr: The [Expression][SRToolkit.utils.expression.Expression], in the background
+                knowledge's symbol library. Read its ``tokens``, its ``tree`` (shared with the
+                constraints, so do not change it) and its ``free_constants``: the specs of its
+                labelled constants, sorted by label and already checked against
+                ``default_constant``. Parameters without a spec, and a spec's unset ``prior`` or
+                ``bounds``, use the background knowledge's ``default_constant`` (see
+                [Expression.resolve][SRToolkit.utils.expression.Expression.resolve]).
 
         Returns:
             A [RankingResult][SRToolkit.evaluation.ranking.RankingResult] whose ``score`` drives
-            ordering. The evaluator has already parsed ``expr`` and run the pre-checks of its
-            required constraints. May raise; the evaluator then records the status ``"error"``
-            with the error ``+inf``.
+            ordering.
         """
 
     def default_success_threshold(self) -> float | None:
@@ -273,9 +276,9 @@ class RMSERanking(RankingFunction):
             X, y, symbol_library, seed, settings, background_knowledge.default_constant
         )
 
-    def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
+    def score(self, expr: Expression) -> RankingResult:
         """Return the RMSE of the best fit of ``expr`` under its specs, with the fitted parameters."""
-        error, parameters, info = self.parameter_estimator.estimate_parameters_with_info(expr, free_constants)
+        error, parameters, info = self.parameter_estimator.estimate_parameters_with_info(expr)
         return RankingResult(score=error, parameters=parameters, extra=info)
 
     def default_success_threshold(self) -> float | None:
@@ -463,17 +466,18 @@ class BEDRanking(RankingFunction):
         rng = np.random.default_rng(self.seed)
         return rng.choice(n_rows, size=self.num_points_sampled, replace=False)
 
-    def score(self, expr: list[str] | Node, free_constants: Sequence[Constant] | None = None) -> RankingResult:
+    def score(self, expr: Expression) -> RankingResult:
         """Return the BED of ``expr``, its constants sampled under its specs, to the target behavior."""
+        expr = _to_expression(expr, self.symbol_library)  # also a token list, as RMSERanking takes
         error = bed(
-            expr,
+            expr.tree,
             self.gt_behavior,
             self.bed_X,
             num_consts_sampled=self.num_consts_sampled,
             symbol_library=self.symbol_library,
             seed=self.seed,
             backend=self.backend,
-            free_constants1=free_constants,
+            free_constants1=expr.free_constants or None,
             default_constant=self.default_constant,
         )
         return RankingResult(score=error)

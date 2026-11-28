@@ -8,6 +8,7 @@ import pytest
 
 from SRToolkit.dataset.sampling import LogUniformSampling, Sampler, UniformSampling
 from SRToolkit.evaluation.parameter_estimator import ParameterEstimator
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_tree import Node, tokens_to_tree
 from SRToolkit.utils.free_constants import Constant, uniform_default
 from SRToolkit.utils.settings import Settings
@@ -337,12 +338,12 @@ class TestOptimizeParameters:
             "import numpy as np\n"
             "from SRToolkit.dataset.sampling import LogUniformSampling\n"
             "from SRToolkit.evaluation.parameter_estimator import ParameterEstimator\n"
-            "from SRToolkit.utils.free_constants import Constant\n"
+            "from SRToolkit.utils import Constant, Expression\n"
             "X = np.array([[1.0, 2.0], [3.0, 4.0]])\n"
             "from SRToolkit.utils.settings import Settings\n"
             "pe = ParameterEstimator(X, X[:, 0], seed=1, settings=Settings(minimize={'max_iter': 1}))\n"
             "spec = Constant(label='C_0', prior=LogUniformSampling(0.1, 10.0))\n"
-            "print(repr(pe.estimate_parameters(['C_0', '*', 'X_0', '+', 'C'], [spec])[1].tolist()))\n"
+            "print(repr(pe.estimate_parameters(Expression(['C_0', '*', 'X_0', '+', 'C'], free_constants=[spec]))[1].tolist()))\n"
         )
         outputs = [
             subprocess.run(
@@ -393,7 +394,9 @@ class TestFreeConstantSpecs:
         # Residual C_1 = 0.5 at every sample, so RMSE = 0.5.
         pe = ParameterEstimator(_X, _y_linear, seed=0, settings=Settings(evaluator={"backend": backend}))
         specs = [Constant(label="C_0", value=2.0, fixed=True), Constant(label="C_1", value=0.5, fixed=True)]
-        rmse, params, info = pe.estimate_parameters_with_info(["C_0", "*", "X_0", "+", "C_1"], specs)
+        rmse, params, info = pe.estimate_parameters_with_info(
+            Expression(["C_0", "*", "X_0", "+", "C_1"], free_constants=specs)
+        )
         assert rmse == pytest.approx(0.5)
         np.testing.assert_array_equal(params, [2.0, 0.5])
         assert info == {}
@@ -403,7 +406,7 @@ class TestFreeConstantSpecs:
         # Parameters [C, C_0]; C_0 = 50 lies outside the default bounds (-5, 5) and is used as is.
         pe = ParameterEstimator(_X, 50.0 * _X[:, 0] + 3.0, seed=0)
         rmse, params = pe.estimate_parameters(
-            ["C", "+", "C_0", "*", "X_0"], [Constant(label="C_0", value=50.0, fixed=True)]
+            Expression(["C", "+", "C_0", "*", "X_0"], free_constants=[Constant(label="C_0", value=50.0, fixed=True)])
         )
         assert rmse < 1e-6
         assert params[1] == 50.0
@@ -412,7 +415,9 @@ class TestFreeConstantSpecs:
     @pytest.mark.parametrize("initialization", ["random", "mean"])
     def test_value_is_first_start(self, fit_starts, initialization):
         pe = ParameterEstimator(_X, _y_linear, seed=0, settings=Settings(estimation={"initialization": initialization}))
-        pe.estimate_parameters(["C_0", "*", "X_0", "+", "C_1"], [Constant(label="C_0", value=1.5)])
+        pe.estimate_parameters(
+            Expression(["C_0", "*", "X_0", "+", "C_1"], free_constants=[Constant(label="C_0", value=1.5)])
+        )
         assert fit_starts[0][0] == 1.5
 
     @pytest.mark.parametrize(
@@ -423,14 +428,20 @@ class TestFreeConstantSpecs:
     def test_bounds_limit_the_fit(self, bounds, coefficient, expected):
         # RMSE of C*X_0 against k*X_0 decreases towards C = k, so a bound below k is the optimum.
         pe = ParameterEstimator(_X, coefficient * _X[:, 0], seed=0)
-        _, params = pe.estimate_parameters(["C_0", "*", "X_0"], [Constant(label="C_0", bounds=bounds)])
+        _, params = pe.estimate_parameters(
+            Expression(["C_0", "*", "X_0"], free_constants=[Constant(label="C_0", bounds=bounds)])
+        )
         assert bounds[0] <= params[0] <= bounds[1]
         np.testing.assert_allclose(params, [expected], atol=1e-3)
 
     @pytest.mark.parametrize("seed", [0, None], ids=["seed", "no-seed"])
     def test_random_start_outside_bounds_is_clipped(self, fit_starts, seed):
         pe = ParameterEstimator(_X, _y_linear, seed=seed, settings=Settings(minimize={"max_iter": 0}))
-        pe.estimate_parameters(_SIX_LABELS, _six_specs(prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0)))
+        pe.estimate_parameters(
+            Expression(
+                _SIX_LABELS, free_constants=_six_specs(prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0))
+            )
+        )
         assert np.all((fit_starts[0] >= 10.0) & (fit_starts[0] <= 11.0))
         # 6 draws from U(-100, 100): most fall outside [10, 11] and land on a bound.
         assert np.any(np.isin(fit_starts[0], [10.0, 11.0]))
@@ -441,7 +452,10 @@ class TestFreeConstantSpecs:
             _X, _y_linear, settings=Settings(estimation={"initialization": "mean"}, minimize={"max_iter": 0})
         )
         pe.estimate_parameters(
-            ["C_0", "*", "X_0"], [Constant(label="C_0", prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0))]
+            Expression(
+                ["C_0", "*", "X_0"],
+                free_constants=[Constant(label="C_0", prior=UniformSampling(-100.0, 100.0), bounds=(10.0, 11.0))],
+            )
         )
         np.testing.assert_array_equal(fit_starts[0], [10.0])
 
@@ -452,7 +466,7 @@ class TestFreeConstantSpecs:
         for seed in range(20):
             ParameterEstimator(
                 _X, _y_linear, seed=seed, settings=Settings(minimize={"max_iter": 0})
-            ).estimate_parameters(_SIX_LABELS, specs)
+            ).estimate_parameters(Expression(_SIX_LABELS, free_constants=specs))
         starts = np.concatenate(fit_starts)
         assert starts.size == 120
         assert 0.3 < np.mean(starts < 1.0) < 0.7
@@ -462,13 +476,17 @@ class TestFreeConstantSpecs:
         pe = ParameterEstimator(
             _X, _y_linear, settings=Settings(estimation={"initialization": "mean"}, minimize={"max_iter": 0})
         )
-        pe.estimate_parameters(["C_0", "*", "X_0"], [Constant(label="C_0", prior=LogUniformSampling(0.1, 10.0))])
+        pe.estimate_parameters(
+            Expression(["C_0", "*", "X_0"], free_constants=[Constant(label="C_0", prior=LogUniformSampling(0.1, 10.0))])
+        )
         np.testing.assert_allclose(fit_starts[0], [1.0], rtol=1e-12)
 
     def test_prior_without_ppf_raises_under_mean(self):
         pe = ParameterEstimator(_X, _y_linear, settings=Settings(estimation={"initialization": "mean"}))
         with pytest.raises(NotImplementedError):
-            pe.estimate_parameters(["C_0", "*", "X_0"], [Constant(label="C_0", prior=_FixedDraw())])
+            pe.estimate_parameters(
+                Expression(["C_0", "*", "X_0"], free_constants=[Constant(label="C_0", prior=_FixedDraw())])
+            )
 
     @pytest.mark.parametrize(
         "initialization, spec",
@@ -487,7 +505,7 @@ class TestFreeConstantSpecs:
             seed=0,
             settings=Settings(estimation={"initialization": initialization}, minimize={"max_iter": 0}),
         )
-        rmse, params = pe.estimate_parameters(["C_0", "*", "X_0"], [spec])
+        rmse, params = pe.estimate_parameters(Expression(["C_0", "*", "X_0"], free_constants=[spec]))
         np.testing.assert_array_equal(params, [0.7])
         assert rmse == pytest.approx(0.0, abs=1e-12)
 
@@ -495,9 +513,9 @@ class TestFreeConstantSpecs:
         expr = ["C_0", "*", "X_0", "+", "C_1", "+", "C_2"]
         a = Constant(label="C_1", bounds=(0.0, 1.0))
         b = Constant(label="C_2", prior=_NoPpfUniform())  # drawn directly, must use the seeded generator
-        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, [a, b])
-        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, [a, b])
-        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, [b, a])
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(Expression(expr, free_constants=[a, b]))
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(Expression(expr, free_constants=[a, b]))
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(Expression(expr, free_constants=[b, a]))
         np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
         np.testing.assert_array_equal(fit_starts[0], fit_starts[2])
 
@@ -513,14 +531,16 @@ class TestFreeConstantSpecs:
     def test_seed_depends_on_specs(self, fit_starts, other):
         # C_0 has no spec in any run, so only the seed can change its drawn start.
         expr = ["C_0", "*", "X_0", "+", "C_1"]
-        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, [Constant(label="C_1", value=1.0)])
-        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, other)
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(
+            Expression(expr, free_constants=[Constant(label="C_1", value=1.0)])
+        )
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(Expression(expr, free_constants=other))
         assert fit_starts[0][0] != fit_starts[1][0]
 
     def test_empty_specs_same_seed_as_none(self, fit_starts):
         expr = ["C_0", "*", "X_0", "+", "C_1"]
-        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, [])
-        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(expr, None)
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(Expression(expr, free_constants=[]))
+        ParameterEstimator(_X, _y_linear, seed=1).estimate_parameters(Expression(expr, free_constants=None))
         np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
@@ -534,7 +554,9 @@ class TestFreeConstantSpecs:
             settings=Settings(estimation={"initialization": "mean"}),
         )
         expr = ["sqrt", "(", "C_1", "-", "X_0", ")", "*", "C_0"]
-        rmse, params = pe.estimate_parameters(expr, [Constant(label="C_0", value=3.0, fixed=True)])
+        rmse, params = pe.estimate_parameters(
+            Expression(expr, free_constants=[Constant(label="C_0", value=3.0, fixed=True)])
+        )
         assert not np.isfinite(rmse)
         assert params.size == 2
         assert params[1] == 3.0
@@ -546,7 +568,7 @@ class TestFreeConstantSpecs:
         sl.add_symbol("C_1", "lit", 5, "2.0")
         pe = ParameterEstimator(_X, 2.0 * _X[:, 0] + 3.0, symbol_library=sl)
         rmse, params = pe.estimate_parameters(
-            ["C_1", "*", "X_0", "+", "C_0"], [Constant(label="C_0", value=3.0, fixed=True)]
+            Expression(["C_1", "*", "X_0", "+", "C_0"], free_constants=[Constant(label="C_0", value=3.0, fixed=True)])
         )
         assert rmse == pytest.approx(0.0, abs=1e-12)
         np.testing.assert_array_equal(params, [3.0])
@@ -554,4 +576,4 @@ class TestFreeConstantSpecs:
     def test_spec_for_unknown_label_raises(self):
         pe = ParameterEstimator(_X, _y_linear)
         with pytest.raises(ValueError, match="C_9"):
-            pe.estimate_parameters(["C_0", "*", "X_0"], [Constant(label="C_9", value=1.0)])
+            pe.estimate_parameters(Expression(["C_0", "*", "X_0"], free_constants=[Constant(label="C_9", value=1.0)]))

@@ -330,3 +330,11 @@ def _as_expression(expr: Any, symbol_library: SymbolLibrary | None = None, name:
         raise TypeError(f"{name} must be a list of token strings or an Expression, got {type(expr).__name__}.")
     _check_tokens(expr, name)
     return Expression(expr, symbol_library)
+
+
+def _to_expression(expr: Any, symbol_library: SymbolLibrary | None = None, name: str = "expr") -> Expression:
+    # Temporary until Node inputs are dropped: _as_expression that also accepts a Node, wrapped
+    # with Expression.from_tree.
+    if isinstance(expr, Node):
+        return Expression.from_tree(expr, symbol_library)
+    return _as_expression(expr, symbol_library, name)

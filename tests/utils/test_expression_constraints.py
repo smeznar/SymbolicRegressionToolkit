@@ -16,6 +16,7 @@ from strategies import infix_expressions
 
 from SRToolkit.dataset.background_knowledge import BackgroundKnowledge, VariableInfo
 from SRToolkit.utils import units as u
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import (
     ConsistentUnits,
     ExpressionConstraint,
@@ -329,10 +330,37 @@ class TestSharedContracts:
             "ConsistentUnits",
         ],
     )
-    def test_tree_and_token_list_give_same_result(self, make, tokens):
+    def test_input_forms_give_same_result(self, make, tokens):
         library = lib(2)
         constraint = set_up(make(), library)
-        assert constraint.pre_check(tokens) == constraint.pre_check(tokens_to_tree(tokens, library))
+        expected = constraint.pre_check(tokens)
+        assert constraint.pre_check(tokens_to_tree(tokens, library)) == expected
+        assert constraint.pre_check(Expression(tokens, library)) == expected
+
+    # Reason: clause (pre_check reads a token list in the library given to setup, not the active or
+    # default one): K is the constant symbol and y a variable only in the constraint's library.
+    @pytest.mark.parametrize(
+        "make, library, tokens, expected",
+        [
+            (lambda: MaxTreeDepth(1), lib_with_renamed_const, ["K", "+", "X_0"], fail("depth 2, limit 1", 1.0)),
+            (
+                lambda: NoNesting("sin"),
+                lib_with_renamed_const,
+                ["sin", "(", "sin", "(", "K", ")", ")"],
+                fail("'sin' nested inside 'sin'", 1.0),
+            ),
+            (
+                lambda: MaxSymbolCount("K", 1),
+                lib_with_renamed_const,
+                ["K", "+", "K"],
+                fail("'K' occurs 2 times, limit 1", 1.0),
+            ),
+            (lambda: RequiredVariables(["y"]), lib_vars_y_then_x, ["y"], PASS),
+        ],
+        ids=["MaxTreeDepth", "NoNesting", "MaxSymbolCount", "RequiredVariables"],
+    )
+    def test_token_list_read_in_constraint_library(self, make, library, tokens, expected):
+        assert set_up(make(), library()).pre_check(tokens) == expected
 
     @settings(max_examples=60)
     @given(tokens=infix_expressions())

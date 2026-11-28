@@ -14,6 +14,7 @@ from SRToolkit.evaluation.ranking import (
     build_ranking,
 )
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.free_constants import Constant
 from SRToolkit.utils.measures import create_behavior_matrix
 from SRToolkit.utils.settings import Settings, SettingsSection
@@ -99,7 +100,7 @@ class _CustomKwargRanking(RankingFunction):
     def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.my_param = settings.get(_CustomSection).my_param
 
-    def score(self, expr, free_constants=None):
+    def score(self, expr):
         return RankingResult(score=float(self.my_param))
 
 
@@ -120,7 +121,7 @@ class TestRMSERankingSetup:
         y = 2.0 * X[:, 0]
         expr = ["C", "*", "X_0", "+", "C"]
         lib = SymbolLibrary.default_symbols(2)
-        _setup(RMSERanking(), X, y, None, lib, seed=1).score(expr)
+        _setup(RMSERanking(), X, y, None, lib, seed=1).score(Expression(expr, lib))
         ParameterEstimator(X, y, lib, seed=1).estimate_parameters(expr)
         np.testing.assert_array_equal(fit_starts[0], fit_starts[1])
 
@@ -151,7 +152,7 @@ class TestRMSERankingSpecs:
     def test_rmse_score_fits_within_spec_bounds(self):
         X = np.array([[1.0], [2.0], [3.0]])
         ranking = _setup(RMSERanking(), X, 2 * X[:, 0], None)
-        result = ranking.score(["C_0", "*", "X_0"], [Constant("C_0", bounds=(0.0, 1.0))])
+        result = ranking.score(Expression(["C_0", "*", "X_0"], free_constants=[Constant("C_0", bounds=(0.0, 1.0))]))
         np.testing.assert_allclose(result.parameters, [1.0], atol=1e-6)
         assert result.score == pytest.approx(np.sqrt(14 / 3), rel=1e-6)
 
@@ -169,7 +170,7 @@ class TestGroundTruthConstants:
     # ground_truth_constants setting"). y = 2x, so the best fit of C*X_0 is C = 2 with RMSE 0.
     def test_rmse_setup_generates_y_with_fixed_values(self):
         ranking = _setup(RMSERanking(), _X10, None, ["C_0", "*", "X_0"], gt_specs=[_fixed(2.0)])
-        result = ranking.score(["C", "*", "X_0"])
+        result = ranking.score(Expression(["C", "*", "X_0"]))
         np.testing.assert_allclose(result.parameters, [2.0], atol=1e-6)
         assert result.score == pytest.approx(0.0, abs=1e-6)
 
@@ -200,8 +201,8 @@ class TestGroundTruthConstants:
     def test_bed_fixed_ground_truth_constant(self):
         ranking = _setup(BEDRanking(), _X10, None, _GT_C0, gt_specs=[_fixed(9.81)], settings=_ALL_POINTS)
         assert ranking.default_success_threshold() == 1e-7
-        assert ranking.score(_GT_C0, [_fixed(9.81)]).score < 1e-7
-        assert ranking.score(_GT_C0, [_fixed(0.0)]).score == pytest.approx(9.81)
+        assert ranking.score(Expression(_GT_C0, free_constants=[_fixed(9.81)])).score < 1e-7
+        assert ranking.score(Expression(_GT_C0, free_constants=[_fixed(0.0)])).score == pytest.approx(9.81)
 
     # Reason: clause (BED: the ground truth's parameters follow the priors of its specs). With
     # C_0 ~ U(100, 101) and the candidate fixed at 100.5, BED is E|U - 0.5| = 1/4 for U ~ U(0, 1); 32
@@ -209,7 +210,7 @@ class TestGroundTruthConstants:
     def test_bed_ground_truth_prior_shapes_behaviour(self):
         gt_specs = [Constant("C_0", prior=UniformSampling(100, 101))]
         ranking = _setup(BEDRanking(), _X10, None, _GT_C0, gt_specs=gt_specs, settings=_ALL_POINTS)
-        assert ranking.score(_GT_C0, [_fixed(100.5)]).score == pytest.approx(0.25, abs=0.02)
+        assert ranking.score(Expression(_GT_C0, free_constants=[_fixed(100.5)])).score == pytest.approx(0.25, abs=0.02)
 
     # Reason: clause (BED: parameters without a spec are drawn from the background knowledge's
     # default_constant, on both the ground-truth and the candidate side). The default C ~ U(100, 101)
@@ -227,7 +228,9 @@ class TestGroundTruthConstants:
     )
     def test_bed_default_constant_shapes_columns(self, default, ground_truth, gt_specs, candidate, candidate_specs):
         ranking = _setup(BEDRanking(), _X10, None, ground_truth, gt_specs=gt_specs, settings=_ALL_POINTS, **default)
-        assert ranking.score(candidate, candidate_specs).score == pytest.approx(0.25, abs=0.02)
+        assert ranking.score(Expression(candidate, free_constants=candidate_specs)).score == pytest.approx(
+            0.25, abs=0.02
+        )
 
     # Reason: clause (default threshold: the noise floor of the ground truth's unfixed parameters, drawn
     # from the default spec, times 1.1, at least 1e-7). With C ~ U(0, 1e-9) every self-BED is at most
@@ -253,6 +256,14 @@ class TestGroundTruthConstants:
         lib = SymbolLibrary.default_symbols(1)
         lib.add_symbol("C_1", "lit", 5, "50.0")
         ranking = _setup(BEDRanking(), _X10, None, ["X_0", "+", "C_1"], lib, settings=_ALL_POINTS)
+        assert ranking.score(Expression(["X_0"], lib)).score == pytest.approx(50.0, abs=1e-9)
+
+    # Reason: implied (BEDRanking.score also takes a token list, as RMSERanking does, read in the
+    # background knowledge's library): the same BED of 50 as for the Expression above.
+    def test_bed_scores_a_token_list_in_its_library(self):
+        lib = SymbolLibrary.default_symbols(1)
+        lib.add_symbol("C_1", "lit", 5, "50.0")
+        ranking = _setup(BEDRanking(), _X10, None, ["X_0", "+", "C_1"], lib, settings=_ALL_POINTS)
         assert ranking.score(["X_0"]).score == pytest.approx(50.0, abs=1e-9)
 
     # Reason: clause (setup: y is generated by evaluating ground_truth with the given symbol library). With
@@ -261,5 +272,5 @@ class TestGroundTruthConstants:
         lib = SymbolLibrary.default_symbols(1)
         lib.add_symbol("C_1", "lit", 5, "3.0")
         ranking = _setup(RMSERanking(), _X10, None, ["X_0", "+", "C_1"], lib)
-        result = ranking.score(["X_0", "+", "C"])
+        result = ranking.score(Expression(["X_0", "+", "C"], lib))
         np.testing.assert_allclose(result.parameters, [3.0], atol=1e-6)

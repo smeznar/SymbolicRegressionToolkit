@@ -269,7 +269,8 @@ def test_default_state_methods_round_trip_with_own_generator():
 
 
 class _Mixed(SteppedApproach):
-    # Proposes Candidates (one with a free-constant spec), a Node and a token list, then stops.
+    # Proposes Candidates (with a free-constant spec: one as tokens, one as a tree), a Node and a token
+    # list, then stops.
     def ask(self, sr_evaluator, state):
         if state["asks"]:
             return []
@@ -279,6 +280,7 @@ class _Mixed(SteppedApproach):
             Candidate(["C", "+", "X_0"]),
             tokens_to_tree(["X_0", "*", "X_0"], sr_evaluator.symbol_library),
             ["X_0"],
+            Candidate(tokens_to_tree(["C_0", "-", "X_0"], sr_evaluator.symbol_library), [_SPEC]),
         ]
         return self.proposed
 
@@ -292,8 +294,14 @@ def test_step_loop_takes_candidates_nodes_and_token_lists():
     [(candidates, results)] = approach.told
     assert all(c is p for c, p in zip(candidates, approach.proposed, strict=True))  # as ask returned them
     assert results == list(se.models)
-    assert [m.expr for m in results] == [["C_0", "*", "X_0"], ["C", "+", "X_0"], ["X_0", "*", "X_0"], ["X_0"]]
-    assert results[0].free_constants == (_SPEC,)
+    assert [m.expr for m in results] == [
+        ["C_0", "*", "X_0"],
+        ["C", "+", "X_0"],
+        ["X_0", "*", "X_0"],
+        ["X_0"],
+        ["C_0", "-", "X_0"],
+    ]
+    assert [m.free_constants for m in results] == [(_SPEC,), None, None, None, (_SPEC,)]
 
 
 class _SkipsAndNone(SteppedApproach):

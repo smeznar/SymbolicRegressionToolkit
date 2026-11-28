@@ -33,11 +33,16 @@ from SRToolkit.evaluation.model_store import ModelStore
 from SRToolkit.evaluation.ranking import RankingFunction, RankingResult, RMSERanking
 from SRToolkit.evaluation.results import SR_results
 from SRToolkit.evaluation.sr_evaluator import SR_evaluator
+from SRToolkit.utils import expression as expression_module
+from SRToolkit.utils import expression_tree
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import (
     ExpressionConstraint,
     MaxConstants,
     MaxTokens,
     MaxTreeDepth,
+    MaxTreeSize,
+    NoNesting,
     OutputBounds,
     RequiredVariables,
 )
@@ -745,7 +750,7 @@ class TestEvaluateExprRmse:
     ):
         se = make_se()
         with pytest.warns(UserWarning, match=warning) if warning else nullcontext():
-            returned = se.evaluate_expr(expr, specs)
+            returned = se.evaluate_expr(Expression(expr, free_constants=specs))
         assert returned == se.models[se.trace[-1]]
         assert returned.status == status
         if detail_prefix is None:
@@ -1068,7 +1073,7 @@ class _SeedRecordingRanking(RankingFunction):
     def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.seed = seed
 
-    def score(self, expr, free_constants=None):
+    def score(self, expr):
         return RankingResult(score=0.0)
 
 
@@ -1082,7 +1087,7 @@ class _SetupRecordingRanking(RankingFunction):
         self.background_knowledge = background_knowledge
         self.settings = settings
 
-    def score(self, expr, free_constants=None):
+    def score(self, expr):
         return RankingResult(score=0.0)
 
 
@@ -1104,7 +1109,7 @@ class _FixedRanking(RankingFunction):
     def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         pass
 
-    def score(self, expr, free_constants=None):
+    def score(self, expr):
         if isinstance(self.outcome, Exception):
             raise self.outcome
         return self.outcome
@@ -1257,7 +1262,7 @@ class TestEvaluationStatus:
     def test_numpy_warnings_surface_only_at_verbose_2(self, operation, verbose, warns):
         # Documented for evaluate_expr(verbose=2): "also surfaces NumPy warnings during evaluation".
         class _WarningRanking(_FixedRanking):
-            def score(self, expr, free_constants=None):
+            def score(self, expr):
                 operation()
                 return RankingResult(score=0.1)
 
@@ -1618,7 +1623,7 @@ class _CountingRanking(RankingFunction):
     def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         pass
 
-    def score(self, expr, free_constants=None):
+    def score(self, expr):
         self.calls += 1
         return RankingResult(score=0.5)
 
@@ -2009,8 +2014,8 @@ class TestCheckConstraints:
             settings=Settings(evaluator={"fold_constants": "keep"}),
         )
         expr = ["C_0", "*", "C", "*", "X_0"]
-        required, _ = se.check_constraints(expr, specs)
-        se.evaluate_expr(expr, specs)
+        required, _ = se.check_constraints(Expression(expr, free_constants=specs))
+        se.evaluate_expr(Expression(expr, free_constants=specs))
         assert ([r.constraint for r in required], se.models[0].status) == (failed, status)
 
 
@@ -2162,7 +2167,7 @@ class TestConstraintEvaluation:
         model = se.models[0]
         expected = model.expr
         assert "".join(expected) in allowed
-        assert (required.pre, advisory.pre) == ([expected], [expected])
+        assert [list(e.tokens) for e in required.pre + advisory.pre] == [expected, expected]
         assert [m.expr for m in required.post] == [expected]
         assert [m.expr for m in advisory.post] == [expected]
         np.testing.assert_array_equal(required.post[0].parameters, model.parameters)
@@ -2419,11 +2424,12 @@ class TestGetModel:
         assert se.get_metric(expr, "mse") == se.get_metric(stored_expr, "mse")
         assert se.total_evaluations == 1
 
-    # Reason: clause (stored_tokens Raises: "TypeError: If expr is neither a token list nor a Node").
-    @pytest.mark.parametrize("expr", ["X_0", ("X_0",), None, 42], ids=["str", "tuple", "None", "int"])
+    # Reason: clause (stored_tokens Raises: "TypeError: If expr is neither a token list, a Node nor an
+    # Expression").
+    @pytest.mark.parametrize("expr", ["X_0", None, 42], ids=["str", "None", "int"])
     def test_stored_tokens_rejects_non_expressions(self, expr):
         se = SR_evaluator(_X, _y, symbol_library=_LIB2())
-        with pytest.raises(TypeError, match="Node"):
+        with pytest.raises(TypeError, match="Expression"):
             se.stored_tokens(expr)
 
 
@@ -2436,6 +2442,9 @@ _E = ["C_0", "*", "X_0"]
 
 def _fix(label, value):
     return Constant(label=label, value=value, fixed=True)
+
+
+_OUT_OF_BOUNDS = Constant("C_0", value=9.0)  # outside the default bounds (-5, 5)
 
 
 def _spec_se(**kwargs):
@@ -2452,8 +2461,8 @@ class _RecordingRanking(RankingFunction):
     def setup(self, X, y, ground_truth, ground_truth_constants, background_knowledge, seed, settings):
         self.received = []
 
-    def score(self, expr, free_constants=None):
-        self.received.append(free_constants)
+    def score(self, expr):
+        self.received.append(expr.free_constants)
         return RankingResult(score=1.0)
 
 
@@ -2467,7 +2476,9 @@ class TestFreeConstants:
 
         se = SR_evaluator(_X, _y)
         with pytest.raises(TypeError):
-            se.evaluate_expr(["C_0", "*", "X_0"], [Constant(label="C_0", prior=_Unsaveable(0, 1))])
+            se.evaluate_expr(
+                Expression(["C_0", "*", "X_0"], free_constants=[Constant(label="C_0", prior=_Unsaveable(0, 1))])
+            )
         assert (se.total_evaluations, len(se.models)) == (0, 0)
 
     # Reason: clause (evaluate_expr: same tokens with different specs are a different candidate,
@@ -2476,7 +2487,7 @@ class TestFreeConstants:
         se = _spec_se()
         spec = _fix("C_0", 1.0)
         se.evaluate_expr(_E)
-        se.evaluate_expr(_E, [spec])
+        se.evaluate_expr(Expression(_E, free_constants=[spec]))
         assert len(se.models) == 2
         assert se.trace == [0, 1]
         assert se.models[0].error < 1e-6  # C_0 fitted to 2
@@ -2486,18 +2497,20 @@ class TestFreeConstants:
         assert [c.to_dict() for c in se.models[1].free_constants] == [spec.to_dict()]
         assert se.models[0].free_constants is None
         assert se.get_model(_E).to_dict() == se.models[0].to_dict()
-        assert se.get_model(_E, [_fix("C_0", 1.0)]).to_dict() == se.models[1].to_dict()
+        assert se.get_model(Expression(_E, free_constants=[_fix("C_0", 1.0)])).to_dict() == se.models[1].to_dict()
 
     # Reason: clause (get_metric uses the model of the given specs; ValueError for specs not evaluated).
     def test_get_metric_uses_the_model_of_the_given_specs(self):
         se = _spec_se()
         se.evaluate_expr(_E)
-        se.evaluate_expr(_E, [_fix("C_0", 1.0)])
-        assert se.get_metric(_E, "mae", [_fix("C_0", 1.0)]) == pytest.approx(2.0)  # mean |2x - x|
+        se.evaluate_expr(Expression(_E, free_constants=[_fix("C_0", 1.0)]))
+        assert se.get_metric(Expression(_E, free_constants=[_fix("C_0", 1.0)]), "mae") == pytest.approx(
+            2.0
+        )  # mean |2x - x|
         assert se.get_metric(_E, "mae") < 1e-6
-        assert se.get_model(_E, [_fix("C_0", 5.0)]) is None
-        with pytest.raises(ValueError, match="evaluated"):
-            se.get_metric(_E, "r2", [_fix("C_0", 5.0)])
+        assert se.get_model(Expression(_E, free_constants=[_fix("C_0", 5.0)])) is None
+        with pytest.raises(ValueError, match=r"'C_0\*X_0' has not been evaluated"):
+            se.get_metric(Expression(_E, free_constants=[_fix("C_0", 5.0)]), "r2")
 
     # Reason: clause (specs in any order, None or empty means none, stored sorted by label, matched by
     # value) + implied (the caller's list is not mutated).
@@ -2518,39 +2531,38 @@ class TestFreeConstants:
         expr = ["C_0", "*", "X_0", "+", "C_1"]
         first_specs = first()
         given_order = None if first_specs is None else [c.label for c in first_specs]
-        se.evaluate_expr(expr, first_specs)
-        se.evaluate_expr(expr, second())
+        se.evaluate_expr(Expression(expr, free_constants=first_specs))
+        se.evaluate_expr(Expression(expr, free_constants=second()))
         assert len(se.models) == 1
         assert se.trace == [0, 0]
         labels = se.models[0].free_constants
         assert (None if labels is None else tuple(c.label for c in labels)) == stored
         assert (None if first_specs is None else [c.label for c in first_specs]) == given_order
-        assert se.get_model(expr, second()).to_dict() == se.models[0].to_dict()
+        assert se.get_model(Expression(expr, free_constants=second())).to_dict() == se.models[0].to_dict()
 
-    # Reason: clause (error contract: specs that do not fit raise ValueError, also with the setting
-    # simplify_expr (checked against the input before simplifying, so no warning), and nothing
-    # is recorded or counted;
-    # check_constraints checks them the same way).
+    # Reason: clause (error contract: a spec value outside the bounds it inherits from default_constant
+    # raises ValueError, also for a malformed expression and with the setting simplify_expr (checked
+    # against the input before simplifying, so no warning), and nothing is recorded or counted;
+    # check_constraints checks it the same way). Label errors are raised when the Expression is built.
     @pytest.mark.parametrize(
-        "settings, call, match",
+        "settings, call",
         [
-            ({}, lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]), "C_9"),
-            ({}, lambda se: se.evaluate_expr(_E, [_fix("C_0", 1.0), _fix("C_0", 2.0)]), "C_0"),
-            ({}, lambda se: se.evaluate_expr(_E, [Constant(value=1.0, fixed=True)]), "label"),
+            ({}, lambda se: se.evaluate_expr(Expression(_E, free_constants=[_OUT_OF_BOUNDS]))),
+            ({}, lambda se: se.evaluate_expr(Expression(_E + ["X_0"], free_constants=[_OUT_OF_BOUNDS]))),
             (
                 {"settings": Settings(evaluator={"simplify_expr": True})},
-                lambda se: se.evaluate_expr(_E, [_fix("C_9", 1.0)]),
-                "C_9",
+                lambda se: se.evaluate_expr(Expression(_E, free_constants=[_OUT_OF_BOUNDS])),
             ),
-            ({}, lambda se: se.check_constraints(_E, [_fix("C_9", 1.0)]), "C_9"),
+            ({}, lambda se: se.check_constraints(Expression(_E, free_constants=[_OUT_OF_BOUNDS]))),
+            ({}, lambda se: se.check_constraints(Expression(_E + ["X_0"], free_constants=[_OUT_OF_BOUNDS]))),
         ],
-        ids=["unknown-label", "duplicate-label", "no-label", "simplify", "check_constraints"],
+        ids=["evaluate_expr", "malformed", "simplify", "check_constraints", "check_constraints-malformed"],
     )
-    def test_invalid_specs_raise_and_record_nothing(self, settings, call, match):
+    def test_invalid_specs_raise_and_record_nothing(self, settings, call):
         se = _spec_se(**settings)
         with warnings.catch_warnings():
             warnings.simplefilter("error")  # checked before simplifying: no "Unable to simplify" warning
-            with pytest.raises(ValueError, match=match):
+            with pytest.raises(ValueError, match="outside 'bounds'"):
                 call(se)
         assert se.models == []
         assert se.trace == []
@@ -2569,9 +2581,9 @@ class TestFreeConstants:
             success_threshold=-1,
             settings=Settings(evaluator={"simplify_expr": simplify_expr}),
         )
-        expr = ["K_0", "*", "X_0"]
-        assert se.check_constraints(expr, [_fix("K_0", 1.0)]) == ([], [])
-        model = se.evaluate_expr(expr, [_fix("K_0", 1.0)])
+        expr = Expression(["K_0", "*", "X_0"], se.symbol_library, [_fix("K_0", 1.0)])
+        assert se.check_constraints(expr) == ([], [])
+        model = se.evaluate_expr(expr)
         assert model.error == pytest.approx(math.sqrt(14 / 3))
 
     # Reason: boundary (the ValueError applies to a well-formed expr only; a malformed one is
@@ -2580,11 +2592,20 @@ class TestFreeConstants:
         se = _spec_se()
         expr = ["C_0", "*", "X_0", "X_0"]
         spec = _fix("C_0", 1.0)
-        assert se.evaluate_expr(expr, [spec]).error == math.inf
+        assert se.evaluate_expr(Expression(expr, free_constants=[spec])).error == math.inf
         assert se.models[0].status == "invalid"
         assert [c.to_dict() for c in se.models[0].free_constants] == [spec.to_dict()]
         se.evaluate_expr(expr)
         assert len(se.models) == 2
+
+    # Reason: regression (specs used to be the second argument of evaluate_expr; an old-style call
+    # was taken as verbose, scored "error" and counted before raising): verbose is keyword-only, so
+    # the call raises before anything is recorded.
+    def test_old_style_specs_argument_raises_and_records_nothing(self):
+        se = _spec_se()
+        with pytest.raises(TypeError):
+            se.evaluate_expr(_E, [_fix("C_0", 1.0)])
+        assert (se.models, se.total_evaluations) == ([], 0)
 
     # Reason: clause (the ranking's score receives the specs as free_constants: None without specs,
     # the stored tuple with them).
@@ -2592,8 +2613,8 @@ class TestFreeConstants:
         ranking = _RecordingRanking()
         se = _spec_se(ranking_function=ranking)
         se.evaluate_expr(_E)
-        se.evaluate_expr(_E, [_fix("C_0", 1.0)])
-        assert ranking.received[0] is None
+        se.evaluate_expr(Expression(_E, free_constants=[_fix("C_0", 1.0)]))
+        assert ranking.received[0] == ()
         assert [c.to_dict() for c in ranking.received[1]] == [_fix("C_0", 1.0).to_dict()]
 
     # Reason: clause (BED receives the specs; default_constant reaches EvalResult and survives
@@ -2614,7 +2635,7 @@ class TestFreeConstants:
         )
         expr = ["X_0", "+", "C_0", "+", "(", "C_1", "-", "C_1", ")"]
         spec = _fix("C_0", 3.0)
-        assert se.evaluate_expr(expr, [spec]).error == pytest.approx(3.0, abs=1e-9)
+        assert se.evaluate_expr(Expression(expr, free_constants=[spec])).error == pytest.approx(3.0, abs=1e-9)
         se.get_results().save(str(tmp_path))
         result = SR_results.load(str(tmp_path))[0]
         model = result.all_models[0]
@@ -2690,22 +2711,25 @@ class TestSimplifySettings:
     )
     def test_simplify_with_specs(self, expr, specs, expected_expr, kept):
         se = _spec_se(settings=Settings(evaluator={"simplify_expr": True}))
-        se.evaluate_expr(expr, specs)
+        se.evaluate_expr(Expression(expr, free_constants=specs))
         model = se.models[0]
         assert model.expr == expected_expr
         labels = None if model.free_constants is None else [c.label for c in model.free_constants]
         assert labels == kept
 
-    # Reason: regression (module docs: "a malformed expression is invalid (and stored with its specs)
-    # whatever they are", also with simplify_expr) + regression (it emitted "Unable to simplify" before
-    # being scored "invalid"; the status alone reports it).
+    # Reason: regression (a malformed expression is "invalid" and stored with its specs, also with
+    # simplify_expr) + regression (it emitted "Unable to simplify" before being scored "invalid"; the
+    # status alone reports it).
     def test_malformed_expression_with_specs_is_invalid_without_warning_when_simplifying(self):
         se = _spec_se(settings=Settings(evaluator={"simplify_expr": True}))
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            assert se.evaluate_expr(["C_0", "*", "X_0", "X_0"], [_fix("C_9", 1.0)]).error == math.inf
+            assert (
+                se.evaluate_expr(Expression(["C_0", "*", "X_0", "X_0"], free_constants=[_fix("C_0", 1.0)])).error
+                == math.inf
+            )
         assert se.models[0].status == "invalid"
-        assert [c.label for c in se.models[0].free_constants] == ["C_9"]
+        assert [c.label for c in se.models[0].free_constants] == ["C_0"]
 
 
 class TestStoredFormCache:
@@ -2729,7 +2753,7 @@ class TestStoredFormCache:
         expr = ["C_0", "*", "X_0"]
         with patch("SRToolkit.evaluation.sr_evaluator.simplify", wraps=simplify) as spy:
             plain = se.evaluate_expr(expr)
-            with_specs = se.evaluate_expr(expr, [_fix("C_0", 2.0)])
+            with_specs = se.evaluate_expr(Expression(expr, free_constants=[_fix("C_0", 2.0)]))
         assert spy.call_count == 2
         assert plain.free_constants is None and [c.label for c in with_specs.free_constants] == ["C_0"]
 
@@ -2764,6 +2788,113 @@ class TestStoredFormCache:
             se.stored_tokens(["X_0", "+", "1", "+", "1"])
             se.stored_tokens(["X_0", "+", "1", "+", "1"])
         assert spy.call_count == 2
+
+
+@pytest.fixture
+def parses(monkeypatch):
+    """The token lists parsed while the test runs, by any path (Expression.tree, simplify, _as_tree)."""
+    calls = []
+    real = expression_tree.tokens_to_tree
+
+    def counting(tokens, *args, **kwargs):
+        calls.append(list(tokens))
+        return real(tokens, *args, **kwargs)
+
+    monkeypatch.setattr(expression_tree, "tokens_to_tree", counting)
+    monkeypatch.setattr(expression_module, "tokens_to_tree", counting)
+    return calls
+
+
+class _ExprRecordingRanking(_FixedRanking):
+    """Scores every expression 0 and records the expressions it is given."""
+
+    def __init__(self):
+        super().__init__(RankingResult(score=0.0))
+        self.received = []
+
+    def score(self, expr):
+        self.received.append(expr)
+        return self.outcome
+
+
+def _tree_checked_se(**kwargs):
+    # Required and advisory constraints that all read the tree.
+    return _make_se(
+        symbol_library=_LIB2(),
+        required_constraints=[MaxTreeDepth(20), MaxTreeSize(40)],
+        advisory_constraints=[NoNesting(["sin"])],
+        **kwargs,
+    )
+
+
+_SIN_EXPR = ["C", "*", "sin", "(", "X_1", ")", "-", "X_0"]
+
+
+class TestParsedOnce:
+    # Reason: clause (stage-2 goal: one Expression is built at entry and shared, so a new expression is
+    # parsed once although tree constraints, the ranking and the compiler all read its tree; also
+    # with specs, which the stored form keeps as given).
+    @pytest.mark.parametrize("specs", [None, [Constant("C_0", bounds=(0.0, 3.0))]], ids=["no-specs", "specs"])
+    def test_new_expression_parses_once(self, parses, specs):
+        se = _tree_checked_se()
+        tokens = ["C_0", "*", "sin", "(", "X_1", ")", "-", "X_0"]
+        assert se.evaluate_expr(Expression(tokens, se.symbol_library, specs)).status == "ok"
+        assert parses == [tokens]
+
+    # Reason: clause (check_constraints runs the pre-checks on the stored form, shared like in
+    # evaluate_expr: the input is parsed once).
+    def test_check_constraints_parses_once(self, parses):
+        se = _tree_checked_se()
+        assert se.check_constraints(_SIN_EXPR) == ([], [])
+        assert parses == [_SIN_EXPR]
+
+    # Reason: clause (with simplify_expr the input is parsed by simplify and the stored form once more).
+    def test_simplified_expression_parses_twice(self, parses):
+        se = _tree_checked_se(settings=Settings(evaluator={"simplify_expr": True}))
+        model = se.evaluate_expr(["C", "+", "X_0", "*", "X_1", "/", "X_0"])
+        assert model.status == "ok"
+        assert len(parses) == 2
+        assert parses[1] == model.expr
+
+    # Reason: clause (Stored form: a repeat is found in the store without parsing, also through the
+    # simplify_expr memory of stored forms).
+    @pytest.mark.parametrize("simplify_expr", [False, True], ids=["plain", "simplify"])
+    def test_repeat_does_not_parse(self, parses, simplify_expr):
+        se = _tree_checked_se(settings=Settings(evaluator={"simplify_expr": simplify_expr}))
+        se.evaluate_expr(_SIN_EXPR)
+        parses.clear()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # a successful simplification leaves nothing to warn about
+            se.evaluate_expr(_SIN_EXPR)
+        assert (parses, se.total_evaluations, len(se.models)) == ([], 2, 1)
+
+    # Reason: clause (ExpressionConstraint.pre_check and RankingFunction.score: the evaluator passes one
+    # shared Expression, the stored form).
+    def test_checks_and_ranking_share_one_expression(self):
+        required, advisory, ranking = _Spy(), _Spy(), _ExprRecordingRanking()
+        se = _make_se(
+            symbol_library=_LIB2(),
+            required_constraints=[required],
+            advisory_constraints=[advisory],
+            ranking_function=ranking,
+        )
+        se.evaluate_expr(_SIN_EXPR)
+        [expr] = ranking.received
+        assert isinstance(expr, Expression)
+        assert required.pre[0] is expr and advisory.pre[0] is expr
+        assert list(expr.tokens) == se.models[0].expr
+
+    # Reason: implied (an Expression built with another library object is rebuilt in the evaluator's
+    # library, as a token list would be). C_1 is the named constant 50 in the evaluator's library, so
+    # X_0 + C_1 fits y = x + 50 exactly with no parameters; read in the default library C_1 would be a
+    # free constant bounded to (-5, 5).
+    def test_expression_in_other_library_uses_evaluators(self):
+        lib = SymbolLibrary.default_symbols(1)
+        lib.add_symbol("C_1", "lit", 5, "50.0")
+        se = SR_evaluator(_X3, _X3[:, 0] + 50.0, symbol_library=lib, seed=0, success_threshold=-1)
+        model = se.evaluate_expr(Expression(["X_0", "+", "C_1"], SymbolLibrary.default_symbols(1)))
+        assert model.error < 1e-9
+        assert model.parameters.size == 0
 
 
 class TestFoldConstants:
@@ -2806,7 +2937,7 @@ class TestFoldConstants:
     def test_bad_specs_raise_before_folding(self):
         se = _make_se(settings=Settings(evaluator={"fold_constants": "default"}))
         with pytest.raises(ValueError):
-            se.evaluate_expr(["C_1", "*", "C", "*", "X_0"], [Constant("C_1", value=10.0)])
+            se.evaluate_expr(Expression(["C_1", "*", "C", "*", "X_0"], free_constants=[Constant("C_1", value=10.0)]))
         assert len(se.models) == 0
 
     # Reason: boundary (a malformed expression is "invalid" also with folding, stored as given).
@@ -2824,9 +2955,10 @@ class TestFoldConstants:
             with pytest.raises(Exception, match="X_7"):
                 se.evaluate_expr(tree)
 
-    # Reason: clause (stored_tokens: "The specs are not checked: specs that do not fit expr match no
-    # model"; it records nothing and emits no warnings) + regression (with fold_constants such a lookup
-    # raised). Which tokens stored_tokens returns then is unspecified.
+    # Reason: clause (stored_tokens: "The specs' values are not checked against default_constant:
+    # specs that do not fit match no model"; it records nothing and emits no warnings) + regression
+    # (with fold_constants such a lookup raised). C_0 = 9 lies outside the default bounds (-5, 5).
+    # Which tokens stored_tokens returns then is unspecified.
     @pytest.mark.parametrize(
         "settings",
         [
@@ -2838,11 +2970,11 @@ class TestFoldConstants:
     )
     def test_lookup_with_unfit_specs_misses(self, settings):
         se = _spec_se(**settings)
-        specs = [Constant("C_9", value=1.0)]
+        expr = Expression(["C_0", "*", "X_0"], free_constants=[Constant("C_0", value=9.0)])
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            se.stored_tokens(["C", "*", "X_0"], specs)
-            assert se.get_model(["C", "*", "X_0"], specs) is None
+            se.stored_tokens(expr)
+            assert se.get_model(expr) is None
         assert (len(se.models), se.total_evaluations) == (0, 0)
 
     # Reason: clause (stored_tokens: "A failed simplification is not warned about"; get_model
@@ -2877,7 +3009,7 @@ class TestFoldConstants:
     )
     def test_specs_of_folded_labels_are_dropped(self, mode, expr, kept):
         se = _spec_se(settings=Settings(evaluator={"fold_constants": mode}))
-        se.evaluate_expr(["C_0", "*", "C", "*", "X_0"], [Constant("C_0", bounds=(0.0, 3.0))])
+        se.evaluate_expr(Expression(["C_0", "*", "C", "*", "X_0"], free_constants=[Constant("C_0", bounds=(0.0, 3.0))]))
         model = se.models[0]
         lib = se.symbol_library
         assert tokens_to_tree(model.expr, lib).to_list(lib) == tokens_to_tree(expr, lib).to_list(lib)
@@ -2988,11 +3120,11 @@ class TestCanonicalisation:
         se = _canon_se(settings=Settings(evaluator={"canonicalise_constants": True}))
         expr = ["C_4", "*", "X_0", "+", "C_4"]
         spec = _fix("C_4", 1.0)
-        se.evaluate_expr(expr, [spec])
+        se.evaluate_expr(Expression(expr, free_constants=[spec]))
         assert se.models[0].expr == expr
-        assert se.stored_tokens(expr, [spec]) == expr
-        assert se.get_model(expr, [spec]).to_dict() == se.models[0].to_dict()
-        assert se.get_metric(expr, "mae", [spec]) > 0
+        assert se.stored_tokens(Expression(expr, free_constants=[spec])) == expr
+        assert se.get_model(Expression(expr, free_constants=[spec])).to_dict() == se.models[0].to_dict()
+        assert se.get_metric(Expression(expr, free_constants=[spec]), "mae") > 0
 
     # Reason: clause (the canonical form is scored, and a fit is seeded by its tokens): with max_iter=0
     # the parameters are the seeded starting point, so they match those of the canonical form.
@@ -3025,7 +3157,7 @@ class TestCanonicalisation:
     def test_canonicalised_when_no_specs_remain(self):
         lib = SymbolLibrary.default_symbols(1)
         se = _canon_se(lib, settings=Settings(evaluator={"simplify_expr": True, "canonicalise_constants": True}))
-        se.evaluate_expr("C_5 * X_0 + C_5 + C_2 - C_2".split(), [_fix("C_2", 1.0)])
+        se.evaluate_expr(Expression("C_5 * X_0 + C_5 + C_2 - C_2".split(), free_constants=[_fix("C_2", 1.0)]))
         model = se.models[0]
         assert model.free_constants is None
         assert canonicalise(model.expr, lib) == model.expr
@@ -3095,9 +3227,9 @@ _SCORED = []  # one entry per expression scored by a _CountingRMSE
 
 
 class _CountingRMSE(RMSERanking):
-    def score(self, expr, free_constants=None):
+    def score(self, expr):
         _SCORED.append(expr)
-        return super().score(expr, free_constants)
+        return super().score(expr)
 
 
 @dataclasses.dataclass(frozen=True, eq=False)

@@ -21,13 +21,13 @@ from SRToolkit.evaluation.ranking import RankingFunction
 from SRToolkit.evaluation.results import ResultAugmenter
 from SRToolkit.evaluation.sr_evaluator import evaluate_metric
 from SRToolkit.utils import Node, SymbolLibrary, simplify, tokens_to_tree
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_simplifier import (
     DefaultRules,
     SimplificationRules,
     _check_fold_mode,
     _check_settings,
 )
-from SRToolkit.utils.expression_tree import _constant_indices
 from SRToolkit.utils.free_constants import Constant, _spec_key
 from SRToolkit.utils.settings import Settings
 from SRToolkit.utils.types import EvalResult, ModelResult
@@ -577,33 +577,27 @@ class HoldoutMetric(ResultAugmenter):
             )
 
     def _value(self, model: ModelResult) -> float:
-        expr = model.expr
         # A model the search could not score (invalid, rejected e.g. for max_constants, ...) gets
         # NaN with every metric; scoring it here would make a rejected expression look like an answer.
         if model.status != "ok":
             return float("nan")
-        if isinstance(self.metric, RankingFunction):  # same as self._ranking_mode; narrows the type
-            # Match the NaN-on-failure contract of the reuse-params branch (evaluate_metric): a
-            # single expression that raises must not abort the whole augmentation.
-            try:
-                return float(self.metric.score(expr, free_constants=model.free_constants or None).score)
-            except Exception as e:
-                warnings.warn(f"[HoldoutMetric] Error scoring expression '{''.join(expr)}': {e}")
-                return float("nan")
-        # Reuse the model's fitted parameters when it has them (true generalization; an empty array
-        # is a valid fit of a constant-free expression). When it has none — results from a ranking
-        # that fits no constants, such as BED — or refit_constants is set, fit the free constants on
-        # the held-out data. Same NaN-on-failure contract: an expression that cannot be parsed or
+        # NaN on failure, as evaluate_metric does: an expression that cannot be scored, parsed or
         # fitted must not abort augmentation of the remaining models.
-        # __init__ rejects string/callable metrics without y, so it is set in this mode.
-        assert self._y is not None
-        parameters = None if self.refit_constants else model.parameters
         try:
-            if parameters is None and not self._has_constants(expr):
-                # Nothing to fit in a constant-free expression.
-                parameters = np.array([])
+            expr = Expression(model.expr, self.symbol_library, model.free_constants)
+            if isinstance(self.metric, RankingFunction):  # same as self._ranking_mode; narrows the type
+                return float(self.metric.score(expr).score)
+            # Reuse the model's fitted parameters when it has them (true generalization; an empty
+            # array is a valid fit of a constant-free expression). When it has none (results from
+            # a ranking that fits no constants, such as BED) or refit_constants is set, fit the
+            # free constants on the held-out data.
+            # __init__ rejects string/callable metrics without y, so it is set in this mode.
+            assert self._y is not None
+            parameters = None if self.refit_constants else model.parameters
+            if parameters is None and expr.num_parameters == 0:
+                parameters = np.array([])  # nothing to fit
             elif parameters is None:
-                fit_error, parameters = self._fit_parameters(expr, model.free_constants)
+                fit_error, parameters = self._fit_parameters(expr)
                 # No evaluation of the fit was finite: the expression is undefined on the held-out data.
                 if not np.isfinite(fit_error):
                     return float("nan")
@@ -611,13 +605,10 @@ class HoldoutMetric(ResultAugmenter):
                 expr, parameters, self._X, self._y, self.metric, self.symbol_library, self.settings.evaluator.backend
             )
         except Exception as e:
-            warnings.warn(f"[HoldoutMetric] Error scoring expression '{''.join(expr)}': {e}")
+            warnings.warn(f"[HoldoutMetric] Error scoring expression '{''.join(model.expr)}': {e}")
             return float("nan")
 
-    def _has_constants(self, expr: list) -> bool:
-        return len(_constant_indices(expr, self.symbol_library)) > 0
-
-    def _fit_parameters(self, expr: list, free_constants: Sequence[Constant] | None = None) -> tuple[float, np.ndarray]:
+    def _fit_parameters(self, expr: Expression) -> tuple[float, np.ndarray]:
         """Return ``(error, parameters)`` of a fit of ``expr`` under its specs on the held-out data."""
         # __init__ rejects string/callable metrics without y, so it is set in this mode.
         assert self._y is not None
@@ -630,7 +621,7 @@ class HoldoutMetric(ResultAugmenter):
                 self.settings,
                 self.background_knowledge.default_constant,
             )
-        return self._estimator.estimate_parameters(expr, free_constants)
+        return self._estimator.estimate_parameters(expr)
 
     def write_results(self, results: EvalResult) -> None:
         """Write the held-out metric into *results* and its models.

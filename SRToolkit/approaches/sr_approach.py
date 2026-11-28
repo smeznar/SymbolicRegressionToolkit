@@ -86,9 +86,9 @@ while not se.should_stop:
             if not isinstance(candidate, Candidate):  # a token list or a Node
                 candidate = Candidate(candidate)
             if candidate.skip is None:
-                results.append(se.evaluate_expr(candidate.expr, candidate.free_constants))
+                results.append(se.evaluate_expr(_candidate_input(candidate, se.symbol_library)))
             else:  # a skip: looked up without spending budget (None if never evaluated) and counted
-                results.append(se.get_model(candidate.expr, candidate.free_constants))
+                results.append(se.get_model(_candidate_input(candidate, se.symbol_library)))
                 se.count_skip(candidate.skip)
     approach.tell(se, state, candidates[: len(results)], results)
     complete = len(results) == len(candidates)
@@ -134,14 +134,16 @@ import numpy as np
 from SRToolkit.bundle._relocate import _auto_bind, _import_class
 from SRToolkit.evaluation import SR_evaluator
 from SRToolkit.evaluation.model_store import _restore_rngs
+from SRToolkit.utils.expression import Expression
 from SRToolkit.utils.expression_constraints import ExpressionConstraint
+from SRToolkit.utils.expression_tree import Node
 from SRToolkit.utils.serialization import _from_json_safe, _to_json_safe
 
 if TYPE_CHECKING:
     # Imported for annotations only: SRToolkit.dataset imports this module.
     from SRToolkit.dataset.background_knowledge import BackgroundKnowledge
-    from SRToolkit.utils.expression_tree import Node
     from SRToolkit.utils.free_constants import Constant
+    from SRToolkit.utils.symbol_library import SymbolLibrary
     from SRToolkit.utils.types import ModelResult
 
 
@@ -252,6 +254,16 @@ class Candidate:
         """Validate ``skip``."""
         if self.skip is not None and (not isinstance(self.skip, str) or not self.skip):
             raise ValueError(f"[Candidate] skip must be None or a non-empty str, got {self.skip!r}.")
+
+
+def _candidate_input(c: Candidate, symbol_library: "SymbolLibrary") -> "list[str] | Node | Expression":
+    # The candidate's expression as evaluate_expr takes it: an Expression carrying its specs.
+    # Temporary until Candidate holds an Expression.
+    if not c.free_constants:
+        return c.expr
+    if isinstance(c.expr, Node):
+        return Expression.from_tree(c.expr, symbol_library, c.free_constants)
+    return Expression(c.expr, symbol_library, c.free_constants)
 
 
 class SR_approach(ABC):
@@ -454,9 +466,9 @@ class SR_approach(ABC):
                         continue
                     c = item if isinstance(item, Candidate) else Candidate(item)
                     if c.skip is None:
-                        results.append(se.evaluate_expr(c.expr, c.free_constants))
+                        results.append(se.evaluate_expr(_candidate_input(c, se.symbol_library)))
                     else:
-                        results.append(se.get_model(c.expr, c.free_constants))
+                        results.append(se.get_model(_candidate_input(c, se.symbol_library)))
                         se.count_skip(c.skip)
             self.tell(se, state, candidates[: len(results)], results)
             complete = len(results) == len(candidates)
